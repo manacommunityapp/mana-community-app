@@ -11,6 +11,7 @@ import { EventDetailView } from "./EventDetailView";
 import { EventsAnalyticsView } from "./EventsAnalyticsView";
 import { EventRegistrationWizard } from "./EventRegistrationWizard";
 import { PoojaRegistrationModal } from "../PoojaRegistrationModal";
+import { LunchDinnerRegistrationModal } from "../LunchDinnerRegistrationModal";
 import { CulturalActivitiesView } from "./CulturalActivitiesView";
 import { VolunteerModuleView } from "./VolunteerModuleView";
 import { FoodModuleView } from "./FoodModuleView";
@@ -184,6 +185,28 @@ export function EventsRedesignMain() {
                     <PoojaRegistrationModal
                       event={selectedRegisterEvent}
                       onClose={() => setActiveTab("dashboard")}
+                      onSuccess={() => setActiveTab("dashboard")}
+                    />
+                  ) : selectedRegisterEvent?.category?.toLowerCase().includes("meal") ||
+                      selectedRegisterEvent?.category?.toLowerCase().includes("food") ||
+                      selectedRegisterEvent?.category?.toLowerCase().includes("lunch") ||
+                      selectedRegisterEvent?.category?.toLowerCase().includes("dinner") ||
+                      selectedRegisterEvent?.category?.toLowerCase().includes("prasadam") ||
+                      selectedRegisterEvent?.category?.toLowerCase().includes("annadanam") ? (
+                    <LunchDinnerRegistrationModal
+                      isOpen={Boolean(selectedRegisterEvent)}
+                      onClose={() => setActiveTab("dashboard")}
+                      meal={{
+                        id: selectedRegisterEvent.id,
+                        name: selectedRegisterEvent.title || (selectedRegisterEvent as any).name || "Meal Pass",
+                        mealType: selectedRegisterEvent.category?.toUpperCase() || "MEAL",
+                        date: selectedRegisterEvent.date || selectedRegisterEvent.startDate,
+                        startTime: selectedRegisterEvent.startTime || selectedRegisterEvent.time,
+                        venue: selectedRegisterEvent.venue,
+                        fee: selectedRegisterEvent.price || selectedRegisterEvent.fee,
+                        isFree: selectedRegisterEvent.isFree,
+                        mainEventId: selectedRegisterEvent.mainEventId,
+                      }}
                       onSuccess={() => setActiveTab("dashboard")}
                     />
                   ) : (

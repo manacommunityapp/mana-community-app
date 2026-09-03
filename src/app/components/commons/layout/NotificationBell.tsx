@@ -10,6 +10,9 @@ import { notificationService, type NotificationItem } from "../../../../services
 import { eventService } from "../../../../services/events/eventService";
 import { noticeService } from "../../../../services/notices/noticeService";
 import { sportsEventService } from "../../../../services/sports/sportsEventService";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { VIEW_NOTICES, VIEW_EVENTS, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN } from "../../../../constants/permissions";
+import { canAccessModule } from "../../../../utils/permissionUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -368,6 +371,7 @@ function getDestinationMeta(targetUrl: string) {
 
 export function NotificationBell() {
   const navigate = useNavigate();
+  const { user, isSuperAdmin, hasPermission, hasAnyPermission } = useAuth();
   const [open, setOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>("ALL");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -406,92 +410,103 @@ export function NotificationBell() {
         }
       } catch { /* fallback to dynamic entities */ }
 
-      // 2. Fetch Latest Real Events & Poojas
-      try {
-        const events = await eventService.getAllEvents();
-        if (Array.isArray(events)) {
-          events.forEach((evt) => {
-            const notifId = 100000 + (evt.id || 0);
-            if (!dismissedSet.has(notifId)) {
-              const isPooja = (evt.category || "").toLowerCase().includes("pooja") || (evt.type || "").toLowerCase().includes("pooja");
-              list.push({
-                id: notifId,
-                type: isPooja ? "POOJA_ANNOUNCEMENT" : "EVENT_ANNOUNCEMENT",
-                category: "EVENTS",
-                title: isPooja ? `🪔 ${evt.title}` : `🎉 ${evt.title}`,
-                body: evt.description
-                  ? evt.description.slice(0, 110) + (evt.description.length > 110 ? "..." : "")
-                  : (evt.location ? `Venue: ${evt.location} • Starting on ${evt.startDate}` : `Scheduled on ${evt.startDate}`),
-                icon: isPooja ? "sparkles" : "calendar",
-                actionUrl: `/events?eventId=${evt.id}`,
-                referenceType: "EVENT",
-                referenceId: evt.id,
-                priority: "NORMAL",
-                read: readSet.has(notifId),
-                readAt: null,
-                metadata: null,
-                createdAt: evt.createdAt || new Date(Date.now() - 3600000).toISOString(),
-              });
-            }
-          });
-        }
-      } catch { /* silent */ }
+      // 2. Fetch Latest Real Events & Poojas (only if user has access to Events)
+      const canViewEvents = isSuperAdmin || (canAccessModule(user, "EVENTS") && hasPermission(VIEW_EVENTS));
+      if (canViewEvents) {
+        try {
+          const events = await eventService.getAllEvents();
+          if (Array.isArray(events)) {
+            events.forEach((evt) => {
+              const notifId = 100000 + (evt.id || 0);
+              if (!dismissedSet.has(notifId)) {
+                const isPooja = (evt.category || "").toLowerCase().includes("pooja") || (evt.type || "").toLowerCase().includes("pooja");
+                list.push({
+                  id: notifId,
+                  type: isPooja ? "POOJA_ANNOUNCEMENT" : "EVENT_ANNOUNCEMENT",
+                  category: "EVENTS",
+                  title: isPooja ? `🪔 ${evt.title}` : `🎉 ${evt.title}`,
+                  body: evt.description
+                    ? evt.description.slice(0, 110) + (evt.description.length > 110 ? "..." : "")
+                    : (evt.location ? `Venue: ${evt.location} • Starting on ${evt.startDate}` : `Scheduled on ${evt.startDate}`),
+                  icon: isPooja ? "sparkles" : "calendar",
+                  actionUrl: `/events?eventId=${evt.id}`,
+                  referenceType: "EVENT",
+                  referenceId: evt.id,
+                  priority: "NORMAL",
+                  read: readSet.has(notifId),
+                  readAt: null,
+                  metadata: null,
+                  createdAt: evt.createdAt || new Date(Date.now() - 3600000).toISOString(),
+                });
+              }
+            });
+          }
+        } catch { /* silent */ }
+      }
 
-      // 3. Fetch Latest Real Notices
-      try {
-        const notices = await noticeService.getNotices();
-        if (Array.isArray(notices)) {
-          notices.forEach((notice) => {
-            const notifId = 200000 + (notice.id || 0);
-            if (!dismissedSet.has(notifId)) {
-              list.push({
-                id: notifId,
-                type: "COMMUNITY_NOTICE",
-                category: "COMMUNITY",
-                title: `📢 ${notice.title}`,
-                body: notice.body ? notice.body.slice(0, 110) + (notice.body.length > 110 ? "..." : "") : "New society announcement",
-                icon: "megaphone",
-                actionUrl: "/notices",
-                referenceType: "NOTICE",
-                referenceId: notice.id,
-                priority: notice.priority || "NORMAL",
-                read: readSet.has(notifId),
-                readAt: null,
-                metadata: null,
-                createdAt: notice.createdAt || new Date(Date.now() - 7200000).toISOString(),
-              });
-            }
-          });
-        }
-      } catch { /* silent */ }
+      // 3. Fetch Latest Real Notices (only if user has access to Notices)
+      const canViewNotices = isSuperAdmin || (canAccessModule(user, "NOTICES") && hasPermission(VIEW_NOTICES));
+      if (canViewNotices) {
+        try {
+          const notices = await noticeService.getNotices();
+          if (Array.isArray(notices)) {
+            notices.forEach((notice) => {
+              const notifId = 200000 + (notice.id || 0);
+              if (!dismissedSet.has(notifId)) {
+                list.push({
+                  id: notifId,
+                  type: "COMMUNITY_NOTICE",
+                  category: "COMMUNITY",
+                  title: `📢 ${notice.title}`,
+                  body: notice.body ? notice.body.slice(0, 110) + (notice.body.length > 110 ? "..." : "") : "New society announcement",
+                  icon: "megaphone",
+                  actionUrl: "/notices",
+                  referenceType: "NOTICE",
+                  referenceId: notice.id,
+                  priority: notice.priority || "NORMAL",
+                  read: readSet.has(notifId),
+                  readAt: null,
+                  metadata: null,
+                  createdAt: notice.createdAt || new Date(Date.now() - 7200000).toISOString(),
+                });
+              }
+            });
+          }
+        } catch { /* silent */ }
+      }
 
-      // 4. Fetch Latest Real Sports Events / Tournaments
-      try {
-        const sports = await sportsEventService.getAllEvents();
-        if (Array.isArray(sports)) {
-          sports.forEach((s: any) => {
-            const notifId = 300000 + (s.id || 0);
-            if (!dismissedSet.has(notifId)) {
-              list.push({
-                id: notifId,
-                type: "SPORTS_TOURNAMENT",
-                category: "SPORTS",
-                title: `🏆 ${s.name || s.title || "Sports Tournament"}`,
-                body: s.description ? s.description.slice(0, 110) + (s.description.length > 110 ? "..." : "") : `Status: ${s.status || "Open for registration"}`,
-                icon: "trophy",
-                actionUrl: "/sports",
-                referenceType: "TOURNAMENT",
-                referenceId: s.id,
-                priority: "HIGH",
-                read: readSet.has(notifId),
-                readAt: null,
-                metadata: null,
-                createdAt: s.createdAt || new Date(Date.now() - 10800000).toISOString(),
-              });
-            }
-          });
-        }
-      } catch { /* silent */ }
+      // 4. Fetch Latest Real Sports Events / Tournaments (ignored for now as requested)
+      /*
+      const canViewSports = isSuperAdmin || (canAccessModule(user, "SPORTS") && hasAnyPermission(VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN));
+      if (canViewSports) {
+        try {
+          const sports = await sportsEventService.getAllEvents();
+          if (Array.isArray(sports)) {
+            sports.forEach((s: any) => {
+              const notifId = 300000 + (s.id || 0);
+              if (!dismissedSet.has(notifId)) {
+                list.push({
+                  id: notifId,
+                  type: "SPORTS_TOURNAMENT",
+                  category: "SPORTS",
+                  title: `🏆 ${s.name || s.title || "Sports Tournament"}`,
+                  body: s.description ? s.description.slice(0, 110) + (s.description.length > 110 ? "..." : "") : `Status: ${s.status || "Open for registration"}`,
+                  icon: "trophy",
+                  actionUrl: "/sports",
+                  referenceType: "TOURNAMENT",
+                  referenceId: s.id,
+                  priority: "HIGH",
+                  read: readSet.has(notifId),
+                  readAt: null,
+                  metadata: null,
+                  createdAt: s.createdAt || new Date(Date.now() - 10800000).toISOString(),
+                });
+              }
+            });
+          }
+        } catch { }
+      }
+      */
 
       // Deduplicate by category + title
       const seen = new Set<string>();

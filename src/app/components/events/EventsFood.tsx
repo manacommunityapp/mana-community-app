@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import {
   TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2, Calendar, MapPin,
   Sparkles, Clock, Users, User, ArrowRight, Download, Pencil, Trash2, X, AlertCircle,
-  Package, ShoppingBag
+  Package, ShoppingBag, Save, Check
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
+import { foodPantryService } from "../../../services/food/foodPantryService";
+import type { PantryItem } from "../../../types/food";
 import {
   eventProgramService,
   type MealSummaryResponse,
@@ -14,6 +16,7 @@ import {
   type MealRegistrationResponse,
 } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 
 type LunchDinner = {
   id: number;
@@ -44,16 +47,6 @@ interface IngredientStock {
   category: string;
 }
 
-const DEFAULT_INGREDIENTS: IngredientStock[] = [
-  { id: "ING-1", item: "Sona Masoori Rice", required: "250", available: "260", unit: "kg", status: "ok", category: "Grains" },
-  { id: "ING-2", item: "Pure Desi Ghee", required: "30", available: "24", unit: "L", status: "low", category: "Dairy" },
-  { id: "ING-3", item: "Refined Sugar", required: "80", available: "90", unit: "kg", status: "ok", category: "Groceries" },
-  { id: "ING-4", item: "Toor Dal", required: "40", available: "32", unit: "kg", status: "low", category: "Pulses" },
-  { id: "ING-5", item: "Tamarind", required: "15", available: "18", unit: "kg", status: "ok", category: "Spices" },
-  { id: "ING-6", item: "Cow Milk", required: "200", available: "150", unit: "L", status: "low", category: "Dairy" },
-  { id: "ING-7", item: "Cashews & Raisins", required: "12", available: "14", unit: "kg", status: "ok", category: "Dry Fruits" },
-];
-
 const mockMenuItems = [
   { name: "Pulihora", qty: 800, unit: "plates", prepared: 650, status: "In Progress" },
   { name: "Curd Rice", qty: 600, unit: "plates", prepared: 600, status: "Ready" },
@@ -80,6 +73,15 @@ export function EventsFood() {
 
   const [liveMeals, setLiveMeals] = useState<LunchDinner[]>([]);
   const [liveRegistrations, setLiveRegistrations] = useState<any[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [customStockList, setCustomStockList] = useState<IngredientStock[]>(() => {
+    try {
+      const saved = localStorage.getItem("mana_event_pantry_custom");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
@@ -96,9 +98,10 @@ export function EventsFood() {
   const [existingMealReg, setExistingMealReg] = useState<MealRegistrationResponse | null>(null);
 
   // Ingredient Stock State
-  const [stockList, setStockList] = useState<IngredientStock[]>(DEFAULT_INGREDIENTS);
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockForm, setStockForm] = useState({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  const [savingPantryToDb, setSavingPantryToDb] = useState(false);
+  const [pantrySaveSuccess, setPantrySaveSuccess] = useState(false);
 
   // Add / Edit Meal Modal State
   const [showMealModal, setShowMealModal] = useState(false);
@@ -122,15 +125,6 @@ export function EventsFood() {
   // Devotee Quick Pass RSVP Modal
   const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
-  const [rsvpForm, setRsvpForm] = useState({
-    participantName: "",
-    phone: "",
-    devoteeCount: 1,
-    dietPreference: "VEG",
-    notes: "",
-  });
-  const [savingRsvp, setSavingRsvp] = useState(false);
-  const [rsvpSuccess, setRsvpSuccess] = useState(false);
 
   useEffect(() => {
     eventService.getAll().then(evts => {
@@ -153,13 +147,13 @@ export function EventsFood() {
 
     Promise.all([
       eventService.getLunchDinners(selectedEventId ?? undefined).catch(() => []),
-      eventService.getAllRegistrations().catch(() => []),
       selectedEventId ? eventProgramService.getMealSummary(selectedEventId).catch(() => null) : Promise.resolve(null),
+      foodPantryService.getItems().catch(() => []),
     ])
-      .then(([mList, regs, summary]) => {
+      .then(([mList, summary, pantry]) => {
         setLiveMeals(mList ?? []);
-        setLiveRegistrations(regs ?? []);
         if (summary) setMealSummary(summary);
+        if (Array.isArray(pantry)) setPantryItems(pantry);
       })
       .catch((e) => {
         if (!e?.message?.toLowerCase().includes("403")) {
@@ -215,18 +209,44 @@ export function EventsFood() {
 
   const totalBookedAttendees = useMemo(() => {
     if (useMock) return mockMenuItems.reduce((a, m) => a + m.prepared, 0);
-    return liveRegistrations
-      .filter(r => {
-        const s = String(r.status || "").toUpperCase();
-        if (s === "CANCELLED" || s === "REJECTED") return false;
-        return eventScopedMeals.some(m => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name);
-      })
-      .reduce((a, r) => a + (Number(r.devoteeCount ?? r.membersCount ?? 1) || 1), 0);
-  }, [useMock, liveRegistrations, eventScopedMeals]);
+    return eventScopedMeals.reduce((a, m) => {
+      const booked = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
+      return a + booked;
+    }, 0);
+  }, [useMock, eventScopedMeals]);
 
   const readyPct = totalPlannedPlates > 0 ? Math.min(100, Math.round((totalBookedAttendees / totalPlannedPlates) * 100)) : 0;
 
-  const lowStockCount = stockList.filter(s => s.status !== "ok").length;
+  // Strictly actual database pantry items — no hardcoded/static fallbacks
+  const stockList = useMemo<IngredientStock[]>(() => {
+    const dbMapped: IngredientStock[] = (pantryItems || []).map((p) => {
+      const customMatch = customStockList.find(c => c.item.toLowerCase() === p.itemName.toLowerCase());
+      const reqNum = customMatch ? parseFloat(customMatch.required) || 0 : 0;
+      const availNum = p.quantity ?? 0;
+      const status: "ok" | "low" | "critical" =
+        reqNum > 0
+          ? (availNum >= reqNum ? "ok" : availNum < reqNum * 0.5 ? "critical" : "low")
+          : (availNum > 0 ? "ok" : "critical");
+
+      return {
+        id: String(p.id),
+        item: p.itemName,
+        required: String(reqNum),
+        available: String(availNum),
+        unit: p.unit || "kg",
+        status,
+        category: p.category || "Pantry",
+      };
+    });
+
+    const extras = customStockList.filter(c =>
+      !dbMapped.some(d => d.item.toLowerCase() === c.item.toLowerCase())
+    );
+
+    return [...dbMapped, ...extras];
+  }, [pantryItems, customStockList]);
+
+  const lowStockCount = stockList.filter(s => s.status !== "ok" && parseFloat(s.required) > 0).length;
 
   const initMealDays = () => {
     if (mealSummary && mealSummary.days.length > 0) {
@@ -240,6 +260,14 @@ export function EventsFood() {
       });
       setMealDays(dates.map(date => ({ date, lunch: true, dinner: true, headCount: 1 })));
     }
+  };
+
+  const toggleMealDay = (idx: number, field: "lunch" | "dinner") => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
+  };
+
+  const updateHeadCount = (idx: number, val: number) => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
   };
 
   const handleSaveMealReg = async (e: React.FormEvent) => {
@@ -264,15 +292,6 @@ export function EventsFood() {
     }
   };
 
-  const toggleMealDay = (idx: number, field: "lunch" | "dinner") => {
-    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
-  };
-
-  const updateHeadCount = (idx: number, val: number) => {
-    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
-  };
-
-  // Add / Edit Meal Batch
   const openCreateMealModal = () => {
     setEditingMealId(null);
     setMealForm({
@@ -314,11 +333,29 @@ export function EventsFood() {
   const handleSaveMealBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mealForm.name.trim()) return;
+
+    if (selectedEventId) {
+      const ev = events.find(x => x.id === selectedEventId);
+      if (ev && ev.startDate) {
+        const minD = ev.startDate;
+        const maxD = ev.endDate || ev.startDate;
+        if (mealForm.date < minD || mealForm.date > maxD) {
+          setError(`Meal date must be between event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
+    if (!selectedEventId) {
+      setError("Please select an event before saving a meal session.");
+      return;
+    }
+
     setSavingMealBatch(true);
     setError("");
     try {
       const payload: any = {
-        mainEventId: selectedEventId || 1,
+        mainEventId: selectedEventId,
         name: mealForm.name.trim(),
         mealType: mealForm.mealType,
         date: mealForm.date,
@@ -359,74 +396,128 @@ export function EventsFood() {
     }
   };
 
-  // Restock / Add Stock Item
-  const handleSaveStock = (e: React.FormEvent) => {
+  // Restock / Add Stock Item (Updates working list and persists to database)
+  const handleSaveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stockForm.item.trim()) return;
     const reqNum = parseFloat(stockForm.required) || 0;
     const availNum = parseFloat(stockForm.available) || 0;
     const status: "ok" | "low" | "critical" = availNum >= reqNum ? "ok" : (availNum < reqNum * 0.5 ? "critical" : "low");
 
-    const existingIdx = stockList.findIndex(s => s.item.toLowerCase() === stockForm.item.toLowerCase());
-    if (existingIdx >= 0) {
-      setStockList(prev => prev.map((s, i) => i === existingIdx ? { ...s, required: stockForm.required, available: stockForm.available, status } : s));
-    } else {
-      setStockList(prev => [...prev, {
-        id: `ING-${Date.now()}`,
-        item: stockForm.item.trim(),
-        required: stockForm.required,
-        available: stockForm.available,
-        unit: stockForm.unit,
-        status,
-        category: stockForm.category,
-      }]);
+    const updatedCustom: IngredientStock = {
+      id: `ING-CUSTOM-${Date.now()}`,
+      item: stockForm.item.trim(),
+      required: stockForm.required,
+      available: stockForm.available,
+      unit: stockForm.unit,
+      status,
+      category: stockForm.category,
+    };
+
+    // Save directly to backend database
+    if (!useMock) {
+      try {
+        const existing = pantryItems.find(p => p.itemName.toLowerCase() === updatedCustom.item.toLowerCase());
+        if (existing && existing.id) {
+          await foodPantryService.updateItem(existing.id, {
+            itemName: updatedCustom.item,
+            category: updatedCustom.category,
+            quantity: availNum,
+            unit: updatedCustom.unit,
+            storageLocation: "PANTRY",
+          });
+        } else {
+          await foodPantryService.addItem({
+            itemName: updatedCustom.item,
+            category: updatedCustom.category,
+            quantity: availNum,
+            unit: updatedCustom.unit,
+            storageLocation: "PANTRY",
+          });
+        }
+        const fresh = await foodPantryService.getItems().catch(() => []);
+        if (Array.isArray(fresh)) setPantryItems(fresh);
+      } catch (err: any) {
+        console.warn("Failed to persist pantry item to database:", err);
+      }
     }
+
+    setCustomStockList(prev => {
+      const idx = prev.findIndex(s => s.item.toLowerCase() === updatedCustom.item.toLowerCase());
+      const next = idx >= 0 ? prev.map((s, i) => i === idx ? updatedCustom : s) : [...prev, updatedCustom];
+      try {
+        localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
     setShowStockModal(false);
     setStockForm({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  };
+
+  const handleDeleteStockItem = (ing: IngredientStock) => {
+    setCustomStockList(prev => {
+      const next = prev.filter(s => s.id !== ing.id && s.item.toLowerCase() !== ing.item.toLowerCase());
+      try { localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setPantryItems(prev => prev.filter(p => String(p.id) !== ing.id && p.itemName.toLowerCase() !== ing.item.toLowerCase()));
+  };
+
+  // Explicitly persist all pantry items to database
+  const handleSaveAllPantryToDb = async () => {
+    if (useMock) {
+      setPantrySaveSuccess(true);
+      setTimeout(() => setPantrySaveSuccess(false), 3000);
+      return;
+    }
+    if (stockList.length === 0) return;
+    setSavingPantryToDb(true);
+    setError("");
+    try {
+      for (const item of stockList) {
+        const availNum = parseFloat(item.available) || 0;
+        const existing = pantryItems.find(p => (p.itemName || (p as any).name || "").toLowerCase() === item.item.toLowerCase());
+        if (existing && existing.id) {
+          await foodPantryService.updateItem(existing.id, {
+            itemName: item.item,
+            category: item.category,
+            quantity: availNum,
+            unit: item.unit,
+            storageLocation: "PANTRY",
+          }).catch(() => {});
+        } else {
+          await foodPantryService.addItem({
+            itemName: item.item,
+            category: item.category,
+            quantity: availNum,
+            unit: item.unit,
+            storageLocation: "PANTRY",
+          }).catch(() => {});
+        }
+      }
+      const fresh = await foodPantryService.getItems().catch(() => []);
+      if (Array.isArray(fresh)) setPantryItems(fresh);
+      setPantrySaveSuccess(true);
+      setTimeout(() => setPantrySaveSuccess(false), 4000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to save pantry details to database");
+    } finally {
+      setSavingPantryToDb(false);
+    }
   };
 
   // Devotee RSVP
   const openRsvpModal = (m: LunchDinner) => {
     setRsvpMeal(m);
-    setRsvpForm({ participantName: "", phone: "", devoteeCount: 1, dietPreference: m.dietType || "VEG", notes: "" });
-    setRsvpSuccess(false);
     setShowRsvpModal(true);
-  };
-
-  const handleRsvpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rsvpMeal || !rsvpForm.participantName.trim()) return;
-    setSavingRsvp(true);
-    try {
-      await eventService.createRegistration({
-        eventId: selectedEventId || 1,
-        mainEventId: selectedEventId || 1,
-        activityId: `meal-${rsvpMeal.id}`,
-        activityTitle: rsvpMeal.name,
-        activityType: "LUNCH_DINNER",
-        participantName: rsvpForm.participantName.trim(),
-        phone: rsvpForm.phone.trim(),
-        devoteeCount: rsvpForm.devoteeCount,
-        bookingFee: (rsvpMeal.fee || 0) * rsvpForm.devoteeCount,
-        paymentStatus: (rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0) ? "FREE" : "PAID",
-        notes: `Diet: ${rsvpForm.dietPreference} · ${rsvpForm.notes}`,
-      });
-      setRsvpSuccess(true);
-      setTimeout(() => { setShowRsvpModal(false); loadData(); }, 1200);
-    } catch (err: any) {
-      setError(err?.message || "Failed to book food pass");
-    } finally {
-      setSavingRsvp(false);
-    }
   };
 
   // Export CSV
   const exportCateringCSV = () => {
     const headers = "Meal Course,Type,Date,Start Time,End Time,Venue,Caterer,Target Plates,Booked Plates,Diet Type,Fee (INR),Menu Items\n";
     const rows = eventScopedMeals.map(m => {
-      const booked = liveRegistrations
-        .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
-        .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+      const booked = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
       const menu = Array.isArray(m.menuItems) ? m.menuItems.join("; ") : (m.notes || "");
       return `"${m.name.replace(/"/g, '""')}","${m.mealType}","${m.date}","${m.startTime || ""}","${m.endTime || ""}","${m.venue || ""}","${m.caterer || ""}","${m.targetPlates || 500}","${booked}","${m.dietType || "VEG"}","${m.fee || 0}","${menu.replace(/"/g, '""')}"`;
     }).join("\n");
@@ -446,17 +537,17 @@ export function EventsFood() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center flex-shrink-0">
-            <UtensilsCrossed className="w-5 h-5 text-orange-600" />
+            <UtensilsCrossed className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-              Food & Catering Operations
+              Food &amp; Catering Operations
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                 {eventScopedMeals.length} Live Batches
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live catering, prasadam scheduling, plates capacity & devotee preferences
+              Live catering, prasadam scheduling, plates capacity &amp; devotee preferences
             </p>
           </div>
         </div>
@@ -541,7 +632,7 @@ export function EventsFood() {
         {/* Menu preparation & live meal courses */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
-            <h2 className="font-bold text-slate-800">Menu Preparation & Batches</h2>
+            <h2 className="font-bold text-slate-800">Menu Preparation &amp; Batches</h2>
             <button
               onClick={openCreateMealModal}
               className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
@@ -553,9 +644,7 @@ export function EventsFood() {
             {!useMock ? (
               eventScopedMeals.length > 0 ? (
                 eventScopedMeals.map((m) => {
-                  const bookedCount = liveRegistrations
-                    .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
-                    .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+                  const bookedCount = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
                   const target = m.targetPlates || 0;
                   const pct = target > 0 ? Math.min(100, Math.round((bookedCount / target) * 100)) : 0;
 
@@ -665,49 +754,94 @@ export function EventsFood() {
 
         {/* Ingredient Stock & Pantry Tracker */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
+          <div className="flex flex-wrap items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50 gap-2">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <Package className="w-4 h-4 text-orange-500" /> Ingredient Stock & Pantry
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {pantrySaveSuccess && (
+                <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 animate-fade-in">
+                  <Check className="w-3 h-3 stroke-[3]" /> Saved to Database
+                </span>
+              )}
               {lowStockCount > 0 && (
                 <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   <TrendingDown className="w-3 h-3" /> {lowStockCount} items low
                 </span>
               )}
               <button
-                onClick={() => setShowStockModal(true)}
-                className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+                type="button"
+                onClick={handleSaveAllPantryToDb}
+                disabled={savingPantryToDb || stockList.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs cursor-pointer"
+                title="Persist current ingredient requirements and stock to database"
               >
-                <Plus className="w-3.5 h-3.5" /> Restock
+                {savingPantryToDb ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" /> Save to Database
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowStockModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add / Restock
               </button>
             </div>
           </div>
           <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
-            {stockList.map((ing, i) => (
-              <div
-                key={ing.id}
-                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                    ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
-                  }`} />
-                  <div>
-                    <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
-                    <span className="text-[10px] text-slate-400">{ing.category}</span>
+            {stockList.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-semibold text-slate-700">No Pantry Inventory in Database</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Click &ldquo;+ Add / Restock&rdquo; to add actual pantry items and save them to the database.
+                </p>
+              </div>
+            ) : (
+              stockList.map((ing, i) => (
+                <div
+                  key={ing.id}
+                  className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
+                    }`} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">{ing.item}</p>
+                      <span className="text-[10px] text-slate-400">{ing.category}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      {parseFloat(ing.required) > 0 && (
+                        <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
+                      )}
+                      <p className={`text-xs font-semibold ${parseFloat(ing.required) > 0 ? "mt-0.5" : ""} ${
+                        ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
+                      }`}>
+                        Available: {ing.available} {ing.unit}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStockItem(ing)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      title="Remove item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${
-                    ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
-                  }`}>
-                    Available: {ing.available} {ing.unit}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -1116,95 +1250,17 @@ export function EventsFood() {
       )}
 
       {/* Devotee Quick Pass RSVP Modal */}
-      {showRsvpModal && rsvpMeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-800">Book Food Pass — {rsvpMeal.name}</h3>
-              <button
-                type="button"
-                onClick={() => setShowRsvpModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleRsvpSubmit} className="px-6 py-5 space-y-4">
-              {rsvpSuccess ? (
-                <div className="py-6 text-center space-y-2">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-                  <p className="font-bold text-slate-800">Pass Booked Successfully!</p>
-                </div>
-              ) : (
-                <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-slate-500">Devotee Name *</span>
-                    <input
-                      type="text"
-                      value={rsvpForm.participantName}
-                      onChange={e => setRsvpForm(f => ({ ...f, participantName: e.target.value }))}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      placeholder="e.g. Ramesh Sharma"
-                      required
-                    />
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-slate-500">Phone *</span>
-                      <input
-                        type="tel"
-                        value={rsvpForm.phone}
-                        onChange={e => setRsvpForm(f => ({ ...f, phone: e.target.value }))}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                        placeholder="9876543210"
-                        required
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-slate-500">Devotee Count</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={rsvpForm.devoteeCount}
-                        onChange={e => setRsvpForm(f => ({ ...f, devoteeCount: Math.max(1, parseInt(e.target.value) || 1) }))}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-orange-50/70 border border-orange-200 text-xs flex items-center justify-between">
-                    <span className="text-slate-600">Total Booking Fee:</span>
-                    <span className="font-extrabold text-orange-700 text-sm">
-                      {rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0 ? "FREE" : `₹${(rsvpMeal.fee || 0) * rsvpForm.devoteeCount}`}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowRsvpModal(false)}
-                      className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingRsvp}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 cursor-pointer"
-                    >
-                      {savingRsvp && <Loader2 className="w-4 h-4 animate-spin" />}
-                      Confirm Booking
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
+      <LunchDinnerRegistrationModal
+        isOpen={showRsvpModal}
+        onClose={() => {
+          setShowRsvpModal(false);
+          setRsvpMeal(null);
+        }}
+        meal={rsvpMeal}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

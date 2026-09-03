@@ -20,6 +20,8 @@ import {
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService } from "../../../services/events/eventService";
 import { eventSponsorService } from "../../../services/events/eventSponsorService";
+import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 
 export interface EventCompleteDetailsModalProps {
   isOpen: boolean;
@@ -53,14 +55,31 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   const rawId = event?.id != null ? String(event.id) : "";
   const eventTitle = event?.title || event?.name || "Community Event";
   const eventCategory = event?.category || event?.type || "Event";
-  const eventLocation = event?.venue || event?.location || event?.city || event?.address || "";
+  const eventVenueName    = event?.venueName  || event?.venue    || event?.location  || "";
+  const eventVenueAddress = event?.venueAddress || event?.address || "";
+  const eventCity         = event?.city || "";
+  const eventLocation     = eventVenueName || eventCity || eventVenueAddress || "";
+
+  // Resolve full contacts list from whichever field is populated
+  const eventContacts: { name: string; phone: string; role: string; notes?: string; email?: string }[] = (() => {
+    if (Array.isArray(event?.contacts) && event.contacts.length > 0) return event.contacts;
+    if (Array.isArray(event?.contactDetails) && event.contactDetails.length > 0) return event.contactDetails;
+    if (event?.contactsJson) {
+      try {
+        const parsed = typeof event.contactsJson === "string" ? JSON.parse(event.contactsJson) : event.contactsJson;
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  })();
+  const filledContacts = eventContacts.filter(c => c.name?.trim() || c.phone?.trim());
   const eventDescription = event?.description || "Experience the grand spiritual and cultural celebrations with traditional rituals, sacred pooja sevas, community feasts, cultural stage performances, and festive competitions for all residents.";
-  const eventImage = event?.imageUrl || event?.image || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
+  const eventImage = resolveEventImage(event);
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
   const eventEndDate = event?.endDate || (event?.startDate !== event?.date ? event?.date : null);
   const eventTime = event?.startTime && event?.endTime
-    ? `${event.startTime} - ${event.endTime}`
-    : (event?.time || event?.startTime || "06:00 AM – 10:00 PM");
+    ? `${formatIndianTime(event.startTime)} – ${formatIndianTime(event.endTime)}`
+    : (formatIndianTime(event?.time || event?.startTime) || "06:00 AM – 10:00 PM");
   const eventCapacity = event?.capacity || event?.maxAttendees || 500;
   const eventRegistered = event?.attendees ?? event?.registrationCount ?? 0;
   const eventFee = event?.price != null && Number(event.price) > 0 ? Number(event.price) : 0;
@@ -122,23 +141,31 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
       setLoadingSubEvents(true);
       try {
         const numId = eventId ? Number(eventId) : undefined;
+        if (!numId) {
+          setLoadingSubEvents(false);
+          return;
+        }
+
         const [poojasRes, mealsRes, cultRes, compsRes, sponsorsRes] = await Promise.allSettled([
-          numId ? eventService.getPoojaSevas(numId) : Promise.resolve([]),
-          numId ? eventService.getLunchDinners(numId) : Promise.resolve([]),
-          eventService.getCulturalEvents(),
-          eventService.getCompetitions(),
-          numId ? eventSponsorService.getSponsors(numId) : Promise.resolve([]),
+          eventService.getPoojaSevas(numId),
+          eventService.getLunchDinners(numId),
+          eventService.getCulturalEvents(numId),
+          eventService.getCompetitions(numId),
+          eventSponsorService.getSponsors(numId),
         ]);
 
         if (poojasRes.status === "fulfilled" && Array.isArray(poojasRes.value) && poojasRes.value.length > 0) {
-          const list = numId ? poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId) : [];
+          const list = poojasRes.value.filter((p: any) => {
+            const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+            return (poojaStatus === "ACTIVE" && !p.isPaused) && (p.mainEventId == numId || p.eventId == numId);
+          });
           if (list.length > 0) {
             setSubPoojas(list.map((p: any) => ({
               id: `pooja-${p.id}`,
               title: p.name || p.title || "Pooja Seva",
               category: "Pooja",
               date: p.startDate ? String(p.startDate) : (p.date || "Scheduled"),
-              time: p.startTime || p.time || "Morning",
+              time: formatIndianTime(p.startTime || p.time) || "Morning",
               venue: p.mandap || p.venue || eventLocation,
               fee: p.isFree ? 0 : Number(p.fee || 501),
               availableSeats: p.slots || 25,
@@ -150,20 +177,58 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
         }
 
         if (mealsRes.status === "fulfilled" && Array.isArray(mealsRes.value) && mealsRes.value.length > 0) {
-          const list = numId ? mealsRes.value.filter((m: any) => m.mainEventId == numId || m.eventId == numId) : mealsRes.value;
+          const list = mealsRes.value.filter((m: any) => m.mainEventId == numId || m.eventId == numId);
           if (list.length > 0) {
             setSubMeals(list.map((m: any) => ({
               id: `food-${m.id}`,
               title: m.name || m.mealType || "Maha Prasadam Lunch",
               category: "Food",
               date: m.date || "Daily",
-              time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "12:30 PM - 03:00 PM"),
+              time: m.startTime && m.endTime ? `${formatIndianTime(m.startTime)} – ${formatIndianTime(m.endTime)}` : (formatIndianTime(m.startTime) || "12:30 PM – 03:00 PM"),
               venue: m.venue || "Annadanam Dining Hall",
               fee: m.isFree ? 0 : Number(m.fee || 0),
               availableSeats: m.targetPlates || 500,
               description: `Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : "Traditional Pure Veg Feast"}.`,
               caterer: m.caterer,
               menuItems: m.menuItems,
+            })));
+          }
+        }
+
+        if (cultRes.status === "fulfilled" && Array.isArray(cultRes.value) && cultRes.value.length > 0) {
+          const list = cultRes.value.filter((c: any) => c.mainEventId == numId || c.eventId == numId);
+          if (list.length > 0) {
+            setSubCulturals(list.map((c: any) => ({
+              id: `cult-${c.id}`,
+              title: c.name || c.title || "Cultural Program",
+              category: "Cultural",
+              date: c.date || "Scheduled",
+              time: c.startTime && c.endTime ? `${formatIndianTime(c.startTime)} – ${formatIndianTime(c.endTime)}` : (formatIndianTime(c.startTime) || "Evening"),
+              venue: c.venue || "Main Stage / Auditorium",
+              fee: c.fee ? Number(c.fee) : 0,
+              availableSeats: c.slots || 100,
+              description: c.description || `Performance: ${c.programType || "Cultural Act"} by ${c.artistName || "Community Artists"}.`,
+              artistName: c.artistName,
+              programType: c.programType,
+            })));
+          }
+        }
+
+        if (compsRes.status === "fulfilled" && Array.isArray(compsRes.value) && compsRes.value.length > 0) {
+          const list = compsRes.value.filter((cp: any) => cp.mainEventId == numId || cp.eventId == numId);
+          if (list.length > 0) {
+            setSubComps(list.map((cp: any) => ({
+              id: `comp-${cp.id}`,
+              title: cp.name || cp.title || "Competition",
+              category: "Competition",
+              date: cp.date || "Scheduled",
+              time: cp.startTime && cp.endTime ? `${formatIndianTime(cp.startTime)} – ${formatIndianTime(cp.endTime)}` : (formatIndianTime(cp.startTime) || "Afternoon"),
+              venue: cp.venue || "Activity Hall",
+              fee: cp.fee ? Number(cp.fee) : 0,
+              availableSeats: cp.slots || 50,
+              description: cp.description || `Category: ${cp.category || "General"}. Age group: ${cp.ageGroup || "All ages"}.`,
+              ageGroup: cp.ageGroup,
+              prizes: cp.prizes,
             })));
           }
         }
@@ -179,7 +244,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
     };
 
     fetchApiSubEvents();
-  }, [isOpen, event, eventId, rawId, eventTitle, allActivities]);
+  }, [isOpen, eventId, rawId, eventTitle, eventLocation, event?.isStandalonePooja]);
 
   if (!isOpen || !event) return null;
 
@@ -408,10 +473,27 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
                     <MapPin className="w-4 h-4 text-rose-500" /> Venue &amp; Mandap Setup
                   </h4>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong className="text-foreground">Location:</strong> {eventLocation}</p>
-                    <p><strong className="text-foreground">Main Stage:</strong> Central Temple Pavilion / Mandap Gate 1</p>
-                    <p><strong className="text-foreground">Dining Area:</strong> Annadanam Hall, Ground Floor (Gate 2)</p>
-                    <p><strong className="text-foreground">Parking:</strong> Designated Visitor Parking Lot B &amp; C</p>
+                    {eventVenueName && (
+                      <p><strong className="text-foreground">Venue:</strong> {eventVenueName}</p>
+                    )}
+                    {eventVenueAddress && (
+                      <p><strong className="text-foreground">Address:</strong> {eventVenueAddress}</p>
+                    )}
+                    {eventCity && (
+                      <p><strong className="text-foreground">City:</strong> {eventCity}</p>
+                    )}
+                    {(subPoojas[0]?.mandap || subPoojas[0]?.venue || event?.mandap) && (
+                      <p>
+                        <strong className="text-foreground">Main Mandap:</strong>{" "}
+                        {subPoojas[0]?.mandap || subPoojas[0]?.venue || event?.mandap}
+                      </p>
+                    )}
+                    {subMeals[0]?.venue && (
+                      <p><strong className="text-foreground">Dining Area:</strong> {subMeals[0].venue}</p>
+                    )}
+                    {!eventVenueName && !eventVenueAddress && !eventCity && !event?.mandap && !subPoojas[0]?.venue && !subMeals[0]?.venue && (
+                      <p className="italic text-muted-foreground/60">Venue details not yet configured for this event.</p>
+                    )}
                   </div>
                 </div>
 
@@ -420,10 +502,29 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
                     <Phone className="w-4 h-4 text-emerald-500" /> Organizing Committee &amp; Help Desk
                   </h4>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong className="text-foreground">Lead Coordinator:</strong> {organizerName}</p>
-                    <p><strong className="text-foreground">Helpline / WhatsApp:</strong> {organizerContact}</p>
-                    <p><strong className="text-foreground">Emergency Desk:</strong> Control Room at Main Gate</p>
-                    <p><strong className="text-foreground">Medical / First Aid:</strong> Clubhouse Room 102</p>
+                    {filledContacts.length > 0 ? (
+                      filledContacts.map((c, i) => (
+                        <p key={i}>
+                          <strong className="text-foreground">{c.role || "Coordinator"}:</strong>{" "}
+                          {[c.name, c.phone].filter(Boolean).join(" · ")}
+                          {c.notes?.trim() && (
+                            <span className="text-muted-foreground/70"> — {c.notes}</span>
+                          )}
+                        </p>
+                      ))
+                    ) : (
+                      <>
+                        {organizerName && (
+                          <p><strong className="text-foreground">Lead Coordinator:</strong> {organizerName}</p>
+                        )}
+                        {organizerContact && (
+                          <p><strong className="text-foreground">Helpline / WhatsApp:</strong> {organizerContact}</p>
+                        )}
+                        {!organizerName && !organizerContact && (
+                          <p className="italic text-muted-foreground/60">Contact details not yet configured.</p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

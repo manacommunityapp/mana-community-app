@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame, Copy,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Copy,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -148,7 +148,8 @@ export async function syncActivitiesToScheduleSubmodules(
   mainEventTitle: string,
   eventId?: number | string
 ) {
-  const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, "")) || 1;
+  const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, ""));
+  if (!numericEventId || numericEventId <= 0) return;
 
   // 1. Group all Pooja & Seva activities across all days by poojaType / name
   const poojaGroups = new Map<string, { dayDate: string; act: ScheduleActivity }[]>();
@@ -208,6 +209,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const timeSlotConfig = entries.map(e => ({
         slotDate: e.dayDate,
         startTime: e.act.startTime || "08:30",
+        endTime: e.act.endTime || first.endTime || undefined,
         title: e.act.name || poojaTypeName,
         slotCount: parseInt(e.act.slots || "50", 10) || 50,
       }));
@@ -226,7 +228,7 @@ export async function syncActivitiesToScheduleSubmodules(
         multiDay: isMultiDay,
         startTime: distinctStartTimes[0] || "08:30",
         endTime: first.endTime || undefined,
-        mandap: first.venue || "Main Temple Mandap",
+        mandap: first.venue || "",
         notes: first.description || "",
         slots: totalSlots,
         fee: feeNum,
@@ -235,14 +237,10 @@ export async function syncActivitiesToScheduleSubmodules(
         timeSlotConfig: timeSlotConfig,
       };
 
-      try {
-        if (existingSubEventId) {
-          await eventService.updatePoojaSeva(existingSubEventId, payload);
-        } else {
-          await eventService.createPoojaSeva(payload);
-        }
-      } catch (e) {
-        console.warn("Database save consolidated pooja notice:", e);
+      if (existingSubEventId) {
+        await eventService.updatePoojaSeva(existingSubEventId, payload);
+      } else {
+        await eventService.createPoojaSeva(payload);
       }
     }
   }
@@ -257,45 +255,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Pooja & Seva") {
-        // Auto-register the selected poojaType in event_pooja_types if it doesn't exist yet
-        if (act.poojaType) {
-          try {
-            const existingTypes = await eventService.getPoojaTypes();
-            const typeExists = existingTypes.some((t: { name: string }) => t.name === act.poojaType);
-            if (!typeExists) {
-              await eventService.createPoojaType(act.poojaType);
-            }
-          } catch (e) {
-            console.warn("Pooja type ensure notice:", e);
-          }
-        }
-        const slotTime = act.startTime || "08:30";
-        const payload = {
-          mainEventId: numericEventId,
-          name: act.name,
-          type: act.poojaType || "Pooja",
-          date: day.date,
-          startTime: slotTime,
-          endTime: act.endTime || undefined,
-          mandap: act.venue || "Main Temple Mandap",
-          notes: act.description || "",
-          slots: slotsNum,
-          fee: feeNum,
-          isFree: feeNum === 0,
-          startTimes: [slotTime],
-          timeSlotConfig: [{ slotDate: day.date, startTime: slotTime, slotCount: slotsNum }],
-        };
-        try {
-          if (act.subEventId) {
-            await eventService.updatePoojaSeva(act.subEventId, payload);
-          } else {
-            await eventService.createPoojaSeva(payload);
-          }
-        } catch (e) {
-          console.warn("Database save pooja notice:", e);
-        }
-      } else if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -312,14 +272,10 @@ export async function syncActivitiesToScheduleSubmodules(
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateLunchDinner(act.subEventId, payload);
-          } else {
-            await eventService.createLunchDinner(payload);
-          }
-        } catch (e) {
-          console.warn("Database save meal notice:", e);
+        if (act.subEventId) {
+          await eventService.updateLunchDinner(act.subEventId, payload);
+        } else {
+          await eventService.createLunchDinner(payload);
         }
       } else if (cat === "Cultural Events") {
         const payload = {
@@ -334,14 +290,10 @@ export async function syncActivitiesToScheduleSubmodules(
           isFree: feeNum === 0,
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCulturalEvent(act.subEventId, payload);
-          } else {
-            await eventService.createCulturalEvent(payload);
-          }
-        } catch (e) {
-          console.warn("Database save cultural notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCulturalEvent(act.subEventId, payload);
+        } else {
+          await eventService.createCulturalEvent(payload);
         }
       } else if (cat === "Competitions") {
         const payload = {
@@ -357,14 +309,10 @@ export async function syncActivitiesToScheduleSubmodules(
           maxParticipants: String(slotsNum),
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCompetition(act.subEventId, payload);
-          } else {
-            await eventService.createCompetition(payload);
-          }
-        } catch (e) {
-          console.warn("Database save competition notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCompetition(act.subEventId, payload);
+        } else {
+          await eventService.createCompetition(payload);
         }
       }
     }
@@ -425,8 +373,7 @@ const BUDGET_CATEGORIES = [
 ];
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
-  { id: "t1", name: "General",   price: "0",   qty: "0", description: "Open for all community members" },
-  { id: "t2", name: "Volunteer", price: "0",   qty: "0", description: "Volunteer registration & duty pass" },
+  { id: "t1", name: "General", price: "0", qty: "0", description: "Open for all community members" },
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
@@ -487,6 +434,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
       <div>
         <FieldLabel required>Event Title</FieldLabel>
         <Input
+          data-testid="event-title-input"
           value={data.title}
           onChange={e => update("title", e.target.value)}
           placeholder="e.g. Ganesh Chaturthi 2026 – Grand Celebration"
@@ -510,6 +458,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                 update("category", t.label);
               }}
                 type="button"
+                data-testid={`event-type-${t.value}`}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-semibold transition-all duration-150 cursor-pointer"
                 style={{
                   borderColor: selected ? t.color : "#E2E8F0",
@@ -532,6 +481,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
         <div className="flex flex-col">
           <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
           <Textarea 
+            data-testid="event-description-input"
             value={data.description} 
             onChange={e => update("description", e.target.value)} 
             rows={5}
@@ -554,6 +504,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                 <button 
                   key={opt.value} 
                   type="button"
+                  data-testid={`event-visibility-${opt.value}`}
                   onClick={() => update("visibility", opt.value)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150 flex-1 hover:border-slate-300 cursor-pointer"
                   style={{
@@ -874,6 +825,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [expandedDay, setExpandedDay] = useState<string | null>(() => {
     return data.daySchedules.length > 0 ? data.daySchedules[0].date : null;
   });
+  // Sync expandedDay when async data loads after this step mounts
+  useEffect(() => {
+    if (!expandedDay && data.daySchedules.length > 0) {
+      setExpandedDay(data.daySchedules[0].date);
+    }
+  }, [data.daySchedules]);
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
@@ -967,8 +924,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       slots: "50",
       startTime: "08:30",
       endTime: "10:00",
-      description: "Main Temple Mandap",
-      venue: "Main Temple Mandap",
+      description: "",
+      venue: data.venueName || "",
     }
   ];
 
@@ -1010,9 +967,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const pruned = data.daySchedules.filter(ds => ds.date >= val && ds.date <= effectiveEnd);
       const merged = rangedays.map(d => pruned.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
-      }
+      // Always show 1st day
+      setExpandedDay(merged[0]?.date || val);
+    } else {
+      const existingForStart = data.daySchedules.find(ds => ds.date === val);
+      update("daySchedules", existingForStart ? [existingForStart] : [{ date: val, activities: [] }]);
+      setExpandedDay(val);
     }
   };
 
@@ -1024,12 +984,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const existing = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
       const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      // Auto-expand to the first newly added day (no activities yet)
-      const firstNew = merged.find(ds => !data.daySchedules.some(ex => ex.date === ds.date));
-      if (firstNew) {
-        setExpandedDay(firstNew.date);
-      } else if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Keep Day 1 (1st day) active
+      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || data.startDate);
       }
     }
   };
@@ -1039,22 +996,25 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("multiDay", v);
     if (v) {
       const targetStart = data.startDate || new Date().toISOString().split("T")[0];
-      const targetEnd = data.endDate && data.endDate >= targetStart ? data.endDate : targetStart;
-      if (!data.endDate || data.endDate < targetStart) {
-        update("endDate", targetEnd);
-      }
-      // Auto-populate day schedules for every day in the range
-      const rangedays = getDaysBetween(targetStart, targetEnd);
-      const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
-      const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
-      update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Do NOT auto-set endDate. Only sync schedules if valid endDate already exists.
+      if (data.endDate && data.endDate >= targetStart) {
+        const rangedays = getDaysBetween(targetStart, data.endDate);
+        const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= data.endDate);
+        const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
+        update("daySchedules", merged);
+        setExpandedDay(merged[0]?.date || targetStart);
+      } else {
+        if (targetStart) {
+          const existingForStart = data.daySchedules.find(ds => ds.date === targetStart);
+          update("daySchedules", existingForStart ? [existingForStart] : [{ date: targetStart, activities: [] }]);
+          setExpandedDay(targetStart);
+        }
       }
     } else {
       if (data.startDate) {
         const existingForStart = data.daySchedules.find(ds => ds.date === data.startDate);
         update("daySchedules", existingForStart ? [existingForStart] : []);
+        setExpandedDay(data.startDate);
       }
     }
   };
@@ -1076,6 +1036,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       d.setDate(d.getDate() + 1);
       nextDateStr = d.toISOString().split("T")[0];
     }
+    if (data.multiDay && data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot add day beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
     const newDay: DaySchedule = {
       date: nextDateStr,
       activities: [],
@@ -1083,7 +1047,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     const updated = [...data.daySchedules, newDay];
     update("daySchedules", updated);
     if (data.multiDay) {
-      update("endDate", nextDateStr);
+      if (!data.endDate || nextDateStr > data.endDate) {
+        update("endDate", nextDateStr);
+      }
     }
     setExpandedDay(nextDateStr);
   };
@@ -1143,6 +1109,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   };
 
   const addActivity = (date: string) => {
+    const defaultStart = data.startTime || "09:00";
+    let defaultEnd = data.endTime || "10:30";
+    if (data.startTime && data.endTime && defaultEnd <= defaultStart) {
+      defaultEnd = data.endTime;
+    }
+
     const updated = data.daySchedules.map(ds =>
       ds.date === date
         ? {
@@ -1156,8 +1128,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 needsRegistration: true,
                 registrationFee: "0",
                 slots: "50",
-                startTime: "09:00",
-                endTime: "10:30",
+                startTime: defaultStart,
+                endTime: defaultEnd,
                 description: "",
                 venue: "",
               }
@@ -1197,7 +1169,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     const clonedObj: ScheduleActivity = {
       ...actToClone,
       id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      subEventId: undefined, // Fresh subEventId for cloned activity
+      subEventId: undefined,
     };
     const updated = data.daySchedules.map(ds => {
       if (ds.date === date) {
@@ -1217,6 +1189,170 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     });
     update("daySchedules", updated);
     showSuccess(`Cloned "${actToClone.name || "Sub-Event"}" successfully`);
+  };
+
+  const cloneActivityToNextDay = (currentDate: string, actToClone: ScheduleActivity) => {
+    if (!data.multiDay) {
+      showError("Cannot clone to next day for a single-day event. Enable 'Multi-Day Event' and set an End Date in Event Details first.");
+      return;
+    }
+
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    let nextDateStr: string;
+    let targetDayExists = false;
+
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      nextDateStr = data.daySchedules[currentIdx + 1].date;
+      targetDayExists = true;
+    } else {
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+      targetDayExists = data.daySchedules.some(ds => ds.date === nextDateStr);
+    }
+
+    if (data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot clone beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
+
+    // Clamp activity times within event bounds
+    let clampedStart = actToClone.startTime;
+    let clampedEnd = actToClone.endTime;
+    if (data.startTime && clampedStart && clampedStart < data.startTime) {
+      clampedStart = data.startTime;
+    }
+    if (data.endTime && clampedEnd && clampedEnd > data.endTime) {
+      clampedEnd = data.endTime;
+    }
+    if (clampedStart && clampedEnd && clampedEnd <= clampedStart) {
+      clampedEnd = data.endTime || clampedEnd;
+    }
+
+    const clonedObj: ScheduleActivity = {
+      ...actToClone,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      startTime: clampedStart,
+      endTime: clampedEnd,
+      subEventId: undefined,
+    };
+
+    let updated: DaySchedule[];
+    if (targetDayExists) {
+      updated = data.daySchedules.map(ds =>
+        ds.date === nextDateStr
+          ? { ...ds, activities: [...ds.activities, clonedObj] }
+          : ds
+      );
+    } else {
+      const newDay: DaySchedule = {
+        date: nextDateStr,
+        activities: [clonedObj],
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+    showSuccess(`Cloned "${actToClone.name || "Activity"}" to Next Day (${formatDayLabel(nextDateStr)})`);
+  };
+
+  const cloneAllActivitiesToNextDay = (currentDate: string) => {
+    if (!data.multiDay) {
+      showError("Cannot clone to next day for a single-day event. Enable 'Multi-Day Event' and set an End Date in Event Details first.");
+      return;
+    }
+
+    const currentDay = data.daySchedules.find(ds => ds.date === currentDate);
+    if (!currentDay || currentDay.activities.length === 0) {
+      showError("No activities found on this day to clone");
+      return;
+    }
+
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    let nextDateStr: string;
+    let targetDayExists = false;
+
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      nextDateStr = data.daySchedules[currentIdx + 1].date;
+      targetDayExists = true;
+    } else {
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+      targetDayExists = data.daySchedules.some(ds => ds.date === nextDateStr);
+    }
+
+    if (data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot clone beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
+
+    const clonedActivities: ScheduleActivity[] = currentDay.activities.map(act => {
+      let clampedStart = act.startTime;
+      let clampedEnd = act.endTime;
+      if (data.startTime && clampedStart && clampedStart < data.startTime) {
+        clampedStart = data.startTime;
+      }
+      if (data.endTime && clampedEnd && clampedEnd > data.endTime) {
+        clampedEnd = data.endTime;
+      }
+      if (clampedStart && clampedEnd && clampedEnd <= clampedStart) {
+        clampedEnd = data.endTime || clampedEnd;
+      }
+      return {
+        ...act,
+        id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        startTime: clampedStart,
+        endTime: clampedEnd,
+        subEventId: undefined,
+      };
+    });
+
+    let updated: DaySchedule[];
+    if (targetDayExists) {
+      updated = data.daySchedules.map(ds =>
+        ds.date === nextDateStr
+          ? { ...ds, activities: [...ds.activities, ...clonedActivities] }
+          : ds
+      );
+    } else {
+      const newDay: DaySchedule = {
+        date: nextDateStr,
+        activities: clonedActivities,
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+    showSuccess(`Cloned all ${clonedActivities.length} activities to Next Day (${formatDayLabel(nextDateStr)})`);
+  };
+
+  const goToPrevDay = (currentDate: string) => {
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    if (currentIdx > 0) {
+      setExpandedDay(data.daySchedules[currentIdx - 1].date);
+    }
+  };
+
+  const goToNextDay = (currentDate: string) => {
+    if (!data.multiDay) {
+      return;
+    }
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      setExpandedDay(data.daySchedules[currentIdx + 1].date);
+    } else {
+      // At the end of configured days: check if we can add/navigate within endDate
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      const nextDateStr = d.toISOString().split("T")[0];
+      if (data.endDate && nextDateStr > data.endDate) {
+        return;
+      }
+      handleAddDay();
+    }
   };
 
   const duplicateAboveActivity = (date: string) => {
@@ -1273,7 +1409,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         </div>
         <div className="flex items-center gap-2 self-end sm:self-auto">
           <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">{data.multiDay ? "Multi-Day Schedule" : "Single Day"}</span>
-          <Switch checked={data.multiDay} onCheckedChange={handleMultiDayToggle} />
+          <Switch data-testid="event-multi-day-switch" checked={data.multiDay} onCheckedChange={handleMultiDayToggle} />
         </div>
       </div>
 
@@ -1285,6 +1421,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
           <DatePicker
+            id="event-start-date"
             value={data.startDate}
             onChange={v => handleStartDate(v)}
             size="sm"
@@ -1295,6 +1432,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           <div className="animate-fade-in-up">
             <FieldLabel required>End Date</FieldLabel>
             <DatePicker
+              id="event-end-date"
               value={data.endDate}
               min={data.startDate || undefined}
               onChange={v => handleEndDate(v)}
@@ -1314,6 +1452,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>Start Time</FieldLabel>
           <TimePicker
+            id="event-start-time"
             value={data.startTime}
             onChange={v => update("startTime", v)}
             size="sm"
@@ -1323,6 +1462,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>End Time</FieldLabel>
           <TimePicker
+            id="event-end-time"
             value={data.endTime}
             onChange={v => update("endTime", v)}
             size="sm"
@@ -1340,35 +1480,34 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       </div>
 
       {/* Day-wise schedule builder */}
-      <div className="animate-fade-in-up pt-3 border-t border-slate-200/80 space-y-3.5">
+      <div className="animate-fade-in-up pt-2.5 border-t border-slate-200/80 space-y-2.5">
         {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-              <Zap className="w-4.5 h-4.5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-0.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-sm shadow-amber-500/20 shrink-0">
+              <Zap className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-black text-slate-900 tracking-tight">Day-wise Agenda &amp; Activities</h4>
-                <Badge variant="outline" className="text-[10px] font-extrabold bg-indigo-50/70 border-indigo-200 text-indigo-700 px-2 py-0.5">
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-xs font-black text-slate-900 tracking-tight">Day-wise Agenda &amp; Activities</h4>
+                <Badge variant="outline" className="text-[9px] font-extrabold bg-indigo-50/70 border-indigo-200 text-indigo-700 px-1.5 py-0">
                   {dayCount > 0 ? `${dayCount} Day${dayCount > 1 ? "s" : ""} Configured` : "0 Days"}
                 </Badge>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Organize Poojas, Sevas, Cultural Shows, Prasadam Meals, and Competitions per day.
+              <p className="text-[10px] text-slate-400 mt-0">
+                Organize Poojas, Sevas, Cultural Shows, Meals &amp; Competitions per day.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Add Day button hidden as of now */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={() => handleOpenPlaceholderModal()}
-              className="h-8.5 px-3 text-xs font-bold border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
+              className="h-7 px-2.5 text-[11px] font-bold border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+              <Sparkles className="w-3 h-3 text-amber-500" /> Placeholders
             </Button>
             {dayCount > 0 && (
               <Button
@@ -1376,9 +1515,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 size="sm"
                 variant="outline"
                 onClick={() => triggerNotification()}
-                className="h-8.5 px-3 text-xs font-bold bg-white border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-600 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
+                className="h-7 px-2.5 text-[11px] font-bold bg-white border-slate-200 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
               >
-                <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Email
+                <Mail className="w-3 h-3 text-indigo-500" /> Notify
               </Button>
             )}
           </div>
@@ -1386,17 +1525,17 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Interactive Day Switcher Tabs for Multi-Day or Configured Days */}
         {dayCount > 0 && (
-          <div className="p-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-2">
+          <div className="p-2 bg-slate-50/80 rounded-xl border border-slate-200/90 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Select Day Schedule
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-indigo-500" /> Select Day Schedule
               </span>
-              <span className="text-[10.5px] font-medium text-slate-400">
-                Click a day tab to view and manage its agenda
+              <span className="text-[9.5px] text-slate-400">
+                Click a tab to manage its agenda
               </span>
             </div>
-            
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
               {data.daySchedules.map((day, idx) => {
                 const isActive = expandedDay === day.date;
                 const actCount = day.activities.filter(a => a.name?.trim()).length;
@@ -1404,33 +1543,34 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   <button
                     key={day.date}
                     type="button"
+                    data-testid={`event-day-tab-${day.date}`}
                     onClick={() => setExpandedDay(day.date)}
                     className={cn(
-                      "flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer shrink-0",
                       isActive
-                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-md shadow-indigo-500/20 ring-2 ring-indigo-300/50"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-sm shadow-indigo-500/20 ring-1 ring-indigo-300/50"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
                     )}
                   >
                     <span className={cn(
-                      "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
+                      "w-4 h-4 rounded flex items-center justify-center text-[9px] font-black shrink-0",
                       isActive ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700"
                     )}>
                       {idx + 1}
                     </span>
-                    <span className="truncate max-w-[130px]">{formatDayLabel(day.date)}</span>
+                    <span className="truncate max-w-[110px]">{formatDayLabel(day.date)}</span>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[9.5px] px-1.5 py-0 font-extrabold shrink-0",
+                        "text-[9px] px-1 py-0 font-extrabold shrink-0",
                         isActive
                           ? "bg-white/20 border-white/30 text-white"
                           : actCount > 0
                           ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                          : "bg-slate-100 border-slate-200 text-slate-500"
+                          : "bg-slate-100 border-slate-200 text-slate-400"
                       )}
                     >
-                      {actCount} {actCount === 1 ? "activity" : "activities"}
+                      {actCount}
                     </Badge>
                   </button>
                 );
@@ -1442,9 +1582,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   key={unconfDay}
                   type="button"
                   onClick={() => handleSelectDay(unconfDay)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 text-xs font-bold transition-all cursor-pointer shrink-0"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/40 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-400 text-[11px] font-bold transition-all cursor-pointer shrink-0"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                   <span>Add {formatDayLabel(unconfDay)}</span>
                 </button>
               ))}
@@ -1454,23 +1594,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Empty State when 0 days */}
         {dayCount === 0 && (
-          <div className="p-8 text-center border-2 border-dashed border-indigo-200 rounded-3xl bg-indigo-50/30 space-y-3.5 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
-              <Zap className="w-6 h-6" />
+          <div className="p-5 text-center border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2.5 animate-fade-in">
+            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Zap className="w-4.5 h-4.5" />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-slate-800">No Day Agenda Configured Yet</p>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                Add schedule items like Pooja, Archana, Homam, Cultural Performances, and Mahaprasadam Meals to your event agenda.
+              <p className="text-xs font-extrabold text-slate-800">No Day Agenda Configured Yet</p>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-0.5">
+                Add Pooja, Homam, Cultural Performances, and Meals to your event agenda.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2.5 pt-1">
+            <div className="flex items-center justify-center gap-2 pt-0.5">
               <Button
                 type="button"
                 onClick={handleAddDay}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 px-4 cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-[11px] font-bold rounded-lg shadow-sm shadow-indigo-500/20 px-3 h-7 cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Add Day 1 Schedule
+                <Plus className="w-3 h-3" /> Add Day 1 Schedule
               </Button>
               <Button
                 type="button"
@@ -1479,9 +1619,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   const targetDate = data.startDate || new Date().toISOString().split("T")[0];
                   handleOpenPlaceholderModal(targetDate);
                 }}
-                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer shadow-xs px-4"
+                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-[11px] font-bold rounded-lg cursor-pointer shadow-xs px-3 h-7"
               >
-                <Sparkles className="w-4 h-4 text-amber-500" /> Use Agenda Placeholders
+                <Sparkles className="w-3 h-3 text-amber-500" /> Use Placeholders
               </Button>
             </div>
           </div>
@@ -1489,96 +1629,152 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Expanded Day Agenda View */}
         {dayCount > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {data.daySchedules.map((day, dayIdx) => {
               if (expandedDay && expandedDay !== day.date) return null;
               const isExpanded = true;
               const filledCount = day.activities.filter(a => a.name).length;
               const totalCount = day.activities.length;
 
+              const isPrevDayDisabled = dayIdx === 0 || Boolean(data.startDate && day.date <= data.startDate);
+              const isNextDayDisabled = !data.multiDay || (
+                dayIdx === data.daySchedules.length - 1 &&
+                Boolean(data.endDate && day.date >= data.endDate)
+              );
+              const isCloneToNextDisabled = !data.multiDay || Boolean(data.endDate && day.date >= data.endDate);
+
               return (
                 <div
                   key={day.date}
-                  className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-xs space-y-0 animate-fade-in"
+                  className="rounded-xl border border-indigo-100 bg-white overflow-hidden shadow-xs animate-fade-in"
                 >
                   {/* Day Banner Toolbar */}
-                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-900/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-amber-400/20 shrink-0">
+                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-900/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-sm shadow-amber-400/20 shrink-0">
                         D{dayIdx + 1}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-extrabold text-white">Day {dayIdx + 1} &bull; {formatDayLabel(day.date)}</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-indigo-200 border border-white/10">
-                            {filledCount} of {totalCount} configured
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-extrabold text-white">Day {dayIdx + 1} &bull; {formatDayLabel(day.date)}</h4>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-indigo-200 border border-white/10">
+                            {filledCount}/{totalCount} configured
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-300 mt-0.5">
-                          Configure all activities and seva timings for this specific day
-                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isPrevDayDisabled}
+                          onClick={() => goToPrevDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all border",
+                            isPrevDayDisabled
+                              ? "opacity-40 pointer-events-none bg-white/5 border-white/10 text-slate-400"
+                              : "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs"
+                          )}
+                          title={isPrevDayDisabled ? "This is the start date" : `Go to Previous Day (Day ${dayIdx})`}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" /> Prev Day
+                        </Button>
+                      )}
+                      {data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isNextDayDisabled}
+                          onClick={() => goToNextDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer border shadow-xs transition-all",
+                            isNextDayDisabled
+                              ? "opacity-40 pointer-events-none bg-white/5 border-white/10 text-slate-400"
+                              : "bg-white/15 hover:bg-white/25 text-white border-white/20"
+                          )}
+                          title={isNextDayDisabled ? `Reached event end date (${formatDayLabel(data.endDate || day.date)})` : `Go to Next Day (Day ${dayIdx + 2})`}
+                        >
+                          Next Day <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {day.activities.length > 0 && data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isCloneToNextDisabled}
+                          onClick={() => cloneAllActivitiesToNextDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer border shadow-xs transition-all",
+                            isCloneToNextDisabled
+                              ? "opacity-40 pointer-events-none bg-amber-500/5 border-amber-500/10 text-amber-300/40"
+                              : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/30"
+                          )}
+                          title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone all activities from this day into next day"}
+                        >
+                          <Copy className="w-3.5 h-3.5 text-amber-400" /> Clone Day to Next
+                        </Button>
+                      )}
                       <Button
                         type="button"
+                        data-testid={`event-add-activity-${day.date}`}
                         size="sm"
                         onClick={() => addActivity(day.date)}
-                        className="h-8 px-3 text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-xl shadow-xs gap-1.5 cursor-pointer"
+                        className="h-7 px-2.5 text-[11px] font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-lg shadow-xs gap-1 cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Activity
+                        <Plus className="w-3 h-3 text-indigo-600" /> Add Activity
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => handleOpenPlaceholderModal(day.date)}
-                        className="h-8 px-3 text-xs font-bold bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-600/50 rounded-xl gap-1.5 cursor-pointer"
+                        className="h-7 px-2.5 text-[11px] font-bold bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-600/50 rounded-lg gap-1 cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Placeholders
+                        <Sparkles className="w-3 h-3 text-amber-300" /> Placeholders
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => triggerNotification(`Day ${dayIdx + 1}`)}
-                        className="h-8 px-2.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl gap-1 cursor-pointer border border-white/10"
+                        className="h-7 px-2 text-[11px] font-bold bg-white/10 hover:bg-white/20 text-white rounded-lg gap-1 cursor-pointer border border-white/10"
                         title="Send email alert for this day"
                       >
-                        <Mail className="w-3.5 h-3.5 text-indigo-300" />
+                        <Mail className="w-3 h-3 text-indigo-300" />
                       </Button>
                       {data.daySchedules.length > 1 && (
                         <Button
                           type="button"
                           size="sm"
                           onClick={() => handleRemoveDay(day.date)}
-                          className="h-8 px-2.5 text-xs font-bold bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded-xl gap-1 cursor-pointer border border-rose-500/30"
+                          className="h-7 px-2 text-[11px] font-bold bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded-lg gap-1 cursor-pointer border border-rose-500/30"
                           title="Remove this entire day"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
                     </div>
                   </div>
 
                   {/* Day Activities List */}
-                  <div className="p-3.5 sm:p-4 space-y-3.5 bg-slate-50/50">
+                  <div className="p-2.5 space-y-2.5 bg-slate-50/50">
                     {day.activities.length === 0 && (
-                      <div className="p-6 text-center border-2 border-dashed border-indigo-200 rounded-2xl bg-white space-y-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                          <Sparkles className="w-5 h-5" />
+                      <div className="p-4 text-center border-2 border-dashed border-indigo-200 rounded-xl bg-white space-y-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                          <Sparkles className="w-4 h-4" />
                         </div>
-                        <p className="text-xs font-extrabold text-slate-800">No activities on {formatDayLabel(day.date)}</p>
-                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                          Click below to add a customized ritual/program or import templates.
+                        <p className="text-[11px] font-extrabold text-slate-700">No activities on {formatDayLabel(day.date)}</p>
+                        <p className="text-[10px] text-slate-400 max-w-sm mx-auto">
+                          Add a customized ritual/program or import templates.
                         </p>
-                        <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => addActivity(day.date)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1 text-[11px] font-bold rounded-lg shadow-xs cursor-pointer h-7 px-2.5"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Add Activity
+                            <Plus className="w-3 h-3" /> Add Activity
                           </Button>
                           {dayIdx > 0 && data.daySchedules[dayIdx - 1]?.activities.length > 0 && (
                             <Button
@@ -1586,10 +1782,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               size="sm"
                               variant="outline"
                               onClick={() => duplicateAboveActivity(day.date)}
-                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1 text-[11px] font-bold rounded-lg cursor-pointer h-7 px-2.5"
                               title={`Copy activities from Day ${dayIdx}`}
                             >
-                              <Copy className="w-3.5 h-3.5 text-indigo-600" /> Copy Day {dayIdx} Sub-Events
+                              <Copy className="w-3 h-3 text-indigo-600" /> Copy Day {dayIdx}
                             </Button>
                           )}
                           <Button
@@ -1597,9 +1793,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenPlaceholderModal(day.date)}
-                            className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                            className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1 text-[11px] font-bold rounded-lg cursor-pointer h-7 px-2.5"
                           >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+                            <Sparkles className="w-3 h-3 text-amber-500" /> Placeholders
                           </Button>
                         </div>
                       </div>
@@ -1614,92 +1810,110 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       return (
                         <div
                           key={act.id}
+                          data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}`}
                           className={cn(
-                            "relative rounded-2xl border transition-all shadow-xs overflow-hidden",
+                            "relative rounded-xl border transition-all shadow-xs overflow-hidden",
                             isPooja
-                              ? "border-amber-200 bg-gradient-to-b from-amber-50/40 via-white to-white"
+                              ? "border-amber-200 bg-gradient-to-b from-amber-50/30 via-white to-white"
                               : currentCategory === "Cultural Events"
-                              ? "border-purple-200 bg-gradient-to-b from-purple-50/40 via-white to-white"
+                              ? "border-purple-200 bg-gradient-to-b from-purple-50/30 via-white to-white"
                               : currentCategory === "Competitions"
-                              ? "border-pink-200 bg-gradient-to-b from-pink-50/40 via-white to-white"
+                              ? "border-pink-200 bg-gradient-to-b from-pink-50/30 via-white to-white"
                               : currentCategory === "Lunch" || currentCategory === "Dinner"
-                              ? "border-emerald-200 bg-gradient-to-b from-emerald-50/40 via-white to-white"
+                              ? "border-emerald-200 bg-gradient-to-b from-emerald-50/30 via-white to-white"
                               : "border-slate-200 bg-white"
                           )}
                         >
                           {/* Activity Card Header */}
                           <div className={cn(
-                            "flex items-center justify-between px-3.5 py-2.5 border-b",
-                            isPooja ? "border-amber-100 bg-amber-50/60" : "border-slate-100 bg-slate-50/80"
+                            "flex items-center justify-between px-3 py-2 border-b",
+                            isPooja ? "border-amber-100 bg-amber-50/50" : "border-slate-100 bg-slate-50/70"
                           )}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <div className={cn(
-                                "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
+                                "w-5 h-5 rounded flex items-center justify-center text-[9px] font-black shrink-0",
                                 isPooja
-                                  ? "bg-amber-500 text-white shadow-xs"
-                                  : "bg-indigo-600 text-white shadow-xs"
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-indigo-600 text-white"
                               )}>
                                 {actIdx + 1}
                               </div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs font-black text-slate-800">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-[11px] font-black text-slate-800">
                                   {act.name || `Activity #${actIdx + 1}`}
                                 </span>
                                 {isPooja && act.poojaType && (
-                                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold px-1.5 py-0">
                                     🪔 {act.poojaType}
                                   </Badge>
                                 )}
                                 {act.needsRegistration && (
-                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9.5px] font-bold">
-                                    Pass Required &bull; ₹{act.registrationFee || "0"}
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold px-1.5 py-0">
+                                    Pass &bull; ₹{act.registrationFee || "0"}
                                   </Badge>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => cloneActivity(day.date, act)}
-                                className="text-[10px] font-bold text-slate-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                className="text-[10px] font-bold text-slate-600 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-0.5 transition-all cursor-pointer"
                                 title="Duplicate / Clone this sub-event"
                               >
-                                <Copy className="w-3 h-3 text-indigo-500" /> Clone
+                                <Copy className="w-2.5 h-2.5 text-indigo-500" /> Clone
                               </button>
+                              {data.multiDay && (
+                                <button
+                                  type="button"
+                                  disabled={isCloneToNextDisabled}
+                                  onClick={() => cloneActivityToNextDay(day.date, act)}
+                                  className={cn(
+                                    "text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition-all cursor-pointer shadow-2xs",
+                                    isCloneToNextDisabled
+                                      ? "opacity-40 pointer-events-none bg-slate-100 border-slate-200 text-slate-400"
+                                      : "text-amber-700 bg-amber-50/90 hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300 border-amber-200"
+                                  )}
+                                  title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone this activity into the Next Day schedule"}
+                                >
+                                  <ArrowRight className="w-3 h-3 text-amber-600" /> To Next Day
+                                </button>
+                              )}
                               {act.name && (
                                 <button
                                   type="button"
                                   onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                  className="text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                  className="text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 flex items-center gap-0.5 transition-all cursor-pointer"
                                 >
-                                  <Mail className="w-3 h-3 text-indigo-500" /> Notify
+                                  <Mail className="w-2.5 h-2.5 text-indigo-500" /> Notify
                                 </button>
                               )}
                               <button
                                 type="button"
                                 onClick={() => removeActivity(day.date, act.id)}
-                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1.5 rounded-lg cursor-pointer"
+                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1 rounded cursor-pointer"
                                 title="Remove activity"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
 
                           {/* Activity Card Body */}
-                          <div className="p-3.5 sm:p-4 space-y-3.5">
+                          <div className="p-2.5 sm:p-3 space-y-2.5">
                             {/* Row 1: Activity Category & Pooja/Seva Title Side-by-Side */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
                               {/* Left: Activity Category / Type */}
                               <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <FieldLabel required>Activity Category / Type</FieldLabel>
-                                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                                    Selected: {currentCategory}
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <FieldLabel required>Category / Type</FieldLabel>
+                                  <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0 rounded-full border border-indigo-200">
+                                    {currentCategory}
                                   </span>
                                 </div>
                                 <select
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-category`}
                                   value={currentCategory}
                                   onChange={(e) => {
                                     const newCat = e.target.value;
@@ -1708,7 +1922,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   }}
                                   className={cn(
                                     INPUT_CLS,
-                                    "h-9 text-xs font-bold text-slate-800 bg-white cursor-pointer shadow-2xs",
+                                    "h-8 text-xs font-bold text-slate-800 bg-white cursor-pointer shadow-2xs",
                                     reqCls(!currentCategory)
                                   )}
                                 >
@@ -1720,20 +1934,108 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </select>
                               </div>
 
-                              {isOtherCategory ? (
-                                <div>
+                              {/* Right: Pooja / Seva Title (or Activity / Event Title) */}
+                              <div>
+                                <FieldLabel required>
+                                  {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
+                                </FieldLabel>
+                                <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-title`}
+                                  value={act.name}
+                                  onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
+                                  placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white font-bold text-slate-900 border-slate-200")}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Row 2: (Pooja Type / Custom Type / Syncs To) + Times */}
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                              {/* Sub-Category / Pooja Type / Custom Type / Syncs To */}
+                              {isPooja ? (
+                                <div className="w-full">
+                                  <div className="flex items-center justify-between mb-0.5">
+                                    <FieldLabel required>Pooja Type</FieldLabel>
+                                    {addingTypeForActId !== act.id && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                      >
+                                        <Plus className="w-2.5 h-2.5" /> Add New
+                                      </button>
+                                    )}
+                                  </div>
+                                  {addingTypeForActId === act.id ? (
+                                    <div className="space-y-1">
+                                      <div className="flex gap-1">
+                                        <Input
+                                          value={newPoojaTypeName}
+                                          onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
+                                          placeholder="New type name..."
+                                          className={cn(INPUT_CLS, "h-8 bg-white flex-1 text-xs")}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
+                                            if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={addingType || !newPoojaTypeName.trim()}
+                                          onClick={() => handleAddPoojaType(act.id, day.date)}
+                                          className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
+                                        >
+                                          {addingType ? "…" : "Save"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                          className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                      {addTypeError && <p className="text-[10px] text-rose-500">{addTypeError}</p>}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <select
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-pooja-type`}
+                                        value={act.poojaType || ""}
+                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
+                                        className={cn(INPUT_CLS, "h-8 bg-white cursor-pointer flex-1 text-xs")}
+                                      >
+                                        <option value="">— Select Type —</option>
+                                        {poojaTypeOptions.map(t => (
+                                          <option key={t.id} value={t.name}>{t.name}</option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 active:scale-95"
+                                        title="Create new Pooja Type"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : isOtherCategory ? (
+                                <div className="w-full">
                                   <FieldLabel required>Custom Type Name</FieldLabel>
                                   <Input
                                     value={act.customType || ""}
                                     onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
                                     placeholder="e.g. Sports / Workshop / Stage Play"
-                                    className={cn(INPUT_CLS, "bg-white font-medium")}
+                                    className={cn(INPUT_CLS, "h-8 bg-white font-medium text-xs")}
                                   />
                                 </div>
-                              ) : currentCategory !== "Pooja & Seva" ? (
-                                <div>
+                              ) : (
+                                <div className="w-full">
                                   <FieldLabel>Syncs To</FieldLabel>
-                                  <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
+                                  <div className="px-2.5 py-1.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-[11px] font-semibold text-indigo-700 flex items-center gap-1.5 h-8">
                                     <span className="font-bold underline underline-offset-2">
                                       {currentCategory === "Lunch" || currentCategory === "Dinner"
                                         ? "Lunch / Dinner Tab"
@@ -1745,255 +2047,94 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     </span>
                                   </div>
                                 </div>
-                              ) : null}
-                            </div>
-
-                            {/* Row 2: Title + (Pooja Type if Pooja & Seva) + Times */}
-                            <div className={cn(
-                              "grid gap-2.5 items-end",
-                              currentCategory === "Pooja & Seva"
-                                ? "grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto]"
-                                : "grid-cols-1 sm:grid-cols-[1fr_auto_auto]"
-                            )}>
-                              {/* Right: Activity Title (Pooja / Seva Title) */}
-                              <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <FieldLabel required>
-                                    {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
-                                  </FieldLabel>
-                                </div>
-                                <Input
-                                  value={act.name}
-                                  onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
-                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Row 2: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
-                            {isPooja ? (
-                              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
-                                    <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
-                                  </label>
-                                  {addingTypeForActId !== act.id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                      className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
-                                    >
-                                      <Plus className="w-3 h-3" /> Add Custom Type
-                                    </button>
-                                  )}
-                                </div>
-
-                                {addingTypeForActId === act.id ? (
-                                  <div className="space-y-1.5 pt-0.5">
-                                    <div className="flex gap-1.5">
-                                      <Input
-                                        value={newPoojaTypeName}
-                                        onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
-                                        placeholder="e.g. Navagraha Homam, Deeparadhana..."
-                                        className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
-                                          if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
-                                        }}
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        disabled={addingType || !newPoojaTypeName.trim()}
-                                        onClick={() => handleAddPoojaType(act.id, day.date)}
-                                        className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
-                                      >
-                                        {addingType ? "…" : "Save"}
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </div>
-                                    {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
-                                  </div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <select
-                                        value={act.poojaType || ""}
-                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                        className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
-                                      >
-                                        <option value="">— Select Pooja / Seva Type —</option>
-                                        {poojaTypeOptions.length > 0 ? (
-                                          poojaTypeOptions.map(t => (
-                                            <option key={t.id} value={t.name}>{t.name}</option>
-                                          ))
-                                        ) : (
-                                          <>
-                                            <option value="Maha Pooja">Maha Pooja</option>
-                                            <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
-                                            <option value="Rudrabhishekam">Rudrabhishekam</option>
-                                            <option value="Homam & Havan">Homam &amp; Havan</option>
-                                            <option value="Maha Sankalpam">Maha Sankalpam</option>
-                                            <option value="Mahamangal Aarti">Mahamangal Aarti</option>
-                                            <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
-                                            <option value="Special Seva">Special Seva</option>
-                                          </>
-                                        )}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                                        title="Add new Pooja Type"
-                                      >
-                                        <Plus className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : isOtherCategory ? (
-                              <div>
-                                <FieldLabel required>Custom Type Name</FieldLabel>
-                                <Input
-                                  value={act.customType || ""}
-                                  onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                  placeholder="e.g. Sports / Workshop / Stage Play"
-                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
-                                />
-                              </div>
-                            ) : null}
-
-                              {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
-                              {currentCategory === "Pooja & Seva" && (
-                                <div className="w-full sm:min-w-[180px]">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <FieldLabel required>Pooja Type</FieldLabel>
-                                    {addingTypeForActId !== act.id && (
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
-                                      >
-                                        <Plus className="w-3 h-3" /> Add New
-                                      </button>
-                                    )}
-                                  </div>
-                                  {addingTypeForActId === act.id ? (
-                                    <div className="space-y-1">
-                                      <div className="flex gap-1">
-                                        <Input
-                                          value={newPoojaTypeName}
-                                          onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
-                                          placeholder="New type name..."
-                                          className={cn(INPUT_CLS, "bg-white flex-1 text-xs")}
-                                          autoFocus
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
-                                            if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
-                                          }}
-                                        />
-                                        <button
-                                          type="button"
-                                          disabled={addingType || !newPoojaTypeName.trim()}
-                                          onClick={() => handleAddPoojaType(act.id, day.date)}
-                                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
-                                        >
-                                          {addingType ? "…" : "Save"}
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                          className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
-                                        >
-                                          ✕
-                                        </button>
-                                      </div>
-                                      {addTypeError && <p className="text-[10px] text-rose-500">{addTypeError}</p>}
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-1.5">
-                                      <select
-                                        value={act.poojaType || ""}
-                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                        className={cn(INPUT_CLS, "bg-white cursor-pointer flex-1")}
-                                      >
-                                        <option value="">— Select Type —</option>
-                                        {poojaTypeOptions.map(t => (
-                                          <option key={t.id} value={t.name}>{t.name}</option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="p-[7px] rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 shadow-2xs active:scale-95"
-                                        title="Create new Pooja Type"
-                                      >
-                                        <Plus className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
                               )}
 
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div className="w-full sm:w-36">
-                                  <FieldLabel required>Start Time (From)</FieldLabel>
-                                <TimePicker
-                                  value={act.startTime}
-                                  onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
-                                  size="sm"
-                                  className={reqCls(!act.startTime)}
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel required>End Time (To)</FieldLabel>
-                                <TimePicker
-                                  value={act.endTime}
-                                  onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
-                                  size="sm"
-                                  className={cn(
-                                    act.startTime && act.endTime && act.endTime <= act.startTime
-                                      ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
-                                      : reqCls(!act.endTime)
-                                  )}
-                                />
-                                {Boolean(act.startTime && act.endTime && act.endTime <= act.startTime) && (
-                                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
-                                    End time must be after start time ({act.startTime}).
-                                  </p>
-                                )}
-                              </div>
+                              {(() => {
+                                const isFirstDay = !data.multiDay || day.date === data.startDate;
+                                const isLastDay = !data.multiDay || day.date === (data.endDate || data.startDate);
+                                const isStartBeforeEvent = Boolean(isFirstDay && data.startTime && act.startTime && act.startTime < data.startTime);
+                                const isEndAfterEvent = Boolean(isLastDay && data.endTime && act.endTime && act.endTime > data.endTime);
+                                const isEndBeforeStart = Boolean(act.startTime && act.endTime && act.endTime <= act.startTime);
+
+                                return (
+                                  <>
+                                    <div className="w-full sm:w-40">
+                                      <div className="flex items-center justify-between">
+                                        <FieldLabel required>Start Time (From)</FieldLabel>
+                                        {data.startTime && isFirstDay && (
+                                          <span className="text-[9px] text-slate-400 font-bold">Min: {data.startTime}</span>
+                                        )}
+                                      </div>
+                                      <TimePicker
+                                        id={`event-activity-${dayIdx + 1}-${actIdx + 1}-start-time`}
+                                        value={act.startTime}
+                                        onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
+                                        size="sm"
+                                        className={cn(
+                                          isStartBeforeEvent
+                                            ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                            : reqCls(!act.startTime)
+                                        )}
+                                      />
+                                      {isStartBeforeEvent && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          Cannot be earlier than event start ({data.startTime}).
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="w-full sm:w-40">
+                                      <div className="flex items-center justify-between">
+                                        <FieldLabel required>End Time (To)</FieldLabel>
+                                        {data.endTime && isLastDay && (
+                                          <span className="text-[9px] text-slate-400 font-bold">Max: {data.endTime}</span>
+                                        )}
+                                      </div>
+                                      <TimePicker
+                                        id={`event-activity-${dayIdx + 1}-${actIdx + 1}-end-time`}
+                                        value={act.endTime}
+                                        onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
+                                        size="sm"
+                                        className={cn(
+                                          isEndBeforeStart || isEndAfterEvent
+                                            ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                            : reqCls(!act.endTime)
+                                        )}
+                                      />
+                                      {isEndBeforeStart && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          End time must be after start time ({act.startTime}).
+                                        </p>
+                                      )}
+                                      {!isEndBeforeStart && isEndAfterEvent && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          Cannot be later than event end ({data.endTime}).
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
 
                             {/* Row: Devotee Pass & Seva Booking Bar */}
-                            <div className="p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2.5">
+                            <div className="px-2.5 py-2 rounded-lg bg-white border border-slate-200/90 shadow-2xs space-y-2">
                               <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
                                     checked={act.needsRegistration ?? true}
                                     onChange={(e) => updateActivity(day.date, act.id, "needsRegistration", e.target.checked)}
-                                    className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                    className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
                                   />
-                                  <span className="text-xs font-bold text-slate-800">
-                                    {isPooja ? "Requires Devotee Seva Pass / Registration" : "Requires Member Entry Pass"}
+                                  <span className="text-[11px] font-bold text-slate-700">
+                                    {isPooja ? "Requires Seva Pass / Registration" : "Requires Member Entry Pass"}
                                   </span>
                                 </label>
-
                                 <Badge variant="outline" className={cn(
-                                  "text-[10px] font-bold",
+                                  "text-[9px] font-bold px-1.5 py-0",
                                   act.needsRegistration ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"
                                 )}>
                                   {act.needsRegistration ? "Pass Enabled" : "Open to All"}
@@ -2001,36 +2142,38 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               </div>
 
                               {act.needsRegistration && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100 animate-fade-in">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5 border-t border-slate-100 animate-fade-in">
                                   <div>
                                     <FieldLabel>
-                                      {isPooja ? "Seva / Registration Fee (₹)" : "Pass Fee (₹)"}
+                                      {isPooja ? "Seva Fee (₹)" : "Pass Fee (₹)"}
                                     </FieldLabel>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
                                       <Input
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-fee`}
                                         type="text"
                                         value={act.registrationFee ?? "0"}
                                         onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
                                         placeholder="0 for Free"
-                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-7 border-slate-200")}
+                                        className={cn(INPUT_CLS, "h-8 text-xs bg-slate-50 font-bold pl-6 border-slate-200")}
                                       />
                                     </div>
                                   </div>
                                   <div>
                                     <FieldLabel>
-                                      {isPooja ? "Max Devotee Slots / Capacity" : "Available Seats / Slots"}
+                                      {isPooja ? "Max Slots / Capacity" : "Available Seats"}
                                     </FieldLabel>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                                        <Users className="w-3.5 h-3.5" />
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <Users className="w-3 h-3" />
                                       </span>
                                       <Input
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-slots`}
                                         type="number"
                                         value={act.slots ?? "50"}
                                         onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
                                         placeholder="50"
-                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-8 border-slate-200")}
+                                        className={cn(INPUT_CLS, "h-8 text-xs bg-slate-50 font-bold pl-7 border-slate-200")}
                                       />
                                     </div>
                                   </div>
@@ -2038,24 +2181,26 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               )}
                             </div>
 
-                            {/* Row: Venue + Special Guidelines */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Row: Venue + Guidelines */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
-                                <FieldLabel>{isPooja ? "Mandap / Sacred Venue" : "Stage / Location Venue"}</FieldLabel>
+                                <FieldLabel>{isPooja ? "Mandap / Venue" : "Stage / Venue"}</FieldLabel>
                                 <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-venue`}
                                   value={act.venue || ""}
                                   onChange={(e) => updateActivity(day.date, act.id, "venue", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Main Temple Mandap / Homa Kundam" : "e.g. Community Stage / Dining Hall"}
-                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                  placeholder={isPooja ? "e.g. Mandap Location" : "e.g. Community Stage / Dining Hall"}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white border-slate-200")}
                                 />
                               </div>
                               <div>
-                                <FieldLabel>{isPooja ? "Devotee Samagri & Special Instructions" : "Description & Instructions"}</FieldLabel>
+                                <FieldLabel>{isPooja ? "Samagri & Instructions" : "Description & Instructions"}</FieldLabel>
                                 <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-description`}
                                   value={act.description}
                                   onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Devotees to bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
-                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                  placeholder={isPooja ? "e.g. Bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white border-slate-200")}
                                 />
                               </div>
                             </div>
@@ -2065,23 +2210,40 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     })}
 
                     {/* Bottom Day Actions */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <Button
                         type="button"
                         onClick={() => addActivity(day.date)}
-                        className="flex-1 min-w-[200px] h-9 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-xs gap-1.5"
+                        className="flex-1 min-w-[160px] h-8 rounded-lg border-2 border-dashed border-indigo-200 text-[11px] font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer gap-1"
                       >
-                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Another Activity to Day {dayIdx + 1}
+                        <Plus className="w-3 h-3 text-indigo-600" /> Add Activity to Day {dayIdx + 1}
                       </Button>
                       {day.activities.length > 0 && (
                         <Button
                           type="button"
                           variant="outline"
                           onClick={() => duplicateAboveActivity(day.date)}
-                          className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          className="h-8 px-3 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-[11px] font-bold text-indigo-700 flex items-center gap-1 transition-all cursor-pointer"
                           title="Clone / Duplicate the last activity in this day"
                         >
-                          <Copy className="w-3.5 h-3.5 text-indigo-600" /> Clone Above Activity
+                          <Copy className="w-3 h-3 text-indigo-600" /> Clone Above Activity
+                        </Button>
+                      )}
+                      {day.activities.length > 0 && data.multiDay && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isCloneToNextDisabled}
+                          onClick={() => cloneAllActivitiesToNextDay(day.date)}
+                          className={cn(
+                            "h-9 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs",
+                            isCloneToNextDisabled
+                              ? "opacity-40 pointer-events-none bg-slate-50 border-slate-200 text-slate-400"
+                              : "border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800"
+                          )}
+                          title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone all activities from this day into the next day schedule"}
+                        >
+                          <Copy className="w-3.5 h-3.5 text-amber-600" /> Clone Day to Next
                         </Button>
                       )}
                       <Button
@@ -2095,6 +2257,48 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       </Button>
                     </div>
                   </div>
+
+                  {/* Day Navigation Footer */}
+                  {data.multiDay && (
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100/70 border-t border-slate-200 text-xs">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isPrevDayDisabled}
+                        onClick={() => goToPrevDay(day.date)}
+                        className={cn(
+                          "h-8 px-3 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all border",
+                          isPrevDayDisabled
+                            ? "opacity-40 pointer-events-none bg-white border-slate-200 text-slate-400"
+                            : "bg-white hover:bg-indigo-50 text-slate-700 border-slate-300 shadow-xs"
+                        )}
+                        title={isPrevDayDisabled ? "This is the start date" : `Go to Previous Day (Day ${dayIdx})`}
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5 text-slate-600" /> Previous Day
+                      </Button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-500">
+                          Day {dayIdx + 1} of {data.daySchedules.length}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isNextDayDisabled}
+                        onClick={() => goToNextDay(day.date)}
+                        className={cn(
+                          "h-8 px-3 text-xs font-bold rounded-xl gap-1 cursor-pointer shadow-xs transition-all border",
+                          isNextDayDisabled
+                            ? "opacity-40 pointer-events-none bg-white border-slate-200 text-slate-400"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600"
+                        )}
+                        title={isNextDayDisabled ? `Reached event end date (${formatDayLabel(data.endDate || day.date)})` : `Go to Next Day (Day ${dayIdx + 2})`}
+                      >
+                        Next Day <ChevronRight className="w-3.5 h-3.5 text-white" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2147,15 +2351,17 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
           <div>
             <FieldLabel required>Venue Name</FieldLabel>
             <Input
+              data-testid="event-venue-name-input"
               value={data.venueName}
               onChange={e => update("venueName", e.target.value)}
-              placeholder="e.g. Community Hall, Society Ground, Main Temple Mandap"
+              placeholder="e.g. Community Hall, Society Ground, Central Mandap"
               className={cn(INPUT_CLS, reqCls(!data.venueName?.trim()))}
             />
           </div>
           <div>
             <FieldLabel required>City</FieldLabel>
             <Input
+              data-testid="event-city-input"
               value={data.city}
               onChange={e => update("city", e.target.value)}
               placeholder="e.g. Hyderabad, Bengaluru, Mumbai"
@@ -2167,6 +2373,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         <div>
           <FieldLabel required>Address</FieldLabel>
           <Textarea
+            data-testid="event-venue-address-input"
             value={data.venueAddress}
             onChange={e => update("venueAddress", e.target.value)}
             rows={3}
@@ -2176,10 +2383,11 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         </div>
 
         <div className="sm:w-64">
-          <FieldLabel hint="Optional">Max Capacity (Attendees)</FieldLabel>
+          <FieldLabel required>Max Capacity (Attendees)</FieldLabel>
           <Input
+            data-testid="event-capacity-input"
             type="number"
-            min={0}
+            min={1}
             value={data.capacity}
             onKeyDown={(e) => {
               if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
@@ -2191,7 +2399,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
               update("capacity", val === "" ? "" : sanitized);
             }}
             placeholder="e.g. 500"
-            className={INPUT_CLS}
+            className={cn(INPUT_CLS, reqCls(!data.capacity || parseInt(data.capacity, 10) <= 0))}
           />
           <p className="text-[10px] text-slate-400 mt-1">Maximum estimated seating capacity or attendee limit.</p>
         </div>
@@ -2274,19 +2482,20 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const isCapacityExceeded = maxEventCapacity > 0 && totalCategorySeats > maxEventCapacity;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-2.5">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
-      <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" description="Allow attendees to register for this event" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
+          label="Enable event registration" description="Allow attendees to register for this event" />
 
-      {data.registrationEnabled && (
-        <div className="space-y-6 animate-fade-in-up">
+        {data.registrationEnabled ? (
           <div>
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
             </FieldLabel>
             <DatePicker
+              id="event-registration-deadline"
               value={data.registrationDeadline}
               max={maxDeadlineDate}
               onChange={v => update("registrationDeadline", v)}
@@ -2296,14 +2505,18 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               )}
             />
             {isDeadlineInvalid && (
-              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                Registration deadline must be before the event start date ({data.startDate}).
+              <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                Deadline must be before event start ({data.startDate}).
               </p>
             )}
           </div>
+        ) : <div />}
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {data.registrationEnabled && (
+        <div className="space-y-2 animate-fade-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
               label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
@@ -2313,13 +2526,9 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers from database categories</p>
+                <h4 className="text-sm font-bold text-slate-700">Ticket Category</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define registration category tier from database categories</p>
               </div>
-              <button onClick={addTicket}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer">
-                <Plus className="w-3.5 h-3.5" /> Add Category Tier
-              </button>
             </div>
 
             {maxEventCapacity > 0 && (
@@ -2369,23 +2578,16 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               </div>
             )}
             <div className="space-y-3">
-              {data.ticketTypes.map((ticket, i) => (
+              {(data.ticketTypes.length > 0 ? data.ticketTypes.slice(0, 1) : DEFAULT_TICKET_TYPES).map((ticket, i) => (
                 <div key={ticket.id}
                   className="p-3 sm:p-5 bg-white rounded-xl border border-slate-200 space-y-3 sm:space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: i === 0 ? "#eef2ff" : i === 1 ? "#fef9ee" : "#f0fdf4" }}>
-                        <Star className="w-3.5 h-3.5" style={{ color: i === 0 ? "#4f46e5" : i === 1 ? "#d97706" : "#059669" }} />
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-50">
+                        <Star className="w-3.5 h-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Category {i + 1}</span>
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Category 1</span>
                     </div>
-                    {data.ticketTypes.length > 1 && (
-                      <button onClick={() => removeTicket(ticket.id)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50 cursor-pointer">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
@@ -2441,6 +2643,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                         </div>
                       ) : (
                         <select
+                          data-testid="event-ticket-category-select"
                           value={ticket.name}
                           onChange={e => updateTicket(ticket.id, "name", e.target.value)}
                           className={cn(INPUT_CLS, "bg-white cursor-pointer font-medium")}
@@ -2460,6 +2663,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     <div>
                       <FieldLabel>Price (₹)</FieldLabel>
                       <Input
+                        data-testid="event-ticket-price-input"
                         type="number"
                         min={0}
                         value={ticket.price}
@@ -2479,6 +2683,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     <div>
                       <FieldLabel>Seats</FieldLabel>
                       <Input
+                        data-testid="event-ticket-seats-input"
                         type="number"
                         min={0}
                         value={ticket.qty}
@@ -2499,6 +2704,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                   <div>
                     <FieldLabel>Description</FieldLabel>
                     <Input value={ticket.description} onChange={e => updateTicket(ticket.id, "description", e.target.value)}
+                      data-testid="event-ticket-description-input"
                       placeholder="What's included for this category?" className={INPUT_CLS} />
                   </div>
                 </div>
@@ -2604,6 +2810,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div
+            data-testid="event-payment-online"
             onClick={() => update("enableOnlinePayment", true)}
             className={cn(
               "p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none",
@@ -2632,6 +2839,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
           </div>
 
           <div
+            data-testid="event-payment-manual"
             onClick={() => {
               update("enableOnlinePayment", false);
               update("paymentModes", ["Cash"]);
@@ -2870,6 +3078,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
         <div>
           <Textarea
+            data-testid="event-notes-input"
             rows={3}
             value={data.notes}
             onChange={(e) => update("notes", e.target.value)}
@@ -2901,6 +3110,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
           <button
             type="button"
+            data-testid="event-add-contact-button"
             onClick={addContact}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold transition-all cursor-pointer shadow-2xs shrink-0"
           >
@@ -2913,6 +3123,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
           {(data.contacts || []).map((contact, idx) => (
             <div
               key={contact.id || idx}
+              data-testid={`event-contact-${idx + 1}`}
               className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 transition-all space-y-2"
             >
               <div className="flex items-center justify-between">
@@ -2938,6 +3149,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Full Name <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-name`}
                     value={contact.name}
                     onChange={(e) => updateContact(contact.id, "name", e.target.value)}
                     placeholder="e.g. Ramesh Sharma"
@@ -2950,6 +3162,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Phone / Mobile <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-phone`}
                     value={contact.phone}
                     onChange={(e) => updateContact(contact.id, "phone", e.target.value)}
                     placeholder="+91 98765 43210"
@@ -2962,6 +3175,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Role / Committee
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-role`}
                     value={contact.role}
                     onChange={(e) => updateContact(contact.id, "role", e.target.value)}
                     placeholder="e.g. Coordinator, Food Lead"
@@ -2974,6 +3188,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Notes
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-notes`}
                     value={contact.notes || ""}
                     onChange={(e) => updateContact(contact.id, "notes", e.target.value)}
                     placeholder="e.g. Available at helpdesk after 6 PM"
@@ -4155,19 +4370,19 @@ export function fromEventToFormData(ev: any): FormData {
     } catch {}
   }
 
-  // Extract saved capacity - prioritize true total capacity fields over remaining/available seats
-  const savedCapacity = ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
-    ? String(ev.capacity)
-    : ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== ""
+  // Prefer maxAttendees (fixed admin-configured total) over capacity (remaining seats counter, decremented by bookings)
+  const savedCapacity = ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== "" && Number(ev.maxAttendees) > 0
     ? String(ev.maxAttendees)
-    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== ""
+    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== "" && Number(ev.totalCapacity) > 0
     ? String(ev.totalCapacity)
+    : ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
+    ? String(ev.capacity)
     : "100";
 
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
-    ? rawTicketTypes.map((t: any, i: number) => ({
+    ? rawTicketTypes.slice(0, 1).map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
-        name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
+        name: t.name || "General",
         price: String(t.price ?? "0"),
         qty: String(t.capacity ?? t.seats ?? t.qty ?? t.maxSeats ?? savedCapacity ?? "100"),
         description: t.description || "",
@@ -4346,7 +4561,9 @@ export function fromEventToFormData(ev: any): FormData {
   const endTime = ev.endTime ? String(ev.endTime).slice(0, 5) : "18:00";
   const multiDay = Boolean(endDate && startDate && endDate !== startDate);
 
-  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [];
+  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0
+    ? ev.daySchedules.map((ds: DaySchedule) => ({ ...ds, date: String(ds.date || "").split("T")[0] }))
+    : [];
   if (!multiDay && startDate) {
     const matching = rawDaySchedules.filter((ds: DaySchedule) => ds.date === startDate);
     if (matching.length > 0) {
@@ -4437,7 +4654,7 @@ export function EventCreateWizard({
   const [publishError, setPublishError] = useState("");
   const [loadingEvent, setLoadingEvent] = useState(false);
 
-  let useMock = true;
+  let useMock = false;
   try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>(() => {
@@ -4474,7 +4691,11 @@ export function EventCreateWizard({
               const resolveDay = (rawDate?: string): string | null => {
                 if (!startD) return null;
                 if (!baseForm.multiDay) return startD;
-                if (rawDate && validDaysSet.has(rawDate)) return rawDate;
+                if (rawDate) {
+                  // Normalize ISO datetime strings to "YYYY-MM-DD" before lookup
+                  const dateOnly = String(rawDate).split("T")[0];
+                  if (validDaysSet.has(dateOnly)) return dateOnly;
+                }
                 return startD;
               };
 
@@ -4497,54 +4718,84 @@ export function EventCreateWizard({
                 }
               }
 
-              // 1. Merge Pooja Sevas (including multi-day pooja records across day slots)
+              // 1. Merge Pooja Sevas — one activity card per time slot entry
               if (Array.isArray(poojas)) {
                 for (const p of poojas) {
                   if (p.mainEventId && Number(p.mainEventId) !== numId) continue;
-                  
-                  let targetDates: string[] = [];
+
+                  const toHHMM = (t: any) => {
+                    const s = String(t || "").split(/[–\-]/)[0].trim();
+                    // strip seconds from "HH:MM:SS" → "HH:MM"
+                    return s.length >= 5 ? s.substring(0, 5) : s || "08:30";
+                  };
+
                   if (Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0) {
-                    targetDates = [...new Set(p.timeSlotConfig.map((ts: any) => resolveDay(ts.slotDate || p.date || p.startDate)).filter(Boolean))] as string[];
-                  }
-                  if (targetDates.length === 0) {
+                    // Each time slot row → one separate activity card
+                    for (const ts of p.timeSlotConfig as any[]) {
+                      const pDate = resolveDay(ts.slotDate || p.date || p.startDate);
+                      if (!pDate || !daysMap.has(pDate)) continue;
+                      const list = daysMap.get(pDate)!;
+                      const cleanTime = toHHMM(ts.startTime || p.startTime);
+                      const slotCount = ts.slotCount ? String(ts.slotCount) : (p.slots ? String(p.slots) : "50");
+                      const actId = `pooja-${p.id}-${pDate}-${cleanTime.replace(/:/g, "")}`;
+                      const existingIdx = list.findIndex(a => a.id === actId || (a.subEventId === p.id && a.startTime === cleanTime));
+                      const actObj: ScheduleActivity = {
+                        id: actId,
+                        subEventId: p.id,
+                        categoryType: "Pooja & Seva",
+                        name: ts.title || p.name || "Pooja Seva",
+                        poojaType: p.type || "Pooja",
+                        needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                        registrationFee: p.fee ? String(p.fee) : "0",
+                        slots: slotCount,
+                        startTime: cleanTime,
+                        endTime: toHHMM(ts.endTime || p.endTime),
+                        description: p.notes || "",
+                        venue: p.mandap || p.venue || "Main Mandap",
+                      };
+                      if (existingIdx >= 0) {
+                        list[existingIdx] = actObj;
+                      } else {
+                        list.push(actObj);
+                      }
+                    }
+                  } else {
+                    // No timeSlotConfig — fall back to the pooja seva's own date/time
+                    let targetDates: string[] = [];
                     if (p.multiDay && p.endDate && p.date) {
-                      targetDates = getDaysBetween(p.date, p.endDate).map(resolveDay).filter(Boolean) as string[];
+                      targetDates = getDaysBetween(
+                        String(p.date).split("T")[0],
+                        String(p.endDate).split("T")[0]
+                      ).map(resolveDay).filter(Boolean) as string[];
                     } else {
                       const single = resolveDay(p.date || p.startDate);
                       if (single) targetDates = [single];
                     }
-                  }
-
-                  for (const pDate of targetDates) {
-                    if (!pDate || !daysMap.has(pDate)) continue;
-                    const list = daysMap.get(pDate)!;
-                    const daySlotMatch = Array.isArray(p.timeSlotConfig)
-                      ? p.timeSlotConfig.find((ts: any) => ts.slotDate === pDate)
-                      : null;
-                    const firstConfigTime = Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0 ? (p.timeSlotConfig[0] as any)?.startTime : null;
-                    const actTime = daySlotMatch?.startTime || firstConfigTime || p.startTime || "08:30";
-                    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
-                    const slotCount = daySlotMatch?.slotCount ? String(daySlotMatch.slotCount) : (p.slots ? String(p.slots) : "50");
-
-                    const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
-                    const actObj: ScheduleActivity = {
-                      id: `pooja-${p.id}-${pDate}`,
-                      subEventId: p.id,
-                      categoryType: "Pooja & Seva",
-                      name: daySlotMatch?.title || p.name || "Pooja Seva",
-                      poojaType: p.type || "Pooja",
-                      needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
-                      registrationFee: p.fee ? String(p.fee) : "0",
-                      slots: slotCount,
-                      startTime: cleanTime,
-                      endTime: p.endTime || "",
-                      description: p.notes || "",
-                      venue: p.mandap || p.venue || "Main Mandap",
-                    };
-                    if (existingIdx >= 0) {
-                      list[existingIdx] = actObj;
-                    } else {
-                      list.push(actObj);
+                    for (const pDate of targetDates) {
+                      if (!pDate || !daysMap.has(pDate)) continue;
+                      const list = daysMap.get(pDate)!;
+                      const cleanTime = toHHMM(p.startTime);
+                      const actId = `pooja-${p.id}-${pDate}`;
+                      const existingIdx = list.findIndex(a => a.id === actId || (a.subEventId === p.id && a.startTime === cleanTime));
+                      const actObj: ScheduleActivity = {
+                        id: actId,
+                        subEventId: p.id,
+                        categoryType: "Pooja & Seva",
+                        name: p.name || "Pooja Seva",
+                        poojaType: p.type || "Pooja",
+                        needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                        registrationFee: p.fee ? String(p.fee) : "0",
+                        slots: p.slots ? String(p.slots) : "50",
+                        startTime: cleanTime,
+                        endTime: toHHMM(p.endTime),
+                        description: p.notes || "",
+                        venue: p.mandap || p.venue || "Main Mandap",
+                      };
+                      if (existingIdx >= 0) {
+                        list[existingIdx] = actObj;
+                      } else {
+                        list.push(actObj);
+                      }
                     }
                   }
                 }
@@ -4715,9 +4966,17 @@ export function EventCreateWizard({
       if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
 
       for (const ds of (formData.daySchedules || [])) {
+        const isFirstDay = !formData.multiDay || ds.date === formData.startDate;
+        const isLastDay = !formData.multiDay || ds.date === (formData.endDate || formData.startDate);
         for (const act of (ds.activities || [])) {
           if (act.startTime && act.endTime && act.endTime <= act.startTime) {
             return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+          }
+          if (isFirstDay && formData.startTime && act.startTime && act.startTime < formData.startTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
+          }
+          if (isLastDay && formData.endTime && act.endTime && act.endTime > formData.endTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
           }
         }
       }
@@ -4726,6 +4985,10 @@ export function EventCreateWizard({
       if (!formData.venueName?.trim()) return "Venue name is required.";
       if (!formData.city?.trim()) return "City is required.";
       if (!formData.venueAddress?.trim()) return "Venue address is required.";
+      const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+      if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+        return "Max Capacity (Attendees) is required and must be greater than 0.";
+      }
     }
     if (currentStep === 4) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
@@ -4760,9 +5023,17 @@ export function EventCreateWizard({
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
 
     for (const ds of (formData.daySchedules || [])) {
+      const isFirstDay = !formData.multiDay || ds.date === formData.startDate;
+      const isLastDay = !formData.multiDay || ds.date === (formData.endDate || formData.startDate);
       for (const act of (ds.activities || [])) {
         if (act.startTime && act.endTime && act.endTime <= act.startTime) {
           return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+        }
+        if (isFirstDay && formData.startTime && act.startTime && act.startTime < formData.startTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
+        }
+        if (isLastDay && formData.endTime && act.endTime && act.endTime > formData.endTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
         }
       }
     }
@@ -4771,6 +5042,10 @@ export function EventCreateWizard({
     if (!formData.venueName?.trim()) return "Venue name is required.";
     if (!formData.city?.trim()) return "City is required.";
     if (!formData.venueAddress?.trim()) return "Venue address is required.";
+    const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+    if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+      return "Max Capacity (Attendees) is required and must be greater than 0.";
+    }
 
     // Step 4 — Registration
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
@@ -4788,6 +5063,51 @@ export function EventCreateWizard({
     }
 
     return null;
+  };
+
+  const isStepCompleted = (stepId: number): boolean => {
+    switch (stepId) {
+      case 1: // Basics
+        return Boolean(formData.title?.trim() && (formData.eventType || formData.category));
+      case 2: // Schedule
+        return Boolean(formData.startDate && (formData.daySchedules?.length > 0 || !formData.multiDay));
+      case 3: // Venue
+        return Boolean(formData.venueName?.trim() && formData.city?.trim());
+      case 4: // Registration
+        return Boolean(!formData.registrationEnabled || (formData.ticketTypes && formData.ticketTypes.length > 0));
+      case 5: // Payment & Contacts
+        return Boolean(!formData.enableOnlinePayment || (formData.paymentModes && formData.paymentModes.length > 0));
+      case 6: // Reg. Form
+        return true;
+      case 7: // Budget
+        return true;
+      case 8: // Media
+        return Boolean(formData.coverImageUrl?.trim());
+      case 9: // Review
+        return false;
+      default:
+        return false;
+    }
+  };
+
+  const isStepAccessible = (stepId: number): boolean => {
+    // 1. If in editing mode, ALL tabs are accessible immediately since event already exists
+    if (isEditing) return true;
+
+    // 2. Any tab previously or currently reached is accessible
+    if (step >= stepId) return true;
+
+    // 3. Step 1 (Basics) is always accessible
+    if (stepId === 1) return true;
+
+    // 4. If the target step itself already has filled data, enable direct navigation to it
+    if (isStepCompleted(stepId)) return true;
+
+    // 5. If Step 1 (Title) has been entered, allow free exploration across all tabs
+    if (formData.title?.trim()) return true;
+
+    // 6. Otherwise (brand new blank event without title), only Step 1 is allowed
+    return false;
   };
 
   const handleNext = () => {
@@ -5049,20 +5369,22 @@ export function EventCreateWizard({
         <div className="w-48 sm:w-52 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-3 shrink-0 overflow-y-auto">
           <div className="space-y-1">
             {STEPS.map(s => {
-              const done = step > s.id;
+              const accessible = isStepAccessible(s.id);
+              const done = isStepCompleted(s.id);
               const active = step === s.id;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => (done || active) && setStep(s.id)}
+                  onClick={() => accessible && setStep(s.id)}
+                  disabled={!accessible}
                   className={cn(
                     "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold w-full text-left transition-all",
                     active
                       ? "bg-white border border-purple-200 text-purple-700 shadow-xs"
-                      : done
+                      : accessible
                       ? "text-slate-700 hover:bg-slate-100 cursor-pointer"
-                      : "text-slate-400 cursor-default opacity-70"
+                      : "text-slate-400 cursor-not-allowed opacity-60"
                   )}
                 >
                   <span
@@ -5072,10 +5394,12 @@ export function EventCreateWizard({
                         ? "bg-purple-600 text-white"
                         : done
                         ? "bg-purple-100 text-purple-700"
-                        : "bg-slate-200 text-slate-500"
+                        : accessible
+                        ? "bg-slate-200 text-slate-700"
+                        : "bg-slate-100 text-slate-400"
                     )}
                   >
-                    {done ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
+                    {done && !active ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
                   </span>
                   <div className="truncate">
                     <p className="leading-tight truncate">{s.label}</p>
@@ -5102,15 +5426,20 @@ export function EventCreateWizard({
           <div className="md:hidden mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-1">
               {STEPS.map(s => {
-                const done = step > s.id;
+                const accessible = isStepAccessible(s.id);
+                const done = isStepCompleted(s.id);
                 const active = step === s.id;
                 return (
-                  <button key={s.id} onClick={() => (done || active) && setStep(s.id)}
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => accessible && setStep(s.id)}
+                    disabled={!accessible}
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all",
                       active ? "bg-purple-600 text-white shadow-xs"
-                      : done ? "bg-purple-50 text-purple-700"
-                      : "bg-slate-100 text-slate-400"
+                      : accessible ? "bg-purple-50 text-purple-700 cursor-pointer"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
                     )}>
                     <span>{s.id}. {s.label}</span>
                   </button>
@@ -5136,17 +5465,24 @@ export function EventCreateWizard({
         </button>
 
         <div className="hidden sm:flex items-center gap-1">
-          {STEPS.map(s => (
-            <button key={s.id}
-              onClick={() => (step >= s.id) && setStep(s.id)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: s.id === step ? 16 : 6,
-                height: 6,
-                background: s.id < step ? "rgba(124,58,237,0.4)" : s.id === step ? "#7c3aed" : "#E2E8F0",
-              }}
-            />
-          ))}
+          {STEPS.map(s => {
+            const accessible = isStepAccessible(s.id);
+            const done = isStepCompleted(s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => accessible && setStep(s.id)}
+                disabled={!accessible}
+                className={cn("rounded-full transition-all duration-300", accessible ? "cursor-pointer" : "cursor-not-allowed opacity-50")}
+                style={{
+                  width: s.id === step ? 16 : 6,
+                  height: 6,
+                  background: s.id === step ? "#7c3aed" : done ? "rgba(124,58,237,0.4)" : accessible ? "#CBD5E1" : "#E2E8F0",
+                }}
+              />
+            );
+          })}
         </div>
 
         {step < STEPS.length ? (

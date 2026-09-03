@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   Flame, Plus, Loader2, AlertCircle, Pencil, Trash2, Users, Clock, MapPin,
   Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User, Ban,
@@ -8,10 +8,11 @@ import {
 
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
-import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
+import { eventService, type EventResponse, type PoojaScheduleDto, type UserSearchResult } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
-type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number };
+type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number; status?: "OPEN" | "BLOCKED" | "CLOSED" };
 
 type PoojaSeva = {
   id: number;
@@ -34,6 +35,7 @@ type PoojaSeva = {
   needsRegistration?: boolean;
   items?: string[];
   notes?: string;
+  status?: "ACTIVE" | "PAUSED" | "CANCELLED" | "COMPLETED" | "ARCHIVED";
 };
 
 
@@ -57,6 +59,21 @@ type BookingRegistration = {
   email?: string;
   notes?: string;
   createdAt: string;
+  poojaSlotName?: string;
+  poojaSlotDate?: string;
+  poojaSlotTime?: string;
+  poojaSevaTimeSlotsId?: number;
+  scheduleId?: number;
+  poojaId?: number | string;
+  poojaSevaId?: number | string;
+  eventId?: number | string;
+  eventName?: string;
+  // Audit fields from backend
+  registrationSource?: "SELF" | "ADMIN" | "IMPORT";
+  registeredBy?: number;
+  overrideUsed?: boolean;
+  overrideReason?: string;
+  tokenNumber?: number;
 };
 
 const DEFAULT_POOJA_TYPES = [
@@ -117,6 +134,8 @@ const emptyRegForm = {
   paymentStatus: "PAID",
   status: "CONFIRMED",
   notes: "",
+  overrideReason: "",
+  targetUserId: undefined as number | undefined,
 };
 
 export function EventsPoojaSeva() {
@@ -127,6 +146,8 @@ export function EventsPoojaSeva() {
   const [error, setError] = useState("");
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [expandedPoojaId, setExpandedPoojaId] = useState<number | null>(null);
+  const [statusMenuOpenId, setStatusMenuOpenId] = useState<number | null>(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
 
   // Pooja Seva Create / Edit modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -154,6 +175,26 @@ export function EventsPoojaSeva() {
   const [regSelectedScheduleId, setRegSelectedScheduleId] = useState<number | null>(null);
   const [regSchedulesLoading, setRegSchedulesLoading] = useState(false);
   const [regSchedules, setRegSchedules] = useState<PoojaScheduleDto[]>([]);
+
+  // Participants panel state (per registration row)
+  const [expandedParticipantRegId, setExpandedParticipantRegId] = useState<number | null>(null);
+  const [participantsByRegId, setParticipantsByRegId] = useState<Record<number, any[]>>({});
+  const [participantsLoading, setParticipantsLoading] = useState<Record<number, boolean>>({});
+
+  const loadParticipants = (regId: number) => {
+    if (participantsByRegId[regId] !== undefined) return; // already fetched
+    setParticipantsLoading(prev => ({ ...prev, [regId]: true }));
+    eventService.getPoojaRegistrationParticipants(regId)
+      .then(rows => setParticipantsByRegId(prev => ({ ...prev, [regId]: rows || [] })))
+      .catch(() => setParticipantsByRegId(prev => ({ ...prev, [regId]: [] })))
+      .finally(() => setParticipantsLoading(prev => ({ ...prev, [regId]: false })));
+  };
+
+  // Admin user-search state (for admin-create flow)
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [selectedTargetUser, setSelectedTargetUser] = useState<UserSearchResult | null>(null);
 
   // Per-pooja search and status filter state
   const [regSearch, setRegSearch] = useState<Record<number, string>>({});
@@ -190,8 +231,11 @@ export function EventsPoojaSeva() {
 
   useEffect(() => {
     eventService.getAll().then(evts => {
-      setEvents(evts);
-    }).catch(() => {});
+      const safeEvts = Array.isArray(evts) ? evts : Array.isArray((evts as any)?.content) ? (evts as any).content : [];
+      setEvents(safeEvts);
+    }).catch(() => {
+      setEvents([]);
+    });
   }, []);
 
   const loadData = () => {
@@ -203,19 +247,24 @@ export function EventsPoojaSeva() {
     setLoading(true);
     setError("");
     Promise.all([
-      eventService.getPoojaSevas(),
-      eventService.getPoojaRegistrations(),
-      eventService.getPoojaTypes(),
+      eventService.getPoojaSevas().catch(() => []),
+      eventService.getPoojaRegistrationSummaries().catch(() => eventService.getPoojaRegistrations().catch(() => [])),
+      eventService.getPoojaTypes().catch(() => []),
     ])
       .then(([sevas, regs, types]) => {
-        setPoojaSevas(sevas || []);
-        if (Array.isArray(types) && types.length > 0) {
-          setPoojaTypeObjects(types);
-          setPoojaTypes(types.map(t => t.name));
+        const safeSevas = Array.isArray(sevas) ? sevas : Array.isArray((sevas as any)?.content) ? (sevas as any).content : Array.isArray((sevas as any)?.data) ? (sevas as any).data : [];
+        setPoojaSevas(safeSevas);
+        const safeTypes = Array.isArray(types) ? types : Array.isArray((types as any)?.content) ? (types as any).content : [];
+        if (safeTypes.length > 0) {
+          setPoojaTypeObjects(safeTypes);
+          setPoojaTypes(safeTypes.map((t: any) => t.name));
         }
-        const poojaRegs = (regs || [])
+        const safeRegs = Array.isArray(regs) ? regs : Array.isArray((regs as any)?.content) ? (regs as any).content : Array.isArray((regs as any)?.data) ? (regs as any).data : [];
+        const poojaRegs = safeRegs
           .filter((r: any) => {
-            return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
+            if (!r) return false;
+            const regPoojaId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
+            return regPoojaId != null || r.poojaSevaTimeSlotsId != null;
           })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
@@ -226,15 +275,18 @@ export function EventsPoojaSeva() {
               } catch {}
             }
             if (!count) count = 1;
+            const pId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
             return {
               ...r,
+              poojaId: pId,
+              poojaSevaId: pId,
               devoteeCount: count,
               status: String(r.status || "CONFIRMED").toUpperCase(),
               paymentStatus: String(r.paymentStatus || "PAID").toUpperCase(),
             };
           });
         setRegistrations(poojaRegs);
-        if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
+        if (safeTypes.length > 0) setPoojaTypes(safeTypes.map((t: any) => t.name));
       })
       .catch(e => {
         setError(e?.message || "Failed to load pooja data from database");
@@ -258,12 +310,34 @@ export function EventsPoojaSeva() {
     };
   }, [useMock]);
 
+  const matchesPooja = (r: BookingRegistration, pooja: PoojaSeva): boolean => {
+    if (!r || !pooja) return false;
+    const poojaIdStr = String(pooja.id ?? "").trim();
+
+    // 1. Direct pooja ID matching (strictly ignore activityId string)
+    const regPoojaId = r.poojaId ?? r.poojaSevaId ?? (r as any).pooja_id ?? (r as any).pooja_seva_id;
+    if (regPoojaId != null && String(regPoojaId).trim() === poojaIdStr) return true;
+
+    // 2. Time slot ID matching (under this specific pooja)
+    if (r.poojaSevaTimeSlotsId && Array.isArray(pooja.timeSlotConfig)) {
+      if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.poojaSevaTimeSlotsId))) {
+        return true;
+      }
+    }
+    if (r.scheduleId && Array.isArray(pooja.timeSlotConfig)) {
+      if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.scheduleId))) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const getRegistrationsForPooja = (pooja: PoojaSeva) => {
+    const safeRegs = Array.isArray(registrations) ? registrations : [];
     const raw = useMock
-      ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-      : registrations.filter(r =>
-          r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
-        );
+      ? safeRegs.filter(r => r.activityId === `pooja-${pooja.id}`)
+      : safeRegs.filter(r => matchesPooja(r, pooja));
 
     const searchQ = (regSearch[pooja.id] || "").toLowerCase().trim();
     const filterSt = regFilterStatus[pooja.id] || "ALL";
@@ -271,7 +345,7 @@ export function EventsPoojaSeva() {
     return raw.filter(r => {
       const matchSearch =
         !searchQ ||
-        r.participantName.toLowerCase().includes(searchQ) ||
+        (r.participantName && r.participantName.toLowerCase().includes(searchQ)) ||
         (r.gotram && r.gotram.toLowerCase().includes(searchQ)) ||
         (r.regCode && r.regCode.toLowerCase().includes(searchQ)) ||
         (r.phone && r.phone.includes(searchQ));
@@ -286,8 +360,8 @@ export function EventsPoojaSeva() {
     });
   };
 
-  const activeEvents = events.filter(ev => {
-    const s = String(ev.status || "").toUpperCase();
+  const activeEvents = (Array.isArray(events) ? events : []).filter(ev => {
+    const s = String(ev?.status || "").toUpperCase();
     return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
   });
 
@@ -443,6 +517,28 @@ export function EventsPoojaSeva() {
     }
   };
 
+  const handleUpdateStatus = async (p: PoojaSeva, status: PoojaSeva["status"]) => {
+    setStatusMenuOpenId(null);
+    if (status === "CANCELLED" && !confirm(`Cancel "${p.name}"? All active registrations will be cancelled.`)) return;
+    if (status === p.status) return;
+    setUpdatingStatusId(p.id);
+    if (useMock) {
+      setPoojaSevas(prev => prev.map(x => x.id === p.id ? { ...x, status } : x));
+      setUpdatingStatusId(null);
+      toast.success(`Pooja status updated to ${status}`);
+      return;
+    }
+    try {
+      const updated = await eventService.updatePoojaSevaStatus(p.id, status!);
+      setPoojaSevas(prev => prev.map(x => x.id === p.id ? { ...x, status: updated.status ?? status } : x));
+      toast.success(`"${p.name}" marked as ${status?.toLowerCase()}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
   const handleDelete = async (p: PoojaSeva) => {
     if (!confirm(`Delete "${p.name}"?`)) return;
     if (useMock) {
@@ -585,7 +681,7 @@ export function EventsPoojaSeva() {
       ...emptyRegForm,
       eventDate: pooja.date,
       eventTime: pooja.startTimes?.[0] || pooja.startTime || "08:30 AM",
-      venue: pooja.mandap || "Main Temple Mandap",
+      venue: pooja.mandap || "",
       bookingFee: pooja.isFree ? 0 : Number(pooja.fee || 0),
       paymentStatus: pooja.isFree ? "FREE" : "PAID",
       status: "CONFIRMED",
@@ -595,10 +691,10 @@ export function EventsPoojaSeva() {
     fetchRegSchedules(pooja);
   };
 
-  const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
+  const handleOpenEditReg = async (pooja: PoojaSeva, reg: BookingRegistration) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(reg);
-    setRegSelectedScheduleId((reg as any).scheduleId ?? null);
+    setRegSelectedScheduleId(reg.scheduleId ?? null);
     setRegForm({
       participantName: reg.participantName || "",
       attendingDevotees: reg.attendingDevotees || "",
@@ -606,17 +702,65 @@ export function EventsPoojaSeva() {
       devoteeCount: reg.devoteeCount || 1,
       phone: reg.phone || "",
       email: reg.email || "",
-      eventDate: reg.eventDate || pooja.date,
-      eventTime: reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
-      venue: reg.venue || pooja.mandap || "Main Temple Mandap",
+      eventDate: reg.poojaSlotDate || reg.eventDate || pooja.date,
+      eventTime: reg.poojaSlotTime || reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
+      venue: reg.venue || pooja.mandap || "",
       bookingFee: Number(reg.bookingFee || 0),
       paymentStatus: reg.paymentStatus || "PAID",
       status: reg.status || "CONFIRMED",
       notes: reg.notes || "",
+      overrideReason: (reg as any).overrideReason || "",
+      targetUserId: undefined,
     });
     setRegFormError("");
     setShowRegModal(true);
     fetchRegSchedules(pooja);
+
+    // Fetch full registration details specifically for editing from database on-demand
+    if (!useMock && reg.id) {
+      try {
+        const fullReg = await eventService.getPoojaRegistrationById(reg.id);
+        if (fullReg) {
+          setEditingReg((prev) => (prev ? { ...prev, ...fullReg } : fullReg));
+          if (fullReg.scheduleId !== undefined) {
+            setRegSelectedScheduleId(fullReg.scheduleId ?? null);
+          }
+          setRegForm((prev) => ({
+            ...prev,
+            participantName: fullReg.participantName || prev.participantName,
+            attendingDevotees: fullReg.attendingDevotees || prev.attendingDevotees,
+            gotram: fullReg.gotram || prev.gotram,
+            devoteeCount: fullReg.devoteeCount || prev.devoteeCount,
+            phone: fullReg.phone || prev.phone,
+            email: fullReg.email || prev.email,
+            eventDate: fullReg.poojaSlotDate || fullReg.eventDate || prev.eventDate,
+            eventTime: fullReg.poojaSlotTime || fullReg.eventTime || prev.eventTime,
+            venue: fullReg.venue || prev.venue,
+            bookingFee: fullReg.bookingFee !== undefined ? Number(fullReg.bookingFee) : prev.bookingFee,
+            paymentStatus: fullReg.paymentStatus || prev.paymentStatus,
+            status: fullReg.status || prev.status,
+            notes: fullReg.notes || prev.notes,
+            overrideReason: fullReg.overrideReason || prev.overrideReason,
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to fetch full registration details for edit:", err);
+      }
+    }
+  };
+
+  const handleUserSearch = async (q: string) => {
+    setUserSearchQuery(q);
+    if (!q.trim() || q.trim().length < 2) { setUserSearchResults([]); return; }
+    setUserSearchLoading(true);
+    try {
+      const results = await eventService.searchCommunityUsers(q.trim());
+      setUserSearchResults(results || []);
+    } catch {
+      setUserSearchResults([]);
+    } finally {
+      setUserSearchLoading(false);
+    }
   };
 
   const handleSaveRegistration = async (e: React.FormEvent) => {
@@ -626,25 +770,39 @@ export function EventsPoojaSeva() {
       setRegFormError("Devotee / Participant Name is required");
       return;
     }
+    if (!editingReg && !regForm.targetUserId && !selectedTargetUser) {
+      setRegFormError("Please select a member to register on their behalf");
+      return;
+    }
 
+    const slotDate = regForm.eventDate || selectedPoojaForReg.date;
+    const slotTime = regForm.eventTime || selectedPoojaForReg.startTime || "";
     const payload = {
+      // Legacy / local-state fields (used for mock and immediate UI update)
       activityId: `pooja-${selectedPoojaForReg.id}`,
       activityTitle: selectedPoojaForReg.name,
       category: "Pooja",
+      eventDate: slotDate,
+      eventTime: slotTime,
+      // Correct backend entity field names (what actually gets persisted)
+      poojaSlotName: selectedPoojaForReg.name,
+      poojaSlotDate: slotDate,
+      poojaSlotTime: slotTime,
       participantName: regForm.participantName.trim(),
       attendingDevotees: regForm.attendingDevotees.trim() || undefined,
       gotram: regForm.gotram.trim() || undefined,
       devoteeCount: Math.max(1, Number(regForm.devoteeCount) || 1),
       phone: regForm.phone.trim() || undefined,
       email: regForm.email.trim() || undefined,
-      eventDate: regForm.eventDate || selectedPoojaForReg.date,
-      eventTime: regForm.eventTime || selectedPoojaForReg.startTime || "08:30 AM",
-      venue: regForm.venue || selectedPoojaForReg.mandap || "Main Temple Mandap",
+      venue: regForm.venue || selectedPoojaForReg.mandap || "",
       bookingFee: Number(regForm.bookingFee) || 0,
       paymentStatus: regForm.paymentStatus,
       status: regForm.status,
       notes: regForm.notes.trim() || undefined,
-      mainEventId: undefined,
+      targetUserId: regForm.targetUserId ?? selectedTargetUser?.id,
+      overrideReason: regForm.overrideReason?.trim() || undefined,
+      // Send seva ID so backend scopes duplicate check to this specific seva type
+      poojaSevaId: selectedPoojaForReg.id,
       ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
     };
 
@@ -658,7 +816,7 @@ export function EventsPoojaSeva() {
             prev.map(r => (r.id === editingReg.id ? { ...r, ...payload } : r))
           );
         } else {
-          const updated = await eventService.updateRegistration(editingReg.id, payload);
+          const updated = await eventService.updatePoojaRegistration(editingReg.id, payload as any);
           setRegistrations(prev =>
             prev.map(r => (r.id === editingReg.id ? { ...r, ...updated, ...payload } : r))
           );
@@ -680,6 +838,14 @@ export function EventsPoojaSeva() {
               id: created.id || Date.now(),
               regCode: created.regCode || `POOJA-${created.id || 'REG'}`,
               ...payload,
+              poojaId: created.poojaId ?? created.poojaSevaId ?? selectedPoojaForReg.id,
+              poojaSevaId: created.poojaSevaId ?? created.poojaId ?? selectedPoojaForReg.id,
+              // Ensure backend-returned fields override the payload so matchesPooja works post-create
+              poojaSlotName: created.poojaSlotName || payload.poojaSlotName,
+              poojaSlotDate: created.poojaSlotDate || payload.poojaSlotDate,
+              poojaSlotTime: created.poojaSlotTime || payload.poojaSlotTime,
+              poojaSevaTimeSlotsId: created.poojaSevaTimeSlotsId,
+              scheduleId: created.scheduleId ?? (regSelectedScheduleId ?? undefined),
               createdAt: created.createdAt || new Date().toISOString(),
             },
             ...prev,
@@ -693,6 +859,9 @@ export function EventsPoojaSeva() {
       setRegForm(emptyRegForm);
       setRegSelectedScheduleId(null);
       setRegSchedules([]);
+      setSelectedTargetUser(null);
+      setUserSearchQuery("");
+      setUserSearchResults([]);
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
     } catch (err: any) {
       setRegFormError(err?.message || "Failed to save registration");
@@ -815,6 +984,26 @@ export function EventsPoojaSeva() {
     }));
   };
 
+  const updateTimeSlotStatus = (slotDate: string | null, startTime: string, status: "OPEN" | "BLOCKED" | "CLOSED") => {
+    setPoojaForm(f => ({
+      ...f,
+      timeSlotConfig: f.timeSlotConfig.map(e =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, status } : e
+      ),
+    }));
+  };
+
+  const handlePersistSlotStatus = async (slot: TimeSlotEntry, status: "OPEN" | "BLOCKED" | "CLOSED") => {
+    updateTimeSlotStatus(slot.slotDate, slot.startTime, status);
+    if (!slot.id || useMock) return;
+    try {
+      await eventService.updatePoojaTimeSlotStatus(slot.id, status);
+      toast.success(`Slot ${slot.startTime} marked ${status}`);
+    } catch {
+      toast.error("Failed to update slot status — reload to retry");
+    }
+  };
+
   // Sync timeSlotConfig when times, dates, or multiDay toggle changes
   const startTimesKey = poojaForm.startTimes.filter(Boolean).join(",");
   useEffect(() => {
@@ -849,11 +1038,15 @@ export function EventsPoojaSeva() {
     }
   }, [poojaForm.isMultiDay, poojaForm.date, poojaForm.endDate, startTimesKey]);
 
-  const activeRegistrations = registrations.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
+  const activeRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
   const totalRegisteredDevotees = activeRegistrations.reduce((a, r) => a + (r.devoteeCount || 1), 0);
 
   return (
     <div className="space-y-3 sm:space-y-6">
+      {/* Transparent backdrop to close status dropdown on outside click */}
+      {statusMenuOpenId !== null && (
+        <div className="fixed inset-0 z-30" onClick={() => setStatusMenuOpenId(null)} />
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
         <div>
@@ -884,7 +1077,7 @@ export function EventsPoojaSeva() {
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
-          { label: "Total Poojas", value: poojaSevas.length, color: "#f59e0b" },
+          { label: "Total Poojas", value: (Array.isArray(poojaSevas) ? poojaSevas : []).length, color: "#f59e0b" },
           { label: "Active Registrations", value: activeRegistrations.length, color: "#6366f1" },
           { label: "Total Devotees", value: totalRegisteredDevotees, color: "#10b981" },
           { label: "Paid Bookings", value: activeRegistrations.filter(r => r.paymentStatus === "PAID").length, color: "#0891b2" },
@@ -898,13 +1091,12 @@ export function EventsPoojaSeva() {
 
       {/* Pooja List with expandable registrations */}
       <div className="space-y-3">
-        {poojaSevas.map(pooja => {
+        {(Array.isArray(poojaSevas) ? poojaSevas : []).map(pooja => {
           const regs = getRegistrationsForPooja(pooja);
+          const safeRegs = Array.isArray(registrations) ? registrations : [];
           const rawPoojaRegs = useMock
-            ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-            : registrations.filter(r =>
-                r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
-              );
+            ? safeRegs.filter(r => r.activityId === `pooja-${pooja.id}`)
+            : safeRegs.filter(r => matchesPooja(r, pooja));
           const isExpanded = expandedPoojaId === pooja.id;
           const activeRegsForPooja = rawPoojaRegs.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
           const totalDevotees = activeRegsForPooja.reduce((a, r) => a + (r.devoteeCount || 1), 0);
@@ -932,6 +1124,24 @@ export function EventsPoojaSeva() {
                               <Ticket className="w-2.5 h-2.5" /> Pass Required
                             </span>
                           )}
+                          {/* Status badge */}
+                          {(() => {
+                            const s = pooja.status ?? "ACTIVE";
+                            const cfg: Record<string, { cls: string; dot: string }> = {
+                              ACTIVE:    { cls: "bg-green-50 text-green-700 border-green-200",   dot: "bg-green-500" },
+                              PAUSED:    { cls: "bg-amber-50 text-amber-700 border-amber-200",   dot: "bg-amber-500" },
+                              CANCELLED: { cls: "bg-rose-50 text-rose-700 border-rose-200",      dot: "bg-rose-500" },
+                              COMPLETED: { cls: "bg-slate-100 text-slate-600 border-slate-200",  dot: "bg-slate-400" },
+                              ARCHIVED:  { cls: "bg-slate-100 text-slate-500 border-slate-200",  dot: "bg-slate-300" },
+                            };
+                            const c = cfg[s] ?? cfg.ACTIVE;
+                            return (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${c.cls}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                                {s.charAt(0) + s.slice(1).toLowerCase()}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -965,6 +1175,57 @@ export function EventsPoojaSeva() {
                           className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" title="Edit Pooja">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
+                        {/* Status action dropdown */}
+                        <div className="relative">
+                          <button
+                            onClick={() => setStatusMenuOpenId(prev => prev === pooja.id ? null : pooja.id)}
+                            disabled={updatingStatusId === pooja.id}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 border border-slate-200 text-[10px] font-bold transition-colors cursor-pointer disabled:opacity-50"
+                            title="Change pooja status"
+                          >
+                            {updatingStatusId === pooja.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <><span>{(pooja.status ?? "ACTIVE").charAt(0) + (pooja.status ?? "ACTIVE").slice(1).toLowerCase()}</span><ChevronDown className="w-3 h-3" /></>
+                            }
+                          </button>
+                          {statusMenuOpenId === pooja.id && (
+                            <div className="absolute right-0 top-full mt-1 z-40 bg-white rounded-xl shadow-xl border border-slate-100 min-w-[150px] overflow-hidden">
+                              {(pooja.status ?? "ACTIVE") !== "ACTIVE" && (pooja.status !== "CANCELLED") && (pooja.status !== "ARCHIVED") && (
+                                <button onClick={() => handleUpdateStatus(pooja, "ACTIVE")}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-50 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <span className="w-2 h-2 rounded-full bg-green-500" /> Resume (Active)
+                                </button>
+                              )}
+                              {(pooja.status ?? "ACTIVE") === "ACTIVE" && (
+                                <button onClick={() => handleUpdateStatus(pooja, "PAUSED")}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500" /> Pause Registrations
+                                </button>
+                              )}
+                              {(pooja.status ?? "ACTIVE") !== "COMPLETED" && (pooja.status !== "CANCELLED") && (pooja.status !== "ARCHIVED") && (
+                                <button onClick={() => handleUpdateStatus(pooja, "COMPLETED")}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <span className="w-2 h-2 rounded-full bg-slate-400" /> Mark Completed
+                                </button>
+                              )}
+                              {pooja.status !== "CANCELLED" && pooja.status !== "ARCHIVED" && (
+                                <>
+                                  <div className="border-t border-slate-100 mx-2" />
+                                  <button onClick={() => handleUpdateStatus(pooja, "CANCELLED")}
+                                    className="w-full text-left px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer transition-colors">
+                                    <span className="w-2 h-2 rounded-full bg-rose-500" /> Cancel Pooja
+                                  </button>
+                                </>
+                              )}
+                              {(pooja.status === "COMPLETED" || pooja.status === "CANCELLED") && (
+                                <button onClick={() => handleUpdateStatus(pooja, "ARCHIVED")}
+                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors">
+                                  <span className="w-2 h-2 rounded-full bg-slate-300" /> Archive
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <button onClick={() => handleDelete(pooja)}
                           className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer" title="Delete Pooja">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -972,15 +1233,31 @@ export function EventsPoojaSeva() {
                       </div>
                     </div>
 
+                    {/* Status banner for non-active states */}
+                    {pooja.status && pooja.status !== "ACTIVE" && (
+                      <div className={`mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                        pooja.status === "PAUSED"    ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                        pooja.status === "CANCELLED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
+                        pooja.status === "COMPLETED" ? "bg-slate-100 text-slate-600 border border-slate-200" :
+                        "bg-slate-100 text-slate-500 border border-slate-200"
+                      }`}>
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        {pooja.status === "PAUSED"    && "Registrations paused — no new bookings accepted."}
+                        {pooja.status === "CANCELLED" && "This pooja has been cancelled. All registrations were cancelled."}
+                        {pooja.status === "COMPLETED" && "This pooja is completed — no new registrations."}
+                        {pooja.status === "ARCHIVED"  && "This pooja is archived."}
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-slate-500">
                       <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                        {pooja.multiDay && pooja.endDate ? `${pooja.date} to ${pooja.endDate}` : pooja.date}
+                        {pooja.multiDay && pooja.endDate ? `${formatIndianDate(pooja.date, "short")} to ${formatIndianDate(pooja.endDate, "short")}` : formatIndianDate(pooja.date, "short")}
                       </span>
                       {pooja.startTime && (
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />
                           {Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
-                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
-                            : pooja.startTime}
+                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => formatIndianTime(c.startTime)).filter(Boolean))].join(", ")
+                            : formatIndianTime(pooja.startTime)}
                           {pooja.duration ? ` (${pooja.duration}m)` : ""}
                         </span>
                       )}
@@ -1197,9 +1474,9 @@ export function EventsPoojaSeva() {
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                    <span className="text-xs font-bold text-slate-800">{sch.scheduleDate}</span>
+                                    <span className="text-xs font-bold text-slate-800">{formatIndianDate(sch.scheduleDate, "short")}</span>
                                     <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
-                                    <span className="text-xs text-slate-600">{sch.startTime} – {sch.endTime}</span>
+                                    <span className="text-xs text-slate-600">{formatIndianTime(sch.startTime)} – {formatIndianTime(sch.endTime)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-slate-500">
                                     <span className="font-semibold text-indigo-600">{sch.availableFamilies}/{sch.familyCapacity} families</span>
@@ -1382,8 +1659,21 @@ export function EventsPoojaSeva() {
                             {regs.map(r => {
                               const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
                               return (
-                                <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
-                                  <td className="px-3 py-2.5 font-mono font-bold text-amber-700">{r.regCode}</td>
+                                <Fragment key={r.id}>
+                                <tr className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
+                                  <td className="px-3 py-2.5">
+                                    <div className="font-mono font-bold text-amber-700">{r.regCode}</div>
+                                    {(r as any).registrationSource === "ADMIN" && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-violet-50 text-violet-700 border border-violet-200 mt-0.5">
+                                        Admin
+                                      </span>
+                                    )}
+                                    {(r as any).overrideUsed && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-orange-50 text-orange-700 border border-orange-200 mt-0.5 ml-1">
+                                        Override
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="px-3 py-2.5">
                                     <div className="font-semibold text-slate-800">{r.participantName}</div>
                                     <div className="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -1398,8 +1688,8 @@ export function EventsPoojaSeva() {
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5 text-slate-600 hidden md:table-cell whitespace-nowrap">
-                                    <div>{r.eventDate || pooja.date}</div>
-                                    <div className="text-[10px] text-slate-400">{r.eventTime || pooja.startTime}</div>
+                                    <div>{r.poojaSlotDate || r.eventDate || pooja.date}</div>
+                                    <div className="text-[10px] text-slate-400">{r.poojaSlotTime || r.eventTime || pooja.startTime}</div>
                                   </td>
                                   <td className="px-3 py-2.5 hidden lg:table-cell">
                                     <div className="font-semibold text-slate-700">
@@ -1414,15 +1704,27 @@ export function EventsPoojaSeva() {
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                      r.status === "CONFIRMED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                                      r.status === "CANCELLED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
-                                      "bg-amber-50 text-amber-700 border border-amber-200"
-                                    }`}>
-                                      {r.status === "CONFIRMED" && <CheckCircle2 className="w-3 h-3" />}
-                                      {r.status === "CANCELLED" && <Ban className="w-3 h-3" />}
-                                      {r.status}
-                                    </span>
+                                    {(() => {
+                                      const s = r.status || "CONFIRMED";
+                                      const cfg: Record<string, { cls: string; icon: React.ReactNode }> = {
+                                        CONFIRMED:   { cls: "bg-emerald-50 text-emerald-700 border-emerald-200",  icon: <CheckCircle2 className="w-3 h-3" /> },
+                                        CHECKED_IN:  { cls: "bg-teal-50 text-teal-700 border-teal-200",          icon: <CheckCircle2 className="w-3 h-3" /> },
+                                        IN_PROGRESS: { cls: "bg-blue-50 text-blue-700 border-blue-200",          icon: <RefreshCw className="w-3 h-3" /> },
+                                        COMPLETED:   { cls: "bg-indigo-50 text-indigo-700 border-indigo-200",    icon: <Sparkles className="w-3 h-3" /> },
+                                        RESCHEDULED: { cls: "bg-violet-50 text-violet-700 border-violet-200",    icon: <CalendarDays className="w-3 h-3" /> },
+                                        PENDING:     { cls: "bg-amber-50 text-amber-700 border-amber-200",       icon: <Clock className="w-3 h-3" /> },
+                                        NO_SHOW:     { cls: "bg-orange-50 text-orange-700 border-orange-200",    icon: <ShieldOff className="w-3 h-3" /> },
+                                        EXPIRED:     { cls: "bg-slate-100 text-slate-500 border-slate-200",      icon: <Clock className="w-3 h-3" /> },
+                                        CANCELLED:   { cls: "bg-rose-50 text-rose-700 border-rose-200",          icon: <Ban className="w-3 h-3" /> },
+                                        REJECTED:    { cls: "bg-rose-50 text-rose-700 border-rose-200",          icon: <Ban className="w-3 h-3" /> },
+                                      };
+                                      const { cls, icon } = cfg[s] ?? { cls: "bg-amber-50 text-amber-700 border-amber-200", icon: null };
+                                      return (
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
+                                          {icon}{s}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                   <td className="px-3 py-2.5 text-right">
                                     <div className="flex items-center justify-end gap-1">
@@ -1457,9 +1759,57 @@ export function EventsPoojaSeva() {
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
+
+                                      {/* Toggle participants */}
+                                      <button
+                                        type="button"
+                                        title={expandedParticipantRegId === r.id ? "Collapse participants" : "View participants"}
+                                        onClick={() => {
+                                          if (expandedParticipantRegId === r.id) {
+                                            setExpandedParticipantRegId(null);
+                                          } else {
+                                            setExpandedParticipantRegId(r.id);
+                                            loadParticipants(r.id);
+                                          }
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        <Users className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
                                   </td>
                                 </tr>
+
+                                {/* ── Participants sub-row ── */}
+                                {expandedParticipantRegId === r.id && (
+                                  <tr key={`${r.id}-participants`}>
+                                    <td colSpan={7} className="px-4 py-2 bg-teal-50/60 border-b border-teal-100">
+                                      {participantsLoading[r.id] ? (
+                                        <div className="flex items-center gap-2 text-[11px] text-teal-700 py-1">
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading participants…
+                                        </div>
+                                      ) : (participantsByRegId[r.id] || []).length === 0 ? (
+                                        <p className="text-[11px] text-slate-400 py-1">
+                                          No individual participant rows yet — devotees stored in attending list above.
+                                        </p>
+                                      ) : (
+                                        <div className="flex flex-wrap gap-2 py-1">
+                                          {(participantsByRegId[r.id] || []).map((p: any, idx: number) => (
+                                            <div key={p.id ?? idx} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10.5px] font-medium ${p.checkedIn ? "bg-teal-100 border-teal-300 text-teal-800" : "bg-white border-slate-200 text-slate-700"}`}>
+                                              <span className="font-bold">{p.name}</span>
+                                              {p.gotram && <span className="text-slate-400">· {p.gotram}</span>}
+                                              {p.relation && <span className="text-slate-400">· {p.relation}</span>}
+                                              {p.checkedIn
+                                                ? <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                                                : <span className="text-slate-300">○</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
+                                </Fragment>
                               );
                             })}
                           </tbody>
@@ -1514,6 +1864,68 @@ export function EventsPoojaSeva() {
                 </div>
               )}
 
+              {/* ── Member Search (admin picks the target user) ── */}
+              {!editingReg && (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Register On Behalf Of (Member) *
+                  </label>
+                  {selectedTargetUser ? (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-xl">
+                      <User className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span className="flex-1 text-sm font-medium text-slate-700">
+                        {selectedTargetUser.fullName || selectedTargetUser.name}
+                        {selectedTargetUser.flatNo && <span className="text-slate-400 ml-1">· {selectedTargetUser.flatNo}</span>}
+                      </span>
+                      <button type="button" onClick={() => { setSelectedTargetUser(null); setUserSearchQuery(""); setUserSearchResults([]); }} className="p-0.5 hover:text-rose-600 text-slate-400 cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl">
+                        <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Search by name (min 2 chars)…"
+                          value={userSearchQuery}
+                          onChange={e => handleUserSearch(e.target.value)}
+                          className="flex-1 text-sm outline-none bg-transparent"
+                        />
+                        {userSearchLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" />}
+                      </div>
+                      {userSearchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-40 overflow-y-auto">
+                          {userSearchResults.map(u => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTargetUser(u);
+                                setUserSearchQuery("");
+                                setUserSearchResults([]);
+                                setRegForm(prev => ({
+                                  ...prev,
+                                  participantName: u.fullName || u.name || "",
+                                  phone: u.phone || (u as any).mobile || prev.phone,
+                                  email: u.email || prev.email,
+                                  gotram: (u as any).gotram || "",
+                                }));
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-amber-50 text-sm cursor-pointer"
+                            >
+                              <span className="font-medium">{u.fullName || u.name}</span>
+                              {u.flatNo && <span className="text-slate-400 ml-1">· {u.flatNo}</span>}
+                              {u.email && <span className="text-slate-400 ml-1 hidden sm:inline">· {u.email}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Devotee / Participant Full Name *
@@ -1557,18 +1969,7 @@ export function EventsPoojaSeva() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Attending Family Members / Devotees
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Priya Sharma, Arjun Sharma"
-                  value={regForm.attendingDevotees}
-                  onChange={e => setRegForm({ ...regForm, attendingDevotees: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                />
-              </div>
+              {/* Attending Family Members field hidden per UI requirement */}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1798,6 +2199,21 @@ export function EventsPoojaSeva() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
                 />
               </div>
+
+              {!editingReg && (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Override Reason
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Slot full but family requested special consideration"
+                    value={regForm.overrideReason}
+                    onChange={e => setRegForm({ ...regForm, overrideReason: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
@@ -2129,7 +2545,7 @@ export function EventsPoojaSeva() {
                   <span className="text-xs font-semibold text-slate-600">Mandap / Venue</span>
                   <input type="text" value={poojaForm.mandap} onChange={e => set("mandap", e.target.value)}
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    placeholder="Main Temple Mandap" />
+                    placeholder="Enter Mandap / Venue" />
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Pandit / Priest</span>
@@ -2200,14 +2616,14 @@ export function EventsPoojaSeva() {
                     </div>
                   </label>
 
-                  {poojaForm.startTimes.filter(Boolean).length > 1 && (
+                  {(Array.isArray(poojaForm.startTimes) ? poojaForm.startTimes : []).filter(Boolean).length > 1 && (
                     <div className="pt-2 border-t border-slate-200/70 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
                         <span>Slots for each Time Slot:</span>
                         <span className="text-slate-400 font-normal">Defaults to {poojaForm.slots || 20}</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {poojaForm.timeSlotConfig.map(e => (
+                        {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).map(e => (
                           <div key={e.startTime} className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-2 shadow-2xs">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="font-bold text-slate-700">Slot: {e.startTime}</span>
@@ -2246,6 +2662,22 @@ export function EventsPoojaSeva() {
                               />
                               <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
                             </div>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <span className="text-[10px] font-semibold text-slate-500 shrink-0">Status:</span>
+                              <select
+                                value={e.status || "OPEN"}
+                                onChange={ev => handlePersistSlotStatus(e, ev.target.value as "OPEN" | "BLOCKED" | "CLOSED")}
+                                className={`flex-1 border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-300 cursor-pointer ${
+                                  (e.status || "OPEN") === "OPEN" ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                  (e.status) === "BLOCKED" ? "border-orange-300 text-orange-700 bg-orange-50" :
+                                  "border-rose-300 text-rose-700 bg-rose-50"
+                                }`}
+                              >
+                                <option value="OPEN">OPEN</option>
+                                <option value="BLOCKED">BLOCKED</option>
+                                <option value="CLOSED">CLOSED</option>
+                              </select>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2260,21 +2692,21 @@ export function EventsPoojaSeva() {
                       Multi-Day Slots (for each Day &amp; Time Slot)
                     </span>
                     <span className="text-[11px] font-extrabold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 shadow-2xs">
-                      Total Capacity: {poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)} Slots
+                      Total Capacity: {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)} Slots
                     </span>
                   </div>
 
-                  {poojaForm.timeSlotConfig.length === 0 ? (
+                  {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).length === 0 ? (
                     <p className="text-xs text-slate-400 italic">
                       Please enter Start Date, End Date, and at least one Start Time above to configure slots for each multi-day session.
                     </p>
                   ) : (
                     <div className="space-y-2.5">
-                      {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
+                      {Array.from(new Set((Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).map(e => e.slotDate as string))).map(date => {
                         const [y, m, d] = (date || "").split("-").map(Number);
                         const dateObj = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
                         const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-                        const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
+                        const dayEntries = (Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).filter(e => e.slotDate === date);
                         const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
                         return (
                           <div key={date} className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs">
@@ -2324,6 +2756,22 @@ export function EventsPoojaSeva() {
                                       placeholder="20" min="1"
                                     />
                                     <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <span className="text-[10px] font-semibold text-slate-500 shrink-0">Status:</span>
+                                    <select
+                                      value={e.status || "OPEN"}
+                                      onChange={ev => handlePersistSlotStatus(e, ev.target.value as "OPEN" | "BLOCKED" | "CLOSED")}
+                                      className={`flex-1 border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none cursor-pointer ${
+                                        (e.status || "OPEN") === "OPEN" ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                        (e.status) === "BLOCKED" ? "border-orange-300 text-orange-700 bg-orange-50" :
+                                        "border-rose-300 text-rose-700 bg-rose-50"
+                                      }`}
+                                    >
+                                      <option value="OPEN">OPEN</option>
+                                      <option value="BLOCKED">BLOCKED</option>
+                                      <option value="CLOSED">CLOSED</option>
+                                    </select>
                                   </div>
                                 </div>
                               ))}

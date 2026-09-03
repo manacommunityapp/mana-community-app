@@ -67,12 +67,90 @@ export function generateDaysForEvent(event?: EventResponse | null, existingDayLa
   return Array.from(daySet);
 }
 
+export function findMatchingDay(
+  itemDate?: string | null,
+  dayLabel?: string | null,
+  computedDays: string[] = []
+): string {
+  if (computedDays.length === 0) return "Day 1";
+  if (dayLabel) {
+    const directMatch = computedDays.find(
+      (d) =>
+        d.toLowerCase().includes(dayLabel.toLowerCase()) ||
+        dayLabel.toLowerCase().includes(d.toLowerCase())
+    );
+    if (directMatch) return directMatch;
+  }
+  if (itemDate) {
+    const raw = String(itemDate).slice(0, 10);
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) {
+      const monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
+      const formatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+      const match = computedDays.find((cd) =>
+        cd.toLowerCase().includes(formatted.toLowerCase())
+      );
+      if (match) return match;
+    }
+  }
+  return computedDays[0];
+}
+
+export function formatDisplayTime(t?: string | null): string {
+  if (!t) return "10:00 AM";
+  const clean = t.trim();
+  if (/am|pm/i.test(clean)) return clean;
+  const parts = clean.split(":");
+  if (parts.length >= 2) {
+    let hours = parseInt(parts[0], 10);
+    const mins = parts[1].padStart(2, "0");
+    if (isNaN(hours)) return clean;
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    return `${hours}:${mins} ${ampm}`;
+  }
+  return clean;
+}
+
+export function getDatesInRange(startDateStr: string, endDateStr: string): string[] {
+  const dates: string[] = [];
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    return [startDateStr];
+  }
+  const curr = new Date(start);
+  while (curr <= end && dates.length < 30) {
+    dates.push(curr.toISOString().slice(0, 10));
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+}
+
+export function parseTimeString(t?: string): number {
+  if (!t) return 99999;
+  const match = t.match(/(\d+):?(\d+)?\s*(AM|PM)?/i);
+  if (!match) return 99999;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const modifier = (match[3] || "").toUpperCase();
+  if (modifier === "PM" && hours < 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
 type ScheduleItem = {
   id?: string;
   time: string; duration: string; title: string; type: string;
   venue: string; performer?: string; judge?: string; icon: any; color: string;
   capacity?: number | null; registeredCount?: number; spotsLeft?: number;
   requiresRegistration?: boolean; slotStatus?: string;
+  sourceCategory?: "Program" | "Pooja" | "Food" | "Cultural" | "Competition";
+  originalItem?: any;
 };
 
 const schedule: Record<string, ScheduleItem[]> = {
@@ -566,26 +644,211 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
   const selectedEventObj = events.find(e => e.id === selectedEventId);
   const currentEventTitle = selectedEventObj?.title || "Community Festival";
 
-  // Load programs and dynamically compute days for the selected main event
+  // Load all created event activities (Programs, Poojas, Meals, Cultural, Competitions)
   useEffect(() => {
     if (useMock || !selectedEventId) return;
     setLoading(true);
     setError("");
-    eventProgramService.getByEvent(selectedEventId)
-      .then(data => {
-        const byDay: Record<string, ScheduleItem[]> = {};
-        const existingDayLabels: string[] = [];
 
-        for (const p of data) {
-          const day = p.dayLabel ?? "Day 1";
-          existingDayLabels.push(day);
-          if (!byDay[day]) byDay[day] = [];
-          byDay[day].push(...mapLivePrograms([p]));
-        }
+    Promise.allSettled([
+      eventProgramService.getByEvent(selectedEventId),
+      eventService.getPoojaSevas(selectedEventId),
+      eventService.getLunchDinners(selectedEventId),
+      eventService.getCulturalEvents(selectedEventId),
+      eventService.getCompetitions(selectedEventId),
+    ])
+      .then(([progRes, poojaRes, mealRes, cultRes, compRes]) => {
+        const progs: EventProgramResponse[] = progRes.status === "fulfilled" && Array.isArray(progRes.value) ? progRes.value : [];
+        const poojas: any[] = poojaRes.status === "fulfilled" && Array.isArray(poojaRes.value) ? poojaRes.value : [];
+        const meals: any[] = mealRes.status === "fulfilled" && Array.isArray(mealRes.value) ? mealRes.value : [];
+        const cults: any[] = cultRes.status === "fulfilled" && Array.isArray(cultRes.value) ? cultRes.value : [];
+        const comps: any[] = compRes.status === "fulfilled" && Array.isArray(compRes.value) ? compRes.value : [];
+
+        const existingDayLabels: string[] = [];
+        progs.forEach(p => { if (p.dayLabel) existingDayLabels.push(p.dayLabel); });
 
         const computedDays = generateDaysForEvent(selectedEventObj, existingDayLabels);
+        const byDay: Record<string, ScheduleItem[]> = {};
         for (const d of computedDays) {
-          if (!byDay[d]) byDay[d] = [];
+          byDay[d] = [];
+        }
+
+        // 1. Map Program Items
+        for (const p of progs) {
+          const targetDay = findMatchingDay(p.dayDate, p.dayLabel, computedDays);
+          if (!byDay[targetDay]) byDay[targetDay] = [];
+          byDay[targetDay].push(...mapLivePrograms([p]));
+        }
+
+        // 2. Map Pooja / Aarti Rituals (including multiple time slots on the same day and multi-day ranges)
+        for (const pooja of poojas) {
+          const poojaStatus = String(pooja.status || "ACTIVE").toUpperCase();
+          if (poojaStatus !== "ACTIVE" || pooja.isPaused) continue;
+
+          const slotConfigs = Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
+            ? pooja.timeSlotConfig
+            : Array.isArray(pooja.timeSlots) && pooja.timeSlots.length > 0
+            ? pooja.timeSlots
+            : Array.isArray(pooja.schedules) && pooja.schedules.length > 0
+            ? pooja.schedules
+            : null;
+
+          if (slotConfigs && slotConfigs.length > 0) {
+            for (const slot of slotConfigs) {
+              const slotDate = slot.slotDate || slot.date || slot.scheduleDate || pooja.eventDate || pooja.date;
+              const slotStartTime = formatDisplayTime(slot.startTime || pooja.startTime || "08:00 AM");
+              const slotEndTime = slot.endTime ? formatDisplayTime(slot.endTime) : "";
+              const targetDay = findMatchingDay(slotDate, pooja.dayLabel, computedDays);
+              if (!byDay[targetDay]) byDay[targetDay] = [];
+
+              byDay[targetDay].push({
+                id: `pooja_${pooja.id || pooja.poojaId}_${slot.id || slotStartTime}`,
+                time: slotStartTime,
+                duration: pooja.duration ? `${pooja.duration}m` : (slotEndTime ? `${slotStartTime} – ${slotEndTime}` : "45m"),
+                title: pooja.title || pooja.name || pooja.poojaName || "Pooja & Aarti",
+                type: "Ritual",
+                venue: pooja.venue || pooja.location || pooja.mandap || "Temple Hall",
+                performer: pooja.priest || pooja.pandit || pooja.performer,
+                icon: Star,
+                color: "#7c3aed",
+                capacity: slot.capacity || pooja.capacity || pooja.maxDevotees || pooja.slots,
+                registeredCount: slot.registeredCount || pooja.registeredCount || pooja.devoteeCount,
+                requiresRegistration: true,
+                sourceCategory: "Pooja",
+                originalItem: { ...pooja, selectedSlot: slot },
+              });
+            }
+          } else {
+            const startTimes: string[] = Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0
+              ? pooja.startTimes
+              : [pooja.startTime || pooja.time || pooja.preferredTime || "08:00 AM"];
+
+            const datesToMap = pooja.multiDay && pooja.date && pooja.endDate
+              ? getDatesInRange(pooja.date, pooja.endDate)
+              : [pooja.eventDate || pooja.date];
+
+            for (const d of datesToMap) {
+              const targetDay = findMatchingDay(d, pooja.dayLabel, computedDays);
+              if (!byDay[targetDay]) byDay[targetDay] = [];
+
+              for (const st of startTimes) {
+                const formattedTime = formatDisplayTime(st);
+                byDay[targetDay].push({
+                  id: `pooja_${pooja.id || pooja.poojaId}_${d || ""}_${formattedTime}`,
+                  time: formattedTime,
+                  duration: pooja.duration ? `${pooja.duration}m` : "45m",
+                  title: pooja.title || pooja.name || pooja.poojaName || "Pooja & Aarti",
+                  type: "Ritual",
+                  venue: pooja.venue || pooja.location || pooja.mandap || "Temple Hall",
+                  performer: pooja.priest || pooja.pandit || pooja.performer,
+                  icon: Star,
+                  color: "#7c3aed",
+                  capacity: pooja.capacity || pooja.maxDevotees || pooja.slots,
+                  registeredCount: pooja.registeredCount || pooja.devoteeCount,
+                  requiresRegistration: true,
+                  sourceCategory: "Pooja",
+                  originalItem: pooja,
+                });
+              }
+            }
+          }
+        }
+
+        // 3. Map Lunch & Dinner Meal Sessions (for same day and next days)
+        for (const meal of meals) {
+          const datesToMap = meal.multiDay && meal.startDate && meal.endDate
+            ? getDatesInRange(meal.startDate, meal.endDate)
+            : [meal.date || meal.mealDate];
+
+          for (const d of datesToMap) {
+            const targetDay = findMatchingDay(d, meal.dayLabel, computedDays);
+            if (!byDay[targetDay]) byDay[targetDay] = [];
+            const mealTypeStr = String(meal.mealType || "LUNCH").toUpperCase();
+            const defaultTime = mealTypeStr === "LUNCH" ? "12:30 PM" : mealTypeStr === "DINNER" ? "7:30 PM" : mealTypeStr === "BREAKFAST" ? "8:30 AM" : "4:30 PM";
+            const mealTime = formatDisplayTime(meal.startTime || defaultTime);
+
+            byDay[targetDay].push({
+              id: `meal_${meal.id}_${d || ""}`,
+              time: mealTime,
+              duration: meal.duration || (meal.endTime ? `${mealTime} – ${formatDisplayTime(meal.endTime)}` : "1h 30m"),
+              title: meal.name || `${meal.mealType || "Meal"} & Prasadam`,
+              type: "Food",
+              venue: meal.venue || "Dining Hall",
+              performer: meal.caterer,
+              icon: Layers,
+              color: "#10b981",
+              capacity: Number(meal.targetPlates || meal.capacity || 500),
+              registeredCount: Number((meal as any).attendeeHeadcount ?? (meal as any).headcount ?? (meal as any).bookedCount ?? 0),
+              requiresRegistration: true,
+              sourceCategory: "Food",
+              originalItem: meal,
+            });
+          }
+        }
+
+        // 4. Map Cultural Events (for same day and next days)
+        for (const c of cults) {
+          const datesToMap = c.multiDay && c.startDate && c.endDate
+            ? getDatesInRange(c.startDate, c.endDate)
+            : [c.date || c.eventDate];
+
+          for (const d of datesToMap) {
+            const targetDay = findMatchingDay(d, c.dayLabel, computedDays);
+            if (!byDay[targetDay]) byDay[targetDay] = [];
+            const cTime = formatDisplayTime(c.startTime || c.time || "6:00 PM");
+
+            byDay[targetDay].push({
+              id: `cult_${c.id}_${d || ""}`,
+              time: cTime,
+              duration: c.duration || (c.endTime ? `${cTime} – ${formatDisplayTime(c.endTime)}` : "1h"),
+              title: c.title || c.name || "Cultural Performance",
+              type: "Cultural",
+              venue: c.venue || c.stage || "Main Stage",
+              performer: c.performer || c.artistName || c.troupe,
+              icon: Music,
+              color: "#8b5cf6",
+              capacity: c.capacity || c.maxSlots,
+              registeredCount: c.registeredCount,
+              requiresRegistration: Boolean(c.requiresRegistration),
+              sourceCategory: "Cultural",
+              originalItem: c,
+            });
+          }
+        }
+
+        // 5. Map Competitions (for same day and next days)
+        for (const comp of comps) {
+          const datesToMap = comp.multiDay && comp.startDate && comp.endDate
+            ? getDatesInRange(comp.startDate, comp.endDate)
+            : [comp.date || comp.eventDate];
+
+          for (const d of datesToMap) {
+            const targetDay = findMatchingDay(d, comp.dayLabel, computedDays);
+            if (!byDay[targetDay]) byDay[targetDay] = [];
+            const compTime = formatDisplayTime(comp.startTime || comp.time || "2:00 PM");
+
+            byDay[targetDay].push({
+              id: `comp_${comp.id}_${d || ""}`,
+              time: compTime,
+              duration: comp.duration || (comp.endTime ? `${compTime} – ${formatDisplayTime(comp.endTime)}` : "2h"),
+              title: comp.title || comp.name || "Competition",
+              type: "Competition",
+              venue: comp.venue || comp.location || "Amphitheatre",
+              judge: comp.judge || comp.judgeName,
+              icon: Trophy,
+              color: "#4f46e5",
+              capacity: comp.capacity || comp.maxParticipants,
+              registeredCount: comp.registeredCount,
+              requiresRegistration: true,
+              sourceCategory: "Competition",
+              originalItem: comp,
+            });
+          }
+        }
+
+        // Sort items in each day chronologically by start time
+        for (const day of Object.keys(byDay)) {
+          byDay[day].sort((a, b) => parseTimeString(a.time) - parseTimeString(b.time));
         }
 
         setLiveSchedule(byDay);
@@ -657,9 +920,23 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
       });
       return;
     }
-    if (!item.id || isNaN(Number(item.id))) return;
+    if (!item.id) return;
     try {
-      await eventProgramService.deleteProgram(Number(item.id));
+      if (item.id.startsWith("pooja_")) {
+        const id = parseInt(item.id.replace("pooja_", ""), 10);
+        if (id) await eventService.deletePoojaSeva(id);
+      } else if (item.id.startsWith("meal_")) {
+        const id = parseInt(item.id.replace("meal_", ""), 10);
+        if (id) await eventService.deleteLunchDinner(id);
+      } else if (item.id.startsWith("cult_")) {
+        const id = parseInt(item.id.replace("cult_", ""), 10);
+        if (id) await eventService.deleteCulturalEvent(id);
+      } else if (item.id.startsWith("comp_")) {
+        const id = parseInt(item.id.replace("comp_", ""), 10);
+        if (id) await eventService.deleteCompetition(id);
+      } else if (!isNaN(Number(item.id))) {
+        await eventProgramService.deleteProgram(Number(item.id));
+      }
       setLiveSchedule(prev => {
         const updated = { ...prev };
         for (const day of Object.keys(updated)) {
@@ -868,7 +1145,23 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
         </div>
 
         <div className="p-3 sm:p-6 space-y-3">
-          {items.map((item, i) => {
+          {items.length === 0 ? (
+            <div className="text-center py-12 px-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 animate-fade-in">
+              <Sparkles className="w-9 h-9 text-indigo-400 mx-auto mb-2.5 opacity-80" />
+              <p className="text-sm font-bold text-slate-700">No scheduled activities for {currentDay}</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                No rituals, cultural programs, meals, or competitions scheduled for this day yet.
+              </p>
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="mt-4 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Day Activity
+              </button>
+            </div>
+          ) : (
+            items.map((item, i) => {
             const tc = typeColors[item.type] || { bg: "bg-slate-50", text: "text-slate-600" };
             return (
               <div key={item.id || i} className="flex gap-2 sm:gap-5 group animate-fade-in-up">
@@ -963,7 +1256,7 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
 

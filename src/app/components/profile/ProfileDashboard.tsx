@@ -59,7 +59,9 @@ import { familyService, type FamilyMember } from "../../../services/common/famil
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
+import { DatePicker } from "../ui/date-picker";
 import type { UserProfileResponse } from "../../../types/api";
+import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -234,7 +236,7 @@ export function ProfileDashboard() {
   const [memberForm, setMemberForm] = useState<Partial<FamilyMember>>({
     name: "",
     relation: "Spouse",
-    age: undefined,
+    dob: "",
     gender: "Female",
     phone: "",
     email: "",
@@ -267,7 +269,7 @@ export function ProfileDashboard() {
     setMemberForm({
       name: "",
       relation: "Spouse",
-      age: undefined,
+      dob: "",
       gender: "Female",
       phone: "",
       email: "",
@@ -306,11 +308,21 @@ export function ProfileDashboard() {
 
     setIsSavingMember(true);
     try {
+      // Derive age from dob so age-based stats remain accurate
+      let computedAge = memberForm.age;
+      if (memberForm.dob) {
+        const birth = new Date(memberForm.dob);
+        if (!isNaN(birth.getTime())) {
+          computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      }
+      const payload = { ...memberForm, age: computedAge };
+
       if (editingMember) {
-        await familyService.updateFamilyMember(editingMember.id, memberForm);
+        await familyService.updateFamilyMember(editingMember.id, payload);
         toast.success(`Updated ${memberForm.name}'s details`);
       } else {
-        await familyService.addFamilyMember(memberForm);
+        await familyService.addFamilyMember(payload);
         toast.success(`Added ${memberForm.name} to your family list`);
       }
       setIsFamilyModalOpen(false);
@@ -603,7 +615,7 @@ export function ProfileDashboard() {
   }
 
   const role = getRoleConfig(profile.role);
-  const userAvatar = profile.profilePicUrl || user?.profilePicUrl || "";
+  const userAvatar = resolveUserAvatar(profile) || resolveUserAvatar(user);
   const initials = (profile.fullName || user?.fullName || "User")
     .trim()
     .split(/\s+/)
@@ -985,7 +997,7 @@ export function ProfileDashboard() {
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-foreground truncate">{member.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{member.age ? `${member.age} yrs` : member.gender || ""}</p>
+                            <p className="text-[10px] text-muted-foreground">{member.dob ? new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : member.gender || ""}</p>
                           </div>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
@@ -1258,9 +1270,9 @@ export function ProfileDashboard() {
                                       )}>
                                         {member.relation}
                                       </span>
-                                      {member.age && (
+                                      {member.dob && (
                                         <span className="text-[9.5px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                          {member.age} yrs
+                                          {new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                         </span>
                                       )}
                                       {member.gender && (
@@ -1456,16 +1468,15 @@ export function ProfileDashboard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
-                          Age (Years)
+                          Date of Birth
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          placeholder="e.g. 32"
-                          value={memberForm.age || ""}
-                          onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value ? Number(e.target.value) : undefined })}
-                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        <DatePicker
+                          value={memberForm.dob || ""}
+                          onChange={(val) => setMemberForm({ ...memberForm, dob: val || undefined })}
+                          max={new Date().toISOString().split("T")[0]}
+                          placeholder="Select date of birth..."
+                          className="w-full"
+                          presets={false}
                         />
                       </div>
 
@@ -1677,11 +1688,13 @@ export function ProfileDashboard() {
                         Date of Birth
                       </label>
                       {isEditing ? (
-                        <input
-                          type="date"
+                        <DatePicker
                           value={formData.dob}
-                          onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm bg-[var(--mana-bg-input)] focus:ring-2 focus:ring-primary/25 outline-none"
+                          onChange={(val) => setFormData({ ...formData, dob: val })}
+                          max={new Date().toISOString().split("T")[0]}
+                          placeholder="Select date of birth..."
+                          className="w-full"
+                          presets={false}
                         />
                       ) : (
                         <p className="text-sm font-medium text-foreground py-2 px-3 bg-muted/40 rounded-xl border border-border/50">

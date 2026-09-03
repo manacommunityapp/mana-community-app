@@ -17,6 +17,10 @@ export interface RegisterRequest {
   aadharNumber?: string;
   flatNo?: string;
   block?: string;
+  userType?: string; // Owner | Tenant
+  occupancyStatus?: string; // Owner | Tenant | Staff
+  residentType?: string; // Resident | Non-Resident | Guest
+  emailOtpCode: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -56,6 +60,9 @@ export interface AuthResponse {
   communityId?: number;
   dateOfBirth?: string;
   enabledModules?: string[];
+  occupancyStatus?: string;
+  userType?: string;
+  residentType?: string;
 }
 
 export type GovtIdType = "AADHAAR" | "VOTER_ID" | "DRIVING_LICENCE";
@@ -104,6 +111,25 @@ export interface PlayerCategory {
   communityId?: number;
 }
 
+export interface BlockFloorResponse {
+  floor: number;
+  flats: string[];
+}
+
+export interface BlockConfigResponse {
+  blockName: string;
+  totalFloors: number;
+  flatsPerFloor: number;
+  totalFlats: number;
+  floors?: BlockFloorResponse[];
+}
+
+export interface BlockConfigRequest {
+  blockName: string;
+  totalFloors: number;
+  flatsPerFloor: number;
+}
+
 export interface CommunityResponse {
   id: number;
   name: string;
@@ -116,6 +142,7 @@ export interface CommunityResponse {
   subtype?: string;
   active?: boolean;
   enabledModules?: string[];
+  blockConfigs?: BlockConfigResponse[];
 }
 
 export interface Community extends CommunityResponse { }
@@ -524,6 +551,10 @@ export interface UserResponse {
   dateOfBirth?: string;
   flatNo?: string;
   block?: string;
+  tower?: string;
+  employeeId?: string;
+  govtIdType?: string;
+  govtIdNumber?: string;
   communityId?: number;
   roleId?: number;
   isActive?: boolean;
@@ -531,6 +562,9 @@ export interface UserResponse {
   enabledModules?: string[];
   menuPermissions?: MenuRolePermissionResponse[];
   roles?: string[];
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
 }
 
 export type RolePermissionsMap = Record<string, string[]>;
@@ -619,6 +653,9 @@ export interface UserProfileResponse {
   block?: string;
   role: string;
   kycStatus: string;
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
   communityName?: string;
   communityType?: string;
   communityCode?: string;

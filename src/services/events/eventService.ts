@@ -196,7 +196,113 @@ export interface PoojaRegistrationRequest {
   scheduleId?: number;
   reservationId?: number;
   poojaSevaTimeSlotsId?: number;
+  /** FK to event_pooja_sevas — sent so backend can scope the duplicate check to this seva type */
+  poojaSevaId?: number;
   targetUserId?: number;
+  // Audit fields (set by backend; present on responses)
+  registrationSource?: "SELF" | "ADMIN" | "IMPORT";
+  registeredBy?: number;
+  overrideUsed?: boolean;
+  overrideReason?: string;
+}
+
+/** Request body for POST /api/events/pooja-registrations/admin-create */
+export interface AdminPoojaRegistrationRequest {
+  targetUserId: number;
+  overrideReason?: string;
+  eventId?: number;
+  /** FK to event_pooja_sevas — sent so backend can scope the duplicate check to this seva type */
+  poojaSevaId?: number;
+  scheduleId?: number;
+  reservationId?: number;
+  poojaSevaTimeSlotsId?: number;
+  poojaSlotName?: string;
+  poojaSlotDate?: string;
+  poojaSlotTime?: string;
+  participantName: string;
+  gotram?: string;
+  phone?: string;
+  email?: string;
+  flatNo?: string;
+  devoteeCount?: number;
+  attendingDevotees?: string;
+  venue?: string;
+  mandap?: string;
+  panditName?: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  prasadamMode?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** A single devotee row from event_pooja_booking_participants */
+export interface PoojaBookingParticipant {
+  id: number;
+  registrationId: number;
+  name: string;
+  gotram?: string;
+  nakshatra?: string;
+  relation?: string;
+  qrCodeUrl?: string;
+  checkedIn: boolean;
+  checkedInAt?: string;
+  createdAt: string;
+}
+
+/** Minimal user projection returned by GET /api/events/pooja-registrations/admin/user-search */
+export interface UserSearchResult {
+  id: number;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  flatNo?: string;
+}
+
+/** Meal Registration Request Body (saved into event_meal_registrations) */
+export interface MealRegistrationRequest {
+  id?: number | string;
+  mealId?: number | string;
+  lunchDinnerId?: number | string;
+  eventLunchDinnerId?: number | string;
+  mainEventId?: number | string;
+  eventId?: number | string;
+  category?: string;
+  activityId?: string;
+  activityTitle?: string;
+  activityType?: string;
+  mealType?: string;
+  participantName: string;
+  phone: string;
+  email?: string;
+  devoteeCount?: number;
+  membersCount?: number;
+  familyCount?: number;
+  eventDate?: string;
+  mealDate?: string;
+  eventTime?: string;
+  venue?: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** Cultural Registration Request Body (saved into event_cultural_registrations) */
+export interface CulturalRegistrationRequest {
+  culturalEventId?: number | string;
+  eventCulturalId?: number | string;
+  id?: number | string;
+  mainEventId?: number | string;
+  eventId?: number | string;
+  participantName: string;
+  phone?: string;
+  gotram?: string;
+  devoteeCount?: number;
+  membersJson?: string;
+  notes?: string;
 }
 
 export interface PoojaScheduleDto {
@@ -304,9 +410,9 @@ export interface PendingActionItemResponse {
 function parseNumericId(id: number | string | undefined | null): number | null {
   if (id === undefined || id === null) return null;
   if (typeof id === "number") return isNaN(id) || id <= 0 ? null : id;
-  const digitsOnly = String(id).replace(/\D/g, "");
-  if (!digitsOnly) return null;
-  const num = Number(digitsOnly);
+  const str = String(id).trim();
+  if (!/^\d+$/.test(str)) return null; // reject prefixed strings like "ev-1", "pooja-5"
+  const num = Number(str);
   return isNaN(num) || num <= 0 ? null : num;
 }
 
@@ -512,6 +618,10 @@ export const eventService = {
     return apiClient.delete<void>(`/events/pooja-sevas/${id}`);
   },
 
+  async updatePoojaSevaStatus(id: number, status: "ACTIVE" | "PAUSED" | "CANCELLED" | "COMPLETED" | "ARCHIVED"): Promise<any> {
+    return apiClient.patch<any>(`/events/pooja-sevas/${id}/status`, { status });
+  },
+
   async getCulturalEvents(eventId?: number): Promise<any[]> {
     const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
     return apiClient.get<any[]>(`/events/cultural-events${qs}`);
@@ -549,6 +659,26 @@ export const eventService = {
   async getLunchDinners(mainEventId?: number): Promise<any[]> {
     const qs = mainEventId ? `?mainEventId=${mainEventId}&eventId=${mainEventId}` : "";
     return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
+  },
+
+  /** Lightweight meal summaries with pre-aggregated plate counters */
+  async getLunchDinnerSummaries(mainEventId?: number): Promise<any[]> {
+    const qs = mainEventId ? `?mainEventId=${mainEventId}&eventId=${mainEventId}` : "";
+    return apiClient.get<any[]>(`/events/lunch-dinners/summary${qs}`);
+  },
+
+  /** Full meal configuration for editing on demand */
+  async getLunchDinnerById(id: number | string): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid meal ID: ${id}`);
+    return apiClient.get<any>(`/events/lunch-dinners/${numericId}`);
+  },
+
+  /** On-demand attendee / devotee registration list for a specific meal session */
+  async getLunchDinnerRegistrations(id: number | string): Promise<any[]> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid meal ID: ${id}`);
+    return apiClient.get<any[]>(`/events/lunch-dinners/${numericId}/registrations`);
   },
 
   async createLunchDinner(data: any): Promise<any> {
@@ -601,15 +731,149 @@ export const eventService = {
   },
 
   async createRegistration(data: any): Promise<any> {
-    return apiClient.post<any>("/events/registrations", data);
+    const payload = { ...data };
+    if (payload.id !== undefined) {
+      const num = typeof payload.id === "number" ? payload.id : parseNumericId(payload.id);
+      if (num && num > 0) payload.id = num;
+      else delete payload.id;
+    }
+    return apiClient.post<any>("/events/registrations", payload);
   },
 
   async createPoojaRegistration(data: PoojaRegistrationRequest): Promise<any> {
-    return apiClient.post<any>("/events/pooja-registrations", data);
+    const payload: any = { ...data };
+    if (payload.id !== undefined) {
+      const num = typeof payload.id === "number" ? payload.id : parseNumericId(payload.id);
+      if (num && num > 0) payload.id = num;
+      else delete payload.id;
+    }
+    return apiClient.post<any>("/events/pooja-registrations", payload);
   },
 
   async getPoojaRegistrations(): Promise<any[]> {
     return apiClient.get<any[]>("/events/pooja-registrations");
+  },
+
+  /** Fetch lightweight registration summaries for Pooja & Seva management dashboard table */
+  async getPoojaRegistrationSummaries(poojaSevaId?: number): Promise<any[]> {
+    const qs = poojaSevaId ? `?poojaSevaId=${poojaSevaId}` : "";
+    return apiClient.get<any[]>(`/events/pooja-registrations/summary${qs}`);
+  },
+
+  /** Fetch complete registration entity by ID for edit modal */
+  async getPoojaRegistrationById(id: number | string): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    return apiClient.get<any>(`/events/pooja-registrations/${numericId}`);
+  },
+
+  /** Create meal pass registration */
+  async createMealRegistration(data: MealRegistrationRequest, options?: { targetUserId?: number | string; adminOverride?: boolean }): Promise<any> {
+    const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
+    const numericMealId = parseNumericId(data.mealId || data.lunchDinnerId || data.eventLunchDinnerId || (typeof data.id === "number" ? data.id : undefined));
+    const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
+
+    const payload: any = {
+      ...data,
+      mealId: numericMealId,
+      lunchDinnerId: numericMealId,
+      eventLunchDinnerId: numericMealId,
+      mainEventId: numericMainEventId,
+      eventId: numericMainEventId,
+      category: data.category || "Meal",
+      activityType: data.activityType || "LUNCH_DINNER",
+      activityId: data.activityId || (numericMealId ? `meal-${numericMealId}` : undefined),
+    };
+
+    if (numericId && numericId > 0) {
+      payload.id = numericId;
+    } else {
+      delete payload.id;
+    }
+
+    const queryParams = new URLSearchParams();
+    if (options?.adminOverride || (data as any).registrationSource === "ADMIN") {
+      queryParams.set("adminOverride", "true");
+    }
+    const targetUid = options?.targetUserId || (data as any).userId || (data as any)?.targetUserId;
+    if (targetUid) {
+      queryParams.set("targetUserId", String(targetUid));
+    }
+    const url = queryParams.toString() ? `/events/registrations?${queryParams.toString()}` : "/events/registrations";
+    return await apiClient.post<any>(url, payload);
+  },
+
+  /** Get the logged-in user's meal registrations for a specific event */
+  async getUserMealsForEvent(eventId: number | string): Promise<any> {
+    return apiClient.get<any>(`/events/${eventId}/meals`).catch(() => null);
+  },
+
+  /** Update headCount only for an existing meal registration */
+  async updateMealHeadCount(lunchDinnerId: number | string, headCount: number, targetUserId?: number | string): Promise<any> {
+    const query = targetUserId ? `?targetUserId=${targetUserId}` : "";
+    return apiClient.patch<any>(
+      `/events/registrations/meal/${lunchDinnerId}/headcount${query}`,
+      { headCount, userId: targetUserId }
+    );
+  },
+
+  /** Fetch all meal registrations for a meal session or event */
+  async getMealRegistrations(mealId?: number | string): Promise<any[]> {
+    const numericId = parseNumericId(mealId);
+    if (numericId) {
+      try {
+        const mealSpecific = await apiClient.get<any[]>(`/events/lunch-dinners/${numericId}/registrations`);
+        if (Array.isArray(mealSpecific) && mealSpecific.length > 0) return mealSpecific;
+      } catch {}
+    }
+    const res = await apiClient.get<any[]>("/events/registrations").catch(() => []);
+    const allRegs: any[] = Array.isArray(res) ? res : Array.isArray((res as any)?.content) ? (res as any).content : [];
+    return allRegs.filter((r: any) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("meal") || cat.includes("food") || actId.startsWith("meal-") || (numericId && (r.mealId === numericId || r.lunchDinnerId === numericId));
+    });
+  },
+
+  /** Fetch logged-in user's meal registrations */
+  async getMyMealRegistrations(): Promise<any[]> {
+    const myRegs = await this.getMyRegistrations();
+    return myRegs.filter((r) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("meal") || cat.includes("food") || actId.startsWith("meal-");
+    });
+  },
+
+  /** Create cultural performance registration — saves to event_cultural_registrations */
+  async createCulturalRegistration(data: CulturalRegistrationRequest): Promise<any> {
+    const numericCulturalId = parseNumericId(data.culturalEventId || data.eventCulturalId || data.id);
+    const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
+
+    const payload: any = {
+      culturalEventId: numericCulturalId,
+      mainEventId: numericMainEventId || undefined,
+      participantName: data.participantName,
+      gotram: data.gotram || undefined,
+      devoteeCount: data.devoteeCount || 1,
+      membersJson: data.membersJson || undefined,
+    };
+
+    return await apiClient.post<any>("/events/cultural/registrations", payload);
+  },
+
+  /** Fetch registrations for a specific cultural event (admin view); all community if no id */
+  async getCulturalRegistrations(culturalEventId?: number | string): Promise<any[]> {
+    const numericId = parseNumericId(culturalEventId);
+    if (numericId) {
+      return apiClient.get<any[]>(`/events/cultural/registrations/event/${numericId}`);
+    }
+    return apiClient.get<any[]>("/events/cultural/registrations");
+  },
+
+  /** Fetch logged-in user's cultural registrations from the dedicated table */
+  async getMyCulturalRegistrations(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/cultural/registrations/my");
   },
 
   async getMyPoojaRegistrations(): Promise<any[]> {
@@ -617,13 +881,31 @@ export const eventService = {
   },
 
   async getMyRegistrations(): Promise<any[]> {
-    const [generalRegs, poojaRegs] = await Promise.allSettled([
+    const [generalRegs, poojaRegs, culturalRegs] = await Promise.allSettled([
       apiClient.get<any[]>("/events/registrations/my"),
       apiClient.get<any[]>("/events/pooja-registrations/my"),
+      apiClient.get<any[]>("/events/cultural/registrations/my"),
     ]);
 
-    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
-    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+    const unwrap = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (Array.isArray(val?.content)) return val.content;
+      if (Array.isArray(val?.data)) return val.data;
+      if (Array.isArray(val?.items)) return val.items;
+      return [];
+    };
+
+    const general = generalRegs.status === "fulfilled" ? unwrap(generalRegs.value) : [];
+    const pooja = poojaRegs.status === "fulfilled" ? unwrap(poojaRegs.value) : [];
+    const cultural = culturalRegs.status === "fulfilled"
+      ? unwrap((culturalRegs as PromiseFulfilledResult<any[]>).value).map((c: any) => ({
+          ...c,
+          activityId: c.activityId || (c.culturalEventId ? `cult-${c.culturalEventId}` : `cult-${c.id}`),
+          activityTitle: c.activityTitle || c.eventName || c.programName || "Cultural Program",
+          category: c.category || "Cultural",
+          passType: c.passType || "Cultural Registration",
+        }))
+      : [];
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
@@ -643,7 +925,7 @@ export const eventService = {
 
     const seen = new Set<string>();
     const combined: any[] = [];
-    for (const r of [...normalizedPooja, ...general]) {
+    for (const r of [...normalizedPooja, ...general, ...cultural]) {
       const key = r.regCode || (r.id ? `${r.category || 'REG'}-${r.id}` : JSON.stringify(r));
       if (!seen.has(key)) {
         seen.add(key);
@@ -659,8 +941,16 @@ export const eventService = {
       apiClient.get<any[]>("/events/pooja-registrations"),
     ]);
 
-    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
-    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+    const unwrap = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (Array.isArray(val?.content)) return val.content;
+      if (Array.isArray(val?.data)) return val.data;
+      if (Array.isArray(val?.items)) return val.items;
+      return [];
+    };
+
+    const general = generalRegs.status === "fulfilled" ? unwrap(generalRegs.value) : [];
+    const pooja = poojaRegs.status === "fulfilled" ? unwrap(poojaRegs.value) : [];
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
@@ -695,8 +985,13 @@ export const eventService = {
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     try {
       return await apiClient.put<any>(`/events/registrations/${numericId}`, data);
-    } catch {
-      return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+    } catch (err: any) {
+      const status = err?.status ?? err?.statusCode ?? 0;
+      const msg = String(err?.message ?? "");
+      if (status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found")) {
+        return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+      }
+      throw err;
     }
   },
 
@@ -706,25 +1001,73 @@ export const eventService = {
     return apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
   },
 
-  async cancelRegistration(id: number | string, reason?: string): Promise<void> {
+  async cancelRegistration(id: number | string, reason?: string, type: "pooja" | "general" = "pooja"): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}${qs}`);
+    const endpoint = type === "general"
+      ? `/events/registrations/${numericId}${qs}`
+      : `/events/pooja-registrations/${numericId}${qs}`;
+    await apiClient.delete<void>(endpoint);
   },
 
-  async deleteRegistrationPermanent(id: number | string): Promise<void> {
+  async deleteRegistrationPermanent(id: number | string, type: "pooja" | "general" = "pooja"): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}?permanent=true`);
+    const endpoint = type === "general"
+      ? `/events/registrations/${numericId}?permanent=true`
+      : `/events/pooja-registrations/${numericId}?permanent=true`;
+    await apiClient.delete<void>(endpoint);
   },
 
   async adminCreateRegistration(data: any): Promise<any> {
     if (data?.category?.toLowerCase() === "pooja") {
-      const targetParam = data.targetUserId ? `&targetUserId=${data.targetUserId}` : "";
-      return apiClient.post<any>(`/events/pooja-registrations?adminOverride=true${targetParam}`, data);
+      // Use the dedicated admin-create endpoint so targetUserId/overrideReason travel in the body
+      const body: AdminPoojaRegistrationRequest = {
+        targetUserId: data.targetUserId,
+        overrideReason: data.overrideReason,
+        eventId: data.eventId,
+        scheduleId: data.scheduleId,
+        reservationId: data.reservationId,
+        poojaSevaTimeSlotsId: data.poojaSevaTimeSlotsId,
+        poojaSlotName: data.poojaSlotName || data.activityTitle,
+        poojaSlotDate: data.poojaSlotDate || data.eventDate,
+        poojaSlotTime: data.poojaSlotTime || data.eventTime,
+        participantName: data.participantName || data.primaryName || "",
+        gotram: data.gotram,
+        phone: data.phone,
+        email: data.email,
+        flatNo: data.flatNo,
+        devoteeCount: data.devoteeCount,
+        attendingDevotees: data.attendingDevotees,
+        venue: data.venue,
+        bookingFee: data.bookingFee,
+        paymentStatus: data.paymentStatus,
+        paymentMethod: data.paymentMethod,
+        prasadamMode: data.prasadamMode,
+        status: data.status,
+        notes: data.notes,
+      };
+      return apiClient.post<any>("/events/pooja-registrations/admin-create", body);
     }
     return apiClient.post<any>("/events/registrations?adminOverride=true", data);
+  },
+
+  /** Search community members by name — used by admin manual registration picker. */
+  async searchCommunityUsers(query: string, communityId?: number): Promise<UserSearchResult[]> {
+    const qs = new URLSearchParams({ q: query || "" });
+    if (communityId) qs.set("communityId", String(communityId));
+    return apiClient.get<UserSearchResult[]>(`/events/pooja-registrations/admin/user-search?${qs}`);
+  },
+
+  /** Fetch the normalized participant rows for a Pooja registration. */
+  async getPoojaRegistrationParticipants(registrationId: number): Promise<PoojaBookingParticipant[]> {
+    return apiClient.get<PoojaBookingParticipant[]>(`/events/pooja-registrations/${registrationId}/participants`);
+  },
+
+  /** Update the status of a config-level time slot (OPEN / BLOCKED / CLOSED). */
+  async updatePoojaTimeSlotStatus(slotId: number, status: "OPEN" | "BLOCKED" | "CLOSED"): Promise<any> {
+    return apiClient.patch<any>(`/events/pooja-sevas/time-slots/${slotId}/status`, { status });
   },
 
   async getSchedulesByPooja(poojaId: number): Promise<PoojaScheduleDto[]> {

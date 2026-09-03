@@ -118,6 +118,7 @@ export function TimePicker({
   placeholder = "Select Time",
   disabled = false,
   size = "md",
+  id,
 }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -150,6 +151,8 @@ export function TimePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
+          id={id}
+          data-testid={id}
           disabled={disabled}
           className={cn(
             "w-full flex items-center justify-between gap-2 px-2.5 rounded-xl border bg-white text-slate-800 transition-all cursor-pointer select-none text-left focus:outline-none focus:ring-2 focus:ring-amber-400/50 shadow-2xs hover:border-amber-400/80",
@@ -202,6 +205,7 @@ export function TimePicker({
                   <button
                     key={h}
                     type="button"
+                    data-testid={id ? `${id}-hour-${h}` : undefined}
                     onClick={() => handleTimeChange(h, selectedMinute, selectedPeriod)}
                     className={cn(
                       "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
@@ -229,6 +233,7 @@ export function TimePicker({
                   <button
                     key={m}
                     type="button"
+                    data-testid={id ? `${id}-minute-${m}` : undefined}
                     onClick={() => handleTimeChange(selectedHour, m, selectedPeriod)}
                     className={cn(
                       "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
@@ -252,6 +257,7 @@ export function TimePicker({
             <div className="space-y-1.5 my-auto">
               <button
                 type="button"
+                data-testid={id ? `${id}-period-AM` : undefined}
                 onClick={() => handleTimeChange(selectedHour, selectedMinute, "AM")}
                 className={cn(
                   "w-full py-2 text-xs font-black rounded-xl transition-all cursor-pointer border",
@@ -264,6 +270,7 @@ export function TimePicker({
               </button>
               <button
                 type="button"
+                data-testid={id ? `${id}-period-PM` : undefined}
                 onClick={() => handleTimeChange(selectedHour, selectedMinute, "PM")}
                 className={cn(
                   "w-full py-2 text-xs font-black rounded-xl transition-all cursor-pointer border",
@@ -282,6 +289,7 @@ export function TimePicker({
         <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
           <button
             type="button"
+            data-testid={id ? `${id}-done` : undefined}
             onClick={() => setIsOpen(false)}
             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           >

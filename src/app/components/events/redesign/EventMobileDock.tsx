@@ -86,20 +86,6 @@ export const EventMobileDock: React.FC<EventMobileDockProps> = ({
             </button>
           );
         })}
-
-        {/* Floating AI Copilot Action Launcher */}
-        <button
-          onClick={onOpenAI}
-          style={{
-            background: "linear-gradient(135deg, #FF6B00 0%, #4F46E5 100%)",
-            boxShadow: "0 8px 24px -4px rgba(255, 107, 0, 0.5), 0 0 20px rgba(79, 70, 229, 0.4)",
-          }}
-          className="absolute -top-6 right-6 w-12 h-12 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white dark:border-slate-900 group"
-          title="Open AI Event Copilot"
-        >
-          <Bot className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-slate-900 animate-ping" />
-        </button>
       </div>
     </div>
   );

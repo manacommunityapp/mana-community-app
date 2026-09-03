@@ -21,6 +21,7 @@ import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 import {
   eventService,
   type DashboardStatsResponse,
@@ -99,9 +100,9 @@ const MOCK_PIE = [
   { name: "Performers",    value: 204, color: "#EC4899" },
 ];
 
-const MOCK_BANNERS = [
+const MOCK_BANNERS: BannerItem[] = [
   {
-    id: "ev-1", title: "Ganesh Chaturthi Utsav 2026",
+    id: "mock-1", title: "Ganesh Chaturthi Utsav 2026",
     subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
     location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
     registered: "1,842 passes issued", category: "Grand Festival",
@@ -109,7 +110,7 @@ const MOCK_BANNERS = [
     image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
   },
   {
-    id: "ev-2", title: "Annual Sports Olympiad 2026",
+    id: "mock-2", title: "Annual Sports Olympiad 2026",
     subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
     location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
     registered: "412 athletes registered", category: "Sports Championship",
@@ -153,7 +154,7 @@ function eventToBanner(ev: EventResponse, idx: number): BannerItem {
     bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
     targetDate: ev.startDate,
     targetTime: ev.startTime,
-    image: ev.imageUrl || ev.coverImageUrl || ev.coverImage || null,
+    image: resolveEventImage(ev, null as any),
     raw: ev,
   };
 }
@@ -436,7 +437,8 @@ export function EventsDashboard() {
         const standalonePoojas: any[] = [];
         if (poojasR.status === "fulfilled" && Array.isArray(poojasR.value)) {
           poojasR.value.forEach((p: any) => {
-            if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+            const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+            if (poojaStatus !== "ACTIVE" || p.isPaused === true || p.isPaused === "true") return;
             const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
                                  (p.eventId == null || p.eventId === "" || p.eventId === 0);
             if (isStandalone) {
@@ -451,8 +453,8 @@ export function EventsDashboard() {
                 endDate: p.endDate || p.startDate || p.date,
                 startTime: p.startTime || p.time || "Morning",
                 endTime: p.endTime,
-                venue: p.mandap || "Main Temple Mandap",
-                location: p.mandap || "Main Temple Mandap",
+                venue: p.mandap || p.venue || "",
+                location: p.mandap || p.location || p.venue || "",
                 mandap: p.mandap,
                 pandit: p.pandit,
                 isMultiDay: Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate)),
@@ -460,7 +462,7 @@ export function EventsDashboard() {
                 price: p.isFree ? 0 : Number(p.fee || 501),
                 fee: p.isFree ? 0 : Number(p.fee || 501),
                 isFree: p.isFree,
-                imageUrl: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+                imageUrl: resolveEventImage(p),
                 description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}`,
                 attendees: 0,
                 registrationCount: 0,
@@ -554,7 +556,8 @@ export function EventsDashboard() {
   async function toggleTask(id: string) {
     setTasksDone(prev => ({ ...prev, [id]: !prev[id] }));
     if (!useMock) {
-      try { await eventTaskService.toggleDone(parseInt(id)); }
+      const numericTaskId = Number(id);
+      try { if (numericTaskId > 0) await eventTaskService.toggleDone(numericTaskId); }
       catch { setTasksDone(prev => ({ ...prev, [id]: !prev[id] })); }
     }
   }
@@ -792,13 +795,14 @@ export function EventsDashboard() {
       showRegisterModal ||
       showAICopilot ||
       showQRModal ||
+      Boolean(showEventDetailsModal) ||
       Boolean(selectedRegisterEvent)
     ) return;
     const timer = setInterval(() => {
       setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [bannerItems.length, isBannerHovered, showRegisterModal, showAICopilot, showQRModal, selectedRegisterEvent]);
+  }, [bannerItems.length, isBannerHovered, showRegisterModal, showAICopilot, showQRModal, showEventDetailsModal, selectedRegisterEvent]);
 
   // Sync countdown target with active banner item
   useEffect(() => {
@@ -1010,12 +1014,12 @@ export function EventsDashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
                   </span>
                 )}
-                {(currentBanner.raw || currentBanner.title) && (
+                {(useMock || events.length > 0) && currentBanner?.raw && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowEventDetailsModal(currentBanner.raw || currentBanner);
+                      setShowEventDetailsModal(currentBanner.raw);
                     }}
                     className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
                     title="View complete event information, sub-events, and logistics"
@@ -1748,25 +1752,6 @@ export function EventsDashboard() {
         </div>
       </div>
 
-      {/* ── Floating AI Assistant ── */}
-      <button
-        onClick={() => setShowAICopilot(true)}
-        style={{
-          background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
-          boxShadow: "0 10px 30px -4px rgba(79,70,229,0.5), 0 0 20px rgba(124,58,237,0.3)",
-          width: 52,
-          height: 52,
-        }}
-        className="fixed bottom-6 right-6 z-40 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white group shadow-2xl"
-        title="Open AI Event Copilot"
-      >
-        <Bot className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white" />
-      </button>
-
-      <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
-
       {showRegisterModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto cursor-pointer"
@@ -1782,7 +1767,7 @@ export function EventsDashboard() {
                 (() => {
                   const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
                   return (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : {
-                    id: "ev-1",
+                    id: undefined,
                     title: "Ganesh Chaturthi Utsav 2026",
                     ticketTypes: [
                       {

@@ -7,6 +7,8 @@ import {
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { TimePicker } from "../ui/time-picker";
+import { useAuth } from "../../../contexts/AuthContext";
+import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 
 type LunchDinner = {
   id: number;
@@ -71,8 +73,10 @@ const emptyForm = {
 
 export function EventsLunchDinner() {
   const { useMock } = useEventMock();
+  const { user: authUser } = useAuth();
   const [meals, setMeals] = useState<LunchDinner[]>([]);
-  const [registrations, setRegistrations] = useState<BookingRegistration[]>([]);
+  const [mealRegsMap, setMealRegsMap] = useState<Record<number, BookingRegistration[]>>({});
+  const [loadingMealRegs, setLoadingMealRegs] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<EventResponse[]>([]);
@@ -87,48 +91,31 @@ export function EventsLunchDinner() {
 
   const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
-  const [rsvpForm, setRsvpForm] = useState({
-    participantName: "",
-    phone: "",
-    email: "",
-    devoteeCount: "1",
-    dietType: "Vegetarian",
-    notes: "",
-  });
-  const [savingRsvp, setSavingRsvp] = useState(false);
-  const [rsvpSuccess, setRsvpSuccess] = useState(false);
-  const [rsvpError, setRsvpError] = useState("");
-
-  useEffect(() => {
-    eventService.getAll().then((data) => setEvents(data || [])).catch(() => {});
-  }, []);
 
   const loadData = () => {
     if (useMock) return;
     setLoading(true);
     setError("");
-    Promise.all([eventService.getLunchDinners(), eventService.getAllRegistrations()])
-      .then(([m, regs]) => {
-        setMeals(m || []);
-        const mealRegs = (regs || [])
-          .filter((r: any) => {
-            const regStatus = String(r.status || "").toUpperCase();
-            if (regStatus === "CANCELLED" || regStatus === "REJECTED") return false;
-            if (String(r.eventStatus || "").toUpperCase() === "CANCELLED") return false;
-            return r.category === "Meal" || r.category === "Food" || r.category === "Prasadam" || r.activityId?.startsWith("meal-") || r.activityId?.startsWith("food-");
-          })
-          .map((r: any) => {
-            let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
-            if (!count && r.membersJson) {
-              try {
-                const parsed = JSON.parse(r.membersJson);
-                if (Array.isArray(parsed) && parsed.length > 0) count = parsed.length;
-              } catch {}
-            }
-            if (!count) count = 1;
-            return { ...r, devoteeCount: count };
-          });
-        setRegistrations(mealRegs);
+
+    // Fetch parent community events for filtering and dropdown
+    eventService.getAllEvents()
+      .then((evts) => {
+        if (Array.isArray(evts)) setEvents(evts);
+      })
+      .catch(() => {
+        eventService.getAll().then((evts) => {
+          if (Array.isArray(evts)) setEvents(evts);
+        }).catch(() => {});
+      });
+
+    eventService.getLunchDinnerSummaries()
+      .then((m) => {
+        setMeals(Array.isArray(m) ? m : []);
+      })
+      .catch(() => {
+        return eventService.getLunchDinners().then((m) => {
+          setMeals(Array.isArray(m) ? m : []);
+        });
       })
       .catch((e) => setError(e?.message || "Failed to load meal data"))
       .finally(() => setLoading(false));
@@ -157,8 +144,27 @@ export function EventsLunchDinner() {
     });
   }, [meals, selectedEventId, selectedEvent]);
 
-  const getRegsForMeal = (meal: LunchDinner) =>
-    registrations.filter((r) => r.activityId === `meal-${meal.id}` || r.activityId === `food-${meal.id}` || r.activityId === String(meal.id) || r.activityTitle === meal.name);
+  const getRegsForMeal = (meal: LunchDinner) => mealRegsMap[meal.id] || [];
+
+  const toggleExpandMeal = async (mealId: number) => {
+    if (expandedMealId === mealId) {
+      setExpandedMealId(null);
+      return;
+    }
+    setExpandedMealId(mealId);
+    if (!mealRegsMap[mealId] && !useMock) {
+      setLoadingMealRegs((prev) => ({ ...prev, [mealId]: true }));
+      try {
+        const regs = await eventService.getLunchDinnerRegistrations(mealId);
+        setMealRegsMap((prev) => ({ ...prev, [mealId]: Array.isArray(regs) ? regs : [] }));
+      } catch (err) {
+        console.warn("Failed to fetch meal registrations:", err);
+        setMealRegsMap((prev) => ({ ...prev, [mealId]: [] }));
+      } finally {
+        setLoadingMealRegs((prev) => ({ ...prev, [mealId]: false }));
+      }
+    }
+  };
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -170,7 +176,7 @@ export function EventsLunchDinner() {
     setShowModal(true);
   };
 
-  const openEdit = (m: LunchDinner) => {
+  const openEdit = async (m: LunchDinner) => {
     setEditingId(m.id);
     setForm({
       mainEventId: m.mainEventId ? String(m.mainEventId) : (selectedEventId !== "all" ? selectedEventId : ""),
@@ -182,11 +188,53 @@ export function EventsLunchDinner() {
       menuItems: m.menuItems?.length ? m.menuItems : ["Rice"], notes: m.notes || "",
     });
     setShowModal(true);
+
+    // Fetch full meal configuration from database on demand for edit modal
+    if (!useMock && m.id) {
+      try {
+        const fullMeal = await eventService.getLunchDinnerById(m.id);
+        if (fullMeal) {
+          setForm((prev) => ({
+            ...prev,
+            mainEventId: fullMeal.mainEventId ? String(fullMeal.mainEventId) : prev.mainEventId,
+            name: fullMeal.name || prev.name,
+            mealType: fullMeal.mealType || prev.mealType,
+            date: fullMeal.date || prev.date,
+            startTime: fullMeal.startTime || prev.startTime,
+            endTime: fullMeal.endTime || prev.endTime,
+            venue: fullMeal.venue || prev.venue,
+            targetPlates: fullMeal.targetPlates !== undefined ? String(fullMeal.targetPlates) : prev.targetPlates,
+            caterer: fullMeal.caterer || prev.caterer,
+            dietType: fullMeal.dietType || prev.dietType,
+            fee: fullMeal.fee !== undefined ? String(fullMeal.fee) : prev.fee,
+            isFree: fullMeal.isFree ?? prev.isFree,
+            menuItems: fullMeal.menuItems?.length ? fullMeal.menuItems : prev.menuItems,
+            notes: fullMeal.notes || prev.notes,
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to fetch full meal details for edit:", err);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.date) { setFormError("Name and Date are required"); return; }
+
+    // Validate date is within selected parent event's start & end dates
+    if (form.mainEventId) {
+      const parentEv = events.find((x) => String(x.id) === String(form.mainEventId));
+      if (parentEv && parentEv.startDate) {
+        const minD = parentEv.startDate;
+        const maxD = parentEv.endDate || parentEv.startDate;
+        if (form.date < minD || form.date > maxD) {
+          setFormError(`Meal date (${form.date}) must be between parent event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
     const payload = {
       mainEventId: form.mainEventId ? Number(form.mainEventId) : undefined,
       name: form.name.trim(), mealType: form.mealType, date: form.date,
@@ -222,35 +270,21 @@ export function EventsLunchDinner() {
 
   const openRsvp = (meal: LunchDinner) => {
     setRsvpMeal(meal);
-    setRsvpForm({ participantName: "", phone: "", email: "", devoteeCount: "1", dietType: meal.dietType || "Vegetarian", notes: "" });
     setShowRsvpModal(true);
   };
 
-  const handleRsvpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rsvpMeal) return;
-    const count = Math.max(1, Number(rsvpForm.devoteeCount) || 1);
-    setSavingRsvp(true);
-    try {
-      const regPayload = {
-        category: "Meal", activityId: `meal-${rsvpMeal.id}`, activityTitle: rsvpMeal.name,
-        participantName: rsvpForm.participantName.trim(), phone: rsvpForm.phone.trim() || undefined,
-        devoteeCount: count, eventDate: rsvpMeal.date, bookingFee: (rsvpMeal.isFree ? 0 : (rsvpMeal.fee || 0)) * count,
-        paymentStatus: rsvpMeal.isFree ? "FREE" : "PAID", status: "CONFIRMED",
-        notes: `Diet: ${rsvpForm.dietType}${rsvpForm.notes ? ` · ${rsvpForm.notes}` : ""}`,
-      };
-      if (!useMock) await eventService.adminCreateRegistration(regPayload);
-      setRsvpSuccess(true);
-      window.dispatchEvent(new CustomEvent("mana_activities_updated"));
-      setTimeout(() => { setShowRsvpModal(false); setRsvpSuccess(false); loadData(); }, 1200);
-    } catch (err: any) { setRsvpError(err?.message || "Failed to book"); }
-    finally { setSavingRsvp(false); }
-  };
-
-  const exportMealCsv = (meal: LunchDinner) => {
-    const regs = getRegsForMeal(meal);
+  const exportMealCsv = async (meal: LunchDinner) => {
+    let regs = mealRegsMap[meal.id];
+    if (!regs && !useMock) {
+      try {
+        regs = await eventService.getLunchDinnerRegistrations(meal.id);
+      } catch {
+        regs = [];
+      }
+    }
+    const safeRegs = Array.isArray(regs) ? regs : [];
     const headers = ["Reg Code", "Guest Name", "Phone", "Devotee Count", "Fee", "Status"];
-    const rows = regs.map((r) => [r.regCode, r.participantName, r.phone || "", r.devoteeCount, r.bookingFee, r.status]);
+    const rows = safeRegs.map((r) => [r.regCode, r.participantName, r.phone || "", r.devoteeCount, r.bookingFee, r.status]);
     const csv = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -260,14 +294,41 @@ export function EventsLunchDinner() {
     a.click();
   };
 
+  const exportAllCsv = () => {
+    const headers = ["Meal Name", "Meal Type", "Date", "Start Time", "End Time", "Venue", "Caterer", "Target Plates", "Booked Attendees", "Fee", "Diet Type"];
+    const rows = filteredMeals.map((m) => {
+      const booked = Number((m as any).attendeeHeadcount ?? (m as any).headcount ?? (m as any).bookedCount ?? 0);
+      const target = Number(m.targetPlates || (m as any).capacity || 500);
+      return [
+        `"${m.name.replace(/"/g, '""')}"`,
+        `"${m.mealType}"`,
+        `"${m.date}"`,
+        `"${m.startTime || ""}"`,
+        `"${m.endTime || ""}"`,
+        `"${m.venue || ""}"`,
+        `"${m.caterer || ""}"`,
+        target,
+        booked,
+        m.fee || 0,
+        `"${m.dietType || "VEG"}"`,
+      ];
+    });
+    const csv = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lunch_dinner_schedule_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
   const addMenuItem = () => set("menuItems", [...form.menuItems, ""]);
   const removeMenuItem = (i: number) => set("menuItems", form.menuItems.filter((_, idx) => idx !== i));
   const updateMenuItem = (i: number, v: string) => { const n = [...form.menuItems]; n[i] = v; set("menuItems", n); };
 
-  const totalPlates = filteredMeals.reduce((a, m) => a + (m.targetPlates || 0), 0);
-  const relevantRegs = registrations.filter((r) => filteredMeals.some((m) => r.activityId === `meal-${m.id}` || r.activityTitle === m.name));
-  const totalRegs = relevantRegs.length;
-  const totalHeadcount = relevantRegs.reduce((a, r) => a + (r.devoteeCount || 1), 0);
+  const totalPlates = filteredMeals.reduce((a, m) => a + Number(m.targetPlates || (m as any).capacity || (m as any).maxAttendees || (m as any).totalCapacity || 0), 0);
+  const totalRegs = filteredMeals.reduce((a, m) => a + Number((m as any).bookedCount ?? (m as any).registrationCount ?? (mealRegsMap[m.id]?.length || 0)), 0);
+  const totalHeadcount = filteredMeals.reduce((a, m) => a + Number((m as any).attendeeHeadcount ?? (m as any).headcount ?? (m as any).bookedCount ?? (mealRegsMap[m.id]?.reduce((sum, r) => sum + (r.devoteeCount || 1), 0) || 0)), 0);
 
   const mealIcon = (type: string) => (type === "Breakfast" ? "🌅" : type === "Lunch" ? "☀️" : type === "Dinner" ? "🌙" : type === "Prasadam" ? "🙏" : "🍽️");
 
@@ -281,47 +342,52 @@ export function EventsLunchDinner() {
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-              Lunch & Dinner Management
+              Lunch &amp; Dinner Management
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                 {filteredMeals.length} {filteredMeals.length === 1 ? "Meal" : "Meals"}
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live catering, prasadam scheduling, plates capacity & devotee pass management
+              Live catering, prasadam scheduling, plates capacity &amp; devotee pass management
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Event selector dropdown */}
-          {events.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-              <select
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[220px] truncate"
-              >
-                <option value="all">🌟 All Events</option>
-                {events.map((ev) => (
-                  <option key={ev.id} value={String(ev.id)}>
-                    {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Main Event Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+            <Calendar className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+            >
+              <option value="all">All Community Events</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={String(ev.id)}>
+                  {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={exportAllCsv}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> Export All CSV
+          </button>
 
           <button
             onClick={openCreate}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Create Meal
+            <Plus className="w-3.5 h-3.5" /> Create Meal Event
           </button>
         </div>
       </div>
 
-      {/* Selected Event Context Banner */}
+      {/* Scoped Event Banner */}
       {selectedEvent && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-orange-950 flex-wrap">
           <div className="flex items-center gap-2">
@@ -377,9 +443,11 @@ export function EventsLunchDinner() {
         {filteredMeals.map((meal) => {
           const regs = getRegsForMeal(meal);
           const isExpanded = expandedMealId === meal.id;
-          const headcount = regs.reduce((a, r) => a + (r.devoteeCount || 1), 0);
-          const target = meal.targetPlates || 500;
-          const pct = Math.min(100, Math.round((headcount / target) * 100));
+          const headcount = regs.length > 0
+            ? regs.reduce((a, r) => a + (Number(r.devoteeCount ?? (r as any).headCount ?? (r as any).membersCount ?? 1) || 1), 0)
+            : Number((meal as any).attendeeHeadcount ?? (meal as any).headcount ?? (meal as any).bookedCount ?? (meal as any).devoteeCount ?? (meal as any).actualAttendees ?? 0);
+          const target = Number(meal.targetPlates || (meal as any).capacity || (meal as any).maxAttendees || (meal as any).totalCapacity || (meal as any).maxCapacity || 500);
+          const pct = target > 0 ? Math.min(100, Math.round((headcount / target) * 100)) : 0;
 
           return (
             <div
@@ -504,11 +572,11 @@ export function EventsLunchDinner() {
                 {/* Expand registrations trigger */}
                 <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between gap-2 flex-wrap">
                   <button
-                    onClick={() => setExpandedMealId(isExpanded ? null : meal.id)}
+                    onClick={() => toggleExpandMeal(meal.id)}
                     className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors py-1 px-2 rounded-lg hover:bg-indigo-50 cursor-pointer"
                   >
                     <Users className="w-3.5 h-3.5" />
-                    {regs.length} Registration{regs.length !== 1 ? "s" : ""} ({headcount} attendee{headcount !== 1 ? "s" : ""})
+                    {Number((meal as any).bookedCount ?? regs.length)} Registration{Number((meal as any).bookedCount ?? regs.length) !== 1 ? "s" : ""} ({Number((meal as any).attendeeHeadcount ?? headcount)} attendee{Number((meal as any).attendeeHeadcount ?? headcount) !== 1 ? "s" : ""})
                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5 ml-0.5" /> : <ChevronDown className="w-3.5 h-3.5 ml-0.5" />}
                   </button>
 
@@ -527,7 +595,12 @@ export function EventsLunchDinner() {
               {/* Expandable registered attendees table */}
               {isExpanded && (
                 <div className="border-t border-slate-100 bg-slate-50/40">
-                  {regs.length === 0 ? (
+                  {loadingMealRegs[meal.id] ? (
+                    <div className="px-6 py-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                      Loading meal attendees from database...
+                    </div>
+                  ) : regs.length === 0 ? (
                     <div className="px-6 py-6 text-center text-sm text-slate-400">
                       <p>No devotee registrations recorded yet for this meal.</p>
                       <button
@@ -665,7 +738,7 @@ export function EventsLunchDinner() {
               )}
 
               {/* Parent event selection */}
-              {!useMock && events.length > 0 && (
+              {!useMock && (
                 <div>
                   <label className="flex flex-col gap-1">
                     <span className="text-xs font-semibold text-slate-700">Parent Community Event</span>
@@ -727,16 +800,32 @@ export function EventsLunchDinner() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-700">Date *</span>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => set("date", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    required
-                  />
-                </label>
+                {(() => {
+                  const parentEv = events.find((x) => String(x.id) === String(form.mainEventId));
+                  const minDate = parentEv?.startDate || undefined;
+                  const maxDate = parentEv?.endDate || parentEv?.startDate || undefined;
+                  return (
+                    <label className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700">Date *</span>
+                        {minDate && (
+                          <span className="text-[10px] text-orange-600 font-medium">
+                            Allowed: {minDate} to {maxDate}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={form.date}
+                        min={minDate}
+                        max={maxDate}
+                        onChange={(e) => set("date", e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        required
+                      />
+                    </label>
+                  );
+                })()}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-700">Start Time</span>
                   <TimePicker value={form.startTime} onChange={(v) => set("startTime", v)} />
@@ -889,132 +978,18 @@ export function EventsLunchDinner() {
         </div>
       )}
 
-      {/* Devotee Quick Booking / RSVP Modal */}
-      {showRsvpModal && rsvpMeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-orange-50/50">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-bold">
-                  🍽️
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-sm">Issue Meal Pass / RSVP</h3>
-                  <p className="text-[11px] text-slate-500">{rsvpMeal.name} · {rsvpMeal.date}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRsvpModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleRsvpSubmit} className="p-5 space-y-3.5">
-              {rsvpError && (
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {rsvpError}
-                </div>
-              )}
-
-              {rsvpSuccess && (
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> Meal pass issued successfully!
-                </div>
-              )}
-
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-slate-700">Guest / Devotee Name *</span>
-                <input
-                  type="text"
-                  value={rsvpForm.participantName}
-                  onChange={(e) => setRsvpForm((f) => ({ ...f, participantName: e.target.value }))}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  placeholder="e.g. S. Ramanathan"
-                  required
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-700">Phone Number</span>
-                  <input
-                    type="tel"
-                    value={rsvpForm.phone}
-                    onChange={(e) => setRsvpForm((f) => ({ ...f, phone: e.target.value }))}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    placeholder="9876543210"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-700">Number of Plates</span>
-                  <input
-                    type="number"
-                    value={rsvpForm.devoteeCount}
-                    min="1"
-                    max="50"
-                    onChange={(e) => setRsvpForm((f) => ({ ...f, devoteeCount: e.target.value }))}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-700">Dietary Preference</span>
-                  <select
-                    value={rsvpForm.dietType}
-                    onChange={(e) => setRsvpForm((f) => ({ ...f, dietType: e.target.value }))}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
-                  >
-                    {DIET_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex flex-col justify-end">
-                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 text-center">
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Total Fee</p>
-                    <p className="text-sm font-extrabold text-slate-800">
-                      {rsvpMeal.isFree ? "Free" : `₹${((rsvpMeal.fee || 0) * (Number(rsvpForm.devoteeCount) || 1)).toLocaleString("en-IN")}`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <label className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-slate-700">Special Notes</span>
-                <input
-                  type="text"
-                  value={rsvpForm.notes}
-                  onChange={(e) => setRsvpForm((f) => ({ ...f, notes: e.target.value }))}
-                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                  placeholder="e.g. No onion/garlic, elderly seating"
-                />
-              </label>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowRsvpModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingRsvp || rsvpSuccess}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  {savingRsvp && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Confirm Pass
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Meal Registration Modal */}
+      <LunchDinnerRegistrationModal
+        isOpen={showRsvpModal}
+        onClose={() => {
+          setShowRsvpModal(false);
+          setRsvpMeal(null);
+        }}
+        meal={rsvpMeal}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

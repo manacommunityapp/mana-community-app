@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Shield, Users, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   CheckCircle2, Info, LayoutDashboard, CalendarDays, Ticket,
@@ -6,8 +6,9 @@ import {
   Unlock, RotateCcw, Save, Loader2, Crown,
   Briefcase, Banknote, Wrench, Camera, ClipboardList,
   CalendarClock, HeartHandshake, ScanLine, IndianRupee, Flame,
-  Plus, Sparkles, ShieldAlert,
+  Plus, Sparkles, ShieldAlert, Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
@@ -18,6 +19,7 @@ import {
   type EventPermissionRow,
 } from "../../../constants/permissions";
 import { sortRoles } from "../../../utils/roleUtils";
+import { userService } from "../../../services/common/userService";
 
 
 /* ─── Types ─── */
@@ -577,7 +579,29 @@ export function EventsAccessManagement() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const activeRole = roles.find(r => r.name === selectedRole)!;
+  // Load existing permissions from backend
+  useEffect(() => {
+    userService.getRolePermissions()
+      .then((roleMap) => {
+        if (!roleMap) return;
+        const allEventPerms = new Set(
+          EVENT_PERMISSION_MATRIX.filter(r => !r.isGroupHeader)
+            .flatMap(r => [r.view, r.createEdit, r.delete].filter(Boolean)) as string[]
+        );
+
+        setRoles(prev => prev.map(r => {
+          const matchingKey = Object.keys(roleMap).find(k => k.toUpperCase() === r.name.toUpperCase());
+          if (matchingKey !== undefined && Array.isArray(roleMap[matchingKey])) {
+            const relevant = roleMap[matchingKey].filter(p => allEventPerms.has(p));
+            return { ...r, permissions: new Set(relevant) };
+          }
+          return r;
+        }));
+      })
+      .catch((err) => console.warn("Failed to load event role permissions:", err));
+  }, []);
+
+  const activeRole = roles.find(r => r.name === selectedRole) || roles[0];
   const systemRoles = roles.filter(r => !r.suggested);
   const suggestedRoles = roles.filter(r => r.suggested);
 
@@ -612,12 +636,31 @@ export function EventsAccessManagement() {
     setSaved(false);
   };
 
+  const handleImportParentDefaults = () => {
+    setRoles(prev => prev.map(r => {
+      const defaults = EVENT_ROLE_DEFAULTS[r.name] ?? [];
+      return { ...r, permissions: new Set(defaults) };
+    }));
+    setSaved(false);
+    toast.success("Loaded parent event menu permissions for all roles. Click 'Save Changes' to apply to this community.");
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      // Save all system role permissions to backend database
+      await Promise.allSettled(
+        systemRoles.map(r => userService.updateRolePermissions(r.name, Array.from(r.permissions)))
+      );
+      setSaved(true);
+      toast.success("Event role permissions saved to community database.");
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Failed to save event role permissions:", err);
+      toast.error("Failed to save event role permissions.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -636,11 +679,20 @@ export function EventsAccessManagement() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5"
+            className="text-xs h-9 text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 gap-1.5 font-medium cursor-pointer"
+            onClick={handleImportParentDefaults}
+            title="Import standard parent event menu permissions"
+          >
+            <Download className="w-4 h-4 text-indigo-600" /> Import Parent Defaults
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5 cursor-pointer"
             onClick={handleDisableAll}
             title="Disable all permissions across all roles"
           >

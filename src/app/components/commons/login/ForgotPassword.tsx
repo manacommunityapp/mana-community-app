@@ -307,9 +307,9 @@ export function ForgotPassword() {
               {/* 6-Digit OTP Inputs */}
               <div>
                 <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  Enter 6-Digit Verification Code
+                  Enter your 6-digit code
                 </label>
-                <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="flex items-center justify-between gap-1 sm:gap-2">
                   {otpDigits.map((digit, idx) => (
                     <input
                       key={idx}
@@ -325,7 +325,7 @@ export function ForgotPassword() {
                         const pasteData = e.clipboardData.getData("text");
                         handleOtpChange(idx, pasteData);
                       }}
-                      className="w-11 h-12 sm:w-12 sm:h-12 text-center text-lg font-bold bg-[var(--mana-bg-input)] border border-border rounded-lg focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                      className="flex-1 min-w-0 h-11 sm:h-12 text-center text-base sm:text-lg font-bold bg-[var(--mana-bg-input)] border border-border rounded-lg focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
                       disabled={isResettingPassword}
                     />
                   ))}

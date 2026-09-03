@@ -40,11 +40,9 @@ export const sportsService = {
   async getAllTournaments(): Promise<SportsTournament[]> {
     return apiClient.get<SportsTournament[]>("/tournaments/all");
   },
-  /** GET /api/sports/events/all — list of all events (from sports_event table via SportsController) */
-  async getAllEvents(includeInactive = false): Promise<SportsEvent[]> {
-    const suffix = includeInactive ? "?includeInactive=true" : "";
-    return apiClient.get<SportsEvent[]>(`/sports/events/all${suffix}`)
-      .then((res: any) => res.map((x: any) => sportsEventService.mapEvent(x)));
+  /** GET /api/sports/events/all — list of all events (ignored for now) */
+  async getAllEvents(_includeInactive = false): Promise<SportsEvent[]> {
+    return Promise.resolve([]);
   },
 
   /** GET /api/tournaments/community?communityId= — all tournaments for a community (via TournamentController) */

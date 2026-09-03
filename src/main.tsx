@@ -23,11 +23,11 @@ window.addEventListener("unhandledrejection", (event) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ErrorBoundary>
-      <AuthProvider>
+    <AuthProvider>
+      <ErrorBoundary>
         <SessionTimeoutManager />
         <App />
-      </AuthProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </AuthProvider>
   </StrictMode>,
 )

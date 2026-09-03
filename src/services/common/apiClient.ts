@@ -1,5 +1,6 @@
 import { safeStorage } from "../../utils/storage";
 import { createLogger, setCorrelationId } from "../../utils/logger";
+import { canAccessEndpoint } from "../../utils/permissionUtils";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
@@ -65,6 +66,9 @@ export interface StoredUser {
   permissions?: string[];
   enabledModules?: string[];
   menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -252,6 +256,13 @@ interface RequestInitLike {
 async function request<T>(path: string, init: RequestInitLike, isRetry = false): Promise<T> {
   const correlationId = generateId();
   setCorrelationId(correlationId);
+
+  // Pre-flight permission and module access check before sending the request
+  const access = canAccessEndpoint(path, init.method, getStoredUser());
+  if (!access.allowed) {
+    log.warn(`Pre-flight Access Check blocked ${init.method} ${path}: ${access.reason} - ${access.message}`, { correlationId });
+    throw new Error(access.message || "You do not have permission to perform this action.");
+  }
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,

@@ -6,6 +6,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ShieldAlert, PackageX } from "lucide-react";
+import { useAuth } from "../../../contexts/AuthContext";
+import { VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE } from "../../../constants/permissions";
+import { canAccessModule } from "../../../utils/permissionUtils";
 import { noticeService, type NoticeResponse, type NoticeRequest } from "../../../services/notices/noticeService";
 
 function cn(...inputs: ClassValue[]) {
@@ -48,6 +52,7 @@ function timeAgo(iso: string): string {
 }
 
 export function NoticeBoard() {
+  const { user, isSuperAdmin, hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeCategory = searchParams.get("category") || "All";
   const setActiveCategory = (cat: string) => {
@@ -61,7 +66,18 @@ export function NoticeBoard() {
   const [showCreate, setShowCreate] = useState(false);
   const [editNotice, setEditNotice] = useState<NoticeResponse | null>(null);
 
+  const isModuleEnabled = isSuperAdmin || canAccessModule(user, "NOTICES");
+  const canView = isSuperAdmin || hasPermission(VIEW_NOTICES);
+  const canCreate = isSuperAdmin || hasPermission(CREATE_NOTICE);
+  const canDelete = isSuperAdmin || hasPermission(DELETE_NOTICE);
+
   const fetchNotices = useCallback(async () => {
+    if (!isModuleEnabled || !canView) {
+      setLoading(false);
+      setNotices([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await noticeService.getNotices(activeCategory !== "All" ? activeCategory : undefined);
@@ -71,11 +87,18 @@ export function NoticeBoard() {
     } finally {
       setLoading(false);
     }
-  }, [activeCategory]);
+  }, [activeCategory, isModuleEnabled, canView]);
 
-  useEffect(() => { fetchNotices(); }, [fetchNotices]);
+  useEffect(() => { 
+    if (isModuleEnabled && canView) {
+      fetchNotices(); 
+    } else {
+      setLoading(false);
+    }
+  }, [fetchNotices, isModuleEnabled, canView]);
 
   const handlePin = async (id: number) => {
+    if (!canCreate) return;
     try {
       await noticeService.togglePin(id);
       fetchNotices();
@@ -83,6 +106,7 @@ export function NoticeBoard() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!canDelete) return;
     try {
       await noticeService.deleteNotice(id);
       fetchNotices();
@@ -94,6 +118,46 @@ export function NoticeBoard() {
     setEditNotice(null);
     fetchNotices();
   };
+
+  if (!isModuleEnabled) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm max-w-lg mx-auto mt-12 animate-in fade-in duration-300">
+        <div className="p-4 bg-amber-50 text-amber-600 rounded-full border border-amber-100 mb-5">
+          <PackageX className="w-10 h-10 text-amber-600" />
+        </div>
+        <h2 className="text-xl font-extrabold text-slate-900 mb-2">Notice Board Not Available</h2>
+        <p className="text-slate-500 text-xs mt-1 max-w-sm mb-6 leading-relaxed font-semibold">
+          The Notice Board module is not enabled for your community.
+        </p>
+        <button
+          onClick={() => window.history.back()}
+          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm active:scale-95 cursor-pointer"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  if (!canView) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm max-w-lg mx-auto mt-12 animate-in fade-in duration-300">
+        <div className="p-4 bg-red-50 text-red-600 rounded-full border border-red-100 mb-5">
+          <ShieldAlert className="w-10 h-10 text-red-600" />
+        </div>
+        <h2 className="text-xl font-extrabold text-slate-900 mb-2">Access Denied</h2>
+        <p className="text-slate-500 text-xs mt-1 max-w-sm mb-6 leading-relaxed font-semibold">
+          You do not have permission to view notices. Please contact your community administrator.
+        </p>
+        <button
+          onClick={() => window.history.back()}
+          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm active:scale-95 cursor-pointer"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   const pinned = notices.filter((n) => n.pinned);
   const unpinned = notices.filter((n) => !n.pinned);
@@ -107,13 +171,15 @@ export function NoticeBoard() {
           <h1 className="text-3xl font-black text-[#0d0d2b] mt-1">Notice Board</h1>
           <p className="text-[#6b7094] text-sm mt-1">Announcements and updates from your community.</p>
         </div>
-        <button
-          onClick={() => { setEditNotice(null); setShowCreate(true); }}
-          className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer self-start md:self-auto"
-        >
-          <Plus className="w-4.5 h-4.5" />
-          Post Notice
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => { setEditNotice(null); setShowCreate(true); }}
+            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer self-start md:self-auto"
+          >
+            <Plus className="w-4.5 h-4.5" />
+            Post Notice
+          </button>
+        )}
       </div>
 
       {/* Category Filters */}
@@ -156,7 +222,7 @@ export function NoticeBoard() {
                 <Pin className="w-3 h-3" /> Pinned
               </p>
               {pinned.map((n) => (
-                <NoticeCard key={n.id} notice={n} onPin={handlePin} onDelete={handleDelete} onEdit={(n) => { setEditNotice(n); setShowCreate(true); }} />
+                <NoticeCard key={n.id} notice={n} onPin={handlePin} onDelete={handleDelete} onEdit={(n) => { setEditNotice(n); setShowCreate(true); }} canCreate={canCreate} canDelete={canDelete} />
               ))}
             </div>
           )}
@@ -166,7 +232,7 @@ export function NoticeBoard() {
                 <p className="text-[10px] font-bold text-[#6b7094] uppercase tracking-widest mt-6">Recent</p>
               )}
               {unpinned.map((n) => (
-                <NoticeCard key={n.id} notice={n} onPin={handlePin} onDelete={handleDelete} onEdit={(n) => { setEditNotice(n); setShowCreate(true); }} />
+                <NoticeCard key={n.id} notice={n} onPin={handlePin} onDelete={handleDelete} onEdit={(n) => { setEditNotice(n); setShowCreate(true); }} canCreate={canCreate} canDelete={canDelete} />
               ))}
             </div>
           )}
@@ -185,12 +251,14 @@ export function NoticeBoard() {
 }
 
 function NoticeCard({
-  notice, onPin, onDelete, onEdit,
+  notice, onPin, onDelete, onEdit, canCreate, canDelete,
 }: {
   notice: NoticeResponse;
   onPin: (id: number) => void;
   onDelete: (id: number) => void;
   onEdit: (n: NoticeResponse) => void;
+  canCreate?: boolean;
+  canDelete?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const cat = categoryConfig[notice.category] ?? categoryConfig.GENERAL;
@@ -242,29 +310,37 @@ function NoticeCard({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onPin(notice.id); }}
-                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                    title={notice.pinned ? "Unpin" : "Pin"}
-                  >
-                    {notice.pinned ? <PinOff className="w-3.5 h-3.5 text-indigo-500" /> : <Pin className="w-3.5 h-3.5 text-slate-400" />}
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEdit(notice); }}
-                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                    title="Edit"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-slate-400" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(notice.id); }}
-                    className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                  </button>
-                </div>
+                {(canCreate || canDelete) && (
+                  <div className="flex items-center gap-1">
+                    {canCreate && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onPin(notice.id); }}
+                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        title={notice.pinned ? "Unpin" : "Pin"}
+                      >
+                        {notice.pinned ? <PinOff className="w-3.5 h-3.5 text-indigo-500" /> : <Pin className="w-3.5 h-3.5 text-slate-400" />}
+                      </button>
+                    )}
+                    {canCreate && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(notice); }}
+                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        title="Edit"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-400" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(notice.id); }}
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

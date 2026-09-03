@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   Shield,
@@ -21,16 +21,29 @@ import {
   X,
   Key,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   Lock,
   Unlock,
   MonitorPlay,
   Save,
+  UserCog,
+  Loader2,
+  Trash2,
+  Home,
+  BadgeCheck,
+  CreditCard,
+  Briefcase,
+  Hash,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
 import type { UserStatsResponse } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
+import { confirmAction } from "../../../utils/AlertUtils";
+import { DatePicker } from "../ui/date-picker";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow, EventPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";
@@ -48,6 +61,19 @@ interface UserItem {
   status: "Active" | "Inactive";
   date: string;
   permissions?: string[];
+  block?: string;
+  flatNo?: string;
+  tower?: string;
+  residentType?: string;
+  occupancyStatus?: string;
+  employeeId?: string;
+  govtIdType?: string;
+  govtIdNumber?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  kycStatus?: string;
+  communityId?: number;
+  profilePicUrl?: string;
 }
 
 interface PermissionCategory {
@@ -81,6 +107,11 @@ export function AdminRoleManagement() {
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
   const [updatingUserRoles, setUpdatingUserRoles] = useState<boolean>(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   // Custom Roles & Tab States
   const [searchParams, setSearchParams] = useSearchParams();
@@ -97,6 +128,26 @@ export function AdminRoleManagement() {
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [loadingEditPerms, setLoadingEditPerms] = useState(false);
   const [savedRoles, setSavedRoles] = useState<string[] | null>(null);
+
+  // Edit User Details modal state
+  const [editUserDetailsOpen, setEditUserDetailsOpen] = useState(false);
+  const [editUserDetailsData, setEditUserDetailsData] = useState<{
+    id: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    dateOfBirth: string;
+    gender: string;
+    block: string;
+    tower: string;
+    flatNo: string;
+    residentType: string;
+    occupancyStatus: string;
+    employeeId: string;
+    govtIdType: string;
+    govtIdNumber: string;
+  } | null>(null);
+  const [savingUserDetails, setSavingUserDetails] = useState(false);
 
   const loadPermissions = async () => {
     try {
@@ -135,9 +186,89 @@ export function AdminRoleManagement() {
     }
   }, [isSuperAdmin]);
 
+  const loadUsers = async (commId?: number | "", searchStr?: string) => {
+    setLoading(true);
+    try {
+      const activeCommId = commId !== undefined ? commId : selectedCommId;
+      const activeSearch = searchStr !== undefined ? searchStr : searchQuery;
+      const commIdToQuery = (isSuperAdmin && activeCommId)
+        ? Number(activeCommId)
+        : (user?.communityId ?? undefined);
+
+      const [usersData, statsRes] = await Promise.all([
+        (activeSearch && activeSearch.trim())
+          ? userService.searchUsersGlobal(activeSearch.trim(), activeCommId ? Number(activeCommId) : undefined)
+          : (isSuperAdmin && activeCommId)
+            ? userService.getCommunityUsers(Number(activeCommId))
+            : userService.getAllUsers(),
+        userService.getUserStats(commIdToQuery).catch(() => null),
+      ]);
+
+      if (statsRes) {
+        setUserStats(statsRes);
+      }
+
+      let usersList: UserResponse[] = [];
+      if (usersData) {
+        if (Array.isArray(usersData)) {
+          usersList = usersData;
+        } else if (typeof usersData === "object" && Array.isArray((usersData as any).content)) {
+          usersList = (usersData as any).content;
+        }
+      }
+      
+      const mapped = usersList.map((u) => {
+        const rawRole = u.role || "USER";
+        const rolesList = (u.roles && u.roles.length > 0
+          ? u.roles.map((r) => r.trim().toUpperCase())
+          : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
+        ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
+        const displayRole = rawRole.split(",")
+          .map((r) => r.trim().toUpperCase())
+          .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r)
+          .join(", ");
+        return {
+          id: u.id,
+          name: u.fullName || "",
+          email: u.email || "",
+          contact: u.phone || "",
+          role: displayRole,
+          roles: rolesList,
+          status: u.isActive ? ("Active" as const) : ("Inactive" as const),
+          date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
+          permissions: u.permissions,
+          block: u.block || "",
+          flatNo: u.flatNo || "",
+          tower: u.tower || "",
+          residentType: u.residentType || "",
+          occupancyStatus: u.occupancyStatus || "",
+          employeeId: u.employeeId || "",
+          govtIdType: u.govtIdType || "",
+          govtIdNumber: u.govtIdNumber || "",
+          gender: u.gender || "",
+          dateOfBirth: u.dateOfBirth || "",
+        };
+      });
+      setUsers(mapped);
+    } catch (err) {
+      toast.error("Failed to load users from database");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debounced database search
   useEffect(() => {
-    loadUsers(selectedCommId);
-  }, [selectedCommId]);
+    const timer = setTimeout(() => {
+      loadUsers(selectedCommId, searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedCommId]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, selectedCommId, pageSize]);
 
   useEffect(() => {
     loadPermissions();
@@ -173,76 +304,37 @@ export function AdminRoleManagement() {
     }
   };
 
-  const loadUsers = async (commId?: number | "") => {
-    setLoading(true);
-    try {
-      const activeCommId = commId !== undefined ? commId : selectedCommId;
-      const commIdToQuery = (isSuperAdmin && activeCommId) 
-        ? Number(activeCommId) 
-        : (user?.communityId ?? undefined);
-
-      const [data, statsRes] = await Promise.all([
-        (isSuperAdmin && activeCommId) 
-          ? userService.getCommunityUsers(Number(activeCommId))
-          : userService.getAllUsers(),
-        userService.getUserStats(commIdToQuery).catch(() => null),
-      ]);
-
-      if (statsRes) {
-        setUserStats(statsRes);
-      }
-      
-      let usersList: UserResponse[] = [];
-      if (data) {
-        if (Array.isArray(data)) {
-          usersList = data;
-        } else if (typeof data === "object" && Array.isArray((data as any).content)) {
-          usersList = (data as any).content;
-        }
-      }
-
-      const mapped = usersList.map((u) => {
-        const rawRole = u.role || "USER";
-        const rolesList = (u.roles && u.roles.length > 0
-          ? u.roles.map((r) => r.trim().toUpperCase())
-          : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
-        ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
-        const displayRole = rawRole.split(",")
-          .map((r) => r.trim().toUpperCase())
-          .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r)
-          .join(", ");
-        return {
-          id: u.id,
-          name: u.fullName,
-          email: u.email,
-          contact: u.phone,
-          role: displayRole,
-          roles: rolesList,
-          status: u.isActive ? ("Active" as const) : ("Inactive" as const),
-          date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
-          permissions: u.permissions,
-        };
-      });
-      setUsers(mapped);
-    } catch (err) {
-      toast.error("Failed to load users from database");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // SEARCH AND FILTER
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.contact.includes(searchQuery);
+  const filteredUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return users.filter((u) => {
+      const matchesSearch =
+        !q ||
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.contact || "").toLowerCase().includes(q) ||
+        (u.role || "").toLowerCase().includes(q) ||
+        (u.roles || []).some((r) => (r || "").toLowerCase().includes(q)) ||
+        String(u.id).includes(q.replace("#", "")) ||
+        (u.block || "").toLowerCase().includes(q) ||
+        (u.flatNo || "").toLowerCase().includes(q) ||
+        (u.tower || "").toLowerCase().includes(q) ||
+        (u.residentType || "").toLowerCase().includes(q) ||
+        (u.occupancyStatus || "").toLowerCase().includes(q);
 
-    const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return Boolean(matchesSearch && matchesStatus);
+    });
+  }, [users, searchQuery, statusFilter]);
+
+  // PAGINATION COMPUTATION
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
 
   const stats = {
     total: userStats?.totalUsers ?? users.length,
@@ -256,14 +348,52 @@ export function AdminRoleManagement() {
   };
 
   // HANDLERS
-  const openUserDetails = (u: UserItem) => {
+  const openUserDetails = async (u: UserItem) => {
     setSelectedUser(u);
+    setSavedRoles(null);
     const initialRoles = u.roles && u.roles.length > 0
       ? u.roles.map((r) => r.toUpperCase())
       : u.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
     // Ensure USER base role is always present
     if (!initialRoles.includes("USER")) initialRoles.push("USER");
     setSelectedUserRoles(initialRoles);
+
+    // Fetch fresh and complete database profile for the user
+    try {
+      const fresh = await userService.getUserById(u.id);
+      if (fresh) {
+        setSelectedUser((prev) => {
+          if (!prev || prev.id !== u.id) return prev;
+          const rawRole = fresh.role || prev.role || "USER";
+          const rolesList = (fresh.roles && fresh.roles.length > 0
+            ? fresh.roles.map((r) => r.trim().toUpperCase())
+            : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
+          ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
+
+          return {
+            ...prev,
+            name: fresh.fullName || prev.name,
+            email: fresh.email || prev.email,
+            contact: fresh.phone || prev.contact,
+            dateOfBirth: fresh.dateOfBirth || prev.dateOfBirth,
+            gender: fresh.gender || prev.gender,
+            block: fresh.block || prev.block,
+            tower: fresh.tower || prev.tower,
+            flatNo: fresh.flatNo || prev.flatNo,
+            residentType: fresh.residentType || prev.residentType,
+            occupancyStatus: fresh.occupancyStatus || prev.occupancyStatus,
+            employeeId: fresh.employeeId || prev.employeeId,
+            govtIdType: fresh.govtIdType || prev.govtIdType,
+            govtIdNumber: fresh.govtIdNumber || prev.govtIdNumber,
+            kycStatus: fresh.kycStatus || prev.kycStatus,
+            communityId: fresh.communityId || prev.communityId,
+            status: fresh.isActive !== undefined ? (fresh.isActive ? "Active" : "Inactive") : prev.status,
+            permissions: fresh.permissions || prev.permissions,
+            roles: rolesList,
+          };
+        });
+      }
+    } catch {}
   };
 
   const toggleSelectedRole = (roleName: string) => {
@@ -364,6 +494,35 @@ export function AdminRoleManagement() {
       );
     } catch (err) {
       toast.error("Failed to update status in database");
+    }
+  };
+
+  const handleDeleteUser = async (u: UserItem) => {
+    const confirmed = await confirmAction({
+      title: "Delete / Deactivate User?",
+      text: `Are you sure you want to deactivate ${u.name || "this user"} (ID: #${u.id})? Their status will be set to Inactive in the database.`,
+      confirmButtonText: "Yes, Deactivate",
+      cancelButtonText: "Cancel",
+      icon: "warning",
+      confirmButtonColor: "#dc2626",
+    });
+    if (!confirmed) return;
+
+    setDeletingUserId(u.id);
+    try {
+      if (u.status === "Active") {
+        await userService.toggleUserStatus(u.id);
+      } else {
+        await userService.updateUser(u.id, { isActive: false });
+      }
+      setUsers((prev) =>
+        prev.map((item) => (item.id === u.id ? { ...item, status: "Inactive" as const } : item))
+      );
+      toast.success(`User "${u.name}" has been deactivated successfully`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update user status in database");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -530,6 +689,82 @@ export function AdminRoleManagement() {
     }
   };
 
+  const openEditUserDetails = (u: UserItem) => {
+    setEditUserDetailsData({
+      id: u.id,
+      fullName: u.name,
+      email: u.email,
+      phone: u.contact,
+      dateOfBirth: "",
+      gender: "",
+      block: "",
+      tower: "",
+      flatNo: "",
+      residentType: "",
+      occupancyStatus: "",
+      employeeId: "",
+      govtIdType: "",
+      govtIdNumber: "",
+    });
+    // Fetch fresh data to populate all fields
+    userService.getUserById(u.id).then((freshUser) => {
+      setEditUserDetailsData({
+        id: u.id,
+        fullName: freshUser.fullName ?? u.name,
+        email: freshUser.email ?? u.email,
+        phone: freshUser.phone ?? u.contact,
+        dateOfBirth: freshUser.dateOfBirth ?? "",
+        gender: freshUser.gender ?? "",
+        block: freshUser.block ?? "",
+        tower: (freshUser as any).tower ?? "",
+        flatNo: freshUser.flatNo ?? "",
+        residentType: freshUser.residentType ?? "",
+        occupancyStatus: freshUser.occupancyStatus ?? "",
+        employeeId: (freshUser as any).employeeId ?? "",
+        govtIdType: (freshUser as any).govtIdType ?? "",
+        govtIdNumber: (freshUser as any).govtIdNumber ?? "",
+      });
+    }).catch(() => {});
+    setEditUserDetailsOpen(true);
+  };
+
+  const handleSaveUserDetails = async () => {
+    if (!editUserDetailsData) return;
+    setSavingUserDetails(true);
+    try {
+      await userService.updateUser(editUserDetailsData.id, {
+        fullName: editUserDetailsData.fullName,
+        email: editUserDetailsData.email,
+        phone: editUserDetailsData.phone,
+        dateOfBirth: editUserDetailsData.dateOfBirth || undefined,
+        gender: editUserDetailsData.gender || undefined,
+        block: editUserDetailsData.block || undefined,
+        tower: editUserDetailsData.tower || undefined,
+        flatNo: editUserDetailsData.flatNo || undefined,
+        residentType: editUserDetailsData.residentType || undefined,
+        occupancyStatus: editUserDetailsData.occupancyStatus || undefined,
+        employeeId: editUserDetailsData.employeeId || undefined,
+        govtIdType: editUserDetailsData.govtIdType || undefined,
+        govtIdNumber: editUserDetailsData.govtIdNumber || undefined,
+      } as any);
+      toast.success(`User details updated for ${editUserDetailsData.fullName}`);
+      // Update local list
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editUserDetailsData.id
+            ? { ...u, name: editUserDetailsData.fullName, email: editUserDetailsData.email, contact: editUserDetailsData.phone }
+            : u
+        )
+      );
+      setEditUserDetailsOpen(false);
+      setEditUserDetailsData(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update user details");
+    } finally {
+      setSavingUserDetails(false);
+    }
+  };
+
   const isCategoryAllSelected = (role: string, categoryId: string): boolean => {
     const category = permissionCategories.find((c) => c.id === categoryId);
     if (!category) return false;
@@ -667,11 +902,21 @@ export function AdminRoleManagement() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Search user, email, contact, or role..."
+                    placeholder="Search name, email, phone, role, unit..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all"
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
@@ -713,14 +958,14 @@ export function AdminRoleManagement() {
                             Loading users from app_user database...
                           </td>
                         </tr>
-                      ) : filteredUsers.length > 0 ? (
-                        filteredUsers.map((user) => (
+                      ) : paginatedUsers.length > 0 ? (
+                        paginatedUsers.map((user) => (
                           <tr key={user.id} className="hover:bg-slate-50/70 transition-colors">
                             {/* User & Name */}
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shadow-inner">
-                                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
                                 </div>
                                 <div>
                                   <span className="font-semibold text-slate-900 block">{user.name}</span>
@@ -733,7 +978,7 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                {user.email}
+                                {user.email || "—"}
                               </div>
                             </td>
 
@@ -741,7 +986,7 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                {user.contact}
+                                {user.contact || "—"}
                               </div>
                             </td>
 
@@ -775,7 +1020,7 @@ export function AdminRoleManagement() {
 
                             {/* Action buttons */}
                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => openUserDetails(user)}
                                   className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200 cursor-pointer"
@@ -785,10 +1030,32 @@ export function AdminRoleManagement() {
                                 </button>
                                 <button
                                   onClick={() => handleEditRole(user.role, user.id)}
-                                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors border border-indigo-100"
-                                  title="Configure Permissions"
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors border border-indigo-100 text-xs font-semibold cursor-pointer"
+                                  title="Edit Roles & Configure Permissions"
                                 >
-                                  <Edit className="w-4 h-4" />
+                                  <Key className="w-3.5 h-3.5" />
+                                  <span>Roles</span>
+                                </button>
+                                <button
+                                  onClick={() => openEditUserDetails(user)}
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200 text-xs font-semibold cursor-pointer"
+                                  title="Edit User Details"
+                                >
+                                  <UserCog className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={deletingUserId === user.id}
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors border border-rose-200 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                                  title="Delete User (Set Inactive in Database)"
+                                >
+                                  {deletingUserId === user.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  )}
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             </td>
@@ -806,14 +1073,88 @@ export function AdminRoleManagement() {
                   </table>
                 </div>
 
-                {/* Mock Pagination */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-                  <span>Showing {filteredUsers.length} of {users.length} users</span>
+                {/* Interactive Pagination Bar */}
+                <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <span>
+                      Showing <strong className="text-slate-800 font-bold">{filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> to <strong className="text-slate-800 font-bold">{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong className="text-slate-800 font-bold">{filteredUsers.length}</strong> {filteredUsers.length !== users.length ? `(filtered from ${users.length})` : "users"}
+                    </span>
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                      <span className="text-slate-400">Rows:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-slate-200 rounded px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-1">
-                    <button disabled className="px-2.5 py-1.5 border border-slate-200 rounded bg-white text-slate-400 cursor-not-allowed">Previous</button>
-                    <button className="px-2.5 py-1.5 bg-indigo-600 border border-indigo-600 text-white rounded font-medium">1</button>
-                    <button className="px-2.5 py-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50">2</button>
-                    <button className="px-2.5 py-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50">Next</button>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      title="First Page"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 font-medium disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                      title="Previous Page"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                        .map((p, idx, arr) => (
+                          <span key={p} className="flex items-center">
+                            {idx > 0 && p - arr[idx - 1] > 1 && (
+                              <span className="px-1 text-slate-400 select-none">...</span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(p)}
+                              className={`min-w-[30px] h-[30px] rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                currentPage === p
+                                  ? "bg-indigo-600 text-white shadow-sm"
+                                  : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages || filteredUsers.length === 0}
+                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 font-medium disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                      title="Next Page"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage >= totalPages || filteredUsers.length === 0}
+                      className="p-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      title="Last Page"
+                    >
+                      <ChevronsRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1513,30 +1854,293 @@ export function AdminRoleManagement() {
         </div>
       )}
 
-      {/* VIEW USER DETAILS MODAL */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setSelectedUser(null); setSavedRoles(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-250" onClick={(e) => e.stopPropagation()}>
+      {/* EDIT USER DETAILS MODAL */}
+      {editUserDetailsOpen && editUserDetailsData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-250 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-5">
+            <div className="relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-5 shrink-0">
               <button
-                onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
-                className="absolute top-4 right-4 p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}
+                className="absolute top-4 right-4 p-1.5 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               >
-                <X className="w-4.5 h-4.5" />
+                <X className="w-4 h-4" />
               </button>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                  {selectedUser.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                  {editUserDetailsData.fullName.split(" ").map((n) => n[0]).join("").toUpperCase()}
                 </div>
                 <div>
-                  <h4 className="text-lg font-bold">{selectedUser.name}</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  <h4 className="text-lg font-bold">Edit User Details</h4>
+                  <p className="text-emerald-100 text-xs mt-0.5 font-medium">Update app_user profile information</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Full Name</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.fullName}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, fullName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="Full name"
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Email</label>
+                  <input
+                    type="email"
+                    value={editUserDetailsData.email}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="email@example.com"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Phone</label>
+                  <input
+                    type="tel"
+                    value={editUserDetailsData.phone}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, phone: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="+91 9999999999"
+                  />
+                </div>
+
+                {/* Date of Birth */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Date of Birth</label>
+                  <DatePicker
+                    value={editUserDetailsData.dateOfBirth}
+                    onChange={(val) => setEditUserDetailsData({ ...editUserDetailsData, dateOfBirth: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select date of birth..."
+                    className="w-full"
+                    presets={false}
+                  />
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Gender</label>
+                  <select
+                    value={editUserDetailsData.gender}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, gender: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                {/* Employee ID */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Employee / Resident ID</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.employeeId}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, employeeId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. RES-9021"
+                  />
+                </div>
+
+                {/* Block */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Block</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.block}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, block: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. A"
+                  />
+                </div>
+
+                {/* Tower */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Tower</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.tower}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, tower: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. T1"
+                  />
+                </div>
+
+                {/* Flat No */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Flat / Unit No</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.flatNo}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, flatNo: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. 304"
+                  />
+                </div>
+
+                {/* Resident Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Resident Type</label>
+                  <select
+                    value={editUserDetailsData.residentType}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, residentType: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select type</option>
+                    <option value="Resident">Resident</option>
+                    <option value="Non-Resident">Non-Resident</option>
+                    <option value="Guest">Guest</option>
+                  </select>
+                </div>
+
+                {/* Occupancy Status */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Occupancy Status</label>
+                  <select
+                    value={editUserDetailsData.occupancyStatus}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, occupancyStatus: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select status</option>
+                    <option value="Owner">Owner</option>
+                    <option value="Tenant">Tenant</option>
+                    <option value="Staff">Staff</option>
+                  </select>
+                </div>
+
+                {/* Govt ID Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Govt ID Type</label>
+                  <select
+                    value={editUserDetailsData.govtIdType}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, govtIdType: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select ID type</option>
+                    <option value="AADHAAR">Aadhaar Card</option>
+                    <option value="PAN">PAN Card</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="VOTER_ID">Voter ID</option>
+                    <option value="DRIVING_LICENCE">Driving Licence</option>
+                  </select>
+                </div>
+
+                {/* Govt ID Number */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Govt ID Number</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.govtIdNumber}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, govtIdNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="Enter ID document number"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUserDetails}
+                disabled={savingUserDetails}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                {savingUserDetails ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    Save User Details
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW USER DETAILS MODAL — COMPLETE USER INFORMATION */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedUser(null); setSavedRoles(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-indigo-700 via-indigo-650 to-indigo-800 text-white p-5 sm:p-6 shrink-0">
+              <button
+                onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
+                className="absolute top-4 right-4 p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white font-extrabold text-xl shadow-inner shrink-0">
+                  {selectedUser.name.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
+                </div>
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-black text-white truncate tracking-tight">{selectedUser.name}</h3>
+                    <span className="px-2 py-0.5 rounded-md bg-white/15 text-indigo-100 text-xs font-mono font-bold tracking-wider">
+                      #{selectedUser.id}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Status badge */}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedUser.status === 'Active'
+                        ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                        : "bg-rose-500/20 text-rose-200 border border-rose-400/30"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedUser.status === 'Active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                      {selectedUser.status}
+                    </span>
+
+                    {/* KYC Badge */}
+                    {selectedUser.kycStatus && (
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        selectedUser.kycStatus === "VERIFIED"
+                          ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                          : selectedUser.kycStatus === "PENDING"
+                          ? "bg-amber-500/20 text-amber-200 border border-amber-400/30"
+                          : "bg-slate-500/20 text-slate-200 border border-slate-400/30"
+                      }`}>
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        KYC: {selectedUser.kycStatus}
+                      </span>
+                    )}
+
+                    {/* Primary Role Tag */}
                     {(selectedUser.roles && selectedUser.roles.length > 0
                       ? selectedUser.roles
                       : selectedUser.role.split(",").map((r) => r.trim())
                     ).filter(Boolean).map((r) => (
-                      <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[11px] font-semibold tracking-wider uppercase text-white">
+                      <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider text-white">
                         <Shield className="w-3 h-3" />
                         {r.trim().toUpperCase()}
                       </span>
@@ -1546,170 +2150,259 @@ export function AdminRoleManagement() {
               </div>
             </div>
 
-            {/* Details */}
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Email Address</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold break-all">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    {selectedUser.email}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Phone / Contact</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    {selectedUser.contact}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">User Status</span>
-                  <div>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      selectedUser.status === 'Active'
-                        ? "bg-green-150 text-green-700"
-                        : "bg-red-150 text-red-700"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedUser.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {selectedUser.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Date Registered</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    {selectedUser.date}
-                  </div>
-                </div>
-
-                <div className="space-y-2 col-span-2 border-t border-slate-100 pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-700 block font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                      Assigned Module Access &amp; Security Roles
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        savedRoles
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-indigo-50 text-indigo-600"
-                      }`}>
-                        {(savedRoles ?? (
-                          selectedUser.roles && selectedUser.roles.length > 0
-                            ? selectedUser.roles
-                            : selectedUser.role.split(",").map(r => r.trim()).filter(Boolean)
-                        )).length} Active
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-semibold">Select multiple roles to grant access across modules</span>
-                  </div>
-
-                  {/* Multi-role Toggle Grid */}
-                  <div className="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
-                    {sortRoleStrings(Array.from(new Set([
-                      "USER", "MEMBER", "SPORTS_ADMIN",
-                      "VENDOR", "CASHIER", "STAFF", "ADMIN",
-                      ...roles.map((r) => r.name.toUpperCase())
-                    ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
-                    .map((roleKey) => {
-                      const isSelected = selectedUserRoles.includes(roleKey);
-                      const isLocked = roleKey === "USER";
-                      return (
-                        <button
-                          key={roleKey}
-                          type="button"
-                          onClick={() => toggleSelectedRole(roleKey)}
-                          disabled={isLocked}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
-                            isLocked
-                              ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
-                              : isSelected
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
-                          }`}
-                        >
-                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                            isLocked
-                              ? "bg-slate-400 text-white border-slate-400"
-                              : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
-                          }`}>
-                            {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                          </div>
-                          {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-1">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSaveUserRoles}
-                        disabled={updatingUserRoles}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
-                      >
-                        {updatingUserRoles ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-3.5 h-3.5" />
-                            Save Assigned Roles
-                          </>
-                        )}
-                      </button>
+            {/* Scrollable Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-6 text-slate-700 divide-y divide-slate-100">
+              {/* Section 1: Contact & Personal Details */}
+              <div>
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  Personal &amp; Contact Details
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Email Address</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold break-all">
+                      <Mail className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <span>{selectedUser.email || "Not Provided"}</span>
                     </div>
-                    {savedRoles && (
-                      <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px]">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex flex-col gap-1">
-                          <span className="font-bold text-emerald-700">Roles saved successfully</span>
-                          <div className="flex flex-wrap gap-1">
-                            {savedRoles.map((r) => (
-                              <span key={r} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold">
-                                <Shield className="w-2.5 h-2.5" />
-                                {r}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Contact Number</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <Phone className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>{selectedUser.contact || "Not Provided"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Date of Birth</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>
+                        {selectedUser.dateOfBirth
+                          ? new Date(selectedUser.dateOfBirth).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                          : "Not Provided"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Gender</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <UserCheck className="w-4 h-4 text-purple-500 shrink-0" />
+                      <span>{selectedUser.gender || "Not Specified"}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Active Permissions Tags */}
-              <div className="border-t border-slate-100 pt-4">
-                <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
-                  <FileText className="w-4 h-4 text-indigo-500" />
+              {/* Section 2: Residence & Community Unit Details */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-indigo-600" />
+                  Residence &amp; Community Unit Details
+                </h5>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Tower / Building</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.tower || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Block / Wing</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Home className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.block || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Flat / Unit No.</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Hash className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{selectedUser.flatNo || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Resident Type</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.residentType || "Resident"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Occupancy Status</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.occupancyStatus || "Owner"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Joined / Registered</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.date}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Identity & Professional Details */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-indigo-600" />
+                  Identification &amp; Official Records
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Govt ID Type</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.govtIdType || "Aadhaar Card"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Govt ID Number</span>
+                    <span className="text-slate-800 font-mono font-bold block">{selectedUser.govtIdNumber || "—"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Employee / Staff ID</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.employeeId || "N/A"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Assigned Security Roles & Module Access */}
+              <div className="pt-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    Assigned Security Roles &amp; Module Access
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      savedRoles ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"
+                    }`}>
+                      {selectedUserRoles.length} Active
+                    </span>
+                  </h5>
+                  <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">Toggle roles to grant/revoke access</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-44 overflow-y-auto">
+                  {sortRoleStrings(Array.from(new Set([
+                    "USER", "MEMBER", "SPORTS_ADMIN",
+                    "VENDOR", "CASHIER", "STAFF", "ADMIN",
+                    ...roles.map((r) => r.name.toUpperCase())
+                  ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
+                  .map((roleKey) => {
+                    const isSelected = selectedUserRoles.includes(roleKey);
+                    const isLocked = roleKey === "USER";
+                    return (
+                      <button
+                        key={roleKey}
+                        type="button"
+                        onClick={() => toggleSelectedRole(roleKey)}
+                        disabled={isLocked}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                          isLocked
+                            ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                            : isSelected
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs cursor-pointer"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                          isLocked
+                            ? "bg-slate-400 text-white border-slate-400"
+                            : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
+                        }`}>
+                          {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveUserRoles}
+                      disabled={updatingUserRoles}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      {updatingUserRoles ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Saving Roles...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3.5 h-3.5" />
+                          Save Assigned Roles
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {savedRoles && (
+                    <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs">
+                      <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-bold text-emerald-700">Roles saved successfully in database</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {savedRoles.map((r) => (
+                            <span key={r} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold text-[10px]">
+                              <Shield className="w-2.5 h-2.5" />
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 5: Active Permissions */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-2.5 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-indigo-600" />
                   Active Permissions ({selectedUser.permissions ? selectedUser.permissions.length : 0})
                 </h5>
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   {selectedUser.permissions && selectedUser.permissions.length > 0 ? (
                     selectedUser.permissions.map((perm) => (
-                      <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm">
+                      <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-2xs">
                         <CheckCircle className="w-2.5 h-2.5 text-emerald-500" />
                         {perm}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-400 p-2 italic w-full text-center">No active permissions loaded.</span>
+                    <span className="text-xs text-slate-400 italic w-full text-center py-2">No active permissions loaded.</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetUser = selectedUser;
+                  setSelectedUser(null);
+                  setSavedRoles(null);
+                  if (targetUser) openEditUserDetails(targetUser);
+                }}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserCog className="w-4 h-4" />
+                <span>Edit Full Profile</span>
+              </button>
+
               <button
                 onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors shadow-sm cursor-pointer"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors shadow-2xs cursor-pointer"
               >
                 Close View
               </button>

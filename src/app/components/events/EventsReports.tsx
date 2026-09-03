@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Download, Users, FileText,
   Search, Calendar, Eye, Printer, CheckCircle2,
@@ -7,6 +7,7 @@ import {
   FileSpreadsheet, ClipboardList, MapPin,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
 import { ErrorBanner, LoadingSpinner } from "./shared/index";
 import {
   eventReportService,
@@ -17,6 +18,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import {
   Tooltip, PieChart, Pie, Cell, Legend, ResponsiveContainer
 } from "recharts";
+import { DatePicker } from "../ui/date-picker";
 
 // ── Category Config ────────────────────────────────────────────────────────────
 const CATEGORY_REPORT_CARDS = [
@@ -184,6 +186,7 @@ function DownloadCard({ card, count, revenue, isDownloading, onDownload, onCopyW
 // ── Main Component ─────────────────────────────────────────────────────────────
 export function EventsReports() {
   const { useMock } = useEventMock();
+  const { isAdmin } = useAuth();
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventResponse | null>(null);
@@ -205,6 +208,7 @@ export function EventsReports() {
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRowDetails, setSelectedRowDetails] = useState<EventRegistrationReportRow | null>(null);
+  const reportReqRef = useRef(0);
 
   // ── Load Events ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -214,26 +218,27 @@ export function EventsReports() {
         setEvents(evts);
         if (evts.length > 0) { setSelectedEventId(evts[0].id); setSelectedEvent(evts[0]); }
       })
-      .catch(() => {});
+      .catch(e => setError(e?.message ?? "Failed to load events"));
   }, [useMock]);
 
   // ── Load Report & Registrations when event changes ───────────────────────────
   useEffect(() => {
     if (useMock || !selectedEventId) return;
+    const reqId = ++reportReqRef.current;
     const currentEvt = events.find(e => e.id === selectedEventId) || null;
     setSelectedEvent(currentEvt);
     setLoading(true);
     setError("");
     eventReportService.getEventReport(selectedEventId)
-      .then(r => setReport(r))
-      .catch(e => setError(e.message ?? "Failed to load report summary"))
-      .finally(() => setLoading(false));
+      .then(r => { if (reportReqRef.current === reqId) setReport(r); })
+      .catch(e => { if (reportReqRef.current === reqId) setError(e?.message ?? "Failed to load report summary"); })
+      .finally(() => { if (reportReqRef.current === reqId) setLoading(false); });
 
     setLoadingRegs(true);
     eventReportService.getRegistrationReport(selectedEventId, "all")
-      .then(rows => setRegistrations(rows))
-      .catch(e => { console.warn("Registration list error:", e); setRegistrations([]); })
-      .finally(() => setLoadingRegs(false));
+      .then(rows => { if (reportReqRef.current === reqId) setRegistrations(rows); })
+      .catch(e => { if (reportReqRef.current === reqId) { setError(e?.message ?? "Failed to load registrations"); setRegistrations([]); } })
+      .finally(() => { if (reportReqRef.current === reqId) setLoadingRegs(false); });
   }, [useMock, selectedEventId, events]);
 
   // Reset page & sub-filters when category or event changes
@@ -252,7 +257,7 @@ export function EventsReports() {
     if (tabId === "all") return true;
     const cat = r.category.toLowerCase();
     if (tabId === "pooja")     return cat.includes("pooja");
-    if (tabId === "general")   return cat.includes("general") || cat.includes("event");
+    if (tabId === "general")   return cat.includes("general") && !cat.includes("cultural") && !cat.includes("food");
     if (tabId === "activity")  return cat.includes("activity") || cat.includes("cultural") || cat.includes("competition");
     if (tabId === "meal")      return cat.includes("meal") || cat.includes("food");
     if (tabId === "volunteer") return cat.includes("volunteer");
@@ -269,13 +274,14 @@ export function EventsReports() {
     return titles;
   }, [allSource, activeCategoryTab]);
 
-  // Distinct venues for current category
+  // Distinct venues for current category — collect venue and mandap separately so both are filterable
   const venueOptions = useMemo(() => {
-    const venues = Array.from(new Set(
-      allSource.filter(r => matchesCategory(r, activeCategoryTab))
-        .map(r => r.venue || r.mandap).filter(Boolean)
-    )).sort();
-    return venues;
+    const set = new Set<string>();
+    allSource.filter(r => matchesCategory(r, activeCategoryTab)).forEach(r => {
+      if (r.venue) set.add(r.venue);
+      if (r.mandap) set.add(r.mandap);
+    });
+    return Array.from(set).sort();
   }, [allSource, activeCategoryTab]);
 
   // ── CSV helpers ──────────────────────────────────────────────────────────────
@@ -287,7 +293,9 @@ export function EventsReports() {
   }
 
   function rowToArray(r: EventRegistrationReportRow): (string | number)[] {
-    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(r.phone),esc(r.email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
+    const phone = isAdmin ? r.phone : "[REDACTED]";
+    const email = isAdmin ? r.email : "[REDACTED]";
+    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(phone),esc(email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
   }
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -308,7 +316,7 @@ export function EventsReports() {
     const xmlEsc = (v: unknown) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const headerRow = CSV_HEADERS.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`).join("");
     const dataRows = rows.map(r => {
-      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,r.phone,r.email,r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
+      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,isAdmin?r.phone:"[REDACTED]",isAdmin?r.email:"[REDACTED]",r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
       return `<Row>${vals.map(v => `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`).join("")}</Row>`;
     }).join("\n");
 
@@ -381,6 +389,14 @@ ${dataRows}
   }
 
   async function handleDownloadCategory(category: string, title: string, format: string) {
+    const LARGE_EXPORT_THRESHOLD = 500;
+    const estimatedCount = category === "all" ? registrations.length : registrations.filter(r => matchesCategory(r, category)).length;
+    if (estimatedCount > LARGE_EXPORT_THRESHOLD) {
+      const confirmed = window.confirm(
+        `This will export ${estimatedCount} registrations. Large exports may take a moment. Continue?`
+      );
+      if (!confirmed) return;
+    }
     setDownloadingCategory(category);
     setSuccessMsg("");
     setError("");
@@ -391,24 +407,25 @@ ${dataRows}
       if (useMock || !selectedEventId) {
         rows = category === "all" ? MOCK_ROWS : MOCK_ROWS.filter(r => r.category.toLowerCase().includes(category));
       } else {
-        try {
-          if (format === "csv") {
+        if (format === "csv") {
+          try {
             const blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
             triggerDownload(blob, `${base}.csv`);
             setSuccessMsg(`Exported ${title} CSV`);
-            return;
+          } catch (e: any) {
+            setError(e?.message || "CSV export failed");
           }
-          rows = await eventReportService.getRegistrationReport(selectedEventId, category);
-        } catch {
-          rows = category === "all" ? registrations : registrations.filter(r => r.category.toLowerCase().includes(category));
+          return;
         }
+        // For non-CSV formats: filter the already-loaded registrations to avoid a second race
+        rows = category === "all" ? registrations : registrations.filter(r => matchesCategory(r, category));
       }
 
       if (format === "csv")        downloadCsvClientSide(rows, `${base}.csv`);
-      else if (format === "excel") downloadExcel(rows, `${base}.csv`);
+      else if (format === "excel") downloadExcel(rows, `${base}.xls`);
       else if (format === "pdf")   handlePrintRoster(title, rows);
       else if (format === "attendance") handlePrintAttendanceSheet(title, rows);
-      else if (format === "json")  downloadJson(rows, `${base}.csv`);
+      else if (format === "json")  downloadJson(rows, `${base}.json`);
 
       setSuccessMsg(`Exported ${title} (${format.toUpperCase()}) — ${rows.length} records`);
     } catch (err: unknown) {
@@ -429,8 +446,17 @@ ${dataRows}
       if (statusFilter === "free"       && r.paymentStatus === "PAID") return false;
       if (statusFilter === "checked_in" && !r.checkedIn) return false;
       if (statusFilter === "not_in"     && r.checkedIn) return false;
-      if (dateFrom && r.eventDate && r.eventDate < dateFrom) return false;
-      if (dateTo   && r.eventDate && r.eventDate > dateTo)   return false;
+      if (statusFilter === "cancelled"  && r.status?.toUpperCase() !== "CANCELLED") return false;
+      if (dateFrom && r.eventDate) {
+        const rowMs = new Date(r.eventDate).getTime();
+        const fromMs = new Date(dateFrom).getTime();
+        if (!isNaN(rowMs) && !isNaN(fromMs) && rowMs < fromMs) return false;
+      }
+      if (dateTo && r.eventDate) {
+        const rowMs = new Date(r.eventDate).getTime();
+        const toMs = new Date(dateTo + "T23:59:59").getTime();
+        if (!isNaN(rowMs) && !isNaN(toMs) && rowMs > toMs) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const fields = [r.participantName, r.regCode, r.phone, r.gotram, r.activityTitle, r.email].map(v => (v||"").toLowerCase());
@@ -453,7 +479,7 @@ ${dataRows}
     const mealCount = report?.mealRegistrationsCount ?? allSource.filter(r => r.category.toLowerCase().includes("meal") || r.category.toLowerCase().includes("food")).length;
     const volCount = report?.totalVolunteers ?? allSource.filter(r => r.category.toLowerCase().includes("volunteer")).length;
     const poojaRev = report?.poojaRevenue ?? allSource.filter(r => r.category.toLowerCase().includes("pooja")).reduce((s, r) => s + (r.bookingFee||0), 0);
-    const totalRev = report?.totalRevenue ?? poojaRev;
+    const totalRev = report?.totalRevenue ?? allSource.reduce((s, r) => s + (r.bookingFee || 0), 0);
     return {
       totalRegs: report?.totalRegistrations ?? allSource.length,
       poojaRegs: poojaCount, generalRegs: generalCount, activityRegs: actCount,
@@ -737,12 +763,26 @@ ${dataRows}
                 <option value="free">Free Entries</option>
                 <option value="checked_in">Checked In ✅</option>
                 <option value="not_in">Not Checked In</option>
+                <option value="cancelled">Cancelled</option>
               </select>
 
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="From date" />
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="To date" />
+              <div className="w-36">
+                <DatePicker
+                  value={dateFrom}
+                  onChange={v => setDateFrom(v)}
+                  placeholder="From date"
+                  size="sm"
+                />
+              </div>
+              <div className="w-36">
+                <DatePicker
+                  value={dateTo}
+                  onChange={v => setDateTo(v)}
+                  min={dateFrom}
+                  placeholder="To date"
+                  size="sm"
+                />
+              </div>
 
               <button
                 onClick={() => downloadCsvClientSide(filteredRows, `filtered_${activeCategoryTab}_${new Date().toISOString().slice(0,10)}.csv`)}
@@ -907,7 +947,7 @@ ${dataRows}
                 let page = i + 1;
                 if (totalPages > 5) {
                   if (currentPage <= 3) page = i + 1;
-                  else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+                  else if (currentPage >= totalPages - 2) page = Math.max(1, totalPages - 4 + i);
                   else page = currentPage - 2 + i;
                 }
                 return (
@@ -947,9 +987,9 @@ ${dataRows}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { label: "Phone", value: selectedRowDetails.phone },
+                  { label: "Phone", value: isAdmin ? selectedRowDetails.phone : "••••••••••" },
                   { label: "Gotram", value: selectedRowDetails.gotram },
-                  { label: "Email", value: selectedRowDetails.email, full: true },
+                  { label: "Email", value: isAdmin ? selectedRowDetails.email : "••••••••••@••••", full: true },
                   { label: "Seva / Program", value: selectedRowDetails.activityTitle, full: true },
                   { label: "Date & Time", value: `${selectedRowDetails.eventDate || ""} ${selectedRowDetails.eventTime || ""}` },
                   { label: "Devotee Count", value: `${selectedRowDetails.devoteeCount} Devotee(s)` },
@@ -980,7 +1020,9 @@ ${dataRows}
               <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
                 <div className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg ${selectedRowDetails.checkedIn ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  {selectedRowDetails.checkedIn ? "Checked In" : "Not Checked In"}
+                  {selectedRowDetails.checkedIn
+                    ? `Checked In${selectedRowDetails.checkedInAt ? ` · ${formatDate(selectedRowDetails.checkedInAt)}` : ""}`
+                    : "Not Checked In"}
                 </div>
                 <button onClick={() => setSelectedRowDetails(null)}
                   className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all">

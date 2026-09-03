@@ -885,7 +885,9 @@ export function useSportsAdminState() {
       if (!name) { failCount++; continue; }
       const email = getVal(["email", "emailId", "mail", "emailAddress"]);
       const categoryName = getVal(["category", "playerCategory", "class", "division"]);
-      let categoryId = playerCategories[0]?.id || 1;
+      const defaultCat = playerCategories[0];
+      if (!defaultCat) { failCount++; continue; }
+      let categoryId = defaultCat.id;
       if (categoryName) {
         const matchedCat = playerCategories.find(c =>
           c.name.toLowerCase().replace(/[\s_-]/g, '') === categoryName.toLowerCase().replace(/[\s_-]/g, '')
@@ -2068,7 +2070,7 @@ export function useSportsAdminState() {
       name: e.sport?.name || e.name,
       icon: e.sport?.icon || e.icon || "🏆",
       iconUrl: e.sport?.iconUrl || e.iconUrl || undefined,
-      sportId: e.sport?.id || 1,
+      sportId: e.sport?.id,
       editingSportId: e.id,
       events: [{
         id: evId,
@@ -2198,7 +2200,7 @@ export function useSportsAdminState() {
         const payload: SportsEventRequest = {
           name: `${form.name} — ${ev.eventName}`,
           sportId: form.sportId,
-          communityId: Number(activeCommId) || 1,
+          communityId: Number(activeCommId) || 0,
           eventDateStart: ev.startDate,
           eventDateEnd: ev.endDate,
           venueId: ev.venueId ? Number(ev.venueId) : undefined,

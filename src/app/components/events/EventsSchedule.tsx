@@ -14,7 +14,7 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User, UserPlus, Hash, Edit3,
   Flame, Music, Trophy, UtensilsCrossed, Phone, CreditCard, QrCode, IndianRupee, Share2, Check, FileText, Sparkles, Info
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -25,6 +25,7 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { EventsPlanning } from "./EventsPlanning";
@@ -37,7 +38,11 @@ import { EventsPoojaSeva } from "./EventsPoojaSeva";
 import { EventsLunchDinner } from "./EventsLunchDinner";
 import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
-import { showError } from "../../../utils/ToastUtils";
+import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { showError, showSuccess } from "../../../utils/ToastUtils";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -641,9 +646,12 @@ function NotificationDialog({ event, onClose }: { event: EventItem; onClose: () 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-600">Date</Label>
-                      <Input type="date" className="text-xs h-9 bg-white"
-                        value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
-                        min={new Date().toISOString().slice(0, 10)} />
+                      <DatePicker
+                        value={scheduleDate}
+                        onChange={v => setScheduleDate(v)}
+                        min={new Date().toISOString().slice(0, 10)}
+                        size="sm"
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-600">Time</Label>
@@ -886,6 +894,44 @@ function DeleteConfirmDialog({ event, onClose, onConfirm }: {
   );
 }
 
+/* ─── Complete Confirmation ─── */
+function CompleteConfirmDialog({ event, onClose, onConfirm }: {
+  event: EventItem; onClose: () => void; onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 space-y-4 animate-fade-in-up" onClick={e => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg">
+            Complete Event?
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Are you sure you want to mark <span className="font-semibold text-slate-700">"{event.title}"</span> as <strong>Completed</strong>?
+          </p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mt-3 text-left space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Conclude Event Activities</span>
+            </div>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              Marking this event as completed will finalize all registrations, end active sessions, and update the event status to <strong>Completed</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" className="flex-1 cursor-pointer" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold cursor-pointer" onClick={onConfirm}>
+            <CheckCircle2 className="w-4 h-4" /> Complete Event
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Mock Fallbacks for Sub-Events ─── */
 const DEFAULT_MOCK_POOJAS = [
   { id: 1, name: "Maha Ganapathi Abhishekam", type: "Abhishekam", date: "2026-08-27", startTime: "08:30", startTimes: ["08:30", "11:00"], mandap: "Main Temple Mandap", pandit: "Pandit Suresh Sharma", slots: 20, fee: 501, items: ["Coconut", "Flowers", "Bananas", "Kumkum"], notes: "Special silver shield pooja" },
@@ -921,12 +967,16 @@ function EventDetailsDialog({
   onClose,
   onEdit,
   onNotify,
+  onRegisterUser,
+  onComplete,
   onDelete,
 }: {
   event: EventItem;
   onClose: () => void;
   onEdit?: () => void;
   onNotify?: () => void;
+  onRegisterUser?: () => void;
+  onComplete?: () => void;
   onDelete?: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
@@ -936,6 +986,9 @@ function EventDetailsDialog({
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [existingUserReg, setExistingUserReg] = useState<any | null>(null);
+  const [showPassModal, setShowPassModal] = useState<any | null>(null);
+  const [showRegisterWizard, setShowRegisterWizard] = useState(false);
 
   // Sub-Events States
   const [poojas, setPoojas] = useState<any[]>([]);
@@ -981,6 +1034,38 @@ function EventDetailsDialog({
         .finally(() => setLoading(false));
     }
 
+    // Check if user is already registered for this event
+    eventService
+      .getAllRegistrations()
+      .then((regs) => {
+        if (Array.isArray(regs) && user) {
+          const uId = user.userId;
+          const uEmail = (user.email || "").toLowerCase().trim();
+          const uPhone = (user.phone || "").trim();
+
+          const found = regs.find((r: any) => {
+            if (!r || r.status === "CANCELLED") return false;
+            const matchesEvent =
+              (r.mainEventId && numId && Number(r.mainEventId) === numId) ||
+              (r.eventId && numId && Number(r.eventId) === numId) ||
+              (r.activityId && String(r.activityId) === String(rawId)) ||
+              (r.eventName && r.eventName.trim().toLowerCase() === event.title.trim().toLowerCase()) ||
+              (r.activityTitle && r.activityTitle.trim().toLowerCase() === event.title.trim().toLowerCase());
+            if (!matchesEvent) return false;
+
+            const matchesUser =
+              (uId && r.userId && Number(r.userId) === Number(uId)) ||
+              (uEmail && r.email && r.email.toLowerCase().trim() === uEmail) ||
+              (uPhone && r.phone && r.phone.trim() === uPhone);
+            return matchesUser;
+          });
+          if (found) setExistingUserReg(found);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not check user registration for event:", err);
+      });
+
     setSubEventsLoading(true);
     const eventStart = event.startDate;
     const eventEnd = event.endDate || eventStart;
@@ -1018,7 +1103,12 @@ function EventDetailsDialog({
       const liveComps = compRes.status === "fulfilled" && Array.isArray(compRes.value) ? compRes.value : [];
       const liveMeals = mealRes.status === "fulfilled" && Array.isArray(mealRes.value) ? mealRes.value : [];
 
-      const filteredPoojas = livePoojas.filter(matchesEvent);
+      const filteredPoojas = livePoojas
+        .filter((p: any) => {
+          const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+          return poojaStatus === "ACTIVE" && !p.isPaused;
+        })
+        .filter(matchesEvent);
       const filteredCulturals = liveCulturals.filter(matchesEvent);
       const filteredComps = liveComps.filter(matchesEvent);
       const filteredMeals = liveMeals.filter(matchesEvent);
@@ -1056,19 +1146,8 @@ function EventDetailsDialog({
   const vis = VISIBILITY_ICON[activeData.visibility?.toLowerCase()] || VISIBILITY_ICON.community;
   const typeColor = TYPE_COLORS[activeData.type] ?? "#4f46e5";
 
-  const formatDate = (d: string) => {
-    if (!d) return "";
-    return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  };
-
-  const formatTime = (t: string) => {
-    if (!t) return "";
-    const clean = t.includes("T") ? t.split("T")[1] : t;
-    const [h, m] = clean.split(":");
-    const hr = parseInt(h);
-    if (isNaN(hr)) return t;
-    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
-  };
+  const formatDate = (d: string) => formatIndianDate(d, "short");
+  const formatTime = (t: string) => formatIndianTime(t);
 
   const isMultiDay = activeData.startDate && activeData.endDate && activeData.startDate !== activeData.endDate;
   const capacity = activeData.capacity || activeData.maxAttendees || 100;
@@ -1145,11 +1224,14 @@ function EventDetailsDialog({
       >
         {/* Top Banner / Cover */}
         <div className="relative h-44 sm:h-52 bg-slate-900 overflow-hidden shrink-0">
-          {activeData.coverImage || activeData.imageUrl ? (
+          {resolveEventImage(activeData, "") ? (
             <img
-              src={activeData.coverImage || activeData.imageUrl}
+              src={resolveEventImage(activeData, "")}
               alt={activeData.title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
             />
           ) : (
             <div
@@ -1345,15 +1427,15 @@ function EventDetailsDialog({
                                 {p.date && (
                                   <span className="flex items-center gap-0.5">
                                     <Calendar className="w-2.5 h-2.5 text-amber-600" />
-                                    <span>{p.date}</span>
+                                    <span>{formatIndianDate(p.date, "short")}</span>
                                   </span>
                                 )}
                                 {(p.startTime || (p.startTimes && p.startTimes.length > 0)) && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
                                     <span>{Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0
-                                      ? [...new Set(p.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
-                                      : p.startTime}</span>
+                                      ? [...new Set(p.timeSlotConfig.map((c: any) => formatIndianTime(c.startTime)).filter(Boolean))].join(", ")
+                                      : formatIndianTime(p.startTime)}</span>
                                   </span>
                                 )}
                               </div>
@@ -1435,7 +1517,7 @@ function EventDetailsDialog({
                             </div>
                           </div>
                           <span className="text-xs font-black text-purple-700 px-2 py-0.5 rounded-full bg-purple-100/80 border border-purple-200 shrink-0">
-                            Stage Show
+                            Performance
                           </span>
                         </div>
 
@@ -1443,13 +1525,13 @@ function EventDetailsDialog({
                           {c.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-purple-600" />
-                              <span>{c.date}</span>
+                              <span>{formatIndianDate(c.date, "short")}</span>
                             </span>
                           )}
                           {c.startTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{c.startTime} {c.duration ? `(${c.duration} mins)` : ""}</span>
+                              <span>{formatIndianTime(c.startTime)} {c.duration ? `(${c.duration} mins)` : ""}</span>
                             </span>
                           )}
                           {c.stage && (
@@ -1501,13 +1583,13 @@ function EventDetailsDialog({
                           {comp.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-sky-600" />
-                              <span>{comp.date}</span>
+                              <span>{formatIndianDate(comp.date, "short")}</span>
                             </span>
                           )}
                           {comp.startTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{comp.startTime}</span>
+                              <span>{formatIndianTime(comp.startTime)}</span>
                             </span>
                           )}
                           {comp.venue && (
@@ -1553,13 +1635,13 @@ function EventDetailsDialog({
                           {m.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-emerald-600" />
-                              <span>{m.date}</span>
+                              <span>{formatIndianDate(m.date, "short")}</span>
                             </span>
                           )}
                           {(m.startTime || m.endTime) && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{m.startTime} – {m.endTime || "End"}</span>
+                              <span>{formatIndianTime(m.startTime)} – {formatIndianTime(m.endTime) || "End"}</span>
                             </span>
                           )}
                           {m.venue && (
@@ -1772,6 +1854,29 @@ function EventDetailsDialog({
             </Button>
           )}
 
+          {isEventsAdmin && onRegisterUser && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 font-bold cursor-pointer"
+              onClick={onRegisterUser}
+            >
+              <UserPlus className="w-3.5 h-3.5 text-emerald-600" /> Register User
+            </Button>
+          )}
+
+          {isEventsAdmin && onComplete && event.status !== "completed" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 font-bold cursor-pointer"
+              onClick={onComplete}
+              title="Mark Event as Completed"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Complete
+            </Button>
+          )}
+
           {isEventsAdmin && onEdit && (
             <Button
               variant="outline"
@@ -1783,12 +1888,47 @@ function EventDetailsDialog({
             </Button>
           )}
 
-          <a
-            href={`/events?tab=registration&id=${event.id}`}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-          >
-            <Ticket className="w-3.5 h-3.5" /> Book Passes
-          </a>
+          {existingUserReg ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Registered
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 font-bold cursor-pointer"
+                onClick={() => setShowPassModal(existingUserReg)}
+              >
+                <QrCode className="w-3.5 h-3.5 text-indigo-600" /> View Pass
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold cursor-pointer shadow-xs active:scale-95 transition-all"
+                onClick={() => setShowRegisterWizard(true)}
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Update Pass
+              </Button>
+            </div>
+          ) : (isRegistrationClosed(event) || event.status === "completed" || event.status === "cancelled") ? (
+            <span
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 flex items-center gap-1.5 cursor-not-allowed select-none"
+              title="Registration for this event has ended or date has expired"
+            >
+              <Clock className="w-3.5 h-3.5 text-slate-400" /> Registration Closed
+            </span>
+          ) : (event.capacity && (event.registrations || 0) >= event.capacity) ? (
+            <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1.5 select-none">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Housefull / Sold Out
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowRegisterWizard(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <Ticket className="w-3.5 h-3.5" /> Book Passes
+            </button>
+          )}
         </div>
 
         {/* Enlarge QR Modal */}
@@ -1814,28 +1954,116 @@ function EventDetailsDialog({
             </div>
           </div>
         )}
+
+        {/* Digital E-Pass Modal for Registered User */}
+        {showPassModal && (
+          <div
+            className="fixed inset-0 z-70 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowPassModal(null)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl animate-fade-in-up"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">
+                    PASS CONFIRMED
+                  </span>
+                </div>
+                <button onClick={() => setShowPassModal(null)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="w-48 h-48 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-100 dark:border-indigo-900 shadow-inner bg-white p-3 flex flex-col items-center justify-center">
+                <QrCode className="w-32 h-32 text-indigo-600" />
+                <p className="text-[10.5px] font-mono font-bold text-slate-600 mt-1">{showPassModal.regCode || `REG-${String(showPassModal.id).slice(-4)}`}</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-white text-base leading-snug">{showPassModal.eventName || event.title}</h4>
+                <p className="text-xs font-semibold text-primary mt-0.5">{showPassModal.participantName || user?.fullName}</p>
+                <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 mt-2 font-medium">
+                  <span>Attendees: <strong>{showPassModal.devoteeCount || showPassModal.membersCount || 1}</strong></span>
+                  <span>•</span>
+                  <span>{showPassModal.eventDate || event.startDate}</span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
+                onClick={() => setShowPassModal(null)}
+              >
+                Done / Close Pass
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Event Registration Wizard */}
+        {showRegisterWizard && (
+          <div
+            className="fixed inset-0 z-70 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+            onClick={() => setShowRegisterWizard(false)}
+          >
+            <div
+              className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EventRegistrationWizard
+                event={{
+                  id: event.id,
+                  title: event.title,
+                  category: event.category || event.type,
+                  price: (event as any).fee || 0,
+                  date: event.startDate,
+                  time: event.startTime ? `${event.startTime} - ${event.endTime}` : undefined,
+                  venue: event.venue,
+                  capacity: event.capacity,
+                  existingRegistration: existingUserReg,
+                  isUpdateMode: Boolean(existingUserReg),
+                }}
+                onClose={() => {
+                  setShowRegisterWizard(false);
+                  window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+                  window.dispatchEvent(new CustomEvent("mana_event_created"));
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /* ─── Event Card ─── */
-function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
+function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onComplete, onPreview }: {
   event: EventItem;
   onEdit: () => void;
   onDelete: () => void;
   onNotify: () => void;
+  onRegisterUser?: () => void;
+  onComplete?: () => void;
   onPreview: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const userRoleStr = String(user?.role || "").toUpperCase();
   const isEventsAdmin =
     isAdmin ||
     isSuperAdmin ||
     userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("SUPER_ADMIN") ||
     userRolesUpper.includes("COMMUNITY_ADMIN") ||
     userRolesUpper.includes("EVENT_ADMIN") ||
     userRolesUpper.includes("EVENTS_ADMIN") ||
+    userRoleStr === "ADMIN" ||
+    userRoleStr === "SUPER_ADMIN" ||
+    userRoleStr === "COMMUNITY_ADMIN" ||
+    userRoleStr === "EVENT_ADMIN" ||
+    userRoleStr === "EVENTS_ADMIN" ||
     hasPermission(CREATE_EVENT) ||
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
@@ -1856,18 +2084,12 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
     };
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
   const [menuOpen, setMenuOpen] = useState(false);
-  const capacityPct = Math.round((event.registrations / event.capacity) * 100);
+  const maxCap = event.capacity || 100;
+  const capacityPct = maxCap > 0 ? Math.round((event.registrations / maxCap) * 100) : 0;
   const isMultiDay = event.startDate !== event.endDate;
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  const formatTime = (t: string) => {
-    if (!t) return "";
-    const clean = t.includes("T") ? t.split("T")[1] : t;
-    const [h, m] = clean.split(":");
-    const hr = parseInt(h);
-    if (isNaN(hr)) return t;
-    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
-  };
+  const formatDate = (d: string) => formatIndianDate(d, "short");
+  const formatTime = (t: string) => formatIndianTime(t);
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] hover:shadow-md transition-all">
@@ -1914,6 +2136,18 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
                       className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                       <Bell className="w-3.5 h-3.5" /> Send Notification
                     </button>
+                    {onRegisterUser && (
+                      <button onClick={() => { onRegisterUser(); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer font-medium">
+                        <UserPlus className="w-3.5 h-3.5 text-emerald-600" /> Register User
+                      </button>
+                    )}
+                    {onComplete && event.status !== "completed" && (
+                      <button onClick={() => { onComplete(); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Complete Event
+                      </button>
+                    )}
                     <button onClick={() => {
                       const url = `${window.location.origin}/events?id=${event.id}`;
                       navigator.clipboard.writeText(url);
@@ -1955,7 +2189,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <Ticket className="w-3.5 h-3.5 text-violet-400" />
             <span className="font-semibold">{event.registrations}</span>
-            <span className="text-slate-400">/ {event.capacity}</span>
+            <span className="text-slate-400">/ {maxCap}</span>
           </div>
           <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -1970,7 +2204,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
       </div>
 
       {/* Action Bar */}
-      <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1">
+      <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1 flex-wrap">
         {isEventsAdmin && (
           <>
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600 cursor-pointer" onClick={onEdit}>
@@ -1982,6 +2216,16 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600 cursor-pointer" onClick={onNotify}>
               <Bell className="w-3 h-3" /> Notify
             </Button>
+            {onRegisterUser && (
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-emerald-600 cursor-pointer font-medium" onClick={onRegisterUser} title="Register User (Admin Only)">
+                <UserPlus className="w-3 h-3 text-emerald-600" /> Register User
+              </Button>
+            )}
+            {onComplete && event.status !== "completed" && (
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-emerald-600 cursor-pointer font-medium" onClick={onComplete} title="Complete Event">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Complete
+              </Button>
+            )}
           </>
         )}
         <div className="flex-1" />
@@ -2008,15 +2252,24 @@ function EventsList() {
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
   const [detailEvent, setDetailEvent] = useState<EventItem | null>(null);
+  const [registerUserEvent, setRegisterUserEvent] = useState<EventItem | null>(null);
+  const [completeEvent, setCompleteEvent] = useState<EventItem | null>(null);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const userRoleStr = String(user?.role || "").toUpperCase();
   const isEventsAdmin =
     isAdmin ||
     isSuperAdmin ||
     userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("SUPER_ADMIN") ||
     userRolesUpper.includes("COMMUNITY_ADMIN") ||
     userRolesUpper.includes("EVENT_ADMIN") ||
     userRolesUpper.includes("EVENTS_ADMIN") ||
+    userRoleStr === "ADMIN" ||
+    userRoleStr === "SUPER_ADMIN" ||
+    userRoleStr === "COMMUNITY_ADMIN" ||
+    userRoleStr === "EVENT_ADMIN" ||
+    userRoleStr === "EVENTS_ADMIN" ||
     hasPermission(CREATE_EVENT) ||
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
@@ -2044,11 +2297,8 @@ function EventsList() {
             status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-            capacity: e.capacity ?? e.maxAttendees ?? 100,
-            maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
-            totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
-            ticketTypes: e.ticketTypes,
-            coverImage: e.imageUrl || "",
+            capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
+            coverImage: resolveEventImage(e, ""),
             createdAt: e.createdAt || new Date().toISOString(),
           }));
           setEvents(mapped);
@@ -2090,8 +2340,33 @@ function EventsList() {
   const stats = {
     total: events.length,
     upcoming: events.filter(e => e.status === "upcoming").length,
-    totalRegs: events.reduce((s, e) => s + e.registrations, 0),
+    totalRegs: events.filter(e => e.status !== "cancelled").reduce((s, e) => s + (Number(e.registrations) || 0), 0),
     drafts: events.filter(e => e.status === "draft").length,
+  };
+
+  const handleComplete = async () => {
+    if (!completeEvent) return;
+    const target = completeEvent;
+    try {
+      const numericId = parseInt(target.id, 10);
+      if (!isNaN(numericId)) {
+        await eventService.update(numericId, {
+          title: target.title,
+          startDate: target.startDate,
+          status: "COMPLETED",
+        });
+      }
+      setEvents(prev => prev.map(e => e.id === target.id ? { ...e, status: "completed" as EventStatus } : e));
+      showSuccess(`Event "${target.title}" has been marked as Completed.`);
+      window.dispatchEvent(new Event("mana_event_created"));
+      window.dispatchEvent(new Event("mana_event_updated"));
+      window.dispatchEvent(new Event("mana_activities_updated"));
+    } catch (err: any) {
+      console.error("Failed to mark event as completed:", err);
+      showError(err?.message || "Failed to mark event as completed.");
+    } finally {
+      setCompleteEvent(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -2120,11 +2395,8 @@ function EventsList() {
               status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
               visibility: (e.visibility?.toLowerCase() as any) || "community",
               registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-              capacity: e.capacity ?? e.maxAttendees ?? 100,
-              maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
-              totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
-              ticketTypes: e.ticketTypes,
-              coverImage: e.imageUrl || "",
+              capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
+              coverImage: resolveEventImage(e, ""),
               createdAt: e.createdAt || new Date().toISOString(),
             }));
             setEvents(mapped);
@@ -2229,6 +2501,8 @@ function EventsList() {
               onEdit={() => setEditEvent(event)}
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
+              onRegisterUser={() => setRegisterUserEvent(event)}
+              onComplete={() => setCompleteEvent(event)}
               onPreview={() => setDetailEvent(event)}
             />
           ))}
@@ -2250,6 +2524,16 @@ function EventsList() {
             setDetailEvent(null);
             setNotifyEvent(target);
           }}
+          onRegisterUser={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setRegisterUserEvent(target);
+          }}
+          onComplete={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setCompleteEvent(target);
+          }}
           onDelete={() => {
             const target = detailEvent;
             setDetailEvent(null);
@@ -2269,6 +2553,49 @@ function EventsList() {
       {notifyEvent && (
         <NotificationDialog event={notifyEvent} onClose={() => setNotifyEvent(null)} />
       )}
+      {registerUserEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+          onClick={() => setRegisterUserEvent(null)}
+        >
+          <div
+            className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EventRegistrationWizard
+              event={{
+                id: registerUserEvent.id,
+                title: registerUserEvent.title,
+                description: (registerUserEvent as any).description,
+                category: registerUserEvent.category || registerUserEvent.type,
+                price: (registerUserEvent as any).fee || (registerUserEvent as any).price || 0,
+                date: registerUserEvent.startDate,
+                time: registerUserEvent.startTime
+                  ? (registerUserEvent.endTime ? `${registerUserEvent.startTime} - ${registerUserEvent.endTime}` : registerUserEvent.startTime)
+                  : undefined,
+                venue: registerUserEvent.venue,
+                capacity: registerUserEvent.capacity,
+                maxAttendees: registerUserEvent.capacity,
+                availableSeats: (registerUserEvent.capacity || 100) - (registerUserEvent.registrations || 0),
+                ticketTypes: (registerUserEvent as any).ticketTypes,
+              }}
+              onClose={() => {
+                setRegisterUserEvent(null);
+                window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+                window.dispatchEvent(new CustomEvent("mana_event_created"));
+                window.dispatchEvent(new CustomEvent("mana_activities_updated"));
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {completeEvent && (
+        <CompleteConfirmDialog
+          event={completeEvent}
+          onClose={() => setCompleteEvent(null)}
+          onConfirm={handleComplete}
+        />
+      )}
       {deleteEvent && (
         <DeleteConfirmDialog event={deleteEvent} onClose={() => setDeleteEvent(null)} onConfirm={handleDelete} />
       )}
@@ -2278,13 +2605,13 @@ function EventsList() {
 
 /* ─── Main Component ─── */
 const TABS = [
-  { id: "events",          label: "Events",               icon: CalendarDays  },
-  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
-  { id: "programs",        label: "Day Programs",         icon: Mic2          },
-  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
-  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed },
-  { id: "culturalEvents",  label: "Cultural Events",      icon: Music         },
-  { id: "competitions",     label: "Competitions",         icon: Trophy        },
+  { id: "events",          label: "Events",               icon: CalendarDays,    disabled: false },
+  { id: "programs",        label: "Day Programs",         icon: Mic2,            disabled: false },
+  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame,           disabled: false },
+  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed, disabled: false },
+  { id: "culturalEvents",  label: "Cultural Events",      icon: Music,           disabled: false },
+  { id: "competitions",    label: "Competitions",         icon: Trophy,          disabled: false },
+  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList,   disabled: true  },
 ] as const;
 
 export function EventsSchedule() {
@@ -2309,7 +2636,7 @@ export function EventsSchedule() {
   });
 
   const resolveInitialTab = () => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       return tabParam;
     }
     return "events";
@@ -2318,7 +2645,7 @@ export function EventsSchedule() {
   const [tab, setTab] = useState<string>(resolveInitialTab);
 
   useEffect(() => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       setTab(tabParam);
     }
   }, [tabParam, visibleTabs]);
@@ -2336,18 +2663,30 @@ export function EventsSchedule() {
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 p-0.5 bg-white rounded-md sm:rounded-lg border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
-          <button key={t.id} onClick={() => handleTabSelect(t.id)}
+          <button
+            key={t.id}
+            disabled={t.disabled}
+            onClick={() => !t.disabled && handleTabSelect(t.id)}
+            title={t.disabled ? `${t.label} (Disabled)` : t.label}
             className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded sm:rounded-md text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
-              tab === t.id
+              t.disabled
+                ? "opacity-45 cursor-not-allowed text-slate-400 bg-slate-50/80 border border-dashed border-slate-200"
+                : tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
                 : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
-            }`}>
-            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> {t.label}
+            }`}
+          >
+            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span>{t.label}</span>
+            {t.disabled && (
+              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 text-slate-500 font-normal ml-0.5">
+                Disabled
+              </span>
+            )}
           </button>
         ))}
       </div>
       {tab === "events" && <EventsList />}
-      {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
       {tab === "poojaSeva" && <EventsPoojaSeva />}
       {tab === "lunchDinner" && (
@@ -2360,6 +2699,7 @@ export function EventsSchedule() {
       )}
       {tab === "culturalEvents" && <EventsCulturalEvents />}
       {tab === "competitions" && <CompetitionsSection />}
+      {tab === "planning" && <EventsPlanning />}
     </div>
   );
 }

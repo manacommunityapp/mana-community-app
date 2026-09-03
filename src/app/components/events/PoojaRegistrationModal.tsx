@@ -21,9 +21,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
-import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { eventService, type PoojaRegistrationRequest, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { GlassCard, TouchButton } from "./redesign/EventDesignSystem";
@@ -152,19 +153,7 @@ function getLiveSlotInfo(
 }
 
 function formatTime12Hour(timeStr: string): string {
-  if (!timeStr) return "";
-  const clean = timeStr.trim();
-  if (clean.toLowerCase().includes("am") || clean.toLowerCase().includes("pm") || clean.includes("–") || clean.includes("-")) {
-    return clean;
-  }
-  const parts = clean.split(":");
-  let hr = parseInt(parts[0], 10);
-  const min = parts.length > 1 ? parts[1].padStart(2, "0") : "00";
-  if (isNaN(hr)) return clean;
-  const ampm = hr >= 12 ? "PM" : "AM";
-  if (hr > 12) hr -= 12;
-  if (hr === 0) hr = 12;
-  return `${String(hr).padStart(2, "0")}:${min} ${ampm}`;
+  return formatIndianTime(timeStr);
 }
 
 function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitle?: string): DaySchedule[] {
@@ -265,7 +254,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
     ];
   }
 
-  const timeSlotConfig: { slotDate: string | null; startTime: string; title?: string; slotCount: number }[] =
+  const timeSlotConfig: { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[] =
     Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig : [];
 
   const mapConfigToSlots = (configs: typeof timeSlotConfig, fallbackSlots: DaySlotOption[]): DaySlotOption[] => {
@@ -274,14 +263,16 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
       const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
       const sessionName = cfg.title?.trim() || poojaTitle || (configs.length === 1 ? "Pooja Seva" : `Session #${idx + 1}`);
       const cleanTime = String(cfg.startTime).replace(/\(.*?\)/g, "").trim();
+      const endClean = cfg.endTime ? formatTime12Hour(String(cfg.endTime).replace(/\(.*?\)/g, "").trim()) : "";
       const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
         ? cleanTime
-        : `${cleanTime} onwards`;
+        : endClean ? `${formatTime12Hour(cleanTime)} – ${endClean}` : `${cleanTime} onwards`;
       return {
         icon,
         time: formattedTime,
         name: sessionName,
         left: Math.max(1, cfg.slotCount),
+        timeSlotConfigId: cfg.id,
       };
     });
   };
@@ -294,7 +285,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
       const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
       const dateKey = formatDateKey(cur);
-      const dayConfigs = timeSlotConfig.filter(e => e.slotDate === dateKey);
+      const dayConfigs = (Array.isArray(timeSlotConfig) ? timeSlotConfig : []).filter(e => e.slotDate === dateKey);
       const daySpecificSlots: DaySlotOption[] = dayConfigs.length > 0
         ? mapConfigToSlots(dayConfigs, defaultSlots)
         : defaultSlots;
@@ -327,7 +318,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
   // Single Day Pooja
   const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
   const dateKey = formatDateKey(startDate);
-  const singleDayConfigs = timeSlotConfig.filter((e) => !e.slotDate || e.slotDate === dateKey);
+  const singleDayConfigs = (Array.isArray(timeSlotConfig) ? timeSlotConfig : []).filter((e) => !e.slotDate || e.slotDate === dateKey);
   const singleDaySlots: DaySlotOption[] = mapConfigToSlots(singleDayConfigs, defaultSlots);
 
   return [
@@ -351,12 +342,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   isMainEventRegistered = true,
   onRegisterMainEvent,
 }) => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, isSuperAdmin, isEventsAdmin, hasPermission } = useAuth();
   const isAnyAdmin = Boolean(
-    authUser?.role?.toLowerCase().includes("admin") ||
-    authUser?.role?.toLowerCase().includes("event_admin") ||
-    authUser?.role?.toLowerCase().includes("super_admin") ||
-    authUser?.role?.toLowerCase().includes("community_admin")
+    isSuperAdmin ||
+    isEventsAdmin ||
+    hasPermission("View Event Admin Dashboard") ||
+    hasPermission("Manage Event Admin Dashboard") ||
+    hasPermission("Manage Event Registration")
   );
   useEscapeKey(onClose);
 
@@ -377,9 +369,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
   const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
   const [prasadamMode, setPrasadamMode] = useState<"mandap" | "home_delivery">("mandap");
+  const [attendingDevotees, setAttendingDevotees] = useState<string>(
+    () => event?.existingRegistration?.attendingDevotees || ""
+  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [registrationCode, setRegistrationCode] = useState<string>("");
+  const [tokenNumber, setTokenNumber] = useState<number | null>(null);
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
   const [alreadyRegisteredTitle, setAlreadyRegisteredTitle] = useState<string | null>(null);
 
@@ -433,29 +429,32 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       .finally(() => setSchedulesLoading(false));
   }, [resolvedPoojaId]);
 
-  // Load Saved Family Members from Unified Family Service
-  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+  // Load slim family members lazily when user reaches Registrant Details (step 2)
+  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMemberSlim[]>([]);
   useEffect(() => {
-    const fetchFamily = async () => {
-      try {
-        const members = await familyService.getFamilyMembers();
-        setSavedFamilyMembers(members);
-      } catch (err) {
-        console.warn("Could not load family members in Pooja modal:", err);
-      }
-    };
-    fetchFamily();
-    window.addEventListener("mana_family_updated", fetchFamily);
-    return () => window.removeEventListener("mana_family_updated", fetchFamily);
-  }, []);
+    if (currentStep !== 2) return;
+    let cancelled = false;
+    familyService.getSlimFamilyMembers().then((members) => {
+      if (!cancelled) setSavedFamilyMembers(members);
+    }).catch((err) => {
+      console.warn("Could not load family members for Pooja registration:", err);
+    });
+    return () => { cancelled = true; };
+  }, [currentStep]);
 
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
-  const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
+  // isUpdateMode is ONLY true when the modal was explicitly opened for rescheduling
+  // (i.e. the parent passed isUpdateMode=true via handleOpenUpdateRegistration).
+  // The API may detect an existing registration and set existingReg, but that alone
+  // must NOT flip the modal into reschedule mode — doing so showed reschedule UI
+  // to users who just clicked "Register" and already had a prior booking.
+  const isUpdateMode = Boolean(event?.isUpdateMode);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
   const prasadamAvailable = Boolean((event as any)?.prasadamAvailable);
+  const _poojaStatusUp = String(event?.status || "").toUpperCase();
   const isPoojaCancelled =
-    String(event?.status || "").toUpperCase() === "CANCELLED" ||
+    ["CANCELLED", "PAUSED", "COMPLETED", "ARCHIVED"].includes(_poojaStatusUp) ||
     String((event as any)?.parentStatus || "").toUpperCase() === "CANCELLED" ||
     String((event as any)?.eventStatus || "").toUpperCase() === "CANCELLED";
   const isPoojaClosed = (isRegistrationClosed(event) || isPoojaCancelled) && !isUpdateMode;
@@ -521,7 +520,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   // Build day schedule from event details
   const poojaTitle = event?.title || event?.name || "Maha Ganapathi Homam & Sahasranama Archana";
   const baseDate = event?.date || event?.startDate || "28 Aug 2026";
-  const venueName = event?.venue || event?.mandap || "Central Temple Mandap";
+  const venueName = event?.venue || event?.mandap || (event as any)?.location || "";
   const priestName = event?.pandit || event?.priestName || "Pt. Ramachandra Sharma";
   const totalSlotsCount = Number(event?.availableSeats || event?.slots || 24);
 
@@ -652,7 +651,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
-    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+    const timeSlotConfigs: { id?: number; slotDate: string | null; startTime: string; endTime?: string; slotCount: number }[] =
       Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
 
     const configuredTimes: string[] = timeSlotConfigs.length > 0
@@ -679,22 +678,25 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             : `Session #${idx + 1}`;
           const cleanTime = String(t).replace(/\(.*?\)/g, "").trim();
           const rawTime = cleanTime.split(" ")[0];
-          const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
-            ? cleanTime
-            : `${cleanTime} onwards`;
 
           const matchedSingleConfig = timeSlotConfigs.find(
             c => (!c.slotDate || c.slotDate === event?.startDate || c.slotDate === event?.date) &&
                  (c.startTime === cleanTime || c.startTime === rawTime)
           );
           const slotLeft = matchedSingleConfig ? matchedSingleConfig.slotCount : totalSlotsCount;
+          const endClean = matchedSingleConfig?.endTime
+            ? formatTime12Hour(String(matchedSingleConfig.endTime).replace(/\(.*?\)/g, "").trim())
+            : "";
+          const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
+            ? cleanTime
+            : endClean ? `${formatTime12Hour(cleanTime)} – ${endClean}` : `${cleanTime} onwards`;
 
           return {
             icon,
             time: formattedTime,
             name: sessionName,
             left: Math.max(1, slotLeft),
-            timeSlotConfigId: (matchedSingleConfig as any)?.id as number | undefined,
+            timeSlotConfigId: matchedSingleConfig?.id,
           };
         })
       : [
@@ -753,10 +755,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   }, [liveSlotInfoMap]);
 
   const steps = [
-    { num: 1, title: isUpdateMode ? "Reschedule Slot" : "Date & Slot" },
+    { num: 1, title: "Date & Slot" },
     { num: 2, title: "Registrant" },
     { num: 3, title: "Prasadam" },
-    { num: 4, title: isUpdateMode ? "Confirm Reschedule" : isFreeEvent ? "Confirm" : "Payment" },
+    { num: 4, title: isFreeEvent ? "Confirm" : "Payment" },
   ];
 
   const handleNext = () => {
@@ -864,14 +866,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         }
       }
 
-      // ── Resolve eventId: should be the PARENT community event id, NOT the pooja seva's own id.
-      // When mainEventId is present, use it.  Fall back to stripping pooja's numeric id only as last resort.
-      const resolvedParentEventId: number = (() => {
+      // ── Resolve eventId and mainEventId separately.
+      // mainEventId must ONLY come from the explicit event.mainEventId prop — that is the parent
+      // community event id stored in community_events and event_booking_registrations.
+      // Never fall back to the pooja's own numeric id for mainEventId because the backend
+      // validates "user registered for event_id=mainEventId" and the pooja id ≠ parent event id.
+      const explicitMainEventId: number | undefined = (() => {
         if (event?.mainEventId) {
           const n = Number(String(event.mainEventId).replace(/\D/g, ""));
           if (!isNaN(n) && n > 0) return n;
         }
-        // Fallback: extract numeric portion of the pooja activity id (e.g. "pooja-5" → 5)
+        return undefined;
+      })();
+
+      // eventId is used for grouping; use mainEventId when available, otherwise the pooja's own numeric id.
+      const resolvedParentEventId: number = explicitMainEventId ?? (() => {
         if (event?.id) {
           const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
           if (!isNaN(n) && n > 0) return n;
@@ -880,9 +889,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       })();
 
       const regPayload: PoojaRegistrationRequest = {
-        // eventId = parent community event id (used by backend for event-level grouping)
+        // eventId = best-effort parent event id for grouping
         eventId: resolvedParentEventId,
-        mainEventId: resolvedParentEventId,
+        // mainEventId sent ONLY when explicitly known — backend uses it to validate main-event registration
+        ...(explicitMainEventId ? { mainEventId: explicitMainEventId } : {}),
         // activityId = full "pooja-N" string — used for exact sub-activity deduplication
         activityId: event?.id ? String(event.id) : undefined,
         eventName: poojaTitle,
@@ -914,9 +924,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",
+        ...(attendingDevotees.trim() ? { attendingDevotees: attendingDevotees.trim() } : {}),
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
         ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
+        // Include the pooja seva's own DB ID so the backend scopes the duplicate check
+        // to this specific seva type — prevents false 409 when booking different sevas on same date.
+        ...(resolvedPoojaId && resolvedPoojaId > 0 ? { poojaSevaId: resolvedPoojaId } : {}),
         ...(selectedTargetUserId ? { targetUserId: selectedTargetUserId } : {}),
       };
 
@@ -945,6 +959,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               poojaSlotDate: selectedDateValue,
               poojaSlotTime: selectedSlotStartTime,
               venue: venueName,
+              scheduleId: selectedScheduleId || (selectedSlot as any)?.scheduleId || undefined,
               ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
             } as any);
             showSuccess("🪔 Pooja registration updated successfully!");
@@ -959,6 +974,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         try {
           const savedReg = await eventService.createPoojaRegistration(regPayload);
           if (savedReg?.regCode) setRegistrationCode(savedReg.regCode);
+          if (savedReg?.tokenNumber) setTokenNumber(savedReg.tokenNumber);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
           const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
@@ -1031,17 +1047,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         <div className="flex items-center justify-between border-b border-border pb-2 shrink-0">
           <div className="min-w-0 pr-2">
             <div className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider mb-0.5">
-              {isUpdateMode ? (
-                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.2 rounded-full border border-amber-500/20">
-                  <RefreshCw className="w-2.5 h-2.5" />
-                  <span>Reschedule Slot</span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-primary">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Pooja Registration Portal</span>
-                </span>
-              )}
+              <span className="flex items-center gap-1 text-primary">
+                <Sparkles className="w-3 h-3" />
+                <span>Pooja Registration Portal</span>
+              </span>
             </div>
             <h2 className="text-sm sm:text-base font-black text-foreground truncate">{poojaTitle}</h2>
             <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 flex-wrap">
@@ -1130,7 +1139,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           <GlassCard
             isDark={isDark}
             hoverScale={false}
-            className="flex-1 flex flex-col justify-between p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20 max-h-[58vh]"
+            className="flex-1 min-h-0 flex flex-col p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20"
           >
             {isMainPassMissing && (
               <div className="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 animate-fadeIn">
@@ -1158,17 +1167,30 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
             {isPoojaCancelled && (
-              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-start gap-1.5">
+              <div className={`p-2 rounded-lg text-[11px] font-bold flex items-start gap-1.5 ${
+                _poojaStatusUp === "PAUSED"
+                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300"
+                  : "bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300"
+              }`}>
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <div>
-                  <p>Event / Pooja Cancelled</p>
-                  <p className="font-normal text-[10px] text-rose-600 dark:text-rose-400">
-                    This event has been cancelled. Registrations are unavailable.
+                  <p>
+                    {_poojaStatusUp === "PAUSED"    && "Registrations Paused"}
+                    {_poojaStatusUp === "CANCELLED" && "Pooja Cancelled"}
+                    {_poojaStatusUp === "COMPLETED" && "Pooja Completed"}
+                    {_poojaStatusUp === "ARCHIVED"  && "Pooja Archived"}
+                    {!["PAUSED","CANCELLED","COMPLETED","ARCHIVED"].includes(_poojaStatusUp) && "Unavailable"}
+                  </p>
+                  <p className={`font-normal text-[10px] ${_poojaStatusUp === "PAUSED" ? "text-amber-700 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {_poojaStatusUp === "PAUSED"    && "Registrations are temporarily paused by the admin. Please check back later."}
+                    {_poojaStatusUp === "CANCELLED" && "This pooja has been cancelled. Registrations are unavailable."}
+                    {_poojaStatusUp === "COMPLETED" && "This pooja has concluded. No new registrations are being accepted."}
+                    {_poojaStatusUp === "ARCHIVED"  && "This pooja is archived and no longer accepting registrations."}
                   </p>
                 </div>
               </div>
             )}
-            {isUpdateMode && !isPoojaCancelled && (
+            {isUpdateMode && existingReg?.id && !isPoojaCancelled && (
               <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-start gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                 <div>
@@ -1330,13 +1352,125 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             {/* Step 2: Devotee & Family Details */}
             {currentStep === 2 && (
               <div className="space-y-2 flex-1">
-                <div className="border-b border-border pb-1.5">
-                  <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground">Registrant Details</h3>
-                  <p className="text-[10px] text-muted-foreground">Share details for the seva devotee and family information.</p>
+                <div className="border-b border-border pb-1.5 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground">Registrant Details</h3>
+                    <p className="text-[10px] text-muted-foreground">Share details for the seva devotee and family information.</p>
+                  </div>
+                  {isAnyAdmin && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10.5px] font-bold text-foreground">Register on behalf</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextState = !registerOnBehalf;
+                          setRegisterOnBehalf(nextState);
+                          if (!nextState) {
+                            setSelectedTargetUserId(null);
+                            if (authUser) {
+                              setDevoteeName(authUser.fullName || "");
+                              setDevoteePhone(authUser.phone || "");
+                              setDevoteeFlat(resolveUserFlat(authUser));
+                            }
+                          }
+                        }}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition cursor-pointer ${registerOnBehalf ? "bg-primary" : "bg-muted border border-border"}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs transition ${registerOnBehalf ? "translate-x-4.5" : "translate-x-1"}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  {savedFamilyMembers.length > 0 && (
+                  {/* On behalf resident selector dropdown */}
+                  {isAnyAdmin && registerOnBehalf && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Select Resident to Register On Behalf
+                        </span>
+                        {selectedTargetUserId && (
+                          <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                          placeholder="Search resident by name, flat, phone, or email..."
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        />
+                        {userSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setUserSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-0.5"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-36 overflow-y-auto rounded-lg border border-border bg-background p-1 space-y-0.5 shadow-inner">
+                        {communityUsers
+                          .filter((u) => {
+                            if (!userSearchQuery.trim()) return true;
+                            const q = userSearchQuery.toLowerCase();
+                            const name = `${u.fullName || u.name || ""}`.toLowerCase();
+                            const email = `${u.email || ""}`.toLowerCase();
+                            const phone = `${u.phone || u.mobile || ""}`.toLowerCase();
+                            const flat = `${u.flatNo || resolveUserFlat(u) || ""}`.toLowerCase();
+                            return name.includes(q) || email.includes(q) || phone.includes(q) || flat.includes(q);
+                          })
+                          .slice(0, 10)
+                          .map((u) => {
+                            const isUserSelected = selectedTargetUserId === u.id;
+                            const flatStr = u.flatNo || resolveUserFlat(u);
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSelectedTargetUserId(u.id);
+                                  setUserSearchQuery(u.fullName || u.name || "");
+                                  setDevoteeName(u.fullName || u.name || "");
+                                  setDevoteePhone(u.phone || u.mobile || "");
+                                  if (flatStr) setDevoteeFlat(flatStr);
+                                  setGotram(u.gotram || u.extra?.gotram || "");
+                                }}
+                                className={`flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition cursor-pointer ${
+                                  isUserSelected
+                                    ? "bg-amber-600 text-white font-bold"
+                                    : "hover:bg-muted text-foreground"
+                                }`}
+                              >
+                                <div>
+                                  <span className="font-semibold block">{u.fullName || u.name || "Resident"}</span>
+                                  <span className={`text-[10px] block ${isUserSelected ? "text-white/80" : "text-muted-foreground"}`}>
+                                    {u.phone || u.mobile || u.email || "No contact"}
+                                  </span>
+                                </div>
+                                {flatStr && (
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                    isUserSelected
+                                      ? "bg-white/20 text-white border-white/30"
+                                      : "bg-muted text-foreground border-border"
+                                  }`}>
+                                    {flatStr}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {savedFamilyMembers.length > 0 && !registerOnBehalf && (
                     <div className="p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-1.5">
                       <div className="flex items-center justify-between text-[10.5px]">
                         <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
@@ -1353,7 +1487,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                               type="button"
                               onClick={() => {
                                 setDevoteeName(m.name);
-                                if (m.gotram) setGotram(m.gotram);
+                                setGotram(m.gothram || "");
                                 if (m.phone) setDevoteePhone(m.phone);
                               }}
                               className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer border ${
@@ -1373,91 +1507,48 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Yajaman / Devotee Name *</span>
-                      <input
-                        value={devoteeName}
-                        onChange={(e) => setDevoteeName(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Enter devotee name"
-                      />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Phone Number *</span>
-                      <input
-                        value={devoteePhone}
-                        onChange={(e) => setDevoteePhone(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Enter phone number"
-                      />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Flat / Block</span>
-                      <input
-                        value={devoteeFlat}
-                        onChange={(e) => setDevoteeFlat(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Flat or block"
-                      />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Gotram</span>
-                      <input
-                        value={gotram}
-                        onChange={(e) => setGotram(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Optional gotram"
-                      />
-                    </label>
-                  </div>
-
-                  {isAnyAdmin && (
-                    <div className="rounded-xl border border-border bg-card/50 p-2 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-foreground">Register on behalf</span>
-                        <button
-                          type="button"
-                          onClick={() => setRegisterOnBehalf((prev) => !prev)}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${registerOnBehalf ? "bg-primary" : "bg-muted"}`}
-                        >
-                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition ${registerOnBehalf ? "translate-x-4.5" : "translate-x-1"}`} />
-                        </button>
-                      </div>
-                      {registerOnBehalf && (
-                        <div className="space-y-1.5">
-                          <input
-                            value={userSearchQuery}
-                            onChange={(e) => setUserSearchQuery(e.target.value)}
-                            placeholder="Search community member..."
-                            className="w-full rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                          />
-                          <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-background p-1 space-y-0.5">
-                            {communityUsers
-                              .filter((u) => `${u.fullName || u.name || ""} ${u.email || ""}`.toLowerCase().includes(userSearchQuery.toLowerCase()))
-                              .slice(0, 6)
-                              .map((u) => (
-                                <button
-                                  key={u.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedTargetUserId(u.id);
-                                    setRegisterOnBehalf(false);
-                                    setDevoteeName(u.fullName || u.name || "");
-                                    setDevoteePhone(u.phone || u.mobile || "");
-                                    setDevoteeFlat(resolveUserFlat(u));
-                                  }}
-                                  className="flex w-full items-center justify-between rounded px-1.5 py-1 text-left hover:bg-muted"
-                                >
-                                  <span className="text-[11px] font-medium text-foreground">{u.fullName || u.name || "Unknown"}</span>
-                                  <span className="text-[9.5px] text-muted-foreground">{u.flatNo || resolveUserFlat(u) || "No flat"}</span>
-                                </button>
-                              ))}
-                          </div>
-                        </div>
-                      )}
+                  <div className="rounded-xl bg-card border border-border p-2.5 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Yajaman / Devotee Name *</span>
+                        <input
+                          value={devoteeName}
+                          onChange={(e) => setDevoteeName(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Enter devotee name"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Phone Number *</span>
+                        <input
+                          value={devoteePhone}
+                          onChange={(e) => setDevoteePhone(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Enter phone number"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Flat / Block</span>
+                        <input
+                          value={devoteeFlat}
+                          onChange={(e) => setDevoteeFlat(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Flat or block"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Gotram</span>
+                        <input
+                          value={gotram}
+                          onChange={(e) => setGotram(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Optional gotram"
+                        />
+                      </label>
                     </div>
-                  )}
+
+                    {/* Attending Family Members field hidden per UI requirement */}
+                  </div>
                 </div>
               </div>
             )}
@@ -1655,6 +1746,18 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   <span className="text-muted-foreground block">Prasadam:</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter</strong>
                 </div>
+                {attendingDevotees.trim() && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block">Attending Family:</span>
+                    <strong className="text-foreground">{attendingDevotees}</strong>
+                  </div>
+                )}
+                {tokenNumber && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block">Queue Token:</span>
+                    <strong className="text-amber-700 text-sm">🎫 Token #{tokenNumber}</strong>
+                  </div>
+                )}
                 <div className="col-span-2">
                   <span className="text-muted-foreground block">Seva Contribution:</span>
                   <strong className="text-primary">{isFreeEvent ? "Free Seva" : isUpdateMode ? `₹${numericFee} (Already Paid)` : `₹${numericFee} (Paid)`}</strong>

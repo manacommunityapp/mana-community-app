@@ -43,10 +43,9 @@ export const sportsEventService = {
     return this.getMyTournaments();
   },
 
-  /** GET /api/sports/events/all — list of all events (from sports_event table via SportsController) */
+  /** GET /api/sports/events/all — list of all events (ignored for now) */
   async getAllEvents(): Promise<SportsEvent[]> {
-    return apiClient.get<SportsEvent[]>("/sports/events/all")
-      .then((res: any) => res.map((x: any) => this.mapEvent(x)));
+    return Promise.resolve([]);
   },
 
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */
