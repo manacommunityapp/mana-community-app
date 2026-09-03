@@ -143,13 +143,17 @@ interface BannerItem {
 }
 
 function eventToBanner(ev: EventResponse, idx: number): BannerItem {
+  const registered = ev.capacity != null
+    ? `${ev.attendees.toLocaleString()} registered (${ev.capacity} spots left)`
+    : `${ev.attendees.toLocaleString()} registered`;
+
   return {
     id: String(ev.id),
     title: ev.title,
     subtitle: ev.description || "",
     location: ev.venue || ev.location || ev.city || "—",
     date: ev.endDate ? `${ev.startDate} – ${ev.endDate}` : ev.startDate,
-    registered: `${ev.attendees.toLocaleString()} registered`,
+    registered,
     category: ev.category || ev.type || "Event",
     bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
     targetDate: ev.startDate,

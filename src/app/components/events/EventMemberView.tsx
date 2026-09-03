@@ -86,7 +86,7 @@ interface Activity {
   time: string;
   venue: string;
   fee: number;
-  availableSeats: number;
+  availableSeats?: number;
   image: string;
   description: string;
   startDate?: string;
@@ -107,6 +107,7 @@ interface Activity {
   maxAttendees?: number;
   totalCapacity?: number;
   seats?: number;
+  targetPlates?: number;
   ticketTypes?: any[];
   isFree?: boolean;
   existingRegistration?: any;
@@ -691,7 +692,7 @@ export function EventMemberView() {
 
         const running = allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
         running.forEach((ev: any) => {
-          const initialCapacity = ev.capacity || ev.maxAttendees || 50;
+          const initialCapacity = ev.capacity != null ? ev.capacity : (ev.maxAttendees != null ? ev.maxAttendees : null);
           const booked = getBookedCount(`event-${ev.id}`, ev.title);
           fetchedActivities.push({
             id: `event-${ev.id}`,
@@ -701,9 +702,9 @@ export function EventMemberView() {
             time: ev.startTime || "Morning",
             venue: ev.venue || ev.location || ev.city || ev.address || "",
             fee: ev.price ? Number(ev.price) : 0,
-            availableSeats: Math.max(0, initialCapacity - booked),
+            availableSeats: initialCapacity,
             capacity: initialCapacity,
-            maxAttendees: initialCapacity,
+            maxAttendees: ev.maxAttendees || initialCapacity,
             slots: initialCapacity,
             seats: initialCapacity,
             ticketTypes: ev.ticketTypes,
@@ -826,8 +827,9 @@ export function EventMemberView() {
           }
           if (m.parentEventTitle && cancelledEventTitles.has(m.parentEventTitle.trim().toLowerCase())) return;
 
-          const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
-          const booked = getBookedCount(`food-${m.id}`, m.name);
+          const targetPlates = m.targetPlates != null && m.targetPlates !== "" ? Number(m.targetPlates) : null;
+          const bookedHeadcount = Number(m.attendeeHeadcount ?? 0);
+          const availableSeats = targetPlates != null ? Math.max(0, targetPlates - bookedHeadcount) : null;
           const formattedMealTime = m.startTime && m.endTime 
             ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
             : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
@@ -839,10 +841,15 @@ export function EventMemberView() {
             date: m.date ? String(m.date) : "Upcoming",
             time: formattedMealTime,
             venue: m.venue || m.diningHall || m.location || "",
-            fee: m.isFree ? 0 : Number(m.fee || 50),
+            fee: m.isFree ? 0 : Number(m.fee || 0),
             isFree: m.isFree,
             needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
-            availableSeats: Math.max(0, initialPlates - booked),
+            availableSeats: availableSeats != null ? availableSeats : undefined,
+            capacity: targetPlates != null ? targetPlates : undefined,
+            maxAttendees: targetPlates != null ? targetPlates : undefined,
+            slots: targetPlates != null ? targetPlates : undefined,
+            seats: targetPlates != null ? targetPlates : undefined,
+            targetPlates: targetPlates != null ? targetPlates : undefined,
             image: "🍲",
             description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
             mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
@@ -2809,7 +2816,7 @@ export function EventMemberView() {
                               {act.category}
                             </span>
                             <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                              {act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`}
+                              {act.availableSeats === 0 ? "Registration Closed" : act.availableSeats != null ? `${act.availableSeats} slots left` : "Registration Open"}
                             </span>
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
@@ -3648,7 +3655,7 @@ export function EventMemberView() {
                           ? f.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
                           : formatIndianTime(f.time)
                         : "Scheduled";
-                      const slotsLabel = f.availableSeats != null ? `${f.availableSeats} slots` : (f.slots != null ? `${f.slots} slots` : "500 slots");
+                      const slotsLabel = f.availableSeats === 0 ? "Registration Closed" : (f.availableSeats != null ? `${f.availableSeats} slots left` : (f.slots != null ? `${f.slots} slots left` : "Open"));
 
                       return (
                         <div
@@ -4632,7 +4639,8 @@ export function EventMemberView() {
                     time: String(parentEv.startTime || ""),
                     venue: parentEv.location || (parentEv as any).venue || "",
                     fee: 0,
-                    availableSeats: 500,
+                    availableSeats: parentEv.capacity ?? parentEv.maxAttendees,
+                    capacity: parentEv.capacity ?? parentEv.maxAttendees,
                     image: "🎉",
                     description: parentEv.description || "Community Parent Event",
                   });
@@ -5026,7 +5034,7 @@ export function EventMemberView() {
                           timeStr = act.date ? (displayTime ? `${act.date} • ${displayTime}` : act.date) : displayTime;
                         }
 
-                        const slotsLabel = act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots` : (act.slots != null ? `${act.slots} slots` : "500 slots"));
+                        const slotsLabel = act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots left` : (act.slots != null ? `${act.slots} slots left` : "Open"));
 
                         return (
                           <div
