@@ -4,6 +4,7 @@ import {
   Phone, Mail, ArrowUpDown, Users, AlertTriangle,
   History, CheckCircle2, RotateCcw, Wrench,
   Building2, Sparkles, Clock, MapPin, Eye, Landmark, Crown, Award, ArrowRight,
+  MoreVertical, ChevronDown,
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { whoToCallService } from "../../../services/community/whoToCallService";
@@ -770,24 +771,24 @@ export function AdminDirectory() {
   }, [historyList, leaderHistoryList, historyFilter, historySearch]);
 
   return (
-    <div className="space-y-6 w-full pb-12" style={{ fontFamily: "'Poppins', sans-serif" }}>
+    <div className="space-y-3.5 sm:space-y-4 w-full pb-8" style={{ fontFamily: "'Poppins', sans-serif" }}>
       {/* ── Top Header ── */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white/70 backdrop-blur-md border border-slate-200/70 p-6 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 rounded-2xl shadow-md text-white flex-shrink-0">
-            <Shield className="w-6 h-6" />
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white/80 backdrop-blur-md border border-slate-200/80 p-3.5 sm:p-4 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 rounded-xl shadow-2xs text-white shrink-0">
+            <Shield className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 uppercase tracking-wider">
               <span>Admin Hub</span>
               <span>/</span>
-              <span>Community Directory & Who to Call</span>
+              <span>Directory &amp; Who to Call</span>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mt-0.5">
-              Directory & Department Contacts
+            <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+              Directory &amp; Department Contacts
             </h2>
-            <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-              Manage council leadership, department helpdesk contacts, and audit complete change & tenure history.
+            <p className="text-slate-500 text-xs mt-0.5 line-clamp-1 sm:line-clamp-none">
+              Manage council leadership, department helpdesk contacts, and audit change &amp; tenure history.
             </p>
           </div>
         </div>
@@ -796,44 +797,44 @@ export function AdminDirectory() {
           {activeTab === "leaders" && (
             <button
               onClick={openCreateLeader}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4" /> Add Leader
+              <Plus className="w-3.5 h-3.5" /> Add Leader
             </button>
           )}
           {activeTab === "who_to_call" && (
             <button
               onClick={openCreateWhoToCall}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4" /> Add Who to Call
+              <Plus className="w-3.5 h-3.5" /> Add Who to Call
             </button>
           )}
           {activeTab === "committee_groups" && (
             <button
               onClick={openCreateGroup}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4" /> Add Committee Group
+              <Plus className="w-3.5 h-3.5" /> Add Group
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Sub-Tabs Strip ── */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80">
+      {/* ── Sub-Tabs Strip (Horizontal Scroll on Mobile) ── */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1 sm:p-1.5 rounded-xl bg-slate-100/90 border border-slate-200/80 shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab("leaders")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === "leaders"
-              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/80"
+              ? "bg-white text-indigo-700 shadow-2xs border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Users className="w-4 h-4 text-violet-600" />
-          <span>Council & Committee Leaders</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-extrabold">
+          <Users className="w-3.5 h-3.5 text-violet-600" />
+          <span>Council Leaders</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-extrabold">
             {leaders.length}
           </span>
         </button>
@@ -841,15 +842,15 @@ export function AdminDirectory() {
         <button
           type="button"
           onClick={() => setActiveTab("who_to_call")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === "who_to_call"
-              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/80"
+              ? "bg-white text-indigo-700 shadow-2xs border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Phone className="w-4 h-4 text-indigo-600" />
-          <span>Who to Call Directory</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-extrabold">
+          <Phone className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Who to Call</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 font-extrabold">
             {whoToCallList.length}
           </span>
         </button>
@@ -857,15 +858,15 @@ export function AdminDirectory() {
         <button
           type="button"
           onClick={() => setActiveTab("committee_groups")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === "committee_groups"
-              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/80"
+              ? "bg-white text-indigo-700 shadow-2xs border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <Landmark className="w-4 h-4 text-amber-600" />
+          <Landmark className="w-3.5 h-3.5 text-amber-600" />
           <span>Committee Groups</span>
-          <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold">
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-extrabold">
             {committeeGroups.length}
           </span>
         </button>
@@ -873,16 +874,16 @@ export function AdminDirectory() {
         <button
           type="button"
           onClick={() => setActiveTab("history")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
             activeTab === "history"
-              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/80"
+              ? "bg-white text-indigo-700 shadow-2xs border border-slate-200/80"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
-          <History className="w-4 h-4 text-emerald-600" />
-          <span>Change History Audit Log</span>
+          <History className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Audit Log</span>
           {(historyList.length > 0 || leaderHistoryList.length > 0) && (
-            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
               {historyList.length + leaderHistoryList.length}
             </span>
           )}
@@ -893,143 +894,278 @@ export function AdminDirectory() {
       {/* ── TAB 1: COUNCIL & DIRECTORY LEADERS ──────────────────────────── */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "leaders" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
               <input
                 value={leaderSearch}
                 onChange={(e) => setLeaderSearch(e.target.value)}
                 placeholder="Search leaders by name, designation..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
               />
             </div>
             <div className="text-xs text-slate-500 font-medium">
               Showing <span className="font-bold text-slate-900">{filteredLeaders.length}</span> of{" "}
-              <span className="font-bold text-slate-900">{leaders.length}</span> directory leaders
+              <span className="font-bold text-slate-900">{leaders.length}</span> leaders
             </div>
           </div>
 
           {loadingLeaders ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200/60 rounded-2xl">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200/60 rounded-xl">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
               <span className="text-xs font-semibold text-slate-500">Loading directory leaders...</span>
             </div>
           ) : filteredLeaders.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-slate-200/70 rounded-2xl p-6">
-              <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30 text-indigo-600" />
-              <p className="text-sm text-slate-700 font-bold">
+            <div className="text-center py-12 bg-white border border-slate-200/70 rounded-xl p-4">
+              <Inbox className="w-10 h-10 mx-auto mb-2 opacity-30 text-indigo-600" />
+              <p className="text-xs sm:text-sm text-slate-700 font-bold">
                 {leaderSearch ? "No directory leaders match your search" : "No leaders added yet"}
               </p>
               {!leaderSearch && (
                 <button
                   onClick={openCreateLeader}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm cursor-pointer"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" /> Add Directory Leader
+                  <Plus className="w-3.5 h-3.5" /> Add Directory Leader
                 </button>
               )}
             </div>
           ) : (
-            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs sm:text-sm border-collapse text-left">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
-                      <th className="px-5 py-3.5">
-                        <div className="flex items-center gap-1"><ArrowUpDown className="w-3.5 h-3.5" /> Order</div>
-                      </th>
-                      <th className="px-5 py-3.5">Member Name</th>
-                      <th className="px-5 py-3.5">Designation</th>
-                      <th className="px-5 py-3.5 hidden md:table-cell">Committee Group</th>
-                      <th className="px-5 py-3.5 hidden lg:table-cell">Contact Details</th>
-                      <th className="px-5 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredLeaders.map((l) => (
-                      <tr key={l.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-5 py-4 font-mono text-slate-400 font-bold">#{l.displayOrder}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            {l.profilePicUrl || (l as any).profilePic ? (
-                              <img
-                                src={l.profilePicUrl || (l as any).profilePic}
-                                alt={l.fullName}
-                                className="w-9 h-9 rounded-xl object-cover"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLElement).style.display = "none";
-                                }}
-                              />
+            <>
+              {/* MOBILE CARDS VIEW (block on mobile, hidden on md+) */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {filteredLeaders.map((l) => (
+                  <div
+                    key={l.id}
+                    className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs flex flex-col justify-between gap-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {l.profilePicUrl ? (
+                          <img
+                            src={l.profilePicUrl}
+                            alt={l.fullName}
+                            className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                              const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                              if (sibling) sibling.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 ${
+                            l.profilePicUrl ? "hidden" : "flex"
+                          }`}
+                        >
+                          {l.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate tracking-tight">{l.fullName}</h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                              <Award className="w-2.5 h-2.5 text-indigo-600 shrink-0" />
+                              <span>{l.designation}</span>
+                            </span>
+                            {(l.flatNo || l.block) && (
+                              <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                                Unit: {l.block} {l.flatNo}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[10.5px] text-slate-400 font-bold shrink-0">
+                        #{l.displayOrder}
+                      </span>
+                    </div>
+
+                    {l.committee && (
+                      <div className="text-[11px] text-slate-700 bg-amber-50/70 px-2.5 py-1 rounded-lg border border-amber-200/60 flex items-center gap-1.5 font-medium">
+                        <Landmark className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span className="truncate">{l.committee}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-600 font-mono truncate">
+                        {l.contactPhone && (
+                          <a
+                            href={`tel:${l.contactPhone}`}
+                            className="flex items-center gap-1 text-emerald-600 font-bold hover:underline"
+                          >
+                            <Phone className="w-3 h-3" /> {l.contactPhone}
+                          </a>
+                        )}
+                        {l.contactEmail && (
+                          <a
+                            href={`mailto:${l.contactEmail}`}
+                            className="flex items-center gap-1 text-indigo-600 hover:underline"
+                            title={l.contactEmail}
+                          >
+                            <Mail className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Mobile Direct Action Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openLeaderHistory(l)}
+                          className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer border border-emerald-200/60 active:scale-95 flex items-center justify-center"
+                          title="View Council History & Tenure"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditLeader(l)}
+                          className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer border border-indigo-200/60 active:scale-95 flex items-center justify-center"
+                          title="Edit Leader Details"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLeader(l)}
+                          disabled={deletingLeaderId === l.id}
+                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer border border-rose-200/60 active:scale-95 disabled:opacity-50 flex items-center justify-center"
+                          title="Remove Leader"
+                        >
+                          {deletingLeaderId === l.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* DESKTOP TABLE VIEW (hidden on mobile, block on md+) */}
+              <div className="hidden md:block bg-white border border-slate-200/80 rounded-xl shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse text-left">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
+                        <th className="px-4 py-2.5">
+                          <div className="flex items-center gap-1"><ArrowUpDown className="w-3.5 h-3.5" /> Order</div>
+                        </th>
+                        <th className="px-4 py-2.5">Member Name</th>
+                        <th className="px-4 py-2.5">Designation</th>
+                        <th className="px-4 py-2.5">Committee Group</th>
+                        <th className="px-4 py-2.5">Contact Details</th>
+                        <th className="px-4 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {filteredLeaders.map((l) => (
+                        <tr key={l.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-2.5 font-mono text-slate-400 font-bold">#{l.displayOrder}</td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              {l.profilePicUrl ? (
+                                <img
+                                  src={l.profilePicUrl}
+                                  alt={l.fullName}
+                                  className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = "none";
+                                    const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (sibling) sibling.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className={`w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 ${
+                                  l.profilePicUrl ? "hidden" : "flex"
+                                }`}
+                              >
+                                {l.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-slate-900 text-xs sm:text-sm tracking-tight">{l.fullName}</p>
+                                {(l.flatNo || l.block) && (
+                                  <span className="inline-flex items-center text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 mt-0.5">
+                                    Unit: {l.block} {l.flatNo}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-2xs">
+                              <Award className="w-3 h-3 text-indigo-600 shrink-0" />
+                              <span>{l.designation}</span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-slate-600">
+                            {l.committee ? (
+                              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200/70 px-2 py-0.5 rounded-md text-[11px] font-semibold">
+                                <Landmark className="w-3 h-3 text-amber-700 shrink-0" />
+                                {l.committee}
+                              </span>
                             ) : (
-                              <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                                {l.fullName[0]}
+                              <span className="text-slate-400 italic">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 space-y-0.5 text-xs text-slate-600">
+                            {l.contactPhone && (
+                              <div className="flex items-center gap-1 font-mono text-[11px] font-bold text-slate-800">
+                                <Phone className="w-3 h-3 text-emerald-600" /> {l.contactPhone}
                               </div>
                             )}
-                            <div>
-                              <p className="font-bold text-slate-900 text-xs sm:text-sm">{l.fullName}</p>
-                              {(l.flatNo || l.block) && (
-                                <p className="text-[11px] text-slate-500">Unit: {l.block} {l.flatNo}</p>
-                              )}
+                            {l.contactEmail && (
+                              <div className="flex items-center gap-1 text-slate-500 text-[11px]">
+                                <Mail className="w-3 h-3 text-indigo-600" /> {l.contactEmail}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {/* Desktop: Show all 3 action buttons side-by-side directly */}
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openLeaderHistory(l)}
+                                className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer border border-emerald-200/60"
+                                title="View Council History & Tenure"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditLeader(l)}
+                                className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer border border-indigo-200/60"
+                                title="Edit Leader Details"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLeader(l)}
+                                disabled={deletingLeaderId === l.id}
+                                className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer border border-rose-200/60 disabled:opacity-50"
+                                title="Remove Leader"
+                              >
+                                {deletingLeaderId === l.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                            {l.designation}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 hidden md:table-cell text-xs text-slate-600">
-                          {l.committee || <span className="text-slate-400 italic">—</span>}
-                        </td>
-                        <td className="px-5 py-4 hidden lg:table-cell space-y-0.5 text-xs text-slate-600">
-                          {l.contactPhone && (
-                            <div className="flex items-center gap-1 font-mono">
-                              <Phone className="w-3 h-3 text-emerald-600" /> {l.contactPhone}
-                            </div>
-                          )}
-                          {l.contactEmail && (
-                            <div className="flex items-center gap-1 text-slate-500">
-                              <Mail className="w-3 h-3 text-indigo-600" /> {l.contactEmail}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => openLeaderHistory(l)}
-                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer"
-                              title="View Council History & Tenure"
-                            >
-                              <History className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => openEditLeader(l)}
-                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
-                              title="Edit leader"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteLeader(l)}
-                              disabled={deletingLeaderId === l.id}
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
-                              title="Remove leader"
-                            >
-                              {deletingLeaderId === l.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       )}
@@ -1038,74 +1174,71 @@ export function AdminDirectory() {
       {/* ── TAB 2: WHO TO CALL DIRECTORY ───────────────────────────────── */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "who_to_call" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
               <input
                 value={whoToCallSearch}
                 onChange={(e) => setWhoToCallSearch(e.target.value)}
-                placeholder="Search department, contact person, phone..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                placeholder="Search department, contact person..."
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
               />
             </div>
             <div className="text-xs text-slate-500 font-medium">
               Showing <span className="font-bold text-slate-900">{filteredWhoToCall.length}</span> of{" "}
-              <span className="font-bold text-slate-900">{whoToCallList.length}</span> Who to Call contacts
+              <span className="font-bold text-slate-900">{whoToCallList.length}</span> contacts
             </div>
           </div>
 
           {loadingWhoToCall ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200/60 rounded-2xl">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200/60 rounded-xl">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
               <span className="text-xs font-semibold text-slate-500">Loading Who to Call directory...</span>
             </div>
           ) : filteredWhoToCall.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-slate-200/70 rounded-2xl p-6">
-              <Inbox className="w-12 h-12 mx-auto mb-3 opacity-30 text-indigo-600" />
-              <p className="text-sm text-slate-700 font-bold">
+            <div className="text-center py-12 bg-white border border-slate-200/70 rounded-xl p-4">
+              <Inbox className="w-10 h-10 mx-auto mb-2 opacity-30 text-indigo-600" />
+              <p className="text-xs sm:text-sm text-slate-700 font-bold">
                 {whoToCallSearch ? "No contacts match your search" : "No Who to Call contacts added yet"}
-              </p>
-              <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                Add contacts for departments like Maintenance, Security, Lift Emergency, Accounts, etc.
               </p>
               {!whoToCallSearch && (
                 <button
                   onClick={openCreateWhoToCall}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm cursor-pointer"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" /> Add First Department Contact
+                  <Plus className="w-3.5 h-3.5" /> Add Contact
                 </button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {filteredWhoToCall.map((c) => {
                 const colorClass = DEPARTMENT_COLORS[c.department] || c.color || "text-indigo-600 bg-indigo-50 border-indigo-200";
                 return (
                   <div
                     key={c.id}
-                    className={`bg-white rounded-2xl border transition-all p-4.5 flex flex-col justify-between shadow-2xs hover:shadow-md ${
+                    className={`bg-white rounded-xl border transition-all p-3 flex flex-col justify-between shadow-2xs hover:shadow-xs ${
                       !c.isActive ? "opacity-60 border-dashed border-slate-300" : "border-slate-200/80"
                     }`}
                   >
                     <div>
                       {/* Department header badge & emergency indicator */}
-                      <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className={`p-2 rounded-xl border text-xs font-black shrink-0 ${colorClass}`}>
-                            <Wrench className="w-4 h-4" />
+                          <div className={`p-1.5 rounded-lg border text-xs font-black shrink-0 ${colorClass}`}>
+                            <Wrench className="w-3.5 h-3.5" />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-extrabold text-sm text-slate-900 truncate">{c.department}</h4>
+                            <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">{c.department}</h4>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               {c.isEmergency && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-200 shrink-0">
-                                  <AlertTriangle className="w-3 h-3" /> Emergency
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9.5px] font-extrabold bg-red-100 text-red-700 border border-red-200 shrink-0">
+                                  <AlertTriangle className="w-2.5 h-2.5" /> Emergency
                                 </span>
                               )}
-                              <span className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-slate-400" />
+                              <span className="text-[10.5px] text-slate-500 font-medium truncate flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5 text-slate-400" />
                                 {c.availability || "24/7 Available"}
                               </span>
                             </div>
@@ -1113,7 +1246,7 @@ export function AdminDirectory() {
                         </div>
 
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ${
                             c.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                           }`}
                         >
@@ -1122,38 +1255,40 @@ export function AdminDirectory() {
                       </div>
 
                       {/* Contact person & location info */}
-                      <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 space-y-1.5 my-3 text-xs">
+                      <div className="bg-slate-50/80 rounded-lg p-2.5 border border-slate-100 space-y-1 my-2 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-800">{c.contactPerson}</span>
+                          <span className="font-bold text-slate-800 text-xs">{c.contactPerson}</span>
                           {c.designation && (
-                            <span className="text-[11px] text-slate-500 font-medium">({c.designation})</span>
+                            <span className="text-[10.5px] text-slate-500 font-medium truncate ml-1">({c.designation})</span>
                           )}
                         </div>
                         {c.locationOrDesk && (
-                          <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                          <div className="flex items-center gap-1 text-[10.5px] text-slate-500">
                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                             <span className="truncate">{c.locationOrDesk}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 pt-1 border-t border-slate-200/50 text-slate-700 font-mono text-[11px]">
                           <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span className="font-semibold">{c.phoneNumber}</span>
+                          <a href={`tel:${c.phoneNumber}`} className="font-semibold text-emerald-700 hover:underline">
+                            {c.phoneNumber}
+                          </a>
                           {c.secondaryPhone && (
-                            <span className="text-slate-400">/ {c.secondaryPhone}</span>
+                            <span className="text-slate-400 text-[10px]">/ {c.secondaryPhone}</span>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {/* Actions Strip */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
                       <button
                         type="button"
                         onClick={() => openContactHistory(c)}
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-indigo-600 cursor-pointer transition-colors"
                         title="View change history log"
                       >
-                        <History className="w-3.5 h-3.5" /> History
+                        <History className="w-3 h-3" /> History
                       </button>
 
                       <div className="flex items-center gap-1">
@@ -1161,7 +1296,7 @@ export function AdminDirectory() {
                           type="button"
                           onClick={() => handleToggleWhoToCallStatus(c)}
                           disabled={togglingId === c.id}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                          className={`p-1 rounded-md border transition-colors cursor-pointer ${
                             c.isActive
                               ? "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
                               : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
@@ -1169,34 +1304,34 @@ export function AdminDirectory() {
                           title={c.isActive ? "Deactivate" : "Activate"}
                         >
                           {togglingId === c.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : c.isActive ? (
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            <RotateCcw className="w-3 h-3" />
                           ) : (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <CheckCircle2 className="w-3 h-3" />
                           )}
                         </button>
 
                         <button
                           type="button"
                           onClick={() => openEditWhoToCall(c)}
-                          className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 transition-colors cursor-pointer"
+                          className="p-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 transition-colors cursor-pointer"
                           title="Edit contact"
                         >
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Pencil className="w-3 h-3" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleDeleteWhoToCall(c)}
                           disabled={deletingWhoToCallId === c.id}
-                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/70 transition-colors cursor-pointer"
+                          className="p-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/70 transition-colors cursor-pointer"
                           title="Remove contact"
                         >
                           {deletingWhoToCallId === c.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           )}
                         </button>
                       </div>
@@ -1213,128 +1348,201 @@ export function AdminDirectory() {
       {/* ── TAB 3: COMMITTEE GROUPS ─────────────────────────────────────── */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "committee_groups" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
               <input
                 value={groupSearch}
                 onChange={(e) => setGroupSearch(e.target.value)}
                 placeholder="Search committee groups..."
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
+                className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-2xs"
               />
             </div>
             <div className="text-xs text-slate-500 font-medium">
               Showing <span className="font-bold text-slate-900">{filteredGroups.length}</span> of{" "}
-              <span className="font-bold text-slate-900">{committeeGroups.length}</span> committee groups
+              <span className="font-bold text-slate-900">{committeeGroups.length}</span> groups
             </div>
           </div>
 
           {loadingGroups ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200/60 rounded-2xl">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-600 mb-2" />
+            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200/60 rounded-xl">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-600 mb-2" />
               <span className="text-xs font-semibold text-slate-500">Loading committee groups...</span>
             </div>
           ) : filteredGroups.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-slate-200/70 rounded-2xl p-6">
-              <Landmark className="w-12 h-12 mx-auto mb-3 opacity-30 text-amber-600" />
-              <p className="text-sm text-slate-700 font-bold">
+            <div className="text-center py-12 bg-white border border-slate-200/70 rounded-xl p-4">
+              <Landmark className="w-10 h-10 mx-auto mb-2 opacity-30 text-amber-600" />
+              <p className="text-xs sm:text-sm text-slate-700 font-bold">
                 {groupSearch ? "No committee groups match your search" : "No committee groups added yet"}
-              </p>
-              <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                Create named committee groups like "Cultural & Events", "Maintenance", "Sports" to organize your council leaders.
               </p>
               {!groupSearch && (
                 <button
                   onClick={openCreateGroup}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm cursor-pointer"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-2xs cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" /> Add First Committee Group
+                  <Plus className="w-3.5 h-3.5" /> Add Group
                 </button>
               )}
             </div>
           ) : (
-            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs sm:text-sm border-collapse text-left">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
-                      <th className="px-5 py-3.5">
-                        <div className="flex items-center gap-1"><ArrowUpDown className="w-3.5 h-3.5" /> Order</div>
-                      </th>
-                      <th className="px-5 py-3.5">Committee Group Name</th>
-                      <th className="px-5 py-3.5 hidden md:table-cell">Description</th>
-                      <th className="px-5 py-3.5">Status</th>
-                      <th className="px-5 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {filteredGroups.map((g) => (
-                      <tr key={g.id} className={`hover:bg-slate-50/70 transition-colors ${!g.isActive ? "opacity-60" : ""}`}>
-                        <td className="px-5 py-4 font-mono text-slate-400 font-bold">#{g.displayOrder}</td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
-                              <Landmark className="w-4 h-4" />
-                            </div>
-                            <span className="font-bold text-slate-900 text-xs sm:text-sm">{g.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 hidden md:table-cell text-xs text-slate-500 max-w-xs truncate">
-                          {g.description || <span className="italic text-slate-400">—</span>}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            <>
+              {/* MOBILE CARDS VIEW (block on mobile, hidden on md+) */}
+              <div className="grid grid-cols-1 gap-2.5 md:hidden">
+                {filteredGroups.map((g) => (
+                  <div
+                    key={g.id}
+                    className={`bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-col justify-between gap-2 ${
+                      !g.isActive ? "opacity-60" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-amber-50 text-amber-700 shrink-0">
+                          <Landmark className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs sm:text-sm text-slate-900">{g.name}</h4>
+                          <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded-full mt-0.5 inline-block ${
                             g.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
                           }`}>
                             {g.isActive ? "Active" : "Inactive"}
                           </span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleToggleGroupStatus(g)}
-                              disabled={togglingGroupId === g.id}
-                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                                g.isActive
-                                  ? "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-                                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
-                              }`}
-                              title={g.isActive ? "Deactivate" : "Activate"}
-                            >
-                              {togglingGroupId === g.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Eye className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                            <button
-                              onClick={() => openEditGroup(g)}
-                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
-                              title="Edit group"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteGroup(g)}
-                              disabled={deletingGroupId === g.id}
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
-                              title="Delete group"
-                            >
-                              {deletingGroupId === g.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[10.5px] text-slate-400 font-bold">#{g.displayOrder}</span>
+                    </div>
+
+                    {g.description && (
+                      <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-md border border-slate-100">
+                        {g.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-end gap-1 pt-1.5 border-t border-slate-100">
+                      <button
+                        onClick={() => handleToggleGroupStatus(g)}
+                        disabled={togglingGroupId === g.id}
+                        className={`p-1 rounded-md border transition-colors cursor-pointer ${
+                          g.isActive
+                            ? "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                            : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                        }`}
+                        title={g.isActive ? "Deactivate" : "Activate"}
+                      >
+                        {togglingGroupId === g.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Eye className="w-3 h-3" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => openEditGroup(g)}
+                        className="p-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                        title="Edit group"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGroup(g)}
+                        disabled={deletingGroupId === g.id}
+                        className="p-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
+                        title="Delete group"
+                      >
+                        {deletingGroupId === g.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+
+              {/* DESKTOP TABLE VIEW (hidden on mobile, block on md+) */}
+              <div className="hidden md:block bg-white border border-slate-200/80 rounded-xl shadow-2xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse text-left">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
+                        <th className="px-4 py-2.5">
+                          <div className="flex items-center gap-1"><ArrowUpDown className="w-3.5 h-3.5" /> Order</div>
+                        </th>
+                        <th className="px-4 py-2.5">Committee Group Name</th>
+                        <th className="px-4 py-2.5">Description</th>
+                        <th className="px-4 py-2.5">Status</th>
+                        <th className="px-4 py-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {filteredGroups.map((g) => (
+                        <tr key={g.id} className={`hover:bg-slate-50/70 transition-colors ${!g.isActive ? "opacity-60" : ""}`}>
+                          <td className="px-4 py-2.5 font-mono text-slate-400 font-bold">#{g.displayOrder}</td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1 rounded-md bg-amber-50 text-amber-700">
+                                <Landmark className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="font-bold text-slate-900 text-xs">{g.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-slate-500 max-w-xs truncate">
+                            {g.description || <span className="italic text-slate-400">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
+                              g.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {g.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleToggleGroupStatus(g)}
+                                disabled={togglingGroupId === g.id}
+                                className={`p-1 rounded-md border transition-colors cursor-pointer ${
+                                  g.isActive
+                                    ? "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
+                                    : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                                }`}
+                                title={g.isActive ? "Deactivate" : "Activate"}
+                              >
+                                {togglingGroupId === g.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Eye className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => openEditGroup(g)}
+                                className="p-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                                title="Edit group"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteGroup(g)}
+                                disabled={deletingGroupId === g.id}
+                                className="p-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
+                                title="Delete group"
+                              >
+                                {deletingGroupId === g.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1343,56 +1551,56 @@ export function AdminDirectory() {
       {/* ── TAB 4: CHANGE HISTORY AUDIT LOG ────────────────────────────── */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "history" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-start sm:items-center justify-between">
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                <History className="w-5 h-5 text-emerald-600" />
-                Directory &amp; Council Change History Audit Log
+              <h3 className="font-extrabold text-slate-900 text-sm sm:text-base flex items-center gap-1.5">
+                <History className="w-4 h-4 text-emerald-600" />
+                Directory &amp; Council Audit History
               </h3>
-              <p className="text-xs text-slate-500">
-                Complete timeline of leadership appointments, designations, committee shifts, and Who to Call modifications.
+              <p className="text-[11px] text-slate-500">
+                Complete timeline of leadership appointments, designations, and Who to Call modifications.
               </p>
             </div>
             <button
               onClick={loadAllHistory}
-              className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 shrink-0"
+              className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 shrink-0"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Refresh Audit Logs
+              <RotateCcw className="w-3 h-3" /> Refresh
             </button>
           </div>
 
           {/* History Sub-Filter & Search Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setHistoryFilter("all")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
                   historyFilter === "all"
-                    ? "bg-white text-indigo-700 shadow-xs"
+                    ? "bg-white text-indigo-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                All Activity ({historyList.length + leaderHistoryList.length})
+                All ({historyList.length + leaderHistoryList.length})
               </button>
               <button
                 type="button"
                 onClick={() => setHistoryFilter("leaders")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
                   historyFilter === "leaders"
-                    ? "bg-white text-violet-700 shadow-xs"
+                    ? "bg-white text-violet-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Council &amp; Leaders ({leaderHistoryList.length})
+                Leaders ({leaderHistoryList.length})
               </button>
               <button
                 type="button"
                 onClick={() => setHistoryFilter("who_to_call")}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
                   historyFilter === "who_to_call"
-                    ? "bg-white text-emerald-700 shadow-xs"
+                    ? "bg-white text-emerald-700 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1401,34 +1609,31 @@ export function AdminDirectory() {
             </div>
 
             <div className="relative flex-1 sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3" />
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search history by member, designation, role..."
-                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium"
+                placeholder="Search history records..."
+                className="w-full pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
 
           {loadingHistory ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200/60 rounded-2xl">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mb-2" />
+            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200/60 rounded-xl">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mb-2" />
               <span className="text-xs font-semibold text-slate-500">Loading audit history...</span>
             </div>
           ) : combinedHistory.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-slate-200/70 rounded-2xl p-6">
-              <History className="w-12 h-12 mx-auto mb-3 opacity-30 text-emerald-600" />
-              <p className="text-sm text-slate-700 font-bold">
+            <div className="text-center py-12 bg-white border border-slate-200/70 rounded-xl p-4">
+              <History className="w-10 h-10 mx-auto mb-2 opacity-30 text-emerald-600" />
+              <p className="text-xs sm:text-sm text-slate-700 font-bold">
                 {historySearch ? "No history records match your search" : "No history recorded yet"}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Appointments, modifications, and removals of council leaders &amp; contacts will be tracked and displayed here.
               </p>
             </div>
           ) : (
-            <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
+            <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs overflow-hidden">
               <div className="divide-y divide-slate-100">
                 {combinedHistory.map((item, idx) => {
                   if (item.type === "leader") {
@@ -1445,35 +1650,35 @@ export function AdminDirectory() {
                         : "bg-amber-100 text-amber-800 border-amber-200";
 
                     return (
-                      <div key={`leader-${h.id}-${idx}`} className="p-4 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 mt-0.5 ${actionBadge}`}>
+                      <div key={`leader-${h.id}-${idx}`} className="p-3 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className={`px-2 py-0.5 rounded-md text-[10px] font-black border shrink-0 mt-0.5 ${actionBadge}`}>
                             {h.action}
                           </div>
 
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full border border-violet-200/70">
-                                <Crown className="w-3 h-3 text-violet-600" /> Council Leader
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-wide bg-violet-50 text-violet-700 px-1.5 py-0.2 rounded border border-violet-200/70">
+                                <Crown className="w-2.5 h-2.5 text-violet-600" /> Leader
                               </span>
-                              <span className="font-extrabold text-sm text-slate-900">{h.fullName}</span>
-                              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                              <span className="font-bold text-xs text-slate-900 truncate">{h.fullName}</span>
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">
                                 {h.designation}
                               </span>
                               {h.committee && (
-                                <span className="text-xs text-slate-500 font-medium">({h.committee})</span>
+                                <span className="text-[10.5px] text-slate-500 font-medium">({h.committee})</span>
                               )}
                             </div>
 
                             {h.changeSummary && (
-                              <p className="text-xs text-slate-700 bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 font-medium">
+                              <p className="text-[11px] text-slate-700 bg-slate-50 rounded-lg p-2 border border-slate-200/70 font-medium">
                                 {h.changeSummary}
                               </p>
                             )}
 
-                            <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                            <p className="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
                               <span>
-                                Recorded by <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
+                                By <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
                               </span>
                               <span>•</span>
                               <span>{new Date(h.createdAt).toLocaleString()}</span>
@@ -1494,32 +1699,32 @@ export function AdminDirectory() {
                         : "bg-rose-100 text-rose-800 border-rose-200";
 
                     return (
-                      <div key={`who-${h.id}-${idx}`} className="p-4 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 mt-0.5 ${actionBadge}`}>
+                      <div key={`who-${h.id}-${idx}`} className="p-3 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className={`px-2 py-0.5 rounded-md text-[10px] font-black border shrink-0 mt-0.5 ${actionBadge}`}>
                             {h.action}
                           </div>
 
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
-                                <Building2 className="w-3 h-3 text-sky-600" /> Who to Call
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold uppercase tracking-wide bg-sky-50 text-sky-700 px-1.5 py-0.2 rounded border border-sky-200/70">
+                                <Building2 className="w-2.5 h-2.5 text-sky-600" /> Who to Call
                               </span>
-                              <span className="font-extrabold text-sm text-slate-900">{h.department}</span>
-                              <span className="text-xs text-slate-500 font-medium">
+                              <span className="font-bold text-xs text-slate-900 truncate">{h.department}</span>
+                              <span className="text-[10.5px] text-slate-500 font-medium truncate">
                                 ({h.contactPerson} • {h.phoneNumber})
                               </span>
                             </div>
 
                             {h.changeSummary && (
-                              <p className="text-xs text-slate-700 bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 font-medium">
+                              <p className="text-[11px] text-slate-700 bg-slate-50 rounded-lg p-2 border border-slate-200/70 font-medium">
                                 {h.changeSummary}
                               </p>
                             )}
 
-                            <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                            <p className="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
                               <span>
-                                Modified by <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
+                                By <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
                               </span>
                               <span>•</span>
                               <span>{new Date(h.createdAt).toLocaleString()}</span>

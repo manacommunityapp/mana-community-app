@@ -38,7 +38,52 @@ export interface UserStatsResponse {
   roleBreakdown: Record<string, number>;
 }
 
+export interface PagedUserResponse {
+  content: UserResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export const userService = {
+  /** GET /api/users — returns full paginated response from DB with search, communityId, status, and kyc filters */
+  async getUsersPaged(params: {
+    page?: number;
+    size?: number;
+    communityId?: number;
+    search?: string;
+    status?: string;
+    kycStatus?: string;
+  }): Promise<PagedUserResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.page !== undefined) queryParams.set("page", String(params.page));
+    if (params.size !== undefined) queryParams.set("size", String(params.size));
+    if (params.communityId) queryParams.set("communityId", String(params.communityId));
+    if (params.search && params.search.trim()) queryParams.set("search", params.search.trim());
+    if (params.status && params.status !== "all") queryParams.set("status", params.status);
+    if (params.kycStatus && params.kycStatus !== "all") queryParams.set("kycStatus", params.kycStatus);
+
+    const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+    const res = await apiClient.get<PagedUserResponse | UserResponse[]>(`/users${queryStr}`);
+    if (Array.isArray(res)) {
+      return {
+        content: res,
+        page: 0,
+        size: res.length,
+        totalElements: res.length,
+        totalPages: 1,
+      };
+    }
+    return {
+      content: res?.content ?? [],
+      page: res?.page ?? 0,
+      size: res?.size ?? (params.size || 25),
+      totalElements: res?.totalElements ?? (res?.content?.length || 0),
+      totalPages: res?.totalPages ?? 1,
+    };
+  },
+
   /** GET /api/users/stats — fast indexed aggregation of user counts, active counts, kyc status, and roles */
   async getUserStats(communityId?: number): Promise<UserStatsResponse> {
     const query = communityId ? `?communityId=${communityId}` : "";
