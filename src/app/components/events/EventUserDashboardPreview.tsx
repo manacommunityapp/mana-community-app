@@ -68,7 +68,14 @@ interface FamilyMember {
   relation: string;
   age: number;
   dob?: string;
+  gender?: string;
+  gotram?: string;
+  phone?: string;
+  email?: string;
+  bloodGroup?: string;
   avatar: string;
+  emergencyContact?: boolean;
+  isDevotee?: boolean;
 }
 
 interface Activity {
@@ -509,7 +516,14 @@ export function EventUserDashboardPreview() {
     name: "",
     relation: "Son",
     dob: "",
+    gender: "Male",
+    gotram: "",
+    phone: "",
+    email: "",
+    bloodGroup: "",
     avatar: "👦",
+    emergencyContact: false,
+    isDevotee: true,
   });
 
   useEscapeKey(() => setMobileQuickActionModal(null), Boolean(mobileQuickActionModal));
@@ -790,7 +804,14 @@ export function EventUserDashboardPreview() {
       age: user?.dateOfBirth
         ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
         : 30,
+      dob: user?.dateOfBirth,
+      gender: user?.gender || "Male",
+      gotram: (user as any)?.gotram || (user as any)?.gothram,
+      phone: user?.phone,
+      email: user?.email,
       avatar: user?.gender === "Female" ? "👩" : "👨",
+      emergencyContact: true,
+      isDevotee: true,
     };
 
     try {
@@ -807,7 +828,15 @@ export function EventUserDashboardPreview() {
             name: m.name,
             relation: m.relation || "Family",
             age: Number(m.age) || 25,
+            dob: m.dob || m.dateOfBirth,
+            gender: m.gender || "Male",
+            gotram: m.gothram || m.gotram,
+            phone: m.phone,
+            email: m.email,
+            bloodGroup: m.bloodGroup,
             avatar: m.avatar || "👤",
+            emergencyContact: Boolean(m.emergencyContact),
+            isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
           }));
 
         // Filter out any duplicate self/primary entries from DB
@@ -1471,6 +1500,14 @@ export function EventUserDashboardPreview() {
       name: newMember.name.trim(),
       relation: newMember.relation,
       dob: newMember.dob || undefined,
+      gender: newMember.gender || "Male",
+      gotram: newMember.gotram?.trim() || undefined,
+      gothram: newMember.gotram?.trim() || undefined,
+      phone: newMember.phone?.trim() || undefined,
+      email: newMember.email?.trim() || undefined,
+      bloodGroup: newMember.bloodGroup?.trim() || undefined,
+      emergencyContact: newMember.emergencyContact,
+      isDevotee: newMember.isDevotee !== undefined ? newMember.isDevotee : true,
       age: computedAge,
       avatar: newMember.avatar,
       status: "ACTIVE",
@@ -1483,6 +1520,7 @@ export function EventUserDashboardPreview() {
       if (saved && saved.id) {
         createdId = String(saved.id);
       }
+      showSuccess(`Family member ${payload.name} added successfully!`);
     } catch (err: any) {
       showError(err?.message || "Failed to add family member");
       return;
@@ -1493,6 +1531,13 @@ export function EventUserDashboardPreview() {
       name: payload.name,
       relation: payload.relation,
       dob: payload.dob,
+      gender: payload.gender,
+      gotram: payload.gotram,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
       age: payload.age,
       avatar: payload.avatar,
     };
@@ -1500,7 +1545,19 @@ export function EventUserDashboardPreview() {
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
     setSelectedMembers((prev) => [...prev, createdMember.id]);
-    setNewMember({ name: "", relation: "Son", dob: "", avatar: "👦" });
+    setNewMember({
+      name: "",
+      relation: "Son",
+      dob: "",
+      gender: "Male",
+      gotram: "",
+      phone: "",
+      email: "",
+      bloodGroup: "",
+      avatar: "👦",
+      emergencyContact: false,
+      isDevotee: true,
+    });
     setShowAddMemberModal(false);
   };
 
