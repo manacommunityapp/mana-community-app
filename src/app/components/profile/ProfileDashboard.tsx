@@ -262,8 +262,15 @@ export function ProfileDashboard() {
 
   useEffect(() => {
     loadFamilyMembers();
-    window.addEventListener("mana_family_updated", loadFamilyMembers);
-    return () => window.removeEventListener("mana_family_updated", loadFamilyMembers);
+    const handleFamilyUpdated = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setFamilyMembers(e.detail);
+      } else {
+        loadFamilyMembers();
+      }
+    };
+    window.addEventListener("mana_family_updated", handleFamilyUpdated);
+    return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
   }, [loadFamilyMembers]);
 
   const handleOpenAddFamily = () => {

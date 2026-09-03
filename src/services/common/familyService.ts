@@ -146,6 +146,10 @@ export interface FamilyMemberSlim {
   gender?: string;
 }
 
+let inFlightFamilyMembersPromise: Promise<FamilyMember[]> | null = null;
+let lastFetchTime = 0;
+let lastFetchedData: FamilyMember[] | null = null;
+
 export const familyService = {
   /**
    * Get slim family member data (name + gothram only) for use in Pooja registration.
@@ -159,50 +163,73 @@ export const familyService = {
   /**
    * Get all family members for the current user, ALWAYS including Self (Head) as the first entry.
    * Tries backend API first with fallback to synchronized local repository.
+   * Deduplicates concurrent in-flight requests and caches for 3 seconds unless forced.
    */
-  async getFamilyMembers(_forceRefresh = false): Promise<FamilyMember[]> {
-    try {
-      let res: any[] | null = null;
-      try {
-        res = await apiClient.get<any[]>("/users/family-members");
-      } catch {
-        try {
-          res = await apiClient.get<any[]>("/events/family-members");
-        } catch {
-          // fallback
-        }
-      }
-
-      if (Array.isArray(res)) {
-        const mapped: FamilyMember[] = res.map((m) => ({
-          id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          userId: m.userId,
-          name: m.name || m.fullName || "Family Member",
-          relation: m.relation || m.relationship || "Family",
-          age: Number(m.age) || undefined,
-          dob: m.dob || m.dateOfBirth,
-          gender: m.gender || "Male",
-          phone: m.phone || m.mobile,
-          email: m.email,
-          bloodGroup: m.bloodGroup || m.blood,
-          gotram: m.gothram || m.gotram,
-          emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
-          isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
-          photoUrl: m.photoUrl || m.avatar,
-          notes: m.notes,
-          createdAt: m.createdAt,
-          updatedAt: m.updatedAt,
-        }));
-        const fullList = mergeWithSelf(mapped);
-        // Do NOT emit mana_family_updated on GET to prevent infinite event loop
-        persistMembers(fullList, false);
-        return fullList;
-      }
-    } catch (err) {
-      console.warn("Could not fetch family members from database API:", err);
+  async getFamilyMembers(forceRefresh = false): Promise<FamilyMember[]> {
+    const now = Date.now();
+    if (!forceRefresh && lastFetchedData && (now - lastFetchTime < 3000)) {
+      return lastFetchedData;
     }
 
-    return getStoredMembers();
+    if (!forceRefresh && inFlightFamilyMembersPromise) {
+      return inFlightFamilyMembersPromise;
+    }
+
+    inFlightFamilyMembersPromise = (async () => {
+      try {
+        let res: any[] | null = null;
+        try {
+          res = await apiClient.get<any[]>("/users/family-members");
+        } catch {
+          try {
+            res = await apiClient.get<any[]>("/events/family-members");
+          } catch {
+            // fallback
+          }
+        }
+
+        if (Array.isArray(res)) {
+          const mapped: FamilyMember[] = res.map((m) => ({
+            id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            userId: m.userId,
+            name: m.name || m.fullName || "Family Member",
+            relation: m.relation || m.relationship || "Family",
+            age: Number(m.age) || undefined,
+            dob: m.dob || m.dateOfBirth,
+            gender: m.gender || "Male",
+            phone: m.phone || m.mobile,
+            email: m.email,
+            bloodGroup: m.bloodGroup || m.blood,
+            gotram: m.gothram || m.gotram,
+            emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
+            isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
+            photoUrl: m.photoUrl || m.avatar,
+            notes: m.notes,
+            createdAt: m.createdAt,
+            updatedAt: m.updatedAt,
+          }));
+          const fullList = mergeWithSelf(mapped);
+          // Do NOT emit mana_family_updated on GET to prevent infinite event loop
+          persistMembers(fullList, false);
+          lastFetchedData = fullList;
+          lastFetchTime = Date.now();
+          return fullList;
+        }
+      } catch (err) {
+        console.warn("Could not fetch family members from database API:", err);
+      } finally {
+        setTimeout(() => {
+          inFlightFamilyMembersPromise = null;
+        }, 500);
+      }
+
+      const stored = getStoredMembers();
+      lastFetchedData = stored;
+      lastFetchTime = Date.now();
+      return stored;
+    })();
+
+    return inFlightFamilyMembersPromise;
   },
 
   /**
@@ -397,6 +424,6 @@ export const familyService = {
       });
     }
 
-    persistMembers([...current]);
+    persistMembers([...current], false);
   },
 };
