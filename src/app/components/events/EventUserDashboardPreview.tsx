@@ -630,7 +630,10 @@ export function EventUserDashboardPreview() {
   const fetchLiveDataFromBackend = async () => {
     try {
       setLoadingApiData(true);
-      const payload = await eventUserDashboardService.getDashboard();
+      const [payload, meals] = await Promise.all([
+        eventUserDashboardService.getDashboard(),
+        eventService.getLunchDinnerSummaries().catch(() => eventService.getLunchDinners()).catch(() => []),
+      ]);
 
       // ── Stats ────────────────────────────────────────────────────────────────
       setLiveStats({
@@ -650,9 +653,9 @@ export function EventUserDashboardPreview() {
 
       // ── Activities list (event cards grid) ───────────────────────────────────
       const fetchedActivities: Activity[] = payload.upcomingEvents.map((ev) => {
-        const avail = ev.maxAttendees != null
-          ? Math.max(0, ev.maxAttendees - ev.attendeeCount)
-          : 100;
+        const avail = ev.capacity != null
+          ? ev.capacity
+          : (ev.maxAttendees ?? 100);
         const typeUpper = (ev.type || "").toUpperCase();
         const category: Activity["category"] =
           typeUpper.includes("POOJA") || typeUpper.includes("SEVA") ? "Pooja"
@@ -685,7 +688,7 @@ export function EventUserDashboardPreview() {
           venue: ev.location || ev.city || "",
           fee: ev.price || 0,
           availableSeats: avail,
-          capacity: ev.maxAttendees || 100,
+          capacity: ev.capacity ?? ev.maxAttendees ?? 100,
           maxAttendees: ev.maxAttendees || undefined,
           image: imageEmoji,
           description: "",
@@ -701,7 +704,41 @@ export function EventUserDashboardPreview() {
           needsRegistration: true,
         } as any;
       });
-      setActivitiesList(fetchedActivities);
+
+      // ── Sub-event meals / dining sessions with live headcount deduction ──────
+      const mealActivities: Activity[] = [];
+      if (Array.isArray(meals)) {
+        meals.forEach((m: any) => {
+          if (String(m.status || "").toUpperCase() === "CANCELLED") return;
+          const initialPlates = Number(m.targetPlates != null ? m.targetPlates : 500);
+          const bookedHeadcount = Number(m.attendeeHeadcount ?? 0);
+          const remainingPlates = Math.max(0, initialPlates - bookedHeadcount);
+          const formattedMealTime = m.startTime && m.endTime 
+            ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
+            : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
+
+          mealActivities.push({
+            id: `food-${m.id || Date.now()}`,
+            title: m.name || "Community Mahaprasadam",
+            category: "Food",
+            date: m.date ? String(m.date) : "Upcoming",
+            time: formattedMealTime,
+            venue: m.venue || m.diningHall || m.location || "",
+            fee: m.isFree ? 0 : Number(m.fee || 50),
+            isFree: m.isFree,
+            needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
+            availableSeats: remainingPlates,
+            capacity: initialPlates,
+            maxAttendees: initialPlates,
+            image: "🍲",
+            description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
+            mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
+            mealType: m.mealType ? String(m.mealType).toUpperCase() : undefined,
+          } as any);
+        });
+      }
+
+      setActivitiesList([...fetchedActivities, ...mealActivities]);
 
       // ── Main events list (hero banner) ───────────────────────────────────────
       const mainEvents = payload.upcomingEvents.map((ev) => ({
@@ -723,7 +760,7 @@ export function EventUserDashboardPreview() {
         coverImageUrl: ev.imageUrl || undefined,
         imageUrl: ev.imageUrl || undefined,
         status: ev.status,
-        capacity: ev.maxAttendees || 100,
+        capacity: ev.capacity ?? ev.maxAttendees ?? 100,
         maxAttendees: ev.maxAttendees,
         attendees: ev.attendeeCount,
         registrationCount: ev.attendeeCount,
