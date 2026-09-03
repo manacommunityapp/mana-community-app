@@ -233,16 +233,18 @@ export function ProfileDashboard() {
   const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [isSavingMember, setIsSavingMember] = useState(false);
-  const [memberForm, setMemberForm] = useState<Partial<FamilyMember>>({
+  const [memberForm, setMemberForm] = useState<Partial<FamilyMember> & { avatar?: string }>({
     name: "",
     relation: "Spouse",
     dob: "",
     gender: "Female",
+    avatar: "👩",
     phone: "",
     email: "",
     bloodGroup: "",
     gotram: "",
     emergencyContact: false,
+    isDevotee: true,
     notes: "",
   });
 
@@ -271,11 +273,13 @@ export function ProfileDashboard() {
       relation: "Spouse",
       dob: "",
       gender: "Female",
+      avatar: "👩",
       phone: "",
       email: "",
       bloodGroup: "",
-      gotram: profile?.fullName ? "Bharadwaj" : "",
+      gotram: (profile as any)?.gotram || (profile as any)?.gothram || "",
       emergencyContact: false,
+      isDevotee: true,
       notes: "",
     });
     setIsFamilyModalOpen(true);
@@ -289,11 +293,13 @@ export function ProfileDashboard() {
       age: member.age,
       dob: member.dob,
       gender: member.gender || "Male",
+      avatar: (member as any).avatar || (member.gender === "Female" ? "👩" : "👨"),
       phone: member.phone || "",
       email: member.email || "",
       bloodGroup: member.bloodGroup || "",
       gotram: member.gotram || "",
       emergencyContact: member.emergencyContact || false,
+      isDevotee: member.isDevotee !== undefined ? member.isDevotee : true,
       notes: member.notes || "",
     });
     setIsFamilyModalOpen(true);
@@ -1235,14 +1241,14 @@ export function ProfileDashboard() {
                               <div className="flex items-start justify-between gap-2.5">
                                 <div className="flex items-start gap-3 min-w-0">
                                   <div className={cn(
-                                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl font-black flex items-center justify-center text-sm sm:text-base shrink-0 shadow-sm",
+                                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl font-black flex items-center justify-center text-base sm:text-xl shrink-0 shadow-sm",
                                     isSelf
                                       ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-indigo-500/20"
                                       : isFemale
                                       ? "bg-gradient-to-br from-pink-400 to-rose-600 text-white shadow-rose-500/20"
                                       : "bg-gradient-to-br from-blue-500 to-cyan-600 text-white shadow-blue-500/20"
                                   )}>
-                                    {member.name.charAt(0)}
+                                    {(member as any).avatar || member.name.charAt(0)}
                                   </div>
 
                                   <div className="min-w-0">
@@ -1251,6 +1257,11 @@ export function ProfileDashboard() {
                                       {isSelf && (
                                         <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                           ★ Primary Resident
+                                        </span>
+                                      )}
+                                      {member.isDevotee && (
+                                        <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800" title="Devotee Participant">
+                                          🪔 Devotee
                                         </span>
                                       )}
                                       {member.emergencyContact && !isSelf && (
@@ -1530,17 +1541,50 @@ export function ProfileDashboard() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-muted/40 border border-border">
-                      <input
-                        type="checkbox"
-                        id="emergencyContactCheck"
-                        checked={Boolean(memberForm.emergencyContact)}
-                        onChange={(e) => setMemberForm({ ...memberForm, emergencyContact: e.target.checked })}
-                        className="w-4 h-4 text-primary rounded border-border"
-                      />
-                      <label htmlFor="emergencyContactCheck" className="text-xs font-semibold text-foreground cursor-pointer">
-                        Mark as Emergency Contact
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                        <input
+                          type="checkbox"
+                          checked={memberForm.isDevotee !== false}
+                          onChange={(e) => setMemberForm({ ...memberForm, isDevotee: e.target.checked })}
+                          className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                        />
+                        <span>🪔 Devotee Participant</span>
                       </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                        <input
+                          type="checkbox"
+                          id="emergencyContactCheck"
+                          checked={Boolean(memberForm.emergencyContact)}
+                          onChange={(e) => setMemberForm({ ...memberForm, emergencyContact: e.target.checked })}
+                          className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                        />
+                        <span>🚨 Emergency Contact</span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Select Avatar Icon
+                      </label>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {["👤", "👩", "👦", "👧", "👨‍🦳", "👵", "👴", "👶"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setMemberForm({ ...memberForm, avatar: emoji })}
+                            className={cn(
+                              "text-xl p-2 rounded-xl border transition-all cursor-pointer",
+                              memberForm.avatar === emoji
+                                ? "bg-primary/20 border-primary scale-110 shadow-xs"
+                                : "bg-background border-border hover:bg-muted"
+                            )}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div>

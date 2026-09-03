@@ -565,6 +565,8 @@ export interface UserResponse {
   occupancyStatus?: string;
   residentType?: string;
   userType?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type RolePermissionsMap = Record<string, string[]>;

@@ -22,7 +22,11 @@ export interface FamilyMember {
 
 export type FamilyMemberRequest = Omit<FamilyMember, "id" | "createdAt" | "updatedAt">;
 
-const STORAGE_KEY = "mana_family_members_v3";
+function getStorageKey(): string {
+  const user = getStoredUser();
+  const uid = user?.userId || user?.email || "anonymous";
+  return `mana_family_members_v4_${uid}`;
+}
 
 const DUMMY_STATIC_NAMES = new Set([
   "sunita sharma",
@@ -108,7 +112,7 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
 
 function getStoredMembers(): FamilyMember[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
@@ -124,7 +128,7 @@ function getStoredMembers(): FamilyMember[] {
 
 function persistMembers(members: FamilyMember[], notify = true): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
+    localStorage.setItem(getStorageKey(), JSON.stringify(members));
   } catch (err) {
     console.warn("Could not save family members to localStorage:", err);
   }
@@ -169,7 +173,7 @@ export const familyService = {
         }
       }
 
-      if (Array.isArray(res) && res.length > 0) {
+      if (Array.isArray(res)) {
         const mapped: FamilyMember[] = res.map((m) => ({
           id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           userId: m.userId,
@@ -184,7 +188,7 @@ export const familyService = {
           gotram: m.gothram || m.gotram,
           emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
           isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
-          photoUrl: m.photoUrl,
+          photoUrl: m.photoUrl || m.avatar,
           notes: m.notes,
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,

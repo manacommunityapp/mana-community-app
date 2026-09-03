@@ -68,7 +68,14 @@ interface FamilyMember {
   relation: string;
   age: number;
   dob?: string;
+  gender?: string;
+  gotram?: string;
+  phone?: string;
+  email?: string;
+  bloodGroup?: string;
   avatar: string;
+  emergencyContact?: boolean;
+  isDevotee?: boolean;
 }
 
 interface Activity {
@@ -501,14 +508,23 @@ export function EventMemberView() {
   const [manageSuccess, setManageSuccess] = useState<string | null>(null);
   const [manageError, setManageError] = useState<string | null>(null);
 
-  // Modal State for Adding Dynamic Family Member
+  // Modal State for Adding & Editing Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditMemberModal, setShowEditMemberModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
   const [newMember, setNewMember] = useState({
     name: "",
-    relation: "Son",
+    relation: "Spouse",
     dob: "",
-    avatar: "👦",
+    gender: "Female",
+    gotram: "",
+    phone: "",
+    email: "",
+    bloodGroup: "",
+    avatar: "👩",
+    emergencyContact: false,
+    isDevotee: true,
   });
 
   useEscapeKey(() => setMobileQuickActionModal(null), Boolean(mobileQuickActionModal));
@@ -516,6 +532,7 @@ export function EventMemberView() {
   useEscapeKey(() => setShowQRPass(null), Boolean(showQRPass));
   useEscapeKey(() => setViewReceiptModal(null), Boolean(viewReceiptModal));
   useEscapeKey(() => setShowAddMemberModal(false), showAddMemberModal);
+  useEscapeKey(() => setShowEditMemberModal(false), showEditMemberModal);
   useEscapeKey(() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }, Boolean(managePassModal));
   useEscapeKey(() => { setSelectedActivity(null); }, Boolean(selectedActivity));
 
@@ -953,7 +970,14 @@ export function EventMemberView() {
       age: user?.dateOfBirth
         ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
         : 30,
+      dob: user?.dateOfBirth,
+      gender: user?.gender || "Male",
+      gotram: (user as any)?.gotram || (user as any)?.gothram,
+      phone: user?.phone,
+      email: user?.email,
       avatar: user?.gender === "Female" ? "👩" : "👨",
+      emergencyContact: true,
+      isDevotee: true,
     };
 
     try {
@@ -970,7 +994,15 @@ export function EventMemberView() {
             name: m.name,
             relation: m.relation || "Family",
             age: Number(m.age) || 25,
+            dob: m.dob || m.dateOfBirth,
+            gender: m.gender || "Male",
+            gotram: m.gothram || m.gotram,
+            phone: m.phone,
+            email: m.email,
+            bloodGroup: m.bloodGroup,
             avatar: m.avatar || "👤",
+            emergencyContact: Boolean(m.emergencyContact),
+            isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
           }));
 
         // Filter out any duplicate self/primary entries from DB
@@ -1622,6 +1654,14 @@ export function EventMemberView() {
       name: newMember.name.trim(),
       relation: newMember.relation,
       dob: newMember.dob || undefined,
+      gender: newMember.gender || "Male",
+      gotram: newMember.gotram?.trim() || undefined,
+      gothram: newMember.gotram?.trim() || undefined,
+      phone: newMember.phone?.trim() || undefined,
+      email: newMember.email?.trim() || undefined,
+      bloodGroup: newMember.bloodGroup?.trim() || undefined,
+      emergencyContact: newMember.emergencyContact,
+      isDevotee: newMember.isDevotee,
       age: computedAge,
       avatar: newMember.avatar,
       status: "ACTIVE",
@@ -1634,6 +1674,7 @@ export function EventMemberView() {
       if (saved && saved.id) {
         createdId = String(saved.id);
       }
+      showSuccess(`Family member ${payload.name} added successfully!`);
     } catch (err: any) {
       showError(err?.message || "Failed to add family member");
       return;
@@ -1644,6 +1685,13 @@ export function EventMemberView() {
       name: payload.name,
       relation: payload.relation,
       dob: payload.dob,
+      gender: payload.gender,
+      gotram: payload.gotram,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
       age: payload.age,
       avatar: payload.avatar,
     };
@@ -1651,8 +1699,64 @@ export function EventMemberView() {
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
     setSelectedMembers((prev) => [...prev, createdMember.id]);
-    setNewMember({ name: "", relation: "Son", dob: "", avatar: "👦" });
+    setNewMember({
+      name: "",
+      relation: "Spouse",
+      dob: "",
+      gender: "Female",
+      gotram: "",
+      phone: "",
+      email: "",
+      bloodGroup: "",
+      avatar: "👩",
+      emergencyContact: false,
+      isDevotee: true,
+    });
     setShowAddMemberModal(false);
+  };
+
+  const handleEditFamilyMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember || !editingMember.name.trim()) return;
+
+    let computedAge = editingMember.age;
+    if (editingMember.dob) {
+      const birth = new Date(editingMember.dob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+
+    const payload = {
+      name: editingMember.name.trim(),
+      relation: editingMember.relation,
+      dob: editingMember.dob || undefined,
+      gender: editingMember.gender || "Male",
+      gotram: editingMember.gotram?.trim() || undefined,
+      gothram: editingMember.gotram?.trim() || undefined,
+      phone: editingMember.phone?.trim() || undefined,
+      email: editingMember.email?.trim() || undefined,
+      bloodGroup: editingMember.bloodGroup?.trim() || undefined,
+      emergencyContact: editingMember.emergencyContact,
+      isDevotee: editingMember.isDevotee,
+      age: computedAge,
+      avatar: editingMember.avatar,
+      status: "ACTIVE",
+    };
+
+    try {
+      await eventService.updateFamilyMember(editingMember.id, payload);
+      showSuccess(`Family member ${editingMember.name} updated!`);
+    } catch (err: any) {
+      showError(err?.message || "Failed to update family member");
+      return;
+    }
+
+    setFamilyMembers((prev) =>
+      prev.map((m) => (m.id === editingMember.id ? { ...m, ...payload, age: computedAge } : m))
+    );
+    setShowEditMemberModal(false);
+    setEditingMember(null);
   };
 
   // ── Open Manage Modal ──────────────────────────────────────────────────
@@ -2463,53 +2567,72 @@ export function EventMemberView() {
                       to register members.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-border animate-fadeIn">
                       {familyMembers.map((member) => {
                         const isPrimary = member.id === "self" || member.relation.includes("Myself") || member.relation.includes("Head");
                         return (
                           <div
                             key={member.id}
-                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                            className={`flex flex-col justify-between p-3 rounded-2xl border transition-all ${
                               isPrimary
                                 ? "bg-primary/5 border-primary/30 shadow-2xs"
-                                : "bg-muted/50 border-border/70 hover:border-primary/30"
+                                : "bg-muted/40 border-border/70 hover:border-primary/40 hover:shadow-xs"
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="text-xl shrink-0">{member.avatar}</span>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
-                                  {isPrimary && (
-                                    <span className="text-[8.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded">
-                                      You
-                                    </span>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="text-2xl shrink-0 p-1 bg-background/80 rounded-xl border border-border shadow-2xs">{member.avatar || (member.gender === "Female" ? "👩" : "👨")}</span>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-xs font-black text-foreground truncate">{member.name}</p>
+                                    {isPrimary && (
+                                      <span className="text-[8.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded">
+                                        You
+                                      </span>
+                                    )}
+                                    {member.isDevotee && (
+                                      <span className="text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.2 rounded border border-amber-400/30" title="Devotee participant">
+                                        🪔 Devotee
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground font-medium truncate mt-0.5">
+                                    <span className="font-bold text-foreground/80">{member.relation}</span>
+                                    {member.dob ? ` • ${new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : member.age ? ` • Age ${member.age}` : ""}
+                                    {isPrimary && (user?.flatNo || user?.block) && ` • Flat ${user?.block ? `${user?.block}-` : ""}${user?.flatNo || ""}`}
+                                  </p>
+                                  {member.gotram && (
+                                    <p className="text-[9.5px] text-primary font-bold truncate mt-0.5 flex items-center gap-1">
+                                      <span>🕉️</span> <span>Gotram: {member.gotram}</span>
+                                    </p>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground font-medium truncate">
-                                  {member.relation}{member.dob ? ` • ${new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : member.age ? ` • Age ${member.age}` : ""}
-                                  {isPrimary && (user?.flatNo || user?.block) && ` • Flat ${user?.block ? `${user?.block}-` : ""}${user?.flatNo || ""}`}
-                                </p>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
-                                isPrimary
-                                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
-                                  : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                              }`}>
-                                {isPrimary ? "Primary Member" : "Active"}
-                              </span>
-                              {!isPrimary && (
+
+                              <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   type="button"
-                                  title="Remove family member"
-                                  onClick={(e) => handleDeleteFamilyMember(member.id, e)}
-                                  className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                                  title="Edit family member details"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingMember(member);
+                                    setShowEditMemberModal(true);
+                                  }}
+                                  className="p-1 text-muted-foreground hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Edit3 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+                                {!isPrimary && (
+                                  <button
+                                    type="button"
+                                    title="Remove family member"
+                                    onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                                    className="p-1 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -3870,7 +3993,7 @@ export function EventMemberView() {
                 </div>
               ) : (
                 familyMembers.map((member) => {
-                  const isSelf = member.relation?.toLowerCase().includes("self") || member.relation?.toLowerCase().includes("head");
+                  const isSelf = member.relation?.toLowerCase().includes("self") || member.relation?.toLowerCase().includes("head") || member.id === "self";
                   return (
                     <div
                       key={member.id}
@@ -3878,10 +4001,22 @@ export function EventMemberView() {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
-                          {member.avatar || member.name.charAt(0)}
+                          {member.avatar || (member.gender === "Female" ? "👩" : "👨")}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-bold text-foreground text-xs truncate">{member.name}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-bold text-foreground text-xs truncate">{member.name}</h4>
+                            {isSelf && (
+                              <span className="text-[8.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded">
+                                You
+                              </span>
+                            )}
+                            {member.isDevotee && (
+                              <span className="text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.2 rounded">
+                                🪔 Devotee
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary uppercase">
                               {member.relation}
@@ -3891,19 +4026,38 @@ export function EventMemberView() {
                             ) : member.age ? (
                               <span className="text-[10px] text-muted-foreground">{member.age} yrs</span>
                             ) : null}
+                            {member.gotram && (
+                              <span className="text-[9.5px] font-bold text-amber-600 dark:text-amber-400">
+                                • 🕉️ {member.gotram}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {!isSelf && (
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
-                          onClick={(e) => handleDeleteFamilyMember(member.id, e)}
-                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer shrink-0"
-                          title="Remove member"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMember(member);
+                            setShowEditMemberModal(true);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
+                          title="Edit member"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Edit3 className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                        {!isSelf && (
+                          <button
+                            onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                            title="Remove member"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })
@@ -3930,7 +4084,7 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── ADD FAMILY MEMBER MODAL (MOBILE BOTTOM-SHEET) ─── */}
+      {/* ─── ADD FAMILY MEMBER MODAL ─── */}
       {showAddMemberModal && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
@@ -3939,7 +4093,7 @@ export function EventMemberView() {
           <form
             onSubmit={handleAddFamilyMemberSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto cursor-default"
+            className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto cursor-default"
           >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
@@ -3991,8 +4145,40 @@ export function EventMemberView() {
                     <option value="Mother">Mother</option>
                     <option value="Brother">Brother</option>
                     <option value="Sister">Sister</option>
+                    <option value="Grandfather">Grandfather</option>
+                    <option value="Grandmother">Grandmother</option>
                     <option value="Relative">Relative</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={newMember.gender}
+                    onChange={(e) => setNewMember({ ...newMember, gender: e.target.value, avatar: e.target.value === "Female" ? "👩" : "👨" })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Gotram (Family Lineage)
+                  </label>
+                  <input
+                    type="text"
+                    value={newMember.gotram}
+                    onChange={(e) => setNewMember({ ...newMember, gotram: e.target.value })}
+                    placeholder="e.g. Bharadwaja, Kasyapa"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
                 </div>
 
                 <div>
@@ -4003,11 +4189,69 @@ export function EventMemberView() {
                     value={newMember.dob}
                     onChange={(val) => setNewMember({ ...newMember, dob: val })}
                     max={new Date().toISOString().split("T")[0]}
-                    placeholder="Select date of birth..."
+                    placeholder="Select DOB..."
                     className="w-full"
                     presets={false}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={newMember.phone}
+                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                    placeholder="10-digit mobile"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Blood Group (Optional)
+                  </label>
+                  <select
+                    value={newMember.bloodGroup}
+                    onChange={(e) => setNewMember({ ...newMember, bloodGroup: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="">Select...</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={newMember.isDevotee}
+                    onChange={(e) => setNewMember({ ...newMember, isDevotee: e.target.checked })}
+                    className="rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span>🪔 Devotee Participant</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={newMember.emergencyContact}
+                    onChange={(e) => setNewMember({ ...newMember, emergencyContact: e.target.checked })}
+                    className="rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span>🚨 Emergency Contact</span>
+                </label>
               </div>
 
               <div>
@@ -4015,7 +4259,7 @@ export function EventMemberView() {
                   Select Avatar Icon
                 </label>
                 <div className="flex items-center gap-2">
-                  {["👤", "👩", "👦", "👧", "👨‍🦳", "👵"].map((emoji) => (
+                  {["👤", "👩", "👦", "👧", "👨‍🦳", "👵", "👴", "👶"].map((emoji) => (
                     <button
                       key={emoji}
                       type="button"
@@ -4046,6 +4290,228 @@ export function EventMemberView() {
                 className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" /> Save Family Member
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ─── EDIT FAMILY MEMBER MODAL ─── */}
+      {showEditMemberModal && editingMember && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+          onClick={() => {
+            setShowEditMemberModal(false);
+            setEditingMember(null);
+          }}
+        >
+          <form
+            onSubmit={handleEditFamilyMemberSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto cursor-default"
+          >
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
+
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-indigo-600" />
+                Edit Family Member Details
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditMemberModal(false);
+                  setEditingMember(null);
+                }}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingMember.name}
+                  onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
+                  placeholder="Enter member's full name"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Relationship *
+                  </label>
+                  <select
+                    value={editingMember.relation}
+                    onChange={(e) => setEditingMember({ ...editingMember, relation: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="Self (Head)">Self (Head)</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Son">Son</option>
+                    <option value="Daughter">Daughter</option>
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Brother">Brother</option>
+                    <option value="Sister">Sister</option>
+                    <option value="Grandfather">Grandfather</option>
+                    <option value="Grandmother">Grandmother</option>
+                    <option value="Relative">Relative</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={editingMember.gender || "Male"}
+                    onChange={(e) => setEditingMember({ ...editingMember, gender: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Gotram (Lineage)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingMember.gotram || ""}
+                    onChange={(e) => setEditingMember({ ...editingMember, gotram: e.target.value })}
+                    placeholder="e.g. Bharadwaja, Kasyapa"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Date of Birth
+                  </label>
+                  <DatePicker
+                    value={editingMember.dob || ""}
+                    onChange={(val) => setEditingMember({ ...editingMember, dob: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select DOB..."
+                    className="w-full"
+                    presets={false}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={editingMember.phone || ""}
+                    onChange={(e) => setEditingMember({ ...editingMember, phone: e.target.value })}
+                    placeholder="10-digit mobile"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Blood Group (Optional)
+                  </label>
+                  <select
+                    value={editingMember.bloodGroup || ""}
+                    onChange={(e) => setEditingMember({ ...editingMember, bloodGroup: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="">Select...</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={editingMember.isDevotee !== false}
+                    onChange={(e) => setEditingMember({ ...editingMember, isDevotee: e.target.checked })}
+                    className="rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span>🪔 Devotee Participant</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground select-none">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingMember.emergencyContact)}
+                    onChange={(e) => setEditingMember({ ...editingMember, emergencyContact: e.target.checked })}
+                    className="rounded border-border text-primary focus:ring-primary"
+                  />
+                  <span>🚨 Emergency Contact</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Select Avatar Icon
+                </label>
+                <div className="flex items-center gap-2">
+                  {["👤", "👩", "👦", "👧", "👨‍🦳", "👵", "👴", "👶"].map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setEditingMember({ ...editingMember, avatar: emoji })}
+                      className={`text-xl p-2 rounded-xl border transition-transform cursor-pointer ${
+                        editingMember.avatar === emoji
+                          ? "bg-primary/20 border-primary scale-110 shadow-xs"
+                          : "bg-background border-border hover:bg-muted"
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditMemberModal(false);
+                  setEditingMember(null);
+                }}
+                className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Save Changes
               </button>
             </div>
           </form>
