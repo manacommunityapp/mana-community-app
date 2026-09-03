@@ -541,9 +541,13 @@ export function NotificationBell() {
   }, [fetchLiveNotifications]);
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const handleNewNotif = () => {
-      fetchLiveNotifications();
-      triggerBlink();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchLiveNotifications();
+        triggerBlink();
+      }, 300);
     };
 
     window.addEventListener("mana_notification_received", handleNewNotif);
@@ -554,6 +558,7 @@ export function NotificationBell() {
     window.addEventListener("mana_activities_updated", handleNewNotif);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("mana_notification_received", handleNewNotif);
       window.removeEventListener("mana_notifications_updated", handleNewNotif);
       window.removeEventListener("mana_event_created", handleNewNotif);

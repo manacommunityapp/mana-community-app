@@ -416,18 +416,62 @@ function parseNumericId(id: number | string | undefined | null): number | null {
   return isNaN(num) || num <= 0 ? null : num;
 }
 
+// In-flight deduplication & short-lived caching for /events/all
+let getAllEventsPromise: Promise<EventResponse[]> | null = null;
+let cachedAllEvents: EventResponse[] | null = null;
+let cachedAllEventsTimestamp = 0;
+const EVENTS_CACHE_TTL_MS = 6000; // 6-second cache TTL to avoid duplicate bursts
+
+export function clearEventsCache(): void {
+  cachedAllEvents = null;
+  cachedAllEventsTimestamp = 0;
+  getAllEventsPromise = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("mana_event_created", clearEventsCache);
+  window.addEventListener("mana_event_updated", clearEventsCache);
+  window.addEventListener("mana_event_deleted", clearEventsCache);
+  window.addEventListener("mana_events_updated", clearEventsCache);
+  window.addEventListener("mana_registrations_updated", clearEventsCache);
+}
+
 export const eventService = {
   async getUpcomingEvents(type?: string): Promise<EventResponse[]> {
     const qs = type && type !== "All" ? `?type=${type}` : "";
     return apiClient.get<EventResponse[]>(`/events${qs}`);
   },
 
-  async getAllEvents(): Promise<EventResponse[]> {
-    return apiClient.get<EventResponse[]>("/events/all");
+  async getAllEvents(forceRefresh = false): Promise<EventResponse[]> {
+    const now = Date.now();
+    if (!forceRefresh && cachedAllEvents && (now - cachedAllEventsTimestamp < EVENTS_CACHE_TTL_MS)) {
+      return cachedAllEvents;
+    }
+
+    if (!forceRefresh && getAllEventsPromise) {
+      return getAllEventsPromise;
+    }
+
+    getAllEventsPromise = apiClient.get<EventResponse[]>("/events/all")
+      .then((data) => {
+        cachedAllEvents = Array.isArray(data) ? data : [];
+        cachedAllEventsTimestamp = Date.now();
+        return cachedAllEvents;
+      })
+      .catch((err) => {
+        cachedAllEvents = null;
+        cachedAllEventsTimestamp = 0;
+        throw err;
+      })
+      .finally(() => {
+        getAllEventsPromise = null;
+      });
+
+    return getAllEventsPromise;
   },
 
-  async getAll(): Promise<EventResponse[]> {
-    return this.getAllEvents();
+  async getAll(forceRefresh = false): Promise<EventResponse[]> {
+    return this.getAllEvents(forceRefresh);
   },
 
   async getMyEvents(): Promise<EventResponse[]> {
@@ -447,28 +491,33 @@ export const eventService = {
   },
 
   async create(data: EventRequest): Promise<EventResponse> {
+    clearEventsCache();
     return apiClient.post<EventResponse>("/events", data);
   },
 
   async update(id: number | string, data: EventRequest): Promise<EventResponse> {
+    clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
     return apiClient.put<EventResponse>(`/events/${numericId}`, data);
   },
 
   async deleteEvent(id: number | string): Promise<void> {
+    clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
     await apiClient.delete<void>(`/events/${numericId}`);
   },
 
   async register(id: number | string): Promise<EventResponse> {
+    clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
     return apiClient.post<EventResponse>(`/events/${numericId}/register`, {});
   },
 
   async unregister(id: number | string): Promise<EventResponse> {
+    clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
     return apiClient.delete<EventResponse>(`/events/${numericId}/register`);

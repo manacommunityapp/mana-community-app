@@ -36,6 +36,9 @@ import {
   CreditCard,
   Briefcase,
   Hash,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
@@ -59,6 +62,8 @@ interface UserItem {
   roles?: string[];
   status: "Active" | "Inactive";
   date: string;
+  createdAt?: string;
+  createdAtDisplay?: string;
   permissions?: string[];
   block?: string;
   flatNo?: string;
@@ -107,9 +112,21 @@ export function AdminRoleManagement() {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
-  // Pagination States
+  // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
+  const [sortField, setSortField] = useState<'name' | 'contact' | 'email' | 'role' | 'status' | 'createdAt'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'name' | 'contact' | 'email' | 'role' | 'status' | 'createdAt') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    setCurrentPage(1);
+  };
 
   // Custom Roles & Tab States
   const [searchParams, setSearchParams] = useSearchParams();
@@ -212,6 +229,11 @@ export function AdminRoleManagement() {
           .map((r) => r.trim().toUpperCase())
           .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r)
           .join(", ");
+        const rawCreated = (u as any).createdAt || (u as any).createdDate || (u as any).creationDate || (u as any).registeredAt || (u as any).joinDate || (u as any).joinedDate;
+        const formattedCreatedAt = rawCreated
+          ? new Date(rawCreated).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' })
+          : (u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "—");
+
         return {
           id: u.id,
           name: u.fullName || "",
@@ -220,7 +242,9 @@ export function AdminRoleManagement() {
           role: displayRole,
           roles: rolesList,
           status: u.isActive ? ("Active" as const) : ("Inactive" as const),
-          date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
+          date: formattedCreatedAt,
+          createdAt: rawCreated || u.dateOfBirth || "",
+          createdAtDisplay: formattedCreatedAt,
           permissions: u.permissions,
           block: u.block || "",
           flatNo: u.flatNo || "",
@@ -313,13 +337,37 @@ export function AdminRoleManagement() {
     });
   }, [users, searchQuery, statusFilter]);
 
+  // SORTING COMPUTATION
+  const sortedUsers = useMemo(() => {
+    const list = [...filteredUsers];
+    return list.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'name') {
+        cmp = (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: 'base' });
+      } else if (sortField === 'contact') {
+        cmp = (a.contact || "").localeCompare(b.contact || "", undefined, { numeric: true });
+      } else if (sortField === 'email') {
+        cmp = (a.email || "").localeCompare(b.email || "", undefined, { sensitivity: 'base' });
+      } else if (sortField === 'role') {
+        cmp = (a.role || "").localeCompare(b.role || "", undefined, { sensitivity: 'base' });
+      } else if (sortField === 'status') {
+        cmp = (a.status || "").localeCompare(b.status || "");
+      } else if (sortField === 'createdAt') {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        cmp = timeA - timeB;
+      }
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [filteredUsers, sortField, sortOrder]);
+
   // PAGINATION COMPUTATION
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sortedUsers.length / pageSize));
 
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredUsers.slice(start, start + pageSize);
-  }, [filteredUsers, currentPage, pageSize]);
+    return sortedUsers.slice(start, start + pageSize);
+  }, [sortedUsers, currentPage, pageSize]);
 
   const stats = {
     total: users.length,
@@ -922,19 +970,116 @@ export function AdminRoleManagement() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                        <th className="px-6 py-4">User & Name</th>
-                        <th className="px-6 py-4">Email</th>
-                        <th className="px-6 py-4">Contact</th>
-                        <th className="px-6 py-4">Assigned Role</th>
-                        <th className="px-6 py-4">Status</th>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold uppercase tracking-wider select-none">
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group"
+                          onClick={() => handleSort('name')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>User & Name</span>
+                            {sortField === 'name' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group"
+                          onClick={() => handleSort('contact')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Contact</span>
+                            {sortField === 'contact' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group"
+                          onClick={() => handleSort('email')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Email</span>
+                            {sortField === 'email' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group"
+                          onClick={() => handleSort('role')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Assigned Role</span>
+                            {sortField === 'role' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group"
+                          onClick={() => handleSort('status')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Status</span>
+                            {sortField === 'status' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="px-6 py-4 cursor-pointer hover:text-indigo-600 transition-colors group whitespace-nowrap"
+                          onClick={() => handleSort('createdAt')}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span>Created At</span>
+                            {sortField === 'createdAt' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3.5 h-3.5 text-slate-350 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                        </th>
                         <th className="px-6 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
                       {loading ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-450 font-medium">
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-450 font-medium">
                             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                             Loading users from app_user database...
                           </td>
@@ -950,16 +1095,12 @@ export function AdminRoleManagement() {
                                 </div>
                                 <div>
                                   <span className="font-semibold text-slate-900 block">{user.name}</span>
-                                  <span className="text-[11px] text-slate-400">Joined {user.date}</span>
+                                  <span className="text-[11px] text-slate-500 font-medium">
+                                    {user.block && user.flatNo
+                                      ? `${user.block}-${user.flatNo}`
+                                      : user.block || user.flatNo || "—"}
+                                  </span>
                                 </div>
-                              </div>
-                            </td>
-
-                            {/* Email */}
-                            <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                {user.email || "—"}
                               </div>
                             </td>
 
@@ -968,6 +1109,14 @@ export function AdminRoleManagement() {
                               <div className="flex items-center gap-1.5">
                                 <Phone className="w-3.5 h-3.5 text-slate-400" />
                                 {user.contact || "—"}
+                              </div>
+                            </td>
+
+                            {/* Email */}
+                            <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                {user.email || "—"}
                               </div>
                             </td>
 
@@ -997,6 +1146,14 @@ export function AdminRoleManagement() {
                                 <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`} />
                                 {user.status}
                               </button>
+                            </td>
+
+                            {/* Created At */}
+                            <td className="px-6 py-4 text-slate-500 whitespace-nowrap text-xs">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>{user.createdAtDisplay || user.date || "—"}</span>
+                              </div>
                             </td>
 
                             {/* Action buttons */}
@@ -1044,7 +1201,7 @@ export function AdminRoleManagement() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                             <Users className="w-10 h-10 mx-auto opacity-30 mb-2" />
                             No community users found matching filter.
                           </td>

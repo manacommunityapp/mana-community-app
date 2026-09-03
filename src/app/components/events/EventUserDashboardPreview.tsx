@@ -588,6 +588,96 @@ export function EventUserDashboardPreview() {
     });
   }, [activeMainEvent, activitiesList]);
 
+  // Compute live sub-event counts (pooja, meal, cultural) for the active hero banner event
+  const heroSubEventSummary = useMemo(() => {
+    if (!activeMainEvent) return { total: 0, pooja: 0, meal: 0, cultural: 0 };
+    const pooja = Number(activeMainEvent.poojaCount || activeMainEvent.activitySummary?.poojaCount) || 0;
+    const meal = Number(activeMainEvent.mealCount || activeMainEvent.activitySummary?.mealCount) || 0;
+    const cultural = Number(activeMainEvent.culturalCount || activeMainEvent.activitySummary?.culturalCount) || 0;
+    const totalFromCounts = pooja + meal + cultural;
+    const total = totalFromCounts > 0 ? totalFromCounts : eventSubActivities.length;
+    return { total, pooja, meal, cultural };
+  }, [activeMainEvent, eventSubActivities.length]);
+
+  // Lazy-load scheduled activities for active main event when expanded
+  useEffect(() => {
+    if (!activeMainEvent || !showHeroSubEvents) return;
+    const rawId = Number(String(activeMainEvent.rawId || activeMainEvent.id).replace(/\D/g, ""));
+    if (!rawId) return;
+
+    const hasSubs = activitiesList.some(
+      (a) => String(a.mainEventId).replace(/\D/g, "") === String(rawId) && !String(a.id).startsWith("event-")
+    );
+    if (hasSubs) return;
+
+    eventUserDashboardService.getAllScheduledActivities(rawId).then((res) => {
+      if (!res) return;
+      const newActs: Activity[] = [];
+      (res.poojaActivities || []).forEach((p) => {
+        newActs.push({
+          id: `pooja-${p.id}`,
+          title: p.name,
+          category: "Pooja",
+          date: p.date || activeMainEvent.startDate || "Scheduled",
+          time: p.startTime || "",
+          venue: activeMainEvent.venue || "Mandap",
+          fee: p.fee || 0,
+          availableSeats: p.slots || 50,
+          image: "🪔",
+          description: "",
+          mainEventId: rawId,
+          needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+          status: p.status,
+          isFree: p.isFree,
+        } as any);
+      });
+      (res.meals || []).forEach((m) => {
+        newActs.push({
+          id: `meal-${m.id}`,
+          title: m.name,
+          category: "Food",
+          date: m.date || activeMainEvent.startDate || "Scheduled",
+          time: m.startTime || "",
+          venue: m.venue || activeMainEvent.venue || "Dining Hall",
+          fee: m.fee || 0,
+          availableSeats: m.targetPlates || 100,
+          image: "🍲",
+          description: "",
+          mainEventId: rawId,
+          mealType: m.mealType,
+          needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
+          isFree: m.isFree,
+        } as any);
+      });
+      (res.culturalActivities || []).forEach((c) => {
+        newActs.push({
+          id: `cult-${c.id}`,
+          title: c.name,
+          category: "Cultural",
+          date: c.date || activeMainEvent.startDate || "Scheduled",
+          time: c.startTime || "",
+          venue: c.stage || activeMainEvent.venue || "Main Stage",
+          fee: 0,
+          availableSeats: c.capacity || 100,
+          image: "🎭",
+          description: "",
+          mainEventId: rawId,
+          needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
+          status: c.status,
+          isFree: true,
+        } as any);
+      });
+
+      if (newActs.length > 0) {
+        setActivitiesList((prev) => {
+          const existingIds = new Set(prev.map((a) => a.id));
+          const toAdd = newActs.filter((a) => !existingIds.has(a.id));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+      }
+    }).catch(() => {});
+  }, [activeMainEvent, showHeroSubEvents, activitiesList]);
+
   useEffect(() => {
     const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || null;
     const targetTime = activeMainEvent?.startTime || activeMainEvent?.time || null;
@@ -621,14 +711,19 @@ export function EventUserDashboardPreview() {
       // ── Stats ────────────────────────────────────────────────────────────────
       setLiveStats({
         totalRegistrations: payload.stats.myRegistrationsCount,
+        totalPasses: payload.stats.totalPassesCount ?? payload.passSummary?.totalPasses ?? payload.stats.myRegistrationsCount,
         totalVolunteers: 0,
         totalRevenue: 0,
-        foodPlatesCount: payload.stats.myMealCount,
+        foodPlatesCount: payload.stats.myMealPassesCount ?? payload.passSummary?.mealPasses ?? payload.stats.myMealCount,
         auctionRevenue: 0,
-        // Extra fields for Quick Action badge fallbacks
+        // Extra fields for Quick Action badge fallbacks & pass counts
         myPoojaCount: payload.stats.myPoojaCount,
         myCulturalCount: payload.stats.myCulturalCount,
         myMealCount: payload.stats.myMealCount,
+        myPoojaPassesCount: payload.stats.myPoojaPassesCount ?? payload.passSummary?.poojaPasses,
+        myMealPassesCount: payload.stats.myMealPassesCount ?? payload.passSummary?.mealPasses,
+        myCulturalPassesCount: payload.stats.myCulturalPassesCount ?? payload.passSummary?.culturalPasses,
+        totalPassesCount: payload.stats.totalPassesCount ?? payload.passSummary?.totalPasses,
         upcomingCount: payload.stats.upcomingCount,
       } as any);
 
@@ -657,6 +752,7 @@ export function EventUserDashboardPreview() {
 
         return {
           id: `event-${ev.id}`,
+          rawId: ev.id,
           title: ev.title,
           category,
           date: ev.startDate || "Upcoming",
@@ -684,10 +780,108 @@ export function EventUserDashboardPreview() {
           isRegistered: ev.registered,
           attendees: ev.attendeeCount,
           registrationCount: ev.attendeeCount,
-          needsRegistration: true,
+          needsRegistration: (ev as any).needsRegistration !== undefined && (ev as any).needsRegistration !== null
+            ? Boolean((ev as any).needsRegistration)
+            : (ev as any).requiresRegistration !== undefined
+            ? Boolean((ev as any).requiresRegistration)
+            : (ev as any).isRegistrationRequired !== undefined
+            ? Boolean((ev as any).isRegistrationRequired)
+            : true,
+          activitySummary: ev.activitySummary,
+          poojaCount: ev.activitySummary?.poojaCount,
+          mealCount: ev.activitySummary?.mealCount,
+          culturalCount: ev.activitySummary?.culturalCount,
         } as any;
       });
       setActivitiesList(fetchedActivities);
+
+      // Fetch live scheduled activities (poojas, meals, culturals) across all upcoming events
+      const eventsWithSubs = payload.upcomingEvents.filter(
+        (ev) =>
+          ev.activitySummary &&
+          ((ev.activitySummary.poojaCount && ev.activitySummary.poojaCount > 0) ||
+            (ev.activitySummary.mealCount && ev.activitySummary.mealCount > 0) ||
+            (ev.activitySummary.culturalCount && ev.activitySummary.culturalCount > 0) ||
+            ev.activitySummary.hasPooja ||
+            ev.activitySummary.hasMeal ||
+            ev.activitySummary.hasCultural)
+      );
+
+      if (eventsWithSubs.length > 0) {
+        Promise.all(
+          eventsWithSubs.map((ev) =>
+            eventUserDashboardService.getAllScheduledActivities(ev.id).catch(() => null)
+          )
+        ).then((results) => {
+          const subActs: Activity[] = [];
+          results.forEach((res) => {
+            if (!res) return;
+            const parentEv = payload.upcomingEvents.find((e) => e.id === res.eventId);
+            (res.poojaActivities || []).forEach((p) => {
+              subActs.push({
+                id: `pooja-${p.id}`,
+                title: p.name,
+                category: "Pooja",
+                date: p.date || parentEv?.startDate || "Scheduled",
+                time: p.startTime ? (p.endTime ? `${p.startTime} - ${p.endTime}` : p.startTime) : "",
+                venue: parentEv?.location || parentEv?.city || "Mandap",
+                fee: p.fee || 0,
+                availableSeats: p.slots || 50,
+                image: "🪔",
+                description: "",
+                mainEventId: res.eventId,
+                needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                status: p.status,
+                isFree: p.isFree,
+              } as any);
+            });
+            (res.meals || []).forEach((m) => {
+              subActs.push({
+                id: `meal-${m.id}`,
+                title: m.name,
+                category: "Food",
+                date: m.date || parentEv?.startDate || "Scheduled",
+                time: m.startTime ? (m.endTime ? `${m.startTime} - ${m.endTime}` : m.startTime) : "",
+                venue: m.venue || parentEv?.location || "Dining Hall",
+                fee: m.fee || 0,
+                availableSeats: m.targetPlates || 100,
+                image: "🍲",
+                description: "",
+                mainEventId: res.eventId,
+                mealType: m.mealType,
+                needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
+                isFree: m.isFree,
+              } as any);
+            });
+            (res.culturalActivities || []).forEach((c) => {
+              subActs.push({
+                id: `cult-${c.id}`,
+                title: c.name,
+                category: "Cultural",
+                date: c.date || parentEv?.startDate || "Scheduled",
+                time: c.startTime || "",
+                venue: c.stage || parentEv?.location || "Main Stage",
+                fee: 0,
+                availableSeats: c.capacity || 100,
+                image: "🎭",
+                description: "",
+                mainEventId: res.eventId,
+                needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
+                status: c.status,
+                isFree: true,
+              } as any);
+            });
+          });
+
+          if (subActs.length > 0) {
+            setActivitiesList((prev) => {
+              const existingIds = new Set(prev.map((a) => a.id));
+              const toAdd = subActs.filter((a) => !existingIds.has(a.id));
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+            });
+          }
+        });
+      }
 
       // ── Main events list (hero banner) ───────────────────────────────────────
       const mainEvents = payload.upcomingEvents.map((ev) => ({
@@ -716,6 +910,17 @@ export function EventUserDashboardPreview() {
         registrationDeadline: ev.registrationDeadline,
         regDeadline: ev.registrationDeadline,
         isRegistered: ev.registered,
+        needsRegistration: (ev as any).needsRegistration !== undefined && (ev as any).needsRegistration !== null
+          ? Boolean((ev as any).needsRegistration)
+          : (ev as any).requiresRegistration !== undefined
+          ? Boolean((ev as any).requiresRegistration)
+          : (ev as any).isRegistrationRequired !== undefined
+          ? Boolean((ev as any).isRegistrationRequired)
+          : true,
+        activitySummary: ev.activitySummary,
+        poojaCount: ev.activitySummary?.poojaCount ?? 0,
+        mealCount: ev.activitySummary?.mealCount ?? 0,
+        culturalCount: ev.activitySummary?.culturalCount ?? 0,
       }));
       setMainEventsList(mainEvents as any[]);
 
@@ -770,6 +975,45 @@ export function EventUserDashboardPreview() {
       });
       setPassesList(mappedPasses);
 
+      // ── Family members (populated directly from dashboard payload — 0 extra network calls) ──
+      if (Array.isArray(payload.familyMembers)) {
+        const primaryDevotee: FamilyMember = {
+          id: "self",
+          name: user?.fullName || (user?.email ? user.email.split("@")[0] : "Primary Devotee"),
+          relation: "Myself (Head)",
+          age: user?.dateOfBirth
+            ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
+            : 30,
+          avatar: user?.gender === "Female" ? "👩" : "👨",
+        };
+
+        const dummyNames = new Set([
+          "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+          "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+        ]);
+        const mapped: FamilyMember[] = payload.familyMembers
+          .filter((m: any) => m && m.name && !dummyNames.has(m.name.trim()))
+          .map((m: any) => ({
+            id: String(m.id ?? m.name),
+            name: m.name,
+            relation: m.relation || "Family",
+            age: Number(m.age) || 25,
+            avatar: m.gender === "Female" ? "👩" : "👨",
+          }));
+
+        const additionalMembers = mapped.filter(
+          (m) =>
+            m.name.trim().toLowerCase() !== primaryDevotee.name.trim().toLowerCase() &&
+            !m.relation.toLowerCase().includes("myself") &&
+            !m.relation.toLowerCase().includes("head")
+        );
+
+        const combinedList = [primaryDevotee, ...additionalMembers];
+        setFamilyMembers(combinedList);
+        setSelectedMembers(combinedList.map((m) => m.id));
+        setLoadingFamily(false);
+      }
+
     } catch (err) {
       console.warn("Failed to fetch dashboard from /events/user-dashboard:", err);
       setActivitiesList([]);
@@ -778,8 +1022,7 @@ export function EventUserDashboardPreview() {
     }
   };
 
-  // Load family members dynamically from database / mock
-  // Load family members dynamically from database & include logged-in member
+  // Load family members dynamically using the new fast slim endpoint /api/events/user-dashboard/family-members
   const loadFamilyMembers = async () => {
     setLoadingFamily(true);
 
@@ -794,7 +1037,7 @@ export function EventUserDashboardPreview() {
     };
 
     try {
-      const dbMembers = await eventService.getFamilyMembers();
+      const dbMembers = await eventUserDashboardService.getFamilyMembers();
       if (Array.isArray(dbMembers) && dbMembers.length > 0) {
         const dummyNames = new Set([
           "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
@@ -807,7 +1050,7 @@ export function EventUserDashboardPreview() {
             name: m.name,
             relation: m.relation || "Family",
             age: Number(m.age) || 25,
-            avatar: m.avatar || "👤",
+            avatar: m.gender === "Female" ? "👩" : "👨",
           }));
 
         // Filter out any duplicate self/primary entries from DB
@@ -1063,16 +1306,6 @@ export function EventUserDashboardPreview() {
     return () => { cancelled = true; };
   }, [activitiesList]);
 
-  // Compute dynamic counters for Quick Actions
-  const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
-  const foodCount = useMemo(() => activitiesList.filter((a) => a.category === "Food").length, [activitiesList]);
-  const culturalCount = useMemo(() => activitiesList.filter((a) => a.category === "Cultural").length, [activitiesList]);
-  const compCount = useMemo(() => activitiesList.filter((a) => a.category === "Competitions").length, [activitiesList]);
-  const auctionCount = useMemo(
-    () => activitiesList.filter((a) => a.category?.toLowerCase() === "auction" || Boolean(a.rawAuctionItem)).length,
-    [activitiesList]
-  );
-
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
 
@@ -1090,6 +1323,34 @@ export function EventUserDashboardPreview() {
       return Boolean(m.morning || m.lunch || m.dinner);
     });
   };
+
+  // Compute dynamic counters for Quick Actions
+  const poojaCount = useMemo(() => {
+    const directCount = activitiesList.filter((a) => isPoojaActivity(a.category) || (a.id && String(a.id).startsWith("pooja-"))).length;
+    const sumPooja = activitiesList.reduce((acc, a: any) => acc + (Number(a.poojaCount || a.activitySummary?.poojaCount) || 0), 0);
+    if (directCount + sumPooja > 0) return Math.max(directCount, sumPooja);
+    return (liveStats as any)?.myPoojaCount || (liveStats as any)?.myPoojaPassesCount || 0;
+  }, [activitiesList, liveStats]);
+
+  const foodCount = useMemo(() => {
+    const directCount = activitiesList.filter((a) => a.category === "Food" || (a.id && String(a.id).startsWith("meal-"))).length;
+    const sumMeals = activitiesList.reduce((acc, a: any) => acc + (Number(a.mealCount || a.activitySummary?.mealCount) || 0), 0);
+    if (directCount + sumMeals > 0) return Math.max(directCount, sumMeals);
+    return (liveStats as any)?.myMealCount || (liveStats as any)?.myMealPassesCount || (liveStats?.foodPlatesCount ?? 0);
+  }, [activitiesList, liveStats]);
+
+  const culturalCount = useMemo(() => {
+    const directCount = activitiesList.filter((a) => a.category === "Cultural" || (a.id && String(a.id).startsWith("cult-"))).length;
+    const sumCult = activitiesList.reduce((acc, a: any) => acc + (Number(a.culturalCount || a.activitySummary?.culturalCount) || 0), 0);
+    if (directCount + sumCult > 0) return Math.max(directCount, sumCult);
+    return (liveStats as any)?.myCulturalCount || (liveStats as any)?.myCulturalPassesCount || 0;
+  }, [activitiesList, liveStats]);
+
+  const compCount = useMemo(() => activitiesList.filter((a) => a.category === "Competitions").length, [activitiesList]);
+  const auctionCount = useMemo(
+    () => activitiesList.filter((a) => a.category?.toLowerCase() === "auction" || Boolean(a.rawAuctionItem)).length,
+    [activitiesList]
+  );
 
   const activePasses = useMemo(() => {
     return passesList.filter((p) => {
@@ -1153,6 +1414,8 @@ export function EventUserDashboardPreview() {
     const poojaBadge =
       poojaCount > 0
         ? `${poojaCount} Live Slot${poojaCount === 1 ? "" : "s"}`
+        : apiStats?.myPoojaPassesCount > 0
+        ? `${apiStats.myPoojaPassesCount} Passes`
         : apiStats?.myPoojaCount > 0
         ? `${apiStats.myPoojaCount} Registered`
         : "0 Slots";
@@ -1160,6 +1423,8 @@ export function EventUserDashboardPreview() {
     const culturalBadge =
       culturalCount > 0
         ? `${culturalCount} Stage Show${culturalCount === 1 ? "" : "s"}`
+        : apiStats?.myCulturalPassesCount > 0
+        ? `${apiStats.myCulturalPassesCount} Passes`
         : apiStats?.myCulturalCount > 0
         ? `${apiStats.myCulturalCount} Registered`
         : "0 Shows";
@@ -1167,6 +1432,8 @@ export function EventUserDashboardPreview() {
     const foodBadge =
       foodCount > 0
         ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}`
+        : apiStats?.myMealPassesCount > 0
+        ? `${apiStats.myMealPassesCount} Passes`
         : liveStats?.foodPlatesCount !== undefined && liveStats.foodPlatesCount > 0
         ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
         : "0 Served";
@@ -1187,6 +1454,13 @@ export function EventUserDashboardPreview() {
         : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
         ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
         : "0 Items";
+
+    const passesCount =
+      activePasses.length > 0
+        ? activePasses.length
+        : apiStats?.totalPassesCount ?? apiStats?.totalPasses ?? liveStats?.totalRegistrations ?? 0;
+
+    const passesBadge = `${passesCount} Active`;
 
     const actions = [
       {
@@ -1226,7 +1500,7 @@ export function EventUserDashboardPreview() {
         label: "My Passes",
         icon: Ticket,
         color: "bg-indigo-500/10 text-indigo-600 border-indigo-300/30",
-        badge: `${activePasses.length} Active`,
+        badge: passesBadge,
         action: "passes",
       },
       {
@@ -1996,22 +2270,40 @@ export function EventUserDashboardPreview() {
                 </div>
 
                 {/* ── Sub-Events for this Main Community Event (Pooja Sevas, Cultural, Competitions, Mahaprasadam) ── */}
-                {eventSubActivities.length > 0 && (
+                {(heroSubEventSummary.total > 0 || eventSubActivities.length > 0) && (
                   <div className="space-y-1.5 pt-0.5 animate-fade-in-up">
                     <button
                       type="button"
                       onClick={() => setShowHeroSubEvents(!showHeroSubEvents)}
                       className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99] gap-2"
                     >
-                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
                         <span className="text-xs shrink-0">🪔</span>
                         <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200 truncate">
                           Sub-Events &amp; Sevas
                         </span>
                         <span className="shrink-0 text-[9px] sm:text-[9.5px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs border border-amber-300 flex items-center gap-1 leading-none">
-                          <span>{eventSubActivities.length}</span>
+                          <span>{heroSubEventSummary.total}</span>
                           <span>Available</span>
                         </span>
+                        {heroSubEventSummary.pooja > 0 && (
+                          <span className="shrink-0 text-[8.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-200 border border-amber-300/30 flex items-center gap-1 leading-none">
+                            <span>🪔</span>
+                            <span>{heroSubEventSummary.pooja} Pooja</span>
+                          </span>
+                        )}
+                        {heroSubEventSummary.meal > 0 && (
+                          <span className="shrink-0 text-[8.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 flex items-center gap-1 leading-none">
+                            <span>🍲</span>
+                            <span>{heroSubEventSummary.meal} Meal{heroSubEventSummary.meal === 1 ? "" : "s"}</span>
+                          </span>
+                        )}
+                        {heroSubEventSummary.cultural > 0 && (
+                          <span className="shrink-0 text-[8.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-400/20 text-purple-200 border border-purple-300/30 flex items-center gap-1 leading-none">
+                            <span>🎭</span>
+                            <span>{heroSubEventSummary.cultural} Cultural</span>
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/90 group-hover:text-white shrink-0">
                         <span className="hidden sm:inline">{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
@@ -2212,9 +2504,19 @@ export function EventUserDashboardPreview() {
                       image: "📅",
                       description: activeMainEvent?.description || "Community Parent Event",
                       mainEventId: activeMainEvent?.id,
+                      needsRegistration: (activeMainEvent as any)?.needsRegistration !== undefined ? Boolean((activeMainEvent as any).needsRegistration) : true,
                     };
                     const existingPass = getExistingPassForActivity(actForReg);
                     const isClosed = isRegistrationClosed(activeMainEvent) || isRegistrationClosed(actForReg);
+                    if (actForReg.needsRegistration === false || (activeMainEvent as any)?.needsRegistration === false) {
+                      return (
+                        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                          <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10.5px] sm:text-[11px] font-bold rounded-lg bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 whitespace-nowrap flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-emerald-300" /> Open Entry (No Pass Needed)
+                          </span>
+                        </div>
+                      );
+                    }
                     if (isClosed && !existingPass) {
                       return (
                         <div className="ml-auto flex items-center gap-1.5 shrink-0" title="Registration deadline has expired. Contact temple / community admin for assistance.">
@@ -2539,8 +2841,8 @@ export function EventUserDashboardPreview() {
                             <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                              {act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`}
+                            <span className={`font-bold text-[10px] ${act.needsRegistration === false ? "text-emerald-600 dark:text-emerald-400" : act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                              {act.needsRegistration === false ? "Open Entry" : (act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`)}
                             </span>
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
@@ -3395,7 +3697,9 @@ export function EventUserDashboardPreview() {
                                 <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                   {f.category || "Food"}
                                 </span>
-                                <span className="font-semibold text-muted-foreground">{slotsLabel}</span>
+                                <span className="font-semibold text-muted-foreground">
+                                  {f.needsRegistration === false ? "Open Entry" : slotsLabel}
+                                </span>
                               </div>
                               <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{f.title}</h4>
                               <p className="text-[10px] text-muted-foreground">
@@ -3420,6 +3724,10 @@ export function EventUserDashboardPreview() {
                               ) : isClosed ? (
                                 <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[10px] font-bold rounded-lg border border-border shrink-0">
                                   Registration Closed
+                                </span>
+                              ) : f.needsRegistration === false ? (
+                                <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded-lg border border-emerald-500/20 shrink-0 flex items-center gap-1">
+                                  <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
                                 </span>
                               ) : (
                                 <button
@@ -4414,7 +4722,7 @@ export function EventUserDashboardPreview() {
                           timeStr = act.date ? (displayTime ? `${act.date} • ${displayTime}` : act.date) : displayTime;
                         }
 
-                        const slotsLabel = act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots` : (act.slots != null ? `${act.slots} slots` : "500 slots"));
+                        const slotsLabel = act.needsRegistration === false ? "Open Entry" : (act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots` : (act.slots != null ? `${act.slots} slots` : "500 slots")));
 
                         return (
                           <div
@@ -4430,7 +4738,7 @@ export function EventUserDashboardPreview() {
                                   <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                     {act.category}
                                   </span>
-                                  <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                  <span className={`font-semibold ${act.needsRegistration === false ? "text-emerald-600 dark:text-emerald-400" : act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
                                     {slotsLabel}
                                   </span>
                                 </div>
