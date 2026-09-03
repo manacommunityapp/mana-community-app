@@ -29,7 +29,22 @@ export interface AdminCreateUserPayload {
   prefPush?: boolean;
 }
 
+export interface UserStatsResponse {
+  totalUsers: number;
+  activeUsers: number;
+  pendingKyc: number;
+  approvedKyc: number;
+  rejectedKyc: number;
+  roleBreakdown: Record<string, number>;
+}
+
 export const userService = {
+  /** GET /api/users/stats — fast indexed aggregation of user counts, active counts, kyc status, and roles */
+  async getUserStats(communityId?: number): Promise<UserStatsResponse> {
+    const query = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<UserStatsResponse>(`/users/stats${query}`);
+  },
+
   /** GET /api/users/search?communityId={id}&query={q} */
   async searchUsers(communityId: number, query: string): Promise<UserResponse[]> {
     return apiClient.get<UserResponse[]>(`/users/search?communityId=${communityId}&query=${encodeURIComponent(query)}`);

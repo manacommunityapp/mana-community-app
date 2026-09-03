@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
+import type { UserStatsResponse } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
@@ -94,6 +95,7 @@ export function AdminRoleManagement() {
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [selectedCommId, setSelectedCommId] = useState<number | "">("");
   const [users, setUsers] = useState<UserItem[]>([]);
+  const [userStats, setUserStats] = useState<UserStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [currentView, setCurrentView] = useState<'list' | 'editRole'>('list');
@@ -189,17 +191,30 @@ export function AdminRoleManagement() {
     try {
       const activeCommId = commId !== undefined ? commId : selectedCommId;
       const activeSearch = searchStr !== undefined ? searchStr : searchQuery;
+      const commIdToQuery = (isSuperAdmin && activeCommId)
+        ? Number(activeCommId)
+        : (user?.communityId ?? undefined);
+
+      const [usersData, statsRes] = await Promise.all([
+        (activeSearch && activeSearch.trim())
+          ? userService.searchUsersGlobal(activeSearch.trim(), activeCommId ? Number(activeCommId) : undefined)
+          : (isSuperAdmin && activeCommId)
+            ? userService.getCommunityUsers(Number(activeCommId))
+            : userService.getAllUsers(),
+        userService.getUserStats(commIdToQuery).catch(() => null),
+      ]);
+
+      if (statsRes) {
+        setUserStats(statsRes);
+      }
 
       let usersList: UserResponse[] = [];
-      if (activeSearch && activeSearch.trim()) {
-        usersList = await userService.searchUsersGlobal(
-          activeSearch.trim(),
-          activeCommId ? Number(activeCommId) : undefined
-        );
-      } else if (isSuperAdmin && activeCommId) {
-        usersList = await userService.getCommunityUsers(Number(activeCommId));
-      } else {
-        usersList = await userService.getAllUsers();
+      if (usersData) {
+        if (Array.isArray(usersData)) {
+          usersList = usersData;
+        } else if (typeof usersData === "object" && Array.isArray((usersData as any).content)) {
+          usersList = (usersData as any).content;
+        }
       }
       
       const mapped = usersList.map((u) => {
@@ -322,10 +337,14 @@ export function AdminRoleManagement() {
   }, [filteredUsers, currentPage, pageSize]);
 
   const stats = {
-    total: users.length,
-    active: users.filter((u) => u.status === 'Active').length,
-    inactive: users.filter((u) => u.status === 'Inactive').length,
-    rolesCount: Array.from(new Set(users.map((u) => u.role))).length,
+    total: userStats?.totalUsers ?? users.length,
+    active: userStats?.activeUsers ?? users.filter((u) => u.status === 'Active').length,
+    inactive: userStats != null
+      ? (userStats.totalUsers - userStats.activeUsers)
+      : users.filter((u) => u.status === 'Inactive').length,
+    rolesCount: userStats?.roleBreakdown && Object.keys(userStats.roleBreakdown).length > 0
+      ? Object.keys(userStats.roleBreakdown).length
+      : Array.from(new Set(users.map((u) => u.role))).length,
   };
 
   // HANDLERS
