@@ -721,41 +721,50 @@ export function AdminHub() {
     setOverviewLoading(true);
     setOverviewError(null);
     try {
-      const [allUsers, venues, sportsMeta] = await Promise.all([
-        userService.getAllUsers().catch(() => [] as UserResponse[]),
+      const [userStats, venues, sportsMeta] = await Promise.all([
+        userService.getUserStats(user?.communityId ?? undefined).catch(() => null),
         venueService.getVenues(user?.communityId ?? null).catch(() => [] as any[]),
         sportsService.getSportsMeta().catch(() => [] as any[]),
       ]);
 
-      let usersList: UserResponse[] = [];
-      if (allUsers) {
+      if (userStats) {
+        setOverviewData({
+          totalUsers: userStats.totalUsers ?? 0,
+          activeUsers: userStats.activeUsers ?? 0,
+          pendingKyc: userStats.pendingKyc ?? 0,
+          approvedKyc: userStats.approvedKyc ?? 0,
+          rejectedKyc: userStats.rejectedKyc ?? 0,
+          totalVenues: Array.isArray(venues) ? venues.length : 0,
+          totalSports: Array.isArray(sportsMeta) ? sportsMeta.length : 0,
+          roleBreakdown: userStats.roleBreakdown ?? {},
+        });
+      } else {
+        // Fallback if stats endpoint is unreachable
+        const allUsers = await userService.getAllUsers().catch(() => [] as UserResponse[]);
+        let usersList: UserResponse[] = [];
         if (Array.isArray(allUsers)) {
           usersList = allUsers;
         } else if (typeof allUsers === "object" && Array.isArray((allUsers as any).content)) {
           usersList = (allUsers as any).content;
         }
+        setUsers(usersList);
+        const roleBreakdown: Record<string, number> = {};
+        usersList.forEach((u) => {
+          if (u.role) {
+            roleBreakdown[u.role] = (roleBreakdown[u.role] || 0) + 1;
+          }
+        });
+        setOverviewData({
+          totalUsers: usersList.length,
+          activeUsers: usersList.filter((u) => u.isActive !== false).length,
+          pendingKyc: usersList.filter((u) => u.kycStatus === "PENDING").length,
+          approvedKyc: usersList.filter((u) => u.kycStatus === "APPROVED" || u.kycStatus === "VERIFIED" || u.kycStatus === "approved").length,
+          rejectedKyc: usersList.filter((u) => u.kycStatus === "REJECTED" || u.kycStatus === "rejected").length,
+          totalVenues: Array.isArray(venues) ? venues.length : 0,
+          totalSports: Array.isArray(sportsMeta) ? sportsMeta.length : 0,
+          roleBreakdown,
+        });
       }
-
-      setUsers(usersList);
-      setUsersLoading(false);
-
-      const roleBreakdown: Record<string, number> = {};
-      usersList.forEach((u) => {
-        if (u.role) {
-          roleBreakdown[u.role] = (roleBreakdown[u.role] || 0) + 1;
-        }
-      });
-
-      setOverviewData({
-        totalUsers: usersList.length,
-        activeUsers: usersList.filter((u) => u.isActive !== false).length,
-        pendingKyc: usersList.filter((u) => u.kycStatus === "PENDING").length,
-        approvedKyc: usersList.filter((u) => u.kycStatus === "APPROVED" || u.kycStatus === "VERIFIED" || u.kycStatus === "approved").length,
-        rejectedKyc: usersList.filter((u) => u.kycStatus === "REJECTED" || u.kycStatus === "rejected").length,
-        totalVenues: Array.isArray(venues) ? venues.length : 0,
-        totalSports: Array.isArray(sportsMeta) ? sportsMeta.length : 0,
-        roleBreakdown,
-      });
     } catch (err: any) {
       setOverviewError(err?.message || "Failed to load overview data");
     } finally {

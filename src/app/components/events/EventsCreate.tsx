@@ -1946,8 +1946,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </div>
                               )}
 
-                              <div className="w-full sm:w-36">
-                                <FieldLabel required>Start Time (From)</FieldLabel>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="w-full sm:w-36">
+                                  <FieldLabel required>Start Time (From)</FieldLabel>
                                 <TimePicker
                                   value={act.startTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}

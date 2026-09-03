@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
+import type { UserStatsResponse } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
@@ -68,6 +69,7 @@ export function AdminRoleManagement() {
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [selectedCommId, setSelectedCommId] = useState<number | "">("");
   const [users, setUsers] = useState<UserItem[]>([]);
+  const [userStats, setUserStats] = useState<UserStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [currentView, setCurrentView] = useState<'list' | 'editRole'>('list');
@@ -175,9 +177,20 @@ export function AdminRoleManagement() {
     setLoading(true);
     try {
       const activeCommId = commId !== undefined ? commId : selectedCommId;
-      const data = (isSuperAdmin && activeCommId) 
-        ? await userService.getCommunityUsers(Number(activeCommId))
-        : await userService.getAllUsers();
+      const commIdToQuery = (isSuperAdmin && activeCommId) 
+        ? Number(activeCommId) 
+        : (user?.communityId ?? undefined);
+
+      const [data, statsRes] = await Promise.all([
+        (isSuperAdmin && activeCommId) 
+          ? userService.getCommunityUsers(Number(activeCommId))
+          : userService.getAllUsers(),
+        userService.getUserStats(commIdToQuery).catch(() => null),
+      ]);
+
+      if (statsRes) {
+        setUserStats(statsRes);
+      }
       
       let usersList: UserResponse[] = [];
       if (data) {
@@ -232,10 +245,14 @@ export function AdminRoleManagement() {
   });
 
   const stats = {
-    total: users.length,
-    active: users.filter((u) => u.status === 'Active').length,
-    inactive: users.filter((u) => u.status === 'Inactive').length,
-    rolesCount: Array.from(new Set(users.map((u) => u.role))).length,
+    total: userStats?.totalUsers ?? users.length,
+    active: userStats?.activeUsers ?? users.filter((u) => u.status === 'Active').length,
+    inactive: userStats != null
+      ? (userStats.totalUsers - userStats.activeUsers)
+      : users.filter((u) => u.status === 'Inactive').length,
+    rolesCount: userStats?.roleBreakdown && Object.keys(userStats.roleBreakdown).length > 0
+      ? Object.keys(userStats.roleBreakdown).length
+      : Array.from(new Set(users.map((u) => u.role))).length,
   };
 
   // HANDLERS
