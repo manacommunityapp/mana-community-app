@@ -38,6 +38,7 @@ import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { communityService } from "../../../../services/community/communityService";
 import { authService } from "../../../../services/common/authService";
+import { otpService } from "../../../../services/common/otpService";
 import type { CommunityResponse, BlockConfigResponse } from "../../../../types/api";
 import { DatePicker } from "../../ui/date-picker";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
@@ -755,6 +756,16 @@ export function Signup() {
       const code = otpCode.trim();
       if (code.length < 6) {
         toast.error("Please enter the complete 6-digit verification code");
+        return false;
+      }
+      try {
+        const result = await otpService.verify(email, code);
+        if (!result.verified) {
+          toast.error(result.message || "Incorrect or expired verification code. Please try again.");
+          return false;
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to verify code. Please try again.");
         return false;
       }
       return true;
