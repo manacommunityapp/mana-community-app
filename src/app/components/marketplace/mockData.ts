@@ -151,6 +151,10 @@ export const MOCK_ORDERS: OrderResponse[] = [
     totalAmount: 700,
     notes: "Extra spicy please",
     deliveryAddress: "Tower B, Apt 401",
+    deliveryMethod: "GATE_SECURITY",
+    paymentMode: "UPI_QR",
+    paymentStatus: "PAID",
+    pickupOtp: "4829",
     items: [
       { id: 1, listingId: 1, listingTitle: "Homemade Hyderabadi Biryani – Sunday Special", quantity: 2, unitPrice: 350, imageUrl: null },
     ],
@@ -164,8 +168,11 @@ export const MOCK_ORDERS: OrderResponse[] = [
     seller: { id: 106, fullName: "Karthik Iyer", verified: true },
     status: "PENDING",
     totalAmount: 32000,
-    notes: "",
+    notes: "Please call before coming",
     deliveryAddress: "Tower B, Apt 401",
+    deliveryMethod: "FLAT_PICKUP",
+    paymentMode: "CASH_ON_HANDOVER",
+    paymentStatus: "PENDING",
     items: [
       { id: 2, listingId: 6, listingTitle: "Samsung 55\" Crystal 4K Smart TV", quantity: 1, unitPrice: 32000, imageUrl: null },
     ],
@@ -179,13 +186,60 @@ export const MOCK_ORDERS: OrderResponse[] = [
     seller: { id: 100, fullName: "Demo User", verified: true },
     status: "DELIVERED",
     totalAmount: 350,
-    notes: "",
+    notes: "Leave at clubhouse desk",
     deliveryAddress: "Tower C, Apt 901",
+    deliveryMethod: "CLUBHOUSE",
+    paymentMode: "COMMUNITY_WALLET",
+    paymentStatus: "PAID",
+    pickupOtp: "9312",
     items: [
       { id: 3, listingId: 1, listingTitle: "Homemade Hyderabadi Biryani – Sunday Special", quantity: 1, unitPrice: 350, imageUrl: null },
     ],
     createdAt: daysAgo(5),
     updatedAt: daysAgo(3),
+  },
+];
+
+export const MOCK_OFFERS: any[] = [
+  {
+    id: 1,
+    listingId: 2,
+    listingTitle: "iPhone 14 Pro – 128GB Space Black",
+    originalPrice: 52000,
+    offerPrice: 47500,
+    buyer: { id: 108, fullName: "Siddharth Verma", verified: true },
+    sellerId: 100,
+    status: "PENDING",
+    note: "Can transfer immediately via UPI and collect from Tower A today evening.",
+    createdAt: daysAgo(1),
+  },
+  {
+    id: 2,
+    listingId: 8,
+    listingTitle: "Study Table with Chair – IKEA",
+    originalPrice: 4500,
+    offerPrice: 3800,
+    buyer: { id: 109, fullName: "Neha Kapoor", verified: true },
+    sellerId: 100,
+    status: "ACCEPTED",
+    note: "Will pick up using building elevator tomorrow morning.",
+    createdAt: daysAgo(3),
+  },
+];
+
+export const MOCK_REPORTS: any[] = [
+  {
+    id: 1,
+    listingId: 3,
+    listingTitle: "Honda Activa 6G – 2022 Model",
+    sellerName: "Amit Patel",
+    category: "Vehicles",
+    price: 72000,
+    reason: "Wrong Price / Possible Duplicate",
+    details: "This vehicle is listed with conflicting odometer readings across different posts.",
+    reportedBy: "Resident (Tower B - 204)",
+    createdAt: daysAgo(1),
+    status: "PENDING_REVIEW",
   },
 ];
 
@@ -379,6 +433,250 @@ export const MOCK_MY_LISTINGS: ListingResponse[] = [
   },
 ];
 
+export const MOCK_REQUESTS = [
+  {
+    id: 1,
+    title: "Looking for Wooden Study Table for Kids",
+    category: "Furniture",
+    description: "Need a sturdy study desk with 2-3 shelves for Grade 4 student. Preferably teak or solid wood.",
+    budget: 3500,
+    neededBy: "2026-09-25",
+    requester: { id: 201, fullName: "Sunita Deshmukh", tower: "Tower B - 604", verified: true },
+    status: "OPEN" as const,
+    responsesCount: 2,
+    responses: [
+      { id: 11, seller: { id: 104, fullName: "Rajesh K.", verified: true }, offeredPrice: 3200, message: "Have a Nilkamal wooden desk in mint condition, available immediately.", createdAt: daysAgo(1) },
+      { id: 12, seller: { id: 102, fullName: "Rahul Menon", verified: true }, offeredPrice: 3000, message: "Can give my IKEA study table with chair for ₹3,000.", createdAt: daysAgo(1) },
+    ],
+    createdAt: daysAgo(2),
+  },
+  {
+    id: 2,
+    title: "Need Lawn Mower or Grass Trimmer for Weekend",
+    category: "Rentals",
+    description: "Need an electric lawn mower for trimming private terrace garden this Saturday.",
+    budget: 500,
+    neededBy: "2026-09-20",
+    requester: { id: 202, fullName: "Karthik Iyer", tower: "Tower D - 1102", verified: true },
+    status: "OPEN" as const,
+    responsesCount: 1,
+    responses: [
+      { id: 13, seller: { id: 101, fullName: "Priya Sharma", verified: true }, offeredPrice: 450, message: "You can borrow my Bosch electric trimmer from Tower A.", createdAt: daysAgo(1) },
+    ],
+    createdAt: daysAgo(3),
+  },
+  {
+    id: 3,
+    title: "Math Tutor for Class 10 (CBSE Board)",
+    category: "Services",
+    description: "Looking for experienced neighbor tutor for 3 sessions a week at home or clubhouse.",
+    budget: 4000,
+    neededBy: "2026-09-30",
+    requester: { id: 203, fullName: "Meera Joshi", tower: "Tower A - 401", verified: true },
+    status: "OPEN" as const,
+    responsesCount: 0,
+    createdAt: daysAgo(4),
+  },
+];
+
+export const MOCK_GROUP_ORDERS = [
+  {
+    id: 101,
+    title: "Farm-Fresh Organic Alphonso Mangoes & Exotic Fruits (Direct from Ratnagiri)",
+    category: "Food",
+    description: "100% pesticide-free, carbide-free natural ripened Alphonso mangoes delivered in 5kg community crates.",
+    imageUrl: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&auto=format&fit=crop&q=80",
+    regularPrice: 850,
+    tiers: [
+      { minQuantity: 1, discountedPrice: 850 },
+      { minQuantity: 20, discountedPrice: 720 },
+      { minQuantity: 50, discountedPrice: 640 },
+    ],
+    currentQuantity: 38,
+    targetQuantity: 50,
+    closesAt: "Tomorrow, 8:00 PM",
+    supplierName: "Ratnagiri Organic Farmers Collective",
+    status: "OPEN" as const,
+    participantsCount: 24,
+  },
+  {
+    id: 102,
+    title: "Eco-Friendly Premium Diwali & Pooja Brass Diya Set (Pack of 12)",
+    category: "Festivals",
+    description: "Handcrafted pure brass oil lamps from Moradabad artisans. Community bulk discounted batch.",
+    imageUrl: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&auto=format&fit=crop&q=80",
+    regularPrice: 1200,
+    tiers: [
+      { minQuantity: 1, discountedPrice: 1200 },
+      { minQuantity: 15, discountedPrice: 950 },
+      { minQuantity: 30, discountedPrice: 799 },
+    ],
+    currentQuantity: 31,
+    targetQuantity: 30,
+    closesAt: "In 3 Days",
+    supplierName: "Artisans Guild India",
+    status: "MINIMUM_REACHED" as const,
+    participantsCount: 19,
+  },
+];
+
+export const MOCK_COUPONS = [
+  {
+    code: "COMMUNITY10",
+    discountType: "PERCENTAGE" as const,
+    discountValue: 10,
+    minOrderAmount: 200,
+    maxDiscount: 100,
+    validUntil: "2026-12-31",
+    description: "10% off for all Mana Community residents (Max ₹100)",
+  },
+  {
+    code: "FREEDEL",
+    discountType: "FREE_DELIVERY" as const,
+    discountValue: 30,
+    minOrderAmount: 150,
+    validUntil: "2026-12-31",
+    description: "Free Gate or Doorstep Delivery on orders above ₹150",
+  },
+  {
+    code: "FESTIVAL50",
+    discountType: "FIXED" as const,
+    discountValue: 50,
+    minOrderAmount: 400,
+    validUntil: "2026-12-31",
+    description: "Flat ₹50 off on festival pre-orders above ₹400",
+  },
+];
+
+export const MOCK_DISPUTES = [
+  {
+    id: 501,
+    orderNumber: "ORD-9428-MC",
+    orderId: 1,
+    complainant: { id: 107, fullName: "Meera Joshi", tower: "Tower A - 401" },
+    respondent: { id: 103, fullName: "Amit Patel" },
+    reason: "DAMAGED_ITEM" as const,
+    description: "The ceramic cookware had a crack on the lid when handed over at the security gate. Requested partial refund or replacement.",
+    evidenceUrls: [],
+    claimAmount: 450,
+    refundAmount: 450,
+    status: "UNDER_REVIEW" as const,
+    adminNotes: "Reviewing gate pass handover timestamps and photos.",
+    createdAt: daysAgo(1),
+  },
+  {
+    id: 502,
+    orderNumber: "ORD-8812-MC",
+    orderId: 2,
+    complainant: { id: 202, fullName: "Karthik Iyer", tower: "Tower D - 1102" },
+    respondent: { id: 105, fullName: "Deepa Nair" },
+    reason: "SERVICE_NOT_COMPLETED" as const,
+    description: "Technician did not arrive during scheduled Sunday 2 PM slot without prior notice.",
+    claimAmount: 499,
+    status: "OPEN" as const,
+    createdAt: daysAgo(2),
+  },
+];
+
+export const MOCK_AUDIT_LOGS = [
+  {
+    id: 1,
+    actorName: "Admin Sunita",
+    actorRole: "COMMUNITY_ADMIN",
+    action: "MODERATION_ACTION",
+    entityType: "LISTING",
+    entityId: "LST-904",
+    details: "Removed suspicious non-resident commercial advertisement.",
+    timestamp: daysAgo(1),
+  },
+  {
+    id: 2,
+    actorName: "Gate Guard Ramesh",
+    actorRole: "SECURITY_STAFF",
+    action: "HANDOVER_VERIFIED",
+    entityType: "HANDOVER_PASS",
+    entityId: "ORD-9428-MC",
+    details: "Verified 4-digit PIN OTP (7842) at Main Gate Booth.",
+    timestamp: daysAgo(1),
+  },
+  {
+    id: 3,
+    actorName: "Admin Sunita",
+    actorRole: "COMMUNITY_ADMIN",
+    action: "VENDOR_APPROVED",
+    entityType: "VENDOR",
+    entityId: "VND-42",
+    details: "Approved 'CoolCare Technicians' after police verification check.",
+    timestamp: daysAgo(3),
+  },
+];
+
+export const MOCK_FESTIVAL_ITEMS = [
+  {
+    id: 301,
+    title: "Complete Eco-Friendly Ganesh Pooja Samagri Kit (32 Sacred Items)",
+    description: "Complete ritual kit including turmeric, kumkum, sacred thread, camphor, betel leaves, modak mold, and hand-printed ritual guide.",
+    price: 499,
+    priceUnit: "kit",
+    category: "Pooja & Festivals",
+    status: "ACTIVE",
+    transactionMode: "IN_APP_PAYMENT",
+    visibility: "COMMUNITY",
+    location: "Clubhouse Foyer Desk",
+    imageUrls: ["https://images.unsplash.com/photo-1567591414240-e2ef64d7dfba?w=800&auto=format&fit=crop&q=80"],
+    seller: { id: 101, fullName: "Pooja Committee (Tower A)", verified: true },
+    communityId: 1,
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1),
+  },
+  {
+    id: 302,
+    title: "Fresh Marigold & Jasmine Floral Garland (Door Toran - 6 Feet)",
+    description: "Freshly plucked farm marigold flowers strung for main door entrance toran. Delivered 6 AM on festival day.",
+    price: 199,
+    priceUnit: "piece",
+    category: "Pooja & Festivals",
+    status: "ACTIVE",
+    transactionMode: "IN_APP_PAYMENT",
+    visibility: "COMMUNITY",
+    location: "Gate 1 Handover",
+    imageUrls: ["https://images.unsplash.com/photo-1606293926075-69a00dbfde81?w=800&auto=format&fit=crop&q=80"],
+    seller: { id: 104, fullName: "Lakshmi Flower Stalls", verified: true },
+    communityId: 1,
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(2),
+  },
+  {
+    id: 303,
+    title: "Homemade Steamed Ukadiche Modak (Pack of 11 - Pure Jaggery & Coconut)",
+    description: "Traditional Maharashtrian steamed modak with fresh grated coconut, organic jaggery, cardamom, and nutmeg stuffing.",
+    price: 330,
+    priceUnit: "box",
+    category: "Homemade Food",
+    status: "ACTIVE",
+    transactionMode: "IN_APP_PAYMENT",
+    visibility: "COMMUNITY",
+    location: "Tower B, Apt 504",
+    imageUrls: ["https://images.unsplash.com/photo-1601050690597-df0568f70950?w=800&auto=format&fit=crop&q=80"],
+    seller: { id: 105, fullName: "Madhuri Kulkarni", verified: true },
+    communityId: 1,
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1),
+  },
+];
+
+export const MOCK_SELLER_ANALYTICS = {
+  activeListings: 4,
+  offersReceived: 7,
+  ordersCount: 18,
+  completedTransactions: 32,
+  totalRevenue: 28450,
+  viewsCount: 684,
+  wishlistSaves: 49,
+  averageRating: 4.8,
+  responseRatePercent: 96,
+};
+
 export function paginate<T>(items: T[], page: number, size: number): PaginatedResponse<T> {
   const start = page * size;
   const content = items.slice(start, start + size);
@@ -395,3 +693,4 @@ export function paginate<T>(items: T[], page: number, size: number): PaginatedRe
 }
 
 export const USE_MOCK_DATA = true;
+

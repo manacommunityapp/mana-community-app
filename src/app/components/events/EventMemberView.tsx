@@ -2354,7 +2354,7 @@ export function EventMemberView() {
                                     <span className="text-white/70 truncate flex items-center gap-1">
                                       <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
                                       <span className="truncate max-w-[110px]">{subAct.venue || subAct.mandap || activeMainEvent?.location || "Mandap"}</span>
-                                      {subAct.availableSeats != null && (
+                                      {subAct.needsRegistration !== false && subAct.availableSeats != null && (
                                         <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
                                       )}
                                     </span>
@@ -2815,9 +2815,15 @@ export function EventMemberView() {
                             <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                              {act.availableSeats === 0 ? "Registration Closed" : act.availableSeats != null ? `${act.availableSeats} slots left` : "Registration Open"}
-                            </span>
+                            {act.needsRegistration !== false ? (
+                              <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                {act.availableSeats === 0 ? "Registration Closed" : act.availableSeats != null ? `${act.availableSeats} slots left` : "Registration Open"}
+                              </span>
+                            ) : (
+                              <span className="font-bold text-[10px] text-emerald-600 dark:text-emerald-400">
+                                Open to All
+                              </span>
+                            )}
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
                             {act.title}
@@ -3655,7 +3661,9 @@ export function EventMemberView() {
                           ? f.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
                           : formatIndianTime(f.time)
                         : "Scheduled";
-                      const slotsLabel = f.availableSeats === 0 ? "Registration Closed" : (f.availableSeats != null ? `${f.availableSeats} slots left` : (f.slots != null ? `${f.slots} slots left` : "Open"));
+                      const slotsLabel = f.needsRegistration === false
+                        ? null
+                        : (f.availableSeats === 0 ? "Registration Closed" : (f.availableSeats != null ? `${f.availableSeats} slots left` : (f.slots != null ? `${f.slots} slots left` : "Open")));
 
                       return (
                         <div
@@ -3671,7 +3679,7 @@ export function EventMemberView() {
                                 <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                   {f.category || "Food"}
                                 </span>
-                                <span className="font-semibold text-muted-foreground">{slotsLabel}</span>
+                                {slotsLabel && <span className="font-semibold text-muted-foreground">{slotsLabel}</span>}
                               </div>
                               <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{f.title}</h4>
                               <p className="text-[10px] text-muted-foreground">
@@ -5034,7 +5042,9 @@ export function EventMemberView() {
                           timeStr = act.date ? (displayTime ? `${act.date} • ${displayTime}` : act.date) : displayTime;
                         }
 
-                        const slotsLabel = act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots left` : (act.slots != null ? `${act.slots} slots left` : "Open"));
+                        const slotsLabel = act.needsRegistration === false
+                          ? null
+                          : (act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots left` : (act.slots != null ? `${act.slots} slots left` : "Open")));
 
                         return (
                           <div
@@ -5050,9 +5060,11 @@ export function EventMemberView() {
                                   <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                     {act.category}
                                   </span>
-                                  <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                                    {slotsLabel}
-                                  </span>
+                                  {slotsLabel && (
+                                    <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                      {slotsLabel}
+                                    </span>
+                                  )}
                                 </div>
                                 <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
                                 <p className="text-[10px] text-muted-foreground">{timeStr}</p>

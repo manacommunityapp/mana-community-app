@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -16,6 +16,7 @@ import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
 import { resolveUserAvatar } from "../../../../utils/imageUrlUtils";
+import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,6 +37,7 @@ function UserProfileMenu({
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -204,6 +206,18 @@ function UserProfileMenu({
                 <span>Admin Hub</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setShowPrivacyModal(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+            >
+              <Lock className="h-4 w-4 text-primary" />
+              <span>Privacy &amp; Data Policy</span>
+            </button>
           </div>
 
           {/* Logout Action Footer */}
@@ -222,6 +236,11 @@ function UserProfileMenu({
           </div>
         </div>
       )}
+
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 }
