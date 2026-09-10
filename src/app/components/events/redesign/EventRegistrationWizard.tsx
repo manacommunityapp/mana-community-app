@@ -1154,18 +1154,25 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
                       {categorySeats != null && (
                         <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[9.5px] font-bold text-muted-foreground">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>
-                              <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
-                                {categoryRegisteredCount}/{categorySeats}
-                              </strong>{" "}
-                              registered
-                            </span>
-                            <span>·</span>
-                            <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : availableSeats !== null && availableSeats <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
-                              {isSoldOut ? "Sold out" : `${availableSeats} left`}
-                            </span>
-                          </div>
+                          {((cat as any)?.needsRegistration === false || (activeEvent as any)?.needsRegistration === false) ? (
+                            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                              <Sparkles className="w-3 h-3" />
+                              <span>Open to All</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
+                                  {categoryRegisteredCount}/{categorySeats}
+                                </strong>{" "}
+                                registered
+                              </span>
+                              <span>·</span>
+                              <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : availableSeats !== null && availableSeats <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                                {isSoldOut ? "Sold out" : `${availableSeats} left`}
+                              </span>
+                            </div>
+                          )}
                           {selected && <span className="text-primary font-extrabold shrink-0">Selected ✓</span>}
                         </div>
                       )}

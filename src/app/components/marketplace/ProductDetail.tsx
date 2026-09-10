@@ -4,15 +4,18 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   ArrowLeft, Heart, MessageCircle, Star, MapPin, CheckCircle, Clock,
-  Tag, ShoppingCart, ImagePlus, Send, Loader2, Package, ShieldCheck
+  Tag, ShoppingCart, ImagePlus, Send, Loader2, Package, ShieldCheck,
+  DollarSign, Flag, X, CheckCircle2, Share2
 } from "lucide-react";
 import {
-  listingService, reviewService, wishlistService,
+  listingService, reviewService, wishlistService, offerService, moderationService,
   type ListingResponse, type ReviewResponse, type ReviewStats
 } from "../../../services/marketplace/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
-import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS } from "./mockData";
+import { useCart } from "../../../contexts/CartContext";
+import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS, MOCK_OFFERS, MOCK_REPORTS } from "./mockData";
+import { showSuccess, showError } from "../../../utils/ToastUtils";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -37,6 +40,7 @@ export function ProductDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { startConversation } = useChat();
+  const { addItem } = useCart();
 
   const [listing, setListing] = useState<ListingResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +49,16 @@ export function ProductDetail() {
   const [stats, setStats] = useState<ReviewStats>({ averageRating: 0, totalReviews: 0 });
   const [reviews, setReviews] = useState<ReviewResponse[]>([]);
   const [selectedImage, setSelectedImage] = useState(0);
+
+  // Modals
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerPrice, setOfferPrice] = useState<number | "">("");
+  const [offerNote, setOfferNote] = useState("");
+  const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState("Inappropriate or Offensive Content");
+  const [reportDetails, setReportDetails] = useState("");
 
   // Review form
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -85,9 +99,11 @@ export function ProductDetail() {
       if (wishlisted) {
         await wishlistService.remove(Number(id));
         setWishlisted(false);
+        showSuccess("Removed from wishlist");
       } else {
         await wishlistService.add(Number(id));
         setWishlisted(true);
+        showSuccess("Saved to wishlist");
       }
     } catch {}
     setWishlistLoading(false);
@@ -95,6 +111,92 @@ export function ProductDetail() {
 
   const handleContact = () => {
     if (listing) startConversation(String(listing.seller.id));
+  };
+
+  const handleAddToCart = () => {
+    if (!listing) return;
+    addItem({
+      id: listing.id,
+      title: listing.title,
+      price: listing.price,
+      priceUnit: listing.priceUnit,
+      category: listing.category,
+      imageUrl: listing.imageUrls?.[0],
+      sellerId: listing.seller.id,
+      sellerName: listing.seller.fullName,
+      type: "PRODUCT",
+    });
+  };
+
+  const handleBuyNow = () => {
+    handleAddToCart();
+    navigate("/marketplace?tab=cart");
+  };
+
+  const handleSendOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!offerPrice || !listing) return;
+    setSubmittingOffer(true);
+    try {
+      if (USE_MOCK_DATA) {
+        MOCK_OFFERS.unshift({
+          id: Date.now(),
+          listingId: listing.id,
+          listingTitle: listing.title,
+          originalPrice: listing.price,
+          offerPrice: Number(offerPrice),
+          buyer: { id: user?.userId ? Number(user.userId) : 100, fullName: user?.fullName || "Demo Resident", verified: true },
+          sellerId: listing.seller.id,
+          status: "PENDING",
+          note: offerNote || undefined,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        await offerService.submitOffer({
+          listingId: listing.id,
+          offerPrice: Number(offerPrice),
+          note: offerNote || undefined,
+        });
+      }
+      startConversation(String(listing.seller.id));
+      showSuccess(`Offer of ₹${offerPrice} submitted to seller!`);
+      setShowOfferModal(false);
+      setOfferPrice("");
+      setOfferNote("");
+    } catch {
+      showError("Failed to send offer. Please try again.");
+    } finally {
+      setSubmittingOffer(false);
+    }
+  };
+
+  const handleSendReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!listing) return;
+    try {
+      if (USE_MOCK_DATA) {
+        MOCK_REPORTS.unshift({
+          id: Date.now(),
+          listingId: listing.id,
+          listingTitle: listing.title,
+          sellerName: listing.seller.fullName,
+          category: listing.category,
+          price: listing.price,
+          reason: reportReason,
+          details: reportDetails || undefined,
+          reportedBy: user?.fullName || "Resident (Tower A)",
+          createdAt: new Date().toISOString(),
+          status: "PENDING_REVIEW",
+        });
+      } else {
+        await moderationService.reportListing(listing.id, reportReason, reportDetails);
+      }
+      showSuccess("Listing reported to community moderation team. Thank you!");
+      setShowReportModal(false);
+      setReportDetails("");
+    } catch {
+      showError("Failed to submit report.");
+    }
   };
 
   const submitReview = async () => {
@@ -110,7 +212,10 @@ export function ProductDetail() {
       setShowReviewForm(false);
       setReviewComment("");
       setReviewRating(5);
-    } catch {}
+      showSuccess("Review submitted successfully!");
+    } catch {
+      showError("Failed to submit review.");
+    }
     setSubmittingReview(false);
   };
 
@@ -137,10 +242,24 @@ export function ProductDetail() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-slate-900 dark:text-white">
-      {/* Back button */}
-      <button onClick={() => navigate("/marketplace")} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer">
-        <ArrowLeft className="w-4 h-4" /> Back to listings
-      </button>
+      {/* Back button & Action Header */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to listings
+        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowReportModal(true)}
+            className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
+          >
+            <Flag className="w-3.5 h-3.5" /> Report
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Images Preview */}
@@ -174,25 +293,41 @@ export function ProductDetail() {
 
         {/* Product Info Sidebar */}
         <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
-            <div className="flex items-center gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider mb-2">
-              <Tag className="w-3.5 h-3.5" /> {listing.category}
-            </div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{listing.title}</h2>
-            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2">{formatPrice(listing.price, listing.priceUnit)}</p>
-
-            {listing.location && (
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-3">
-                <MapPin className="w-4 h-4 text-indigo-500" /> {listing.location}
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full">
+                  {listing.category}
+                </span>
+                {listing.condition && (
+                  <span className="text-[10px] text-slate-700 dark:text-slate-200 font-bold uppercase tracking-wider bg-slate-100 dark:bg-[#262644] px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                    {listing.condition.replace(/_/g, " ")}
+                  </span>
+                )}
+                {listing.warranty && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    🛡️ {listing.warranty}
+                  </span>
+                )}
               </div>
-            )}
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
-              <Clock className="w-3.5 h-3.5" /> Listed {timeAgo(listing.createdAt)}
+              <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{listing.title}</h2>
+              <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2">{formatPrice(listing.price, listing.priceUnit)}</p>
+            </div>
+
+            <div className="space-y-1.5 text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {listing.location && (
+                <div className="flex items-center gap-1.5 font-semibold text-slate-600 dark:text-slate-300">
+                  <MapPin className="w-4 h-4 text-indigo-500 shrink-0" /> {listing.location}
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <Clock className="w-3.5 h-3.5 shrink-0" /> Listed {timeAgo(listing.createdAt)}
+              </div>
             </div>
 
             {/* Rating Summary */}
             {stats.totalReviews > 0 && (
-              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} className={cn("w-4 h-4", s <= Math.round(stats.averageRating) ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
@@ -203,42 +338,70 @@ export function ProductDetail() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-3 mt-6">
-              {!isOwner && (
-                <button onClick={handleContact} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-500/20">
-                  <MessageCircle className="w-4 h-4" /> Contact Seller
-                </button>
+            {/* CTAs */}
+            {!isOwner && (
+              <div className="space-y-2 pt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleAddToCart}
+                    className="py-2.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-indigo-200 dark:border-indigo-800"
+                  >
+                    <ShoppingCart className="w-4 h-4" /> Add to Cart
+                  </button>
+                  <button
+                    onClick={handleBuyNow}
+                    className="py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-500/20"
+                  >
+                    Buy Now
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setShowOfferModal(true)}
+                    className="py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <DollarSign className="w-4 h-4" /> Make an Offer
+                  </button>
+                  <button
+                    onClick={handleContact}
+                    className="py-2.5 bg-slate-100 dark:bg-[#262644] hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <MessageCircle className="w-4 h-4 text-indigo-600" /> Chat
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Wishlist Button */}
+            <button
+              onClick={toggleWishlist}
+              disabled={wishlistLoading}
+              className={cn(
+                "w-full py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-2",
+                wishlisted
+                  ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-600"
+                  : "bg-slate-50 dark:bg-[#262644] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
               )}
-              <button
-                onClick={toggleWishlist}
-                disabled={wishlistLoading}
-                className={cn(
-                  "px-4 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
-                  wishlisted
-                    ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-600"
-                    : "bg-slate-50 dark:bg-[#262644] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
-                )}
-              >
-                <Heart className={cn("w-4 h-4", wishlisted && "fill-rose-500")} />
-                {wishlisted ? "Saved" : "Save"}
-              </button>
-            </div>
+            >
+              <Heart className={cn("w-4 h-4", wishlisted && "fill-rose-500")} />
+              {wishlisted ? "Saved in Wishlist" : "Save to Wishlist"}
+            </button>
           </div>
 
           {/* Seller Card */}
           <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Seller Details</h3>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 text-indigo-600 font-bold text-sm flex items-center justify-center">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 text-indigo-600 font-bold text-sm flex items-center justify-center">
                 {listing.seller.fullName?.charAt(0) ?? "?"}
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1">
                   {listing.seller.fullName}
-                  {listing.seller.verified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+                  {listing.seller.verified && <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />}
                 </div>
-                <p className="text-[10px] text-slate-400">Verified Neighbor</p>
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">Verified Resident Neighbor</p>
               </div>
             </div>
           </div>
@@ -247,8 +410,8 @@ export function ProductDetail() {
 
       {/* Description */}
       {listing.description && (
-        <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Description</h3>
+        <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-2">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Description</h3>
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">{listing.description}</p>
         </div>
       )}
@@ -321,6 +484,129 @@ export function ProductDetail() {
           </div>
         )}
       </div>
+
+      {/* ── Make an Offer Modal ── */}
+      {showOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-amber-500" /> Make an Offer
+              </h3>
+              <button onClick={() => setShowOfferModal(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-400">Listing Listed Price: <span className="font-bold text-slate-900 dark:text-white">₹{listing.price}</span></p>
+            </div>
+
+            <form onSubmit={handleSendOffer} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Your Proposed Price (₹) *</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(Number(e.target.value))}
+                  placeholder={`e.g. ${Math.round(listing.price * 0.85)}`}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-amber-500 text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Optional Message for Seller</label>
+                <textarea
+                  rows={3}
+                  value={offerNote}
+                  onChange={(e) => setOfferNote(e.target.value)}
+                  placeholder="e.g. Can pick up today evening from your flat..."
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-amber-500 text-slate-900 dark:text-white resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowOfferModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-[#262644] rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingOffer}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                >
+                  {submittingOffer ? "Sending..." : "Submit Offer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Report Listing Modal ── */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-sm font-black text-rose-600 flex items-center gap-2">
+                <Flag className="w-4 h-4" /> Report Inappropriate Listing
+              </h3>
+              <button onClick={() => setShowReportModal(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSendReport} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Reason for Reporting</label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none text-slate-900 dark:text-white"
+                >
+                  <option value="Inappropriate or Offensive Content">Inappropriate or Offensive Content</option>
+                  <option value="Prohibited or Illegal Item">Prohibited or Illegal Item</option>
+                  <option value="Scam, Fraud or Counterfeit">Scam, Fraud or Counterfeit</option>
+                  <option value="Price Gouging or Spam">Price Gouging or Spam</option>
+                  <option value="Misleading Information">Misleading Information</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Additional Details</label>
+                <textarea
+                  rows={3}
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder="Provide context for community moderators..."
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none text-slate-900 dark:text-white resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-500 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl"
+                >
+                  Submit Report
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
