@@ -64,6 +64,7 @@ import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
+import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { assetService } from "../../../services/inventory/assetService";
@@ -99,6 +100,7 @@ const TAB_ITEMS = [
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
+  { id: "privacy", label: "Privacy & Retention", icon: Shield },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -930,6 +932,7 @@ export function AdminHub() {
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
+        {activeTab === "privacy" && <PrivacyAdminHub />}
       </div>
     </div>
   );

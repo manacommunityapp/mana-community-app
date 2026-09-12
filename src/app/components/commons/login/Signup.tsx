@@ -40,12 +40,11 @@ import { communityService } from "../../../../services/community/communityServic
 import { authService } from "../../../../services/common/authService";
 import { otpService } from "../../../../services/common/otpService";
 import type { CommunityResponse, BlockConfigResponse } from "../../../../types/api";
-import { DatePicker } from "../../ui/date-picker";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 type SignupFormValues = {
   fullName: string;
@@ -56,7 +55,6 @@ type SignupFormValues = {
   communityType: string;
   communityCode: string;
   userType: string;
-  dateOfBirth: string;
   gender: string;
   block: string;
   flatNo: string;
@@ -138,7 +136,7 @@ const FEATURES = [
 function BrandPanel() {
   return (
     <div
-      className="hidden lg:flex flex-col justify-between relative overflow-hidden h-screen sticky top-0 text-white p-8 xl:p-10 select-none border-r border-white/10"
+      className="hidden lg:flex flex-col justify-between relative overflow-hidden h-screen sticky top-0 text-white p-6 xl:p-8 select-none border-r border-white/10"
       style={{
         background: "linear-gradient(160deg, #4f46e5 0%, #4338ca 35%, #3730a3 70%, #1e1b4b 100%)",
       }}
@@ -162,56 +160,56 @@ function BrandPanel() {
 
       {/* Top Header & Brand Logo */}
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-6 xl:mb-8">
-          <div className="w-11 h-11 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/25 shadow-lg shadow-black/10">
-            <ShieldCheck className="w-6 h-6 text-white" />
+        <div className="flex items-center gap-2.5 mb-5 xl:mb-6">
+          <div className="w-9 h-9 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 shadow-md shadow-black/10">
+            <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-white font-extrabold text-lg tracking-tight leading-none">Mana Community</p>
-            <p className="text-indigo-200 text-xs font-medium mt-1">Your neighborhood, connected</p>
+            <p className="text-white font-extrabold text-base tracking-tight leading-none">Mana Community</p>
+            <p className="text-indigo-200 text-[11px] font-medium mt-0.5">Your neighborhood, connected</p>
           </div>
         </div>
 
         {/* Hero copy */}
-        <div className="mb-6 xl:mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-3 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-            <span className="text-xs font-bold text-amber-100 tracking-wide">
+        <div className="mb-5 xl:mb-6">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-2.5 shadow-xs">
+            <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+            <span className="text-[11px] font-bold text-amber-100 tracking-wide">
               Resident Registration Portal
             </span>
           </div>
-          <h2 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
+          <h2 className="text-white leading-[1.15] mb-2 text-xl xl:text-2xl font-black tracking-tight">
             Your community,
             <br />
             <span className="text-amber-300">at your fingertips.</span>
           </h2>
-          <p className="text-indigo-100/80 text-xs xl:text-sm leading-relaxed max-w-sm">
+          <p className="text-indigo-100/80 text-xs leading-relaxed max-w-xs">
             Join thousands of residents enjoying seamless event bookings, live announcements, and digital passes.
           </p>
         </div>
 
         {/* Feature Highlights */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {FEATURES.map(({ icon: Icon, text }, i) => (
             <div key={i} className="flex items-start gap-2 group">
-              <div className="w-5 h-5 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
-                <Icon className="w-3.5 h-3.5 text-amber-200" />
+              <div className="w-4.5 h-4.5 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
+                <Icon className="w-3 h-3 text-amber-200" />
               </div>
-              <p className="text-indigo-50/90 text-xs xl:text-[12px] leading-snug font-medium pt-1">{text}</p>
+              <p className="text-indigo-50/90 text-[11px] leading-snug font-medium pt-0.5">{text}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Resident Testimonial & Security Badge */}
-      <div className="relative z-10 space-y-3 pt-4 border-t border-white/10">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 p-3.5 xl:p-4 shadow-lg shadow-black/5">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex -space-x-2">
+      <div className="relative z-10 space-y-2.5 pt-3 border-t border-white/10">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/15 p-3 shadow-md shadow-black/5">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex -space-x-1.5">
               {["#4f46e5", "#818cf8", "#10b981", "#ec4899"].map((c, i) => (
                 <div
                   key={i}
-                  className="w-5.5 h-5.5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8.5px] font-bold text-white shadow-xs"
+                  className="w-5 h-5 rounded-full border border-white/60 flex items-center justify-center text-[8px] font-bold text-white shadow-xs"
                   style={{ background: c }}
                 >
                   {["R", "K", "S", "P"][i]}
@@ -220,19 +218,19 @@ function BrandPanel() {
             </div>
             <div className="flex items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="w-3 h-3 fill-amber-300 text-amber-300" />
+                <Star key={i} className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
               ))}
             </div>
           </div>
-          <p className="text-indigo-50/90 text-[11px] xl:text-xs leading-relaxed italic">
+          <p className="text-indigo-50/90 text-[10.5px] leading-relaxed italic">
             "Booking Ganesh Pooja seva for my family was so easy — scanned the QR at the gate and walked straight in!"
           </p>
-          <p className="text-amber-200 text-[10px] xl:text-[11px] font-semibold mt-1"> Lakshmi's Emperia</p>
+          <p className="text-amber-200 text-[9.5px] font-semibold mt-0.5"> Lakshmi's Emperia</p>
         </div>
 
-        <div className="flex items-center justify-between text-indigo-200/70 text-[11px] px-1">
-          <span className="flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="flex items-center justify-between text-indigo-200/70 text-[10px] px-1">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
             Verified resident portal
           </span>
           <span>v2.4.0</span>
@@ -245,10 +243,9 @@ function BrandPanel() {
 // ── Step Progress Indicator ──────────────────────────────────
 const STEPS = [
   { label: "Community", short: "1" },
-  { label: "Personal", short: "2" },
-  { label: "Verify", short: "3" },
-  { label: "Residence", short: "4" },
-  { label: "Security", short: "5" },
+  { label: "Personal & Verify", short: "2" },
+  { label: "Residence", short: "3" },
+  { label: "Security", short: "4" },
 ];
 
 function StepBar({
@@ -259,7 +256,7 @@ function StepBar({
   onStepClick: (step: Step) => void;
 }) {
   return (
-    <div className="flex items-center gap-0 mb-3 sm:mb-5 xl:mb-6">
+    <div className="flex items-center gap-0 mb-2.5 sm:mb-3.5">
       {STEPS.map((s, i) => {
         const num = (i + 1) as Step;
         const isDone = num < currentStep;
@@ -272,23 +269,23 @@ function StepBar({
               type="button"
               disabled={!isClickable}
               onClick={() => isClickable && onStepClick(num)}
-              className={`flex flex-col items-center gap-0.5 sm:gap-1 select-none transition-all outline-none ${
+              className={`flex flex-col items-center gap-0.5 select-none transition-all outline-none ${
                 isClickable ? "cursor-pointer group" : "cursor-default"
               }`}
             >
               <div
-                className={`w-6 h-6 sm:w-7 sm:h-7 xl:w-8 xl:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold transition-all duration-300 shrink-0 ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10.5px] font-bold transition-all duration-300 shrink-0 ${
                   isDone
-                    ? "bg-primary text-white shadow-md shadow-primary/20 group-hover:scale-105"
+                    ? "bg-primary text-white shadow-xs group-hover:scale-105"
                     : isActive
-                    ? "bg-primary text-white ring-2 sm:ring-4 ring-primary/25 shadow-md shadow-primary/25 scale-105"
+                    ? "bg-primary text-white ring-2 ring-primary/25 shadow-xs scale-105"
                     : "bg-muted text-muted-foreground border border-border"
                 }`}
               >
-                {isDone ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[3]" /> : num}
+                {isDone ? <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 stroke-[3]" /> : num}
               </div>
               <span
-                className={`text-[9.5px] sm:text-[10.5px] xl:text-[11px] font-semibold hidden sm:block transition-colors ${
+                className={`text-[8.5px] sm:text-[9.5px] font-medium hidden sm:block transition-colors ${
                   isActive
                     ? "text-primary font-bold"
                     : isDone
@@ -302,7 +299,7 @@ function StepBar({
 
             {i < STEPS.length - 1 && (
               <div
-                className={`flex-1 h-[2px] mx-1 sm:mx-2 rounded-full transition-all duration-500 ${
+                className={`flex-1 h-[1.5px] mx-1 sm:mx-1.5 rounded-full transition-all duration-500 ${
                   isDone ? "bg-primary" : "bg-border"
                 }`}
               />
@@ -317,13 +314,13 @@ function StepBar({
 // ── Section Header ───────────────────────────────────────────
 function SectionHead({ num, title, sub }: { num: number; title: string; sub: string }) {
   return (
-    <div className="flex items-center gap-2 pb-1.5 mb-2.5 sm:mb-3.5 border-b border-border/80">
-      <div className="w-5 h-5 sm:w-6.5 sm:h-6.5 rounded-md sm:rounded-lg flex items-center justify-center text-[10px] sm:text-xs font-bold text-white shrink-0 bg-gradient-to-tr from-primary to-indigo-500 shadow-xs shadow-primary/20">
+    <div className="flex items-center gap-2 pb-1 mb-2 border-b border-border/80">
+      <div className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-md flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white shrink-0 bg-gradient-to-tr from-primary to-indigo-500 shadow-xs">
         {num}
       </div>
       <div>
-        <p className="text-xs sm:text-sm font-bold text-foreground leading-none">{title}</p>
-        <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">{sub}</p>
+        <p className="text-[11px] sm:text-xs font-bold text-foreground leading-none">{title}</p>
+        <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">{sub}</p>
       </div>
     </div>
   );
@@ -403,12 +400,12 @@ function SearchableDropdown({
 
   return (
     <div className="relative w-full min-w-0 max-w-full" ref={containerRef}>
-      <div className="flex items-center justify-between mb-1 gap-1">
-        <label htmlFor={id} className="block text-[11px] sm:text-xs font-semibold text-foreground/85 tracking-tight truncate">
+      <div className="flex items-center justify-between mb-0.5 gap-1">
+        <label htmlFor={id} className="block text-[10.5px] sm:text-[11px] font-semibold text-foreground/85 tracking-tight truncate">
           {label} {required && <span className="text-primary">*</span>}
         </label>
         {selectedOpt && (
-          <span className="text-[10px] sm:text-[10.5px] text-primary font-bold px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 shrink-0 truncate max-w-[140px]">
+          <span className="text-[9.5px] sm:text-[10px] text-primary font-bold px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20 shrink-0 truncate max-w-[140px]">
             {selectedOpt.badge || selectedOpt.label}
           </span>
         )}
@@ -419,49 +416,49 @@ function SearchableDropdown({
         id={id}
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full min-w-0 max-w-full h-11 sm:h-12 px-3.5 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border ${
+        className={`w-full min-w-0 max-w-full h-9 sm:h-10 px-3 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border ${
           error
             ? "border-destructive ring-2 ring-destructive/20"
             : isOpen
-            ? "border-primary ring-4 ring-primary/15 bg-white dark:bg-slate-950 shadow-sm"
+            ? "border-primary ring-3 ring-primary/15 bg-white dark:bg-slate-950 shadow-xs"
             : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-        } rounded-xl sm:rounded-2xl text-foreground flex items-center justify-between transition-all duration-200 text-xs sm:text-sm text-left disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-2xs group overflow-hidden box-border`}
+        } rounded-lg sm:rounded-xl text-foreground flex items-center justify-between transition-all duration-200 text-xs text-left disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-2xs group overflow-hidden box-border`}
       >
-        <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-          <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Icon className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+          <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <Icon className="w-3 h-3" />
           </div>
-          <span className={`truncate min-w-0 block flex-1 ${selectedOpt ? "font-bold text-foreground" : "text-muted-foreground/60"}`}>
+          <span className={`truncate min-w-0 block flex-1 text-xs ${selectedOpt ? "font-bold text-foreground" : "text-muted-foreground/60"}`}>
             {selectedOpt ? selectedOpt.label : disabled && disabledHint ? disabledHint : placeholder}
           </span>
         </div>
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 shrink-0 ml-1.5 ${isOpen ? "rotate-180 text-primary" : ""}`} />
+        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ml-1 ${isOpen ? "rotate-180 text-primary" : ""}`} />
       </button>
 
-      {error && <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">{error}</p>}
+      {error && <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{error}</p>}
       {!disabled && !error && disabledHint && !value && (
-        <p className="text-[10.5px] text-muted-foreground mt-1 font-medium truncate">{disabledHint}</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5 font-medium truncate">{disabledHint}</p>
       )}
 
       {/* Popover Dropdown with Search */}
       {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 top-full mt-2 z-50 w-full min-w-0 max-w-full bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-64 box-border">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 w-full min-w-0 max-w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-56 box-border">
           {/* Search filter input inside dropdown */}
-          <div className="p-2.5 border-b border-border bg-slate-50 dark:bg-slate-900/80 sticky top-0 z-10 flex items-center gap-2">
-            <Search className="w-4 h-4 text-muted-foreground shrink-0 ml-1" />
+          <div className="p-2 border-b border-border bg-slate-50 dark:bg-slate-900/80 sticky top-0 z-10 flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-0.5" />
             <input
               ref={searchInputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full min-w-0 bg-transparent text-xs py-1 px-1 text-foreground placeholder:text-muted-foreground/60 outline-none font-medium truncate"
+              className="w-full min-w-0 bg-transparent text-[11px] py-0.5 px-1 text-foreground placeholder:text-muted-foreground/60 outline-none font-medium truncate"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                className="p-0.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -469,9 +466,9 @@ function SearchableDropdown({
           </div>
 
           {/* Options List */}
-          <div className="overflow-y-auto p-1.5 space-y-0.5 max-h-48 scrollbar-thin">
+          <div className="overflow-y-auto p-1 space-y-0.5 max-h-44 scrollbar-thin">
             {filtered.length === 0 ? (
-              <div className="py-4 text-center text-xs text-muted-foreground">
+              <div className="py-3 text-center text-[11px] text-muted-foreground">
                 No matches found for "{search}"
               </div>
             ) : (
@@ -485,21 +482,21 @@ function SearchableDropdown({
                       onChange(opt.value);
                       setIsOpen(false);
                     }}
-                    className={`w-full min-w-0 max-w-full px-2.5 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors cursor-pointer overflow-hidden ${
+                    className={`w-full min-w-0 max-w-full px-2 py-1.5 rounded-lg text-[11px] flex items-center justify-between text-left transition-colors cursor-pointer overflow-hidden ${
                       isSelected
                         ? "bg-primary text-white font-bold shadow-xs"
                         : "hover:bg-accent text-foreground"
                     }`}
                   >
-                    <div className="min-w-0 flex-1 overflow-hidden pr-2">
+                    <div className="min-w-0 flex-1 overflow-hidden pr-1.5">
                       <p className="truncate font-medium min-w-0">{opt.label}</p>
                       {opt.sublabel && (
-                        <p className={`text-[10.5px] truncate min-w-0 ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
+                        <p className={`text-[9.5px] truncate min-w-0 ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
                           {opt.sublabel}
                         </p>
                       )}
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-white" />}
+                    {isSelected && <Check className="w-3 h-3 shrink-0 text-white" />}
                   </button>
                 );
               })
@@ -550,7 +547,6 @@ export function Signup() {
       fullName: "",
       email: "",
       phone: "",
-      dateOfBirth: "",
       gender: "MALE",
       password: "",
       confirmPassword: "",
@@ -669,14 +665,26 @@ export function Signup() {
   }, [resendCooldown]);
 
   const sendSignupOtpEmail = async () => {
+    const isEmailValid = await trigger("email");
+    if (!isEmailValid || !email?.trim()) {
+      setError("email", { type: "manual", message: "Please enter a valid email address first" });
+      return;
+    }
     setIsSendingSignupOtp(true);
     try {
-      await authService.sendSignupOtp(email, phone);
+      await authService.sendSignupOtp(email, phone || "");
       setResendCooldown(60);
+      toast.success(`Verification code sent to ${email}`);
       setTimeout(() => signupOtpInputRef.current?.focus(), 150);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send verification code";
       toast.error(message);
+      if (message.toLowerCase().includes("email")) {
+        setError("email", { type: "manual", message });
+      }
+      if (message.toLowerCase().includes("phone") || message.toLowerCase().includes("mobile")) {
+        setError("phone", { type: "manual", message });
+      }
     } finally {
       setIsSendingSignupOtp(false);
     }
@@ -751,13 +759,18 @@ export function Signup() {
       return valid;
     }
     if (s === 2) {
-      const valid = await trigger(["fullName", "email", "phone", "dateOfBirth", "gender"]);
-      return valid && phone?.length === 10;
-    }
-    if (s === 3) {
+      const valid = await trigger(["fullName", "email", "phone", "gender"]);
+      if (!valid || phone?.length !== 10) return false;
+
       const code = otpCode.trim();
-      if (code.length < 6) {
-        toast.error("Please enter the complete 6-digit verification code");
+      if (!code || code.length < 6) {
+        if (!code) {
+          await sendSignupOtpEmail();
+          toast.error("Please enter the 6-digit verification code sent to your email address");
+        } else {
+          toast.error("Please enter the complete 6-digit verification code");
+        }
+        signupOtpInputRef.current?.focus();
         return false;
       }
       try {
@@ -772,7 +785,7 @@ export function Signup() {
       }
       return true;
     }
-    if (s === 4) {
+    if (s === 3) {
       if (communityType === "apartment") {
         if (!block) {
           setError("block", { type: "manual", message: "Please select a block" });
@@ -787,7 +800,7 @@ export function Signup() {
       }
       return true;
     }
-    if (s === 5) {
+    if (s === 4) {
       const valid = await trigger(["password", "confirmPassword", "terms"]);
       return valid;
     }
@@ -798,25 +811,7 @@ export function Signup() {
     const isValid = await validateCurrentStep(step);
     if (!isValid) return;
 
-    if (step === 2) {
-      setIsSendingSignupOtp(true);
-      try {
-        await authService.sendSignupOtp(email, phone);
-        setOtpCode("");
-        setResendCooldown(60);
-        setStep(3);
-        formRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-        setTimeout(() => signupOtpInputRef.current?.focus(), 200);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to send verification code";
-        toast.error(message);
-      } finally {
-        setIsSendingSignupOtp(false);
-      }
-      return;
-    }
-
-    if (step < 5) {
+    if (step < 4) {
       setStep((s) => (s + 1) as Step);
       formRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -852,7 +847,7 @@ export function Signup() {
           toast.error(
             `Block ${data.block.toUpperCase()} - Flat ${data.flatNo} is already registered in this community. Please check your unit number.`
           );
-          setStep(4);
+          setStep(3);
           return;
         }
       }
@@ -863,7 +858,6 @@ export function Signup() {
         phone: data.phone,
         inviteCode: data.communityCode,
         password: data.password,
-        dateOfBirth: data.dateOfBirth,
         gender: data.gender,
         block: data.block,
         flatNo: data.flatNo,
@@ -873,10 +867,20 @@ export function Signup() {
       });
 
       toast.success("Account created! Welcome to the community.");
-      setStep(6);
+      setStep(5);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       toast.error(message);
+      if (message.toLowerCase().includes("email")) {
+        setError("email", { type: "manual", message });
+        setStep(2);
+      } else if (message.toLowerCase().includes("phone") || message.toLowerCase().includes("mobile")) {
+        setError("phone", { type: "manual", message });
+        setStep(2);
+      } else if (message.toLowerCase().includes("block") || message.toLowerCase().includes("flat") || message.toLowerCase().includes("unit")) {
+        setError("flatNo", { type: "manual", message });
+        setStep(3);
+      }
     }
   };
 
@@ -902,23 +906,22 @@ export function Signup() {
   ];
 
   const STEP_HEADINGS = [
-    { title: "Join your community", sub: "Community Setup · Step 1 of 5" },
-    { title: "Tell us about yourself", sub: "Personal Details · Step 2 of 5" },
-    { title: "Verify your email", sub: "Email Verification · Step 3 of 5" },
-    { title: "Where do you live?", sub: "Unit & Residence · Step 4 of 5" },
-    { title: "Secure your account", sub: "Account Security · Step 5 of 5" },
+    { title: "Join your community", sub: "Community Setup · Step 1 of 4" },
+    { title: "Tell us about yourself", sub: "Personal Details & Verification · Step 2 of 4" },
+    { title: "Where do you live?", sub: "Unit & Residence · Step 3 of 4" },
+    { title: "Secure your account", sub: "Account Security · Step 4 of 4" },
   ];
 
   const inputBase =
-    "w-full h-11 sm:h-12 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 rounded-xl sm:rounded-2xl text-foreground placeholder:text-muted-foreground/45 focus:ring-4 focus:ring-primary/15 focus:border-primary outline-none transition-all duration-200 text-xs sm:text-sm font-medium shadow-2xs";
-  const labelCls = "block text-[11px] sm:text-xs font-bold text-foreground/85 mb-1.5 tracking-tight";
+    "w-full h-9 sm:h-10 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700 rounded-lg sm:rounded-xl text-foreground placeholder:text-muted-foreground/45 focus:ring-3 focus:ring-primary/15 focus:border-primary outline-none transition-all duration-200 text-xs font-medium shadow-2xs";
+  const labelCls = "block text-[10.5px] sm:text-[11px] font-bold text-foreground/85 mb-1 tracking-tight";
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       <Toaster position="top-center" richColors />
 
       {/* Left Brand Showcase Panel (Desktop Browser) */}
-      <div className="lg:w-[420px] xl:w-[480px] 2xl:w-[520px] shrink-0">
+      <div className="lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0">
         <BrandPanel />
       </div>
 
@@ -928,29 +931,29 @@ export function Signup() {
         ref={formRef}
       >
         {/* Subtle radial ambient glow */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-0" />
+        <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-primary/5 rounded-full blur-[130px] pointer-events-none -z-0" />
 
         {/* Mobile top header branding */}
-        <div className="lg:hidden px-4 py-2 flex items-center gap-2.5 border-b border-border bg-card/60 backdrop-blur-sm shrink-0">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary text-white shadow-xs shadow-primary/25">
-            <ShieldCheck className="w-3.5 h-3.5" />
+        <div className="lg:hidden px-3.5 py-1.5 flex items-center gap-2 border-b border-border bg-card/60 backdrop-blur-sm shrink-0">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-primary text-white shadow-xs shadow-primary/25">
+            <ShieldCheck className="w-3 h-3" />
           </div>
           <div>
-            <p className="text-xs font-bold text-foreground leading-tight">Mana Community</p>
-            <p className="text-[10px] text-muted-foreground">Resident Registration</p>
+            <p className="text-[11px] font-bold text-foreground leading-tight">Mana Community</p>
+            <p className="text-[9px] text-muted-foreground">Resident Registration</p>
           </div>
         </div>
 
         {/* Form Container */}
-        <div className="px-3.5 sm:px-8 lg:px-12 xl:px-16 py-3 sm:py-6 lg:py-8 max-w-[780px] xl:max-w-[840px] 2xl:max-w-[900px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center">
+        <div className="px-3.5 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-3 max-w-[660px] xl:max-w-[720px] 2xl:max-w-[780px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center my-auto">
           {step < 6 ? (
             <>
               {/* Header Title & Subtitle */}
-              <div className="mb-3 sm:mb-4 xl:mb-5">
-                <h2 className="text-lg sm:text-2xl font-black text-foreground tracking-tight mb-1">
+              <div className="mb-2">
+                <h2 className="text-base sm:text-lg font-black text-foreground tracking-tight mb-0.5">
                   {STEP_HEADINGS[step - 1].title}
                 </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground font-medium">
+                <p className="text-[11px] sm:text-xs text-muted-foreground font-medium">
                   {STEP_HEADINGS[step - 1].sub}
                 </p>
               </div>
@@ -962,16 +965,16 @@ export function Signup() {
               <form
                 onSubmit={handleSubmit(onSubmit)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && step < 5 && (e.target as HTMLElement).tagName !== "BUTTON") {
+                  if (e.key === "Enter" && step < 4 && (e.target as HTMLElement).tagName !== "BUTTON") {
                     e.preventDefault();
                     advance();
                   }
                 }}
-                className="space-y-3 sm:space-y-4 xl:space-y-5"
+                className="space-y-2.5 sm:space-y-3"
               >
                 {/* ── STEP 1: Community Setup (Join your community) ─── */}
                 {step === 1 && (
-                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
                     <SectionHead
                       num={1}
                       title="Select Your Community"
@@ -979,24 +982,24 @@ export function Signup() {
                     />
 
                     {/* Single unified card for Community Type + Society Selection */}
-                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 xl:p-6 rounded-2xl sm:rounded-3xl border border-border/80 space-y-4 shadow-xl shadow-black/5">
+                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
                       {/* Community Type Selection */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-1.5">
                           <label className={labelCls}>Community Type</label>
-                          <span className="text-[10.5px] sm:text-xs text-primary font-bold px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
+                          <span className="text-[9.5px] sm:text-[10px] text-primary font-bold px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
                             {communityTypes.find(t => t.value === communityType)?.label ?? "Apartment"}
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                           {communityTypes.map((type) => {
                             const isApartment = type.value === "apartment";
                             return (
                               <label
                                 key={type.value}
-                                className={`relative flex flex-col items-center justify-center gap-1.5 sm:flex-row sm:gap-2.5 py-3 px-2 sm:px-3.5 border-2 rounded-xl sm:rounded-2xl transition-all duration-200 select-none font-bold ${
+                                className={`relative flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2 py-2 px-1.5 sm:px-2.5 border-1.5 rounded-lg sm:rounded-xl transition-all duration-200 select-none font-bold ${
                                   isApartment
-                                    ? "border-primary bg-primary/10 text-primary ring-4 ring-primary/15 cursor-pointer shadow-xs"
+                                    ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/15 cursor-pointer shadow-xs"
                                     : "border-border/60 bg-muted/20 text-muted-foreground/60 opacity-60 cursor-not-allowed"
                                 }`}
                               >
@@ -1007,16 +1010,16 @@ export function Signup() {
                                   {...register("communityType")}
                                   className="sr-only"
                                 />
-                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
                                   isApartment ? "bg-primary text-white" : "bg-muted text-muted-foreground"
                                 }`}>
-                                  <type.icon className="w-4 h-4" />
+                                  <type.icon className="w-3 h-3" />
                                 </div>
-                                <span className="text-[10px] sm:text-xs leading-tight text-center">{type.label}</span>
+                                <span className="text-[9.5px] sm:text-[10.5px] leading-tight text-center">{type.label}</span>
                                 {isApartment ? (
-                                  <Check className="w-3.5 h-3.5 text-primary shrink-0 stroke-[3] sm:ml-auto" />
+                                  <Check className="w-3 h-3 text-primary shrink-0 stroke-[3] sm:ml-auto" />
                                 ) : (
-                                  <span className="text-[8.5px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase border border-border/60">
+                                  <span className="text-[7.5px] sm:text-[8px] font-bold px-1 py-0.2 rounded-full bg-muted text-muted-foreground uppercase border border-border/60">
                                     Soon
                                   </span>
                                 )}
@@ -1027,7 +1030,7 @@ export function Signup() {
                       </div>
 
                       {/* Society selection dropdown & invite code */}
-                      <div className="border-t border-border/70 pt-4 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+                      <div className="border-t border-border/70 pt-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
                         {/* Dropdown */}
                         <div>
                           <SearchableDropdown
@@ -1035,7 +1038,7 @@ export function Signup() {
                             label="Select Your Society / Campus"
                             required
                             disabled={isLoadingCommunities}
-                            disabledHint={isLoadingCommunities ? "Loading communities from database..." : undefined}
+                            disabledHint={isLoadingCommunities ? "Loading communities..." : undefined}
                             placeholder="Choose your community..."
                             searchPlaceholder="Search community or city..."
                             value={selectedCommunityId}
@@ -1049,47 +1052,39 @@ export function Signup() {
                             }))}
                             onChange={(val) => handleCommunityChange(val)}
                           />
-                          {communitiesError ? (
-                            <div className="flex items-center justify-between text-xs text-destructive mt-1.5 font-medium">
+                          {communitiesError && (
+                            <div className="flex items-center justify-between text-[11px] text-destructive mt-1 font-medium">
                               <span>{communitiesError}</span>
                               <button
                                 type="button"
                                 onClick={loadCommunities}
                                 className="text-primary hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
                               >
-                                <RefreshCw className="w-3 h-3" /> Retry
+                                <RefreshCw className="w-2.5 h-2.5" /> Retry
                               </button>
                             </div>
-                          ) : (
-                            <p className="hidden sm:block text-[11px] text-muted-foreground mt-1.5 font-medium">
-                              {communities.length > 0
-                                ? `Retrieved ${communities.length} ${
-                                    communities.length === 1 ? "community" : "communities"
-                                  } from database`
-                                : "Select community to auto-fill invite code"}
-                            </p>
                           )}
                         </div>
 
                         {/* Invite Code (Read-Only) */}
                         <div>
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-0.5">
                             <label htmlFor="communityCode" className={labelCls}>
                               Community Invite Code
                             </label>
                             {selectedCommunityId ? (
-                              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Auto-filled
+                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Auto-filled
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                                <Lock className="w-3 h-3" /> Locked
+                              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" /> Locked
                               </span>
                             )}
                           </div>
                           <div className="relative">
-                            <div className="w-6 h-6 rounded-lg bg-muted text-muted-foreground flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Lock className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-muted text-muted-foreground flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <Lock className="w-3 h-3" />
                             </div>
                             <input
                               id="communityCode"
@@ -1098,23 +1093,23 @@ export function Signup() {
                               {...register("communityCode", {
                                 required: "Please select a community above to obtain invite code",
                               })}
-                              className={`${inputBase} pl-11 pr-10 bg-muted/40 text-muted-foreground border-border cursor-not-allowed select-none font-mono uppercase tracking-wider font-semibold ${
+                              className={`${inputBase} pl-9 pr-9 bg-muted/40 text-muted-foreground border-border cursor-not-allowed select-none font-mono uppercase tracking-wider font-semibold ${
                                 selectedCommunityId
                                   ? "bg-primary/5 text-primary border-primary/40 font-bold"
                                   : ""
                               }`}
-                              placeholder="Auto-assigned upon community selection"
+                              placeholder="Auto-assigned upon selection"
                             />
                             {selectedCommunityId && (
-                              <CheckCircle2 className="w-4 h-4 text-primary absolute right-3.5 top-1/2 -translate-y-1/2" />
+                              <CheckCircle2 className="w-3.5 h-3.5 text-primary absolute right-2.5 top-1/2 -translate-y-1/2" />
                             )}
                           </div>
                           {errors.communityCode && (
-                            <p className="text-destructive text-xs mt-1 font-medium">
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">
                               {errors.communityCode.message}
                             </p>
                           )}
-                          <p className="hidden sm:block text-[11px] text-muted-foreground mt-1.5 font-medium">
+                          <p className="hidden sm:block text-[9.5px] text-muted-foreground mt-1 font-medium">
                             {selectedCommunityId
                               ? "✓ Auto-populated from selected society (read-only)"
                               : "Select your society above to automatically populate this code"}
@@ -1125,36 +1120,36 @@ export function Signup() {
                   </div>
                 )}
 
-                {/* ── STEP 2: Personal Details ───────────────────────── */}
+                {/* ── STEP 2: Personal Details & Email Verification ──── */}
                 {step === 2 && (
-                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
                     <SectionHead
                       num={2}
-                      title="Personal Details"
-                      sub="Tell us who you are so your profile can be created"
+                      title="Personal Details & Verification"
+                      sub="Tell us who you are and verify your email address"
                     />
 
-                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 xl:p-6 rounded-2xl sm:rounded-3xl border border-border/80 space-y-4 shadow-xl shadow-black/5">
+                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
                       {/* Full Name & Email */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                         <div>
                           <label htmlFor="fullName" className={labelCls}>
                             Full Name <span className="text-primary">*</span>
                           </label>
                           <div className="relative">
-                            <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <User className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <User className="w-3 h-3" />
                             </div>
                             <input
                               id="fullName"
                               type="text"
                               {...register("fullName", { required: "Full name is required" })}
-                              className={`${inputBase} pl-11 pr-3`}
+                              className={`${inputBase} pl-9 pr-3`}
                               placeholder="e.g. Rahul Sharma"
                             />
                           </div>
                           {errors.fullName && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">
                               {errors.fullName.message}
                             </p>
                           )}
@@ -1165,8 +1160,8 @@ export function Signup() {
                             Email Address <span className="text-primary">*</span>
                           </label>
                           <div className="relative">
-                            <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Mail className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <Mail className="w-3 h-3" />
                             </div>
                             <input
                               id="signup-email"
@@ -1179,30 +1174,70 @@ export function Signup() {
                                     "Please enter a valid email address (e.g. name@example.com)",
                                 },
                               })}
-                              className={`${inputBase} pl-11 pr-3`}
+                              className={`${inputBase} pl-9 pr-3`}
                               placeholder="name@example.com"
                             />
                           </div>
                           {errors.email && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">{errors.email.message}</p>
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{errors.email.message}</p>
                           )}
                         </div>
                       </div>
 
-                      {/* Phone & Date of Birth */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+                      {/* Email Verification Section */}
+                      <div className="space-y-2 p-2.5 bg-primary/5 border border-primary/15 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-foreground">Email Verification Code</span>
+                          <button
+                            type="button"
+                            onClick={sendSignupOtpEmail}
+                            disabled={resendCooldown > 0 || isSendingSignupOtp}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent border-none py-0.5 px-1.5 rounded-md hover:bg-primary/10 transition-colors"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isSendingSignupOtp ? "animate-spin" : ""}`} />
+                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send Code"}
+                          </button>
+                        </div>
                         <div>
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="relative">
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <KeyRound className="w-3 h-3" />
+                            </div>
+                            <input
+                              id="otpCodeInput"
+                              ref={signupOtpInputRef}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              value={otpCode}
+                              onChange={(e) => {
+                                const numeric = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                setOtpCode(numeric);
+                              }}
+                              placeholder="Enter 6-digit code"
+                              className={`${inputBase} pl-9 pr-3 text-center sm:text-left text-sm sm:text-base font-bold font-mono tracking-[0.25em]`}
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+                            Enter the 6-digit code sent to your email address above.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Phone & Gender */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                        <div>
+                          <div className="flex items-center justify-between mb-0.5">
                             <label htmlFor="phone" className={labelCls}>
                               Phone Number <span className="text-primary">*</span>
                             </label>
-                            <span className="text-[10px] sm:text-[10.5px] text-muted-foreground font-semibold">
+                            <span className="text-[9.5px] text-muted-foreground font-semibold">
                               10 digits
                             </span>
                           </div>
                           <div className="relative flex items-center">
-                            <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Phone className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <Phone className="w-3 h-3" />
                             </div>
                             <input
                               id="phone"
@@ -1247,348 +1282,123 @@ export function Signup() {
                                 const numeric = e.target.value.replace(/\D/g, "").slice(0, 10);
                                 setValue("phone", numeric, { shouldValidate: true });
                               }}
-                              className={`${inputBase} pl-11 pr-3 tracking-wider font-semibold`}
+                              className={`${inputBase} pl-9 pr-3 tracking-wider font-semibold`}
                               placeholder="9876543210"
                             />
                           </div>
                           {errors.phone && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">{errors.phone.message}</p>
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{errors.phone.message}</p>
                           )}
                         </div>
 
                         <div>
-                          <label htmlFor="dateOfBirth" className={labelCls}>
-                            Date of Birth <span className="text-primary">*</span>
-                          </label>
-                          <DatePicker
-                            id="dateOfBirth"
-                            value={watch("dateOfBirth")}
-                            onChange={(v) => {
-                              setValue("dateOfBirth", v, { shouldValidate: true });
-                            }}
-                            placeholder="Select your date of birth"
-                            max={(() => {
-                              const y = new Date();
-                              y.setDate(y.getDate() - 1);
-                              return y.toISOString().split("T")[0];
-                            })()}
+                          <SearchableDropdown
+                            id="gender"
+                            label="Gender"
+                            required
+                            placeholder="Select gender"
+                            searchPlaceholder="Search gender..."
+                            value={watch("gender")}
+                            icon={Users}
+                            error={errors.gender?.message}
+                            options={[
+                              { value: "MALE", label: "Male" },
+                              { value: "FEMALE", label: "Female" },
+                              { value: "OTHER", label: "Other / Prefer not to say" },
+                            ]}
+                            onChange={(v) => setValue("gender", v as any, { shouldValidate: true })}
                           />
-                          <input
-                            type="hidden"
-                            {...register("dateOfBirth", {
-                              required: "Date of birth is required",
-                              validate: (v) => {
-                                if (!v) return "Date of birth is required";
-                                const dob = new Date(v);
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                if (dob >= today) return "Date of birth cannot be today or a future date";
-                                return true;
-                              },
-                            })}
-                          />
-                          {errors.dateOfBirth && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">
-                              {errors.dateOfBirth.message}
-                            </p>
-                          )}
                         </div>
-                      </div>
-
-                      {/* Gender */}
-                      <div>
-                        <SearchableDropdown
-                          id="gender"
-                          label="Gender"
-                          required
-                          placeholder="Select gender"
-                          searchPlaceholder="Search gender..."
-                          value={watch("gender")}
-                          icon={Users}
-                          error={errors.gender?.message}
-                          options={[
-                            { value: "MALE", label: "Male" },
-                            { value: "FEMALE", label: "Female" },
-                            { value: "OTHER", label: "Other / Prefer not to say" },
-                          ]}
-                          onChange={(v) => setValue("gender", v as any, { shouldValidate: true })}
-                        />
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* ── STEP 3: Email OTP Verification ────────────────── */}
+                {/* ── STEP 3: Residence Location (Apartment) ────────── */}
                 {step === 3 && (
-                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
+                  <div className="space-y-2 animate-in fade-in duration-200">
                     <SectionHead
                       num={3}
-                      title="Email Verification"
-                      sub="Enter the 6-digit code sent to your email address"
-                    />
-
-                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 xl:p-6 rounded-2xl sm:rounded-3xl border border-border/80 space-y-4 shadow-xl shadow-black/5">
-                      {/* Email badge */}
-                      <div className="p-3.5 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-xs shadow-primary/25">
-                            <Mail className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[10.5px] text-muted-foreground font-medium">Code sent to</p>
-                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">{email}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={back}
-                          className="text-xs text-primary hover:underline font-bold shrink-0 cursor-pointer bg-transparent border-none px-2 py-1 rounded-md hover:bg-primary/10 transition-colors"
-                        >
-                          Change
-                        </button>
-                      </div>
-
-                      {/* Single 6-digit OTP input */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label htmlFor="otpCodeInput" className={labelCls}>
-                            6-Digit Verification Code <span className="text-primary">*</span>
-                          </label>
-                          <span className="text-[10.5px] sm:text-xs text-muted-foreground font-semibold">
-                            {otpCode.length}/6 digits
-                          </span>
-                        </div>
-                        <div className="relative">
-                          <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <KeyRound className="w-3.5 h-3.5" />
-                          </div>
-                          <input
-                            id="otpCodeInput"
-                            ref={signupOtpInputRef}
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={6}
-                            value={otpCode}
-                            onChange={(e) => {
-                              const numeric = e.target.value.replace(/\D/g, "").slice(0, 6);
-                              setOtpCode(numeric);
-                            }}
-                            placeholder="Enter 6-digit OTP"
-                            className={`${inputBase} pl-11 pr-4 text-center sm:text-left text-base sm:text-lg font-bold font-mono tracking-[0.25em] sm:tracking-[0.35em]`}
-                            autoFocus
-                          />
-                        </div>
-
-                        {/* Resend */}
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">
-                            Didn't receive the code?
-                          </span>
-                          <button
-                            type="button"
-                            onClick={sendSignupOtpEmail}
-                            disabled={resendCooldown > 0 || isSendingSignupOtp}
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent border-none py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
-                          >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isSendingSignupOtp ? "animate-spin" : ""}`} />
-                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="bg-primary/5 rounded-xl sm:rounded-2xl border border-primary/15 p-3 flex items-start gap-2.5">
-                        <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                        <p className="text-[11px] sm:text-xs text-foreground/80 leading-relaxed font-medium">
-                          Verifying your email helps keep your account secure and ensures you receive important community notifications.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── STEP 4: Residence Location (Apartment) ────────── */}
-                {step === 4 && (
-                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
-                    <SectionHead
-                      num={4}
                       title="Unit & Residence"
                       sub="Specify your user type, block, and flat number"
                     />
 
-                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 xl:p-6 rounded-2xl sm:rounded-3xl border border-border/80 space-y-4 shadow-xl shadow-black/5">
-                      {/* Dynamic Visual Unit Preview Badge */}
-                      {(block || flatNo || userType) && (
-                        <div className="flex items-center gap-3 p-3 rounded-2xl border border-dashed border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95">
-                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-white text-sm font-black bg-gradient-to-tr from-primary to-indigo-600 shadow-md shadow-primary/25 shrink-0">
-                            {block || "?"}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-xs sm:text-sm font-black text-foreground">
-                                {block ? `Block ${block}` : "Block ?"}
-                                {flatNo ? ` · Flat ${flatNo}` : " · Flat ?"}
-                              </p>
-                              <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
-                                {userType || "Owner"}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                              {activeBlockConfig
-                                ? `${activeBlockConfig.blockName} Block (${activeBlockConfig.totalFloors} floors, ${activeBlockConfig.flatsPerFloor} flats/floor — total ${activeBlockConfig.totalFlats} flats)`
-                                : "Select your user type, block, and flat"}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* User Type (Owner / Tenant) Selector */}
+                    <div className="bg-card/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 space-y-2.5 shadow-md shadow-black/5">
+                      {/* User Type (Owner / Tenant) Selector - Compact Segmented Control */}
                       <div>
-                        <label className={labelCls}>
-                          User Type <span className="text-primary">*</span>
-                        </label>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className={labelCls}>
+                            User Type <span className="text-primary">*</span>
+                          </label>
+                          <span className="text-[9px] font-bold text-primary px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
+                            {userType || "Owner"}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
                             type="button"
                             onClick={() => setValue("userType", "Owner", { shouldValidate: true })}
-                            className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-start gap-3 relative overflow-hidden cursor-pointer ${
+                            className={`py-1.5 px-2.5 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
                               userType === "Owner"
-                                ? "border-primary bg-primary/10 ring-4 ring-primary/15 shadow-xs"
-                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                                ? "border-primary bg-primary/10 ring-2 ring-primary/15 shadow-2xs font-bold text-primary"
+                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 text-foreground"
                             }`}
                           >
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              userType === "Owner" ? "bg-primary text-white shadow-xs shadow-primary/25" : "bg-muted text-muted-foreground"
-                            }`}>
-                              <Home className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-bold text-xs sm:text-sm text-foreground">Owner</p>
-                                {userType === "Owner" && <Check className="w-4 h-4 text-primary stroke-[3]" />}
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                userType === "Owner" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                              }`}>
+                                <Home className="w-3 h-3" />
                               </div>
-                              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                                Flat owner &amp; resident
-                              </p>
+                              <div>
+                                <p className="text-xs leading-none">Owner</p>
+                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Flat owner</p>
+                              </div>
                             </div>
+                            {userType === "Owner" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
                           </button>
 
                           <button
                             type="button"
                             onClick={() => setValue("userType", "Tenant", { shouldValidate: true })}
-                            className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-start gap-3 relative overflow-hidden cursor-pointer ${
+                            className={`py-1.5 px-2.5 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
                               userType === "Tenant"
-                                ? "border-primary bg-primary/10 ring-4 ring-primary/15 shadow-xs"
-                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                                ? "border-primary bg-primary/10 ring-2 ring-primary/15 shadow-2xs font-bold text-primary"
+                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 text-foreground"
                             }`}
                           >
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              userType === "Tenant" ? "bg-primary text-white shadow-xs shadow-primary/25" : "bg-muted text-muted-foreground"
-                            }`}>
-                              <Users className="w-4 h-4" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-bold text-xs sm:text-sm text-foreground">Tenant</p>
-                                {userType === "Tenant" && <Check className="w-4 h-4 text-primary stroke-[3]" />}
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                userType === "Tenant" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                              }`}>
+                                <Users className="w-3 h-3" />
                               </div>
-                              <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                                Tenant / rental resident
-                              </p>
+                              <div>
+                                <p className="text-xs leading-none">Tenant</p>
+                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Rental resident</p>
+                              </div>
                             </div>
+                            {userType === "Tenant" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
                           </button>
                         </div>
                       </div>
 
-                      {/* Quick Smart Flat Search across all blocks & floors */}
-                      <div className="relative" ref={flatSearchContainerRef}>
-                        <label className={labelCls}>
-                          Quick Flat Search
-                        </label>
-                        <div className="relative">
-                          <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <Search className="w-3.5 h-3.5" />
-                          </div>
-                          <input
-                            type="text"
-                            value={flatSearchQuery}
-                            onFocus={() => setShowFlatSearchMenu(true)}
-                            onChange={(e) => {
-                              setFlatSearchQuery(e.target.value);
-                              setShowFlatSearchMenu(true);
-                            }}
-                            placeholder="Search flat number (e.g. 101, 1005, B-203)..."
-                            className={`${inputBase} pl-11 pr-9`}
-                          />
-                          {flatSearchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFlatSearchQuery("");
-                                setShowFlatSearchMenu(false);
-                              }}
-                              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1 rounded-md hover:bg-muted"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Quick Search Suggestions Popover */}
-                        {showFlatSearchMenu && flatSearchQuery.trim() && (
-                          <div className="absolute left-0 right-0 top-full mt-2 z-50 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 p-2 space-y-1">
-                            {matchingFlats.length === 0 ? (
-                              <div className="py-3 text-center text-xs text-muted-foreground font-medium">
-                                No flats found matching "{flatSearchQuery}"
-                              </div>
-                            ) : (
-                              matchingFlats.map((item) => (
-                                <button
-                                  key={`${item.block}-${item.flatNo}`}
-                                  type="button"
-                                  onClick={() => selectQuickFlat(item)}
-                                  className="w-full px-3 py-2.5 rounded-xl text-xs flex items-center justify-between text-left hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <span className="w-7 h-7 rounded-lg bg-primary/15 text-primary font-bold flex items-center justify-center text-xs">
-                                      {item.block}
-                                    </span>
-                                    <div>
-                                      <p className="font-bold text-foreground">Flat {item.flatNo}</p>
-                                      <p className="text-[10.5px] text-muted-foreground">Floor {item.floor} · Block {item.block}</p>
-                                    </div>
-                                  </div>
-                                  <span className="text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-lg">
-                                    Select
-                                  </span>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 my-1">
-                        <div className="h-[1px] bg-border flex-1" />
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">or select below</span>
-                        <div className="h-[1px] bg-border flex-1" />
-                      </div>
-
                       {/* 2 Cascading Searchable Dropdowns: Block -> Flat Number */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
                         {/* 1. Block Searchable Dropdown */}
                         <SearchableDropdown
                           id="blockSelect"
                           label="Block / Wing"
                           required
                           placeholder="Select Block"
-                          searchPlaceholder="Search block name..."
+                          searchPlaceholder="Search block..."
                           value={block || ""}
                           icon={Layers}
                           error={errors.block?.message}
                           options={blockConfigs.map((bc) => ({
                             value: bc.blockName,
                             label: `Block ${bc.blockName}`,
-                            sublabel: `${bc.totalFlats} flats across ${bc.totalFloors} floors`,
+                            sublabel: `${bc.totalFlats} flats · ${bc.totalFloors} floors`,
                             badge: `Block ${bc.blockName}`,
                           }))}
                           onChange={(newBlock) => {
@@ -1606,7 +1416,7 @@ export function Signup() {
                           disabled={!block}
                           disabledHint="Select Block First"
                           placeholder="Select Flat Number"
-                          searchPlaceholder="Search flat number (e.g. 101, 1005)..."
+                          searchPlaceholder="Search flat (e.g. 101)..."
                           value={flatNo || ""}
                           icon={Home}
                           error={errors.flatNo?.message}
@@ -1623,46 +1433,135 @@ export function Signup() {
                         />
                       </div>
 
-                      {/* Admin Verification Reassurance */}
-                      <div className="bg-primary/5 rounded-xl sm:rounded-2xl border border-primary/15 p-3 flex items-start gap-2.5 mt-1">
-                        <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                        <p className="text-[11px] sm:text-xs text-foreground/80 leading-relaxed font-medium">
-                          Your residence unit and occupancy status will be verified by your community admin upon registration.
-                        </p>
+                      {/* Quick Smart Flat Search across all blocks & floors */}
+                      <div className="relative" ref={flatSearchContainerRef}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] font-semibold text-muted-foreground tracking-tight">
+                            Or Quick Search Any Flat
+                          </label>
+                          {flatSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFlatSearchQuery("");
+                                setShowFlatSearchMenu(false);
+                              }}
+                              className="text-[9.5px] text-primary hover:underline font-bold cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <div className="w-4.5 h-4.5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <Search className="w-2.5 h-2.5" />
+                          </div>
+                          <input
+                            type="text"
+                            value={flatSearchQuery}
+                            onFocus={() => setShowFlatSearchMenu(true)}
+                            onChange={(e) => {
+                              setFlatSearchQuery(e.target.value);
+                              setShowFlatSearchMenu(true);
+                            }}
+                            placeholder="Type flat number to auto-fill block & flat (e.g. 101, B-203)..."
+                            className="w-full h-8 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/15 focus:border-primary outline-none transition-all duration-200 text-[11px] font-medium pl-7.5 pr-7"
+                          />
+                          {flatSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFlatSearchQuery("");
+                                setShowFlatSearchMenu(false);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded-md hover:bg-muted"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Quick Search Suggestions Popover */}
+                        {showFlatSearchMenu && flatSearchQuery.trim() && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 p-1 space-y-0.5">
+                            {matchingFlats.length === 0 ? (
+                              <div className="py-2 text-center text-[10.5px] text-muted-foreground font-medium">
+                                No flats found matching "{flatSearchQuery}"
+                              </div>
+                            ) : (
+                              matchingFlats.map((item) => (
+                                <button
+                                  key={`${item.block}-${item.flatNo}`}
+                                  type="button"
+                                  onClick={() => selectQuickFlat(item)}
+                                  className="w-full px-2 py-1 rounded-md text-[10.5px] flex items-center justify-between text-left hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-4.5 h-4.5 rounded-md bg-primary/15 text-primary font-bold flex items-center justify-center text-[9px]">
+                                      {item.block}
+                                    </span>
+                                    <p className="font-bold text-foreground">Flat {item.flatNo} <span className="text-[9px] text-muted-foreground font-normal">· Floor {item.floor}</span></p>
+                                  </div>
+                                  <span className="text-[8.5px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.2 rounded-md">
+                                    Select
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Dynamic Compact Unit Selection Confirmation */}
+                      {block && flatNo ? (
+                        <div className="bg-emerald-500/10 rounded-lg border border-emerald-500/25 px-2.5 py-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Selected: Block {block} · Flat {flatNo} ({userType || "Owner"})</span>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground">Admin will verify</span>
+                        </div>
+                      ) : (
+                        <div className="bg-primary/5 rounded-lg border border-primary/15 px-2.5 py-1.5 flex items-start gap-1.5">
+                          <ShieldCheck className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                          <p className="text-[9.5px] text-foreground/80 leading-tight font-medium">
+                            Your residence unit and occupancy status will be verified by your community admin upon registration.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* ── STEP 5: Role & Security ────────────────────────── */}
-                {step === 5 && (
-                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
+                {/* ── STEP 4: Role & Security ────────────────────────── */}
+                {step === 4 && (
+                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
                     <SectionHead
-                      num={5}
+                      num={4}
                       title="Account Security"
                       sub="Set a protected password and review terms to complete signup"
                     />
 
-                    <div className="bg-card/90 backdrop-blur-md p-4 sm:p-5 xl:p-6 rounded-2xl sm:rounded-3xl border border-border/80 space-y-4 shadow-xl shadow-black/5">
+                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
                       {/* Password Fields */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 xl:gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                         <div>
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between mb-0.5">
                             <label htmlFor="signup-password" className={labelCls}>
                               Password <span className="text-primary">*</span>
                             </label>
                             <button
                               type="button"
                               onClick={handleSuggestPassword}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80 transition-colors py-0.5 px-2 rounded-md bg-primary/10 hover:bg-primary/15 border border-primary/20 cursor-pointer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80 transition-colors py-0.2 px-1.5 rounded-md bg-primary/10 hover:bg-primary/15 border border-primary/20 cursor-pointer"
                             >
-                              <Sparkles className="w-3 h-3" />
+                              <Sparkles className="w-2.5 h-2.5" />
                               Suggest Strong
                             </button>
                           </div>
                           <div className="relative">
-                            <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Lock className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <Lock className="w-3 h-3" />
                             </div>
                             <input
                               id="signup-password"
@@ -1683,19 +1582,19 @@ export function Signup() {
                                   evaluatePassword(val).warning ||
                                   "Password must be between 6 and 20 characters and combine letters & numbers",
                               })}
-                              className={`${inputBase} pl-11 pr-10`}
-                              placeholder="6 to 20 characters (letters & numbers)"
+                              className={`${inputBase} pl-9 pr-8`}
+                              placeholder="6 to 20 chars (letters & numbers)"
                             />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted cursor-pointer"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted cursor-pointer"
                               aria-label={showPassword ? "Hide password" : "Show password"}
                             >
                               {showPassword ? (
-                                <EyeOff className="w-4 h-4" />
+                                <EyeOff className="w-3.5 h-3.5" />
                               ) : (
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-3.5 h-3.5" />
                               )}
                             </button>
                           </div>
@@ -1704,7 +1603,7 @@ export function Signup() {
                             userInputs={[email, fullName, phone]}
                           />
                           {errors.password && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">
                               {errors.password.message}
                             </p>
                           )}
@@ -1715,8 +1614,8 @@ export function Signup() {
                             Confirm Password <span className="text-primary">*</span>
                           </label>
                           <div className="relative">
-                            <div className="w-6 h-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Lock className="w-3.5 h-3.5" />
+                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                              <Lock className="w-3 h-3" />
                             </div>
                             <input
                               id="confirmPassword"
@@ -1726,13 +1625,13 @@ export function Signup() {
                                 required: "Please confirm your password",
                                 validate: (value) => value === password || "Passwords do not match",
                               })}
-                              className={`${inputBase} pl-11 pr-10`}
+                              className={`${inputBase} pl-9 pr-8`}
                               placeholder="Re-enter password"
                             />
                             <button
                               type="button"
                               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted cursor-pointer"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted cursor-pointer"
                               aria-label={
                                 showConfirmPassword
                                   ? "Hide confirm password"
@@ -1740,19 +1639,19 @@ export function Signup() {
                               }
                             >
                               {showConfirmPassword ? (
-                                <EyeOff className="w-4 h-4" />
+                                <EyeOff className="w-3.5 h-3.5" />
                               ) : (
-                                <Eye className="w-4 h-4" />
+                                <Eye className="w-3.5 h-3.5" />
                               )}
                             </button>
                           </div>
                           {confirmPassword && password && confirmPassword === password && (
-                            <p className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5" /> Passwords match
+                            <p className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Passwords match
                             </p>
                           )}
                           {errors.confirmPassword && (
-                            <p className="text-destructive text-[11px] sm:text-xs mt-1 font-medium">
+                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">
                               {errors.confirmPassword.message}
                             </p>
                           )}
@@ -1760,16 +1659,16 @@ export function Signup() {
                       </div>
 
                       {/* Terms of Service & Privacy Policy Checkbox */}
-                      <div className="pt-2">
-                        <label className="flex items-start gap-2.5 cursor-pointer select-none group">
+                      <div className="pt-1">
+                        <label className="flex items-start gap-2 cursor-pointer select-none group">
                           <input
                             type="checkbox"
                             {...register("terms", {
                               required: "You must agree to the terms to continue",
                             })}
-                            className="mt-0.5 w-4 h-4 accent-primary bg-slate-50 dark:bg-slate-900 border-border rounded focus:ring-primary/30 cursor-pointer shrink-0"
+                            className="mt-0.5 w-3.5 h-3.5 accent-primary bg-slate-50 dark:bg-slate-900 border-border rounded focus:ring-primary/30 cursor-pointer shrink-0"
                           />
-                          <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed font-medium">
+                          <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed font-medium">
                             I agree to the{" "}
                             <span className="text-primary font-bold underline underline-offset-2">
                               Terms of Service
@@ -1790,7 +1689,7 @@ export function Signup() {
                           </span>
                         </label>
                         {errors.terms && (
-                          <p className="text-destructive text-[11px] sm:text-xs mt-1 ml-6 font-medium">
+                          <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 ml-5 font-medium">
                             {errors.terms.message}
                           </p>
                         )}
@@ -1800,33 +1699,33 @@ export function Signup() {
                 )}
 
                 {/* ── Navigation Actions (Back / Continue / Submit) ── */}
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex items-center gap-2.5 pt-1.5">
                   {step > 1 && (
                     <button
                       type="button"
                       onClick={back}
-                      className="h-11 sm:h-12 flex items-center gap-1.5 px-4 sm:px-5 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card text-xs sm:text-sm font-bold text-foreground hover:bg-muted/50 transition-all cursor-pointer shadow-xs"
+                      className="h-9 sm:h-10 flex items-center gap-1 px-3.5 sm:px-4 rounded-lg sm:rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card text-xs font-bold text-foreground hover:bg-muted/50 transition-all cursor-pointer shadow-2xs"
                     >
-                      <ArrowLeft className="w-4 h-4" /> Back
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back
                     </button>
                   )}
 
-                  {step < 5 ? (
+                  {step < 4 ? (
                     <button
                       type="button"
                       onClick={advance}
                       disabled={isSendingSignupOtp}
-                      className="flex-1 h-11 sm:h-12 flex items-center justify-center gap-2 px-6 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed"
+                      className="flex-1 h-9 sm:h-10 flex items-center justify-center gap-1.5 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs rounded-lg sm:rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed"
                     >
                       {isSendingSignupOtp ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>Sending Code…</span>
                         </>
                       ) : (
                         <>
                           <span>Continue</span>
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </>
                       )}
                     </button>
@@ -1835,17 +1734,17 @@ export function Signup() {
                       type="submit"
                       id="signup-submit-btn"
                       disabled={isSubmitting}
-                      className="flex-1 h-11 sm:h-12 flex items-center justify-center gap-2 px-6 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/35 transition-all duration-200 disabled:opacity-65 disabled:cursor-not-allowed cursor-pointer"
+                      className="flex-1 h-9 sm:h-10 flex items-center justify-center gap-1.5 px-4 bg-gradient-to-r from-primary via-indigo-600 to-violet-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs rounded-lg sm:rounded-xl shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/35 transition-all duration-200 disabled:opacity-65 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {isSubmitting ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                           <span>Creating Account...</span>
                         </>
                       ) : (
                         <>
                           <span>Create My Account</span>
-                          <ArrowRight className="w-4 h-4 ml-1" />
+                          <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
                         </>
                       )}
                     </button>
@@ -1854,12 +1753,12 @@ export function Signup() {
               </form>
 
               {/* Footer Sign-in Link */}
-              <div className="mt-3 sm:mt-5 xl:mt-6 pt-2 sm:pt-3.5 border-t border-border/80 text-center">
-                <p className="text-[11px] sm:text-xs text-muted-foreground">
+              <div className="mt-2.5 sm:mt-3.5 pt-2 border-t border-border/80 text-center">
+                <p className="text-[10.5px] sm:text-[11px] text-muted-foreground">
                   Already have an account?{" "}
                   <Link
                     to="/login"
-                    className="text-primary hover:text-primary/80 font-bold transition-colors ml-1"
+                    className="text-primary hover:text-primary/80 font-bold transition-colors ml-0.5"
                   >
                     Sign in here
                   </Link>
@@ -1867,7 +1766,7 @@ export function Signup() {
               </div>
             </>
           ) : (
-            /* ── STEP 6: Success Celebration Screen ────────── */
+            /* ── STEP 5: Success Celebration Screen ────────── */
             <div className="flex flex-col items-center text-center py-5 sm:py-8 px-4 animate-in fade-in-50 zoom-in-95 duration-300">
               <div className="relative mb-3 sm:mb-5">
                 <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-primary to-indigo-600 shadow-2xl shadow-primary/30">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { otpService } from "../../../services/common/otpService";
@@ -284,7 +284,10 @@ export function SportsRegister() {
     categoryIds: [] as number[],
     matchType: "SINGLES",
     role: "",
-    age: user?.dateOfBirth ? new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear() : 25,
+    dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
+    age: (user as any)?.dateOfBirth || (user as any)?.dob
+      ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
+      : 25,
     matches: 0,
     runs: 0,
     wickets: 0,
@@ -409,14 +412,38 @@ export function SportsRegister() {
   }, [formData.categoryIds]);
 
   useEffect(() => {
-    if (user?.dateOfBirth) {
-      const birthYear = new Date(user.dateOfBirth).getFullYear();
-      setFormData(prev => ({ ...prev, age: new Date().getFullYear() - birthYear }));
+    const userDob = (user as any)?.dateOfBirth || (user as any)?.dob;
+    if (userDob && formData.regType === "self") {
+      const birthDate = new Date(userDob);
+      if (!isNaN(birthDate.getTime())) {
+        const calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        setFormData(prev => ({
+          ...prev,
+          dateOfBirth: userDob,
+          age: calculatedAge,
+        }));
+      }
     }
-  }, [user]);
+  }, [user, formData.regType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    if (name === "dateOfBirth") {
+      let calculatedAge = formData.age;
+      if (value) {
+        const birthDate = new Date(value);
+        if (!isNaN(birthDate.getTime())) {
+          calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        dateOfBirth: value,
+        age: calculatedAge,
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
@@ -477,6 +504,10 @@ export function SportsRegister() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.dateOfBirth?.trim()) {
+      toast.error("Date of Birth is mandatory. Please provide your Date of Birth.");
+      return;
+    }
     if (formData.categoryIds.length === 0) {
       toast.error("Please select at least one category");
       return;
@@ -510,6 +541,7 @@ export function SportsRegister() {
           matchType: formData.matchType,
           role: formData.role,
           age: formData.age,
+          dateOfBirth: formData.dateOfBirth,
           matches: formData.matches,
           runs: formData.runs,
           wickets: formData.wickets,
@@ -555,7 +587,7 @@ export function SportsRegister() {
   const completedSteps = [
     formData.matchType.length > 0,
     formData.categoryIds.length > 0,
-    formData.playerName.trim().length > 0,
+    formData.playerName.trim().length > 0 && formData.dateOfBirth.trim().length > 0,
     formData.role.length > 0,
   ];
   const currentStep = completedSteps.filter(Boolean).length;
@@ -776,12 +808,22 @@ export function SportsRegister() {
                                 ? "SIBLING"
                                 : "OTHER";
 
-                              setFormData(prev => ({
-                                ...prev,
-                                playerName: m.name,
-                                age: m.age || prev.age,
-                                relation: mappedRel,
-                              }));
+                              setFormData(prev => {
+                                let calculatedAge = m.age || prev.age;
+                                if (m.dob) {
+                                  const birthDate = new Date(m.dob);
+                                  if (!isNaN(birthDate.getTime())) {
+                                    calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+                                  }
+                                }
+                                return {
+                                  ...prev,
+                                  playerName: m.name,
+                                  dateOfBirth: m.dob || "",
+                                  age: calculatedAge,
+                                  relation: mappedRel,
+                                };
+                              });
                             }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                               isSelected
@@ -876,12 +918,38 @@ export function SportsRegister() {
                     </div>
                   )}
 
+                  {/* Date of Birth (Mandatory) */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        Date of Birth <span className="text-destructive font-bold">*</span>
+                      </span>
+                      {formData.age > 0 && (
+                        <span className="text-[10px] font-bold text-primary px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
+                          {formData.age} years old
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      name="dateOfBirth"
+                      type="date"
+                      required
+                      max={new Date().toISOString().split("T")[0]}
+                      value={formData.dateOfBirth}
+                      onChange={handleInputChange}
+                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                    />
+                  </div>
+
                   {/* Age */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Age</label>
                     <input
                       name="age"
                       type="number"
+                      min={1}
+                      max={120}
                       value={formData.age}
                       onChange={handleInputChange}
                       className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"

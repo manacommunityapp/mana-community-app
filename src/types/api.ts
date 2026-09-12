@@ -12,7 +12,7 @@ export interface RegisterRequest {
   phone: string;
   inviteCode: string;
   password: string;
-  dateOfBirth: string; // yyyy-MM-dd
+  dateOfBirth?: string; // yyyy-MM-dd (optional)
   gender: string; // MALE | FEMALE | OTHER
   aadharNumber?: string;
   flatNo?: string;
@@ -258,6 +258,8 @@ export interface SportsEvent {
   status?: string;
   /** When true, self-registrations require organiser confirmation (land PENDING). */
   adminApprovalRequired?: boolean;
+  /** When true, mixed doubles events enforce complementary genders (1 Male + 1 Female). */
+  mandatoryMixedDoubles?: boolean;
 }
 
 export interface SportsEventRequest {
@@ -293,6 +295,7 @@ export interface SportsEventRequest {
   eventId?: number;
   sportsEventIds?: number[];
   adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
   tournamentId?: number;
 }
 
@@ -315,6 +318,7 @@ export interface RegistrationRequest {
   matchType: string;
   role?: string;
   age?: number;
+  dateOfBirth?: string;
   matches?: number;
   runs?: number;
   wickets?: number;
@@ -565,6 +569,8 @@ export interface UserResponse {
   occupancyStatus?: string;
   residentType?: string;
   userType?: string;
+  bio?: string;
+  skills?: string[] | string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -603,6 +609,7 @@ export interface SportFormEvent {
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
   adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
 }
 
 export interface SportFormEntry {
@@ -669,6 +676,16 @@ export interface UserProfileResponse {
   stats: UserStats;
   /** Earned achievement badges. Optional — empty/undefined until the backend provides them. */
   achievements?: Achievement[];
+}
+
+export interface UserActivityItem {
+  id: number;
+  type: string;
+  text: string;
+  time: string;
+  timestamp?: string;
+  iconType?: string;
+  color?: string;
 }
 
 export interface Achievement {

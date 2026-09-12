@@ -66,6 +66,10 @@ import { AuditTrail } from "./components/admin/AuditTrail";
 import { EmailTemplateBuilder } from "./components/admin/EmailTemplateBuilder";
 import { EmailTemplatesTab } from "./components/admin/EmailTemplatesTab";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
+import { PrivacyHub } from "./components/privacy/PrivacyHub";
+import { PrivacyAdminHub } from "./components/privacy/admin/PrivacyAdminHub";
+import { AdminDeletionRequests } from "./components/privacy/admin/AdminDeletionRequests";
+import { AdminRetentionPolicies } from "./components/privacy/admin/AdminRetentionPolicies";
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
@@ -326,6 +330,18 @@ export const router = createBrowserRouter([
             path: "email-templates",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><EmailTemplateBuilder /></PermissionGuard>
           },
+          {
+            path: "privacy",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PrivacyAdminHub /></PermissionGuard>
+          },
+          {
+            path: "deletion-requests",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminDeletionRequests /></PermissionGuard>
+          },
+          {
+            path: "retention-policies",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminRetentionPolicies /></PermissionGuard>
+          },
         ]
       },
       {
@@ -546,6 +562,18 @@ export const router = createBrowserRouter([
       {
         path: "profile",
         Component: ProfileDashboard
+      },
+      {
+        path: "privacy-settings",
+        Component: PrivacyHub
+      },
+      {
+        path: "privacy-hub",
+        Component: PrivacyHub
+      },
+      {
+        path: "my-data",
+        Component: PrivacyHub
       },
       {
         path: "cpn",

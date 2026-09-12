@@ -9,6 +9,7 @@ import { twMerge } from "tailwind-merge";
 import { notificationService, type NotificationItem } from "../../../../services/notices/notificationService";
 import { eventService } from "../../../../services/events/eventService";
 import { noticeService } from "../../../../services/notices/noticeService";
+import { sportsService } from "../../../../services/sports/sportsService";
 import { sportsEventService } from "../../../../services/sports/sportsEventService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { VIEW_NOTICES, VIEW_EVENTS, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN } from "../../../../constants/permissions";
@@ -369,6 +370,23 @@ function getDestinationMeta(targetUrl: string) {
   return { name: "Module Details", icon: "⚡", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
 }
 
+function getPartnerRegistrationId(n: NotificationItem): number | null {
+  if (n.metadata) {
+    try {
+      const parsed = JSON.parse(n.metadata);
+      if (parsed.registrationId) return Number(parsed.registrationId);
+    } catch {
+      const match = n.metadata.match(/"registrationId"\s*:\s*(\d+)/);
+      if (match) return Number(match[1]);
+    }
+  }
+  if (n.actionUrl && n.actionUrl.includes("confirmPartner=")) {
+    const match = n.actionUrl.match(/confirmPartner=(\d+)/);
+    if (match) return Number(match[1]);
+  }
+  return null;
+}
+
 export function NotificationBell() {
   const navigate = useNavigate();
   const { user, isSuperAdmin, hasPermission, hasAnyPermission } = useAuth();
@@ -378,6 +396,7 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isBlinking, setIsBlinking] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [respondingId, setRespondingId] = useState<number | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const prevUnreadRef = useRef<number>(0);
@@ -625,6 +644,29 @@ export function NotificationBell() {
     setUnreadCount(0);
   };
 
+  const handlePartnerResponse = async (e: React.MouseEvent, n: NotificationItem, regId: number, accept: boolean) => {
+    e.stopPropagation();
+    let reason: string | undefined = undefined;
+    if (!accept) {
+      const entered = window.prompt("Optional reason for declining partner invitation:");
+      if (entered === null) return;
+      reason = entered || undefined;
+    }
+    setRespondingId(regId);
+    try {
+      await sportsService.respondToPartnerInvitation(regId, accept, reason);
+      handleMarkAsRead(n.id);
+      fetchLiveNotifications();
+      window.dispatchEvent(new CustomEvent("mana_notifications_updated"));
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      console.error("Failed to respond to partner invitation", err);
+      alert(err?.response?.data?.message || err?.message || "Failed to respond to partner invitation");
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
   const handleNotificationClick = (n: NotificationItem) => {
     if (!n.read) handleMarkAsRead(n.id);
     const targetUrl = resolveNotificationUrl(n);
@@ -850,6 +892,33 @@ export function NotificationBell() {
                             {n.body}
                           </p>
                         )}
+
+                        {(() => {
+                          const partnerRegId = (n.type === "PARTNER_SELECTED" || (n.title && n.title.toLowerCase().includes("doubles partner"))) ? getPartnerRegistrationId(n) : null;
+                          if (!partnerRegId) return null;
+                          return (
+                            <div className="mt-2.5 pt-2 border-t border-border/60 flex items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={respondingId === partnerRegId}
+                                onClick={(e) => handlePartnerResponse(e, n, partnerRegId, true)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[10.5px] font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>{respondingId === partnerRegId ? "Confirming..." : "Accept"}</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={respondingId === partnerRegId}
+                                onClick={(e) => handlePartnerResponse(e, n, partnerRegId, false)}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[10.5px] font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Decline</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
 
                         {/* Destination Link Badge */}
                         <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-border/40">

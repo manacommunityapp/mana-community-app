@@ -569,40 +569,6 @@ export function SportsDashboard() {
         </div>
       )}
 
-      {/* Hero Banner */}
-      <div 
-        className="rounded-2xl py-3 px-5 relative overflow-hidden text-left text-white"
-        style={{
-          background: "linear-gradient(135deg, #1e1b4b 0%, #4f46e5 60%, #7c3aed 100%)",
-          boxShadow: "0 10px 30px rgba(99, 102, 241, 0.15)",
-        }}
-      >
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_120%,#818cf8,transparent_60%)]" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
-              WELCOME TO THE SPORTS ARENA
-            </h2>
-            <p className="text-[11px] md:text-xs text-indigo-200 mt-1 max-w-xl font-medium leading-relaxed">
-              Track matches, check live auction rankings, register for upcoming leagues, and lead your community team to victory!
-            </p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => navigate("/sports/my-sports")}
-              className="px-3 py-1.5 bg-white text-indigo-700 font-bold text-[10px] rounded-lg shadow-sm transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
-            >
-              My Hub
-            </button>
-            <button
-              onClick={() => navigate("/sports/schedule")}
-              className="px-3 py-1.5 bg-indigo-500/30 text-white font-bold text-[10px] rounded-lg border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
-            >
-              View Schedule
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

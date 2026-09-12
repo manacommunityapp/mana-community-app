@@ -1893,6 +1893,7 @@ export function useSportsAdminState() {
       otherContacts: [],
       auctionEnabled: false,
       adminApprovalRequired: false,
+      mandatoryMixedDoubles: true,
     };
   };
 
@@ -2093,6 +2094,7 @@ export function useSportsAdminState() {
         otherContacts: parseOtherContacts(e.otherContacts),
         auctionEnabled: !!e.auctionEnabled,
         adminApprovalRequired: e.adminApprovalRequired !== false,
+        mandatoryMixedDoubles: e.mandatoryMixedDoubles !== false,
       }],
     };
     setSportForms([editEntry]);
@@ -2221,6 +2223,7 @@ export function useSportsAdminState() {
           ) as any,
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
           adminApprovalRequired: ev.adminApprovalRequired !== false,
+          mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
           tournamentId: activeTournamentId ?? undefined,
         };
         try {

@@ -194,4 +194,16 @@ export const sportsEventService = {
   async confirmCaptain(registrationId: number, confirm: boolean): Promise<EventRegistration> {
     return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/confirm-captain?confirm=${confirm}`);
   },
+
+  /** PUT /api/sports/registrations/{id}/partner-confirm — partner accepts or declines invitation */
+  async respondToPartnerInvitation(registrationId: number, accept: boolean, reason?: string): Promise<EventRegistration> {
+    const reasonParam = reason ? `&reason=${encodeURIComponent(reason)}` : "";
+    return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/partner-confirm?accept=${accept}${reasonParam}`);
+  },
+
+  /** GET /api/sports/registrations/partner-invitations — get partner invitations */
+  async getPartnerInvitations(status?: string): Promise<EventRegistration[]> {
+    const statusParam = status ? `?status=${status}` : "";
+    return apiClient.get<EventRegistration[]>(`/sports/registrations/partner-invitations${statusParam}`);
+  },
 };
