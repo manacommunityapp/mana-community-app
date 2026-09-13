@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Sword } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,
@@ -23,6 +23,7 @@ const sportsNav = [
   { to: "/sports/auction", label: "Auction", icon: Gavel },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/sports/karate",    label: "Karate",    icon: Sword },
 ];
 
 export function SportsLayout() {
@@ -60,6 +61,8 @@ export function SportsLayout() {
         );
       case "Analytics":
         return hasPermission(VIEW_SPORTS_MAIN);
+      case "Karate":
+        return hasPermission(CREATE_EDIT_SPORTS_MAIN);
       default:
         return true;
     }
