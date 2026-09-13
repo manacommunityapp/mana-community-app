@@ -10,7 +10,7 @@ interface Props {
   belts: KarateBelt[];
   enrollments: KarateEnrollment[];
   batchId: number;
-  onCreateExam: (data: KarateGradingExamRequest) => Promise<void>;
+  onCreateExam: (batchId: number, data: KarateGradingExamRequest) => Promise<void>;
   onSubmitResults: (examId: number, entries: KarateExamResultEntry[]) => Promise<void>;
 }
 
@@ -22,10 +22,17 @@ const STATUS_BADGE: Record<ExamStatus, string> = {
 
 export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateExam, onSubmitResults }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [examForm, setExamForm] = useState<KarateGradingExamRequest>({ batchId, targetBeltId: 0, scheduledDate: "", venue: "", notes: "" });
+  const [examForm, setExamForm] = useState<KarateGradingExamRequest>({
+    targetBeltId: 0,
+    scheduledDate: "",
+    // venueId: number | undefined — NOT a string venue field
+    examinerName: "",
+    notes: "",
+  });
   const [savingExam, setSavingExam] = useState(false);
   const [gradingExam, setGradingExam] = useState<KarateGradingExam | null>(null);
-  const [results, setResults] = useState<Record<number, { passed: boolean; score: string }>>({});
+  // result: passed + newBeltId (triggers belt promotion) + score + remarks
+  const [results, setResults] = useState<Record<number, { passed: boolean; newBeltId: string; score: string; remarks: string }>>({});
   const [savingResults, setSavingResults] = useState(false);
 
   const eligibleEnrollments = enrollments.filter(e => e.gradingEligible && e.status === "ACTIVE");
@@ -33,9 +40,9 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
   async function handleCreateExam() {
     setSavingExam(true);
     try {
-      await onCreateExam({ ...examForm, batchId });
+      await onCreateExam(batchId, examForm);
       setShowForm(false);
-      setExamForm({ batchId, targetBeltId: 0, scheduledDate: "", venue: "", notes: "" });
+      setExamForm({ targetBeltId: 0, scheduledDate: "", examinerName: "", notes: "" });
     } finally {
       setSavingExam(false);
     }
@@ -43,8 +50,10 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
 
   function openGrading(exam: KarateGradingExam) {
     setGradingExam(exam);
-    const init: Record<number, { passed: boolean; score: string }> = {};
-    eligibleEnrollments.forEach(e => { init[e.id] = { passed: false, score: "" }; });
+    const init: Record<number, { passed: boolean; newBeltId: string; score: string; remarks: string }> = {};
+    eligibleEnrollments.forEach(e => {
+      init[e.id] = { passed: false, newBeltId: String(exam.targetBeltId), score: "", remarks: "" };
+    });
     setResults(init);
   }
 
@@ -55,7 +64,9 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
       const entries: KarateExamResultEntry[] = Object.entries(results).map(([id, r]) => ({
         enrollmentId: +id,
         passed: r.passed,
-        score: r.score ? +r.score : null,
+        newBeltId: r.passed && r.newBeltId ? +r.newBeltId : undefined,
+        score: r.score ? +r.score : undefined,
+        remarks: r.remarks || undefined,
       }));
       await onSubmitResults(gradingExam.id, entries);
       setGradingExam(null);
@@ -86,10 +97,10 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
         {exams.map(exam => (
           <div key={exam.id} className="flex items-center justify-between bg-white rounded-xl border border-slate-100 px-4 py-3 hover:shadow-sm transition-shadow">
             <div className="flex items-center gap-3">
-              <span className="w-5 h-5 rounded-full border border-slate-200" style={{ background: exam.targetBeltColorHex }} />
+              <span className="w-5 h-5 rounded-full border border-slate-200 flex-shrink-0" style={{ background: exam.targetBeltColorHex }} />
               <div>
                 <p className="text-sm font-semibold text-slate-800">{exam.targetBeltName}</p>
-                <p className="text-xs text-slate-500">{exam.scheduledDate}{exam.venue ? ` · ${exam.venue}` : ""}</p>
+                <p className="text-xs text-slate-500">{exam.scheduledDate}{exam.examinerName ? ` · ${exam.examinerName}` : ""}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -119,7 +130,11 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Target Belt</label>
-              <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.targetBeltId} onChange={e => setExamForm(f => ({ ...f, targetBeltId: +e.target.value }))}>
+              <select
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                value={examForm.targetBeltId}
+                onChange={e => setExamForm(f => ({ ...f, targetBeltId: +e.target.value }))}
+              >
                 <option value={0}>Select belt…</option>
                 {belts.filter(b => b.active).sort((a, b) => a.rank - b.rank).map(b => (
                   <option key={b.id} value={b.id}>{b.name} (Rank {b.rank})</option>
@@ -131,10 +146,14 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
               <input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.scheduledDate} onChange={e => setExamForm(f => ({ ...f, scheduledDate: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Venue</label>
-              <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.venue ?? ""} onChange={e => setExamForm(f => ({ ...f, venue: e.target.value }))} placeholder="Optional venue" />
+              <label className="block text-xs font-medium text-slate-600 mb-1">Examiner</label>
+              <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.examinerName ?? ""} onChange={e => setExamForm(f => ({ ...f, examinerName: e.target.value }))} placeholder="Examiner name (optional)" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Max Candidates</label>
+              <input type="number" min={1} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.maxCandidates ?? ""} onChange={e => setExamForm(f => ({ ...f, maxCandidates: e.target.value ? +e.target.value : undefined }))} placeholder="No limit" />
+            </div>
+            <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">Notes</label>
               <input className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={examForm.notes ?? ""} onChange={e => setExamForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" />
             </div>
@@ -159,34 +178,53 @@ export function KarateGradingTab({ exams, belts, enrollments, batchId, onCreateE
                 <p className="text-xs text-slate-500">{gradingExam.scheduledDate}</p>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-2">
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
               {eligibleEnrollments.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-6">No eligible students</p>
               )}
               {eligibleEnrollments.map(enr => {
-                const r = results[enr.id] ?? { passed: false, score: "" };
+                const r = results[enr.id] ?? { passed: false, newBeltId: String(gradingExam.targetBeltId), score: "", remarks: "" };
                 return (
-                  <div key={enr.id} className="flex items-center gap-3 py-2 border-b border-slate-50">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-800">{enr.studentName}</p>
-                      <p className="text-xs text-slate-400">{enr.currentBeltName ?? "White Belt"} · {enr.totalClassesAttended} classes</p>
+                  <div key={enr.id} className="border-b border-slate-50 pb-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{enr.studentName}</p>
+                        <p className="text-xs text-slate-400">{enr.currentBeltName ?? "White Belt"} · {enr.totalClassesAttended} classes</p>
+                      </div>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={r.passed}
+                          onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], passed: e.target.checked } }))}
+                          className="w-4 h-4 accent-emerald-600"
+                        />
+                        <span className="text-sm text-slate-700 font-medium">Passed</span>
+                      </label>
                     </div>
-                    <input
-                      type="number"
-                      placeholder="Score"
-                      className="w-20 px-2 py-1.5 text-sm border border-slate-200 rounded-lg text-center focus:outline-none focus:border-indigo-400"
-                      value={r.score}
-                      onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], score: e.target.value } }))}
-                    />
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={r.passed}
-                        onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], passed: e.target.checked } }))}
-                        className="w-4 h-4 accent-emerald-600"
-                      />
-                      <span className="text-sm text-slate-700">Passed</span>
-                    </label>
+                    {r.passed && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">New Belt</label>
+                          <select
+                            className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                            value={r.newBeltId}
+                            onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], newBeltId: e.target.value } }))}
+                          >
+                            {belts.filter(b => b.active).sort((a, b) => a.rank - b.rank).map(b => (
+                              <option key={b.id} value={String(b.id)}>{b.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Score</label>
+                          <input type="number" placeholder="0–100" className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg text-center focus:outline-none focus:border-indigo-400" value={r.score} onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], score: e.target.value } }))} />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Remarks</label>
+                          <input placeholder="Optional" className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400" value={r.remarks} onChange={e => setResults(prev => ({ ...prev, [enr.id]: { ...prev[enr.id], remarks: e.target.value } }))} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

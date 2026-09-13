@@ -4,24 +4,23 @@ import type { KarateBelt, KarateBeltRequest } from "../../../../services/sports/
 
 interface Props {
   belts: KarateBelt[];
-  sportId: number;
   onSave: (data: KarateBeltRequest, id?: number) => Promise<void>;
 }
 
 const EMPTY: KarateBeltRequest = {
   name: "", colorHex: "#FFFFFF", rank: 1, minClassesRequired: 0,
-  minMonthsRequired: 0, description: "", active: true, sportId: 0,
+  minMonthsRequired: 0, description: "", active: true,
 };
 
-export function KarateBeltsTab({ belts, sportId, onSave }: Props) {
+export function KarateBeltsTab({ belts, onSave }: Props) {
   const [editing, setEditing] = useState<KarateBelt | null>(null);
-  const [form, setForm] = useState<KarateBeltRequest>({ ...EMPTY, sportId });
+  const [form, setForm] = useState<KarateBeltRequest>({ ...EMPTY });
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function openCreate() {
     setEditing(null);
-    setForm({ ...EMPTY, sportId });
+    setForm({ ...EMPTY });
     setShowForm(true);
   }
 

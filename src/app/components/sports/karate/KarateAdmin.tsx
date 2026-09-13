@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Sword, Layers, Users, CalendarDays, ClipboardCheck, Trophy, ChevronLeft } from "lucide-react";
+import { Sword, Layers, Users, CalendarDays, ClipboardCheck, Trophy, ChevronLeft, BookOpen } from "lucide-react";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import { karateService } from "../../../../services/sports/karateService";
 import type {
-  KarateBelt, KarateBeltRequest, KarateProgram, KarateProgramRequest,
+  KarateBelt, KarateBeltRequest, KarateProgram,
   KarateBatch, KarateBatchRequest, KarateEnrollment, KarateClass,
   KarateAttendanceRecord, KarateGradingExam, KarateGradingExamRequest,
-  BatchStatus, KarateAttendanceEntry, KarateExamResultEntry,
+  BatchStatus, KarateAttendanceEntry, KarateExamResultEntry, KarateEnrollRequest,
+  KarateClassGenerateRequest,
 } from "../../../../services/sports/karateService";
 import { KarateBeltsTab } from "./KarateBeltsTab";
 import { KarateBatchesTab } from "./KarateBatchesTab";
@@ -15,19 +16,23 @@ import { KarateGradingTab } from "./KarateGradingTab";
 
 type Tab = "belts" | "programs" | "batches" | "enrollments" | "classes" | "attendance" | "grading";
 
-const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+const TABS: { id: Tab; label: string; icon: React.ReactNode; requiresBatch?: boolean }[] = [
   { id: "belts",       label: "Belts",       icon: <Sword className="w-4 h-4" /> },
+  { id: "programs",    label: "Programs",    icon: <BookOpen className="w-4 h-4" /> },
   { id: "batches",     label: "Batches",     icon: <Layers className="w-4 h-4" /> },
-  { id: "enrollments", label: "Enrollments", icon: <Users className="w-4 h-4" /> },
-  { id: "classes",     label: "Classes",     icon: <CalendarDays className="w-4 h-4" /> },
-  { id: "attendance",  label: "Attendance",  icon: <ClipboardCheck className="w-4 h-4" /> },
-  { id: "grading",     label: "Grading",     icon: <Trophy className="w-4 h-4" /> },
+  { id: "enrollments", label: "Enrollments", icon: <Users className="w-4 h-4" />,        requiresBatch: true },
+  { id: "classes",     label: "Classes",     icon: <CalendarDays className="w-4 h-4" />,  requiresBatch: true },
+  { id: "attendance",  label: "Attendance",  icon: <ClipboardCheck className="w-4 h-4" />,requiresBatch: true },
+  { id: "grading",     label: "Grading",     icon: <Trophy className="w-4 h-4" />,        requiresBatch: true },
 ];
 
 interface Venue { id: number; name: string; }
 
 export function KarateAdmin() {
   const [activeTab, setActiveTab] = useState<Tab>("belts");
+
+  // Program selection drives batch loading
+  const [selectedProgram, setSelectedProgram] = useState<KarateProgram | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<KarateBatch | null>(null);
 
   const [belts, setBelts] = useState<KarateBelt[]>([]);
@@ -36,14 +41,15 @@ export function KarateAdmin() {
   const [enrollments, setEnrollments] = useState<KarateEnrollment[]>([]);
   const [classes, setClasses] = useState<KarateClass[]>([]);
   const [exams, setExams] = useState<KarateGradingExam[]>([]);
-  const [venues, setVenues] = useState<Venue[]>([]);
+  const [venues] = useState<Venue[]>([]);
 
-  // Hardcoded sportId — Karate. Resolve properly from SportsMeta if needed.
-  const sportId = 1;
-
-  const loadBelts    = useCallback(() => karateService.getBelts().then(r => setBelts(Array.isArray(r) ? r : (r as any)?.content ?? [])).catch(() => {}), []);
+  const loadBelts    = useCallback(() => karateService.getBelts().then(r => setBelts(Array.isArray(r) ? r : [])).catch(() => {}), []);
   const loadPrograms = useCallback(() => karateService.getPrograms().then(r => setPrograms((r as any)?.content ?? [])).catch(() => {}), []);
-  const loadBatches  = useCallback(() => karateService.getBatches().then(r => setBatches((r as any)?.content ?? [])).catch(() => {}), []);
+
+  // Batches require a programId
+  const loadBatches = useCallback((programId: number) =>
+    karateService.getBatches(programId).then(r => setBatches(Array.isArray(r) ? r : [])).catch(() => {}),
+  []);
 
   const loadBatchDetail = useCallback((batch: KarateBatch) => {
     Promise.all([
@@ -53,32 +59,27 @@ export function KarateAdmin() {
     ]);
   }, []);
 
-  useEffect(() => {
-    loadBelts();
-    loadPrograms();
-    loadBatches();
-  }, []);
-
-  useEffect(() => {
-    if (selectedBatch) loadBatchDetail(selectedBatch);
-  }, [selectedBatch]);
+  useEffect(() => { loadBelts(); loadPrograms(); }, []);
+  useEffect(() => { if (selectedProgram) loadBatches(selectedProgram.id); else setBatches([]); }, [selectedProgram]);
+  useEffect(() => { if (selectedBatch) loadBatchDetail(selectedBatch); }, [selectedBatch]);
 
   // ── Belt handlers ──────────────────────────────────────────────────────────
   async function handleSaveBelt(data: KarateBeltRequest, id?: number) {
     try {
-      if (id) { await karateService.updateBelt(id, data); }
-      else     { await karateService.createBelt(data); }
+      if (id) await karateService.updateBelt(id, data);
+      else     await karateService.createBelt(data);
       showSuccess(id ? "Belt updated" : "Belt created");
       await loadBelts();
     } catch { showError("Failed to save belt"); }
   }
 
   // ── Batch handlers ─────────────────────────────────────────────────────────
-  async function handleCreateBatch(data: KarateBatchRequest) {
+  // programId now comes from the parent; it's a path param not a body field
+  async function handleCreateBatch(programId: number, data: KarateBatchRequest) {
     try {
-      await karateService.createBatch(data);
+      await karateService.createBatch(programId, data);
       showSuccess("Batch created");
-      await loadBatches();
+      await loadBatches(programId);
     } catch { showError("Failed to create batch"); }
   }
 
@@ -86,11 +87,8 @@ export function KarateAdmin() {
     try {
       await karateService.updateBatchStatus(id, status);
       showSuccess(`Batch marked ${status.toLowerCase()}`);
-      await loadBatches();
-      if (selectedBatch?.id === id) {
-        const updated = batches.find(b => b.id === id);
-        if (updated) loadBatchDetail({ ...updated, status });
-      }
+      if (selectedProgram) await loadBatches(selectedProgram.id);
+      if (selectedBatch?.id === id) loadBatchDetail({ ...selectedBatch, status });
     } catch { showError("Failed to update batch status"); }
   }
 
@@ -115,9 +113,10 @@ export function KarateAdmin() {
   }
 
   // ── Grading handlers ───────────────────────────────────────────────────────
-  async function handleCreateExam(data: KarateGradingExamRequest) {
+  // batchId is now a path param; data has no batchId field
+  async function handleCreateExam(batchId: number, data: KarateGradingExamRequest) {
     try {
-      await karateService.createExam(data);
+      await karateService.createExam(batchId, data);
       showSuccess("Exam scheduled");
       if (selectedBatch) await loadBatchDetail(selectedBatch);
     } catch { showError("Failed to schedule exam"); }
@@ -126,12 +125,12 @@ export function KarateAdmin() {
   async function handleSubmitResults(examId: number, entries: KarateExamResultEntry[]) {
     try {
       await karateService.submitResults(examId, entries);
-      showSuccess("Results submitted");
+      showSuccess("Results submitted — passing students promoted");
       if (selectedBatch) await loadBatchDetail(selectedBatch);
     } catch { showError("Failed to submit results"); }
   }
 
-  const batchTabs: Tab[] = ["enrollments", "classes", "attendance", "grading"];
+  const visibleTabs = TABS.filter(t => !t.requiresBatch || !!selectedBatch);
 
   return (
     <div className="space-y-4">
@@ -142,28 +141,45 @@ export function KarateAdmin() {
         </div>
         <div>
           <h2 className="text-base font-bold text-slate-800">Karate Classes</h2>
-          <p className="text-xs text-slate-500">Belt progression · Batches · Attendance · Grading</p>
+          <p className="text-xs text-slate-500">Belt progression · Programs · Batches · Attendance · Grading</p>
         </div>
       </div>
 
-      {/* Batch context banner */}
-      {selectedBatch && batchTabs.includes(activeTab) && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
-          <button
-            onClick={() => { setSelectedBatch(null); setActiveTab("batches"); }}
-            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" /> Batches
-          </button>
-          <span className="text-slate-300">·</span>
-          <span className="text-sm font-semibold text-indigo-800">{selectedBatch.name}</span>
-          <span className="text-xs text-indigo-500 ml-auto">{selectedBatch.status}</span>
+      {/* Program → Batch breadcrumb */}
+      {(selectedProgram || selectedBatch) && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-100 text-xs flex-wrap">
+          {selectedProgram && (
+            <>
+              <button
+                onClick={() => { setSelectedProgram(null); setSelectedBatch(null); setBatches([]); setActiveTab("programs"); }}
+                className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Programs
+              </button>
+              <span className="text-slate-300">·</span>
+              <span className="font-semibold text-indigo-800">{selectedProgram.name}</span>
+            </>
+          )}
+          {selectedBatch && (
+            <>
+              <span className="text-slate-300">·</span>
+              <button
+                onClick={() => { setSelectedBatch(null); setActiveTab("batches"); }}
+                className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Batches
+              </button>
+              <span className="text-slate-300">·</span>
+              <span className="font-semibold text-indigo-800">{selectedBatch.batchName}</span>
+              <span className="text-indigo-500 ml-1">{selectedBatch.status}</span>
+            </>
+          )}
         </div>
       )}
 
       {/* Tab bar */}
       <div className="flex gap-1 flex-wrap">
-        {TABS.filter(t => !batchTabs.includes(t.id) || !!selectedBatch).map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -182,12 +198,18 @@ export function KarateAdmin() {
 
       {/* Tab content */}
       <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm min-h-[300px]">
+
         {activeTab === "belts" && (
-          <KarateBeltsTab belts={belts} sportId={sportId} onSave={handleSaveBelt} />
+          <KarateBeltsTab belts={belts} onSave={handleSaveBelt} />
         )}
 
         {activeTab === "programs" && (
-          <div className="text-sm text-slate-400 py-8 text-center">Program management coming soon</div>
+          <KarateProgramsPanel
+            programs={programs}
+            selectedProgram={selectedProgram}
+            onSelect={p => { setSelectedProgram(p); setSelectedBatch(null); setActiveTab("batches"); }}
+            onRefresh={loadPrograms}
+          />
         )}
 
         {activeTab === "batches" && (
@@ -195,6 +217,7 @@ export function KarateAdmin() {
             batches={batches}
             programs={programs}
             venues={venues}
+            selectedProgramId={selectedProgram?.id ?? null}
             onCreateBatch={handleCreateBatch}
             onStatusChange={handleBatchStatus}
             onSelectBatch={handleSelectBatch}
@@ -240,7 +263,49 @@ export function KarateAdmin() {
   );
 }
 
-// ── Inline enrollment panel ────────────────────────────────────────────────────
+// ── Programs panel ─────────────────────────────────────────────────────────────
+
+function KarateProgramsPanel({
+  programs, selectedProgram, onSelect, onRefresh,
+}: {
+  programs: KarateProgram[];
+  selectedProgram: KarateProgram | null;
+  onSelect: (p: KarateProgram) => void;
+  onRefresh: () => void;
+}) {
+  const LEVEL_CLS: Record<string, string> = {
+    BEGINNER:     "bg-green-100 text-green-700",
+    INTERMEDIATE: "bg-yellow-100 text-yellow-700",
+    ADVANCED:     "bg-red-100 text-red-700",
+    MIXED:        "bg-purple-100 text-purple-700",
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500">Select a program to view and manage its batches.</p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {programs.map(p => (
+          <button
+            key={p.id}
+            onClick={() => onSelect(p)}
+            className={`text-left rounded-xl border p-4 transition-all hover:shadow-sm ${selectedProgram?.id === p.id ? "border-indigo-300 bg-indigo-50" : "border-slate-100 bg-white hover:border-indigo-100"}`}
+          >
+            <p className="font-semibold text-slate-800 text-sm">{p.name}</p>
+            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{p.description ?? "—"}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${LEVEL_CLS[p.level] ?? ""}`}>{p.level}</span>
+              {!p.active && <span className="text-xs text-slate-400">Inactive</span>}
+            </div>
+          </button>
+        ))}
+        {programs.length === 0 && (
+          <div className="col-span-3 py-10 text-center text-slate-400 text-sm">No programs yet</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Enrollments panel ──────────────────────────────────────────────────────────
 
 function KarateEnrollmentsPanel({ enrollments, batchId, onRefresh }: { enrollments: KarateEnrollment[]; batchId: number; onRefresh: () => void }) {
   const [studentId, setStudentId] = useState("");
@@ -250,7 +315,9 @@ function KarateEnrollmentsPanel({ enrollments, batchId, onRefresh }: { enrollmen
     if (!studentId) return;
     setEnrolling(true);
     try {
-      await karateService.enroll({ batchId, studentUserId: +studentId });
+      // enroll(batchId, data) — batchId in path, data has studentUserId (not currentBeltId)
+      const req: KarateEnrollRequest = { studentUserId: +studentId };
+      await karateService.enroll(batchId, req);
       showSuccess("Student enrolled");
       setStudentId("");
       onRefresh();
@@ -296,7 +363,7 @@ function KarateEnrollmentsPanel({ enrollments, batchId, onRefresh }: { enrollmen
                 </td>
                 <td className="px-4 py-3 text-right">
                   <span className={`font-semibold ${e.attendancePercentage >= 75 ? "text-emerald-600" : "text-red-500"}`}>
-                    {e.attendancePercentage.toFixed(0)}%
+                    {Number(e.attendancePercentage).toFixed(0)}%
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right text-slate-600">{e.totalClassesAttended}</td>
@@ -324,7 +391,7 @@ function KarateEnrollmentsPanel({ enrollments, batchId, onRefresh }: { enrollmen
   );
 }
 
-// ── Inline classes panel ───────────────────────────────────────────────────────
+// ── Classes panel ──────────────────────────────────────────────────────────────
 
 function KarateClassesPanel({ classes, batchId, onRefresh }: { classes: KarateClass[]; batchId: number; onRefresh: () => void }) {
   const [generating, setGenerating] = useState(false);
@@ -334,8 +401,10 @@ function KarateClassesPanel({ classes, batchId, onRefresh }: { classes: KarateCl
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const result = await karateService.generateClasses({ batchId, fromDate, toDate });
-      showSuccess(`Generated ${(result as any)?.generated ?? 0} class session(s)`);
+      // generateClasses(batchId, data) — batchId in path
+      const req: KarateClassGenerateRequest = { fromDate, toDate };
+      const result = await karateService.generateClasses(batchId, req);
+      showSuccess(`Generated ${Array.isArray(result) ? result.length : 0} class session(s)`);
       onRefresh();
     } catch { showError("Failed to generate classes"); }
     finally { setGenerating(false); }
@@ -364,15 +433,17 @@ function KarateClassesPanel({ classes, batchId, onRefresh }: { classes: KarateCl
             <tr className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-left">Time</th>
+              <th className="px-4 py-3 text-left">Topic</th>
               <th className="px-4 py-3 text-center">Status</th>
               <th className="px-4 py-3 text-center">Reminder</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {classes.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).map(cls => (
+            {[...classes].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).map(cls => (
               <tr key={cls.id} className="hover:bg-slate-50/60">
                 <td className="px-4 py-3 font-medium text-slate-800">{cls.scheduledDate}</td>
                 <td className="px-4 py-3 text-slate-600">{cls.startTime} – {cls.endTime}</td>
+                <td className="px-4 py-3 text-slate-500 text-xs">{cls.topic ?? "—"}</td>
                 <td className="px-4 py-3 text-center">
                   <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_CLS[cls.status] ?? ""}`}>{cls.status}</span>
                 </td>
@@ -380,7 +451,7 @@ function KarateClassesPanel({ classes, batchId, onRefresh }: { classes: KarateCl
               </tr>
             ))}
             {classes.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400 text-sm">No classes yet — generate some above</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">No classes yet — generate some above</td></tr>
             )}
           </tbody>
         </table>
