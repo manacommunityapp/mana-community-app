@@ -96,7 +96,6 @@ import { SportsAdmin }        from "./components/sports/admin/SportsAdmin";
 import { SportsRegister }     from "./components/sports/SportsRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
-import { KarateAdmin }        from "./components/sports/karate/KarateAdmin";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
@@ -277,10 +276,6 @@ export const router = createBrowserRouter([
           {
             path: "analytics",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard>
-          },
-          {
-            path: "karate",
-            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><KarateAdmin /></PermissionGuard>
           },
         ],
       },

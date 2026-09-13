@@ -58,6 +58,7 @@ import {
   Settings2,
   HelpCircle,
   Palette,
+  Flame,
   Share2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -431,7 +432,12 @@ export function ProfileDashboard() {
     }
   }, [activeTab, loadSessions, loadSecurityAuditLogs, loadUserActivities, auditPage, auditPageSize]);
 
-  const [securitySettings, setSecuritySettings] = useState(() => {
+  const [securitySettings, setSecuritySettings] = useState<{
+    twoFactorEnabled: boolean;
+    smsOtpBackup: boolean;
+    loginAlerts: boolean;
+    biometricPasskey: boolean;
+  }>(() => {
     try {
       const saved = localStorage.getItem("mana_security_settings");
       if (saved) return JSON.parse(saved);
@@ -458,7 +464,7 @@ export function ProfileDashboard() {
       loginAlerts: "Instant Login Alerts",
       biometricPasskey: "Biometric / Passkey Login",
     };
-    toast.info(`Updated setting for ${titles[key] || key}`);
+    toast.info(`Updated setting for ${titles[String(key)] || String(key)}`);
   };
 
   const handleRevokeSession = async (sessionId: number, deviceName: string) => {
@@ -484,7 +490,14 @@ export function ProfileDashboard() {
     }
   };
 
-  const [appPreferences, setAppPreferences] = useState(() => {
+  const [appPreferences, setAppPreferences] = useState<{
+    theme: string;
+    language: string;
+    soundEffects: boolean;
+    vibration: boolean;
+    quietHours: boolean;
+    autoCheckinPass: boolean;
+  }>(() => {
     try {
       const saved = localStorage.getItem("mana_app_preferences");
       if (saved) return JSON.parse(saved);
@@ -797,7 +810,8 @@ export function ProfileDashboard() {
     try {
       let finalUrl = "";
       try {
-        const uploadRes = await fileUploadService.upload(file, "USER", user?.id ? String(user.id) : (profile?.userId ? String(profile.userId) : "avatar"));
+        const uploadUserId = (user as any)?.id ? String((user as any).id) : (user?.userId ? String(user.userId) : (profile?.userId ? String(profile.userId) : "avatar"));
+        const uploadRes = await fileUploadService.upload(file, "USER", uploadUserId);
         finalUrl = uploadRes.url;
       } catch {
         // Fallback: convert file to local Base64 data-URI if cloud upload is not configured
@@ -1115,24 +1129,24 @@ export function ProfileDashboard() {
             {/* Name + Role + Meta + Actions */}
             <div className="flex-1 min-w-0">
               {/* Name row with actions on same line */}
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-1.5 sm:gap-2">
                 <div className="min-w-0">
                   <h4 className="text-sm sm:text-lg md:text-xl font-black text-foreground tracking-tight leading-tight truncate pr-1">
                     {profile.fullName}
                   </h4>
                   <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
-                    <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0", role.color)}>
+                    <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0", role.color)}>
                       <role.icon className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {role.label}
                     </span>
                   </div>
                 </div>
 
                 {/* Actions: Identity & KYC Status + Edit Button */}
-                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap sm:flex-nowrap justify-end">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end">
                   {/* Identity & KYC Status */}
                   <div
                     className={cn(
-                      "flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border transition-all shadow-2xs select-none",
+                      "flex items-center gap-1 sm:gap-1.5 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border transition-all shadow-2xs select-none",
                       profile.kycStatus === "VERIFIED"
                         ? "bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60"
                         : profile.kycStatus === "PENDING"
@@ -1149,7 +1163,7 @@ export function ProfileDashboard() {
                   >
                     <ShieldCheck
                       className={cn(
-                        "w-3.5 h-3.5 shrink-0",
+                        "w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0",
                         profile.kycStatus === "VERIFIED"
                           ? "text-emerald-600 dark:text-emerald-400"
                           : profile.kycStatus === "PENDING"
@@ -1158,14 +1172,14 @@ export function ProfileDashboard() {
                       )}
                     />
                     <div className="flex flex-col text-left">
-                      <span className="text-[7.5px] sm:text-[8.5px] font-bold uppercase tracking-wider text-muted-foreground leading-none">
+                      <span className="text-[6.5px] sm:text-[8.5px] font-bold uppercase tracking-wider text-muted-foreground leading-none hidden sm:inline">
                         Identity & KYC
                       </span>
-                      <span className="text-[10px] sm:text-[11px] font-bold leading-tight mt-0.5">
+                      <span className="text-[9px] sm:text-[11px] font-bold leading-tight sm:mt-0.5">
                         {profile.kycStatus === "VERIFIED"
-                          ? "KYC Verified"
+                          ? "Verified"
                           : profile.kycStatus === "PENDING"
-                          ? "KYC Pending"
+                          ? "Pending"
                           : `KYC ${profile.kycStatus || "Unverified"}`}
                       </span>
                     </div>
@@ -1174,16 +1188,16 @@ export function ProfileDashboard() {
                   <button
                     type="button"
                     onClick={() => { if (activeTab !== "settings") setActiveTab("settings"); setIsEditing(!isEditing); }}
-                    className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg sm:rounded-xl transition-all shadow-2xs text-xs cursor-pointer whitespace-nowrap"
+                    className="flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg sm:rounded-xl transition-all shadow-2xs text-[11px] sm:text-xs cursor-pointer whitespace-nowrap"
                   >
-                    <PenLine className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    <PenLine className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" />
                     <span>{isEditing ? "Cancel" : "Edit"}</span>
                   </button>
                 </div>
               </div>
 
               {/* Meta — single compact line */}
-              <div className="flex items-center gap-2 mt-1 flex-wrap text-[10px] sm:text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap text-[9.5px] sm:text-[11px] text-muted-foreground">
                 <span className="flex items-center gap-0.5 font-medium">
                   <Building2 className="w-3 h-3 text-primary shrink-0" />
                   {profile.communityName || "Community"}
@@ -1202,7 +1216,7 @@ export function ProfileDashboard() {
             </div>
           </div>
 
-          {/* Stats Bar — 6 cols on both mobile and desktop */}
+          {/* Stats Bar — 6 cols on both mobile and desktop with touch-safe padding */}
           <div className="grid grid-cols-6 gap-1 sm:gap-2 mt-1.5 sm:mt-2.5 mb-1.5 sm:mb-3">
             {[
               { label: "Posts",   value: profile.stats.posts,          color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/40" },
@@ -1212,15 +1226,15 @@ export function ProfileDashboard() {
               { label: "Jobs",    value: profile.stats.jobsPosted,      color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-50/70 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/40" },
               { label: "Sports",  value: profile.stats.sportsPlayed,    color: "text-amber-600 dark:text-amber-400",  bg: "bg-amber-50/70 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900/40" },
             ].map((s) => (
-              <div key={s.label} className={cn("rounded-lg sm:rounded-xl py-1.5 px-1 sm:py-2 sm:px-2 text-center border", s.bg)}>
-                <div className={cn("text-xs sm:text-base font-black leading-none", s.color)}>{s.value}</div>
-                <div className="text-[7px] sm:text-[9px] font-bold text-muted-foreground uppercase tracking-wide mt-0.5 truncate">{s.label}</div>
+              <div key={s.label} className={cn("rounded-lg sm:rounded-xl py-1 px-0.5 sm:py-2 sm:px-2 text-center border", s.bg)}>
+                <div className={cn("text-[11px] sm:text-base font-black leading-none", s.color)}>{s.value}</div>
+                <div className="text-[6.5px] sm:text-[9px] font-bold text-muted-foreground uppercase tracking-wide mt-0.5 truncate">{s.label}</div>
               </div>
             ))}
           </div>
 
           {/* Tab Navigation — equally distributed, icon+label */}
-          <div className="flex -mb-px -mx-3.5 sm:mx-0">
+          <div className="flex -mb-px -mx-3 sm:mx-0 overflow-x-auto no-scrollbar">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1229,14 +1243,14 @@ export function ProfileDashboard() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 sm:flex-row sm:gap-1.5 sm:px-3 border-b-2 transition-all cursor-pointer",
+                    "flex-1 min-w-[54px] flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 sm:flex-row sm:gap-1.5 sm:px-3 border-b-2 transition-all cursor-pointer shrink-0 sm:shrink",
                     isActive
-                      ? "border-primary text-primary bg-primary/3"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                      ? "border-primary text-primary bg-primary/5 font-bold"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 font-medium"
                   )}
                 >
                   <Icon className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0", isActive && "text-primary")} />
-                  <span className={cn("text-[9px] sm:text-[11.5px] font-bold leading-none", isActive && "text-primary")}>
+                  <span className={cn("text-[8.5px] sm:text-[11.5px] leading-none", isActive && "text-primary")}>
                     <span className="sm:hidden">{tab.shortLabel}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
                   </span>
@@ -2339,28 +2353,6 @@ export function ProfileDashboard() {
                             );
                           })}
                         </div>
-                      </div>
-
-                      {/* Language Selection */}
-                      <div className="flex items-center justify-between py-0.5 border-t border-border/40">
-                        <div>
-                          <p className="text-[11px] sm:text-xs font-semibold text-foreground leading-tight">App Language</p>
-                          <p className="text-[9.5px] text-muted-foreground">Display language for menus & alerts</p>
-                        </div>
-                        <select
-                          value={appPreferences.language}
-                          onChange={(e) => {
-                            handleUpdatePreferences({ language: e.target.value });
-                            toast.success(`Language set to ${e.target.value}`);
-                          }}
-                          className="px-2 py-0.5 border border-border rounded-md text-[10.5px] font-semibold bg-[var(--mana-bg-input)] focus:ring-2 focus:ring-primary/25 outline-none cursor-pointer"
-                        >
-                          <option value="English">English (US)</option>
-                          <option value="Telugu">Telugu (తెలుగు)</option>
-                          <option value="Hindi">Hindi (हिंदी)</option>
-                          <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
-                          <option value="Tamil">Tamil (தமிழ்)</option>
-                        </select>
                       </div>
 
                       {/* Sound & In-app Haptics */}

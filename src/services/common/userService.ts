@@ -46,6 +46,14 @@ export interface PagedUserResponse {
   totalPages: number;
 }
 
+export interface RoleDetailsItem {
+  id: number;
+  name: string;
+  communityId?: number | null;
+  permissions: string[];
+  userCount: number;
+}
+
 export const userService = {
   /** GET /api/users — returns full paginated response from DB with search, communityId, status, and kyc filters */
   async getUsersPaged(params: {
@@ -182,6 +190,11 @@ export const userService = {
   /** GET /api/roles */
   async getRoles(): Promise<RoleResponse[]> {
     return apiClient.get<RoleResponse[]>("/roles");
+  },
+
+  /** GET /api/roles/details — fetch roles with permissions and accurate community user counts */
+  async getRoleDetails(): Promise<RoleDetailsItem[]> {
+    return apiClient.get<RoleDetailsItem[]>("/roles/details");
   },
 
   /** POST /api/roles */

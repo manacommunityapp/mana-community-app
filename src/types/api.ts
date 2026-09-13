@@ -350,7 +350,30 @@ export interface EventRegistration {
   captainNomination?: boolean;
   captainConfirmation?: boolean;
   proposedTeamName?: string;
+  seed?: number | null;
   registeredAt?: string;
+}
+
+export interface SportsPlayerRanking {
+  id: number;
+  player: { id: number; fullName: string; email?: string; flatNo?: string; avatarUrl?: string };
+  sport: { id: number; name: string; icon?: string };
+  communityId: number;
+  rank?: number | null;
+  rating?: number | null;
+  source: "MANUAL" | "COMPUTED";
+  season: string;
+  notes?: string | null;
+}
+
+export interface SportsPlayerRankingRequest {
+  userId: number;
+  sportId: number;
+  communityId: number;
+  rank?: number | null;
+  rating?: number | null;
+  season?: string;
+  notes?: string | null;
 }
 
 export interface SportsTournament {

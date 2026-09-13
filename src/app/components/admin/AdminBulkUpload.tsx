@@ -427,77 +427,76 @@ export function AdminBulkUpload() {
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3.5 sm:space-y-4">
       <Toaster position="top-center" richColors />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/admin")} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
+            <FileSpreadsheet className="w-4 h-4" />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <FileSpreadsheet className="w-6 h-6 text-indigo-600" />
-              Bulk User Upload & Insertion
+            <h1 className="text-xs sm:text-sm font-bold text-foreground leading-tight">
+              Bulk User Upload &amp; Insertion
             </h1>
-            <p className="text-slate-500 text-sm mt-0.5">
-              Validate, inspect remarks, and save multiple community application users into the database
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+              Validate, inspect remarks, and save multiple community users into the database
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={downloadTemplate}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-input border border-border/80 text-foreground hover:bg-input/80 rounded-lg text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
           >
-            <Download className="w-4 h-4 text-indigo-600" />
-            Download Sample CSV Template
+            <Download className="w-3.5 h-3.5 text-primary" />
+            Download Sample CSV
           </button>
         </div>
       </div>
 
       {/* What needs to be taken care of for proper insertion Guide */}
-      <div className="bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/80 border border-indigo-200/70 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center gap-2.5 text-indigo-950 font-semibold text-base">
-          <Sparkles className="w-5 h-5 text-indigo-600" />
+      <div className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+        <div className="flex items-center gap-1.5 text-foreground font-bold text-xs">
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
           <span>What Needs to Be Taken Care of for Proper User Insertion</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-700">
-          <div className="bg-white/80 backdrop-blur-sm border border-indigo-100 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-indigo-900">
-              <ShieldCheck className="w-4 h-4 text-indigo-600" />
-              <span>1. Mandatory & Unique Fields</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-foreground">
+          <div className="bg-input/40 border border-border/60 rounded-lg p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-primary text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>1. Mandatory &amp; Unique Fields</span>
             </div>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li><strong className="text-slate-800">First & Last Name</strong> must be non-empty.</li>
-              <li><strong className="text-slate-800">Email</strong> must be a valid format and unique across the whole system.</li>
-              <li><strong className="text-slate-800">Phone</strong> must be 8–15 digits and unique per user.</li>
+            <ul className="list-disc list-inside space-y-0.5 text-[10.5px] text-muted-foreground">
+              <li><strong className="text-foreground">First &amp; Last Name</strong> must be non-empty.</li>
+              <li><strong className="text-foreground">Email</strong> must be a valid format &amp; unique.</li>
+              <li><strong className="text-foreground">Phone</strong> must be 8–15 digits &amp; unique.</li>
             </ul>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm border border-indigo-100 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-indigo-900">
-              <Building2 className="w-4 h-4 text-indigo-600" />
-              <span>2. Community Code & Roles</span>
+          <div className="bg-input/40 border border-border/60 rounded-lg p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-primary text-[11px]">
+              <Building2 className="w-3.5 h-3.5" />
+              <span>2. Community Code &amp; Roles</span>
             </div>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li><strong className="text-slate-800">Community Code</strong> must match an existing Invite Code (e.g. <code className="bg-indigo-50 px-1 py-0.5 rounded text-indigo-700 font-mono">APT-TOWER-A-2024</code>).</li>
-              <li><strong className="text-slate-800">Supported Roles</strong>: <code className="text-slate-800 font-semibold">member</code>, <code className="text-slate-800 font-semibold">resident</code>, <code className="text-slate-800 font-semibold">vendor</code>, <code className="text-slate-800 font-semibold">admin</code>, <code className="text-slate-800 font-semibold">security</code>, <code className="text-slate-800 font-semibold">staff</code>.</li>
-              <li>Flat/Unit, ID Type, and ID Number are optional.</li>
+            <ul className="list-disc list-inside space-y-0.5 text-[10.5px] text-muted-foreground">
+              <li><strong className="text-foreground">Community Code</strong> must match Invite Code.</li>
+              <li><strong className="text-foreground">Roles</strong>: member, resident, vendor, admin, staff.</li>
+              <li>Flat/Unit, ID Type/Number are optional.</li>
             </ul>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm border border-indigo-100 rounded-xl p-3.5 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-indigo-900">
-              <KeyRound className="w-4 h-4 text-indigo-600" />
-              <span>3. Password & Verification</span>
+          <div className="bg-input/40 border border-border/60 rounded-lg p-2.5 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-primary text-[11px]">
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>3. Password &amp; Verification</span>
             </div>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li>Initial password automatically defaults to <code className="bg-emerald-50 text-emerald-800 px-1 py-0.5 rounded font-mono font-medium">Pass1234</code>.</li>
-              <li>Users can immediately sign in or use <strong>Forgot Password</strong> to set a new password via Email OTP.</li>
-              <li>Accounts are created in <strong>Active</strong> & <strong>Pre-verified KYC</strong> state.</li>
+            <ul className="list-disc list-inside space-y-0.5 text-[10.5px] text-muted-foreground">
+              <li>Default initial password is <code className="bg-success/10 text-success px-1 py-0.2 rounded font-mono font-bold text-[10px]">Pass1234</code>.</li>
+              <li>Users can sign in or reset via OTP.</li>
+              <li>Created in <strong>Active</strong> state.</li>
             </ul>
           </div>
         </div>
@@ -510,10 +509,10 @@ export function AdminBulkUpload() {
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           className={cn(
-            "border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer",
+            "border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer",
             isDragging
-              ? "border-indigo-500 bg-indigo-50 scale-[1.01]"
-              : "border-slate-300 bg-white hover:border-indigo-400 hover:bg-indigo-50/30"
+              ? "border-primary bg-primary/5 scale-[1.01]"
+              : "border-border/80 bg-card hover:border-primary/40 hover:bg-input/30"
           )}
           onClick={() => fileInputRef.current?.click()}
         >
@@ -525,26 +524,23 @@ export function AdminBulkUpload() {
             className="hidden"
           />
           {isProcessing ? (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-              <p className="text-slate-600 font-medium">Parsing and validating CSV records...</p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+              <p className="text-xs text-muted-foreground font-medium">Parsing and validating CSV records...</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
               <div className={cn(
-                "w-16 h-16 rounded-2xl flex items-center justify-center transition-colors",
-                isDragging ? "bg-indigo-100" : "bg-slate-100"
+                "w-11 h-11 rounded-xl flex items-center justify-center transition-colors shadow-2xs",
+                isDragging ? "bg-primary/20" : "bg-input"
               )}>
-                <Upload className={cn("w-8 h-8", isDragging ? "text-indigo-600" : "text-slate-400")} />
+                <Upload className={cn("w-5 h-5", isDragging ? "text-primary" : "text-muted-foreground")} />
               </div>
               <div>
-                <p className="text-slate-800 font-semibold text-base">
+                <p className="text-foreground font-bold text-xs sm:text-sm">
                   {isDragging ? "Drop your CSV file here" : "Drag & drop your user CSV file, or click to browse"}
                 </p>
-                <p className="text-slate-500 text-sm mt-1">Supports UTF-8 formatted CSV files up to 10MB</p>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-slate-400 mt-2">
-                <span className="flex items-center gap-1.5"><FileText className="w-4 h-4 text-indigo-500" /> Standard CSV template</span>
+                <p className="text-muted-foreground text-[10.5px] mt-0.5">Supports UTF-8 CSV files up to 10MB</p>
               </div>
             </div>
           )}
@@ -553,34 +549,34 @@ export function AdminBulkUpload() {
 
       {/* Parsed Results & Remarks Table */}
       {parsedData && (
-        <div className="space-y-5">
+        <div className="space-y-3">
           {/* File Info Bar */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                <FileSpreadsheet className="w-5 h-5 text-green-600" />
+          <div className="bg-card rounded-xl border border-border/80 p-2.5 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-success/15 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-4 h-4 text-success" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900 truncate">{fileName || "uploaded_file.csv"}</p>
-                <p className="text-xs text-slate-500">{parsedData.length} rows loaded & validated</p>
+                <p className="text-xs font-bold text-foreground truncate">{fileName || "uploaded_file.csv"}</p>
+                <p className="text-[10px] text-muted-foreground">{parsedData.length} rows loaded &amp; validated</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleReset}
                 disabled={isUploading}
-                className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 text-xs text-danger hover:bg-danger/10 px-2.5 py-1 rounded-md transition-colors disabled:opacity-50 font-semibold cursor-pointer"
               >
-                <Trash2 className="w-4 h-4" />
-                Clear & Upload Another
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear &amp; Upload Another
               </button>
             </div>
           </div>
 
           {/* Stats Bar */}
           {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {[
                 { label: "Total Rows", value: stats.total, color: "slate", icon: Users },
                 { label: "Valid for Save", value: stats.valid, color: "green", icon: CheckCircle2 },
@@ -589,35 +585,17 @@ export function AdminBulkUpload() {
                 { label: "Saved in DB", value: stats.uploaded, color: "emerald", icon: ShieldCheck },
               ].map(s => (
                 <div key={s.label} className={cn(
-                  "bg-white rounded-xl border p-4 shadow-sm transition-all",
-                  s.color === "green" ? "border-green-200 bg-green-50/20" :
-                  s.color === "red" ? "border-red-200 bg-red-50/20" :
-                  s.color === "yellow" ? "border-yellow-200 bg-yellow-50/20" :
-                  s.color === "emerald" ? "border-emerald-300 bg-emerald-50/30" : "border-slate-200"
+                  "bg-card rounded-xl border p-2.5 shadow-2xs transition-all",
+                  s.color === "green" ? "border-success/30 bg-success/5" :
+                  s.color === "red" ? "border-danger/30 bg-danger/5" :
+                  s.color === "yellow" ? "border-warning/30 bg-warning/5" :
+                  s.color === "emerald" ? "border-primary/30 bg-primary/5" : "border-border/80"
                 )}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={cn(
-                      "text-xs font-semibold",
-                      s.color === "green" ? "text-green-700" :
-                      s.color === "red" ? "text-red-700" :
-                      s.color === "yellow" ? "text-yellow-700" :
-                      s.color === "emerald" ? "text-emerald-800" : "text-slate-600"
-                    )}>{s.label}</span>
-                    <s.icon className={cn(
-                      "w-4 h-4",
-                      s.color === "green" ? "text-green-500" :
-                      s.color === "red" ? "text-red-500" :
-                      s.color === "yellow" ? "text-yellow-500" :
-                      s.color === "emerald" ? "text-emerald-600" : "text-slate-400"
-                    )} />
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-muted-foreground">{s.label}</span>
+                    <s.icon className="w-3 h-3 text-muted-foreground" />
                   </div>
-                  <p className={cn(
-                    "text-2xl font-bold",
-                    s.color === "green" ? "text-green-700" :
-                    s.color === "red" ? "text-red-700" :
-                    s.color === "yellow" ? "text-yellow-700" :
-                    s.color === "emerald" ? "text-emerald-700" : "text-slate-900"
-                  )}>{s.value}</p>
+                  <p className="text-base sm:text-lg font-black text-foreground">{s.value}</p>
                 </div>
               ))}
             </div>
@@ -625,14 +603,14 @@ export function AdminBulkUpload() {
 
           {/* Progress Bar while uploading */}
           {isUploading && uploadProgress && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-2">
-              <div className="flex justify-between text-xs font-semibold text-indigo-900">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 space-y-1.5 shadow-2xs">
+              <div className="flex justify-between text-xs font-bold text-primary">
                 <span>Saving users into database...</span>
                 <span>{uploadProgress.current} / {uploadProgress.total} ({Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)</span>
               </div>
-              <div className="w-full h-2.5 bg-indigo-100 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-input rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-indigo-600 transition-all duration-300"
+                  className="h-full bg-primary transition-all duration-300"
                   style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                 />
               </div>
@@ -640,13 +618,13 @@ export function AdminBulkUpload() {
           )}
 
           {/* Table Controls */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pt-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700">Display Mode:</span>
-              <div className="flex bg-slate-100 rounded-lg p-0.5">
+              <span className="text-xs font-semibold text-muted-foreground">Display:</span>
+              <div className="flex bg-input rounded-lg p-0.5 border border-border/80 shadow-2xs">
                 <button
                   onClick={() => setPreviewMode("table")}
-                  className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", previewMode === "table" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700")}
+                  className={cn("px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer", previewMode === "table" ? "bg-card shadow-2xs text-foreground" : "text-muted-foreground hover:text-foreground")}
                 >
                   Table View
                 </button>

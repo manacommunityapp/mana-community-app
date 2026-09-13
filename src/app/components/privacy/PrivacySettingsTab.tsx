@@ -154,7 +154,7 @@ export const PrivacySettingsTab: React.FC = () => {
       try {
         const fallbackExport = {
           user: {
-            id: user?.id || 1,
+            id: (user as any)?.id || user?.userId || 1,
             fullName: user?.fullName || "Resident",
             email: user?.email || "",
             phone: user?.phone || "",

@@ -3,6 +3,8 @@ import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, Check
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport } from "../utils/sportsConstants";
+import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
+import { showError, showSuccess } from "../../../../utils/ToastUtils";
 
 interface TournamentSectionProps {
   title: string;
@@ -39,6 +41,24 @@ export function TournamentSection({
   onAddParticipant, onImportParticipants, onEditEvent,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
+  const [seedDrafts, setSeedDrafts] = useState<Record<number, string>>({});
+  const [savingSeeds, setSavingSeeds] = useState<Record<number, boolean>>({});
+
+  async function handleSeedSave(regId: number) {
+    const raw = seedDrafts[regId];
+    if (raw === undefined) return;
+    const seed = raw === "" ? null : Number(raw);
+    if (raw !== "" && (isNaN(seed!) || seed! < 1)) return;
+    setSavingSeeds(prev => ({ ...prev, [regId]: true }));
+    try {
+      await sportsRankingService.setRegistrationSeed(regId, seed);
+      showSuccess("Seed updated");
+    } catch {
+      showError("Failed to update seed");
+    } finally {
+      setSavingSeeds(prev => ({ ...prev, [regId]: false }));
+    }
+  }
 
   const toggleEvents = (tournamentId: number) => {
     setExpandedTournamentIds(prev => ({
@@ -117,6 +137,20 @@ export function TournamentSection({
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 mr-1">
+                  <span className="text-[9px] text-slate-400 font-medium">Seed</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={seedDrafts[reg.id] ?? (reg.seed != null ? String(reg.seed) : "")}
+                    onChange={e => setSeedDrafts(prev => ({ ...prev, [reg.id]: e.target.value }))}
+                    onBlur={() => handleSeedSave(reg.id)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); handleSeedSave(reg.id); } }}
+                    placeholder="—"
+                    className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
+                    disabled={!!savingSeeds[reg.id]}
+                  />
+                </div>
                 <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
                   {reg.status}
                 </span>

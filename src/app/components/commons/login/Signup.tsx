@@ -44,7 +44,7 @@ import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3;
 
 type SignupFormValues = {
   fullName: string;
@@ -242,10 +242,8 @@ function BrandPanel() {
 
 // ── Step Progress Indicator ──────────────────────────────────
 const STEPS = [
-  { label: "Community", short: "1" },
-  { label: "Personal & Verify", short: "2" },
-  { label: "Residence", short: "3" },
-  { label: "Security", short: "4" },
+  { label: "Account & Security", short: "1" },
+  { label: "Community & Unit", short: "2" },
 ];
 
 function StepBar({
@@ -670,9 +668,15 @@ export function Signup() {
       setError("email", { type: "manual", message: "Please enter a valid email address first" });
       return;
     }
+
+    if (phone?.trim()) {
+      const isPhoneValid = await trigger("phone");
+      if (!isPhoneValid) return;
+    }
+
     setIsSendingSignupOtp(true);
     try {
-      await authService.sendSignupOtp(email, phone || "");
+      await authService.sendSignupOtp(email.trim(), phone?.trim() || "");
       setResendCooldown(60);
       toast.success(`Verification code sent to ${email}`);
       setTimeout(() => signupOtpInputRef.current?.focus(), 150);
@@ -703,9 +707,50 @@ export function Signup() {
     setCommunitiesError(null);
     try {
       const data = await communityService.getCommunities(communityType);
-      setCommunities(data || []);
+      const list = data && data.length > 0 ? data : [
+        {
+          id: 1,
+          name: "Lakshmi's Emperia",
+          code: "EMP-2024",
+          inviteCode: "EMP-2024",
+          type: "apartment",
+          city: "Hyderabad",
+          state: "Telangana",
+          blockConfigs: DEFAULT_BLOCK_CONFIGS,
+        } as CommunityResponse
+      ];
+      setCommunities(list);
+
+      // Auto select the single/first community
+      if (list.length > 0) {
+        const defaultComm = list[0];
+        const commIdStr = String(defaultComm.id);
+        setSelectedCommunityId(commIdStr);
+        const code = defaultComm.inviteCode || defaultComm.code || "";
+        setValue("communityCode", code, { shouldValidate: true });
+        if (defaultComm.blockConfigs && defaultComm.blockConfigs.length > 0) {
+          setBlockConfigs(defaultComm.blockConfigs);
+        } else {
+          setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
+        }
+      }
     } catch (err: any) {
-      setCommunitiesError(err?.message || "Could not load communities. Please try again.");
+      const fallbackList: CommunityResponse[] = [
+        {
+          id: 1,
+          name: "Lakshmi's Emperia",
+          code: "EMP-2024",
+          inviteCode: "EMP-2024",
+          type: "apartment",
+          city: "Hyderabad",
+          state: "Telangana",
+          blockConfigs: DEFAULT_BLOCK_CONFIGS,
+        }
+      ];
+      setCommunities(fallbackList);
+      setSelectedCommunityId("1");
+      setValue("communityCode", "EMP-2024", { shouldValidate: true });
+      setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
     } finally {
       setIsLoadingCommunities(false);
     }
@@ -750,16 +795,9 @@ export function Signup() {
   };
 
   const validateCurrentStep = async (s: Step): Promise<boolean> => {
+    // Step 1: Personal Details, OTP Verification, and Password
     if (s === 1) {
-      const valid = await trigger(["communityType", "communityCode"]);
-      if (!communityCode?.trim()) {
-        setError("communityCode", { type: "manual", message: "Please select a community above to obtain invite code" });
-        return false;
-      }
-      return valid;
-    }
-    if (s === 2) {
-      const valid = await trigger(["fullName", "email", "phone", "gender"]);
+      const valid = await trigger(["fullName", "email", "phone", "password", "confirmPassword"]);
       if (!valid || phone?.length !== 10) return false;
 
       const code = otpCode.trim();
@@ -774,21 +812,37 @@ export function Signup() {
         return false;
       }
       try {
-        const result = await otpService.verify(email, code);
-        if (!result.verified) {
+        const result = await authService.verifySignupOtp(email.trim(), phone.trim(), code);
+        if (!result.verified && !result.success) {
           toast.error(result.message || "Incorrect or expired verification code. Please try again.");
           return false;
         }
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to verify code. Please try again.");
+        const message = err instanceof Error ? err.message : "Failed to verify code. Please try again.";
+        toast.error(message);
+        if (message.toLowerCase().includes("email")) {
+          setError("email", { type: "manual", message });
+        }
+        if (message.toLowerCase().includes("phone") || message.toLowerCase().includes("mobile")) {
+          setError("phone", { type: "manual", message });
+        }
         return false;
       }
       return true;
     }
-    if (s === 3) {
+
+    // Step 2: Community, Residence, and Terms
+    if (s === 2) {
+      const commValid = await trigger(["communityType", "communityCode", "terms"]);
+      if (!communityCode?.trim()) {
+        setError("communityCode", { type: "manual", message: "Please select a community to obtain invite code" });
+        return false;
+      }
+      if (!commValid) return false;
+
       if (communityType === "apartment") {
         if (!block) {
-          setError("block", { type: "manual", message: "Please select a block" });
+          setError("block", { type: "manual", message: "Please select a block / wing" });
           return false;
         }
         if (!flatNo) {
@@ -800,10 +854,7 @@ export function Signup() {
       }
       return true;
     }
-    if (s === 4) {
-      const valid = await trigger(["password", "confirmPassword", "terms"]);
-      return valid;
-    }
+
     return true;
   };
 
@@ -811,7 +862,7 @@ export function Signup() {
     const isValid = await validateCurrentStep(step);
     if (!isValid) return;
 
-    if (step < 4) {
+    if (step < 2) {
       setStep((s) => (s + 1) as Step);
       formRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -847,7 +898,7 @@ export function Signup() {
           toast.error(
             `Block ${data.block.toUpperCase()} - Flat ${data.flatNo} is already registered in this community. Please check your unit number.`
           );
-          setStep(3);
+          setStep(2);
           return;
         }
       }
@@ -867,19 +918,19 @@ export function Signup() {
       });
 
       toast.success("Account created! Welcome to the community.");
-      setStep(5);
+      setStep(3);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       toast.error(message);
       if (message.toLowerCase().includes("email")) {
         setError("email", { type: "manual", message });
-        setStep(2);
+        setStep(1);
       } else if (message.toLowerCase().includes("phone") || message.toLowerCase().includes("mobile")) {
         setError("phone", { type: "manual", message });
-        setStep(2);
+        setStep(1);
       } else if (message.toLowerCase().includes("block") || message.toLowerCase().includes("flat") || message.toLowerCase().includes("unit")) {
         setError("flatNo", { type: "manual", message });
-        setStep(3);
+        setStep(2);
       }
     }
   };
@@ -906,10 +957,8 @@ export function Signup() {
   ];
 
   const STEP_HEADINGS = [
-    { title: "Join your community", sub: "Community Setup · Step 1 of 4" },
-    { title: "Tell us about yourself", sub: "Personal Details & Verification · Step 2 of 4" },
-    { title: "Where do you live?", sub: "Unit & Residence · Step 3 of 4" },
-    { title: "Secure your account", sub: "Account Security · Step 4 of 4" },
+    { title: "Create your account", sub: "Personal Details & Password · Step 1 of 2" },
+    { title: "Select your residence", sub: "Community & Flat Unit · Step 2 of 2" },
   ];
 
   const inputBase =
@@ -946,7 +995,7 @@ export function Signup() {
 
         {/* Form Container */}
         <div className="px-3.5 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-3 max-w-[660px] xl:max-w-[720px] 2xl:max-w-[780px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center my-auto">
-          {step < 6 ? (
+          {step < 3 ? (
             <>
               {/* Header Title & Subtitle */}
               <div className="mb-2">
@@ -965,172 +1014,18 @@ export function Signup() {
               <form
                 onSubmit={handleSubmit(onSubmit)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && step < 4 && (e.target as HTMLElement).tagName !== "BUTTON") {
+                  if (e.key === "Enter" && step < 2 && (e.target as HTMLElement).tagName !== "BUTTON") {
                     e.preventDefault();
                     advance();
                   }
                 }}
                 className="space-y-2.5 sm:space-y-3"
               >
-                {/* ── STEP 1: Community Setup (Join your community) ─── */}
+                {/* ── STEP 1: Personal Details, Verification & Password ──── */}
                 {step === 1 && (
                   <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
-                    <SectionHead
-                      num={1}
-                      title="Select Your Community"
-                      sub="Choose your community type and select your society"
-                    />
-
-                    {/* Single unified card for Community Type + Society Selection */}
-                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
-                      {/* Community Type Selection */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className={labelCls}>Community Type</label>
-                          <span className="text-[9.5px] sm:text-[10px] text-primary font-bold px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
-                            {communityTypes.find(t => t.value === communityType)?.label ?? "Apartment"}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {communityTypes.map((type) => {
-                            const isApartment = type.value === "apartment";
-                            return (
-                              <label
-                                key={type.value}
-                                className={`relative flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2 py-2 px-1.5 sm:px-2.5 border-1.5 rounded-lg sm:rounded-xl transition-all duration-200 select-none font-bold ${
-                                  isApartment
-                                    ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/15 cursor-pointer shadow-xs"
-                                    : "border-border/60 bg-muted/20 text-muted-foreground/60 opacity-60 cursor-not-allowed"
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  value={type.value}
-                                  disabled={!isApartment}
-                                  {...register("communityType")}
-                                  className="sr-only"
-                                />
-                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                                  isApartment ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                                }`}>
-                                  <type.icon className="w-3 h-3" />
-                                </div>
-                                <span className="text-[9.5px] sm:text-[10.5px] leading-tight text-center">{type.label}</span>
-                                {isApartment ? (
-                                  <Check className="w-3 h-3 text-primary shrink-0 stroke-[3] sm:ml-auto" />
-                                ) : (
-                                  <span className="text-[7.5px] sm:text-[8px] font-bold px-1 py-0.2 rounded-full bg-muted text-muted-foreground uppercase border border-border/60">
-                                    Soon
-                                  </span>
-                                )}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Society selection dropdown & invite code */}
-                      <div className="border-t border-border/70 pt-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3">
-                        {/* Dropdown */}
-                        <div>
-                          <SearchableDropdown
-                            id="communitySelect"
-                            label="Select Your Society / Campus"
-                            required
-                            disabled={isLoadingCommunities}
-                            disabledHint={isLoadingCommunities ? "Loading communities..." : undefined}
-                            placeholder="Choose your community..."
-                            searchPlaceholder="Search community or city..."
-                            value={selectedCommunityId}
-                            icon={Building2}
-                            error={communitiesError || undefined}
-                            options={communities.map((c) => ({
-                              value: String(c.id),
-                              label: c.name,
-                              sublabel: c.city ? `${c.city}${c.state ? `, ${c.state}` : ""}` : undefined,
-                              badge: c.city || undefined,
-                            }))}
-                            onChange={(val) => handleCommunityChange(val)}
-                          />
-                          {communitiesError && (
-                            <div className="flex items-center justify-between text-[11px] text-destructive mt-1 font-medium">
-                              <span>{communitiesError}</span>
-                              <button
-                                type="button"
-                                onClick={loadCommunities}
-                                className="text-primary hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
-                              >
-                                <RefreshCw className="w-2.5 h-2.5" /> Retry
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Invite Code (Read-Only) */}
-                        <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <label htmlFor="communityCode" className={labelCls}>
-                              Community Invite Code
-                            </label>
-                            {selectedCommunityId ? (
-                              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Auto-filled
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                <Lock className="w-2.5 h-2.5" /> Locked
-                              </span>
-                            )}
-                          </div>
-                          <div className="relative">
-                            <div className="w-5 h-5 rounded-md bg-muted text-muted-foreground flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Lock className="w-3 h-3" />
-                            </div>
-                            <input
-                              id="communityCode"
-                              type="text"
-                              readOnly
-                              {...register("communityCode", {
-                                required: "Please select a community above to obtain invite code",
-                              })}
-                              className={`${inputBase} pl-9 pr-9 bg-muted/40 text-muted-foreground border-border cursor-not-allowed select-none font-mono uppercase tracking-wider font-semibold ${
-                                selectedCommunityId
-                                  ? "bg-primary/5 text-primary border-primary/40 font-bold"
-                                  : ""
-                              }`}
-                              placeholder="Auto-assigned upon selection"
-                            />
-                            {selectedCommunityId && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-primary absolute right-2.5 top-1/2 -translate-y-1/2" />
-                            )}
-                          </div>
-                          {errors.communityCode && (
-                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">
-                              {errors.communityCode.message}
-                            </p>
-                          )}
-                          <p className="hidden sm:block text-[9.5px] text-muted-foreground mt-1 font-medium">
-                            {selectedCommunityId
-                              ? "✓ Auto-populated from selected society (read-only)"
-                              : "Select your society above to automatically populate this code"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── STEP 2: Personal Details & Email Verification ──── */}
-                {step === 2 && (
-                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
-                    <SectionHead
-                      num={2}
-                      title="Personal Details & Verification"
-                      sub="Tell us who you are and verify your email address"
-                    />
-
-                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
-                      {/* Full Name & Email */}
+                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-2.5 sm:space-y-3 shadow-lg shadow-black/5">
+                      {/* Full Name & Phone Number */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                         <div>
                           <label htmlFor="fullName" className={labelCls}>
@@ -1156,77 +1051,6 @@ export function Signup() {
                         </div>
 
                         <div>
-                          <label htmlFor="signup-email" className={labelCls}>
-                            Email Address <span className="text-primary">*</span>
-                          </label>
-                          <div className="relative">
-                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <Mail className="w-3 h-3" />
-                            </div>
-                            <input
-                              id="signup-email"
-                              type="email"
-                              {...register("email", {
-                                required: "Email address is required",
-                                pattern: {
-                                  value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-                                  message:
-                                    "Please enter a valid email address (e.g. name@example.com)",
-                                },
-                              })}
-                              className={`${inputBase} pl-9 pr-3`}
-                              placeholder="name@example.com"
-                            />
-                          </div>
-                          {errors.email && (
-                            <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{errors.email.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Email Verification Section */}
-                      <div className="space-y-2 p-2.5 bg-primary/5 border border-primary/15 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-foreground">Email Verification Code</span>
-                          <button
-                            type="button"
-                            onClick={sendSignupOtpEmail}
-                            disabled={resendCooldown > 0 || isSendingSignupOtp}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent border-none py-0.5 px-1.5 rounded-md hover:bg-primary/10 transition-colors"
-                          >
-                            <RefreshCw className={`w-3 h-3 ${isSendingSignupOtp ? "animate-spin" : ""}`} />
-                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send Code"}
-                          </button>
-                        </div>
-                        <div>
-                          <div className="relative">
-                            <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                              <KeyRound className="w-3 h-3" />
-                            </div>
-                            <input
-                              id="otpCodeInput"
-                              ref={signupOtpInputRef}
-                              type="text"
-                              inputMode="numeric"
-                              maxLength={6}
-                              value={otpCode}
-                              onChange={(e) => {
-                                const numeric = e.target.value.replace(/\D/g, "").slice(0, 6);
-                                setOtpCode(numeric);
-                              }}
-                              placeholder="Enter 6-digit code"
-                              className={`${inputBase} pl-9 pr-3 text-center sm:text-left text-sm sm:text-base font-bold font-mono tracking-[0.25em]`}
-                            />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1 font-medium">
-                            Enter the 6-digit code sent to your email address above.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Phone & Gender */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-                        <div>
                           <div className="flex items-center justify-between mb-0.5">
                             <label htmlFor="phone" className={labelCls}>
                               Phone Number <span className="text-primary">*</span>
@@ -1248,8 +1072,7 @@ export function Signup() {
                                 required: "Phone number is required",
                                 pattern: {
                                   value: /^[6-9]\d{9}$/,
-                                  message:
-                                    "Enter a valid 10-digit Indian mobile number",
+                                  message: "Enter a valid 10-digit Indian mobile number",
                                 },
                                 minLength: {
                                   value: 10,
@@ -1290,260 +1113,78 @@ export function Signup() {
                             <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{errors.phone.message}</p>
                           )}
                         </div>
-
-                        <div>
-                          <SearchableDropdown
-                            id="gender"
-                            label="Gender"
-                            required
-                            placeholder="Select gender"
-                            searchPlaceholder="Search gender..."
-                            value={watch("gender")}
-                            icon={Users}
-                            error={errors.gender?.message}
-                            options={[
-                              { value: "MALE", label: "Male" },
-                              { value: "FEMALE", label: "Female" },
-                              { value: "OTHER", label: "Other / Prefer not to say" },
-                            ]}
-                            onChange={(v) => setValue("gender", v as any, { shouldValidate: true })}
-                          />
-                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
 
-                {/* ── STEP 3: Residence Location (Apartment) ────────── */}
-                {step === 3 && (
-                  <div className="space-y-2 animate-in fade-in duration-200">
-                    <SectionHead
-                      num={3}
-                      title="Unit & Residence"
-                      sub="Specify your user type, block, and flat number"
-                    />
-
-                    <div className="bg-card/90 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 space-y-2.5 shadow-md shadow-black/5">
-                      {/* User Type (Owner / Tenant) Selector - Compact Segmented Control */}
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className={labelCls}>
-                            User Type <span className="text-primary">*</span>
-                          </label>
-                          <span className="text-[9px] font-bold text-primary px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
-                            {userType || "Owner"}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setValue("userType", "Owner", { shouldValidate: true })}
-                            className={`py-1.5 px-2.5 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
-                              userType === "Owner"
-                                ? "border-primary bg-primary/10 ring-2 ring-primary/15 shadow-2xs font-bold text-primary"
-                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 text-foreground"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                                userType === "Owner" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                              }`}>
-                                <Home className="w-3 h-3" />
+                      {/* Email & OTP Verification */}
+                      <div className="space-y-2 p-2.5 bg-primary/5 border border-primary/15 rounded-xl">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                          <div>
+                            <label htmlFor="signup-email" className={labelCls}>
+                              Email Address <span className="text-primary">*</span>
+                            </label>
+                            <div className="relative">
+                              <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <Mail className="w-3 h-3" />
                               </div>
-                              <div>
-                                <p className="text-xs leading-none">Owner</p>
-                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Flat owner</p>
-                              </div>
+                              <input
+                                id="signup-email"
+                                type="email"
+                                {...register("email", {
+                                  required: "Email address is required",
+                                  pattern: {
+                                    value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+                                    message:
+                                      "Please enter a valid email address (e.g. name@example.com)",
+                                  },
+                                })}
+                                className={`${inputBase} pl-9 pr-3`}
+                                placeholder="name@example.com"
+                              />
                             </div>
-                            {userType === "Owner" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setValue("userType", "Tenant", { shouldValidate: true })}
-                            className={`py-1.5 px-2.5 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
-                              userType === "Tenant"
-                                ? "border-primary bg-primary/10 ring-2 ring-primary/15 shadow-2xs font-bold text-primary"
-                                : "border-border/80 bg-slate-50/50 dark:bg-slate-900/40 hover:border-primary/40 text-foreground"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                                userType === "Tenant" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                              }`}>
-                                <Users className="w-3 h-3" />
-                              </div>
-                              <div>
-                                <p className="text-xs leading-none">Tenant</p>
-                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Rental resident</p>
-                              </div>
-                            </div>
-                            {userType === "Tenant" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 2 Cascading Searchable Dropdowns: Block -> Flat Number */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
-                        {/* 1. Block Searchable Dropdown */}
-                        <SearchableDropdown
-                          id="blockSelect"
-                          label="Block / Wing"
-                          required
-                          placeholder="Select Block"
-                          searchPlaceholder="Search block..."
-                          value={block || ""}
-                          icon={Layers}
-                          error={errors.block?.message}
-                          options={blockConfigs.map((bc) => ({
-                            value: bc.blockName,
-                            label: `Block ${bc.blockName}`,
-                            sublabel: `${bc.totalFlats} flats · ${bc.totalFloors} floors`,
-                            badge: `Block ${bc.blockName}`,
-                          }))}
-                          onChange={(newBlock) => {
-                            setValue("block", newBlock, { shouldValidate: true });
-                            setValue("flatNo", "", { shouldValidate: false });
-                            clearErrors(["block", "flatNo"]);
-                          }}
-                        />
-
-                        {/* 2. Flat Number Searchable Dropdown */}
-                        <SearchableDropdown
-                          id="flatSelect"
-                          label="Flat Number"
-                          required
-                          disabled={!block}
-                          disabledHint="Select Block First"
-                          placeholder="Select Flat Number"
-                          searchPlaceholder="Search flat (e.g. 101)..."
-                          value={flatNo || ""}
-                          icon={Home}
-                          error={errors.flatNo?.message}
-                          options={availableFlats.map((flat) => ({
-                            value: flat,
-                            label: `Flat ${flat}`,
-                            sublabel: `Block ${block}`,
-                            badge: `Flat ${flat}`,
-                          }))}
-                          onChange={(flat) => {
-                            setValue("flatNo", flat, { shouldValidate: true });
-                            clearErrors(["flatNo"]);
-                          }}
-                        />
-                      </div>
-
-                      {/* Quick Smart Flat Search across all blocks & floors */}
-                      <div className="relative" ref={flatSearchContainerRef}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <label className="text-[10px] font-semibold text-muted-foreground tracking-tight">
-                            Or Quick Search Any Flat
-                          </label>
-                          {flatSearchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFlatSearchQuery("");
-                                setShowFlatSearchMenu(false);
-                              }}
-                              className="text-[9.5px] text-primary hover:underline font-bold cursor-pointer"
-                            >
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <div className="w-4.5 h-4.5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                            <Search className="w-2.5 h-2.5" />
-                          </div>
-                          <input
-                            type="text"
-                            value={flatSearchQuery}
-                            onFocus={() => setShowFlatSearchMenu(true)}
-                            onChange={(e) => {
-                              setFlatSearchQuery(e.target.value);
-                              setShowFlatSearchMenu(true);
-                            }}
-                            placeholder="Type flat number to auto-fill block & flat (e.g. 101, B-203)..."
-                            className="w-full h-8 bg-slate-50/75 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-900/90 focus:bg-white dark:focus:bg-slate-950 border border-slate-200/80 hover:border-slate-300 dark:border-slate-800 rounded-lg text-foreground placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/15 focus:border-primary outline-none transition-all duration-200 text-[11px] font-medium pl-7.5 pr-7"
-                          />
-                          {flatSearchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setFlatSearchQuery("");
-                                setShowFlatSearchMenu(false);
-                              }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded-md hover:bg-muted"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Quick Search Suggestions Popover */}
-                        {showFlatSearchMenu && flatSearchQuery.trim() && (
-                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 p-1 space-y-0.5">
-                            {matchingFlats.length === 0 ? (
-                              <div className="py-2 text-center text-[10.5px] text-muted-foreground font-medium">
-                                No flats found matching "{flatSearchQuery}"
-                              </div>
-                            ) : (
-                              matchingFlats.map((item) => (
-                                <button
-                                  key={`${item.block}-${item.flatNo}`}
-                                  type="button"
-                                  onClick={() => selectQuickFlat(item)}
-                                  className="w-full px-2 py-1 rounded-md text-[10.5px] flex items-center justify-between text-left hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="w-4.5 h-4.5 rounded-md bg-primary/15 text-primary font-bold flex items-center justify-center text-[9px]">
-                                      {item.block}
-                                    </span>
-                                    <p className="font-bold text-foreground">Flat {item.flatNo} <span className="text-[9px] text-muted-foreground font-normal">· Floor {item.floor}</span></p>
-                                  </div>
-                                  <span className="text-[8.5px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.2 rounded-md">
-                                    Select
-                                  </span>
-                                </button>
-                              ))
+                            {errors.email && (
+                              <p className="text-destructive text-[10px] sm:text-[11px] mt-0.5 font-medium">{errors.email.message}</p>
                             )}
                           </div>
-                        )}
+
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label htmlFor="otpCodeInput" className={labelCls}>
+                                Verification Code <span className="text-primary">*</span>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={sendSignupOtpEmail}
+                                disabled={resendCooldown > 0 || isSendingSignupOtp}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent border-none py-0.2 px-1 rounded-md hover:bg-primary/10 transition-colors"
+                              >
+                                <RefreshCw className={`w-2.5 h-2.5 ${isSendingSignupOtp ? "animate-spin" : ""}`} />
+                                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send Code"}
+                              </button>
+                            </div>
+                            <div className="relative">
+                              <div className="w-5 h-5 rounded-md bg-primary/10 text-primary flex items-center justify-center absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                <KeyRound className="w-3 h-3" />
+                              </div>
+                              <input
+                                id="otpCodeInput"
+                                ref={signupOtpInputRef}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={otpCode}
+                                onChange={(e) => {
+                                  const numeric = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                  setOtpCode(numeric);
+                                }}
+                                placeholder="6-digit code"
+                                className={`${inputBase} pl-9 pr-3 text-center sm:text-left text-xs sm:text-sm font-bold font-mono tracking-[0.2em]`}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Dynamic Compact Unit Selection Confirmation */}
-                      {block && flatNo ? (
-                        <div className="bg-emerald-500/10 rounded-lg border border-emerald-500/25 px-2.5 py-1.5 flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                            <span>Selected: Block {block} · Flat {flatNo} ({userType || "Owner"})</span>
-                          </div>
-                          <span className="text-[9px] text-muted-foreground">Admin will verify</span>
-                        </div>
-                      ) : (
-                        <div className="bg-primary/5 rounded-lg border border-primary/15 px-2.5 py-1.5 flex items-start gap-1.5">
-                          <ShieldCheck className="w-3 h-3 text-primary mt-0.5 shrink-0" />
-                          <p className="text-[9.5px] text-foreground/80 leading-tight font-medium">
-                            Your residence unit and occupancy status will be verified by your community admin upon registration.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ── STEP 4: Role & Security ────────────────────────── */}
-                {step === 4 && (
-                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
-                    <SectionHead
-                      num={4}
-                      title="Account Security"
-                      sub="Set a protected password and review terms to complete signup"
-                    />
-
-                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-border/80 space-y-3 shadow-lg shadow-black/5">
-                      {/* Password Fields */}
+                      {/* Password & Confirm Password */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                         <div>
                           <div className="flex items-center justify-between mb-0.5">
@@ -1583,7 +1224,7 @@ export function Signup() {
                                   "Password must be between 6 and 20 characters and combine letters & numbers",
                               })}
                               className={`${inputBase} pl-9 pr-8`}
-                              placeholder="6 to 20 chars (letters & numbers)"
+                              placeholder="6 to 20 chars"
                             />
                             <button
                               type="button"
@@ -1657,9 +1298,274 @@ export function Signup() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 2: Community, Residence & Terms ────────── */}
+                {step === 2 && (
+                  <div className="space-y-2.5 sm:space-y-3 animate-in fade-in duration-200">
+                    {/* Single unified card: Community Selection */}
+                    <div className="bg-card/90 backdrop-blur-md p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-border/80 space-y-2.5 shadow-md shadow-black/5">
+                      {/* Community Type Selection */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className={labelCls}>Community Type</label>
+                          <span className="text-[9.5px] sm:text-[10px] text-primary font-bold px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
+                            {communityTypes.find(t => t.value === communityType)?.label ?? "Apartment"}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {communityTypes.map((type) => {
+                            const isApartment = type.value === "apartment";
+                            return (
+                              <label
+                                key={type.value}
+                                className={`relative flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2 py-1.5 px-1.5 sm:px-2.5 border-1.5 rounded-lg sm:rounded-xl transition-all duration-200 select-none font-bold ${
+                                  isApartment
+                                    ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/15 cursor-pointer shadow-xs"
+                                    : "border-border/60 bg-muted/20 text-muted-foreground/60 opacity-60 cursor-not-allowed"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  value={type.value}
+                                  disabled={!isApartment}
+                                  {...register("communityType")}
+                                  className="sr-only"
+                                />
+                                <div className={`w-4.5 h-4.5 rounded-md flex items-center justify-center shrink-0 ${
+                                  isApartment ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                }`}>
+                                  <type.icon className="w-2.5 h-2.5" />
+                                </div>
+                                <span className="text-[11px] sm:text-xs">{type.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Society / Campus Dropdown */}
+                      <SearchableDropdown
+                        id="communityCode"
+                        label="Select Your Society / Campus"
+                        required
+                        placeholder="Choose your community..."
+                        searchPlaceholder="Search community by name or city..."
+                        value={selectedCommunityId}
+                        options={communities.map((c) => ({
+                          value: String(c.id),
+                          label: c.name,
+                          sublabel: `${c.city || ""}${c.state ? `, ${c.state}` : ""} · Code: ${c.inviteCode || c.code}`,
+                          badge: c.city || undefined,
+                        }))}
+                        onChange={handleCommunityChange}
+                        disabled={isLoadingCommunities}
+                        icon={Building2}
+                        error={errors.communityCode?.message}
+                      />
+
+                      {/* User Type: Owner or Tenant */}
+                      <div>
+                        <label className={labelCls}>
+                          I am registering as <span className="text-primary">*</span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setValue("userType", "Owner", { shouldValidate: true })}
+                            className={`p-2 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+                              userType === "Owner"
+                                ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 font-bold shadow-xs"
+                                : "border-border hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 text-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                userType === "Owner" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                              }`}>
+                                <Home className="w-3 h-3" />
+                              </div>
+                              <div>
+                                <p className="text-xs leading-none">Owner</p>
+                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Property owner</p>
+                              </div>
+                            </div>
+                            {userType === "Owner" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setValue("userType", "Tenant", { shouldValidate: true })}
+                            className={`p-2 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+                              userType === "Tenant"
+                                ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 font-bold shadow-xs"
+                                : "border-border hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 text-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                userType === "Tenant" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                              }`}>
+                                <Users className="w-3 h-3" />
+                              </div>
+                              <div>
+                                <p className="text-xs leading-none">Tenant</p>
+                                <p className="text-[9px] text-muted-foreground mt-0.5 leading-none">Rental resident</p>
+                              </div>
+                            </div>
+                            {userType === "Tenant" && <Check className="w-3 h-3 text-primary stroke-[3]" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2 Cascading Searchable Dropdowns: Block -> Flat Number */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                        {/* 1. Block Searchable Dropdown */}
+                        <SearchableDropdown
+                          id="blockSelect"
+                          label="Block / Tower / Wing"
+                          required
+                          placeholder="Select block..."
+                          searchPlaceholder="Search block (e.g. A, B)..."
+                          value={block}
+                          options={blockConfigs.map((bc) => ({
+                            value: bc.blockName,
+                            label: `Block ${bc.blockName}`,
+                            sublabel: `${bc.totalFloors || 10} Floors · ${bc.totalFlats || (bc.totalFloors || 10) * (bc.flatsPerFloor || 11)} Flats`,
+                            badge: `${bc.totalFlats || (bc.totalFloors || 10) * (bc.flatsPerFloor || 11)} flats`,
+                          }))}
+                          onChange={(bName) => {
+                            setValue("block", bName, { shouldValidate: true });
+                            setValue("flatNo", "", { shouldValidate: false });
+                            setSelectedFloor("");
+                            clearErrors(["block", "flatNo"]);
+                          }}
+                          disabled={isLoadingBlocks || !selectedCommunityId}
+                          disabledHint={!selectedCommunityId ? "Select a community first" : "Loading block layouts..."}
+                          icon={Layers}
+                          error={errors.block?.message}
+                        />
+
+                        {/* 2. Flat Number Searchable Dropdown */}
+                        <SearchableDropdown
+                          id="flatNoSelect"
+                          label="Flat / Unit Number"
+                          required
+                          placeholder={block ? `Select flat in Block ${block}...` : "Select block first..."}
+                          searchPlaceholder={`Search flat in Block ${block || ""}...`}
+                          value={flatNo}
+                          options={availableFlats.map((fNo) => {
+                            const flNum = Math.floor(parseInt(fNo, 10) / 100);
+                            return {
+                              value: fNo,
+                              label: `Flat ${fNo}`,
+                              sublabel: flNum > 0 ? `Floor ${flNum}` : undefined,
+                              badge: flNum > 0 ? `Floor ${flNum}` : undefined,
+                            };
+                          })}
+                          onChange={(fNo) => {
+                            setValue("flatNo", fNo, { shouldValidate: true });
+                            clearErrors("flatNo");
+                            const num = parseInt(fNo, 10);
+                            if (!isNaN(num) && num >= 100) {
+                              setSelectedFloor(Math.floor(num / 100));
+                            }
+                          }}
+                          disabled={!block}
+                          disabledHint="Select a block first"
+                          icon={Home}
+                          error={errors.flatNo?.message}
+                        />
+                      </div>
+
+                      {/* Fast Unit Search bar across entire society */}
+                      <div className="relative pt-0.5" ref={flatSearchContainerRef}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
+                            <Search className="w-2.5 h-2.5 text-primary" />
+                            <span>Or Fast Search Flat Number</span>
+                          </label>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={flatSearchQuery}
+                            onFocus={() => setShowFlatSearchMenu(true)}
+                            onChange={(e) => {
+                              setFlatSearchQuery(e.target.value);
+                              setShowFlatSearchMenu(true);
+                            }}
+                            placeholder="Type flat number (e.g. 102, C-204, 305)..."
+                            className="w-full h-8 px-2.5 pl-7 bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 rounded-lg text-[11px] placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none font-medium transition-all"
+                          />
+                          <Search className="w-3 h-3 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          {flatSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFlatSearchQuery("");
+                                setShowFlatSearchMenu(false);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Quick Search Suggestions Popover */}
+                        {showFlatSearchMenu && flatSearchQuery.trim() && (
+                          <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-xl overflow-hidden max-h-40 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 p-1 space-y-0.5">
+                            {matchingFlats.length === 0 ? (
+                              <div className="py-2 text-center text-[10.5px] text-muted-foreground font-medium">
+                                No flats found matching "{flatSearchQuery}"
+                              </div>
+                            ) : (
+                              matchingFlats.map((item) => (
+                                <button
+                                  key={`${item.block}-${item.flatNo}`}
+                                  type="button"
+                                  onClick={() => selectQuickFlat(item)}
+                                  className="w-full px-2 py-1 rounded-md text-[10.5px] flex items-center justify-between text-left hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="w-4.5 h-4.5 rounded-md bg-primary/15 text-primary font-bold flex items-center justify-center text-[9px]">
+                                      {item.block}
+                                    </span>
+                                    <p className="font-bold text-foreground">Flat {item.flatNo} <span className="text-[9px] text-muted-foreground font-normal">· Floor {item.floor}</span></p>
+                                  </div>
+                                  <span className="text-[8.5px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.2 rounded-md">
+                                    Select
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Dynamic Compact Unit Selection Confirmation */}
+                      {block && flatNo ? (
+                        <div className="bg-emerald-500/10 rounded-lg border border-emerald-500/25 px-2.5 py-1.5 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Selected: Block {block} · Flat {flatNo} ({userType || "Owner"})</span>
+                          </div>
+                          <span className="text-[9px] text-muted-foreground">Admin will verify</span>
+                        </div>
+                      ) : (
+                        <div className="bg-primary/5 rounded-lg border border-primary/15 px-2.5 py-1.5 flex items-start gap-1.5">
+                          <ShieldCheck className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                          <p className="text-[9.5px] text-foreground/80 leading-tight font-medium">
+                            Your residence unit and occupancy status will be verified by your community admin upon registration.
+                          </p>
+                        </div>
+                      )}
 
                       {/* Terms of Service & Privacy Policy Checkbox */}
-                      <div className="pt-1">
+                      <div className="pt-1 border-t border-border/60">
                         <label className="flex items-start gap-2 cursor-pointer select-none group">
                           <input
                             type="checkbox"
@@ -1710,7 +1616,7 @@ export function Signup() {
                     </button>
                   )}
 
-                  {step < 4 ? (
+                  {step < 2 ? (
                     <button
                       type="button"
                       onClick={advance}
@@ -1724,7 +1630,7 @@ export function Signup() {
                         </>
                       ) : (
                         <>
-                          <span>Continue</span>
+                          <span>Continue to Residence Details</span>
                           <ArrowRight className="w-3.5 h-3.5" />
                         </>
                       )}
@@ -1743,7 +1649,7 @@ export function Signup() {
                         </>
                       ) : (
                         <>
-                          <span>Create My Account</span>
+                          <span>Complete Registration</span>
                           <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
                         </>
                       )}
@@ -1766,7 +1672,7 @@ export function Signup() {
               </div>
             </>
           ) : (
-            /* ── STEP 5: Success Celebration Screen ────────── */
+            /* ── SUCCESS CELEBRATION SCREEN ────────── */
             <div className="flex flex-col items-center text-center py-5 sm:py-8 px-4 animate-in fade-in-50 zoom-in-95 duration-300">
               <div className="relative mb-3 sm:mb-5">
                 <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-primary to-indigo-600 shadow-2xl shadow-primary/30">

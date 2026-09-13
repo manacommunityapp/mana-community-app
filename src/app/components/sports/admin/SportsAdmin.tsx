@@ -15,6 +15,7 @@ import { VenueDetailsModal } from "./VenueDetailsModal";
 import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
+import { RankingsAdminTab } from "./RankingsAdminTab";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
 import { TournamentAnnouncementModal } from "./TournamentAnnouncementModal";
 import "../SportsAuction.css";
@@ -306,6 +307,13 @@ export function SportsAdmin() {
 
           {s.activeTab === "sports-meta" && s.isAdmin && (
             <SportsMetaSection isAdmin={s.isAdmin} />
+          )}
+
+          {s.activeTab === "rankings" && (
+            <RankingsAdminTab
+              communityId={s.activeCommId}
+              sportsMeta={s.sportsMeta}
+            />
           )}
         </div>
       </main>
