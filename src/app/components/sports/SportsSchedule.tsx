@@ -31,7 +31,14 @@ import { tournamentService } from "../../../services/sports/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
 import { LiveMatchView } from "./LiveMatchView";
 import { LiveScoringPanel } from "./LiveScoringPanel";
+import { GenericMatchDetailView } from "./GenericMatchDetailView";
+import { GenericLiveMatchView } from "./GenericLiveMatchView";
+import { GenericLiveScoringPanel } from "./GenericLiveScoringPanel";
+import { isCricketSport, getSportType, isTimeSport } from "./utils/sportScoringConstants";
 import { Leaderboard } from "./Leaderboard";
+import { GenericLeaderboard } from "./GenericLeaderboard";
+import { RaceScoringPanel } from "./RaceScoringPanel";
+import { RaceResultsView } from "./RaceResultsView";
 
 const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
@@ -352,6 +359,33 @@ export function SportsSchedule() {
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
   const [liveViewMatchId, setLiveViewMatchId] = useState<number | null>(null);
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
+  const [activeMatchSport, setActiveMatchSport] = useState<string>("");
+  const [activeMatchFixture, setActiveMatchFixture] = useState<{ teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
+
+  const openLiveView = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+    if (!fixture.matchId) return;
+    setActiveMatchSport(fixture.sport);
+    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setLiveViewMatchId(fixture.matchId);
+  };
+
+  const openMatchDetail = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+    if (!fixture.matchId) return;
+    setActiveMatchSport(fixture.sport);
+    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setViewingMatchId(fixture.matchId);
+  };
+
+  const openLiveScoring = (fixture: { matchId?: number; sport: string; teamAId?: number; teamBId?: number; team1: string; team2: string }) => {
+    if (!fixture.matchId) return;
+    setActiveMatchSport(fixture.sport);
+    setActiveMatchFixture({ teamAId: fixture.teamAId, teamBId: fixture.teamBId, team1: fixture.team1, team2: fixture.team2 });
+    setLiveScoringMatchId(fixture.matchId);
+  };
+
+  const activeIsCricket = isCricketSport(activeMatchSport);
+  const activeIsTimeSport = isTimeSport(activeMatchSport);
+  const activeSportType = getSportType(activeMatchSport) || "BADMINTON";
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
@@ -1274,7 +1308,7 @@ export function SportsSchedule() {
                   {isLive && fixture.matchId && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => setLiveViewMatchId(fixture.matchId!)}
+                        onClick={() => openLiveView(fixture)}
                         className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
                       >
                         <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -1287,7 +1321,7 @@ export function SportsSchedule() {
                   {isCompleted && fixture.matchId && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => setViewingMatchId(fixture.matchId!)}
+                        onClick={() => openMatchDetail(fixture)}
                         className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
                       >
                         <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -1317,7 +1351,7 @@ export function SportsSchedule() {
                           <>
                             {fixture.matchId && (
                               <button
-                                onClick={() => setLiveScoringMatchId(fixture.matchId!)}
+                                onClick={() => openLiveScoring(fixture)}
                                 className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
                               >
                                 <Activity className="w-3 h-3" />
@@ -1473,7 +1507,9 @@ export function SportsSchedule() {
       )}
 
       {/* Leaderboard */}
-      {activeTab === "Leaderboard" && <Leaderboard />}
+      {activeTab === "Leaderboard" && (
+        activeIsCricket ? <Leaderboard /> : <GenericLeaderboard />
+      )}
 
       {/* Brackets */}
       {activeTab === "Brackets" && <BracketView eventId={eventId} />}
@@ -1489,17 +1525,45 @@ export function SportsSchedule() {
 
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (
-        <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+        activeIsCricket ? (
+          <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceResultsView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+        ) : (
+          <GenericMatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+        )
       )}
 
       {/* Live Match View (Spectator) */}
       {liveViewMatchId !== null && (
-        <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+        activeIsCricket ? (
+          <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceResultsView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+        ) : (
+          <GenericLiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+        )
       )}
 
       {/* Live Scoring Panel (Admin) */}
       {liveScoringMatchId !== null && (
-        <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+        activeIsCricket ? (
+          <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceScoringPanel
+            matchId={liveScoringMatchId}
+            sportType={activeSportType}
+            onClose={() => setLiveScoringMatchId(null)}
+          />
+        ) : (
+          <GenericLiveScoringPanel
+            matchId={liveScoringMatchId}
+            sportType={activeSportType}
+            onClose={() => setLiveScoringMatchId(null)}
+            teamA={{ id: activeMatchFixture?.teamAId || 0, name: activeMatchFixture?.team1 || "Team A", color: "#6366f1" }}
+            teamB={{ id: activeMatchFixture?.teamBId || 0, name: activeMatchFixture?.team2 || "Team B", color: "#f97316" }}
+          />
+        )
       )}
         </div>
       </main>

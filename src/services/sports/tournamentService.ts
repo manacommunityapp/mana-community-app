@@ -315,6 +315,134 @@ export interface BowlerStateData {
   dots: number;
 }
 
+// ─── Generic Scoring Types ──────────────────────────────────────────────────
+
+export interface GenericScoreRequest {
+  matchId: number;
+  teamId: number;
+  playerId?: number;
+  eventType: string;
+  periodNumber: number;
+  matchMinute?: number;
+  pointsAwarded?: number;
+  description?: string;
+  secondaryPlayerId?: number;
+}
+
+export interface GenericScoreEvent {
+  id: number;
+  matchId: number;
+  teamId: number;
+  teamName: string;
+  playerId?: number;
+  playerName?: string;
+  eventType: string;
+  periodNumber: number;
+  matchMinute?: number;
+  pointsAwarded: number;
+  description?: string;
+  secondaryPlayerId?: number;
+  secondaryPlayerName?: string;
+  timestamp?: string;
+}
+
+export interface PeriodScore {
+  periodNumber: number;
+  periodLabel: string;
+  scoreTeamA: number;
+  scoreTeamB: number;
+}
+
+export interface ScoringConfig {
+  id?: number;
+  sportType: string;
+  periodsCount: number;
+  pointsToWinPeriod?: number;
+  mustWinByTwo: boolean;
+  periodsToWin?: number;
+  periodDurationMinutes?: number;
+  hasOvertime: boolean;
+  hasPenaltyShootout: boolean;
+  tiebreakPointsToWin?: number;
+  scoringRulesJson?: string;
+}
+
+export interface GenericMatchState {
+  matchId: number;
+  status: string;
+  sportType: string;
+  teamAId: number;
+  teamAName: string;
+  teamAColor: string;
+  teamBId: number;
+  teamBName: string;
+  teamBColor: string;
+  currentPeriod: number;
+  scoreTeamA: number;
+  scoreTeamB: number;
+  periodsWonA: number;
+  periodsWonB: number;
+  periods: PeriodScore[];
+  recentEvents: GenericScoreEvent[];
+  scoringConfig?: ScoringConfig;
+}
+
+export interface PlayerMatchStats {
+  playerId: number;
+  playerName: string;
+  teamName: string;
+  sportType: string;
+  stats: Record<string, any>;
+}
+
+// ─── Generic Leaderboard Types ──────────────────────────────────────────────
+
+export interface GenericLeaderboardEntry {
+  playerId: number;
+  playerName: string;
+  teamId: number;
+  teamName: string;
+  category: string;
+  value: number;
+  matchesPlayed: number;
+  rank: number;
+}
+
+// ─── Race / Time-Based Sports Types ─────────────────────────────────────────
+
+export interface RaceResultRequest {
+  matchId: number;
+  playerId: number;
+  teamId?: number;
+  heatNumber?: number;
+  laneNumber?: number;
+  finishTimeMillis?: number;
+  formattedTime?: string;
+  raceStatus: "FINISHED" | "DNF" | "DNS" | "DQ";
+  splitTimes?: string[];
+  notes?: string;
+}
+
+export interface RaceResult {
+  id: number;
+  matchId: number;
+  playerId: number;
+  playerName: string;
+  teamId?: number;
+  teamName?: string;
+  heatNumber?: number;
+  laneNumber?: number;
+  finishTimeMillis?: number;
+  formattedTime?: string;
+  raceStatus: string;
+  overallRank?: number;
+  heatRank?: number;
+  personalBestMillis?: number;
+  isPersonalBest?: boolean;
+  splitTimes?: string[];
+  notes?: string;
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -436,5 +564,74 @@ export const tournamentService = {
   /** POST /api/tournament/match/{matchId}/undo — undo last ball (REST fallback) */
   async undoLastBall(matchId: number, inningsNumber: number = 1): Promise<BallEventData> {
     return apiClient.post<BallEventData>(`/tournament/match/${matchId}/undo?inningsNumber=${inningsNumber}`, {});
-  }
+  },
+
+  // ─── Generic Scoring API Methods ────────────────────────────────────────────
+
+  /** POST /api/tournament/match/generic/score — record a generic scoring event */
+  async recordGenericScore(data: GenericScoreRequest): Promise<GenericScoreEvent> {
+    return apiClient.post<GenericScoreEvent>("/tournament/match/generic/score", data);
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/undo — undo last event */
+  async undoGenericEvent(matchId: number): Promise<GenericScoreEvent> {
+    return apiClient.post<GenericScoreEvent>(`/tournament/match/generic/${matchId}/undo`, {});
+  },
+
+  /** GET /api/tournament/match/generic/{matchId}/state — get generic match state */
+  async getGenericMatchState(matchId: number): Promise<GenericMatchState> {
+    return apiClient.get<GenericMatchState>(`/tournament/match/generic/${matchId}/state`);
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/period/{periodNumber}/complete */
+  async completePeriod(matchId: number, periodNumber: number): Promise<void> {
+    return apiClient.post<void>(`/tournament/match/generic/${matchId}/period/${periodNumber}/complete`, {});
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/period/{periodNumber}/score */
+  async recordPeriodScore(matchId: number, periodNumber: number, scoreA: number, scoreB: number): Promise<void> {
+    return apiClient.post<void>(`/tournament/match/generic/${matchId}/period/${periodNumber}/score`, { scoreA, scoreB });
+  },
+
+  /** GET /api/tournament/match/generic/{matchId}/player-stats */
+  async getGenericPlayerStats(matchId: number): Promise<PlayerMatchStats[]> {
+    return apiClient.get<PlayerMatchStats[]>(`/tournament/match/generic/${matchId}/player-stats`);
+  },
+
+  /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
+  async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
+
+  // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
+
+  async getGenericLeaderboard(configId: number, category: string): Promise<GenericLeaderboardEntry[]> {
+    return apiClient.get<GenericLeaderboardEntry[]>(`/tournament/${configId}/leaderboard/generic`, { params: { category } });
+  },
+
+  async getGenericLeaderboardCategories(configId: number): Promise<string[]> {
+    return apiClient.get<string[]>(`/tournament/${configId}/leaderboard/generic/categories`);
+  },
+
+  // ─── Race / Time-Based Sports API Methods ────────────────────────────────────
+
+  async recordRaceResult(req: RaceResultRequest): Promise<RaceResult> {
+    return apiClient.post<RaceResult>("/tournament/match/race/result", req);
+  },
+
+  async getRaceResults(matchId: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/${matchId}/results`);
+  },
+
+  async getRaceHeatResults(matchId: number, heatNumber: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/${matchId}/heat/${heatNumber}`);
+  },
+
+  async getPlayerRaceHistory(playerId: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/player/${playerId}/history`);
+  },
+
+  async recalculateRaceRanks(matchId: number): Promise<RaceResult[]> {
+    return apiClient.post<RaceResult[]>(`/tournament/match/race/${matchId}/recalculate-ranks`, {});
+  },
 };
