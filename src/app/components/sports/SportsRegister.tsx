@@ -277,7 +277,7 @@ interface RegistrationFormData {
   playerName: string;
   relation: string;
   flatNumber: string;
-  familyMemberId?: number;
+  familyMemberId?: number | string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -338,7 +338,7 @@ export function SportsRegister() {
     playerName: user?.fullName || "",
     relation: "",
     flatNumber: "",
-    familyMemberId: undefined as number | undefined,
+    familyMemberId: undefined as number | string | undefined,
   });
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);

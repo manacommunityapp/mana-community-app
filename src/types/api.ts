@@ -331,7 +331,7 @@ export interface RegistrationRequest {
   email?: string;
   relation?: string;
   flatNumber?: string;
-  familyMemberId?: number;
+  familyMemberId?: number | string;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }
