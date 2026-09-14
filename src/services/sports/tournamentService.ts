@@ -315,6 +315,86 @@ export interface BowlerStateData {
   dots: number;
 }
 
+// ─── Generic Scoring Types ──────────────────────────────────────────────────
+
+export interface GenericScoreRequest {
+  matchId: number;
+  teamId: number;
+  playerId?: number;
+  eventType: string;
+  periodNumber: number;
+  matchMinute?: number;
+  pointsAwarded?: number;
+  description?: string;
+  secondaryPlayerId?: number;
+}
+
+export interface GenericScoreEvent {
+  id: number;
+  matchId: number;
+  teamId: number;
+  teamName: string;
+  playerId?: number;
+  playerName?: string;
+  eventType: string;
+  periodNumber: number;
+  matchMinute?: number;
+  pointsAwarded: number;
+  description?: string;
+  secondaryPlayerId?: number;
+  secondaryPlayerName?: string;
+  timestamp?: string;
+}
+
+export interface PeriodScore {
+  periodNumber: number;
+  periodLabel: string;
+  scoreTeamA: number;
+  scoreTeamB: number;
+}
+
+export interface ScoringConfig {
+  id?: number;
+  sportType: string;
+  periodsCount: number;
+  pointsToWinPeriod?: number;
+  mustWinByTwo: boolean;
+  periodsToWin?: number;
+  periodDurationMinutes?: number;
+  hasOvertime: boolean;
+  hasPenaltyShootout: boolean;
+  tiebreakPointsToWin?: number;
+  scoringRulesJson?: string;
+}
+
+export interface GenericMatchState {
+  matchId: number;
+  status: string;
+  sportType: string;
+  teamAId: number;
+  teamAName: string;
+  teamAColor: string;
+  teamBId: number;
+  teamBName: string;
+  teamBColor: string;
+  currentPeriod: number;
+  scoreTeamA: number;
+  scoreTeamB: number;
+  periodsWonA: number;
+  periodsWonB: number;
+  periods: PeriodScore[];
+  recentEvents: GenericScoreEvent[];
+  scoringConfig?: ScoringConfig;
+}
+
+export interface PlayerMatchStats {
+  playerId: number;
+  playerName: string;
+  teamName: string;
+  sportType: string;
+  stats: Record<string, any>;
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -436,5 +516,42 @@ export const tournamentService = {
   /** POST /api/tournament/match/{matchId}/undo — undo last ball (REST fallback) */
   async undoLastBall(matchId: number, inningsNumber: number = 1): Promise<BallEventData> {
     return apiClient.post<BallEventData>(`/tournament/match/${matchId}/undo?inningsNumber=${inningsNumber}`, {});
-  }
+  },
+
+  // ─── Generic Scoring API Methods ────────────────────────────────────────────
+
+  /** POST /api/tournament/match/generic/score — record a generic scoring event */
+  async recordGenericScore(data: GenericScoreRequest): Promise<GenericScoreEvent> {
+    return apiClient.post<GenericScoreEvent>("/tournament/match/generic/score", data);
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/undo — undo last event */
+  async undoGenericEvent(matchId: number): Promise<GenericScoreEvent> {
+    return apiClient.post<GenericScoreEvent>(`/tournament/match/generic/${matchId}/undo`, {});
+  },
+
+  /** GET /api/tournament/match/generic/{matchId}/state — get generic match state */
+  async getGenericMatchState(matchId: number): Promise<GenericMatchState> {
+    return apiClient.get<GenericMatchState>(`/tournament/match/generic/${matchId}/state`);
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/period/{periodNumber}/complete */
+  async completePeriod(matchId: number, periodNumber: number): Promise<void> {
+    return apiClient.post<void>(`/tournament/match/generic/${matchId}/period/${periodNumber}/complete`, {});
+  },
+
+  /** POST /api/tournament/match/generic/{matchId}/period/{periodNumber}/score */
+  async recordPeriodScore(matchId: number, periodNumber: number, scoreA: number, scoreB: number): Promise<void> {
+    return apiClient.post<void>(`/tournament/match/generic/${matchId}/period/${periodNumber}/score`, { scoreA, scoreB });
+  },
+
+  /** GET /api/tournament/match/generic/{matchId}/player-stats */
+  async getGenericPlayerStats(matchId: number): Promise<PlayerMatchStats[]> {
+    return apiClient.get<PlayerMatchStats[]>(`/tournament/match/generic/${matchId}/player-stats`);
+  },
+
+  /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
+  async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
 };
