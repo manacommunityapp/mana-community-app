@@ -46,17 +46,6 @@ export function SportsAdmin() {
 
       <main className="main-content">
         <div className="page active">
-          {s.activeTab !== "dashboard" && (
-            <div className="page-hdr">
-              <div>
-                <div className="page-title">
-                  {s.menuItems.find(m => m.id === s.activeTab)?.label || "Admin"}
-                </div>
-                <div className="page-sub">Manage community sports events and rules</div>
-              </div>
-            </div>
-          )}
-
           {s.activeTab === "dashboard" && (
             <DashboardTab
               activeTournaments={s.activeTournaments}

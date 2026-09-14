@@ -6,7 +6,7 @@
 // This file keeps only the shared types and the UI-state helpers that build the
 // generate request and post-process the returned draft (overrides, placeholders).
 
-export type PlayoffSeedingOrder = 'TRADITIONAL' | 'SEQUENTIAL' | 'RANDOM';
+export type PlayoffSeedingOrder = 'TRADITIONAL' | 'SEQUENTIAL' | 'RANDOM' | 'RANKING';
 
 export type PlayoffParticipantRef = {
   id: string;
