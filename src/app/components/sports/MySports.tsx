@@ -112,6 +112,8 @@ export function MySports() {
   const [teams, setTeams] = useState<AuctionTeam[]>([]);
   const [myMatches, setMyMatches] = useState<EventListItem[]>([]);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+  const [partnerInvitations, setPartnerInvitations] = useState<any[]>([]);
+  const [respondingInviteId, setRespondingInviteId] = useState<number | null>(null);
   const [loadingData, setLoadingData] = useState(false);
 
   const displayName = user?.fullName ?? "Player";
@@ -125,14 +127,16 @@ export function MySports() {
     if (!user?.userId) return;
     setLoadingData(true);
     try {
-      const [regs, myTeams, events] = await Promise.all([
+      const [regs, myTeams, events, partnerInvites] = await Promise.all([
         sportsScheduleService.getMyRegistrations().catch(() => []),
         auctionService.getCaptainRegistration().catch(() => []),
         sportsScheduleService.getMyEvents().catch(() => []),
+        sportsService.getPartnerInvitations("PENDING").catch(() => []),
       ]);
       setRegistrations(regs || []);
       setTeams(myTeams || []);
       setMyMatches(events || []);
+      setPartnerInvitations(partnerInvites || []);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -174,6 +178,27 @@ export function MySports() {
       fetchCoreData();
     } catch (err) {
       toast.error("Failed to withdraw from event");
+    }
+  };
+
+  const handleRespondInvitation = async (invitationId: number, accept: boolean) => {
+    let reason: string | undefined = undefined;
+    if (!accept) {
+      const entered = window.prompt("Optional reason for declining partner invitation:");
+      if (entered === null) return;
+      reason = entered || undefined;
+    }
+    setRespondingInviteId(invitationId);
+    try {
+      await sportsService.respondToPartnerInvitation(invitationId, accept, reason);
+      toast.success(accept ? "Partner invitation accepted!" : "Partner invitation declined");
+      fetchCoreData();
+      window.dispatchEvent(new CustomEvent("mana_notifications_updated"));
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to respond to invitation");
+    } finally {
+      setRespondingInviteId(null);
     }
   };
 
@@ -250,7 +275,14 @@ export function MySports() {
                 onClick={() => setActiveTab(tab.id)}
               >
                 <Icon className="nav-icon" size={16} />
-                <span className="nav-text">{tab.label}</span>
+                <span className="nav-text flex items-center justify-between flex-1">
+                  {tab.label}
+                  {tab.id === "tournaments" && partnerInvitations.length > 0 && (
+                    <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded-full animate-pulse">
+                      {partnerInvitations.length}
+                    </span>
+                  )}
+                </span>
                 <div className="active-indicator" />
               </button>
             );
@@ -347,6 +379,88 @@ export function MySports() {
                       </div>
                     </div>
 
+                    {/* Pending Doubles Partner Invitations Banner */}
+                    {partnerInvitations.length > 0 && (
+                      <div className="bg-amber-50/80 border border-amber-300/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-xs">
+                              <Users className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <h3 className="text-xs sm:text-sm font-black text-amber-950 flex items-center gap-1.5">
+                                Pending Doubles Partner Invitations
+                                <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[9px] font-black rounded-full">
+                                  {partnerInvitations.length} new
+                                </span>
+                              </h3>
+                              <p className="text-[10px] sm:text-[11px] text-amber-800">
+                                You have been nominated as a doubles partner for the following event(s):
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {partnerInvitations.map((inv) => {
+                            const invId = inv.id;
+                            const playerName = inv.playerName || inv.user?.fullName || "A player";
+                            const eventName = inv.eventName || inv.event?.name || "Doubles Tournament";
+                            const sportName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
+                            const categoryName = inv.categoryName || inv.category?.name;
+                            const isBusy = respondingInviteId === invId;
+
+                            return (
+                              <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                      {sportName}
+                                    </span>
+                                    <span className="text-[8.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                      Action Required
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
+                                    {eventName}
+                                  </h4>
+                                  <p className="text-[10.5px] text-slate-600 mt-0.5">
+                                    <strong className="text-slate-900 font-semibold">{playerName}</strong> invited you to play as their doubles partner.
+                                  </p>
+                                  {categoryName && (
+                                    <div className="mt-1.5 text-[9.5px] font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
+                                      {categoryName}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleRespondInvitation(invId, true)}
+                                    className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    <span>{isBusy ? "Confirming..." : "Accept"}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleRespondInvitation(invId, false)}
+                                    className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Decline</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Upcoming Matches Preview */}
                     <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2 sm:space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
@@ -430,6 +544,88 @@ export function MySports() {
                 {/* ════════════ MY TOURNAMENTS TAB ════════════ */}
                 {activeTab === "tournaments" && (
                   <div className="space-y-4 text-left">
+                    {/* Pending Doubles Partner Invitations Banner */}
+                    {partnerInvitations.length > 0 && (
+                      <div className="bg-amber-50/80 border border-amber-300/80 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-xs">
+                              <Users className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <h3 className="text-xs sm:text-sm font-black text-amber-950 flex items-center gap-1.5">
+                                Pending Doubles Partner Invitations
+                                <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[9px] font-black rounded-full">
+                                  {partnerInvitations.length} new
+                                </span>
+                              </h3>
+                              <p className="text-[10px] sm:text-[11px] text-amber-800">
+                                You have been nominated as a doubles partner for the following event(s):
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {partnerInvitations.map((inv) => {
+                            const invId = inv.id;
+                            const playerName = inv.playerName || inv.user?.fullName || "A player";
+                            const eventName = inv.eventName || inv.event?.name || "Doubles Tournament";
+                            const sportName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
+                            const categoryName = inv.categoryName || inv.category?.name;
+                            const isBusy = respondingInviteId === invId;
+
+                            return (
+                              <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                      {sportName}
+                                    </span>
+                                    <span className="text-[8.5px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                      Action Required
+                                    </span>
+                                  </div>
+                                  <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
+                                    {eventName}
+                                  </h4>
+                                  <p className="text-[10.5px] text-slate-600 mt-0.5">
+                                    <strong className="text-slate-900 font-semibold">{playerName}</strong> invited you to play as their doubles partner.
+                                  </p>
+                                  {categoryName && (
+                                    <div className="mt-1.5 text-[9.5px] font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
+                                      {categoryName}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleRespondInvitation(invId, true)}
+                                    className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                                  >
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    <span>{isBusy ? "Confirming..." : "Accept"}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() => handleRespondInvitation(invId, false)}
+                                    className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Decline</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {registrations.length === 0 ? (
                       <div className="text-center py-16 rounded-xl shadow-lg bg-white"
                         style={{ border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>

@@ -35,14 +35,18 @@ import {
   BadgeCheck,
   CreditCard,
   Briefcase,
-  Hash,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Hash,
+  Sparkles,
+  Sliders,
+  Tag,
+  Layers,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
-import type { UserStatsResponse } from "../../../services/common/userService";
+import type { UserStatsResponse, RoleDetailsItem } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
@@ -130,11 +134,29 @@ export function AdminRoleManagement() {
     }, { replace: true });
   };
   const [roles, setRoles] = useState<Array<{ id: number; name: string }>>([]);
+  const [rolesDetails, setRolesDetails] = useState<RoleDetailsItem[]>([]);
+  const [rolesSearch, setRolesSearch] = useState<string>("");
+  const [rolesFilter, setRolesFilter] = useState<'ALL' | 'ADMIN' | 'OPERATIONS' | 'RESIDENT'>('ALL');
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [loadingEditPerms, setLoadingEditPerms] = useState(false);
   const [savedRoles, setSavedRoles] = useState<string[] | null>(null);
+
+  // Helper to categorize roles into functional groups
+  const getRoleCategory = (roleName: string): 'ADMIN' | 'OPERATIONS' | 'RESIDENT' | 'CUSTOM' => {
+    const upper = (roleName || "").toUpperCase().trim();
+    if (upper.includes("ADMIN") || upper.includes("MANAGER") || upper.includes("LEAD") || upper.includes("DIRECTOR") || upper.includes("COUNCIL")) {
+      return 'ADMIN';
+    }
+    if (["CASHIER", "STAFF", "VENDOR", "SECURITY", "GUARD", "HELPDESK", "MAINTENANCE", "FACILITY", "OPERATOR", "ACCOUNTANT", "AUDITOR"].some(k => upper.includes(k))) {
+      return 'OPERATIONS';
+    }
+    if (["MEMBER", "USER", "RESIDENT", "TENANT", "OWNER", "DEVOTEE"].some(k => upper.includes(k))) {
+      return 'RESIDENT';
+    }
+    return 'CUSTOM';
+  };
 
   // Edit User Details modal state
   const [editUserDetailsOpen, setEditUserDetailsOpen] = useState(false);
@@ -177,11 +199,47 @@ export function AdminRoleManagement() {
 
   const loadRoles = async () => {
     try {
-      const data = await userService.getRoles();
-      const filtered = (data || []).filter(
-        (r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.name.toUpperCase())
+      let rawData: any[] = [];
+      try {
+        rawData = await userService.getRoleDetails();
+      } catch {
+        rawData = await userService.getRoles();
+      }
+
+      const filtered = (rawData || []).filter(
+        (r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes((r.name || "").toUpperCase())
       );
-      setRoles(sortRoles(filtered));
+
+      // Strict Deduplication by normalized uppercase role name
+      const uniqueMap = new Map<string, any>();
+      for (const r of filtered) {
+        if (!r.name) continue;
+        const key = r.name.trim().toUpperCase();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, r);
+        } else {
+          // If existing is global and current has communityId, prefer communityId
+          const existing = uniqueMap.get(key);
+          if (existing && existing.communityId == null && r.communityId != null) {
+            uniqueMap.set(key, r);
+          }
+        }
+      }
+
+      const deduplicatedList = Array.from(uniqueMap.values());
+      const sorted = sortRoles(deduplicatedList);
+
+      setRoles(sorted.map((r: any) => ({ id: r.id, name: r.name })));
+
+      const enhanced: RoleDetailsItem[] = sorted.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        communityId: r.communityId,
+        permissions: Array.isArray(r.permissions) ? r.permissions : [],
+        userCount: typeof r.userCount === "number" ? r.userCount : 0,
+      }));
+
+      setRolesDetails(enhanced);
     } catch (err) {
       toast.error("Failed to load security roles from database");
     }
@@ -1314,85 +1372,257 @@ export function AdminRoleManagement() {
             /* SECURITY ROLES TAB VIEW */
             <div className="space-y-3.5 sm:space-y-4">
               {/* Stats Block for Roles */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 bg-indigo-50 text-indigo-700 rounded-lg shrink-0">
-                    <Shield className="w-4 h-4 text-indigo-600" />
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-3.5 sm:p-4 shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3 relative overflow-hidden">
+                <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="flex items-start sm:items-center gap-3 relative z-10">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white shadow-md shrink-0">
+                    <Shield className="w-5 h-5 text-indigo-100" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-800 text-xs sm:text-sm">Security Profile & Template Directory</h4>
-                    <p className="text-slate-500 text-[11px] mt-0.5">
-                      Configure base permission templates or define new operational roles to govern community access.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-extrabold text-white text-sm sm:text-base tracking-tight">Security Profile &amp; Template Directory</h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                        {rolesDetails.length} Role Profiles
+                      </span>
+                    </div>
+                    <p className="text-slate-300 text-xs mt-0.5 max-w-xl leading-relaxed">
+                      Permission blueprints &amp; operational access policies governing resident and staff privileges across the community.
                     </p>
                   </div>
                 </div>
-                <div className="text-xs font-bold text-indigo-600 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-2xs shrink-0">
-                  Active Roles: <span className="font-extrabold text-indigo-700">{roles.length}</span>
+
+                <div className="flex items-center gap-2 relative z-10 shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateRoleOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Create Custom Role</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Roles Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                {roles.map((role) => {
-                  const assignedUsersCount = users.filter(u => u.role.toUpperCase() === role.name.toUpperCase()).length;
-                  return (
-                    <div
-                      key={role.id}
-                      className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between group relative"
+              {/* Search & Category Filter Pills */}
+              <div className="bg-white rounded-xl border border-slate-200/90 p-2.5 sm:p-3 shadow-2xs flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+                {/* Search Bar */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={rolesSearch}
+                    onChange={(e) => setRolesSearch(e.target.value)}
+                    placeholder="Search template name, capabilities (e.g. Sports, Cashier, Passes)..."
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none placeholder:text-slate-400 font-medium"
+                  />
+                  {rolesSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRolesSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer text-xs"
                     >
-                      {/* Top Accent Gradient Bar */}
-                      <div className="h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600" />
-                      
-                      <div className="p-3 flex-grow">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="p-1.5 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-100">
-                            <Shield className="w-4 h-4 text-indigo-600" />
-                          </div>
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">
-                            ID: {role.id}
-                          </span>
-                        </div>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
-                        <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm uppercase tracking-wide group-hover:text-indigo-600 transition-colors">
-                          {role.name.replace(/_/g, " ")}
-                        </h4>
-                        
-                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <span className="text-slate-400 block font-semibold text-[10.5px]">Assigned:</span>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-2xs">
-                            <Users className="w-3 h-3 text-emerald-600" />
-                            {assignedUsersCount}
-                          </span>
-                        </div>
-                      </div>
+                {/* Category Filter Tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                  {[
+                    { id: 'ALL', label: 'All Templates', count: rolesDetails.length },
+                    { id: 'ADMIN', label: 'Administrative Hub', count: rolesDetails.filter(r => getRoleCategory(r.name) === 'ADMIN').length },
+                    { id: 'OPERATIONS', label: 'Operations & Staff', count: rolesDetails.filter(r => getRoleCategory(r.name) === 'OPERATIONS').length },
+                    { id: 'RESIDENT', label: 'Resident Access', count: rolesDetails.filter(r => getRoleCategory(r.name) === 'RESIDENT' || getRoleCategory(r.name) === 'CUSTOM').length },
+                  ].map((tab) => {
+                    const isActive = rolesFilter === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setRolesFilter(tab.id as any)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                          isActive
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-800"
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                          isActive ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-                      <div className="p-2.5 bg-slate-50 border-t border-slate-100">
-                        <button
-                          onClick={() => handleEditRole(role.name.charAt(0).toUpperCase() + role.name.slice(1).toLowerCase())}
-                          className="w-full py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
-                        >
-                          <Edit className="w-3 h-3" />
-                          Configure Template
-                        </button>
+              {/* Roles Cards Grid */}
+              {(() => {
+                const filtered = rolesDetails.filter((r) => {
+                  const q = rolesSearch.toLowerCase().trim();
+                  const cat = getRoleCategory(r.name);
+                  const matchSearch =
+                    !q ||
+                    r.name.toLowerCase().includes(q) ||
+                    (r.permissions && r.permissions.some(p => p.toLowerCase().includes(q)));
+                  const matchCategory =
+                    rolesFilter === 'ALL' ||
+                    (rolesFilter === 'ADMIN' && cat === 'ADMIN') ||
+                    (rolesFilter === 'OPERATIONS' && cat === 'OPERATIONS') ||
+                    (rolesFilter === 'RESIDENT' && (cat === 'RESIDENT' || cat === 'CUSTOM'));
+
+                  return matchSearch && matchCategory;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-8 text-center space-y-2">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                        <Shield className="w-5 h-5" />
                       </div>
+                      <h4 className="font-bold text-slate-800 text-sm">No Matching Security Templates</h4>
+                      <p className="text-slate-500 text-xs max-w-sm mx-auto">
+                        No roles match your search "{rolesSearch}". Try adjusting your keywords or category filters.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setRolesSearch(""); setRolesFilter("ALL"); }}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                      >
+                        Reset Filters
+                      </button>
                     </div>
                   );
-                })}
+                }
 
-                {/* Create Custom Role Card */}
-                <button
-                  onClick={() => setIsCreateRoleOpen(true)}
-                  className="bg-slate-50/50 hover:bg-slate-50 border-2 border-dashed border-slate-250 hover:border-indigo-400 rounded-2xl p-6 transition-all flex flex-col items-center justify-center text-center gap-3 cursor-pointer group min-h-[220px]"
-                >
-                  <div className="p-3 bg-white text-slate-450 group-hover:text-indigo-600 border border-slate-200 group-hover:border-indigo-150 rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
-                    <UserPlus className="w-6 h-6 animate-pulse" />
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                    {filtered.map((role) => {
+                      const category = getRoleCategory(role.name);
+                      const isCommunityScoped = role.communityId != null;
+                      const rolePermCount = role.permissions.length > 0
+                        ? role.permissions.length
+                        : (rolePermissions[role.name.charAt(0).toUpperCase() + role.name.slice(1).toLowerCase()]
+                            ? Object.keys(rolePermissions[role.name.charAt(0).toUpperCase() + role.name.slice(1).toLowerCase()]).length
+                            : 0);
+
+                      // Calculate live assigned user count
+                      const assignedUsersCount = role.userCount > 0
+                        ? role.userCount
+                        : users.filter(u => (u.roles || [u.role]).some(r => r.toUpperCase() === role.name.toUpperCase())).length;
+
+                      // Category accent borders & badges
+                      const categoryBadge =
+                        category === 'ADMIN'
+                          ? { label: 'Admin Hub', color: 'bg-indigo-50 text-indigo-700 border-indigo-200/80', bar: 'from-indigo-500 via-indigo-600 to-indigo-700', icon: Shield }
+                          : category === 'OPERATIONS'
+                          ? { label: 'Operations', color: 'bg-emerald-50 text-emerald-700 border-emerald-200/80', bar: 'from-emerald-500 via-teal-500 to-emerald-600', icon: Briefcase }
+                          : category === 'RESIDENT'
+                          ? { label: 'Resident', color: 'bg-violet-50 text-violet-700 border-violet-200/80', bar: 'from-violet-500 via-purple-500 to-violet-600', icon: Users }
+                          : { label: 'Custom', color: 'bg-amber-50 text-amber-700 border-amber-200/80', bar: 'from-amber-500 via-orange-500 to-amber-600', icon: Sparkles };
+
+                      const IconComp = categoryBadge.icon;
+
+                      return (
+                        <div
+                          key={`${role.id}-${role.name}`}
+                          className="bg-white border border-slate-200/90 rounded-xl overflow-hidden shadow-2xs hover:shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between group relative"
+                        >
+                          {/* Top Accent Gradient Bar */}
+                          <div className={`h-1 bg-gradient-to-r ${categoryBadge.bar}`} />
+                          
+                          <div className="p-3 flex-grow space-y-2">
+                            {/* Role Header */}
+                            <div className="flex items-start justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="p-1.5 bg-slate-50 text-slate-700 rounded-lg border border-slate-200/80 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                  <IconComp className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-extrabold text-slate-900 text-xs sm:text-[13px] uppercase tracking-wide group-hover:text-indigo-600 transition-colors truncate" title={role.name}>
+                                    {role.name.replace(/_/g, " ")}
+                                  </h4>
+                                </div>
+                              </div>
+                              <span className={`text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-md border ${categoryBadge.color} shrink-0`}>
+                                {categoryBadge.label}
+                              </span>
+                            </div>
+
+                            {/* Metrics & Scope Row */}
+                            <div className="grid grid-cols-2 gap-1.5 pt-1 text-xs">
+                              <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center gap-1.5">
+                                <Users className="w-3 h-3 text-slate-400 shrink-0" />
+                                <div className="min-w-0">
+                                  <span className="text-[10px] font-bold text-slate-800 block leading-tight">{assignedUsersCount}</span>
+                                  <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">Assigned</span>
+                                </div>
+                              </div>
+
+                              <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center gap-1.5">
+                                <Key className="w-3 h-3 text-indigo-500 shrink-0" />
+                                <div className="min-w-0">
+                                  <span className="text-[10px] font-bold text-slate-800 block leading-tight">{rolePermCount}</span>
+                                  <span className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider block">Permissions</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Permissions Snippet preview chips */}
+                            {role.permissions && role.permissions.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-0.5">
+                                {role.permissions.slice(0, 2).map((p) => (
+                                  <span
+                                    key={p}
+                                    className="text-[8.5px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200/60 truncate max-w-[140px]"
+                                    title={p}
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                                {role.permissions.length > 2 && (
+                                  <span className="text-[8px] font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-100">
+                                    +{role.permissions.length - 2} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer Action */}
+                          <div className="p-2 bg-slate-50/70 border-t border-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => handleEditRole(role.name.charAt(0).toUpperCase() + role.name.slice(1).toLowerCase())}
+                              className="w-full py-1 px-2 bg-white hover:bg-indigo-600 hover:text-white text-indigo-700 border border-slate-200 hover:border-indigo-600 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
+                            >
+                              <Edit className="w-3 h-3" />
+                              <span>Configure Template</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Create Custom Role Card */}
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateRoleOpen(true)}
+                      className="bg-slate-50/60 hover:bg-slate-50 border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 transition-all flex flex-col items-center justify-center text-center gap-2 cursor-pointer group min-h-[160px] shadow-2xs hover:shadow-xs active:scale-98"
+                    >
+                      <div className="p-2.5 bg-white text-slate-400 group-hover:text-indigo-600 border border-slate-200 group-hover:border-indigo-200 rounded-xl shadow-2xs group-hover:scale-105 transition-transform">
+                        <UserPlus className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h5 className="font-extrabold text-slate-800 text-xs sm:text-sm group-hover:text-indigo-600 transition-colors">Create Custom Role</h5>
+                        <p className="text-slate-400 text-[10.5px] mt-0.5 max-w-[180px] font-medium leading-tight">Add a new operational role blueprint to the community</p>
+                      </div>
+                    </button>
                   </div>
-                  <div>
-                    <h5 className="font-extrabold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">Create Custom Role</h5>
-                    <p className="text-slate-450 text-xs mt-1 max-w-[180px] font-semibold leading-relaxed">Add a new security role class to the database</p>
-                  </div>
-                </button>
-              </div>
+                );
+              })()}
             </div>
           )}
         </>

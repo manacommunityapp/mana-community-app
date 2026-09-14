@@ -320,7 +320,20 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1 text-left">
-                      <label className="text-xs text-slate-500 font-semibold">Participant Type</label>
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs text-slate-500 font-semibold">Participant Type</label>
+                        {ev.format === "MIXED_DOUBLES" && (
+                          <label className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer select-none" title="Strict Mixed Doubles (Requires 1 Male + 1 Female)">
+                            <span>Strict 1M+1F</span>
+                            <input
+                              type="checkbox"
+                              checked={ev.mandatoryMixedDoubles !== false}
+                              onChange={e => updateEventField(configuringSport.sportId, ev.id, "mandatoryMixedDoubles", e.target.checked)}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            />
+                          </label>
+                        )}
+                      </div>
                       <div className="relative">
                         <select
                           value={ev.format || "SINGLES"}

@@ -21,17 +21,18 @@ import {
   addMinutesToTime,
   parseBreakMinutes,
 } from './playoffSchedule';
-import type { PlayoffScheduleInput, PlayoffMatchDraft } from './playoffSchedule';
+import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder } from './playoffSchedule';
 
 const TIME_OPTIONS = [
   '06:00 AM','07:00 AM','08:00 AM','09:00 AM','10:00 AM','11:00 AM','12:00 PM',
   '01:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM','06:00 PM','07:00 PM','08:00 PM','09:00 PM','10:00 PM'
 ];
 const BREAK_OPTIONS = ['5 mins','10 mins','15 mins','20 mins','30 mins','45 mins','60 mins'];
-const SEEDING_OPTIONS = [
+const SEEDING_OPTIONS: { value: PlayoffSeedingOrder; label: string }[] = [
   { value: 'RANDOM', label: 'Random' },
   { value: 'TRADITIONAL', label: 'Traditional' },
   { value: 'SEQUENTIAL', label: 'Sequential' },
+  { value: 'RANKING', label: 'Ranking' },
 ];
 const VENUE_ASSIGN_OPTIONS = ['Random','Snake','Sequential','Parallel'];
 
@@ -477,7 +478,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       teamsAdvancingPerGroup: isGroupKnockout ? Math.min(2, Math.max(1, Math.floor(Number(participants) / (Number(numberOfGroups) || 2)))) : null,
       teamIds: [],
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
-      hasSeeding: isGroupKnockout ? playoffSeedingOrder === 'TRADITIONAL' : seedingOrder === 'TRADITIONAL',
+      hasSeeding: isGroupKnockout
+        ? (playoffSeedingOrder === 'TRADITIONAL' || playoffSeedingOrder === 'RANKING')
+        : (seedingOrder === 'TRADITIONAL' || seedingOrder === 'RANKING'),
       startDate: startDate || null,
       endDate: endDate || null,
       matchDurationMinutes: Number(matchDuration) || 30,
@@ -879,7 +882,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return {
       numGroups,
       proceedersPerGroup,
-      seedingOrder: (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as 'TRADITIONAL' | 'SEQUENTIAL' | 'RANDOM',
+      seedingOrder: (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder,
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
       startDate: groupEnd.date,
       startTime: addMinutesToTime(groupEnd.time, breakMins),

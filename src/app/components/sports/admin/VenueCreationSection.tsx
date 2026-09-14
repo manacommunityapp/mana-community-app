@@ -1,6 +1,6 @@
 import { Plus, Clock, Users, Trash2, MapPin, Edit2, EyeOff, Eye, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { TIME_OPTIONS } from "../../../../constants/timeOptions";
+import { TimePicker } from "../../ui/time-picker";
 import type { Court, CommunityResponse, Venue, EventContact } from "../../../../types/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { VenueTimingModal } from "../../scheduler/VenueTimingModal";
@@ -276,45 +276,23 @@ export function VenueCreationSection({
                   <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>
                     Opening Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      value={venueOpeningTime}
-                      onChange={e => setVenueOpeningTime(e.target.value)}
-                      disabled={!canEditTiming}
-                      required
-                      className="w-full bg-white border rounded-xl px-3.5 py-2.5 text-sm outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-                      style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
-                    >
-                      {TIME_OPTIONS.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3" style={{ color: "#4f46e5" }}>
-                      <Clock className="w-4 h-4 rotate-90" />
-                    </div>
-                  </div>
+                  <TimePicker
+                    value={venueOpeningTime}
+                    onChange={(val) => setVenueOpeningTime(val)}
+                    disabled={!canEditTiming}
+                    placeholder="Select opening time"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>
                     Closing Time <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      value={venueClosingTime}
-                      onChange={e => setVenueClosingTime(e.target.value)}
-                      disabled={!canEditTiming}
-                      required
-                      className="w-full bg-white border rounded-xl px-3.5 py-2.5 text-sm outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
-                      style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
-                    >
-                      {TIME_OPTIONS.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3" style={{ color: "#4f46e5" }}>
-                      <Clock className="w-4 h-4 rotate-90" />
-                    </div>
-                  </div>
+                  <TimePicker
+                    value={venueClosingTime}
+                    onChange={(val) => setVenueClosingTime(val)}
+                    disabled={!canEditTiming}
+                    placeholder="Select closing time"
+                  />
                 </div>
               </div>
             </div>

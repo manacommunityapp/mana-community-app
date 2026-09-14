@@ -605,9 +605,9 @@ export function SportsEventSection({
                             <div>
                               <label className="text-xs text-slate-500 font-semibold block">Participant Type *</label>
                             </div>
-                            <div className="flex items-center">
+                            <div className="flex items-center justify-end gap-3">
                               <label className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer select-none">
-                                <span>Needs Confirmation</span>
+                                <span>Approval</span>
                                 <input
                                   type="checkbox"
                                   checked={ev.adminApprovalRequired !== false}
@@ -615,6 +615,17 @@ export function SportsEventSection({
                                   className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
                                 />
                               </label>
+                              {ev.formats && ev.formats.includes("MIXED_DOUBLES") && (
+                                <label className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer select-none" title="Strict Mixed Doubles (Requires 1 Male + 1 Female)">
+                                  <span>Strict 1M+1F</span>
+                                  <input
+                                    type="checkbox"
+                                    checked={ev.mandatoryMixedDoubles !== false}
+                                    onChange={e => updateSportFormEvent(form.id, ev.id, "mandatoryMixedDoubles", e.target.checked)}
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                  />
+                                </label>
+                              )}
                             </div>
                           </div>
                           <div className={`flex gap-2 flex-wrap rounded-lg transition-colors ${

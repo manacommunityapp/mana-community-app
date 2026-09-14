@@ -290,51 +290,55 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
   const style = getRoleStyle(leader.designation);
   const { openFloatingChatWithUser } = useChat();
 
+  const handlePhoneClick = (name: string, phone: string) => {
+    window.location.href = `tel:${phone.replace(/\s+/g, "")}`;
+  };
+
   const unitDetails = [
     leader.block && `Block ${leader.block}`,
     leader.flatNo && `Flat ${leader.flatNo}`,
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-emerald-200 transition-all flex flex-col justify-between gap-3 text-left group">
+    <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between gap-1.5 sm:gap-2 text-left group">
       {/* Top Details */}
-      <div className="flex items-start gap-3 min-w-0">
+      <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
         {leader.profilePicUrl || (leader as any).profilePic ? (
           <img
             src={leader.profilePicUrl || (leader as any).profilePic}
             alt={leader.fullName}
-            className={`h-11 w-11 rounded-2xl object-cover ring-2 ${style.avatarRing} shadow-xs shrink-0`}
+            className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg object-cover ring-1.5 ${style.avatarRing} shadow-2xs shrink-0`}
             onError={(e) => {
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
           />
         ) : (
-          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-xs ring-2 ${style.avatarRing} shadow-xs shrink-0 ${style.bg} ${style.color}`}>
+          <div className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg flex items-center justify-center font-bold text-xs ring-1.5 ${style.avatarRing} shadow-2xs shrink-0 ${style.bg} ${style.color}`}>
             {getInitials(leader.fullName)}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="font-bold text-sm text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+            <h4 className="font-bold text-[11.5px] sm:text-xs text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
               {leader.fullName}
             </h4>
-            <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full ${style.bg} ${style.color} border ${style.border} shrink-0`}>
+            <span className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[8.5px] font-bold uppercase tracking-wide px-1.5 py-0.2 rounded-md ${style.bg} ${style.color} border ${style.border} shrink-0`}>
               <span>{style.icon}</span>
               <span>{leader.designation}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap mt-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap mt-0.5 sm:mt-1">
             {unitDetails && (
-              <div className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
-                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+              <div className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] text-slate-500 font-medium bg-slate-50 px-1.5 py-0.2 rounded-md border border-slate-100">
+                <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                 <span className="truncate">{unitDetails}</span>
               </div>
             )}
 
             {leader.committee && (
-              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/80">
+              <div className="inline-flex items-center gap-0.5 text-[8px] sm:text-[8.5px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded-md border border-indigo-100/80">
                 <Users className="w-2.5 h-2.5 text-indigo-500" />
                 <span className="truncate">{leader.committee}</span>
               </div>
@@ -343,6 +347,40 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
         </div>
       </div>
 
+      {/* Action Buttons for quick call / chat on mobile */}
+      {(leader.contactPhone || leader.contactEmail || leader.userId) && (
+        <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100">
+          {leader.contactPhone && (
+            <button
+              type="button"
+              onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
+              className="flex-1 py-0.5 px-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 text-[9px] sm:text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <Phone className="w-2.5 h-2.5 text-emerald-600" />
+              <span>Call</span>
+            </button>
+          )}
+          {leader.userId && (
+            <button
+              type="button"
+              onClick={() => openFloatingChatWithUser(String(leader.userId))}
+              className="py-0.5 px-2 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/60 text-[9px] sm:text-[10px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
+            >
+              <MessageSquare className="w-2.5 h-2.5 text-indigo-600" />
+              <span>Chat</span>
+            </button>
+          )}
+          {leader.contactEmail && (
+            <a
+              href={`mailto:${leader.contactEmail}`}
+              className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
+              title={leader.contactEmail}
+            >
+              <Mail className="w-2.5 h-2.5" />
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -448,15 +486,15 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
   const hasCommittees = committeeNames.length > 0 || other.length > 0;
   const hasWhoToCall = whoToCallDbList.length > 0;
 
-  const gridClass = isModal ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "grid grid-cols-1 gap-2.5";
+  const gridClass = isModal ? "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5" : "grid grid-cols-1 gap-2";
 
   if (isModal) {
     if (loading) {
       return (
-        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6">
-          <div className="flex flex-col items-center justify-center gap-3 text-slate-400 py-6">
-            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-            <span className="text-xs font-semibold text-slate-600">Loading community directory...</span>
+        <div className="bg-white rounded-xl shadow-2xs border border-slate-200 p-4">
+          <div className="flex flex-col items-center justify-center gap-2 text-slate-400 py-4">
+            <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+            <span className="text-[11px] font-semibold text-slate-600">Loading community directory...</span>
           </div>
         </div>
       );
@@ -464,62 +502,62 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
 
     if (error || (leaders.length === 0 && whoToCallDbList.length === 0)) {
       return (
-        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 text-center">
-          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+        <div className="bg-white rounded-xl shadow-2xs border border-slate-200 p-4 text-center">
+          <Users className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
           <p className="text-xs font-bold text-slate-700">No directory records found</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
         </div>
       );
     }
   }
 
   const tabs: { id: DirectoryTab; label: string; icon: React.ReactNode; count?: number }[] = [
-    ...(executives.length > 0 || !hasWhoToCall ? [{ id: "leadership" as DirectoryTab, label: "Council", icon: <Landmark className="w-3.5 h-3.5" />, count: executives.length }] : []),
-    ...(hasCommittees ? [{ id: "committees" as DirectoryTab, label: "Committees", icon: <Users className="w-3.5 h-3.5" />, count: committeeNames.length + (other.length > 0 ? 1 : 0) }] : []),
-    ...(hasWhoToCall ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3.5 h-3.5" />, count: whoToCallDbList.length }] : []),
+    ...(executives.length > 0 || !hasWhoToCall ? [{ id: "leadership" as DirectoryTab, label: "Council", icon: <Landmark className="w-3 h-3" />, count: executives.length }] : []),
+    ...(hasCommittees ? [{ id: "committees" as DirectoryTab, label: "Committees", icon: <Users className="w-3 h-3" />, count: committeeNames.length + (other.length > 0 ? 1 : 0) }] : []),
+    ...(hasWhoToCall ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3 h-3" />, count: whoToCallDbList.length }] : []),
   ];
 
   const content = (
-    <div className="space-y-3.5">
+    <div className="space-y-2.5">
       {/* Search Input Bar */}
       <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by name, designation, committee, flat..."
-          className="w-full bg-white border border-slate-200/90 rounded-2xl pl-10 pr-9 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-semibold shadow-2xs"
+          className="w-full bg-white border border-slate-200/90 rounded-lg pl-8 pr-7 py-1 text-[11px] text-slate-800 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium shadow-2xs h-7.5"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3 h-3" />
           </button>
         )}
       </div>
 
       {/* Tabs Row */}
       {tabs.length > 1 && (
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-2xl">
+        <div className="flex gap-0.5 bg-slate-100/90 p-0.5 rounded-lg">
           {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded-md text-[10.5px] font-bold transition-all whitespace-nowrap cursor-pointer ${
                 tab === t.id
-                  ? "bg-white text-emerald-800 shadow-sm border border-slate-200/60"
+                  ? "bg-white text-emerald-800 shadow-2xs border border-slate-200/60"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
               {t.icon}
               <span>{t.label}</span>
               {t.count !== undefined && (
-                <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                <span className={`text-[8.5px] font-extrabold px-1.2 py-0.1 rounded-full ${
                   tab === t.id ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
                 }`}>
                   {t.count}
@@ -531,21 +569,21 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
       )}
 
       {/* Tab Contents */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {/* ── Leadership Tab ── */}
         {tab === "leadership" && (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Active Council Members ({executives.length})
               </span>
               <button
                 type="button"
                 onClick={openCouncilHistoryModal}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200/70 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9.5px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200/70 transition-all active:scale-95 cursor-pointer shadow-2xs"
                 title="View historical council appointments and past tenures"
               >
-                <History className="w-3.5 h-3.5 text-violet-600" />
+                <History className="w-3 h-3 text-violet-600" />
                 <span>Past Terms &amp; History</span>
               </button>
             </div>
@@ -557,7 +595,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl p-6 text-center border border-slate-200/70">
+              <div className="bg-white rounded-xl p-4 text-center border border-slate-200/70">
                 <p className="text-xs font-semibold text-slate-500">No council members match your search.</p>
               </div>
             )}
@@ -566,32 +604,32 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
 
         {/* ── Committees Tab ── */}
         {tab === "committees" && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {committeeNames.map((name) => {
               const isOpen = expandedCommittees[name] !== false;
               const members = committees[name];
               return (
-                <div key={name} className="rounded-2xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs">
+                <div key={name} className="rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
                   <button
                     type="button"
                     onClick={() => setExpandedCommittees((prev) => ({ ...prev, [name]: !isOpen }))}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2 bg-slate-50/70 hover:bg-slate-100 transition-colors text-left cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Users className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5.5 h-5.5 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Users className="w-3 h-3" />
                       </div>
                       <div>
-                        <span className="text-xs font-extrabold text-slate-800 block">{name}</span>
-                        <span className="text-[10px] text-slate-400 font-medium">
+                        <span className="text-xs font-bold text-slate-800 block leading-tight">{name}</span>
+                        <span className="text-[9.5px] text-slate-400 font-medium">
                           {members.length} {members.length === 1 ? "member" : "members"}
                         </span>
                       </div>
                     </div>
-                    {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
                   </button>
                   {isOpen && (
-                    <div className={`p-3 bg-slate-50/30 ${gridClass}`}>
+                    <div className={`p-2 bg-slate-50/30 ${gridClass}`}>
                       {members.map((l) => (
                         <DirectoryMemberCard key={l.id} leader={l} isModal={isModal} />
                       ))}
@@ -602,27 +640,27 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
             })}
 
             {other.length > 0 && (
-              <div className="rounded-2xl border border-slate-200/90 overflow-hidden bg-white shadow-2xs">
+              <div className="rounded-xl border border-slate-200/80 overflow-hidden bg-white shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setExpandedCommittees((prev) => ({ ...prev, __other: !(prev.__other !== false) }))}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-slate-50/80 hover:bg-slate-100 transition-colors text-left cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-50/70 hover:bg-slate-100 transition-colors text-left cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                      <Shield className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5.5 h-5.5 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center">
+                      <Shield className="w-3 h-3" />
                     </div>
                     <div>
-                      <span className="text-xs font-extrabold text-slate-800 block">General Community Roles</span>
-                      <span className="text-[10px] text-slate-400 font-medium">{other.length} members</span>
+                      <span className="text-xs font-bold text-slate-800 block leading-tight">General Community Roles</span>
+                      <span className="text-[9.5px] text-slate-400 font-medium">{other.length} members</span>
                     </div>
                   </div>
                   {expandedCommittees.__other !== false
-                    ? <ChevronUp className="w-4 h-4 text-slate-400" />
-                    : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                    ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
                 </button>
                 {expandedCommittees.__other !== false && (
-                  <div className={`p-3 bg-slate-50/30 ${gridClass}`}>
+                  <div className={`p-2 bg-slate-50/30 ${gridClass}`}>
                     {other.map((l) => (
                       <DirectoryMemberCard key={l.id} leader={l} isModal={isModal} />
                     ))}
@@ -632,7 +670,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
             )}
 
             {committeeNames.length === 0 && other.length === 0 && (
-              <div className="bg-white rounded-2xl p-6 text-center border border-slate-200/70">
+              <div className="bg-white rounded-xl p-4 text-center border border-slate-200/70">
                 <p className="text-xs font-semibold text-slate-500">No committees found.</p>
               </div>
             )}
@@ -641,8 +679,8 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
 
         {/* ── Who to Call Tab ── */}
         {tab === "contact" && (
-          <div className="space-y-2.5">
-            <p className="text-xs text-slate-500 font-medium px-1">
+          <div className="space-y-2">
+            <p className="text-[11px] text-slate-500 font-medium px-0.5">
               Need assistance? Direct contacts for community departments and services:
             </p>
             {filteredWhoToCall.length > 0 ? (
@@ -657,42 +695,42 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                   return (
                     <div
                       key={c.id}
-                      className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs hover:shadow-sm ${
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all bg-white shadow-2xs hover:shadow-xs ${
                         isEmergency ? "border-red-300 ring-1 ring-red-200" : "border-slate-200/80"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
-                            <IconComp className={`w-4 h-4 ${isEmergency ? "text-red-600" : colorBase.includes("text-") ? colorBase : "text-indigo-600"}`} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className={`p-1.5 rounded-lg bg-white shadow-2xs ${colorBase} shrink-0`}>
+                            <IconComp className={`w-3.5 h-3.5 ${isEmergency ? "text-red-600" : colorBase.includes("text-") ? colorBase : "text-indigo-600"}`} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <h4 className="text-xs font-bold text-slate-900 truncate">{c.department}</h4>
                               {isEmergency && (
-                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-red-100 text-red-700">
+                                <span className="text-[8.5px] font-extrabold uppercase px-1.2 py-0.2 rounded bg-red-100 text-red-700">
                                   Emergency
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] font-semibold text-slate-700 truncate mt-0.5">
-                              {c.contactPerson} {c.designation ? <span className="text-[10px] text-slate-500 font-normal">({c.designation})</span> : null}
+                            <p className="text-[10px] sm:text-[10.5px] font-medium text-slate-700 truncate mt-0.5">
+                              {c.contactPerson} {c.designation ? <span className="text-[9.5px] text-slate-400 font-normal">({c.designation})</span> : null}
                             </p>
                             {(c.availability || c.locationOrDesk) && (
-                              <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-400 mt-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap text-[9.5px] text-slate-400 mt-0.5">
                                 {c.availability && (() => {
                                   const status = parseAvailabilityStatus(c.availability);
                                   return (
                                     <span className="flex items-center gap-1">
                                       {status === "open" && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-                                          Open Now
+                                        <span className="inline-flex items-center gap-0.5 text-[8.5px] font-bold uppercase px-1.2 py-0.2 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                          <span className="w-1.2 h-1.2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                                          Open
                                         </span>
                                       )}
                                       {status === "closed" && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                                        <span className="inline-flex items-center gap-0.5 text-[8.5px] font-bold uppercase px-1.2 py-0.2 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                          <span className="w-1.2 h-1.2 rounded-full bg-slate-400 inline-block" />
                                           Closed
                                         </span>
                                       )}
@@ -708,14 +746,14 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-slate-100">
                         {c.phoneNumber && (
                           <button
                             type="button"
                             onClick={() => handlePhoneClick(c.contactPerson, c.phoneNumber)}
-                            className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                            className="flex-1 py-1 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-[10.5px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs"
                           >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <Phone className="w-3 h-3 text-emerald-600" />
                             <span>Call</span>
                           </button>
                         )}
@@ -723,18 +761,18 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                           <button
                             type="button"
                             onClick={() => openFloatingChatWithUser(String(c.userId))}
-                            className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
+                            className="py-1 px-2.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-[10.5px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                            <MessageSquare className="w-3 h-3 text-indigo-600" />
                             <span>Chat</span>
                           </button>
                         )}
                         {c.email && (
                           <a
                             href={`mailto:${c.email}`}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
                           >
-                            <Mail className="w-3.5 h-3.5" />
+                            <Mail className="w-3 h-3" />
                           </a>
                         )}
                       </div>
@@ -743,12 +781,12 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                 })}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl p-6 text-center border border-slate-200/70">
-                <HelpCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <div className="bg-white rounded-xl p-4 text-center border border-slate-200/70">
+                <HelpCircle className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
                 <p className="text-xs font-bold text-slate-700">
                   {searchQuery ? "No contacts match your search" : "No Who to Call contacts added yet"}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[10px] text-slate-400 mt-0.5">
                   {searchQuery
                     ? "Try adjusting your search keywords"
                     : "Who to Call contacts created in the Admin Directory will appear here."}
@@ -761,46 +799,46 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
 
       {/* ── MODAL: COUNCIL HISTORY & PAST TERMS ── */}
       {showCouncilHistoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 relative max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-md">
-                  <Landmark className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md sm:max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-100 relative max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  <Landmark className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                  <h3 className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
                     <span>Council History &amp; Past Terms</span>
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Chronological record of leadership appointments, designations &amp; tenures.
+                  <p className="text-[10px] text-slate-500">
+                    Record of leadership appointments &amp; tenures.
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCouncilHistoryModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
+                className="w-6 h-6 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 flex items-center justify-center cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             {loadingCouncilHistory ? (
-              <div className="py-12 text-center text-slate-400">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-600" />
+              <div className="py-8 text-center text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-1.5 text-violet-600" />
                 <span className="text-xs font-semibold">Loading leadership history...</span>
               </div>
             ) : councilHistoryLogs.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-xs font-semibold space-y-2">
-                <Award className="w-8 h-8 text-slate-300 mx-auto" />
+              <div className="py-8 text-center text-slate-400 text-xs font-semibold space-y-1.5">
+                <Award className="w-6 h-6 text-slate-300 mx-auto" />
                 <p>No historical council records available yet.</p>
-                <p className="text-[11px] text-slate-400 font-normal">
-                  All appointments, promotions, and changes to the executive council are logged here.
+                <p className="text-[10px] text-slate-400 font-normal">
+                  All appointments and promotions to the council are logged here.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {councilHistoryLogs.map((h, i) => {
                   const badgeColor =
                     h.action === "APPOINTED" || h.action === "CREATED"
@@ -812,28 +850,28 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                       : "bg-amber-100 text-amber-800 border-amber-200";
 
                   return (
-                    <div key={h.id || i} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1.5">
+                    <div key={h.id || i} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+                        <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full border ${badgeColor}`}>
                           {h.action}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-medium">
+                        <span className="text-[10px] text-slate-400 font-medium">
                           {new Date(h.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-extrabold text-sm text-slate-900">{h.fullName}</span>
-                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-xs text-slate-900">{h.fullName}</span>
+                        <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded-md border border-indigo-100">
                           {h.designation}
                         </span>
                         {h.committee && (
-                          <span className="text-xs text-slate-500 font-medium">({h.committee})</span>
+                          <span className="text-[10px] text-slate-500 font-medium">({h.committee})</span>
                         )}
                       </div>
 
                       {h.changeSummary && (
-                        <p className="text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/80 font-medium">
+                        <p className="text-slate-600 bg-white p-2 rounded-lg border border-slate-200/80 text-[11px] font-medium">
                           {h.changeSummary}
                         </p>
                       )}
@@ -855,47 +893,47 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
 
   // Sidebar widget format with accordion toggle
   return (
-    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
+    <div className="bg-white rounded-xl shadow-2xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-xs">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
       >
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-xs text-white">
-            <Users className="w-4.5 h-4.5" />
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg shadow-2xs text-white">
+            <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-sm font-extrabold text-slate-900 leading-tight">Community Directory</h3>
-            <p className="text-[11px] text-slate-500 font-medium">Leadership, committees & contacts</p>
+            <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 leading-tight">Community Directory</h3>
+            <p className="text-[10px] text-slate-500 font-medium">Leadership, committees & contacts</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {(hasFetched ? leaders.length > 0 : (badgeCount !== undefined ? badgeCount > 0 : leaders.length > 0)) && (
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200">
               {hasFetched ? leaders.length : (badgeCount ?? leaders.length)}
             </span>
           )}
           {expanded ? (
-            <ChevronUp className="w-4 h-4 text-slate-400" />
+            <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+        <div className="px-3 pb-3 border-t border-slate-100 pt-2.5">
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-2.5 text-slate-400 py-6">
-              <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-              <span className="text-xs font-semibold text-slate-600">Loading community directory...</span>
+            <div className="flex flex-col items-center justify-center gap-2 text-slate-400 py-4">
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+              <span className="text-[11px] font-semibold text-slate-600">Loading community directory...</span>
             </div>
           ) : error || (leaders.length === 0 && whoToCallDbList.length === 0) ? (
-            <div className="p-4 text-center">
-              <Users className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+            <div className="p-3 text-center">
+              <Users className="w-5 h-5 text-slate-300 mx-auto mb-1" />
               <p className="text-xs font-bold text-slate-700">No directory records found</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
             </div>
           ) : (
             content
@@ -905,3 +943,4 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
     </div>
   );
 }
+

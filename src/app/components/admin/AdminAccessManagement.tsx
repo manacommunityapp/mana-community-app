@@ -491,43 +491,43 @@ function AccessMatrixTable({
   const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
 
   return (
-    <div className="overflow-x-auto border border-slate-100 rounded-xl">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto border border-border/80 rounded-xl bg-card shadow-2xs">
+      <table className="w-full text-xs">
         <thead>
-          <tr className="bg-slate-50 border-b border-slate-100">
-            <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider min-w-[180px] sticky left-0 bg-slate-50 z-10">
+          <tr className="bg-input/40 border-b border-border/60">
+            <th className="text-left px-3 py-2 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider min-w-[160px] sticky left-0 bg-card z-10">
               Feature / Sub-menu
             </th>
-            <th className="text-center px-2 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider min-w-[70px]">
+            <th className="text-center px-2 py-2 text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider min-w-[60px]">
               Action
             </th>
             {roles.map(r => (
-              <th key={r.name} className="text-center px-1.5 py-3 min-w-[72px]">
-                <div className="flex flex-col items-center gap-1">
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: `${r.color}18` }}>
-                    <r.icon className="w-3 h-3" style={{ color: r.color }} />
+              <th key={r.name} className="text-center px-1.5 py-2 min-w-[65px]">
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center" style={{ background: `${r.color}18` }}>
+                    <r.icon className="w-2.5 h-2.5" style={{ color: r.color }} />
                   </div>
-                  <span className="text-[8px] font-bold text-slate-500 leading-tight text-center">{r.label}</span>
+                  <span className="text-[8px] font-bold text-muted-foreground leading-tight text-center truncate max-w-[60px]">{r.label}</span>
                 </div>
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-border/40">
           {rows.map((row, idx) => {
             if (row.isGroupHeader) {
               const open = expanded.has(idx);
               return (
-                <tr key={idx} className="bg-indigo-50/50 hover:bg-indigo-50 cursor-pointer"
+                <tr key={idx} className="bg-primary/5 hover:bg-primary/10 cursor-pointer"
                   onClick={() => setExpanded(prev => {
                     const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n;
                   })}>
-                  <td colSpan={2 + roles.length} className="px-4 py-2.5 sticky left-0">
-                    <div className="flex items-center gap-2">
-                      {open ? <ChevronDown className="w-3.5 h-3.5 text-indigo-500" /> : <ChevronRight className="w-3.5 h-3.5 text-indigo-500" />}
-                      <Shield className="w-3.5 h-3.5 text-indigo-500" />
-                      <span className="text-xs font-bold text-indigo-700">{row.label}</span>
-                      {row.childIndices && <Badge variant="outline" className="text-[8px] ml-1">{row.childIndices.length} features</Badge>}
+                  <td colSpan={2 + roles.length} className="px-3 py-1.5 sticky left-0">
+                    <div className="flex items-center gap-1.5">
+                      {open ? <ChevronDown className="w-3 h-3 text-primary" /> : <ChevronRight className="w-3 h-3 text-primary" />}
+                      <Shield className="w-3 h-3 text-primary" />
+                      <span className="text-xs font-bold text-primary">{row.label}</span>
+                      {row.childIndices && <Badge variant="outline" className="text-[7.5px] ml-1 px-1 py-0">{row.childIndices.length} features</Badge>}
                     </div>
                   </td>
                 </tr>
@@ -542,31 +542,31 @@ function AccessMatrixTable({
             ).filter((a): a is { key: "view" | "createEdit" | "delete"; perm: string } => Boolean(a.perm));
 
             return actions.map((action, ai) => (
-              <tr key={`${idx}-${action.key}`} className="hover:bg-slate-50/60 transition-colors">
+              <tr key={`${idx}-${action.key}`} className="hover:bg-input/30 transition-colors">
                 {ai === 0 && (
-                  <td className="px-4 py-2 sticky left-0 bg-white z-10" rowSpan={actions.length}>
-                    <div className={cn("flex items-center gap-1.5", row.isChild && "ml-4")}>
-                      <span className="text-xs font-medium text-slate-700">{row.label}</span>
+                  <td className="px-3 py-1.5 sticky left-0 bg-card z-10" rowSpan={actions.length}>
+                    <div className={cn("flex items-center gap-1.5", row.isChild && "ml-3")}>
+                      <span className="text-xs font-medium text-foreground">{row.label}</span>
                     </div>
                   </td>
                 )}
-                <td className="text-center px-2 py-2">
+                <td className="text-center px-2 py-1.5">
                   <div className="flex items-center justify-center gap-1">
-                    {(() => { const I = ACTION_ICONS[action.key]; return <I className="w-3 h-3 text-slate-400" />; })()}
-                    <span className="text-[9px] text-slate-500">{ACTION_LABELS[action.key]}</span>
+                    {(() => { const I = ACTION_ICONS[action.key]; return <I className="w-2.5 h-2.5 text-muted-foreground" />; })()}
+                    <span className="text-[8.5px] text-muted-foreground font-medium">{ACTION_LABELS[action.key]}</span>
                   </div>
                 </td>
                 {roles.map(r => {
                   const has = perms[r.name]?.has(action.perm) ?? false;
                   return (
-                    <td key={r.name} className="text-center px-1.5 py-2">
+                    <td key={r.name} className="text-center px-1.5 py-1.5">
                       <button
                         onClick={() => onToggle(r.name, action.perm)}
                         className={cn(
-                          "w-6 h-6 rounded-md flex items-center justify-center mx-auto transition-all",
-                          has ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" : "bg-slate-100 text-slate-300 hover:bg-slate-200"
+                          "w-5 h-5 rounded-md flex items-center justify-center mx-auto transition-all cursor-pointer shadow-2xs",
+                          has ? "bg-success/15 text-success hover:bg-success/25" : "bg-input text-muted-foreground/40 hover:bg-input/80 hover:text-muted-foreground"
                         )}>
-                        {has ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
+                        {has ? <CheckCircle2 className="w-3 h-3" /> : <Lock className="w-2.5 h-2.5" />}
                       </button>
                     </td>
                   );
@@ -600,71 +600,71 @@ function RoleDetailPanel({
   const grantedCount = allPerms.filter(p => perms.has(p)).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${role.color}18` }}>
-            <role.icon className="w-5 h-5" style={{ color: role.color }} />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-2xs" style={{ background: `${role.color}18` }}>
+            <role.icon className="w-4 h-4" style={{ color: role.color }} />
           </div>
           <div>
-            <h4 className="font-bold text-slate-800">{role.label}</h4>
-            <p className="text-xs text-slate-400">{role.name}</p>
+            <h4 className="font-bold text-xs sm:text-sm text-foreground leading-tight">{role.label}</h4>
+            <p className="text-[10px] text-muted-foreground font-mono">{role.name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap">
           {onImportParentRole && (
             <Button
               variant="outline" size="sm"
-              className="gap-1 text-xs h-8 text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100"
+              className="gap-1 text-[11px] h-7 px-2 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer shadow-2xs font-semibold"
               onClick={onImportParentRole}
               title="Import parent template permissions for this role"
             >
-              <Download className="w-3 h-3 text-indigo-600" /> Import Parent Template
+              <Download className="w-3 h-3 text-primary" /> Parent Template
             </Button>
           )}
           <Button
             variant="outline" size="sm"
-            className="gap-1 text-xs h-8 text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100"
+            className="gap-1 text-[11px] h-7 px-2 text-warning border-warning/30 bg-warning/5 hover:bg-warning/10 cursor-pointer shadow-2xs font-semibold"
             onClick={onDisableRole}
             title="Revoke all permissions for this specific role in this module"
           >
-            <Lock className="w-3 h-3 text-amber-600" /> Disable for this Role
+            <Lock className="w-3 h-3 text-warning" /> Disable Role
           </Button>
           <Button
             variant="outline" size="sm"
-            className="gap-1 text-xs h-8 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100"
+            className="gap-1 text-[11px] h-7 px-2 text-danger border-danger/30 bg-danger/5 hover:bg-danger/10 cursor-pointer shadow-2xs font-semibold"
             onClick={onDisableAll}
             title="Revoke all permissions across all roles in this module"
           >
-            <ShieldAlert className="w-3 h-3 text-rose-600" /> Disable All
+            <ShieldAlert className="w-3 h-3 text-danger" /> Disable All
           </Button>
-          <Button variant="outline" size="sm" className="gap-1 text-xs h-8" onClick={onReset}>
+          <Button variant="outline" size="sm" className="gap-1 text-[11px] h-7 px-2 cursor-pointer shadow-2xs" onClick={onReset}>
             <RotateCcw className="w-3 h-3" /> Reset
           </Button>
           <Button size="sm" onClick={onSave} disabled={isSaving}
-            className="gap-1 text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+            className="gap-1 text-[11px] h-7 px-2.5 bg-primary hover:bg-primary/90 text-white font-bold cursor-pointer shadow-2xs">
             {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-            {isSaving ? "Saving…" : "Save this role"}
+            {isSaving ? "Saving…" : "Save Role"}
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-emerald-50 rounded-lg p-2.5 text-center">
-          <p className="text-lg font-bold text-emerald-700">{grantedCount}</p>
-          <p className="text-[9px] text-emerald-500 uppercase font-bold">Granted</p>
+        <div className="bg-success/10 border border-success/20 rounded-lg p-2 text-center">
+          <p className="text-base font-black text-success leading-tight">{grantedCount}</p>
+          <p className="text-[8.5px] text-success uppercase font-bold tracking-wider">Granted</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-          <p className="text-lg font-bold text-slate-500">{allPerms.length - grantedCount}</p>
-          <p className="text-[9px] text-slate-400 uppercase font-bold">Denied</p>
+        <div className="bg-input border border-border/80 rounded-lg p-2 text-center">
+          <p className="text-base font-black text-muted-foreground leading-tight">{allPerms.length - grantedCount}</p>
+          <p className="text-[8.5px] text-muted-foreground uppercase font-bold tracking-wider">Denied</p>
         </div>
-        <div className="bg-indigo-50 rounded-lg p-2.5 text-center">
-          <p className="text-lg font-bold text-indigo-700">{allPerms.length}</p>
-          <p className="text-[9px] text-indigo-400 uppercase font-bold">Total</p>
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-2 text-center">
+          <p className="text-base font-black text-primary leading-tight">{allPerms.length}</p>
+          <p className="text-[8.5px] text-primary uppercase font-bold tracking-wider">Total</p>
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {rows.filter(r => !r.isGroupHeader).map((row, i) => {
           const rowPerms = [
             { perm: row.view, label: "View", icon: Eye },
@@ -673,17 +673,17 @@ function RoleDetailPanel({
           ].filter(p => p.perm);
 
           return (
-            <div key={i} className="bg-white rounded-lg border border-slate-100 p-3">
-              <p className="text-xs font-semibold text-slate-700 mb-2">{row.label}</p>
+            <div key={i} className="bg-card rounded-lg border border-border/70 p-2 sm:p-2.5">
+              <p className="text-[11px] font-semibold text-foreground mb-1.5 leading-tight">{row.label}</p>
               <div className="flex items-center gap-3 flex-wrap">
                 {rowPerms.map(p => {
                   const has = perms.has(p.perm!);
                   return (
-                    <label key={p.perm} className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <Switch checked={has} onCheckedChange={() => onToggle(p.perm!)} className="scale-75" />
+                    <label key={p.perm} className="flex items-center gap-1 cursor-pointer select-none">
+                      <Switch checked={has} onCheckedChange={() => onToggle(p.perm!)} className="scale-65 origin-left" />
                       <div className="flex items-center gap-1">
-                        <p.icon className={cn("w-3 h-3", has ? "text-emerald-500" : "text-slate-300")} />
-                        <span className={cn("text-[10px] font-medium", has ? "text-slate-700" : "text-slate-400")}>{p.label}</span>
+                        <p.icon className={cn("w-2.5 h-2.5", has ? "text-success" : "text-muted-foreground/40")} />
+                        <span className={cn("text-[9.5px] font-medium", has ? "text-foreground font-semibold" : "text-muted-foreground")}>{p.label}</span>
                       </div>
                     </label>
                   );
@@ -710,24 +710,24 @@ function ModuleNav({ modules, active, onSelect }: {
           key={m.id}
           onClick={() => onSelect(m.id)}
           className={cn(
-            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all w-full",
+            "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all w-full cursor-pointer",
             active === m.id
-              ? "shadow-sm"
-              : "hover:bg-slate-50 text-slate-600"
+              ? "shadow-2xs font-bold"
+              : "hover:bg-input/60 text-muted-foreground hover:text-foreground"
           )}
           style={active === m.id ? { background: m.accent, color: m.color } : {}}
         >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: active === m.id ? `${m.color}20` : "#f1f5f9" }}>
-            <m.icon className="w-3.5 h-3.5" style={{ color: active === m.id ? m.color : "#94a3b8" }} />
+          <div className="w-5.5 h-5.5 rounded-md flex items-center justify-center shrink-0"
+            style={{ background: active === m.id ? `${m.color}20` : "rgba(100,100,100,0.1)" }}>
+            <m.icon className="w-3 h-3" style={{ color: active === m.id ? m.color : "#888" }} />
           </div>
-          <div className="min-w-0">
-            <p className={cn("text-xs font-semibold truncate", active === m.id ? "" : "text-slate-700")}>
+          <div className="min-w-0 flex-1">
+            <p className={cn("text-[11.5px] truncate", active === m.id ? "" : "text-foreground font-medium")}>
               {m.label}
             </p>
           </div>
           {active === m.id && (
-            <div className="ml-auto w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
+            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
           )}
         </button>
       ))}
@@ -898,11 +898,11 @@ export function AdminAccessManagement() {
       setIsImportModalOpen(false);
 
       if (scope === "all") {
-        toast.success("Loaded parent permissions for ALL roles across all modules. Review and click 'Save All Roles' to commit to this community.");
+        toast.success("Loaded parent permissions for ALL roles across all modules.");
       } else if (scope === "module") {
-        toast.success(`Loaded parent permissions for ${module.label}. Review and click 'Save All Roles' to commit to this community.`);
+        toast.success(`Loaded parent permissions for ${module.label}.`);
       } else if (scope === "role") {
-        toast.success(`Loaded parent permissions for role '${activeRole.label}'. Review and click 'Save this role' to commit.`);
+        toast.success(`Loaded parent permissions for role '${activeRole.label}'.`);
       }
     } catch (err) {
       console.error("Failed to import parent permissions:", err);
@@ -918,9 +918,6 @@ export function AdminAccessManagement() {
     try {
       const verified = await userService.getRolePermissions();
       console.log("[AccessRoles] Backend verified state after save:", verified);
-      // Only update UI state if there are meaningful backend differences —
-      // specifically to sync roles that exist in DB but not in local state.
-      // We do NOT blindly overwrite the full state to avoid resetting user edits.
       return systemRoles.map(r => ({
         name: r.name, label: r.label, color: r.color,
         sent: sentMap[r.name] ?? 0,
@@ -942,13 +939,11 @@ export function AdminAccessManagement() {
       const roleTotals: Record<string, string[]> = {};
       systemRoles.forEach(r => { roleTotals[r.name] = collectRolePerms(perms, r.name); });
 
-      // allSettled so one role failure never cancels the rest
       const results = await Promise.allSettled(
         systemRoles.map(r => userService.updateRolePermissions(r.name, roleTotals[r.name]))
       );
 
       const anyFailed = results.some(r => r.status === "rejected");
-      // Show per-role status from what was sent (optimistic; verification updates it)
       const optimisticDetails: SaveDetail[] = systemRoles.map((r, i) => ({
         name: r.name, label: r.label, color: r.color,
         sent: roleTotals[r.name].length,
@@ -959,13 +954,12 @@ export function AdminAccessManagement() {
       setSaved(!anyFailed);
       if (anyFailed) setSaveError(true);
 
-      // Non-blocking re-fetch to confirm real DB state — won't affect saved/error flags
       const sentMap = Object.fromEntries(systemRoles.map(r => [r.name, roleTotals[r.name].length]));
       verifyAndRefresh(sentMap)
         .then(details => setSaveDetails(details))
-        .catch(() => { /* verification unavailable — keep optimistic view */ });
+        .catch(() => {});
 
-      setTimeout(() => { setSaved(false); setSaveError(false); setSaveDetails(null); }, 10000);
+      setTimeout(() => { setSaved(false); setSaveError(false); setSaveDetails(null); }, 8000);
     } catch (err) {
       console.error("Failed to save permissions:", err);
       setSaveError(true);
@@ -983,25 +977,21 @@ export function AdminAccessManagement() {
     setSaveDetails(null);
     try {
       const rolePerms = collectRolePerms(perms, roleName);
-      console.log(`[AccessRoles] Saving role ${roleName}:`, rolePerms);
       await userService.updateRolePermissions(roleName, rolePerms);
-      console.log(`[AccessRoles] Save OK for ${roleName}`);
 
       const r = systemRoles.find(sr => sr.name === roleName) || mapRoleNameToDef(roleName);
       const optimistic: SaveDetail = { name: roleName, label: r.label, color: r.color, sent: rolePerms.length, stored: rolePerms.length, ok: true };
       setSaveDetails([optimistic]);
       setSaved(true);
 
-      // Non-blocking verification
       const sentMap = { [roleName]: rolePerms.length };
       verifyAndRefresh(sentMap)
         .then(details => {
-          console.log(`[AccessRoles] Verify result for ${roleName}:`, details);
           setSaveDetails(details.filter(d => d.name === roleName));
         })
-        .catch(() => { /* keep optimistic */ });
+        .catch(() => {});
 
-      setTimeout(() => { setSaved(false); setSaveDetails(null); }, 6000);
+      setTimeout(() => { setSaved(false); setSaveDetails(null); }, 5000);
     } catch (err) {
       console.error("Failed to save role:", err);
       setSaveError(true);
@@ -1012,58 +1002,58 @@ export function AdminAccessManagement() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-3.5">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+      <div className="flex items-center justify-between flex-wrap gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shadow-2xs shrink-0"
             style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}>
-            <Shield className="w-5 h-5 text-white" />
+            <Shield className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Access & Roles</h2>
-            <p className="text-xs text-slate-400">
-              Configure role-based permissions for every module — {MODULES.length} modules, {systemRoles.length} roles
+            <h2 className="text-xs sm:text-sm font-bold text-foreground leading-tight">Access & Roles</h2>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+              Configure RBAC permissions · {MODULES.length} modules · {systemRoles.length} roles
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="text-xs h-9 text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 gap-1.5 font-medium cursor-pointer"
+            className="text-[11px] h-7 px-2.5 text-primary border-primary/30 bg-primary/5 hover:bg-primary/10 gap-1 font-semibold cursor-pointer shadow-2xs"
             onClick={() => setIsImportModalOpen(true)}
-            title="Import standard parent menu permissions template to review and save to current community"
+            title="Import standard parent menu permissions template"
           >
-            <Download className="w-4 h-4 text-indigo-600" /> Import Parent Permissions
+            <Download className="w-3 h-3 text-primary" /> Import Parent Template
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5 cursor-pointer"
+            className="text-[11px] h-7 px-2.5 text-danger border-danger/30 bg-danger/5 hover:bg-danger/10 gap-1 cursor-pointer shadow-2xs font-semibold"
             onClick={handleDisableAll}
             title="Disable all permissions across all roles in this module"
           >
-            <ShieldAlert className="w-4 h-4 text-rose-600" /> Disable All
+            <ShieldAlert className="w-3 h-3 text-danger" /> Disable All
           </Button>
           {verifying && (
-            <span className="text-xs text-indigo-500 flex items-center gap-1">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying…
+            <span className="text-[11px] text-primary flex items-center gap-1 font-semibold">
+              <Loader2 className="w-3 h-3 animate-spin" /> Verifying…
             </span>
           )}
           {saved && !verifying && (
-            <span className="text-xs text-emerald-600 flex items-center gap-1 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Saved & verified
+            <span className="text-[11px] text-success flex items-center gap-1 font-bold">
+              <CheckCircle2 className="w-3 h-3" /> Saved
             </span>
           )}
           {saveError && (
-            <span className="text-xs text-red-500 flex items-center gap-1 font-semibold">
-              <Lock className="w-3.5 h-3.5" /> Save failed — check connection
+            <span className="text-[11px] text-danger flex items-center gap-1 font-bold">
+              <Lock className="w-3 h-3" /> Save failed
             </span>
           )}
           <Button onClick={handleSave} disabled={saving || !!savingRole}
-            className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm h-9">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            className="bg-primary hover:bg-primary/90 text-white gap-1.5 text-xs font-bold h-7 px-3 cursor-pointer shadow-2xs">
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             {saving ? `Saving ${systemRoles.length} roles…` : "Save All Roles"}
           </Button>
         </div>
@@ -1071,34 +1061,33 @@ export function AdminAccessManagement() {
 
       {/* Persistence verification panel */}
       {saveDetails && saveDetails.length > 0 && (
-        <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-sm font-bold text-slate-700">Persistence Verified</span>
-            <span className="text-[10px] text-slate-400 ml-auto uppercase tracking-wider">
-              sent → stored (permissions)
+        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+          <div className="flex items-center gap-1.5 mb-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+            <span className="text-xs font-bold text-foreground">Persistence Verified</span>
+            <span className="text-[9px] text-muted-foreground ml-auto uppercase tracking-wider font-semibold">
+              sent → stored
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
             {saveDetails.map(d => (
               <div key={d.name}
                 className={cn(
-                  "rounded-xl p-3 border text-left",
-                  d.ok ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-200"
+                  "rounded-lg p-2 border text-left",
+                  d.ok ? "bg-success/5 border-success/20" : "bg-warning/5 border-warning/20"
                 )}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: d.color }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: d.color }}>
                     {d.label}
                   </span>
                   {d.ok
-                    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    : <Unlock className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                    ? <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+                    : <Unlock className="w-3 h-3 text-warning shrink-0" />}
                 </div>
-                <p className="text-lg font-black text-slate-800 leading-none">
+                <p className="text-sm font-black text-foreground leading-none">
                   {d.stored}
-                  <span className="text-xs font-medium text-slate-400 ml-1">/ {d.sent}</span>
+                  <span className="text-[10px] font-normal text-muted-foreground ml-1">/ {d.sent}</span>
                 </p>
-                <p className="text-[9px] text-slate-400 mt-0.5">stored / sent</p>
               </div>
             ))}
           </div>
@@ -1106,45 +1095,45 @@ export function AdminAccessManagement() {
       )}
 
       {/* Body: module nav + content */}
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-3">
 
         {/* Left: Module nav */}
-        <div className="bg-white border border-slate-100 rounded-xl p-2 shadow-[0_2px_8px_rgba(0,0,0,0.04)] h-fit lg:sticky lg:top-4">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1.5 mb-1">
+        <div className="bg-card border border-border/80 rounded-xl p-2 shadow-2xs h-fit lg:sticky lg:top-4">
+          <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1 mb-0.5">
             Modules ({MODULES.length})
           </p>
           <ModuleNav modules={MODULES} active={activeModule} onSelect={id => { setActiveModule(id); setSelectedRole("ADMIN"); }} />
         </div>
 
         {/* Right: Module content */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Module header */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+          <div className="flex items-center justify-between flex-wrap gap-2 bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
                 style={{ background: module.accent }}>
-                <module.icon className="w-4.5 h-4.5" style={{ color: module.color }} />
+                <module.icon className="w-3.5 h-3.5" style={{ color: module.color }} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800">{module.label}</h3>
-                <p className="text-xs text-slate-400">{module.description}</p>
+                <h3 className="text-xs sm:text-sm font-bold text-foreground leading-tight">{module.label}</h3>
+                <p className="text-[10.5px] text-muted-foreground truncate max-w-sm">{module.description}</p>
               </div>
             </div>
 
             {/* View mode tabs */}
-            <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-1 bg-input/60 rounded-lg p-0.5 border border-border/60 shadow-2xs">
               {([
                 { id: "role"   as const, label: "By Role",  icon: Users  },
                 { id: "matrix" as const, label: "Matrix",   icon: Shield },
               ]).map(tab => (
                 <button key={tab.id} onClick={() => setViewMode(tab.id)}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                    "flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer",
                     viewMode === tab.id
-                      ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
-                      : "text-slate-500 hover:bg-slate-100"
+                      ? "bg-primary text-white shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground"
                   )}>
-                  <tab.icon className="w-3.5 h-3.5" /> {tab.label}
+                  <tab.icon className="w-3 h-3" /> {tab.label}
                 </button>
               ))}
             </div>
@@ -1162,10 +1151,10 @@ export function AdminAccessManagement() {
 
           {/* By Role view */}
           {viewMode === "role" && (
-            <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-3">
               {/* Role picker */}
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+              <div className="space-y-1">
+                <p className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider px-1">
                   Roles ({systemRoles.length})
                 </p>
                 {systemRoles.map(r => {
@@ -1180,24 +1169,24 @@ export function AdminAccessManagement() {
                   return (
                     <button key={r.name} onClick={() => setSelectedRole(r.name)}
                       className={cn(
-                        "w-full text-left p-3 rounded-xl border-2 transition-all",
+                        "w-full text-left p-2 rounded-lg border transition-all cursor-pointer",
                         selectedRole === r.name
-                          ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200"
-                          : "border-slate-100 bg-white hover:border-indigo-200 hover:shadow-sm"
+                          ? "border-primary/50 bg-primary/5 shadow-2xs ring-1 ring-primary/20"
+                          : "border-border/70 bg-card hover:bg-input/40"
                       )}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${r.color}18` }}>
-                          <r.icon className="w-3 h-3" style={{ color: r.color }} />
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ background: `${r.color}18` }}>
+                          <r.icon className="w-2.5 h-2.5" style={{ color: r.color }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">{r.label}</p>
+                          <p className="text-[11px] font-bold text-foreground truncate">{r.label}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="flex-1 h-1 bg-input rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all" style={{ width: `${grantedPct}%`, background: r.color }} />
                         </div>
-                        <span className="text-[9px] text-slate-400 shrink-0">{grantedPct}%</span>
+                        <span className="text-[8.5px] font-semibold text-muted-foreground shrink-0">{grantedPct}%</span>
                       </div>
                     </button>
                   );
@@ -1205,7 +1194,7 @@ export function AdminAccessManagement() {
               </div>
 
               {/* Role detail */}
-              <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+              <div className="bg-card rounded-xl border border-border/80 p-3 sm:p-3.5 shadow-2xs">
                 <RoleDetailPanel
                   role={activeRole}
                   rows={module.rows}

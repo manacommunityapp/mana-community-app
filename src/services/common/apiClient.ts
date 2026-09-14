@@ -69,6 +69,8 @@ export interface StoredUser {
   occupancyStatus?: string;
   residentType?: string;
   userType?: string;
+  bio?: string;
+  skills?: string[];
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -142,6 +144,33 @@ export function forceLogout(): void {
   }
 }
 
+/**
+ * Strips Java package names, nested exception traces, and technical exception class prefixes
+ * so that clean backend messages (e.g. "A User with that email already exists.") are presented directly to users.
+ */
+export function stripExceptionPrefix(msg?: string): string {
+  if (!msg) return "";
+  let clean = msg.trim();
+
+  // Remove wrapping quotes if present
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+
+  // Strip nested exception wrapping prefixes
+  clean = clean.replace(/^(?:(?:NestedServletException|nested exception is|Request processing failed[;:]?)\s*)+/gi, "");
+
+  // Strip class name patterns like "com.manacommunity.api.exception.DuplicateResourceException: "
+  // or "org.springframework.dao.DataIntegrityViolationException: " or "DuplicateResourceException: "
+  const exceptionRegex = /(?:[a-zA-Z0-9_$]+\.)*([a-zA-Z0-9_$]+(?:Exception|Error)):\s*/g;
+  clean = clean.replace(exceptionRegex, "");
+
+  // Clean any leading colons, dashes or whitespace
+  clean = clean.replace(/^[:\s-]+/, "").trim();
+
+  return clean || msg.trim();
+}
+
 function sanitizeErrorMessage(status: number, rawText?: string): string {
   const text = (rawText || "").trim();
   const lower = text.toLowerCase();
@@ -171,23 +200,57 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
     try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === "object") {
-        if (typeof parsed.message === "string" && parsed.message.trim()) {
-          const m = parsed.message.trim();
-          if (m.toLowerCase().includes("<html") || m.toLowerCase().includes("nginx") || m.toLowerCase().includes("502")) {
-            return "Our servers are temporarily unreachable. Please try again in a few moments.";
+        // 1. Check if backend returned fieldErrors array
+        if (Array.isArray(parsed.fieldErrors) && parsed.fieldErrors.length > 0) {
+          const fieldMsgs = parsed.fieldErrors
+            .map((fe: any) => stripExceptionPrefix(fe?.message || fe?.error || String(fe)))
+            .filter(Boolean);
+          if (fieldMsgs.length > 0) {
+            return fieldMsgs.join(". ");
           }
-          return m;
         }
-        if (typeof parsed.error === "string" && parsed.error.trim()) {
-          const e = parsed.error.trim();
-          if (e.toLowerCase().includes("<html") || e.toLowerCase().includes("nginx") || e.toLowerCase().includes("502")) {
-            return "Our servers are temporarily unreachable. Please try again in a few moments.";
+
+        // 2. Check message field
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          const m = stripExceptionPrefix(parsed.message);
+          if (m && !m.toLowerCase().includes("<html") && !m.toLowerCase().includes("502 bad")) {
+            return m;
           }
-          return e;
+        }
+
+        // 3. Check detail or details field
+        if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+          const d = stripExceptionPrefix(parsed.detail);
+          if (d && !d.toLowerCase().includes("<html")) {
+            return d;
+          }
+        }
+
+        // 4. Check error description / error message
+        if (typeof parsed.error_description === "string" && parsed.error_description.trim()) {
+          const ed = stripExceptionPrefix(parsed.error_description);
+          if (ed && !ed.toLowerCase().includes("<html")) {
+            return ed;
+          }
+        }
+
+        if (typeof parsed.error === "string" && parsed.error.trim()) {
+          const e = stripExceptionPrefix(parsed.error);
+          if (e && !e.toLowerCase().includes("<html") && e !== "INTERNAL_SERVER_ERROR") {
+            return e;
+          }
         }
       }
     } catch {
       // ignore
+    }
+  }
+
+  // If text is a raw string from backend (e.g. "com.manacommunity...DuplicateResourceException: A User with that email already exists.")
+  if (text && !text.includes("<") && !text.includes(">")) {
+    const clean = stripExceptionPrefix(text);
+    if (clean && clean.length < 500) {
+      return clean;
     }
   }
 
@@ -203,12 +266,12 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
     return "The requested service or resource was not found.";
   }
 
-  if (status >= 500) {
-    return "A server error occurred. Please try again in a few moments.";
+  if (status === 409) {
+    return "A resource with these details already exists.";
   }
 
-  if (text && text.length < 200 && !text.includes("<") && !text.includes(">")) {
-    return text;
+  if (status >= 500) {
+    return "A server error occurred. Please try again in a few moments.";
   }
 
   return `Request failed (${status}). Please try again later.`;
@@ -315,26 +378,55 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
   return handleResponse<T>(res);
 }
 
-// In-flight GET requests, keyed by path. Coalesces concurrent requests for the
-// same resource (e.g. React StrictMode's double effect invocation, or two
-// components mounting at once) into a single network call.
-const inFlightGets = new Map<string, Promise<unknown>>();
+// Cached & In-flight GET requests, keyed by path. Coalesces concurrent and rapid repeated
+// requests for the same resource (e.g. React StrictMode's double effect invocation, multi-component
+// mounting, or rapid re-renders) into a single network call.
+interface GetCacheEntry {
+  promise: Promise<unknown>;
+  expiresAt: number;
+}
+
+const getCache = new Map<string, GetCacheEntry>();
+const DEDUPE_TTL_MS = 1000; // 1 second coalescing window for identical GET requests
+
+export interface RequestOptions {
+  bypassCache?: boolean;
+}
 
 export const apiClient = {
-  async get<T>(path: string): Promise<T> {
-    const existing = inFlightGets.get(path);
-    if (existing) return existing as Promise<T>;
+  /**
+   * Fetch a GET resource with automatic 1-second deduplication and concurrent call coalescing.
+   * If `options.bypassCache` is true, forces a fresh network call.
+   */
+  async get<T>(path: string, options?: RequestOptions): Promise<T> {
+    const now = Date.now();
+    const existing = getCache.get(path);
 
-    const promise = request<T>(path, { method: "GET" });
-    inFlightGets.set(path, promise);
-    try {
-      return await promise;
-    } finally {
-      inFlightGets.delete(path);
+    if (!options?.bypassCache && existing && existing.expiresAt > now) {
+      return existing.promise as Promise<T>;
     }
+
+    const promise = request<T>(path, { method: "GET" }).catch((err) => {
+      // Remove immediately on error so failed requests aren't cached or blocking retries
+      getCache.delete(path);
+      throw err;
+    });
+
+    getCache.set(path, {
+      promise,
+      expiresAt: now + DEDUPE_TTL_MS,
+    });
+
+    return promise;
+  },
+
+  /** Clear all cached GET promises immediately. */
+  clearCache(): void {
+    getCache.clear();
   },
 
   async post<T>(path: string, body?: unknown): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "POST",
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -342,6 +434,7 @@ export const apiClient = {
   },
 
   async put<T>(path: string, body?: unknown): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "PUT",
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -349,6 +442,7 @@ export const apiClient = {
   },
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "PATCH",
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -356,12 +450,15 @@ export const apiClient = {
   },
 
   async delete<T>(path: string): Promise<T> {
+    getCache.clear();
     return request<T>(path, { method: "DELETE" });
   },
 
   async postForm<T>(path: string, formData: FormData): Promise<T> {
+    getCache.clear();
     return request<T>(path, { method: "POST", body: formData, form: true });
   },
 };
 
 export { BASE_URL };
+

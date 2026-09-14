@@ -85,6 +85,8 @@ export const sportsService = {
   rejectRegistration: sportsEventService.rejectRegistration,
   nominateCaptain: sportsEventService.nominateCaptain,
   confirmCaptain: sportsEventService.confirmCaptain,
+  respondToPartnerInvitation: sportsEventService.respondToPartnerInvitation,
+  getPartnerInvitations: sportsEventService.getPartnerInvitations,
   async getScheduleStats(): Promise<{ totalGames: number; liveNow: number; upcoming: number; completed: number }> {
     return apiClient.get<{ totalGames: number; liveNow: number; upcoming: number; completed: number }>("/sports/schedule/stats");
   },

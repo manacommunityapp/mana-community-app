@@ -202,87 +202,85 @@ export function AdminDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-indigo-600" />
-            Admin Dashboard - KYC Verification
-          </h2>
-          <p className="text-slate-500 text-sm mt-1">Review and approve user applications</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Export Report
-          </button>
+    <div className="space-y-3.5 sm:space-y-4">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-xs sm:text-sm font-bold text-foreground leading-tight">
+              KYC Verification &amp; Applicant Review
+            </h2>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground">Review, verify and approve community member identity applications</p>
+          </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-slate-500">Total Apps</span>
-            <div className="p-1.5 sm:p-2 bg-slate-100 rounded-lg shrink-0">
-              <UserCheck className="w-4 h-4 sm:w-5 h-5 text-slate-600" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border/80 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10.5px] font-bold text-muted-foreground">Total Apps</span>
+            <div className="p-1 rounded-md bg-input shrink-0">
+              <UserCheck className="w-3 h-3 text-muted-foreground" />
             </div>
           </div>
-          <div className="text-xl sm:text-3xl font-extrabold text-slate-900 mt-1">{stats.total}</div>
+          <div className="text-lg sm:text-xl font-black text-foreground">{stats.total}</div>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-yellow-250/60 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-yellow-700">Pending</span>
-            <div className="p-1.5 sm:p-2 bg-yellow-100 rounded-lg shrink-0">
-              <Clock className="w-4 h-4 sm:w-5 h-5 text-yellow-600" />
+        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-warning/30 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10.5px] font-bold text-warning">Pending</span>
+            <div className="p-1 rounded-md bg-warning/10 shrink-0">
+              <Clock className="w-3 h-3 text-warning" />
             </div>
           </div>
-          <div className="text-xl sm:text-3xl font-extrabold text-yellow-750 mt-1">{stats.pending}</div>
+          <div className="text-lg sm:text-xl font-black text-warning">{stats.pending}</div>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-green-250/60 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-green-700">Approved</span>
-            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg shrink-0">
-              <CheckCircle className="w-4 h-4 sm:w-5 h-5 text-green-600" />
+        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-success/30 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10.5px] font-bold text-success">Approved</span>
+            <div className="p-1 rounded-md bg-success/10 shrink-0">
+              <CheckCircle className="w-3 h-3 text-success" />
             </div>
           </div>
-          <div className="text-xl sm:text-3xl font-extrabold text-green-700 mt-1">{stats.approved}</div>
+          <div className="text-lg sm:text-xl font-black text-success">{stats.approved}</div>
         </div>
 
-        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-red-250/60 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-red-700">Rejected</span>
-            <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg shrink-0">
-              <XCircle className="w-4 h-4 sm:w-5 h-5 text-red-600" />
+        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-danger/30 shadow-2xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10.5px] font-bold text-danger">Rejected</span>
+            <div className="p-1 rounded-md bg-danger/10 shrink-0">
+              <XCircle className="w-3 h-3 text-danger" />
             </div>
           </div>
-          <div className="text-xl sm:text-3xl font-extrabold text-red-700 mt-1">{stats.rejected}</div>
+          <div className="text-lg sm:text-xl font-black text-danger">{stats.rejected}</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground w-3.5 h-3.5" />
           <input
             type="text"
-            placeholder="Search by name or email..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-350/60 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-xs sm:text-sm"
+            placeholder="Search by applicant name or email..."
+            className="w-full pl-8 pr-3 py-1.5 bg-input border border-border/80 rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-2xs"
           />
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-nowrap w-full sm:w-auto">
-          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:inline" />
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar flex-nowrap w-full sm:w-auto">
+          <Filter className="w-3 h-3 text-muted-foreground shrink-0 hidden sm:inline mr-1" />
           {(["all", "pending", "approved", "rejected"] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all shrink-0 cursor-pointer border ${
                 filterStatus === status
-                  ? "bg-indigo-600 text-white border-transparent shadow-sm"
-                  : "bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:bg-slate-50"
+                  ? "bg-primary text-white border-transparent shadow-2xs"
+                  : "bg-card text-muted-foreground border-border/80 hover:text-foreground hover:bg-input/60"
               }`}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -292,82 +290,82 @@ export function AdminDashboard() {
       </div>
 
       {/* Applications List */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-2xs border border-border/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead className="bg-input/40 border-b border-border/60 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-4 sm:px-6 py-3.5">Applicant</th>
-                <th className="px-4 sm:px-6 py-3.5">Community</th>
-                <th className="px-4 sm:px-6 py-3.5">Type</th>
-                <th className="px-4 sm:px-6 py-3.5">Submitted</th>
-                <th className="px-4 sm:px-6 py-3.5">Status</th>
-                <th className="px-4 sm:px-6 py-3.5 text-right">Actions</th>
+                <th className="px-3.5 py-2.5">Applicant</th>
+                <th className="px-3.5 py-2.5">Community</th>
+                <th className="px-3.5 py-2.5">Type</th>
+                <th className="px-3.5 py-2.5">Submitted</th>
+                <th className="px-3.5 py-2.5">Status</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-border/40 text-foreground">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600" />
-                    Loading applications from database...
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-xs font-medium">
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1.5 text-primary" />
+                    Loading applications...
                   </td>
                 </tr>
               ) : filteredApplications.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-xs font-medium">
                     No applications found matching the criteria.
                   </td>
                 </tr>
               ) : (
                 filteredApplications.map((app) => (
-                  <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                  <tr key={app.id} className="hover:bg-input/30 transition-colors">
+                    <td className="px-3.5 py-2 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0 shadow-inner">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold text-[11px] shrink-0 shadow-2xs">
                           {app.fullName.charAt(0).toUpperCase()}
                         </div>
-                        <div className="ml-3">
-                          <div className="text-xs sm:text-sm font-semibold text-slate-800">{app.fullName}</div>
-                          <div className="text-[10px] text-slate-450 mt-0.5">{app.email}</div>
+                        <div className="ml-2.5">
+                          <div className="text-xs font-semibold text-foreground leading-tight">{app.fullName}</div>
+                          <div className="text-[10px] text-muted-foreground">{app.email}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                      <div className="text-xs sm:text-sm font-semibold text-slate-800">{app.communityCode}</div>
-                      <div className="text-[10px] text-slate-450 capitalize mt-0.5">{app.communityType}</div>
+                    <td className="px-3.5 py-2 whitespace-nowrap">
+                      <div className="text-xs font-semibold text-foreground">{app.communityCode}</div>
+                      <div className="text-[10px] text-muted-foreground capitalize">{app.communityType}</div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-100 rounded-full capitalize">
+                    <td className="px-3.5 py-2 whitespace-nowrap">
+                      <span className="px-2 py-0.5 text-[9.5px] font-bold bg-primary/10 text-primary border border-primary/20 rounded-md capitalize">
                         {app.userType}
                       </span>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-xs text-slate-500 font-medium">
+                    <td className="px-3.5 py-2 whitespace-nowrap text-[11px] text-muted-foreground font-medium">
                       {new Date(app.submittedAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                    <td className="px-3.5 py-2 whitespace-nowrap">
                       {app.status === "pending" && (
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full">
+                        <span className="px-2 py-0.5 text-[9.5px] font-bold bg-warning/10 text-warning border border-warning/25 rounded-md">
                           Pending
                         </span>
                       )}
                       {app.status === "approved" && (
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 rounded-full">
+                        <span className="px-2 py-0.5 text-[9.5px] font-bold bg-success/10 text-success border border-success/25 rounded-md">
                           Approved
                         </span>
                       )}
                       {app.status === "rejected" && (
-                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 rounded-full">
+                        <span className="px-2 py-0.5 text-[9.5px] font-bold bg-danger/10 text-danger border border-danger/25 rounded-md">
                           Rejected
                         </span>
                       )}
                     </td>
-                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-right text-xs font-semibold">
+                    <td className="px-3.5 py-2 whitespace-nowrap text-right text-xs font-semibold">
                       <button
                         onClick={() => setSelectedApp(app)}
-                        className="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1.5 ml-auto cursor-pointer p-1.5 hover:bg-indigo-50/50 rounded-lg transition-colors"
+                        className="text-primary hover:text-primary/80 inline-flex items-center gap-1 ml-auto cursor-pointer px-2 py-1 hover:bg-primary/10 rounded-md transition-colors text-[11px] font-bold"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-3 h-3" />
                         Review
                       </button>
                     </td>
@@ -381,89 +379,91 @@ export function AdminDashboard() {
 
       {/* Review Modal */}
       {selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setSelectedApp(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-xl font-bold text-slate-900">Application Review</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-2xs" onClick={() => setSelectedApp(null)}>
+          <div className="bg-card rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-border" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-card border-b border-border/80 px-4 py-3 flex items-center justify-between z-10">
+              <h2 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-primary" /> Application Review
+              </h2>
               <button
                 onClick={() => setSelectedApp(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-1 text-muted-foreground hover:text-foreground hover:bg-input rounded-md transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 space-y-4 text-xs">
               {/* Applicant Info */}
-              <div className="bg-slate-50 rounded-xl p-5">
-                <h3 className="font-semibold text-slate-900 mb-4">Applicant Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-input/40 rounded-xl p-3 border border-border/60">
+                <h3 className="font-bold text-xs text-foreground mb-2.5">Applicant Details</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <div>
-                    <span className="text-slate-500">Full Name:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.fullName}</p>
+                    <span className="text-[10px] text-muted-foreground">Full Name:</span>
+                    <p className="font-semibold text-foreground truncate">{selectedApp.fullName}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Email:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.email}</p>
+                    <span className="text-[10px] text-muted-foreground">Email:</span>
+                    <p className="font-semibold text-foreground truncate">{selectedApp.email}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Phone:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.phoneNumber}</p>
+                    <span className="text-[10px] text-muted-foreground">Phone:</span>
+                    <p className="font-semibold text-foreground font-mono truncate">{selectedApp.phoneNumber}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Address:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.address}</p>
+                    <span className="text-[10px] text-muted-foreground">Unit / Address:</span>
+                    <p className="font-semibold text-foreground truncate">{selectedApp.address}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Community:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.communityCode}</p>
+                    <span className="text-[10px] text-muted-foreground">Community:</span>
+                    <p className="font-semibold text-foreground truncate">{selectedApp.communityCode}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Account Type:</span>
-                    <p className="font-medium text-slate-900 capitalize">{selectedApp.userType}</p>
+                    <span className="text-[10px] text-muted-foreground">Account Type:</span>
+                    <p className="font-semibold text-foreground capitalize">{selectedApp.userType}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">ID Type:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.idType}</p>
+                    <span className="text-[10px] text-muted-foreground">ID Type:</span>
+                    <p className="font-semibold text-foreground truncate">{selectedApp.idType}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">ID Number:</span>
-                    <p className="font-medium text-slate-900">{selectedApp.idNumber}</p>
+                    <span className="text-[10px] text-muted-foreground">ID Number:</span>
+                    <p className="font-semibold text-foreground font-mono truncate">{selectedApp.idNumber}</p>
                   </div>
                 </div>
               </div>
 
               {/* Documents */}
               <div>
-                <h3 className="font-semibold text-slate-900 mb-4">Verification Documents</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <h3 className="font-bold text-xs text-foreground mb-2">Verification Documents</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
                     <img
                       src={selectedApp.documents.idFront}
                       alt="ID Front"
-                      className="w-full h-48 object-cover"
+                      className="w-full h-32 object-cover"
                     />
-                    <div className="p-3 bg-slate-50 text-center text-sm font-medium text-slate-700">
+                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
                       ID Front Side
                     </div>
                   </div>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
                     <img
                       src={selectedApp.documents.idBack}
                       alt="ID Back"
-                      className="w-full h-48 object-cover"
+                      className="w-full h-32 object-cover"
                     />
-                    <div className="p-3 bg-slate-50 text-center text-sm font-medium text-slate-700">
+                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
                       ID Back Side
                     </div>
                   </div>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
                     <img
                       src={selectedApp.documents.selfie}
                       alt="Selfie"
-                      className="w-full h-48 object-cover"
+                      className="w-full h-32 object-cover"
                     />
-                    <div className="p-3 bg-slate-50 text-center text-sm font-medium text-slate-700">
+                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
                       Selfie Verification
                     </div>
                   </div>
@@ -472,15 +472,14 @@ export function AdminDashboard() {
 
               {/* Warning */}
               {selectedApp.status === "pending" && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-yellow-800">
-                    <p className="font-semibold mb-1">Verification Checklist:</p>
-                    <ul className="list-disc list-inside space-y-1 text-yellow-700">
+                <div className="bg-warning/5 border border-warning/20 rounded-lg p-2.5 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+                  <div className="text-[11px] text-foreground">
+                    <p className="font-bold text-warning mb-0.5">Verification Checklist:</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
                       <li>Verify ID documents are clear and valid</li>
                       <li>Confirm selfie matches ID photo</li>
                       <li>Check community code is valid for this user</li>
-                      <li>Ensure all information is accurate</li>
                     </ul>
                   </div>
                 </div>
@@ -488,39 +487,39 @@ export function AdminDashboard() {
 
               {/* Actions */}
               {selectedApp.status === "pending" && (
-                <div className="flex gap-3 pt-4">
+                <div className="flex gap-2 pt-2 border-t border-border/60">
                   <button
                     onClick={() => handleReject(selectedApp.id)}
-                    className="flex-1 py-3 px-4 bg-red-50 hover:bg-red-100 text-red-700 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 py-1.5 px-3 bg-danger/10 hover:bg-danger/15 text-danger font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs border border-danger/20"
                   >
-                    <UserX className="w-5 h-5" />
+                    <UserX className="w-3.5 h-3.5" />
                     Reject Application
                   </button>
                   <button
                     onClick={() => handleApprove(selectedApp.id)}
-                    className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    className="flex-1 py-1.5 px-3 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                   >
-                    <UserCheck className="w-5 h-5" />
+                    <UserCheck className="w-3.5 h-3.5" />
                     Approve Application
                   </button>
                 </div>
               )}
 
               {selectedApp.status !== "pending" && (
-                <div className="text-center py-4">
-                  <span className={`inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold ${
+                <div className="text-center py-2 border-t border-border/60">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold ${
                     selectedApp.status === "approved"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-success/10 text-success border border-success/20"
+                      : "bg-danger/10 text-danger border border-danger/20"
                   }`}>
                     {selectedApp.status === "approved" ? (
                       <>
-                        <CheckCircle className="w-5 h-5" />
+                        <CheckCircle className="w-3.5 h-3.5" />
                         Application Approved
                       </>
                     ) : (
                       <>
-                        <XCircle className="w-5 h-5" />
+                        <XCircle className="w-3.5 h-3.5" />
                         Application Rejected
                       </>
                     )}

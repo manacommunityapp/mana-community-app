@@ -102,6 +102,9 @@ export function SportsAuction() {
   const [budgetPerTeamConfig, setBudgetPerTeamConfig] = useState(100000);
   const [unsoldRule, setUnsoldRule] = useState("ROTATION_AUCTION");
   const [auctionStatus, setAuctionStatus] = useState("DRAFT");
+  const [seasonName, setSeasonName] = useState("Season 2026");
+  const [auctionFormat, setAuctionFormat] = useState("OPEN_AUCTION");
+  const [bidTimerSeconds, setBidTimerSeconds] = useState(30);
 
   // Event Selection State
   const [availableConfigs, setAvailableConfigs] = useState<any[]>([]);
@@ -200,7 +203,7 @@ export function SportsAuction() {
       if (t && t.length) {
         const mappedTeams = t.map((summary: any, idx: number) => {
           const teamObj = mapTeamData(summary, idx);
-          const teamPlayers = (p || []).filter((player: any) => player.assignedTeam?.id === summary.id || (player as any).assignedTeamId === summary.id || (player.assignedTeam as any) === summary.id).map((pl: any) => ({
+          const teamPlayers = (p || []).filter((player: any) => player.assignedTeam?.id === summary.id || (player as any).assignedTeamId === summary.id).map((pl: any) => ({
             name: pl.name || (pl as any).playerName || 'Player',
             soldPrice: pl.soldPrice || pl.basePrice || 0,
             category: pl.category || pl.role || 'Player'
@@ -291,8 +294,8 @@ export function SportsAuction() {
     const payload = {
       sportId: sport === 'cricket' ? 1 : sport === 'badminton' ? 2 : 3,
       eventId: selectedEventId || undefined,
-      seasonName: 'Season 2026',
-      auctionFormat: 'OPEN_AUCTION',
+      seasonName,
+      auctionFormat,
       totalTeams: totalTeamsConfig,
       totalPlayers: totalPlayersConfig,
       budgetPerTeam: budgetPerTeamConfig,
@@ -300,7 +303,7 @@ export function SportsAuction() {
       bidIncrementDefault,
       bidIncrementThreshold,
       bidIncrementAbove,
-      bidTimerSeconds: 30,
+      bidTimerSeconds,
       rtmEnabled: true,
       unsoldRule,
       categories,
@@ -476,6 +479,7 @@ export function SportsAuction() {
     if (!livePlayer) return;
     try {
       await auctionService.passPlayer(livePlayer.playerId);
+      setBiddingTeamId(null);
       toast.info(`${livePlayer.playerName} passed — back to queue`);
       // Refresh live stats
       auctionService.getAuctionStats(configId).then(stats => setAuctionStats(stats)).catch(() => { });
@@ -725,11 +729,19 @@ export function SportsAuction() {
                     </div>
                     <div className="fgrp">
                       <div className="flabel">Auction Format</div>
-                      <select className="fselect">
-                        <option>Open Auction</option>
-                        <option>Silent Auction</option>
-                        <option>Draft Format</option>
+                      <select className="fselect" value={auctionFormat} onChange={e => setAuctionFormat(e.target.value)}>
+                        <option value="OPEN_AUCTION">Open Auction</option>
+                        <option value="SILENT_AUCTION">Silent Auction</option>
+                        <option value="DRAFT_FORMAT">Draft Format</option>
                       </select>
+                    </div>
+                    <div className="fgrp">
+                      <div className="flabel">Season Name</div>
+                      <input className="finput" type="text" value={seasonName} onChange={e => setSeasonName(e.target.value)} placeholder="e.g. Season 2026" />
+                    </div>
+                    <div className="fgrp">
+                      <div className="flabel">Bid Timer (seconds)</div>
+                      <input className="finput" type="number" min={10} max={120} value={bidTimerSeconds} onChange={e => setBidTimerSeconds(Number(e.target.value))} />
                     </div>
                   </div>
                 </div>
@@ -1355,7 +1367,7 @@ export function SportsAuction() {
                 </div>
                 <div className="grid2" style={{ marginTop: 16 }}>
                   {teams.map(team => {
-                    const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeam?.teamId === team.id || (p as any).assignedTeam === team.id));
+                    const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
                     const budget = team.budget || 0;
                     const spent = team.spent || 0;
                     const remaining = budget - spent;

@@ -95,7 +95,7 @@ function UserProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2.5 pl-1.5 pr-2 sm:pr-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/25 transition-all shadow-sm cursor-pointer active:scale-95 group select-none"
+        className="flex items-center gap-1.5 sm:gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-lg border border-border/80 bg-card hover:bg-muted/60 hover:border-primary/30 transition-all shadow-xs cursor-pointer active:scale-95 group select-none"
         title="Profile & Account Menu"
         aria-expanded={open}
       >
@@ -103,20 +103,20 @@ function UserProfileMenu({
           <img
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
-            className="h-7 w-7 rounded-lg object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
+            className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
+          <div className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md flex items-center justify-center text-primary-foreground text-[10px] font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
             {initials}
           </div>
         )}
-        <span className="hidden sm:block text-xs font-extrabold text-foreground max-w-[100px] truncate">
+        <span className="hidden sm:block text-xs font-bold text-foreground max-w-[85px] truncate">
           {firstName}
         </span>
         <ChevronDown
           className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 shrink-0",
+            "h-3 w-3 text-muted-foreground transition-transform duration-200 shrink-0",
             open && "rotate-180 text-foreground"
           )}
         />
@@ -124,30 +124,30 @@ function UserProfileMenu({
 
       {/* Merged Dropdown Menu */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+        <div className="absolute right-0 top-full mt-1.5 w-60 sm:w-64 max-w-[calc(100vw-1.5rem)] bg-card/95 backdrop-blur-md border border-border/80 rounded-xl shadow-xl shadow-black/10 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
           {/* User Info Header */}
-          <div className="px-4 py-3.5 border-b border-border bg-muted/30 flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-b from-muted/50 to-muted/20 border-b border-border/60 flex items-center gap-2.5">
             {userAvatar ? (
               <img
                 src={userAvatar}
                 alt={user?.fullName ?? "Profile"}
-                className="h-10 w-10 rounded-xl object-cover shadow-sm shrink-0 border border-border/80"
+                className="h-8 w-8 rounded-lg object-cover ring-1 ring-border/80 shadow-2xs shrink-0"
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-black bg-primary shadow-sm shrink-0">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center text-primary-foreground text-xs font-black bg-primary shadow-2xs shrink-0">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-extrabold text-foreground truncate">{user?.fullName ?? "Community Member"}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email || "user@community.org"}</p>
+              <p className="text-xs font-bold text-foreground truncate leading-tight">{user?.fullName ?? "Community Member"}</p>
+              <p className="text-[10px] text-muted-foreground truncate leading-tight font-mono mt-0.5">{user?.email || "user@community.org"}</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide uppercase bg-primary/10 text-primary border border-primary/20 leading-none">
                   {roleLabel}
                 </span>
                 {(user?.flatNo || user?.block) && (
-                  <span className="text-[10px] text-muted-foreground font-medium">
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted/80 text-muted-foreground border border-border/60 leading-none truncate">
                     Flat {user?.block ? `${user.block}-` : ""}{user?.flatNo}
                   </span>
                 )}
@@ -156,17 +156,22 @@ function UserProfileMenu({
           </div>
 
           {/* Quick Actions Links */}
-          <div className="p-2 space-y-0.5 text-xs font-semibold">
+          <div className="p-1 space-y-0.5 text-xs">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 navigate("/profile");
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
             >
-              <UserCircle className="h-4 w-4 text-primary" />
-              <span>My Profile &amp; Settings</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                  <UserCircle className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate">My Profile &amp; Settings</span>
+              </div>
+              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             <button
@@ -175,10 +180,15 @@ function UserProfileMenu({
                 setOpen(false);
                 navigate("/events");
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
             >
-              <CalendarDays className="h-4 w-4 text-amber-500" />
-              <span>Events &amp; My Passes</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate">Events &amp; My Passes</span>
+              </div>
+              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             <button
@@ -187,10 +197,15 @@ function UserProfileMenu({
                 setOpen(false);
                 navigate("/sports");
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
             >
-              <Trophy className="h-4 w-4 text-orange-500" />
-              <span>Sports &amp; Tournaments</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                  <Trophy className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate">Sports &amp; Tournaments</span>
+              </div>
+              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             {isAnyAdmin && (
@@ -200,10 +215,15 @@ function UserProfileMenu({
                   setOpen(false);
                   navigate("/admin");
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
               >
-                <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                <span>Admin Hub</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="h-6 w-6 rounded-md bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="truncate">Admin Hub</span>
+                </div>
+                <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
               </button>
             )}
 
@@ -213,25 +233,35 @@ function UserProfileMenu({
                 setOpen(false);
                 setShowPrivacyModal(true);
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
             >
-              <Lock className="h-4 w-4 text-primary" />
-              <span>Privacy &amp; Data Policy</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+                  <Lock className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate">Privacy &amp; Data Policy</span>
+              </div>
+              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
           </div>
 
           {/* Logout Action Footer */}
-          <div className="p-2 border-t border-border bg-muted/20">
+          <div className="p-1 border-t border-border/60 bg-muted/20">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 onLogout();
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-destructive hover:bg-destructive/10 transition-colors cursor-pointer text-left text-xs font-bold"
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-destructive hover:bg-destructive/10 transition-all cursor-pointer text-left group"
             >
-              <LogOut className="h-4 w-4" />
-              <span>Sign Out</span>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                  <LogOut className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate">Sign Out</span>
+              </div>
+              <ChevronRight className="h-3 w-3 text-destructive/40 group-hover:text-destructive group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
           </div>
         </div>
@@ -465,7 +495,7 @@ export function Layout() {
             <div
               className={cn(
                 "my-2 shrink-0 transition-all",
-                isSidebarCollapsed ? "mx-3 rounded-lg p-2 border border-sidebar-border bg-sidebar-accent/30 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center" : "mx-3 rounded-lg p-2 border border-sidebar-border bg-sidebar-accent/30"
+                isSidebarCollapsed ? "mx-2.5 rounded-xl p-1.5 border border-sidebar-border bg-sidebar-accent/30 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center" : "mx-2.5 rounded-xl p-2 border border-sidebar-border bg-sidebar-accent/30"
               )}
             >
               {/* On Desktop Collapsed: Avatar only */}
@@ -478,13 +508,13 @@ export function Layout() {
                   <img
                     src={userAvatar}
                     alt={displayName}
-                    className="h-9 w-9 rounded-xl object-cover border border-sidebar-border shadow-xs group-hover:scale-105 transition-transform"
+                    className="h-8 w-8 rounded-lg object-cover border border-sidebar-border shadow-2xs group-hover:scale-105 transition-transform"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black bg-primary shadow-xs group-hover:scale-105 transition-transform">
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary shadow-2xs group-hover:scale-105 transition-transform">
                     {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
                   </div>
                 )}
@@ -496,23 +526,27 @@ export function Layout() {
                   <img
                     src={userAvatar}
                     alt={displayName}
-                    className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-sidebar-border"
+                    className="h-8 w-8 rounded-lg object-cover flex-shrink-0 border border-sidebar-border shadow-2xs"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary">
+                  <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary shadow-2xs">
                     {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
                   </div>
                 )}
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-xs font-extrabold text-white/90 truncate leading-tight">{displayName}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></div>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-white/95 truncate leading-tight">{displayName}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/20 text-primary-200 border border-primary/30 uppercase tracking-wide leading-none">
                       {roleLabel}
                     </span>
+                    {(user?.flatNo || user?.block) && (
+                      <span className="text-[9px] text-white/50 font-medium truncate leading-none">
+                        Flat {user?.block ? `${user.block}-` : ""}{user?.flatNo}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

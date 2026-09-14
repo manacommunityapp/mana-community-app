@@ -13,6 +13,8 @@ import { CREATE_EDIT_SPORTS_MAIN } from "../../../constants/permissions";
 import { showSuccess, showWarning, showError, showInfo } from "../../../utils/ToastUtils";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
+import { DatePicker } from "../ui/date-picker";
+import { TimePicker } from "../ui/time-picker";
 import "./SportsAuction.css";
 
 const toast = {
@@ -1051,25 +1053,19 @@ export function SportsSchedule() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={fixtureDate}
-                    onChange={e => setFixtureDate(e.target.value)}
-                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    onChange={(v) => setFixtureDate(v)}
+                    placeholder="Pick fixture date"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Time</label>
-                  <select
+                  <TimePicker
                     value={fixtureTime}
-                    onChange={e => setFixtureTime(e.target.value)}
-                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                  >
-                    <option value="">Select Time</option>
-                    {TIME_OPTIONS.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => setFixtureTime(v)}
+                    placeholder="Select time"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Team 1 (Home)</label>

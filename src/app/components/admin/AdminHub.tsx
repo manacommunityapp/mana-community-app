@@ -64,6 +64,7 @@ import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
+import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { assetService } from "../../../services/inventory/assetService";
@@ -99,6 +100,7 @@ const TAB_ITEMS = [
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
+  { id: "privacy", label: "Privacy & Retention", icon: Shield },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -199,15 +201,15 @@ function OverviewTab({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <div className="bg-card border border-border rounded-xl p-6 shadow-sm text-center max-w-sm w-full">
-          <div className="h-11 w-11 rounded-xl bg-danger/10 flex items-center justify-center mx-auto mb-3">
-            <AlertCircle className="h-5 w-5 text-danger" />
+      <div className="flex flex-col items-center justify-center py-8">
+        <div className="bg-card border border-border rounded-xl p-5 shadow-2xs text-center max-w-sm w-full">
+          <div className="h-9 w-9 rounded-xl bg-danger/10 flex items-center justify-center mx-auto mb-2.5">
+            <AlertCircle className="h-4.5 w-4.5 text-danger" />
           </div>
-          <h3 className="text-sm font-bold text-foreground mb-1">Failed to Load Overview</h3>
-          <p className="text-xs text-muted-foreground mb-4">{error}</p>
-          <button onClick={onRetry} className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-2xs">
-            <RefreshCw className="h-3.5 w-3.5" /> Retry
+          <h3 className="text-xs sm:text-sm font-bold text-foreground mb-1">Failed to Load Overview</h3>
+          <p className="text-[11px] text-muted-foreground mb-3">{error}</p>
+          <button onClick={onRetry} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all cursor-pointer shadow-2xs">
+            <RefreshCw className="h-3 w-3" /> Retry
           </button>
         </div>
       </div>
@@ -257,63 +259,63 @@ function OverviewTab({
     : [];
 
   return (
-    <div className="space-y-3.5 sm:space-y-4 animate-fade-in-up">
+    <div className="space-y-3 sm:space-y-3.5 animate-fade-in-up">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
         {loading
           ? [1, 2, 3, 4].map((i) => <KpiSkeleton key={i} />)
           : kpis.map((k) => (
-              <div key={k.label} className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs hover:border-primary/40 hover:shadow-xs transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="h-7.5 w-7.5 rounded-lg flex items-center justify-center shrink-0" style={{ background: k.bg }}>
-                    <k.icon className="h-3.5 w-3.5" style={{ color: k.color }} />
+              <div key={k.label} className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-2xs hover:border-primary/40 hover:shadow-xs transition-all">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="h-6.5 w-6.5 rounded-lg flex items-center justify-center shrink-0" style={{ background: k.bg }}>
+                    <k.icon className="h-3 w-3" style={{ color: k.color }} />
                   </div>
                   {k.sub && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-success/10 text-success border border-success/15 truncate max-w-[110px]">
+                    <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-md bg-success/10 text-success border border-success/15 truncate max-w-[100px]">
                       {k.sub}
                     </span>
                   )}
                 </div>
-                <p className="text-xl sm:text-2xl font-black text-foreground tracking-tight leading-none">{k.value}</p>
-                <p className="text-[11px] sm:text-xs font-semibold mt-1 text-muted-foreground">{k.label}</p>
+                <p className="text-lg sm:text-xl font-black text-foreground tracking-tight leading-none">{k.value}</p>
+                <p className="text-[10px] sm:text-[11px] font-bold mt-1 text-muted-foreground">{k.label}</p>
               </div>
             ))}
       </div>
 
       {/* Role breakdown + KYC Status summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 sm:gap-3">
         {/* Role breakdown */}
-        <div className="bg-card border border-border/80 rounded-xl p-3.5 sm:p-4 shadow-2xs">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
-              <Crown className="h-4 w-4 text-warning" />
+        <div className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-border/60">
+            <h3 className="font-bold text-xs sm:text-[13px] text-foreground flex items-center gap-1.5">
+              <Crown className="h-3.5 w-3.5 text-warning" />
               User Role Distribution
             </h3>
             {data && data.totalUsers > 0 && (
-              <span className="text-[11px] font-semibold text-muted-foreground">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 {Object.keys(data.roleBreakdown).length} roles
               </span>
             )}
           </div>
           {loading ? (
-            <div className="space-y-2.5 py-1">
+            <div className="space-y-2 py-1">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="animate-pulse flex items-center gap-2.5">
-                  <div className="h-3 w-20 rounded bg-input" />
+                <div key={i} className="animate-pulse flex items-center gap-2">
+                  <div className="h-2.5 w-20 rounded bg-input" />
                   <div className="flex-1 h-1.5 rounded-full bg-input" />
-                  <div className="h-3 w-6 rounded bg-input" />
+                  <div className="h-2.5 w-6 rounded bg-input" />
                 </div>
               ))}
             </div>
           ) : roleRows.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-6">No user data available</p>
+            <p className="text-[11px] text-muted-foreground text-center py-4">No user data available</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {roleRows.map(([role, count]) => {
                 const pct = data && data.totalUsers > 0 ? Math.round((count / data.totalUsers) * 100) : 0;
                 return (
-                  <div key={role} className="flex items-center gap-2.5 text-xs py-0.5">
-                    <span className="text-[11px] font-medium text-muted-foreground w-24 sm:w-28 shrink-0 truncate">
+                  <div key={role} className="flex items-center gap-2 text-xs py-0.5">
+                    <span className="text-[10.5px] font-medium text-muted-foreground w-24 sm:w-28 shrink-0 truncate">
                       {role.replace(/_/g, " ")}
                     </span>
                     <div className="flex-1 h-1.5 bg-input rounded-full overflow-hidden">
@@ -322,8 +324,8 @@ function OverviewTab({
                         style={{ width: `${Math.max(pct, 3)}%` }}
                       />
                     </div>
-                    <span className="text-[11px] font-bold text-foreground w-12 text-right shrink-0">
-                      {count} <span className="text-[10px] font-normal text-muted-foreground">({pct}%)</span>
+                    <span className="text-[10.5px] font-bold text-foreground w-12 text-right shrink-0">
+                      {count} <span className="text-[9.5px] font-normal text-muted-foreground">({pct}%)</span>
                     </span>
                   </div>
                 );
@@ -333,31 +335,31 @@ function OverviewTab({
         </div>
 
         {/* KYC Status summary */}
-        <div className="bg-card border border-border/80 rounded-xl p-3.5 sm:p-4 shadow-2xs flex flex-col justify-between">
+        <div className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-primary" />
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-border/60">
+              <h3 className="font-bold text-xs sm:text-[13px] text-foreground flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 KYC Status Overview
               </h3>
               {data && (
-                <span className="text-[11px] font-semibold text-muted-foreground">
+                <span className="text-[10px] font-semibold text-muted-foreground">
                   {(data.approvedKyc + data.pendingKyc + data.rejectedKyc)} records
                 </span>
               )}
             </div>
             {loading ? (
-              <div className="space-y-3 py-1">
+              <div className="space-y-2 py-1">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="animate-pulse flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-lg bg-input" />
+                  <div key={i} className="animate-pulse flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-lg bg-input" />
                     <div className="flex-1 h-1.5 rounded-full bg-input" />
-                    <div className="h-3 w-8 rounded bg-input" />
+                    <div className="h-2.5 w-8 rounded bg-input" />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-1.5">
                 {[
                   { label: "Approved", value: data?.approvedKyc ?? 0, color: "#10b981", bg: "rgba(16,185,129,0.12)", icon: CheckCircle },
                   { label: "Pending", value: data?.pendingKyc ?? 0, color: "#f59e0b", bg: "rgba(245,158,11,0.12)", icon: Clock },
@@ -366,14 +368,14 @@ function OverviewTab({
                   const total = (data?.approvedKyc ?? 0) + (data?.pendingKyc ?? 0) + (data?.rejectedKyc ?? 0);
                   const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
                   return (
-                    <div key={item.label} className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: item.bg }}>
-                        <item.icon className="h-3.5 w-3.5" style={{ color: item.color }} />
+                    <div key={item.label} className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: item.bg }}>
+                        <item.icon className="h-3 w-3" style={{ color: item.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[11px] font-medium text-muted-foreground">{item.label}</span>
-                          <span className="text-[11px] font-bold text-foreground">{item.value} <span className="text-[10px] font-normal text-muted-foreground">({pct}%)</span></span>
+                          <span className="text-[10.5px] font-medium text-muted-foreground">{item.label}</span>
+                          <span className="text-[10.5px] font-bold text-foreground">{item.value} <span className="text-[9.5px] font-normal text-muted-foreground">({pct}%)</span></span>
                         </div>
                         <div className="h-1.5 bg-input rounded-full overflow-hidden">
                           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(pct, item.value > 0 ? 3 : 0)}%`, background: item.color }} />
@@ -388,9 +390,9 @@ function OverviewTab({
           {!loading && (data?.pendingKyc ?? 0) > 0 && (
             <button
               onClick={() => onNavigate("kyc")}
-              className="mt-3 w-full py-1.5 px-3 rounded-lg border border-warning/30 bg-warning/5 text-warning text-xs font-bold hover:bg-warning/10 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              className="mt-2.5 w-full py-1.5 px-3 rounded-lg border border-warning/30 bg-warning/5 text-warning text-[11px] font-bold hover:bg-warning/10 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             >
-              <AlertTriangle className="h-3.5 w-3.5" />
+              <AlertTriangle className="h-3 w-3" />
               Review {data?.pendingKyc} Pending KYC Applications
             </button>
           )}
@@ -398,9 +400,9 @@ function OverviewTab({
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-card border border-border/80 rounded-xl p-3.5 sm:p-4 shadow-2xs">
-        <h3 className="font-bold text-xs sm:text-sm text-foreground mb-3 flex items-center gap-1.5">
-          <Activity className="h-4 w-4 text-primary" />
+      <div className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <h3 className="font-bold text-xs sm:text-[13px] text-foreground mb-2 pb-1 border-b border-border/60 flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5 text-primary" />
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
@@ -436,25 +438,25 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
   });
 
   return (
-    <div className="space-y-4 animate-fade-in-up stagger-1">
+    <div className="space-y-3 animate-fade-in-up">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search by name or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="w-full pl-8 pr-3 py-1.5 bg-input border border-border/80 rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
           />
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="bg-input border border-border rounded-xl text-xs px-3 py-2 text-foreground focus:outline-none cursor-pointer"
+            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
           >
             {roles.map((r) => (
               <option key={r} value={r}>{r === "all" ? "All Roles" : r.replace(/_/g, " ")}</option>
@@ -463,7 +465,7 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
           <select
             value={filterKyc}
             onChange={(e) => setFilterKyc(e.target.value)}
-            className="bg-input border border-border rounded-xl text-xs px-3 py-2 text-foreground focus:outline-none cursor-pointer"
+            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
           >
             {kycStatuses.map((s) => (
               <option key={s} value={s}>{s === "all" ? "All KYC" : s}</option>
@@ -473,48 +475,48 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
       </div>
 
       {/* Summary pill */}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-[11px] text-muted-foreground">
         Showing <span className="font-semibold text-foreground">{filtered.length}</span> of <span className="font-semibold text-foreground">{users.length}</span> users
       </p>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
+      <div className="bg-card border border-border/80 rounded-xl shadow-2xs overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground text-sm">No users found</div>
+          <div className="text-center py-10 text-muted-foreground text-xs">No users found</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/60 bg-input/40">
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">User</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Role</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">KYC</th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">User</th>
+                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Role</th>
+                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">KYC</th>
+                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {filtered.slice(0, 100).map((u) => (
                   <tr key={u.id} className="hover:bg-input/30 transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    <td className="px-3.5 py-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-2xs">
                           {u.fullName?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                         <div>
-                          <p className="font-medium text-foreground truncate max-w-[160px]">{u.fullName}</p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[160px]">{u.email}</p>
+                          <p className="font-semibold text-foreground truncate max-w-[160px] leading-tight">{u.fullName}</p>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-3"><RoleBadge role={u.role} /></td>
-                    <td className="px-5 py-3"><KycBadge status={u.kycStatus} /></td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex h-2 w-2 rounded-full ${u.isActive !== false ? "bg-success" : "bg-muted-foreground"}`} />
-                      <span className="text-xs text-muted-foreground ml-2">{u.isActive !== false ? "Active" : "Inactive"}</span>
+                    <td className="px-3.5 py-2"><RoleBadge role={u.role} /></td>
+                    <td className="px-3.5 py-2"><KycBadge status={u.kycStatus} /></td>
+                    <td className="px-3.5 py-2">
+                      <span className={`inline-flex h-1.5 w-1.5 rounded-full ${u.isActive !== false ? "bg-success" : "bg-muted-foreground"}`} />
+                      <span className="text-[11px] text-muted-foreground ml-1.5">{u.isActive !== false ? "Active" : "Inactive"}</span>
                     </td>
                   </tr>
                 ))}
@@ -557,8 +559,6 @@ function ModulesTab() {
   const loadModules = async (communityId: number) => {
     try {
       const modules = await communityService.getCommunityModules(communityId);
-      // A community that was never initialized has no module rows.
-      // Feature modules for all module checks should be disabled initially.
       if (modules.length === 0) {
         setEnabledModules([]);
       } else {
@@ -608,7 +608,6 @@ function ModulesTab() {
         isEnabled: enabledModules.includes(m.key),
       }));
       await communityService.bulkUpdateModules(selectedCommunityId, toggles);
-      // Reload from the server so the UI reflects the persisted state (confirms the save).
       await loadModules(selectedCommunityId);
       toast.success("Community modules updated successfully");
     } catch (err: any) {
@@ -620,8 +619,8 @@ function ModulesTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
       </div>
     );
   }
@@ -629,17 +628,17 @@ function ModulesTab() {
   const selectedCommunity = communities.find((c) => c.id === selectedCommunityId);
 
   return (
-    <div className="space-y-6 animate-fade-in-up stagger-1">
+    <div className="space-y-3.5 animate-fade-in-up">
       {/* Community Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5 shadow-lg">
-        <h3 className="font-semibold text-foreground flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-2">
           <Building2 className="h-4 w-4 text-primary" />
           Select Community
         </h3>
         <select
           value={selectedCommunityId ?? ""}
           onChange={(e) => handleCommunityChange(Number(e.target.value))}
-          className="w-full max-w-md bg-input border border-border rounded-xl text-sm px-4 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+          className="w-full sm:max-w-xs bg-input border border-border/80 rounded-lg text-xs px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
         >
           {communities.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
@@ -649,21 +648,21 @@ function ModulesTab() {
 
       {/* Module Toggles */}
       {selectedCommunity && (
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
+        <div className="bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-border/60">
+            <h3 className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
               <ToggleLeft className="h-4 w-4 text-primary" />
-              Feature Modules for {selectedCommunity.name}
+              Feature Modules for <span className="text-primary">{selectedCommunity.name}</span>
             </h3>
             <button
               onClick={toggleAll}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-input border border-border hover:bg-primary/10 hover:border-primary/30 transition-all cursor-pointer text-muted-foreground hover:text-foreground"
+              className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-input border border-border/80 hover:bg-primary/10 hover:border-primary/30 transition-all cursor-pointer text-muted-foreground hover:text-foreground"
             >
               {enabledModules.length === ALL_MODULES.length ? "Disable All" : "Enable All"}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
             {ALL_MODULES.map((mod) => {
               const isEnabled = enabledModules.includes(mod.key);
               const Icon = mod.icon;
@@ -671,30 +670,30 @@ function ModulesTab() {
                 <button
                   key={mod.key}
                   onClick={() => toggleModule(mod.key)}
-                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left ${
+                  className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all duration-200 cursor-pointer text-left ${
                     isEnabled
-                      ? "border-primary/40 bg-primary/5 shadow-sm"
-                      : "border-border bg-card hover:bg-input/50"
+                      ? "border-primary/40 bg-primary/5 shadow-2xs"
+                      : "border-border/80 bg-card hover:bg-input/40"
                   }`}
                 >
                   <div
-                    className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: isEnabled ? mod.bg : "rgba(100,100,100,0.1)" }}
                   >
-                    <Icon className="h-4 w-4" style={{ color: isEnabled ? mod.color : "#888" }} />
+                    <Icon className="h-3.5 w-3.5" style={{ color: isEnabled ? mod.color : "#888" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
+                    <p className={`text-xs font-semibold truncate ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
                       {mod.label}
                     </p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                    <p className="text-[9.5px] text-muted-foreground uppercase font-bold tracking-wider">
                       {isEnabled ? "Enabled" : "Disabled"}
                     </p>
                   </div>
-                  <div className={`h-5 w-9 rounded-full transition-all duration-200 flex items-center px-0.5 ${
-                    isEnabled ? "bg-primary" : "bg-input border border-border"
+                  <div className={`h-4.5 w-8 rounded-full transition-all duration-200 flex items-center px-0.5 shrink-0 ${
+                    isEnabled ? "bg-primary" : "bg-input border border-border/80"
                   }`}>
-                    <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                    <div className={`h-3.5 w-3.5 rounded-full bg-white shadow-xs transition-transform duration-200 ${
                       isEnabled ? "translate-x-3.5" : "translate-x-0"
                     }`} />
                   </div>
@@ -703,16 +702,16 @@ function ModulesTab() {
             })}
           </div>
 
-          <div className="flex items-center justify-center gap-6 mt-5 pt-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{enabledModules.length}</span> of {ALL_MODULES.length} modules enabled
+          <div className="flex items-center justify-between gap-4 mt-3.5 pt-3 border-t border-border/60">
+            <p className="text-[11px] text-muted-foreground">
+              <span className="font-bold text-foreground">{enabledModules.length}</span> of {ALL_MODULES.length} modules enabled
             </p>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving && <Loader2 className="h-3 w-3 animate-spin" />}
               Save Changes
             </button>
           </div>
@@ -930,6 +929,7 @@ export function AdminHub() {
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
+        {activeTab === "privacy" && <PrivacyAdminHub />}
       </div>
     </div>
   );

@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { otpService } from "../../../services/common/otpService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
+import { DatePicker } from "../ui/date-picker";
 import type { SportsEvent, PlayerCategory } from "../../../types/api";
 
 function getEventFormats(event: SportsEvent | null): string[] {
@@ -280,11 +282,34 @@ export function SportsRegister() {
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
 
+  const [liveUser, setLiveUser] = useState<any>(user);
+
+  useEffect(() => {
+    userService.getMe().then((me) => {
+      setLiveUser(me);
+      if (me.gender || me.dateOfBirth) {
+        updateUser({
+          gender: me.gender,
+          dateOfBirth: me.dateOfBirth || (me as any).dob,
+        });
+      }
+    }).catch((err) => {
+      console.warn("Could not fetch latest user profile in SportsRegister:", err);
+    });
+  }, [updateUser]);
+
+  const userGender = liveUser?.gender || user?.gender || "";
+  const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
+
   const [formData, setFormData] = useState({
     categoryIds: [] as number[],
     matchType: "SINGLES",
     role: "",
-    age: user?.dateOfBirth ? new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear() : 25,
+    gender: (user as any)?.gender || "",
+    dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
+    age: (user as any)?.dateOfBirth || (user as any)?.dob
+      ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
+      : 25,
     matches: 0,
     runs: 0,
     wickets: 0,
@@ -294,6 +319,7 @@ export function SportsRegister() {
     playerName: user?.fullName || "",
     relation: "",
     flatNumber: "",
+    familyMemberId: undefined as number | undefined,
   });
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
@@ -409,17 +435,62 @@ export function SportsRegister() {
   }, [formData.categoryIds]);
 
   useEffect(() => {
-    if (user?.dateOfBirth) {
-      const birthYear = new Date(user.dateOfBirth).getFullYear();
-      setFormData(prev => ({ ...prev, age: new Date().getFullYear() - birthYear }));
+    const effectiveDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob;
+    const effectiveGender = liveUser?.gender || (user as any)?.gender || "";
+    if (formData.regType === "self") {
+      let calculatedAge = formData.age;
+      if (effectiveDob) {
+        const birthDate = new Date(effectiveDob);
+        if (!isNaN(birthDate.getTime())) {
+          calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        dateOfBirth: effectiveDob || prev.dateOfBirth,
+        age: effectiveDob ? calculatedAge : prev.age,
+        gender: effectiveGender || prev.gender,
+        playerName: user?.fullName || prev.playerName,
+      }));
     }
-  }, [user]);
+  }, [liveUser, user, formData.regType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    if (name === "dateOfBirth") {
+      let calculatedAge = formData.age;
+      if (value) {
+        const birthDate = new Date(value);
+        if (!isNaN(birthDate.getTime())) {
+          calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        dateOfBirth: value,
+        age: calculatedAge,
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
+    }));
+  };
+
+  const handleDobChange = (value: string) => {
+    let calculatedAge = formData.age;
+    if (value) {
+      const birthDate = new Date(value);
+      if (!isNaN(birthDate.getTime())) {
+        calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+      }
+    }
+    setFormData(prev => ({
+      ...prev,
+      dateOfBirth: value,
+      age: calculatedAge,
     }));
   };
 
@@ -477,6 +548,38 @@ export function SportsRegister() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check user profile for Gender & Date of Birth
+    if (formData.regType === "self") {
+      const missingFields: string[] = [];
+      if (!userGender?.trim()) missingFields.push("Gender");
+      if (!userDob?.trim() && !formData.dateOfBirth?.trim()) missingFields.push("Date of Birth");
+
+      if (missingFields.length > 0) {
+        toast.error(`Please update your ${missingFields.join(" and ")} in your Profile before registering for sports events.`, {
+          duration: 6000,
+          action: {
+            label: "Update Profile",
+            onClick: () => navigate("/profile"),
+          },
+        });
+        return;
+      }
+    } else if (formData.regType === "family") {
+      const missingFields: string[] = [];
+      if (!formData.gender?.trim()) missingFields.push("Gender");
+      if (!formData.dateOfBirth?.trim()) missingFields.push("Date of Birth");
+
+      if (missingFields.length > 0) {
+        toast.error(`Please provide ${missingFields.join(" and ")} for this family member before registering.`);
+        return;
+      }
+    }
+
+    if (!formData.dateOfBirth?.trim()) {
+      toast.error("Date of Birth is mandatory. Please provide your Date of Birth.");
+      return;
+    }
     if (formData.categoryIds.length === 0) {
       toast.error("Please select at least one category");
       return;
@@ -510,6 +613,7 @@ export function SportsRegister() {
           matchType: formData.matchType,
           role: formData.role,
           age: formData.age,
+          dateOfBirth: formData.dateOfBirth,
           matches: formData.matches,
           runs: formData.runs,
           wickets: formData.wickets,
@@ -519,6 +623,7 @@ export function SportsRegister() {
           email: email.trim() || undefined,
           relation: formData.relation,
           flatNumber: formData.flatNumber,
+          familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
           recaptchaToken,
         });
       }
@@ -555,7 +660,7 @@ export function SportsRegister() {
   const completedSteps = [
     formData.matchType.length > 0,
     formData.categoryIds.length > 0,
-    formData.playerName.trim().length > 0,
+    formData.playerName.trim().length > 0 && formData.dateOfBirth.trim().length > 0,
     formData.role.length > 0,
   ];
   const currentStep = completedSteps.filter(Boolean).length;
@@ -632,6 +737,32 @@ export function SportsRegister() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Profile Incomplete Banner */}
+            {formData.regType === "self" && (!userGender || !userDob) && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-xl flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                      Profile Incomplete: {!userGender && !userDob ? "Gender & Date of Birth Required" : !userGender ? "Gender Required" : "Date of Birth Required"}
+                    </h4>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                      Your profile is missing {!userGender && !userDob ? "Gender and Date of Birth" : !userGender ? "Gender" : "Date of Birth"}. Please update these in your Profile before registering so we can place you in the correct tournament category.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile")}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                >
+                  <span>Update Profile</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             {/* 1. Participant Type (Format) */}
             {availableFormats.length > 0 && (
               <div className="bg-card border border-border rounded-xl p-4 shadow-sm relative overflow-hidden">
@@ -776,12 +907,24 @@ export function SportsRegister() {
                                 ? "SIBLING"
                                 : "OTHER";
 
-                              setFormData(prev => ({
-                                ...prev,
-                                playerName: m.name,
-                                age: m.age || prev.age,
-                                relation: mappedRel,
-                              }));
+                              setFormData(prev => {
+                                let calculatedAge = m.age || prev.age;
+                                if (m.dob) {
+                                  const birthDate = new Date(m.dob);
+                                  if (!isNaN(birthDate.getTime())) {
+                                    calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+                                  }
+                                }
+                                return {
+                                  ...prev,
+                                  playerName: m.name,
+                                  familyMemberId: m.id,
+                                  gender: m.gender || "",
+                                  dateOfBirth: m.dob || "",
+                                  age: calculatedAge,
+                                  relation: mappedRel,
+                                };
+                              });
                             }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
                               isSelected
@@ -791,7 +934,7 @@ export function SportsRegister() {
                           >
                             <span>{m.name}</span>
                             <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                              {m.relation} {m.age ? `(${m.age}y)` : ""}
+                              {m.relation} {m.gender ? `• ${m.gender}` : ""} {m.age ? `(${m.age}y)` : ""}
                             </span>
                           </button>
                         );
@@ -819,6 +962,61 @@ export function SportsRegister() {
                           : "text-foreground"
                       }`}
                     />
+                  </div>
+
+                  {/* Gender */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <UserCheck className="w-3.5 h-3.5 text-primary" />
+                        Gender <span className="text-destructive font-bold">*</span>
+                      </span>
+                      {formData.regType === "self" && (
+                        userGender ? (
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 px-1.5 py-0.2 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
+                            ✓ Synced from Profile
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/profile")}
+                            className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>⚠️ Add in Profile</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        )
+                      )}
+                    </label>
+                    {formData.regType === "self" ? (
+                      <div className={`w-full border rounded-lg px-3 py-2.5 text-sm flex items-center justify-between ${
+                        userGender ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                      }`}>
+                        <span className="font-medium">{userGender ? userGender.toUpperCase() : "Missing in Profile — Please update profile"}</span>
+                        {!userGender && (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/profile")}
+                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer"
+                          >
+                            Update
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <select
+                        name="gender"
+                        value={formData.gender}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    )}
                   </div>
 
                   {/* Primary Role */}
@@ -876,12 +1074,35 @@ export function SportsRegister() {
                     </div>
                   )}
 
+                  {/* Date of Birth (Mandatory) */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        Date of Birth <span className="text-destructive font-bold">*</span>
+                      </span>
+                      {formData.age > 0 && (
+                        <span className="text-[10px] font-bold text-primary px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
+                          {formData.age} years old
+                        </span>
+                      )}
+                    </label>
+                    <DatePicker
+                      value={formData.dateOfBirth}
+                      onChange={handleDobChange}
+                      max={new Date().toISOString().split("T")[0]}
+                      placeholder="Pick date of birth"
+                    />
+                  </div>
+
                   {/* Age */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Age</label>
                     <input
                       name="age"
                       type="number"
+                      min={1}
+                      max={120}
                       value={formData.age}
                       onChange={handleInputChange}
                       className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
