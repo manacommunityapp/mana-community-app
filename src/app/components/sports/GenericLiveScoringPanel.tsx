@@ -5,6 +5,7 @@ import {
   type GenericMatchState,
   type GenericScoreRequest,
 } from "../../../services/sports/tournamentService";
+import { stompClient } from "../../../services/chat/stompClient";
 import {
   SPORT_EVENT_TYPES,
   PERIOD_LABELS,
@@ -68,9 +69,21 @@ export function GenericLiveScoringPanel({
 
   useEffect(() => {
     fetchState().finally(() => setLoading(false));
-    const interval = setInterval(fetchState, 10000);
-    return () => clearInterval(interval);
-  }, [fetchState]);
+
+    const unsub = stompClient.subscribe(
+      `/topic/match/${matchId}/generic-state`,
+      (body) => setState(body as GenericMatchState)
+    );
+
+    const interval = setInterval(() => {
+      if (!stompClient.connected) fetchState();
+    }, 10000);
+
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [fetchState, matchId]);
 
   const handleScore = useCallback(
     async (

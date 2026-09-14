@@ -34,8 +34,11 @@ import { LiveScoringPanel } from "./LiveScoringPanel";
 import { GenericMatchDetailView } from "./GenericMatchDetailView";
 import { GenericLiveMatchView } from "./GenericLiveMatchView";
 import { GenericLiveScoringPanel } from "./GenericLiveScoringPanel";
-import { isCricketSport, getSportType } from "./utils/sportScoringConstants";
+import { isCricketSport, getSportType, isTimeSport } from "./utils/sportScoringConstants";
 import { Leaderboard } from "./Leaderboard";
+import { GenericLeaderboard } from "./GenericLeaderboard";
+import { RaceScoringPanel } from "./RaceScoringPanel";
+import { RaceResultsView } from "./RaceResultsView";
 
 const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
@@ -381,6 +384,7 @@ export function SportsSchedule() {
   };
 
   const activeIsCricket = isCricketSport(activeMatchSport);
+  const activeIsTimeSport = isTimeSport(activeMatchSport);
   const activeSportType = getSportType(activeMatchSport) || "BADMINTON";
 
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -1503,7 +1507,9 @@ export function SportsSchedule() {
       )}
 
       {/* Leaderboard */}
-      {activeTab === "Leaderboard" && <Leaderboard />}
+      {activeTab === "Leaderboard" && (
+        activeIsCricket ? <Leaderboard /> : <GenericLeaderboard />
+      )}
 
       {/* Brackets */}
       {activeTab === "Brackets" && <BracketView eventId={eventId} />}
@@ -1521,6 +1527,8 @@ export function SportsSchedule() {
       {viewingMatchId !== null && (
         activeIsCricket ? (
           <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceResultsView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
         ) : (
           <GenericMatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
         )
@@ -1530,6 +1538,8 @@ export function SportsSchedule() {
       {liveViewMatchId !== null && (
         activeIsCricket ? (
           <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceResultsView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
         ) : (
           <GenericLiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
         )
@@ -1539,6 +1549,12 @@ export function SportsSchedule() {
       {liveScoringMatchId !== null && (
         activeIsCricket ? (
           <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+        ) : activeIsTimeSport ? (
+          <RaceScoringPanel
+            matchId={liveScoringMatchId}
+            sportType={activeSportType}
+            onClose={() => setLiveScoringMatchId(null)}
+          />
         ) : (
           <GenericLiveScoringPanel
             matchId={liveScoringMatchId}

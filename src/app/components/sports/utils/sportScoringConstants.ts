@@ -83,3 +83,10 @@ export const isCricketSport = (sportName: string): boolean => {
   const lower = sportName.toLowerCase();
   return lower.includes('cricket');
 };
+
+const TIME_BASED_SPORTS = ['running', 'swimming', 'cycling', 'athletics', 'track and field', 'track_and_field', 'marathon', 'sprint'];
+
+export const isTimeSport = (sportName: string): boolean => {
+  const lower = sportName.toLowerCase();
+  return TIME_BASED_SPORTS.some(s => lower.includes(s));
+};

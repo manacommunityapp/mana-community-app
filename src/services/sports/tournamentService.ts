@@ -395,6 +395,54 @@ export interface PlayerMatchStats {
   stats: Record<string, any>;
 }
 
+// ─── Generic Leaderboard Types ──────────────────────────────────────────────
+
+export interface GenericLeaderboardEntry {
+  playerId: number;
+  playerName: string;
+  teamId: number;
+  teamName: string;
+  category: string;
+  value: number;
+  matchesPlayed: number;
+  rank: number;
+}
+
+// ─── Race / Time-Based Sports Types ─────────────────────────────────────────
+
+export interface RaceResultRequest {
+  matchId: number;
+  playerId: number;
+  teamId?: number;
+  heatNumber?: number;
+  laneNumber?: number;
+  finishTimeMillis?: number;
+  formattedTime?: string;
+  raceStatus: "FINISHED" | "DNF" | "DNS" | "DQ";
+  splitTimes?: string[];
+  notes?: string;
+}
+
+export interface RaceResult {
+  id: number;
+  matchId: number;
+  playerId: number;
+  playerName: string;
+  teamId?: number;
+  teamName?: string;
+  heatNumber?: number;
+  laneNumber?: number;
+  finishTimeMillis?: number;
+  formattedTime?: string;
+  raceStatus: string;
+  overallRank?: number;
+  heatRank?: number;
+  personalBestMillis?: number;
+  isPersonalBest?: boolean;
+  splitTimes?: string[];
+  notes?: string;
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -553,5 +601,37 @@ export const tournamentService = {
   /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
   async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
     return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
+
+  // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
+
+  async getGenericLeaderboard(configId: number, category: string): Promise<GenericLeaderboardEntry[]> {
+    return apiClient.get<GenericLeaderboardEntry[]>(`/tournament/${configId}/leaderboard/generic`, { params: { category } });
+  },
+
+  async getGenericLeaderboardCategories(configId: number): Promise<string[]> {
+    return apiClient.get<string[]>(`/tournament/${configId}/leaderboard/generic/categories`);
+  },
+
+  // ─── Race / Time-Based Sports API Methods ────────────────────────────────────
+
+  async recordRaceResult(req: RaceResultRequest): Promise<RaceResult> {
+    return apiClient.post<RaceResult>("/tournament/match/race/result", req);
+  },
+
+  async getRaceResults(matchId: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/${matchId}/results`);
+  },
+
+  async getRaceHeatResults(matchId: number, heatNumber: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/${matchId}/heat/${heatNumber}`);
+  },
+
+  async getPlayerRaceHistory(playerId: number): Promise<RaceResult[]> {
+    return apiClient.get<RaceResult[]>(`/tournament/match/race/player/${playerId}/history`);
+  },
+
+  async recalculateRaceRanks(matchId: number): Promise<RaceResult[]> {
+    return apiClient.post<RaceResult[]>(`/tournament/match/race/${matchId}/recalculate-ranks`, {});
   },
 };
