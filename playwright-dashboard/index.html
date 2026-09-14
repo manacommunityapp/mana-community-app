@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Playwright Sports E2E Dashboard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* ── Tokens ─────────────────────────────────────── */
+:root {
+  --bg:         #0d1117;
+  --surface:    #161b22;
+  --surface-2:  #21262d;
+  --border:     #30363d;
+  --accent:     #45ba4b;
+  --accent-dim: rgba(69,186,75,.13);
+  --accent-txt: #4ade80;
+  --text:       #e6edf3;
+  --muted:      #8b949e;
+  --success:    #3fb950;
+  --success-bg: rgba(63,185,80,.12);
+  --danger:     #f85149;
+  --danger-bg:  rgba(248,81,73,.12);
+  --warn:       #d29922;
+  --warn-bg:    rgba(210,153,34,.12);
+  --info:       #79c0ff;
+  --info-bg:    rgba(121,192,255,.1);
+  --mono:       'JetBrains Mono','Cascadia Code',monospace;
+  --sans:       'Inter',system-ui,sans-serif;
+  --radius:     6px;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:#f6f8fa;--surface:#fff;--surface-2:#eef0f3;--border:#d0d7de;
+    --accent:#1a7f37;--accent-dim:rgba(26,127,55,.1);--accent-txt:#1a7f37;
+    --text:#1f2328;--muted:#656d76;
+    --success:#1a7f37;--success-bg:rgba(26,127,55,.1);
+    --danger:#cf222e;--danger-bg:rgba(207,34,46,.1);
+    --warn:#9a6700;--warn-bg:rgba(154,103,0,.1);
+    --info:#0550ae;--info-bg:rgba(5,80,174,.08);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f6f8fa;--surface:#fff;--surface-2:#eef0f3;--border:#d0d7de;
+  --accent:#1a7f37;--accent-dim:rgba(26,127,55,.1);--accent-txt:#1a7f37;
+  --text:#1f2328;--muted:#656d76;
+  --success:#1a7f37;--success-bg:rgba(26,127,55,.1);
+  --danger:#cf222e;--danger-bg:rgba(207,34,46,.1);
+  --warn:#9a6700;--warn-bg:rgba(154,103,0,.1);
+  --info:#0550ae;--info-bg:rgba(5,80,174,.08);
+}
+
+/* ── Reset ──────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;min-height:100vh}
+
+/* ── Header ─────────────────────────────────────── */
+.header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 24px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap;
+}
+.hbrand{display:flex;align-items:center;gap:10px}
+.hlogo{font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--accent)}
+.hsub{font-size:.75rem;color:var(--muted)}
+.hbadges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{font-family:var(--mono);font-size:.65rem;font-weight:600;padding:2px 8px;border-radius:20px;letter-spacing:.03em}
+.badge-pw{background:#0d2818;color:#4ade80;border:1px solid #166534}
+.badge-ts{background:var(--info-bg);color:var(--info);border:1px solid var(--border)}
+.badge-v{background:var(--surface-2);color:var(--muted);border:1px solid var(--border)}
+.theme-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:var(--radius);cursor:pointer;font-size:.75rem;transition:color .15s,border-color .15s}
+.theme-btn:hover{color:var(--text);border-color:var(--accent)}
+
+/* ── Status bar ──────────────────────────────────── */
+.status-bar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:8px 24px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;
+}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat-val{font-family:var(--mono);font-size:.95rem;font-weight:700;color:var(--text)}
+.stat-lbl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.stat-val.ok{color:var(--success)}
+.stat-val.ng{color:var(--danger)}
+.stat-val.pk{color:var(--accent)}
+.stat-sep{width:1px;height:32px;background:var(--border)}
+
+/* ── Test count pill ─────────────────────────────── */
+.tc-pill{
+  font-family:var(--mono);font-size:.62rem;font-weight:600;
+  padding:1px 7px;border-radius:12px;
+  background:var(--accent-dim);color:var(--accent-txt);
+  border:1px solid rgba(69,186,75,.25);white-space:nowrap;
+}
+
+/* ── Main ────────────────────────────────────────── */
+.main{padding:20px 24px;max-width:1280px}
+
+/* ── Section headers ─────────────────────────────── */
+.section-label{
+  font-size:.65rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);margin:24px 0 10px;
+}
+.section-title{font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--text);margin-bottom:14px}
+
+/* ── Card grid ───────────────────────────────────── */
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:8px}
+.grid-3{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+
+/* ── Spec card ───────────────────────────────────── */
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;display:flex;flex-direction:column;gap:10px;
+  transition:border-color .15s;
+}
+.card:hover{border-color:var(--accent)}
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.card-name{font-family:var(--mono);font-size:.9rem;font-weight:700;color:var(--text);text-wrap:balance}
+.card-status{
+  font-family:var(--mono);font-size:.62rem;font-weight:600;
+  padding:2px 7px;border-radius:3px;white-space:nowrap;flex-shrink:0;
+}
+.status-pending{background:var(--surface-2);color:var(--muted)}
+.status-pass{background:var(--success-bg);color:var(--success)}
+.status-fail{background:var(--danger-bg);color:var(--danger)}
+.status-running{background:var(--warn-bg);color:var(--warn)}
+
+.card-desc{font-size:.8rem;color:var(--muted);line-height:1.55}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.meta-chip{
+  font-family:var(--mono);font-size:.68rem;padding:2px 7px;
+  border-radius:3px;border:1px solid var(--border);color:var(--muted);
+}
+
+/* ── Module chip colours ─────────────────────────── */
+.mod-nav    {background:rgba(121,192,255,.08);color:#79c0ff;border-color:rgba(121,192,255,.2)}
+.mod-dash   {background:rgba(240,160,48,.08);color:#f0a030;border-color:rgba(240,160,48,.2)}
+.mod-sched  {background:rgba(163,122,255,.08);color:#a78bfa;border-color:rgba(163,122,255,.2)}
+.mod-mysports{background:rgba(45,212,191,.08);color:#2dd4bf;border-color:rgba(45,212,191,.2)}
+.mod-admin  {background:rgba(248,81,73,.08);color:#f87171;border-color:rgba(248,81,73,.2)}
+.mod-analytics{background:rgba(99,102,241,.08);color:#818cf8;border-color:rgba(99,102,241,.2)}
+.mod-auction {background:rgba(52,211,153,.08);color:#34d399;border-color:rgba(52,211,153,.2)}
+.mod-profile {background:rgba(139,92,246,.08);color:#a78bfa;border-color:rgba(139,92,246,.2)}
+.mod-util    {background:var(--surface-2);color:var(--muted)}
+
+/* ── Test list inside card ───────────────────────── */
+.test-list{
+  border-top:1px solid var(--border);padding-top:8px;
+  display:flex;flex-direction:column;gap:3px;
+  max-height:0;overflow:hidden;
+  transition:max-height .3s ease,padding-top .3s;
+}
+.test-list.open{max-height:600px;padding-top:8px}
+.test-item{
+  font-family:var(--mono);font-size:.68rem;color:var(--muted);
+  padding:2px 6px;border-radius:3px;
+  display:flex;align-items:center;gap:5px;
+}
+.test-item::before{content:"▸";font-size:.55rem;color:var(--accent);flex-shrink:0}
+.expand-btn{
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  background:none;border:1px solid var(--border);border-radius:3px;
+  padding:2px 8px;cursor:pointer;align-self:flex-start;
+  transition:color .15s,border-color .15s;
+}
+.expand-btn:hover{color:var(--accent);border-color:var(--accent)}
+
+/* ── Command box ──────────────────────────────────── */
+.cmd-box{
+  background:#0d1117;border:1px solid var(--border);border-radius:4px;
+  padding:9px 12px;font-family:var(--mono);font-size:.73rem;
+  color:var(--success);word-break:break-all;
+}
+:root[data-theme="light"] .cmd-box{background:var(--surface-2);color:#1a7f37}
+
+/* ── Card actions ────────────────────────────────── */
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.btn{
+  font-family:var(--mono);font-size:.73rem;font-weight:600;
+  padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border);
+  cursor:pointer;display:flex;align-items:center;gap:5px;
+  transition:all .15s;white-space:nowrap;
+}
+.btn-copy{background:var(--surface-2);color:var(--text)}
+.btn-copy:hover{background:var(--border);border-color:var(--accent)}
+.btn-run{background:var(--success-bg);color:var(--success);border-color:rgba(63,185,80,.35)}
+.btn-run:hover{background:rgba(63,185,80,.22);border-color:var(--success)}
+.btn-pass{background:none;color:var(--success);border-color:rgba(63,185,80,.3)}
+.btn-pass:hover{background:var(--success-bg)}
+.btn-fail{background:none;color:var(--danger);border-color:rgba(248,81,73,.3)}
+.btn-fail:hover{background:var(--danger-bg)}
+.btn-reset{background:none;color:var(--muted);border-color:var(--border);font-size:.68rem}
+.btn-reset:hover{color:var(--text)}
+
+/* ── Toast ────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);
+  background:var(--surface);border:1px solid var(--success);border-radius:var(--radius);
+  color:var(--success);font-family:var(--mono);font-size:.78rem;
+  padding:8px 18px;z-index:999;transition:transform .25s ease,opacity .25s;opacity:0;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── Modal ────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:24px;
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:24px;width:100%;max-width:580px;
+}
+.modal-title{font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:.8rem;color:var(--muted);margin-bottom:14px}
+.modal-cmd{
+  background:#0d1117;border:1px solid var(--border);border-radius:4px;
+  padding:12px 14px;font-family:var(--mono);font-size:.78rem;
+  color:var(--success);margin-bottom:14px;word-break:break-all;white-space:pre-wrap;
+}
+.modal-steps{margin-bottom:16px;display:flex;flex-direction:column;gap:6px}
+.modal-step{display:flex;align-items:baseline;gap:8px;font-size:.8rem;color:var(--text)}
+.step-num{
+  font-family:var(--mono);font-size:.68rem;font-weight:700;
+  background:var(--accent-dim);color:var(--accent-txt);
+  border-radius:3px;padding:1px 6px;flex-shrink:0;
+}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+/* ── Run history ──────────────────────────────────── */
+.history-table{width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:8px;overflow-x:auto;display:block}
+.history-table th{
+  text-align:left;padding:7px 12px;background:var(--surface-2);
+  border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);letter-spacing:.05em;white-space:nowrap;
+}
+.history-table td{padding:6px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.73rem;white-space:nowrap}
+.history-table tr:last-child td{border-bottom:none}
+.ht-pass{color:var(--success)}
+.ht-fail{color:var(--danger)}
+.ht-pend{color:var(--muted)}
+#empty-history{font-size:.8rem;color:var(--muted);padding:12px 0}
+
+/* ── Quick ref ────────────────────────────────────── */
+.ref-table{width:100%;border-collapse:collapse;font-size:.78rem;overflow-x:auto;display:block}
+.ref-table th{
+  text-align:left;padding:7px 12px;background:var(--surface-2);
+  border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem;
+  color:var(--muted);white-space:nowrap;
+}
+.ref-table td{padding:6px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem}
+.ref-table tr:last-child td{border-bottom:none}
+.ref-table td:first-child{color:var(--accent)}
+.ref-table td:last-child{color:var(--success)}
+
+/* ── Divider ──────────────────────────────────────── */
+hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+/* ── Scrollbar ────────────────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="hbrand">
+    <span class="hlogo">🎭 playwright-sports-e2e</span>
+    <span class="hsub">mana-community-app · Sports Module</span>
+  </div>
+  <div class="hbadges">
+    <span class="badge badge-pw">Playwright 1.62</span>
+    <span class="badge badge-ts">TypeScript</span>
+    <span class="badge badge-v">Chromium</span>
+    <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
+  </div>
+</header>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div class="stat"><span class="stat-val pk" id="st-total">12</span><span class="stat-lbl">Specs</span></div>
+  <div class="stat-sep"></div>
+  <div class="stat"><span class="stat-val ok" id="st-pass">0</span><span class="stat-lbl">Passed</span></div>
+  <div class="stat"><span class="stat-val ng" id="st-fail">0</span><span class="stat-lbl">Failed</span></div>
+  <div class="stat"><span class="stat-val" id="st-pend">12</span><span class="stat-lbl">Pending</span></div>
+  <div class="stat-sep"></div>
+  <div class="stat"><span class="stat-val pk" id="st-tests">103</span><span class="stat-lbl">Total Tests</span></div>
+  <div class="stat"><span class="stat-val" id="st-last">—</span><span class="stat-lbl">Last Run</span></div>
+</div>
+
+<div class="main">
+
+<!-- ══ Group 1: UI & Routing ══════════════════════════════════════════════ -->
+<div class="section-label">Group 1 — UI & Routing</div>
+<div class="section-title">Core Navigation &amp; Page Rendering</div>
+<div class="grid">
+
+  <!-- Navigation -->
+  <div class="card" id="card-nav">
+    <div class="card-header">
+      <span class="card-name">Sports Navigation</span>
+      <span class="card-status status-pending" id="status-nav">PENDING</span>
+    </div>
+    <div class="card-desc">Validates the Sports sub-nav bar, breadcrumb trail, active-link highlight, and all route transitions (Dashboard → Schedule → Admin → My Sports → Analytics).</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-nav">@nav</span>
+      <span class="meta-chip">sports-navigation.spec.ts</span>
+      <span class="tc-pill">8 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('nav')">▾ Tests</button>
+    <div class="test-list" id="tests-nav">
+      <div class="test-item">renders the Sports breadcrumb and page header</div>
+      <div class="test-item">renders all nav bar items for a user with full permissions</div>
+      <div class="test-item">navigates to Schedule page from nav bar</div>
+      <div class="test-item">navigates to Admin page from nav bar</div>
+      <div class="test-item">navigates to My Sports from nav bar</div>
+      <div class="test-item">navigates to Analytics from nav bar</div>
+      <div class="test-item">highlights the active nav item</div>
+      <div class="test-item">shows breadcrumb trail with current sub-section</div>
+    </div>
+    <div class="cmd-box" id="cmd-nav">npx playwright test e2e/sports/sports-navigation.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('nav')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('nav')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('nav','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('nav','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('nav','pending')">↺</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="card" id="card-dash">
+    <div class="card-header">
+      <span class="card-name">Sports Dashboard</span>
+      <span class="card-status status-pending" id="status-dash">PENDING</span>
+    </div>
+    <div class="card-desc">Verifies the four KPI stat cards (Registrations · Live · Open · Tournaments), tournament list, open registrations, pending team approvals, and error/loading fallback states.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-dash">@dashboard</span>
+      <span class="meta-chip">sports-dashboard.spec.ts</span>
+      <span class="tc-pill">9 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('dash')">▾ Tests</button>
+    <div class="test-list" id="tests-dash">
+      <div class="test-item">renders the four stat cards with mocked values</div>
+      <div class="test-item">stat card labels are visible</div>
+      <div class="test-item">displays active tournaments from mock API</div>
+      <div class="test-item">shows tournament sport labels</div>
+      <div class="test-item">displays open registrations section</div>
+      <div class="test-item">shows pending team in approvals area</div>
+      <div class="test-item">clicking a tournament navigates or expands detail</div>
+      <div class="test-item">shows fallback when stats API fails</div>
+      <div class="test-item">does not remain in loading state after API responds</div>
+    </div>
+    <div class="cmd-box" id="cmd-dash">npx playwright test e2e/sports/sports-dashboard.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('dash')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('dash')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('dash','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('dash','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('dash','pending')">↺</button>
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div class="card" id="card-sched">
+    <div class="card-header">
+      <span class="card-name">Sports Schedule</span>
+      <span class="card-status status-pending" id="status-sched">PENDING</span>
+    </div>
+    <div class="card-desc">Tests the Schedule page tab bar (Overview · My Matches · All Events · Leaderboard), event list from mock API, sport/venue filter controls, admin create-event button, and empty state.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-sched">@schedule</span>
+      <span class="meta-chip">sports-schedule.spec.ts</span>
+      <span class="tc-pill">10 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('sched')">▾ Tests</button>
+    <div class="test-list" id="tests-sched">
+      <div class="test-item">renders the Schedule page without crashing</div>
+      <div class="test-item">shows the Sports breadcrumb with Schedule sub-section</div>
+      <div class="test-item">renders the Overview tab by default</div>
+      <div class="test-item">switches to My Matches tab</div>
+      <div class="test-item">switches to All Events tab</div>
+      <div class="test-item">switches to Leaderboard tab</div>
+      <div class="test-item">displays events from the mock API</div>
+      <div class="test-item">renders a sport or venue filter if available</div>
+      <div class="test-item">shows a create/add event button for admin users</div>
+      <div class="test-item">shows empty state when schedule API returns no data</div>
+    </div>
+    <div class="cmd-box" id="cmd-sched">npx playwright test e2e/sports/sports-schedule.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('sched')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('sched')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('sched','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('sched','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('sched','pending')">↺</button>
+    </div>
+  </div>
+
+  <!-- My Sports -->
+  <div class="card" id="card-mysports">
+    <div class="card-header">
+      <span class="card-name">My Sports</span>
+      <span class="card-status status-pending" id="status-mysports">PENDING</span>
+    </div>
+    <div class="card-desc">Covers the sport selection grid (Cricket/Badminton/Football…), clicking a sport to select it, match type options per sport, user's registration list, register CTA, and empty state when user has no registrations.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-mysports">@my-sports</span>
+      <span class="meta-chip">sports-my-sports.spec.ts</span>
+      <span class="tc-pill">8 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('mysports')">▾ Tests</button>
+    <div class="test-list" id="tests-mysports">
+      <div class="test-item">renders My Sports page without crashing</div>
+      <div class="test-item">shows My Sports in breadcrumb</div>
+      <div class="test-item">renders the sport selection grid</div>
+      <div class="test-item">can click on a sport to select it</div>
+      <div class="test-item">displays user's existing registrations</div>
+      <div class="test-item">shows a register button or link</div>
+      <div class="test-item">shows match type options after selecting a sport</div>
+      <div class="test-item">shows empty state when user has no registrations</div>
+    </div>
+    <div class="cmd-box" id="cmd-mysports">npx playwright test e2e/sports/sports-my-sports.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('mysports')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('mysports')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('mysports','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('mysports','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('mysports','pending')">↺</button>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- ══ Group 2: Admin & Data ════════════════════════════════════════════════ -->
+<div class="section-label">Group 2 — Admin &amp; Data</div>
+<div class="section-title">Admin Hub · Analytics · Auction</div>
+<div class="grid">
+
+  <!-- Admin -->
+  <div class="card" id="card-admin">
+    <div class="card-header">
+      <span class="card-name">Sports Admin Hub</span>
+      <span class="card-status status-pending" id="status-admin">PENDING</span>
+    </div>
+    <div class="card-desc">Full coverage of the Admin sidebar (Dashboard · Teams · Schedule · Results · Settings · Notifications), tab switching, team approve/reject, Create Tournament form, Venue &amp; Player Category sections, and URL ?tab= param restoration.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-admin">@admin</span>
+      <span class="meta-chip">sports-admin.spec.ts</span>
+      <span class="tc-pill">17 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('admin')">▾ Tests</button>
+    <div class="test-list" id="tests-admin">
+      <div class="test-item">renders the Admin Hub sidebar</div>
+      <div class="test-item">renders the Management nav section in the sidebar</div>
+      <div class="test-item">renders sidebar nav items</div>
+      <div class="test-item">shows Dashboard tab content by default</div>
+      <div class="test-item">Dashboard tab shows active tournaments count</div>
+      <div class="test-item">Dashboard tab shows pending team approvals</div>
+      <div class="test-item">switches to Teams tab</div>
+      <div class="test-item">switches to Schedule (Admin) tab</div>
+      <div class="test-item">switches to Results tab</div>
+      <div class="test-item">switches to Settings tab</div>
+      <div class="test-item">switches to Notifications tab</div>
+      <div class="test-item">Teams tab shows team list and approve/reject buttons</div>
+      <div class="test-item">Create Tournament tab renders a form</div>
+      <div class="test-item">Sports Events tab lists configured events</div>
+      <div class="test-item">Venue section shows venue list from mock</div>
+      <div class="test-item">Player Categories section shows categories from mock</div>
+      <div class="test-item">URL tab param restores active tab on reload</div>
+    </div>
+    <div class="cmd-box" id="cmd-admin">npx playwright test e2e/sports/sports-admin.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('admin')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('admin')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('admin','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('admin','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('admin','pending')">↺</button>
+    </div>
+  </div>
+
+  <!-- Analytics -->
+  <div class="card" id="card-analytics">
+    <div class="card-header">
+      <span class="card-name">Sports Analytics</span>
+      <span class="card-status status-pending" id="status-analytics">PENDING</span>
+    </div>
+    <div class="card-desc">Checks KPI tiles (totalEvents:12, totalParticipants:340, totalMatches:58), Recharts SVG rendering, sports breakdown &amp; monthly trend axis labels, loading skeleton, 503 error/retry, and refresh button re-fetch counting.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-analytics">@analytics</span>
+      <span class="meta-chip">sports-analytics.spec.ts</span>
+      <span class="tc-pill">11 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('analytics')">▾ Tests</button>
+    <div class="test-list" id="tests-analytics">
+      <div class="test-item">renders the Analytics page without crashing</div>
+      <div class="test-item">shows Analytics in breadcrumb</div>
+      <div class="test-item">renders total events stat from mock data</div>
+      <div class="test-item">renders total participants stat from mock data</div>
+      <div class="test-item">renders total matches stat from mock data</div>
+      <div class="test-item">renders sports breakdown chart with recharts SVG</div>
+      <div class="test-item">sports breakdown shows sport names in legend or axis</div>
+      <div class="test-item">monthly trend chart shows month labels</div>
+      <div class="test-item">shows loading skeleton while analytics API is pending</div>
+      <div class="test-item">shows error/retry UI when analytics API fails</div>
+      <div class="test-item">refresh button triggers a new API call</div>
+    </div>
+    <div class="cmd-box" id="cmd-analytics">npx playwright test e2e/sports/sports-analytics.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('analytics')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('analytics')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('analytics','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('analytics','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('analytics','pending')">↺</button>
+    </div>
+  </div>
+
+  <!-- Auction -->
+  <div class="card" id="card-auction">
+    <div class="card-header">
+      <span class="card-name">Sports Auction</span>
+      <span class="card-status status-pending" id="status-auction">PENDING</span>
+    </div>
+    <div class="card-desc">Validates auction config display (budget, status DRAFT), teams list (Team Alpha/Beta), player pool with sold/unsold status, live auction state, results section, Add Player modal, and 404 config fallback.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-auction">@auction</span>
+      <span class="meta-chip">sports-auction.spec.ts</span>
+      <span class="tc-pill">12 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('auction')">▾ Tests</button>
+    <div class="test-list" id="tests-auction">
+      <div class="test-item">renders the Auction page without crashing</div>
+      <div class="test-item">shows Auction in breadcrumb</div>
+      <div class="test-item">displays auction configuration details</div>
+      <div class="test-item">displays the registered teams list</div>
+      <div class="test-item">shows team captain names</div>
+      <div class="test-item">shows team budget information</div>
+      <div class="test-item">displays players in the player pool</div>
+      <div class="test-item">shows sold/unsold status for players</div>
+      <div class="test-item">shows live auction status</div>
+      <div class="test-item">shows auction results when status is COMPLETED</div>
+      <div class="test-item">Add Player button opens a modal or form</div>
+      <div class="test-item">shows fallback when auction config API fails</div>
+    </div>
+    <div class="cmd-box" id="cmd-auction">npx playwright test e2e/sports/sports-auction.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('auction')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('auction')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('auction','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('auction','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('auction','pending')">↺</button>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- ══ Group 3 — Profile ═══════════════════════════════════════════════════ -->
+<div class="section-label">Group 3 — Profile</div>
+<div class="section-title">User Profile Dashboard</div>
+<div class="grid">
+
+  <!-- Profile Dashboard -->
+  <div class="card" id="card-profile">
+    <div class="card-header">
+      <span class="card-name">Profile Dashboard</span>
+      <span class="card-status status-pending" id="status-profile">PENDING</span>
+    </div>
+    <div class="card-desc">Validates full profile page: header identity fields (name, KYC badge, role, unit, joined date), 6-tile stats bar, 7-tab navigation, overview contact cards, skills list, tab switching (Activity / Security / Settings / Family / Achievements / Privacy), URL ?tab= param, and error/retry states.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-profile">@profile</span>
+      <span class="meta-chip">profile.spec.ts</span>
+      <span class="tc-pill">28 tests</span>
+    </div>
+    <button class="expand-btn" onclick="toggleTests('profile')">▾ Tests</button>
+    <div class="test-list" id="tests-profile">
+      <div class="test-item">renders profile page without crashing</div>
+      <div class="test-item">shows user full name in header</div>
+      <div class="test-item">shows VERIFIED KYC badge</div>
+      <div class="test-item">shows Admin role badge</div>
+      <div class="test-item">shows community name in header</div>
+      <div class="test-item">shows block and flat unit info in header</div>
+      <div class="test-item">shows joined-since date in header</div>
+      <div class="test-item">shows all 6 stat tiles</div>
+      <div class="test-item">shows correct stat values from mock data</div>
+      <div class="test-item">shows all 7 tab navigation items</div>
+      <div class="test-item">overview tab is active by default (no other tab param in URL)</div>
+      <div class="test-item">shows email in contact cards</div>
+      <div class="test-item">shows phone in contact cards</div>
+      <div class="test-item">shows bio text in overview</div>
+      <div class="test-item">shows skills list with mock skills</div>
+      <div class="test-item">Add Skill button opens inline input</div>
+      <div class="test-item">Activity tab shows activity feed items</div>
+      <div class="test-item">Security tab shows 2FA / authentication section</div>
+      <div class="test-item">Security tab shows active sessions section</div>
+      <div class="test-item">Settings tab shows profile form fields</div>
+      <div class="test-item">Edit button in header switches to settings tab</div>
+      <div class="test-item">Family tab renders without crash and shows members</div>
+      <div class="test-item">Achievements tab renders without crash</div>
+      <div class="test-item">Privacy tab renders without crash</div>
+      <div class="test-item">URL ?tab=security restores security tab on load</div>
+      <div class="test-item">URL ?tab=family restores family tab on load</div>
+      <div class="test-item">shows error message when profile API fails</div>
+      <div class="test-item">Try Again button retries profile load on error</div>
+    </div>
+    <div class="cmd-box" id="cmd-profile">npx playwright test e2e/profile/profile.spec.ts</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('profile')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('profile')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('profile','pass')">✓ Pass</button>
+      <button class="btn btn-fail" onclick="markStatus('profile','fail')">✗ Fail</button>
+      <button class="btn btn-reset" onclick="markStatus('profile','pending')">↺</button>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<div class="section-label">Group 4 — Utility</div>
+<div class="section-title">Cross-spec Runners &amp; Tools</div>
+<div class="grid grid-3">
+
+  <div class="card" id="card-all">
+    <div class="card-header">
+      <span class="card-name">All Sports Specs</span>
+      <span class="card-status status-pending" id="status-all">PENDING</span>
+    </div>
+    <div class="card-desc">Runs every spec under <code style="font-size:.75em;background:var(--surface-2);padding:1px 4px;border-radius:2px">e2e/sports/</code> in headless Chromium. 75 tests, ~2–4 min on a cold run.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-util">all specs</span>
+      <span class="meta-chip">75 tests</span>
+    </div>
+    <div class="cmd-box" id="cmd-all">npm run test:e2e:sports</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('all')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('all')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('all','pass')">✓</button>
+      <button class="btn btn-fail" onclick="markStatus('all','fail')">✗</button>
+      <button class="btn btn-reset" onclick="markStatus('all','pending')">↺</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-ui">
+    <div class="card-header">
+      <span class="card-name">Playwright UI Mode</span>
+      <span class="card-status status-pending" id="status-ui">PENDING</span>
+    </div>
+    <div class="card-desc">Opens the Playwright Test UI — watch-mode tree, time-travel trace, per-test screenshots and network logs. Ideal for debugging failing assertions interactively.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-util">UI mode</span>
+      <span class="meta-chip">interactive</span>
+    </div>
+    <div class="cmd-box" id="cmd-ui">npm run test:e2e:ui</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('ui')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('ui')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('ui','pass')">✓</button>
+      <button class="btn btn-fail" onclick="markStatus('ui','fail')">✗</button>
+      <button class="btn btn-reset" onclick="markStatus('ui','pending')">↺</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-headed">
+    <div class="card-header">
+      <span class="card-name">Headed Browser Mode</span>
+      <span class="card-status status-pending" id="status-headed">PENDING</span>
+    </div>
+    <div class="card-desc">Runs the full sports suite with a visible Chrome window. Use when a test passes headless but fails in real browser rendering, or to visually audit the UI flow end-to-end.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-util">headed</span>
+      <span class="meta-chip">Chrome</span>
+    </div>
+    <div class="cmd-box" id="cmd-headed">npm run test:e2e:headed</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('headed')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('headed')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('headed','pass')">✓</button>
+      <button class="btn btn-fail" onclick="markStatus('headed','fail')">✗</button>
+      <button class="btn btn-reset" onclick="markStatus('headed','pending')">↺</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-report">
+    <div class="card-header">
+      <span class="card-name">HTML Report</span>
+      <span class="card-status status-pending" id="status-report">PENDING</span>
+    </div>
+    <div class="card-desc">Opens the Playwright HTML report from the last run. Includes per-test trace, screenshot on failure, network requests, and console logs. Saved to <code style="font-size:.75em;background:var(--surface-2);padding:1px 4px;border-radius:2px">playwright-report/</code>.</div>
+    <div class="card-meta">
+      <span class="meta-chip mod-util">report</span>
+      <span class="meta-chip">post-run</span>
+    </div>
+    <div class="cmd-box" id="cmd-report">npx playwright show-report</div>
+    <div class="card-actions">
+      <button class="btn btn-copy" onclick="copyCmd('report')">📋 Copy</button>
+      <button class="btn btn-run" onclick="showRunModal('report')">▶ Run</button>
+      <button class="btn btn-pass" onclick="markStatus('report','pass')">✓</button>
+      <button class="btn btn-fail" onclick="markStatus('report','fail')">✗</button>
+      <button class="btn btn-reset" onclick="markStatus('report','pending')">↺</button>
+    </div>
+  </div>
+
+</div>
+
+<hr>
+
+<!-- ══ Run history ══════════════════════════════════════════════════════════ -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+  <div class="section-title" style="margin:0">Run History</div>
+  <button class="btn btn-reset" onclick="clearHistory()">Clear history</button>
+</div>
+<div id="empty-history">No runs recorded yet — click ✓ Pass or ✗ Fail after running a spec.</div>
+<table class="history-table" id="history-table" style="display:none">
+  <thead><tr><th>Spec</th><th>Status</th><th>Time</th></tr></thead>
+  <tbody id="history-body"></tbody>
+</table>
+
+<hr>
+
+<!-- ══ Quick reference ══════════════════════════════════════════════════════ -->
+<div class="section-title">Quick Reference</div>
+<table class="ref-table">
+  <thead>
+    <tr><th>Spec File</th><th>Coverage</th><th>Tests</th><th>Command</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>sports-navigation.spec.ts</td><td>Nav bar, breadcrumbs, route switching, active highlight</td><td>8</td><td>…sports-navigation.spec.ts</td></tr>
+    <tr><td>sports-dashboard.spec.ts</td><td>KPI tiles, tournament list, pending teams, error states</td><td>9</td><td>…sports-dashboard.spec.ts</td></tr>
+    <tr><td>sports-schedule.spec.ts</td><td>Tab bar, event list, filters, create button, empty state</td><td>10</td><td>…sports-schedule.spec.ts</td></tr>
+    <tr><td>sports-my-sports.spec.ts</td><td>Sport grid, registrations, match types, register CTA</td><td>8</td><td>…sports-my-sports.spec.ts</td></tr>
+    <tr><td>sports-admin.spec.ts</td><td>Admin Hub sidebar, all tabs, team approval, forms, URL params</td><td>17</td><td>…sports-admin.spec.ts</td></tr>
+    <tr><td>sports-analytics.spec.ts</td><td>KPI stats, Recharts SVG, retry, loading skeleton, refresh</td><td>11</td><td>…sports-analytics.spec.ts</td></tr>
+    <tr><td>sports-auction.spec.ts</td><td>Config, teams, player pool, sold/unsold, modals, error</td><td>12</td><td>…sports-auction.spec.ts</td></tr>
+    <tr><td>profile/profile.spec.ts</td><td>Header fields, stats bar, 7-tab nav, activity, security, settings, error state</td><td>28</td><td>npx playwright test e2e/profile/profile.spec.ts</td></tr>
+  </tbody>
+</table>
+
+<div style="margin-top:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-size:.78rem;color:var(--muted)">
+  <strong style="color:var(--text);font-family:var(--mono)">Prerequisites</strong><br>
+  <span style="display:block;margin-top:6px">① Vite dev server running on <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">localhost:5173</code> — or use <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">webServer</code> in <code>playwright.config.ts</code> to auto-start it.</span>
+  <span style="display:block;margin-top:4px">② No live backend needed — every API call is intercepted by <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">page.route()</code> in <code>e2e/fixtures/auth.ts</code>.</span>
+  <span style="display:block;margin-top:4px">③ Run once: <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">npx playwright install chromium</code> to download browser binaries.</span>
+  <span style="display:block;margin-top:4px">④ Run a single test by name: <code style="background:var(--surface-2);padding:1px 5px;border-radius:3px">npx playwright test -g "renders the Admin Hub sidebar"</code></span>
+</div>
+
+</div><!-- /main -->
+
+<!-- Run modal -->
+<div class="overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title">Run Spec</div>
+    <div class="modal-sub" id="modal-sub">Command copied to clipboard.</div>
+    <div class="modal-cmd" id="modal-cmd-display"></div>
+    <div class="modal-steps">
+      <div class="modal-step"><span class="step-num">1</span>Open a terminal in the <strong>mana-community-app</strong> directory</div>
+      <div class="modal-step"><span class="step-num">2</span>Make sure <strong>Node 18+</strong> is active and <code style="font-size:.85em;background:var(--surface-2);padding:1px 5px;border-radius:2px">npm install</code> has been run</div>
+      <div class="modal-step"><span class="step-num">3</span>Paste the command above — the Vite dev server starts automatically</div>
+      <div class="modal-step"><span class="step-num">4</span>Return here and mark ✓ Pass or ✗ Fail per spec result</div>
+    </div>
+    <div style="font-size:.78rem;color:var(--muted);margin-bottom:14px">Tip: <strong>npm run test:e2e:ui</strong> opens Playwright's interactive UI where you can run individual tests with time-travel trace.</div>
+    <div class="modal-actions">
+      <button class="btn btn-copy" onclick="copyFromModal()">📋 Copy again</button>
+      <button class="btn btn-run" style="background:none;color:var(--muted);border-color:var(--border)" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast">✓ Copied to clipboard</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+var STORE_KEY = 'pw-sports-dash-v1';
+var state = {};
+var modalCmd = '';
+
+try { state = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { state = {}; }
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {} }
+
+var ALL_IDS = ['nav','dash','sched','mysports','admin','analytics','auction','profile','all','ui','headed','report'];
+
+var NAMES = {
+  nav:       'Sports Navigation',
+  dash:      'Sports Dashboard',
+  sched:     'Sports Schedule',
+  mysports:  'My Sports',
+  admin:     'Sports Admin Hub',
+  analytics: 'Sports Analytics',
+  auction:   'Sports Auction',
+  profile:   'Profile Dashboard',
+  all:       'All Sports Specs',
+  ui:        'Playwright UI Mode',
+  headed:    'Headed Browser Mode',
+  report:    'HTML Report',
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  var theme = state.theme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+
+  ALL_IDS.forEach(function(id) {
+    if (state['s_' + id]) applyStatus(id, state['s_' + id], false);
+  });
+
+  renderHistory();
+  updateStats();
+});
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  var next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  state.theme = next;
+  save();
+}
+
+// ── Expand test list ──────────────────────────────────────────────────────────
+function toggleTests(id) {
+  var el = document.getElementById('tests-' + id);
+  if (!el) return;
+  var open = el.classList.toggle('open');
+  var btn = el.previousElementSibling;
+  if (btn) btn.textContent = (open ? '▴' : '▾') + ' Tests';
+}
+
+// ── Copy command ──────────────────────────────────────────────────────────────
+function copyCmd(id) {
+  var el = document.getElementById('cmd-' + id);
+  if (!el) return;
+  var cmd = el.textContent.trim();
+  navigator.clipboard.writeText(cmd).then(function(){ toast('✓ Copied!'); }).catch(function(){ fallbackCopy(cmd); });
+}
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+  document.body.removeChild(ta); toast('✓ Copied!');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function showRunModal(id) {
+  var el = document.getElementById('cmd-' + id);
+  if (!el) return;
+  modalCmd = el.textContent.trim();
+  document.getElementById('modal-title').textContent = NAMES[id] || id;
+  document.getElementById('modal-sub').textContent = 'Command copied — paste it in your terminal.';
+  document.getElementById('modal-cmd-display').textContent = modalCmd;
+  navigator.clipboard.writeText(modalCmd).catch(function(){ fallbackCopy(modalCmd); });
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function copyFromModal() {
+  navigator.clipboard.writeText(modalCmd).then(function(){ toast('✓ Copied!'); }).catch(function(){ fallbackCopy(modalCmd); toast('✓ Copied!'); });
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+
+// ── Status ────────────────────────────────────────────────────────────────────
+function markStatus(id, status) {
+  applyStatus(id, status, true);
+  if (!state.history) state.history = [];
+  state.history.unshift({ spec: NAMES[id] || id, status: status, time: new Date().toLocaleString() });
+  if (state.history.length > 60) state.history = state.history.slice(0, 60);
+  save(); renderHistory(); updateStats();
+}
+
+function applyStatus(id, status, persist) {
+  var el = document.getElementById('status-' + id);
+  if (!el) return;
+  el.className = 'card-status';
+  if (status === 'pass')    { el.classList.add('status-pass'); el.textContent = '✓ PASSED'; }
+  else if (status === 'fail'){ el.classList.add('status-fail'); el.textContent = '✗ FAILED'; }
+  else                       { el.classList.add('status-pending'); el.textContent = 'PENDING'; }
+  if (persist) { state['s_' + id] = status; save(); }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  var pass=0,fail=0,pend=0;
+  ALL_IDS.forEach(function(id){
+    var s = state['s_'+id] || 'pending';
+    if (s==='pass') pass++; else if (s==='fail') fail++; else pend++;
+  });
+  document.getElementById('st-total').textContent = ALL_IDS.length;
+  var pe = document.getElementById('st-pass'); pe.textContent=pass; pe.className='stat-val'+(pass>0?' ok':'');
+  var fe = document.getElementById('st-fail'); fe.textContent=fail; fe.className='stat-val'+(fail>0?' ng':'');
+  document.getElementById('st-pend').textContent = pend;
+  var last = state.history && state.history.length ? state.history[0].time : '—';
+  document.getElementById('st-last').textContent = last;
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function renderHistory() {
+  var h = state.history || [];
+  var empty = document.getElementById('empty-history');
+  var table = document.getElementById('history-table');
+  var tbody = document.getElementById('history-body');
+  if (!h.length) { empty.style.display=''; table.style.display='none'; return; }
+  empty.style.display='none'; table.style.display='';
+  tbody.innerHTML = h.map(function(e){
+    var cls = e.status==='pass'?'ht-pass':(e.status==='fail'?'ht-fail':'ht-pend');
+    var lbl = e.status==='pass'?'✓ PASS':(e.status==='fail'?'✗ FAIL':'PENDING');
+    return '<tr><td>'+e.spec+'</td><td class="'+cls+'">'+lbl+'</td><td>'+e.time+'</td></tr>';
+  }).join('');
+}
+
+function clearHistory() {
+  state.history = [];
+  ALL_IDS.forEach(function(id){ delete state['s_'+id]; applyStatus(id,'pending',false); });
+  save(); renderHistory(); updateStats();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+var toastTimer;
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1800);
+}
+</script>
+</body>
+</html>

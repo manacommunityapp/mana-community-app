@@ -56,6 +56,7 @@ export interface AuthResponse {
   refreshToken?: string;
   fullName?: string;
   email?: string;
+  gender?: string;
   role?: string;
   communityId?: number;
   dateOfBirth?: string;
@@ -318,6 +319,7 @@ export interface RegistrationRequest {
   matchType: string;
   role?: string;
   age?: number;
+  gender?: string;
   dateOfBirth?: string;
   matches?: number;
   runs?: number;
@@ -329,6 +331,7 @@ export interface RegistrationRequest {
   email?: string;
   relation?: string;
   flatNumber?: string;
+  familyMemberId?: number;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }

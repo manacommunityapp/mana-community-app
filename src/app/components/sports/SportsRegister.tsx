@@ -261,12 +261,31 @@ const OTP_REQUIRED = import.meta.env.VITE_REGISTRATION_OTP_ENABLED === "true";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface RegistrationFormData {
+  categoryIds: number[];
+  matchType: string;
+  role: string;
+  gender: string;
+  dateOfBirth: string;
+  age: number;
+  matches: number;
+  runs: number;
+  wickets: number;
+  strikeRate: number;
+  avgScore: number;
+  regType: "self" | "family" | "other";
+  playerName: string;
+  relation: string;
+  flatNumber: string;
+  familyMemberId?: number;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SportsRegister() {
   const { eventUuid } = useParams();
   const navigate = useNavigate();
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, updateUser } = useAuth();
   const isAnyAdmin = hasAnyPermission(CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
 
   const [event, setEvent] = useState<SportsEvent | null>(null);
@@ -301,7 +320,7 @@ export function SportsRegister() {
   const userGender = liveUser?.gender || user?.gender || "";
   const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegistrationFormData>({
     categoryIds: [] as number[],
     matchType: "SINGLES",
     role: "",
