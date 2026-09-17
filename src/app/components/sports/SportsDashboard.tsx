@@ -39,18 +39,18 @@ interface StatCardProps {
 
 function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon }: StatCardProps) {
   return (
-    <div className="rounded-2xl p-5 card-hover-lift flex items-center gap-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all duration-300 hover:border-indigo-500/20">
-      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ background: badgeBg }}>
-        <Icon className="h-5 w-5" style={{ color }} />
+    <div className="rounded-xl p-2.5 sm:p-3 card-hover-lift flex items-center gap-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_8px_rgba(99,102,241,0.04)] transition-all duration-300 hover:border-indigo-500/20">
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 shadow-xs" style={{ background: badgeBg }}>
+        <Icon className="h-4 w-4" style={{ color }} />
       </div>
       <div className="flex-1 min-w-0 text-left">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-2xl font-extrabold leading-none" style={{ color }}>{value}</div>
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider leading-none" style={{ background: badgeBg, color: badgeText }}>
+        <div className="flex items-center justify-between gap-1">
+          <div className="text-base sm:text-xl font-extrabold leading-none" style={{ color }}>{value}</div>
+          <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none" style={{ background: badgeBg, color: badgeText }}>
             {badge}
           </span>
         </div>
-        <div className="text-xs text-[#6b7094] mt-1.5 font-medium truncate" title={label}>{label}</div>
+        <div className="text-[11px] sm:text-xs text-[#6b7094] mt-0.5 font-medium truncate" title={label}>{label}</div>
       </div>
     </div>
   );
@@ -64,14 +64,14 @@ function EventRow({ event, onClick }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse"
     : event.status === "COMPLETED" ? "bg-slate-500" : "bg-[#f97316]";
   return (
-    <div onClick={onClick} className="flex items-center justify-between gap-4 p-4 rounded-xl mb-3 cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
-      <div className="flex items-center gap-3 min-w-0">
+    <div onClick={onClick} className="flex items-center justify-between gap-3 p-3 rounded-lg mb-2 cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
+      <div className="flex items-center gap-2.5 min-w-0">
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
         <div className="min-w-0 text-left">
           <div className="text-sm font-bold text-[#0d0d2b] truncate">
             {event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}
           </div>
-          <div className="text-xs text-[#6b7094] mt-1 font-medium">{event.venue} · {event.category}</div>
+          <div className="text-xs text-[#6b7094] mt-0.5 font-medium">{event.venue} · {event.category}</div>
         </div>
       </div>
       <div className="text-right flex-shrink-0">
@@ -112,24 +112,24 @@ function RegCard({
   toggling
 }: RegCardProps) {
   return (
-    <div className="flex items-start gap-4 p-4 rounded-xl mb-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
+    <div className="flex items-start gap-3 p-3 rounded-lg mb-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
       <div className="flex-1 min-w-0 text-left">
         <div className="text-sm font-bold text-[#0d0d2b]">
           {item.name} <span className="text-[#6b7094] font-medium">— {item.date}</span>
         </div>
-        <div className="text-xs text-[#6b7094] mt-1 font-medium">{item.category}</div>
-        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1.5">{item.spots}</div>}
-        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-3 border border-slate-200/50">
+        <div className="text-xs text-[#6b7094] mt-0.5 font-medium">{item.category}</div>
+        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1">{item.spots}</div>}
+        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2 border border-slate-200/50">
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.progress}%`, background: item.progressColor }} />
         </div>
       </div>
-      <div className="flex flex-col gap-2 flex-shrink-0 min-w-[130px] items-stretch">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
+        <div className="flex gap-1.5 justify-end">
           {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
             <button
               disabled
-              className="text-xs w-full py-2 px-3 rounded-xl font-bold transition-all bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
+              className="text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
             >
               Closed
             </button>
@@ -142,23 +142,24 @@ function RegCard({
                 else onView(item);
               }}
               disabled={item.action === "Confirmed"}
-              className={`text-xs w-full py-2 px-3 rounded-xl font-bold border transition-all ${
+              className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
                 item.action === "Register"
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white border-none shadow-md shadow-orange-500/10 hover:opacity-95 cursor-pointer"
+                  ? "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95"
                   : item.action === "Confirmed"
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
                     : item.action === "Withdraw"
-                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100/70 cursor-pointer"
-                      : "bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer"
+                      ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                      : "bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
               }`}
             >
-              {item.action}
+              <span>{item.action}</span>
+              {item.action === "Register" && <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />}
             </button>
           )}
           {secondaryActionLabel && onSecondaryAction && (
             <button
               onClick={() => onSecondaryAction(item)}
-              className="flex-1 text-xs py-2 px-3 rounded-xl font-bold border-none cursor-pointer transition-all bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/10 hover:opacity-95"
+              className="text-[11px] font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs hover:opacity-95"
             >
               {secondaryActionLabel}
             </button>
@@ -360,7 +361,7 @@ export function SportsDashboard() {
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
-          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+          category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
           progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 10,
           progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#3b82f6",
@@ -390,7 +391,7 @@ export function SportsDashboard() {
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
-          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+          category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: "Registration closed",
           progress: 100,
           progressColor: "#ef4444",
@@ -545,7 +546,7 @@ export function SportsDashboard() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5">
 
       {error && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-red-200/80 dark:border-red-800/40 shadow-[0_15px_40px_rgba(220,38,38,0.15)] rounded-2xl p-4 flex items-center justify-between gap-3 text-left animate-in fade-in slide-in-from-top-4 duration-300">
@@ -571,20 +572,21 @@ export function SportsDashboard() {
 
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="shimmer-bg-light border border-slate-200/60 rounded-2xl p-5">
-              <div className="h-8 bg-slate-200/60 rounded w-1/3"></div>
-              <div className="h-4 bg-slate-200/60 rounded w-2/3 mt-2"></div>
-              <div className="h-4 bg-slate-200/60 rounded w-1/2 mt-3"></div>
+            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-3.5 ${idx >= 2 ? 'hidden sm:block' : ''}`}>
+              <div className="h-7 bg-slate-200/60 rounded w-1/3"></div>
+              <div className="h-3.5 bg-slate-200/60 rounded w-2/3 mt-2"></div>
+              <div className="h-3.5 bg-slate-200/60 rounded w-1/2 mt-2"></div>
             </div>
           ))
         ) : (
           stats.map((s, idx) => {
             const bc = badgeMap[s.badgeType as keyof typeof badgeMap] || { bg: "rgba(0,0,0,0.1)", text: "#94a3b8" };
+            const isHiddenOnMobile = s.label === "Open Registrations" || s.id === 3 || s.label === "Upcoming Tournaments" || s.id === 4;
             return (
-              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1} ${isHiddenOnMobile ? 'hidden sm:block' : ''}`}>
                 <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} icon={s.icon} />
               </div>
             );
@@ -593,11 +595,11 @@ export function SportsDashboard() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5">
+        <div className="lg:col-span-2 space-y-3">
           {/* Upcoming events */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Your Upcoming Events</div>
+          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>Your Upcoming Events</div>
             {loading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
@@ -658,8 +660,8 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations — grouped by tournament */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center justify-between mb-3">
+          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="flex items-center justify-between mb-2.5">
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
                 {openTournaments.length > 0
@@ -668,20 +670,20 @@ export function SportsDashboard() {
               </span>
             </div>
             {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
+              <div className="flex items-center justify-center py-5">
+                <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : openTournaments.length === 0 && openRegs.length === 0 ? (
-              <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <div className="text-2xl mb-2">🏅</div>
+              <div className="text-center py-6 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                <div className="text-2xl mb-1.5">🏅</div>
                 <p className="text-sm font-semibold text-slate-800">No events open for registration right now</p>
-                <p className="text-[10px] mt-1" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
               </div>
             ) : openTournaments.length > 0 ? (
               openTournaments.map((t, tIdx) => {
                 const isExpanded = expandedTournaments.has(t.id);
                 return (
-                  <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                  <div key={t.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
                     {/* Tournament header */}
                     <button
                       type="button"
@@ -690,9 +692,9 @@ export function SportsDashboard() {
                         if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                         return next;
                       })}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
                     >
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <div className="h-8 w-8 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
                         <Trophy className="h-4 w-4 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -705,18 +707,32 @@ export function SportsDashboard() {
                           {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {t.mappedEvents.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/sports/register-tournament/${t.id}`);
+                            }}
+                            className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-xs shadow-indigo-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                            title="Register for multiple events in this tournament"
+                          >
+                            <span>Register All</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        )}
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
                           Open
                         </span>
                         {isExpanded
-                          ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                          : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                          ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                          : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
                       </div>
                     </button>
                     {/* Child events */}
                     {isExpanded && (
-                      <div className="mt-2 ml-4 pl-3 border-l-2 border-indigo-100 space-y-0">
+                      <div className="mt-2 ml-3 pl-2.5 border-l-2 border-indigo-100 space-y-0 max-h-[290px] overflow-y-auto pr-1">
                         {t.mappedEvents.map((item, idx) => (
                           <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                             <RegCard
@@ -758,48 +774,50 @@ export function SportsDashboard() {
                 );
               })
             ) : (
-              openRegs.map((item, idx) => (
-                <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                  <RegCard
-                     item={item}
-                     onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
-                     onView={() => navigate("/sports/auction")}
-                     onWithdraw={async (regItem) => {
-                       if (!regItem.registrationId) return;
-                       if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
-                       try {
-                         await sportsService.withdraw(regItem.registrationId);
-                         toast.success(`Successfully withdrawn from ${regItem.name}`);
-                         fetchData();
-                       } catch (err: any) {
-                         toast.error(err?.message || "Failed to withdraw registration");
-                       }
-                     }}
-                     isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                     toggling={togglingId === item.id}
-                     onToggleStatus={async (evt) => {
-                       setTogglingId(evt.id);
-                       try {
-                         const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                         await sportsService.updateEventStatus(evt.id, newStatus);
-                         toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                         fetchData();
-                       } catch {
-                         toast.error("Failed to update status");
-                       } finally {
-                         setTogglingId(null);
-                       }
-                     }}
-                   />
-                </div>
-              ))
+              <div className="max-h-[290px] overflow-y-auto pr-1">
+                {openRegs.map((item, idx) => (
+                  <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                    <RegCard
+                       item={item}
+                       onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
+                       onView={() => navigate("/sports/auction")}
+                       onWithdraw={async (regItem) => {
+                         if (!regItem.registrationId) return;
+                         if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
+                         try {
+                           await sportsService.withdraw(regItem.registrationId);
+                           toast.success(`Successfully withdrawn from ${regItem.name}`);
+                           fetchData();
+                         } catch (err: any) {
+                           toast.error(err?.message || "Failed to withdraw registration");
+                         }
+                       }}
+                       isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                       toggling={togglingId === item.id}
+                       onToggleStatus={async (evt) => {
+                         setTogglingId(evt.id);
+                         try {
+                           const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                           await sportsService.updateEventStatus(evt.id, newStatus);
+                           toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                           fetchData();
+                         } catch {
+                           toast.error("Failed to update status");
+                         } finally {
+                           setTogglingId(null);
+                         }
+                       }}
+                     />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
           {/* Closed registrations */}
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
-            <div className="rounded-2xl p-5 mt-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-3">
+            <div className="rounded-xl p-3.5 sm:p-4 mt-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+              <div className="flex items-center justify-between mb-2.5">
                 <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Closed Registrations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedTournaments.length > 0
@@ -811,7 +829,7 @@ export function SportsDashboard() {
                 closedTournaments.map((t, tIdx) => {
                   const isExpanded = expandedClosedTournaments.has(t.id);
                   return (
-                    <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                    <div key={t.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedClosedTournaments(prev => {
@@ -819,9 +837,9 @@ export function SportsDashboard() {
                           if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                           return next;
                         })}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
+                        className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
                       >
-                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <div className="h-8 w-8 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                           <Trophy className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -834,17 +852,17 @@ export function SportsDashboard() {
                             {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
                             Closed
                           </span>
                           {isExpanded
-                            ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                            : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                            ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                            : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
                         </div>
                       </button>
                       {isExpanded && (
-                        <div className="mt-2 ml-4 pl-3 border-l-2 border-slate-200 space-y-0">
+                        <div className="mt-2 ml-3 pl-2.5 border-l-2 border-slate-200 space-y-0">
                           {t.mappedEvents.map((item, idx) => (
                             <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                               <RegCard
@@ -927,15 +945,15 @@ export function SportsDashboard() {
 
           {/* Unified Captain Nominations Section — team sports only */}
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
-            <div className="rounded-2xl p-5 mt-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-3">
+            <div className="rounded-xl p-3.5 sm:p-4 mt-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+              <div className="flex items-center justify-between mb-2.5">
                 <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Admin View: team events only */}
                 {canManageCaptainNominations ? (
                   teamClosedRegs.map(item => (
@@ -1005,30 +1023,30 @@ export function SportsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Notifications */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "#6b7094" }}>
+          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="text-xs font-semibold uppercase tracking-widest mb-2.5 flex items-center gap-2" style={{ color: "#6b7094" }}>
               <Bell className="w-3 h-3" /> Notifications
             </div>
             <div className="space-y-0">
               {loading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
+                <div className="flex items-center justify-center py-5">
+                  <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-[10px] text-center py-4" style={{ color: "#6b7094" }}>No new notifications</p>
+                <p className="text-[10px] text-center py-3" style={{ color: "#6b7094" }}>No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
+                  <div key={n.id} className={`flex items-start gap-2.5 py-2 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
                       {n.icon}
                     </div>
                     <div>
                       <div className="text-xs leading-relaxed text-slate-800">
                         {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
                       </div>
-                      <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>{n.time}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: "#6b7094" }}>{n.time}</div>
                     </div>
                   </div>
                 ))
@@ -1040,8 +1058,8 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Season Stats */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center gap-2 mb-3">
+          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="flex items-center gap-2 mb-2.5">
               <Trophy className="w-4 h-4 text-[#f97316]" />
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Season Stats</div>
             </div>
@@ -1050,7 +1068,7 @@ export function SportsDashboard() {
                 <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {(() => {
                   const total = myRegistrations.length;
                   const confirmed = confirmedMyRegistrations.length;

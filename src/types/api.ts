@@ -238,6 +238,7 @@ export interface SportsEvent {
   updatedAt?: string;
   auctionStatus?: string;
   auctionEnabled?: boolean;
+  auction?: boolean;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
@@ -279,6 +280,7 @@ export interface SportsEventRequest {
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  auction?: boolean;
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
   description?: string;

@@ -230,8 +230,9 @@ export function SportsAuction() {
     const communityId = user?.communityId || undefined;
 
     if (isSuperAdmin) {
-      sportsService.getAllEvents().then(events => setCommunityEvents(events)).catch(err => console.error("Failed to fetch all events", err));
-      sportsService.getEventMap().then(map => setEventMap(map)).catch(err => console.error("Failed to fetch event map", err));
+      const fetchEvents = communityId ? sportsService.getCommunityEvents(communityId) : sportsService.getAllTournaments();
+      fetchEvents.then(events => setCommunityEvents(events)).catch(err => console.error("Failed to fetch all events", err));
+      sportsService.getEventMap(communityId).then(map => setEventMap(map)).catch(err => console.error("Failed to fetch event map", err));
     } else if (communityId) {
       sportsService.getCommunityEvents(communityId).then(events => setCommunityEvents(events)).catch(err => console.error("Failed to fetch community events", err));
       sportsService.getEventMap(communityId).then(map => setEventMap(map)).catch(err => console.error("Failed to fetch event map", err));
@@ -532,6 +533,17 @@ export function SportsAuction() {
   const frontendQueuedCount = queuedPlayersList.filter(p => p.role?.toLowerCase() !== 'captain' && p.category?.toLowerCase() !== 'captain').length;
   const queuedCount = auctionStats?.queuedPlayers ?? frontendQueuedCount;
 
+  // Filter sports events to only include those configured or flagged for auction
+  const auctionEvents = communityEvents.filter(ev =>
+    Boolean(ev.auction) ||
+    Boolean(ev.auctionEnabled) ||
+    availableConfigs.some(c => c.eventId === ev.id) ||
+    Boolean(ev.auctionStatus)
+  );
+  const auctionEventMap = auctionEvents.length > 0
+    ? auctionEvents.map(ev => ({ id: ev.id, name: ev.name }))
+    : eventMap.filter(em => availableConfigs.some(c => c.eventId === em.id));
+
   return (
     <div className="auction-hub-wrapper">
       <aside className="sidebar">
@@ -586,31 +598,31 @@ export function SportsAuction() {
               const totalPoolValue = "₹" + (auctionStats?.totalBudget ?? teams.reduce((acc, t) => acc + t.budget, 0)).toLocaleString('en-IN');
 
               return (
-                <div className="grid4" style={{ marginBottom: 20 }}>
+                <div className="grid4" style={{ marginBottom: 18 }}>
                   {[
-                    { label: "Active Auctions", value: activeAuctionsCount.toString(), icon: Gavel, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-                    { label: "My Active Bids", value: myActiveBidsCount.toString(), icon: TrendingUp, color: "#4f46e5", bg: "rgba(99,102,241,0.1)" },
-                    { label: "Players Sold", value: soldPlayersCount.toString(), icon: CheckCircle, color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-                    { label: "Total Pool", value: totalPoolValue, icon: Trophy, color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+                    { label: "Active Auctions", value: activeAuctionsCount.toString(), icon: Gavel, color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+                    { label: "My Active Bids", value: myActiveBidsCount.toString(), icon: TrendingUp, color: "#4f46e5", bg: "rgba(99,102,241,0.12)" },
+                    { label: "Players Sold", value: soldPlayersCount.toString(), icon: CheckCircle, color: "#10b981", bg: "rgba(16,185,129,0.12)" },
+                    { label: "Total Pool", value: totalPoolValue, icon: Trophy, color: "#8b5cf6", bg: "rgba(139,92,246,0.12)" },
                   ].map((s) => (
                     <div key={s.label} className="stat-card"
                       style={{
-                        background: "var(--card)",
-                        border: "1px solid var(--border)",
-                        boxShadow: "0 2px 12px rgba(99,102,241,0.04)",
-                        padding: "16px",
-                        borderRadius: "10px",
+                        background: "#ffffff",
+                        border: "1px solid rgba(99,102,241,0.12)",
+                        boxShadow: "0 2px 8px rgba(99,102,241,0.03)",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
                         display: "flex",
                         alignItems: "center",
-                        gap: "12px"
+                        gap: "10px"
                       }}
                     >
-                      <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
-                        <s.icon className="h-4.5 w-4.5" style={{ color: s.color }} />
+                      <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
+                        <s.icon className="h-4 w-4" style={{ color: s.color }} />
                       </div>
-                      <div>
-                        <p className="text-xl font-bold" style={{ color: "var(--text)", margin: 0, lineHeight: 1.2 }}>{s.value}</p>
-                        <p className="text-xs font-semibold" style={{ color: "var(--muted)", margin: 0 }}>{s.label}</p>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0, lineHeight: 1.1 }}>{s.value}</p>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", margin: "3px 0 0", textTransform: "uppercase", letterSpacing: "0.5px" }}>{s.label}</p>
                       </div>
                     </div>
                   ))}
@@ -619,7 +631,7 @@ export function SportsAuction() {
             })()}
 
             <div className="grid3" style={{ marginBottom: 16 }}>
-              {communityEvents.length > 0 ? communityEvents.map(ev => {
+              {auctionEvents.length > 0 ? auctionEvents.map(ev => {
                 // Find if an auction config exists for this event
                 const auctionConfig = availableConfigs.find(c => c.eventId === ev.id);
                 const isLive = auctionConfig?.status === 'LIVE';
@@ -631,7 +643,17 @@ export function SportsAuction() {
                   <div
                     key={ev.id}
                     className={`card ${auctionConfig ? 'card-gold' : ''}`}
-                    style={{ cursor: (auctionConfig || canEditAuctionConfig) ? 'pointer' : 'default', opacity: auctionConfig ? 1 : 0.8 }}
+                    style={{
+                      cursor: (auctionConfig || canEditAuctionConfig) ? 'pointer' : 'default',
+                      opacity: auctionConfig ? 1 : 0.88,
+                      position: 'relative',
+                      overflow: 'hidden',
+                      padding: '18px 20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: '160px'
+                    }}
                     onClick={() => {
                       if (auctionConfig) {
                         setSelectedConfigId(auctionConfig.id);
@@ -643,25 +665,50 @@ export function SportsAuction() {
                       }
                     }}
                   >
-                    <div style={{ fontSize: 28, marginBottom: 8 }}>{emoji}</div>
-                    <div className="page-title" style={{ fontSize: 18 }}>{ev.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                      {ev.sport?.name} · {ev.status}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: 'rgba(99,102,241,0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 22
+                        }}>
+                          {emoji}
+                        </div>
+                        <div>
+                          {auctionConfig ? (
+                            <span className={`tag ${isLive ? 'tag-live' : 'tag-green'}`}>
+                              {isLive ? '● Live Now' : 'Auction Active'}
+                            </span>
+                          ) : (
+                            <span className="tag tag-blue">Setup Pending</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="page-title" style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{ev.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, fontWeight: 500 }}>
+                        {ev.sport?.name} · {ev.status}
+                      </div>
                     </div>
-                    <div style={{ marginTop: 10 }}>
-                      {auctionConfig ? (
-                        <span className={`tag ${isLive ? 'tag-live' : 'tag-green'}`}>
-                          {isLive ? '● Live Now' : 'Auction Active'}
-                        </span>
-                      ) : (
-                        <span className="tag tag-blue">Setup Pending</span>
-                      )}
+
+                    <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid rgba(99,102,241,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#6366f1' }}>
+                        {auctionConfig ? 'Enter Auction Room' : 'Configure Rules'}
+                      </span>
+                      <span style={{ fontSize: 13, color: '#6366f1' }}>→</span>
                     </div>
                   </div>
                 );
               }) : (
-                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
-                  No sports events found for your community.
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--muted)', background: '#ffffff', borderRadius: 16, border: '1px dashed #cbd5e1' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🏆</div>
+                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>No Auction Events Found</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>No auction sports events configured for your community yet.</div>
                 </div>
               )}
             </div>
@@ -692,7 +739,7 @@ export function SportsAuction() {
                     style={{ width: 'auto', minWidth: 200, padding: '6px 12px' }}
                   >
                     <option value="">Select Sports Event...</option>
-                    {eventMap.map(ev => (
+                    {auctionEventMap.map(ev => (
                       <option key={ev.id} value={ev.id}>{ev.name}</option>
                     ))}
                   </select>
@@ -722,7 +769,7 @@ export function SportsAuction() {
                         onChange={e => setSelectedEventId(e.target.value ? Number(e.target.value) : null)}
                       >
                         <option value="">Select Event...</option>
-                        {eventMap.map(ev => (
+                        {auctionEventMap.map(ev => (
                           <option key={ev.id} value={ev.id}>{ev.name}</option>
                         ))}
                       </select>
@@ -891,7 +938,7 @@ export function SportsAuction() {
                   <span style={{ fontSize: 12, color: 'var(--muted)' }}>Select Event:</span>
                   <select className="fselect" value={selectedEventId || ''} onChange={e => { const eid = e.target.value ? Number(e.target.value) : null; setSelectedEventId(eid); if (eid) { const firstConfig = availableConfigs.find(c => c.eventId === eid); if (firstConfig) setSelectedConfigId(firstConfig.id); else setSelectedConfigId(null); } }} style={{ width: 'auto', minWidth: 150, padding: '4px 8px', fontSize: 12 }}>
                     <option value="">All Events</option>
-                    {eventMap.map(ev => (<option key={ev.id} value={ev.id}>{ev.name}</option>))}
+                    {auctionEventMap.map(ev => (<option key={ev.id} value={ev.id}>{ev.name}</option>))}
                   </select>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginLeft: 8 }}>
@@ -1135,36 +1182,36 @@ export function SportsAuction() {
                   const rem = budget - spent;
                   const pct = budget > 0 ? Math.round((rem / budget) * 100) : 0;
                   return (
-                    <div key={team.id} className="card" style={{ marginBottom: 0, borderLeft: `4px solid ${team.color || 'var(--gold)'}` }}>
+                    <div key={team.id} className="card" style={{ marginBottom: 0, borderLeft: `4px solid ${team.color || 'var(--gold)'}`, background: '#ffffff', borderRadius: 14 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                         <div>
-                           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: 'var(--text)' }}>{team.name}</div>
-                           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Captain: {team.ownerName || 'Not Assigned'}</div>
+                           <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>{team.name}</div>
+                           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, fontWeight: 500 }}>Captain: {team.ownerName || 'Not Assigned'}</div>
                         </div>
                         <div className="tag tag-gold" style={{ height: 'fit-content' }}>Team #{idx + 1}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 20, marginBottom: 10 }}>
-                        <div><div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22 }}>₹{(rem || 0).toLocaleString('en-IN')}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Remaining</div></div>
-                        <div><div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: 'var(--amber)' }}>₹{(spent || 0).toLocaleString('en-IN')}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Spent</div></div>
-                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}><div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: 'var(--green)' }}>{team.players?.length || 0}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Squad</div></div>
+                        <div><div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a' }}>₹{(rem || 0).toLocaleString('en-IN')}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Remaining</div></div>
+                        <div><div style={{ fontWeight: 800, fontSize: 18, color: '#d97706' }}>₹{(spent || 0).toLocaleString('en-IN')}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Spent</div></div>
+                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}><div style={{ fontWeight: 800, fontSize: 18, color: '#059669' }}>{team.players?.length || 0}</div><div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Squad</div></div>
                       </div>
                       <div className="prog-bar" style={{ marginBottom: 12 }}><div className="prog-fill" style={{ width: `${pct}%`, background: team.color || 'var(--gold)' }}></div></div>
                       
                       {team.players && team.players.length > 0 ? (
-                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.5px' }}>Purchased Squad ({team.players.length})</div>
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.5px' }}>Purchased Squad ({team.players.length})</div>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             {team.players.map((pl, pIdx) => (
-                              <div key={pIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', fontSize: 12 }}>
-                                <span style={{ color: 'var(--text)', fontWeight: 500 }}>{pl.name}</span>
-                                {pl.category && <span style={{ fontSize: 10, color: 'var(--muted)', background: 'rgba(255,255,255,0.08)', padding: '1px 4px', borderRadius: 4 }}>{pl.category}</span>}
-                                <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 11 }}>₹{(pl.soldPrice || 0).toLocaleString('en-IN')}</span>
+                              <div key={pIdx} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', padding: '4px 8px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
+                                <span style={{ color: '#0f172a', fontWeight: 600 }}>{pl.name}</span>
+                                {pl.category && <span style={{ fontSize: 10, color: 'var(--muted)', background: '#e2e8f0', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>{pl.category}</span>}
+                                <span style={{ color: '#059669', fontWeight: 700, fontSize: 11 }}>₹{(pl.soldPrice || 0).toLocaleString('en-IN')}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       ) : (
-                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9', fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center' }}>
                           No players purchased yet
                         </div>
                       )}
@@ -1241,7 +1288,7 @@ export function SportsAuction() {
                   style={{ width: 'auto', minWidth: 250, padding: '6px 12px' }}
                 >
                   <option value="">Select Sports Event...</option>
-                  {eventMap.map(ev => (
+                  {auctionEventMap.map(ev => (
                     <option key={ev.id} value={ev.id}>{ev.name}</option>
                   ))}
                 </select>
@@ -1320,7 +1367,7 @@ export function SportsAuction() {
                     style={{ width: 'auto', minWidth: 200, padding: '6px 12px' }}
                   >
                     <option value="">All Events</option>
-                    {eventMap.map(ev => (
+                    {auctionEventMap.map(ev => (
                       <option key={ev.id} value={ev.id}>{ev.name}</option>
                     ))}
                   </select>

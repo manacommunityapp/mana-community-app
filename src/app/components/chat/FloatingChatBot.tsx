@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
-import { X } from "lucide-react";
+import { X, Trophy } from "lucide-react";
 import AppFlowChatbot from "./AppFlowChatbot";
 import ManaChat from "./ManaChat";
 import { AI_AGENT_CHATBOT_ENABLED } from "../../../config/featureFlags";
@@ -107,25 +107,44 @@ export function FloatingChatBot() {
         }
       `}</style>
 
-      {/* Floating devotional Ganesha button */}
+      {/* Floating Action Launchers */}
       {!isModalActive && (
-        <Link
-          to="/events"
-          title="Open Events Dashboard"
-          className="ganesh-animated-idol flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
-          style={{
-            boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
-          }}
-        >
-          <video
-            src="/ganesh-animated.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full rounded-full object-cover scale-110"
-          />
-        </Link>
+        <div className="flex flex-col items-center gap-2 sm:gap-2.5">
+          {/* Floating devotional Ganesha button */}
+          <Link
+            to="/events"
+            title="Open Events Dashboard"
+            className="ganesh-animated-idol flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
+            style={{
+              boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
+            }}
+          >
+            <video
+              src="/ganesh-animated.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-full rounded-full object-cover scale-110"
+            />
+          </Link>
+
+          {/* Floating Sports Dashboard button */}
+          <Link
+            to="/sports"
+            title="Open Sports Dashboard"
+            className="group relative flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 rounded-full shadow-xl border-2 border-white/90 bg-gradient-to-tr from-indigo-600 via-violet-600 to-amber-500 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer z-30"
+            style={{
+              boxShadow: "0 6px 18px rgba(99, 102, 241, 0.45)",
+            }}
+          >
+            <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-white drop-shadow group-hover:rotate-12 transition-transform duration-200" />
+            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-amber-500 border border-white"></span>
+            </span>
+          </Link>
+        </div>
       )}
     </div>
   </div>

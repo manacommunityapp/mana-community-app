@@ -94,6 +94,7 @@ import { SportsSchedule }     from "./components/sports/SportsSchedule";
 import { SportsAuction }      from "./components/sports/SportsAuction";
 import { SportsAdmin }        from "./components/sports/admin/SportsAdmin";
 import { SportsRegister }     from "./components/sports/SportsRegister";
+import { SportsMultiRegister }from "./components/sports/SportsMultiRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
@@ -252,6 +253,10 @@ export const router = createBrowserRouter([
           {
             path: "register/:eventUuid",
             element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><SportsRegister /></PermissionGuard>
+          },
+          {
+            path: "register-tournament/:tournamentId",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><SportsMultiRegister /></PermissionGuard>
           },
           {
             path: "schedule",
