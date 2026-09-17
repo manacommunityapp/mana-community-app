@@ -35,7 +35,7 @@ const TABS = [
   { id: "community",   label: "My Community",   icon: Building2 },
   { id: "teams",       label: "My Teams",       icon: Users },
   { id: "matches",     label: "My Matches",     icon: Calendar },
-  { id: "settings",    label: "Sports Settings",icon: Settings },
+  { id: "settings",    label: "Settings",       icon: Settings },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -217,7 +217,7 @@ export function SportsRegistration() {
                   <div className="text-center py-16 bg-card border border-border rounded-xl shadow-lg">
                     <Trophy className="w-12 h-12 text-border mx-auto mb-4" />
                     <p className="text-muted-foreground font-medium">You haven't registered for any tournaments yet.</p>
-                    <p className="text-xs text-muted-foreground/80 mt-1 mb-6">Explore the baseline categories and register in the "Sports Settings" tab.</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1 mb-6">Explore the baseline categories and register in the "Settings" tab.</p>
                     <button
                       onClick={() => setActiveTab("settings")}
                       className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-lg shadow-md transition-all active:scale-[0.97] cursor-pointer border-none"
@@ -434,7 +434,7 @@ export function SportsRegistration() {
               </div>
             )}
 
-            {/* ════════════ SPORTS SETTINGS (REGISTRATION) TAB ════════════ */}
+            {/* ════════════ SETTINGS TAB ════════════ */}
             {activeTab === "settings" && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-left">
                 <div className="space-y-4">

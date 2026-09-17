@@ -606,7 +606,7 @@ export const tournamentService = {
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
 
   async getGenericLeaderboard(configId: number, category: string): Promise<GenericLeaderboardEntry[]> {
-    return apiClient.get<GenericLeaderboardEntry[]>(`/tournament/${configId}/leaderboard/generic`, { params: { category } });
+    return apiClient.get<GenericLeaderboardEntry[]>(`/tournament/${configId}/leaderboard/generic?category=${encodeURIComponent(category)}`);
   },
 
   async getGenericLeaderboardCategories(configId: number): Promise<string[]> {

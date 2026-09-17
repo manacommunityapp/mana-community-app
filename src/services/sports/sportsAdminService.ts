@@ -24,6 +24,7 @@ export interface AdminEventRow {
   auctionStatus: string | null;
   sport: AdminSportRef | null;
   tournamentId: number | null;
+  venue?: { name?: string; city?: string } | null;
 }
 
 export interface AdminTournamentRow {

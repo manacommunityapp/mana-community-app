@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check, Activity } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check, Activity, Download, ChevronDown, FileSpreadsheet, FileText, Printer, AlertCircle, Radio } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -15,6 +15,7 @@ import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
 import { DatePicker } from "../ui/date-picker";
 import { TimePicker } from "../ui/time-picker";
+import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF, exportUmpireScorecardsPDF } from "../../../utils/sportsExportUtils";
 import "./SportsAuction.css";
 
 const toast = {
@@ -338,7 +339,7 @@ export function SportsSchedule() {
   };
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -354,6 +355,7 @@ export function SportsSchedule() {
   const [fixtureSearchQuery, setFixtureSearchQuery] = useState("");
   const [fixtureSportFilter, setFixtureSportFilter] = useState("All");
 
+  const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
@@ -546,6 +548,81 @@ export function SportsSchedule() {
     });
   }, [filteredFixtures]);
 
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+
+  const renderExportDropdown = (customList?: typeof fixturesList) => {
+    const targetMatches = customList || (sortedFixtures.length > 0 ? sortedFixtures : fixturesList);
+    return (
+      <div className="relative inline-block">
+        <button
+          type="button"
+          onClick={() => setShowExportDropdown(!showExportDropdown)}
+          className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
+        >
+          <Download className="w-3.5 h-3.5 text-indigo-600" />
+          <span>Export Schedule</span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        </button>
+
+        {showExportDropdown && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
+            <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs animate-fade-in-up">
+              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                Fixtures & Scores ({targetMatches.length})
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  exportScheduleToExcel(targetMatches, "Tournament Match Schedule");
+                  setShowExportDropdown(false);
+                }}
+                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Download Excel (.xls)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  exportScheduleToCSV(targetMatches, "Tournament Match Schedule");
+                  setShowExportDropdown(false);
+                }}
+                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <FileText className="w-4 h-4 text-blue-600" />
+                <span>Download CSV (.csv)</span>
+              </button>
+              <div className="border-t border-slate-100 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  exportScheduleToPDF(targetMatches, "Tournament Match Schedule", user?.communityName || "Community Sports");
+                  setShowExportDropdown(false);
+                }}
+                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Printer className="w-4 h-4 text-indigo-600" />
+                <span>Print Fixtures Sheet PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  exportUmpireScorecardsPDF(targetMatches, "Match Scorecards");
+                  setShowExportDropdown(false);
+                }}
+                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Printer className="w-4 h-4 text-amber-600" />
+                <span>Print Referee Scorecards PDF</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   useEffect(() => {
     if (!user?.userId) return;
     setLoading(true);
@@ -612,7 +689,9 @@ export function SportsSchedule() {
               team1: homeTeam,
               team2: awayTeam,
               score1: "",
-              score2: ""
+              score2: "",
+              rawStartDate: ev.eventDateStart,
+              rawEndDate: ev.eventDateEnd,
             };
           });
 
@@ -643,6 +722,8 @@ export function SportsSchedule() {
                   team2: m.teamBName || "TBD",
                   score1: m.scoreTeamA || "",
                   score2: m.scoreTeamB || "",
+                  rawStartDate: m.scheduledAt || cfg.startDate,
+                  rawEndDate: cfg.endDate,
                 });
               }
             } catch (_e) {}
@@ -721,11 +802,12 @@ export function SportsSchedule() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr">
+          <div className="page-hdr flex items-center justify-between">
             <div>
               <div className="page-title">{activeTab}</div>
               <div className="page-sub">Sports scheduling & event matches</div>
             </div>
+            {fixturesList.length > 0 && renderExportDropdown()}
           </div>
 
       {/* Overview */}
@@ -753,60 +835,60 @@ export function SportsSchedule() {
           </div>
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-4">
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled</span>
-                <div className="p-1 sm:p-2 bg-indigo-50 text-indigo-600 rounded-lg sm:rounded-xl">
-                  <CalendarIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Scheduled</span>
+                <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Total</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Total</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
-                <div className="p-1 sm:p-2 bg-red-50 text-red-600 rounded-lg sm:rounded-xl">
-                  <Activity className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">
                   {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
                 </span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
-                <div className="p-1 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl">
-                  <Trophy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">
                   {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
                 </span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
-                <div className="p-1 sm:p-2 bg-amber-50 text-amber-600 rounded-lg sm:rounded-xl">
-                  <MapPin className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
+                <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Active</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
               </div>
             </div>
           </div>
@@ -985,56 +1067,56 @@ export function SportsSchedule() {
       {activeTab === "All Events" && (
         <div className="space-y-3 sm:space-y-6 animate-fade-in-up text-left">
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-4">
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
-                <div className="p-1 sm:p-2 bg-indigo-50 text-indigo-600 rounded-lg sm:rounded-xl">
-                  <CalendarIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
+                <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Scheduled</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
-                <div className="p-1 sm:p-2 bg-red-50 text-red-600 rounded-lg sm:rounded-xl">
-                  <Activity className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
+                  <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
-                <div className="p-1 sm:p-2 bg-amber-50 text-amber-600 rounded-lg sm:rounded-xl">
-                  <Clock className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
+                <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Pending</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md active:scale-[0.97] transition-all duration-150">
+            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
-                <div className="p-1 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl">
-                  <Trophy className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
-              <div className="mt-1 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-lg sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
-                <span className="text-[8px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
+              <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
           </div>
@@ -1215,6 +1297,7 @@ export function SportsSchedule() {
                   Add Match
                 </button>
               )}
+              {fixturesList.length > 0 && renderExportDropdown()}
             </div>
           </div>
 
@@ -1336,11 +1419,7 @@ export function SportsSchedule() {
                       <div className="flex items-center gap-2">
                         {fixture.status === "SCHEDULED" && (
                           <button
-                            onClick={() => {
-                              setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
-                              toast.success("Match is now LIVE!");
-                              fetchScheduleStats();
-                            }}
+                            onClick={() => setConfirmGoLiveFixture(fixture)}
                             className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
@@ -1501,6 +1580,181 @@ export function SportsSchedule() {
                 </div>
               </div>
             </div>
+            );
+          })()}
+
+          {/* Go Live Confirmation Modal with Date Validation */}
+          {confirmGoLiveFixture && (() => {
+            const fixture = confirmGoLiveFixture;
+            const now = new Date();
+
+            // Helper to parse dates safely
+            const parseDateSafe = (dateStr?: string | null) => {
+              if (!dateStr) return null;
+              try {
+                const d = new Date(dateStr);
+                return isNaN(d.getTime()) ? null : d;
+              } catch {
+                return null;
+              }
+            };
+
+            const startDate = parseDateSafe(fixture.rawStartDate) || (fixture.date ? parseDateSafe(fixture.date) : null);
+            const endDate = parseDateSafe(fixture.rawEndDate);
+
+            const isBeforeStart = startDate ? now.getTime() < startDate.getTime() : false;
+            const isAfterEnd = endDate ? now.getTime() > endDate.getTime() : false;
+            const isWithinSchedule = startDate ? (!isBeforeStart && (!endDate || !isAfterEnd)) : true;
+
+            const formatDisplayDate = (d: Date | null, fallback?: string) => {
+              if (!d) return fallback || "Not specified";
+              try {
+                return format(d, "EEE, dd MMM yyyy, hh:mm a");
+              } catch {
+                return fallback || "Not specified";
+              }
+            };
+
+            const handleGoLive = () => {
+              setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
+              toast.success(`Match "${fixture.name}" is now LIVE!`);
+              fetchScheduleStats();
+              setConfirmGoLiveFixture(null);
+            };
+
+            return (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+                <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
+                        <Radio className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 leading-none">Confirm Go Live</h3>
+                        <p className="text-xs text-slate-400 mt-1">Check schedule & broadcast live match</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setConfirmGoLiveFixture(null)}
+                      className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Fixture Details Card */}
+                  <div className="mt-4 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                        {fixture.sport}
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 truncate max-w-[60%] justify-end">
+                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{fixture.venue}</span>
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-800 leading-snug">
+                      {fixture.name}
+                    </h4>
+
+                    {(fixture.team1 || fixture.team2) && (
+                      <div className="mt-2.5 flex items-center justify-between text-xs font-bold text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60 shadow-xs">
+                        <span className="truncate max-w-[42%] text-slate-800">{fixture.team1 || "TBD"}</span>
+                        <span className="text-[10px] font-black uppercase text-indigo-500 px-1.5 py-0.5 rounded bg-indigo-50">VS</span>
+                        <span className="truncate max-w-[42%] text-slate-800 text-right">{fixture.team2 || "TBD"}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Scheduled Dates Section */}
+                  <div className="mt-4 space-y-2.5">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Match Schedule
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                          <Calendar className="w-3 h-3 text-indigo-500" />
+                          Start Date & Time
+                        </div>
+                        <div className="mt-1 font-semibold text-slate-800">
+                          {formatDisplayDate(startDate, fixture.date ? `${fixture.date} ${fixture.time || ""}` : undefined)}
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                          <Clock className="w-3 h-3 text-amber-500" />
+                          End Date & Time
+                        </div>
+                        <div className="mt-1 font-semibold text-slate-800">
+                          {formatDisplayDate(endDate, fixture.rawEndDate || "Same day / TBD")}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Validation Alerts */}
+                    {isBeforeStart && (
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-amber-800">Early Start Notice</p>
+                          <p className="text-[11px] text-amber-700 mt-0.5">
+                            This match is scheduled to start later. Starting now will immediately notify community viewers that live scoring is underway.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {isAfterEnd && (
+                      <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 text-xs flex items-start gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-rose-800">Schedule Expired Notice</p>
+                          <p className="text-[11px] text-rose-700 mt-0.5">
+                            The scheduled end date for this event has passed. Confirm if you still wish to broadcast live scoring.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {isWithinSchedule && (
+                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-xs flex items-start gap-2.5">
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold text-emerald-800">Ready to Go Live</p>
+                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                            Current time is within the scheduled window. Ready to start live scoring.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmGoLiveFixture(null)}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGoLive}
+                      className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-red-500/20 flex items-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      Confirm & Go Live
+                    </button>
+                  </div>
+                </div>
+              </div>
             );
           })()}
         </div>
