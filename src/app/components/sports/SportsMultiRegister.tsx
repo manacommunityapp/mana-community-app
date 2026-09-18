@@ -482,6 +482,15 @@ export function SportsMultiRegister() {
   // Accordion toggle state for sport groups: true means open (expanded by default)
   const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({});
 
+  // Mobile Bottom Sheet Picker state
+  const [activeMobilePicker, setActiveMobilePicker] = useState<{
+    eventId: number;
+    type: "role" | "category";
+    title: string;
+    options: { value: any; label: string; subLabel?: string; disabled?: boolean }[];
+    currentValue: any;
+  } | null>(null);
+
   const toggleSportCollapse = (sportName: string) => {
     setExpandedSports(prev => ({
       ...prev,
@@ -1796,16 +1805,17 @@ export function SportsMultiRegister() {
                               </div>
                               {/* Dropdowns section (category bracket & mobile role) */}
                               <div className="mt-1.5 pl-6 sm:pl-6 space-y-1.5 w-full max-w-full overflow-hidden">
-                                {/* Category dropdown for multi-category events */}
+                                {/* Category selection for multi-category events */}
                                 {eventCats.length > 1 && (
                                   <div className="w-full max-w-full">
                                     <label className="sm:hidden block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
                                       Age Bracket:
                                     </label>
+                                    {/* Desktop Select */}
                                     <select
                                       value={ev.categoryId || ""}
                                       onChange={(e) => updateEventField(ev.eventId, "categoryId", Number(e.target.value))}
-                                      className="box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-full sm:w-auto sm:min-w-[180px] max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                      className="hidden sm:block box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-auto min-w-[180px] max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                                     >
                                       {eventCats.map(c => {
                                         const itemEl = checkCategoryEligibility(c, currentAge, gender);
@@ -1819,23 +1829,65 @@ export function SportsMultiRegister() {
                                         );
                                       })}
                                     </select>
+                                    {/* Mobile Custom Trigger Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveMobilePicker({
+                                          eventId: ev.eventId,
+                                          type: "category",
+                                          title: "Select Age Bracket",
+                                          currentValue: ev.categoryId || eventCats[0]?.id,
+                                          options: eventCats.map(c => {
+                                            const itemEl = checkCategoryEligibility(c, currentAge, gender);
+                                            const ageLabel = c.minAge != null && c.maxAge != null
+                                              ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
+                                              : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
+                                            return {
+                                              value: c.id,
+                                              label: c.name,
+                                              subLabel: `${ageLabel} yrs ${!itemEl.eligible ? `(Ineligible: ${itemEl.reason || ""})` : "Eligible"}`,
+                                              disabled: !itemEl.eligible,
+                                            };
+                                          }),
+                                        });
+                                      }}
+                                      className="sm:hidden w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
+                                    >
+                                      <span className="truncate">
+                                        {selectedCat?.name || "Select Category"}
+                                      </span>
+                                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    </button>
                                   </div>
                                 )}
 
-                                {/* Mobile role dropdown */}
+                                {/* Mobile role selection */}
                                 <div className="sm:hidden w-full max-w-full">
                                   <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
                                     Playing Role:
                                   </label>
-                                  <select
-                                    value={ev.role}
-                                    onChange={(e) => updateEventField(ev.eventId, "role", e.target.value)}
-                                    className="box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-full max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMobilePicker({
+                                        eventId: ev.eventId,
+                                        type: "role",
+                                        title: "Select Playing Role",
+                                        currentValue: ev.role || roles[0],
+                                        options: roles.map(r => ({
+                                          value: r,
+                                          label: r,
+                                        })),
+                                      });
+                                    }}
+                                    className="w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
                                   >
-                                    {roles.map(r => (
-                                      <option key={r} value={r} className="text-xs truncate">{r}</option>
-                                    ))}
-                                  </select>
+                                    <span className="truncate">
+                                      {ev.role || roles[0] || "Select Role"}
+                                    </span>
+                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -2096,6 +2148,77 @@ export function SportsMultiRegister() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile Selection Bottom Sheet Modal (for role and category) ── */}
+      {activeMobilePicker && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end justify-center p-0 sm:hidden animate-in fade-in duration-200"
+          onClick={() => setActiveMobilePicker(null)}
+        >
+          <div 
+            className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[75vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sheet Handle and Header */}
+            <div className="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div>
+                <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-2" />
+                <h3 className="text-sm font-bold text-slate-900">{activeMobilePicker.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveMobilePicker(null)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Sheet Options List */}
+            <div className="p-3 overflow-y-auto space-y-1.5 divide-y divide-slate-50">
+              {activeMobilePicker.options.map((opt) => {
+                const isSelected = String(activeMobilePicker.currentValue) === String(opt.value);
+                return (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    disabled={opt.disabled}
+                    onClick={() => {
+                      if (activeMobilePicker.type === "category") {
+                        updateEventField(activeMobilePicker.eventId, "categoryId", Number(opt.value));
+                      } else {
+                        updateEventField(activeMobilePicker.eventId, "role", opt.value);
+                      }
+                      setActiveMobilePicker(null);
+                    }}
+                    className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-2.5 ${
+                      isSelected
+                        ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold"
+                        : opt.disabled
+                        ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400"
+                        : "hover:bg-slate-50 text-slate-800 border border-transparent"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-semibold truncate leading-tight">
+                        {opt.label}
+                      </div>
+                      {opt.subLabel && (
+                        <div className={`text-[10px] mt-0.5 ${opt.disabled ? "text-rose-500" : "text-slate-500"}`}>
+                          {opt.subLabel}
+                        </div>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-indigo-600 shrink-0 stroke-[2.5]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
