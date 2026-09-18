@@ -737,70 +737,60 @@ export function SportsDashboard() {
             ) : liveEvents.length === 0 ? (
               <div className="text-center py-5">
                 <div className="text-xs font-semibold" style={{ color: "#6b7094" }}>No upcoming events</div>
-                {(openTournaments.length > 0 || openRegs.length > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById("open-registrations-section");
-                      el?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all cursor-pointer inline-flex items-center gap-1"
-                  >
-                    Browse Open Registrations <ArrowUpRight className="w-3 h-3" />
-                  </button>
-                )}
               </div>
             ) : (
-              liveEvents.map((ev, idx) => {
-              const myReg = myRegistrations.find(r => r.event.id === ev.id);
-              const isConfirmed = myReg?.status === "CONFIRMED";
-              const isNominated = myReg?.captainNomination;
-              const isTeamReg = myReg?.matchType === "TEAM";
+              <div className="max-h-[190px] overflow-y-auto pr-1">
+                {liveEvents.map((ev, idx) => {
+                  const myReg = myRegistrations.find(r => r.event.id === ev.id);
+                  const isConfirmed = myReg?.status === "CONFIRMED";
+                  const isNominated = myReg?.captainNomination;
+                  const isTeamReg = myReg?.matchType === "TEAM";
 
-              return (
-                <div key={ev.id} className={`mb-3 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                  <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
-                  {isConfirmed && isTeamReg && (
-                    <div className="flex items-center justify-between px-3 py-2 rounded-b-lg border-x border-b -mt-2"
-                      style={{
-                        background: "rgba(99, 102, 241, 0.03)",
-                        borderColor: "rgba(99, 102, 241, 0.08)",
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px]" style={{ color: "#6b7094" }}>Captaincy Status:</span>
-                        <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
-                          {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
-                        </span>
-                      </div>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (myReg?.captainConfirmation) return;
-                          try {
-                            const newVal = !isNominated;
-                            await auctionService.nominateCaptain(ev.id, newVal);
-                            toast.success(newVal ? "Self-nominated for captaincy!" : "Nomination withdrawn");
-                            fetchData();
-                          } catch {
-                            toast.error("Failed to update nomination");
-                          }
-                        }}
-                        disabled={myReg?.captainConfirmation}
-                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
-                          : isNominated
-                            ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
-                            : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
-                          }`}
-                      >
-                        {myReg?.captainConfirmation ? 'Confirmed' : isNominated ? 'Withdraw Nomination' : 'Nominate Me as Captain'}
-                      </button>
+                  return (
+                    <div key={ev.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                      <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
+                      {isConfirmed && isTeamReg && (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-b-lg border-x border-b -mt-2"
+                          style={{
+                            background: "rgba(99, 102, 241, 0.03)",
+                            borderColor: "rgba(99, 102, 241, 0.08)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px]" style={{ color: "#6b7094" }}>Captaincy Status:</span>
+                            <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
+                              {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
+                            </span>
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (myReg?.captainConfirmation) return;
+                              try {
+                                const newVal = !isNominated;
+                                await auctionService.nominateCaptain(ev.id, newVal);
+                                toast.success(newVal ? "Self-nominated for captaincy!" : "Nomination withdrawn");
+                                fetchData();
+                              } catch {
+                                toast.error("Failed to update nomination");
+                              }
+                            }}
+                            disabled={myReg?.captainConfirmation}
+                            className={`text-[10px] px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
+                              : isNominated
+                                ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
+                                : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
+                              }`}
+                          >
+                            {myReg?.captainConfirmation ? 'Confirmed' : isNominated ? 'Withdraw Nomination' : 'Nominate Me as Captain'}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })
+                  );
+                })}
+              </div>
             )}
           </div>
           {/* Open registrations — grouped by tournament */}

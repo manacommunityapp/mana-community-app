@@ -336,6 +336,7 @@ export function SportsEventSection({
                           type="text"
                           value={ev.eventName}
                           onChange={e => updateSportFormEvent(form.id, ev.id, "eventName", e.target.value)}
+                          maxLength={150}
                           placeholder="Event Name"
                           className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
                             !ev.eventName.trim() ? "border-red-300" : "border-slate-200"

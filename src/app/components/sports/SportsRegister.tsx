@@ -17,18 +17,117 @@ import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory } from "../../../types/api";
 
-function getEventFormats(event: SportsEvent | null): string[] {
-  if (!event) return ["SINGLES"];
-  let raw: any = event.format;
-  if (!raw && (event as any).formats) raw = (event as any).formats;
-  if (Array.isArray(raw)) return raw.length > 0 ? raw : ["SINGLES"];
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    return raw.split(",").map(s => s.trim()).filter(Boolean);
-  }
-  return ["SINGLES"];
+function detectSport(name: string): string {
+  const n = (name || "").toLowerCase();
+  if (n.includes("cricket")) return "cricket";
+  if (n.includes("football") || n.includes("soccer")) return "football";
+  if (n.includes("volleyball")) return "volleyball";
+  if (n.includes("basketball")) return "basketball";
+  if (n.includes("badminton") || n.includes("shuttle")) return "badminton";
+  if (n.includes("table tennis") || n.includes("tt") || n.includes("ping pong")) return "table tennis";
+  if (n.includes("tennis")) return "tennis";
+  if (n.includes("pickleball")) return "pickleball";
+  if (n.includes("squash")) return "squash";
+  if (n.includes("padel")) return "padel";
+  if (n.includes("carrom")) return "carrom";
+  if (n.includes("chess")) return "chess";
+  if (n.includes("kabaddi")) return "kabaddi";
+  if (n.includes("hockey")) return "hockey";
+  if (n.includes("throwball")) return "throwball";
+  if (n.includes("rugby")) return "rugby";
+  return "generic";
 }
 
-// ─── Sport config ─────────────────────────────────────────────────────────────
+function normalizeFormatList(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+        }
+      } catch {}
+    }
+    return trimmed.split(",").map(s => s.trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+  }
+  return [];
+}
+
+function getEventFormats(event: SportsEvent | null): string[] {
+  if (!event) return [];
+  const eName = (event.name || "").toLowerCase();
+  const sName = (event.sport?.name || "").toLowerCase();
+  const tName = ((event as any).tournamentName || (event as any).tournament?.name || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName}`;
+  const sKey = detectSport(combined);
+
+  // 1. Check if event explicitly specifies formats
+  const rawExplicit = event.format || (event as any).formats || event.sport?.formats || event.sport?.format;
+  const parsedExplicit = normalizeFormatList(rawExplicit);
+  if (parsedExplicit.length > 0) {
+    if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+      return parsedExplicit.includes("MIXED_DOUBLES") ? ["MIXED_DOUBLES"] : parsedExplicit;
+    }
+    if (eName.includes("doubles") && !eName.includes("singles")) {
+      return parsedExplicit.includes("DOUBLES") ? ["DOUBLES"] : parsedExplicit;
+    }
+    if (eName.includes("singles") && !eName.includes("doubles")) {
+      return parsedExplicit.includes("SINGLES") ? ["SINGLES"] : parsedExplicit;
+    }
+    return parsedExplicit;
+  }
+
+  // 2. Check event name keywords for specific format
+  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (eName.includes("doubles") && !eName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (eName.includes("singles") && eName.includes("doubles")) {
+    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+  }
+
+  // 3. Default available formats based on sport type
+  if (
+    ["badminton", "table tennis", "tennis", "pickleball"].includes(sKey) ||
+    combined.includes("badminton") ||
+    combined.includes("tennis") ||
+    combined.includes("table tennis") ||
+    combined.includes("pickleball") ||
+    combined.includes("shuttle") ||
+    combined.includes("tt")
+  ) {
+    return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+  }
+
+  if (
+    ["squash", "padel", "carrom"].includes(sKey) ||
+    combined.includes("squash") ||
+    combined.includes("padel") ||
+    combined.includes("carrom")
+  ) {
+    return ["SINGLES", "DOUBLES"];
+  }
+
+  if (
+    ["swimming", "athletics"].includes(sKey) ||
+    combined.includes("swimming") ||
+    combined.includes("athletics")
+  ) {
+    return ["INDIVIDUAL", "RELAY"];
+  }
+
+  return [];
+}
 
 interface StatField {
   name: "matches" | "runs" | "wickets" | "strikeRate" | "avgScore";
@@ -45,20 +144,6 @@ interface CategoryOption {
 interface SportConfig {
   categories: CategoryOption[];
   stats: StatField[];
-}
-
-function detectSport(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("cricket")) return "cricket";
-  if (n.includes("football") || n.includes("soccer")) return "football";
-  if (n.includes("volleyball")) return "volleyball";
-  if (n.includes("basketball")) return "basketball";
-  if (n.includes("badminton")) return "badminton";
-  if (n.includes("kabaddi")) return "kabaddi";
-  if (n.includes("hockey")) return "hockey";
-  if (n.includes("throwball")) return "throwball";
-  if (n.includes("rugby")) return "rugby";
-  return "generic";
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {

@@ -229,7 +229,7 @@ export interface SportsEvent {
   maxParticipants?: number;
   registrationStatus?: EventStatus;
   tournament?: any;
-  format?: MatchFormat;
+  format?: MatchFormat[];
   tournamentType?: TournamentType;
   categories?: PlayerCategory[];
   sponsors?: Sponsor[];
@@ -238,7 +238,6 @@ export interface SportsEvent {
   updatedAt?: string;
   auctionStatus?: string;
   auctionEnabled?: boolean;
-  auction?: boolean;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
@@ -272,7 +271,7 @@ export interface SportsEventRequest {
   eventDateEnd: string;
   venueId?: number;
   maxParticipants?: number;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   categoryIds?: number[];
   contactName?: string;
@@ -280,7 +279,6 @@ export interface SportsEventRequest {
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
-  auction?: boolean;
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
   description?: string;
@@ -385,7 +383,7 @@ export interface SportsTournament {
   id: number;
   name: string;
   event?: SportsEvent;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   createdAt?: string;
   updatedAt?: string;
