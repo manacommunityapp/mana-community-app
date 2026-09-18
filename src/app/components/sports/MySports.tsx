@@ -1068,7 +1068,7 @@ export function MySports() {
                                       {m.sportName || "Sport"}
                                     </span>
                                     <span className="text-xs font-mono font-bold text-slate-700">
-                                      {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "Scheduled"}
+                                      {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Scheduled"}
                                     </span>
                                   </div>
 

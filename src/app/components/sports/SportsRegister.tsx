@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
+import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
 import { otpService } from "../../../services/common/otpService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
@@ -12,6 +13,8 @@ import {
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
 import { DatePicker } from "../ui/date-picker";
+import { format } from "date-fns";
+import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory } from "../../../types/api";
 
 function getEventFormats(event: SportsEvent | null): string[] {
@@ -263,6 +266,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface RegistrationFormData {
   categoryIds: number[];
+  matchTypes: string[];
   matchType: string;
   role: string;
   gender: string;
@@ -292,6 +296,16 @@ export function SportsRegister() {
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showEventInfoModal, setShowEventInfoModal] = useState(false);
+
+  // Sibling category events (same sport in same tournament)
+  const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
+
+  // Age proof & Out of age window override state
+  const [ageProofFile, setAgeProofFile] = useState<File | null>(null);
+  const [ageProofName, setAgeProofName] = useState<string>("");
+  const [ageProofError, setAgeProofError] = useState<string>("");
+  const ageProofInputRef = useRef<HTMLInputElement | null>(null);
 
   // Email-OTP verification state.
   const [email, setEmail] = useState(user?.email ?? "");
@@ -306,22 +320,84 @@ export function SportsRegister() {
   useEffect(() => {
     userService.getMe().then((me) => {
       setLiveUser(me);
+      const userNameVal = me.fullName || "";
+      const userGenderVal = me.gender || "";
+      const userDobVal = me.dateOfBirth || (me as any).dob || "";
+      const rawUserBlock = me.block || (me as any).tower || "";
+      const rawUserFlatNum = me.flatNo || (me as any).flatNumber || (me as any).unitNumber || "";
+      let userFlatVal = rawUserFlatNum;
+      if (rawUserBlock && rawUserFlatNum) {
+        if (rawUserFlatNum.toUpperCase().startsWith(rawUserBlock.toUpperCase()) || rawUserFlatNum.toUpperCase().includes(rawUserBlock.toUpperCase())) {
+          userFlatVal = rawUserFlatNum;
+        } else {
+          userFlatVal = `Block ${rawUserBlock}, Flat ${rawUserFlatNum}`;
+        }
+      } else if (rawUserBlock) {
+        userFlatVal = `Block ${rawUserBlock}`;
+      }
+
       if (me.gender || me.dateOfBirth) {
         updateUser({
           gender: me.gender,
           dateOfBirth: me.dateOfBirth || (me as any).dob,
         });
       }
+
+      setFormData(prev => {
+        if (prev.regType === "self") {
+          const uName = userNameVal || prev.playerName;
+          const uGen = userGenderVal || prev.gender;
+          const uDob = userDobVal || prev.dateOfBirth;
+          const uFlat = userFlatVal || prev.flatNumber;
+          const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
+          return {
+            ...prev,
+            playerName: uName,
+            gender: uGen,
+            dateOfBirth: uDob,
+            flatNumber: uFlat,
+            age: uAge,
+          };
+        }
+        return prev;
+      });
     }).catch((err) => {
       console.warn("Could not fetch latest user profile in SportsRegister:", err);
     });
   }, [updateUser]);
 
+  const userFullName = liveUser?.fullName || user?.fullName || "";
   const userGender = liveUser?.gender || user?.gender || "";
   const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
+  const userBlock = liveUser?.block || (liveUser as any)?.tower || user?.block || (user as any)?.tower || "";
+  const rawUserFlat = liveUser?.flatNo || (liveUser as any)?.flatNumber || (liveUser as any)?.unitNumber || user?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "";
+
+  const userFlat = useMemo(() => {
+    const b = userBlock?.trim() || "";
+    const f = rawUserFlat?.trim() || "";
+    if (b && f) {
+      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
+        return f;
+      }
+      return `Block ${b}, Flat ${f}`;
+    }
+    if (f) return f;
+    if (b) return `Block ${b}`;
+    return "";
+  }, [userBlock, rawUserFlat]);
+
+  const missingProfileFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!userFullName?.trim()) missing.push("Full Name");
+    if (!userGender?.trim()) missing.push("Gender");
+    if (!userDob?.trim()) missing.push("Date of Birth");
+    if (!userFlat?.trim()) missing.push("Block & Flat");
+    return missing;
+  }, [userFullName, userGender, userDob, userFlat]);
 
   const [formData, setFormData] = useState<RegistrationFormData>({
     categoryIds: [] as number[],
+    matchTypes: ["SINGLES"],
     matchType: "SINGLES",
     role: "",
     gender: (user as any)?.gender || "",
@@ -337,11 +413,111 @@ export function SportsRegister() {
     regType: "self" as "self" | "family" | "other",
     playerName: user?.fullName || "",
     relation: "",
-    flatNumber: "",
+    flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
     familyMemberId: undefined as number | string | undefined,
   });
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+  const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
+  const [addingFamilyMember, setAddingFamilyMember] = useState(false);
+  const [newFamilyMember, setNewFamilyMember] = useState({
+    name: "",
+    relation: "Son",
+    gender: "Male",
+    gotram: "",
+    dob: "",
+    phone: "",
+    bloodGroup: "",
+  });
+
+  const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFamilyMember.name.trim()) {
+      toast.error("Please enter family member's full name");
+      return;
+    }
+    if (newFamilyMember.phone?.trim() && !isValidIndianPhone(newFamilyMember.phone)) {
+      toast.error("Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)");
+      return;
+    }
+    setAddingFamilyMember(true);
+    try {
+      let computedAge = 18;
+      if (newFamilyMember.dob) {
+        const birth = new Date(newFamilyMember.dob);
+        if (!isNaN(birth.getTime())) {
+          computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      }
+
+      const payload = {
+        name: newFamilyMember.name.trim(),
+        relation: newFamilyMember.relation,
+        dob: newFamilyMember.dob || undefined,
+        gender: newFamilyMember.gender || "Male",
+        gotram: newFamilyMember.gotram?.trim() || undefined,
+        phone: newFamilyMember.phone?.trim() || undefined,
+        bloodGroup: newFamilyMember.bloodGroup?.trim() || undefined,
+        age: computedAge,
+        status: "ACTIVE",
+      };
+
+      const saved = await familyService.addFamilyMember(payload);
+      toast.success(`Family member "${payload.name}" added successfully!`);
+
+      // Refresh list
+      const members = await familyService.getFamilyMembers(true);
+      setSavedFamilyMembers(members);
+
+      // Auto-select newly created family member
+      const rel = payload.relation.toUpperCase();
+      const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+        ? "SPOUSE"
+        : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+        ? "CHILD"
+        : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+        ? "PARENT"
+        : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+        ? "SIBLING"
+        : "OTHER";
+
+      setFormData(prev => ({
+        ...prev,
+        playerName: payload.name,
+        familyMemberId: saved.id,
+        gender: payload.gender || "",
+        dateOfBirth: payload.dob || "",
+        age: computedAge,
+        relation: mappedRel,
+      }));
+
+      setShowAddFamilyModal(false);
+      setNewFamilyMember({
+        name: "",
+        relation: "Son",
+        gender: "Male",
+        gotram: "",
+        dob: "",
+        phone: "",
+        bloodGroup: "",
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add family member");
+    } finally {
+      setAddingFamilyMember(false);
+    }
+  };
+
+  const familyMembersOnly = savedFamilyMembers.filter((m) => {
+    const rel = (m.relation || "").toUpperCase().trim();
+    const isSelf =
+      rel === "SELF" ||
+      rel === "HEAD" ||
+      m.id === "self" ||
+      m.id === "member-self" ||
+      (user?.fullName && m.name.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+    return !isSelf;
+  });
 
   useEffect(() => {
     const fetchFamily = async () => {
@@ -364,28 +540,115 @@ export function SportsRegister() {
   const eventCategories = event?.categories && event.categories.length > 0 ? event.categories : categories;
   const availableFormats = getEventFormats(event);
 
-  // Sync default matchType when event formats load
+  // Sync default matchTypes when event formats load
   useEffect(() => {
     if (event) {
       const formats = getEventFormats(event);
-      if (formats.length > 0 && !formats.includes(formData.matchType)) {
-        setFormData(prev => ({ ...prev, matchType: formats[0] }));
+      if (formats.length > 0) {
+        setFormData(prev => {
+          const validTypes = prev.matchTypes.filter(f => formats.includes(f));
+          const newTypes = validTypes.length > 0 ? validTypes : [formats[0]];
+          return {
+            ...prev,
+            matchTypes: newTypes,
+            matchType: newTypes[0] || formats[0],
+          };
+        });
       }
     }
   }, [event]);
 
-  // Get all matching roles for the selected Participant Type + Selected Categories
+  // Auto-select category by default from event
+  useEffect(() => {
+    if (!eventCategories || eventCategories.length === 0) return;
+
+    setFormData(prev => {
+      // If user already has valid selected categories in this event, keep them
+      if (prev.categoryIds.length > 0 && prev.categoryIds.some(id => eventCategories.some(c => c.id === id))) {
+        return prev;
+      }
+
+      // If event has explicitly associated categories:
+      if (event?.categories && event.categories.length > 0) {
+        if (event.categories.length === 1) {
+          return { ...prev, categoryIds: [event.categories[0].id] };
+        }
+
+        const matchingCat = event.categories.find(c => {
+          const age = prev.age;
+          const minOk = c.minAge == null || age >= c.minAge;
+          const maxOk = c.maxAge == null || age <= c.maxAge;
+          const genderOk = !c.gender || !prev.gender || c.gender.toUpperCase() === prev.gender.toUpperCase() || c.gender.toUpperCase() === "ALL" || c.gender.toUpperCase() === "MIXED";
+          return minOk && maxOk && genderOk;
+        });
+
+        if (matchingCat) {
+          return { ...prev, categoryIds: [matchingCat.id] };
+        }
+
+        return { ...prev, categoryIds: [event.categories[0].id] };
+      }
+
+      // If generic categories pool, find best match or default to first
+      const matchingCat = eventCategories.find(c => {
+        const age = prev.age;
+        const minOk = c.minAge == null || age >= c.minAge;
+        const maxOk = c.maxAge == null || age <= c.maxAge;
+        const genderOk = !c.gender || !prev.gender || c.gender.toUpperCase() === prev.gender.toUpperCase() || c.gender.toUpperCase() === "ALL" || c.gender.toUpperCase() === "MIXED";
+        return minOk && maxOk && genderOk;
+      });
+
+      if (matchingCat) {
+        return { ...prev, categoryIds: [matchingCat.id] };
+      }
+
+      if (eventCategories.length > 0) {
+        return { ...prev, categoryIds: [eventCategories[0].id] };
+      }
+
+      return prev;
+    });
+  }, [event, eventCategories, formData.age, formData.gender]);
+
+  // Toggle format selection (allows selecting both Singles and Doubles, etc.)
+  const toggleFormat = (fmt: string) => {
+    setFormData(prev => {
+      const exists = prev.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+      let updated: string[];
+      if (exists) {
+        if (prev.matchTypes.length === 1) {
+          toast.info("At least one participation format must be selected");
+          return prev;
+        }
+        updated = prev.matchTypes.filter(f => f.toUpperCase() !== fmt.toUpperCase());
+      } else {
+        updated = [...prev.matchTypes, fmt];
+      }
+      return {
+        ...prev,
+        matchTypes: updated,
+        matchType: updated[0] || fmt,
+      };
+    });
+  };
+
+  // Get all matching roles for the selected Participant Types + Selected Categories
   const getRolesForSelectedTypeAndCategories = () => {
-    const currentFormat = formData.matchType.toUpperCase();
     const rolesSet = new Set<string>();
+    const selectedFormats = (formData.matchTypes && formData.matchTypes.length > 0)
+      ? formData.matchTypes
+      : [formData.matchType];
 
-    const formatCfgCat = sportConfig.categories.find(
-      c => c.value.toUpperCase() === currentFormat || currentFormat.includes(c.value.toUpperCase()) || c.value.toUpperCase().includes(currentFormat)
-    );
+    selectedFormats.forEach(fmt => {
+      const currentFormat = fmt.toUpperCase();
+      const formatCfgCat = sportConfig.categories.find(
+        c => c.value.toUpperCase() === currentFormat || currentFormat.includes(c.value.toUpperCase()) || c.value.toUpperCase().includes(currentFormat)
+      );
 
-    if (formatCfgCat && formatCfgCat.roles.length > 0) {
-      formatCfgCat.roles.forEach(r => rolesSet.add(r));
-    }
+      if (formatCfgCat && formatCfgCat.roles.length > 0) {
+        formatCfgCat.roles.forEach(r => rolesSet.add(r));
+      }
+    });
 
     if (formData.categoryIds && formData.categoryIds.length > 0) {
       formData.categoryIds.forEach(id => {
@@ -435,6 +698,20 @@ export function SportsRegister() {
     };
     load();
   }, [eventUuid]);
+
+  // Fetch sibling category events (same sport, same tournament)
+  useEffect(() => {
+    if (!event?.tournament?.id || !event?.sport?.name) return;
+    const tournamentId = event.tournament.id;
+    const sportName = event.sport.name;
+    sportsDashboardService.getOpenTournaments().then(tournaments => {
+      const t = tournaments.find(tr => tr.id === tournamentId);
+      if (t) {
+        const siblings = t.events.filter(e => e.sportName === sportName);
+        setSiblingEvents(siblings);
+      }
+    }).catch(() => {});
+  }, [event?.tournament?.id, event?.sport?.name]);
 
   // Load Google reCAPTCHA (v2 checkbox) only when a site key is configured.
   useEffect(() => {
@@ -513,7 +790,7 @@ export function SportsRegister() {
     }));
   };
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const emailValid = isValidEmail(email);
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
@@ -568,14 +845,10 @@ export function SportsRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check user profile for Gender & Date of Birth
+    // Check user profile for Full Name, Gender, Date of Birth, Flat / Villa
     if (formData.regType === "self") {
-      const missingFields: string[] = [];
-      if (!userGender?.trim()) missingFields.push("Gender");
-      if (!userDob?.trim() && !formData.dateOfBirth?.trim()) missingFields.push("Date of Birth");
-
-      if (missingFields.length > 0) {
-        toast.error(`Please update your ${missingFields.join(" and ")} in your Profile before registering for sports events.`, {
+      if (missingProfileFields.length > 0) {
+        toast.error(`Please update your ${missingProfileFields.join(" and ")} in your Profile before registering for sports events.`, {
           duration: 6000,
           action: {
             label: "Update Profile",
@@ -607,6 +880,36 @@ export function SportsRegister() {
       toast.error("Event details are still loading");
       return;
     }
+    if (email.trim() && !isValidEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    // Check if participant is registering for an upper-age category requiring DOB proof
+    const currentCategoryName = `${event?.categoryName || ""} ${event?.name || ""}`.toLowerCase();
+    let currentMinAge: number | null = null;
+    let currentMaxAge: number | null = null;
+    const underMatch = currentCategoryName.match(/(?:under|u-?|below)\s*(\d+)/i);
+    const plusMatch = currentCategoryName.match(/(\d+)\s*(?:\+|plus|above)/i);
+    const rangeMatch = currentCategoryName.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+    if (underMatch) currentMaxAge = parseInt(underMatch[1], 10);
+    else if (plusMatch) currentMinAge = parseInt(plusMatch[1], 10);
+    else if (rangeMatch) {
+      currentMinAge = parseInt(rangeMatch[1], 10);
+      currentMaxAge = parseInt(rangeMatch[2], 10);
+    }
+
+    if (formData.age > 0) {
+      if (currentMaxAge != null && formData.age > currentMaxAge) {
+        toast.error(`Ineligible: Your age (${formData.age}y) exceeds the maximum allowed age (${currentMaxAge}y) for this category.`);
+        return;
+      }
+      if (currentMinAge != null && formData.age < currentMinAge && !ageProofFile) {
+        toast.error(`Please upload valid DOB Proof for upper-age category registration (${currentMinAge}+ yrs).`);
+        setAgeProofError("Valid Government/School ID with DOB proof is required for upper-age category participation.");
+        return;
+      }
+    }
+
     if (OTP_REQUIRED && !emailVerified) {
       toast.error("Please verify your email before registering");
       return;
@@ -623,33 +926,45 @@ export function SportsRegister() {
       }
     }
 
+    const selectedFormats = (formData.matchTypes && formData.matchTypes.length > 0)
+      ? formData.matchTypes
+      : [formData.matchType];
+
+    if (selectedFormats.length === 0) {
+      toast.error("Please select at least one participation format");
+      return;
+    }
+
     setSubmitting(true);
     try {
       for (const catId of formData.categoryIds) {
-        await sportsService.registerForEvent({
-          eventId: event.id,
-          categoryId: catId,
-          matchType: formData.matchType,
-          role: formData.role,
-          age: formData.age,
-          dateOfBirth: formData.dateOfBirth,
-          matches: formData.matches,
-          runs: formData.runs,
-          wickets: formData.wickets,
-          strikeRate: formData.strikeRate,
-          avgScore: formData.avgScore,
-          playerName: formData.playerName,
-          email: email.trim() || undefined,
-          relation: formData.relation,
-          flatNumber: formData.flatNumber,
-          familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
-          recaptchaToken,
-        });
+        for (const fmt of selectedFormats) {
+          await sportsService.registerForEvent({
+            eventId: event.id,
+            categoryId: catId,
+            matchType: fmt,
+            role: formData.role,
+            age: formData.age,
+            dateOfBirth: formData.dateOfBirth,
+            matches: formData.matches,
+            runs: formData.runs,
+            wickets: formData.wickets,
+            strikeRate: formData.strikeRate,
+            avgScore: formData.avgScore,
+            playerName: formData.playerName,
+            email: email.trim() || undefined,
+            relation: formData.relation,
+            flatNumber: formData.flatNumber,
+            familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
+            recaptchaToken,
+          });
+        }
       }
 
+      const formatCount = selectedFormats.length;
       toast.success(event.adminApprovalRequired === false
-        ? "Registration confirmed! Good luck."
-        : "Registration submitted! You'll be notified once it's approved.");
+        ? `Registration confirmed${formatCount > 1 ? ` for ${formatCount} formats` : ""}! Good luck.`
+        : `Registration submitted${formatCount > 1 ? ` for ${formatCount} formats` : ""}! You'll be notified once it's approved.`);
       navigate("/sports");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
@@ -677,9 +992,9 @@ export function SportsRegister() {
 
   // Step indicator
   const completedSteps = [
-    formData.matchType.length > 0,
-    formData.categoryIds.length > 0,
     formData.playerName.trim().length > 0 && formData.dateOfBirth.trim().length > 0,
+    formData.matchTypes.length > 0,
+    formData.categoryIds.length > 0,
     formData.role.length > 0,
   ];
   const currentStep = completedSteps.filter(Boolean).length;
@@ -695,21 +1010,328 @@ export function SportsRegister() {
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back
         </button>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-            Event Registration
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
+            <Trophy className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{event?.name || event?.sport?.name || "Event Registration"}</span>
           </span>
+          <button
+            type="button"
+            onClick={() => setShowEventInfoModal(true)}
+            aria-label="View Event Details"
+            title="View Event Details"
+            className="lg:hidden p-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all flex items-center justify-center shrink-0 cursor-pointer shadow-xs active:scale-95"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* ── Mobile Event Info Modal ────────────────────────────── */}
+      {showEventInfoModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in lg:hidden"
+          onClick={() => setShowEventInfoModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-white/20 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Gradient Backgrounds */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-95" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
+
+            <div className="relative p-5">
+              <div className="flex items-center justify-between mb-3.5">
+                <button
+                  type="button"
+                  onClick={() => setShowEventInfoModal(false)}
+                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEventInfoModal(false)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-11 h-11 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-inner">
+                  <Trophy className="w-5 h-5 text-orange-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    {event?.sport?.name && (
+                      <span className="px-2.5 py-0.5 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider border border-orange-500/30">
+                        {event.sport.name}
+                      </span>
+                    )}
+                    {event?.registrationStatus && (
+                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                        {event.registrationStatus}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-base font-bold text-white tracking-tight leading-snug">
+                    {event?.name ?? "Complete Registration"}
+                  </h2>
+                  <p className="text-[11px] text-white/70 mt-1 leading-relaxed">
+                    Fill in your details below to register for this event
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-2.5">
+                {eventDate && (
+                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
+                    <span className="text-base">📅</span>
+                    <div>
+                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
+                      <p className="font-semibold">{eventDate}</p>
+                    </div>
+                  </div>
+                )}
+                {venueName && (
+                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
+                    <span className="text-base">📍</span>
+                    <div>
+                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
+                      <p className="font-semibold">{venueName}</p>
+                    </div>
+                  </div>
+                )}
+                {event?.community?.name && (
+                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
+                    <span className="text-base">🏠</span>
+                    <div>
+                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
+                      <p className="font-semibold">{event.community.name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* All Sport Categories & Age Details */}
+                {siblingEvents.length > 0 && (
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
+                        <Trophy className="w-3.5 h-3.5 text-orange-400" />
+                        <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {siblingEvents.map(sib => {
+                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                        let ageLabel = "All Ages";
+                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+
+                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+
+                        return (
+                          <div
+                            key={sib.id}
+                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
+                              isCurrent
+                                ? "bg-white/15 border-white/30 text-white shadow-xs"
+                                : "bg-white/5 border-white/10 text-white/85"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-white text-xs truncate">
+                                {sib.categoryName || sib.name}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
+                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
+                              {sib.venueName && <span>📍 {sib.venueName}</span>}
+                              {sib.eventDateStart && (
+                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                              )}
+                              {sib.maxParticipants && (
+                                <span className="text-white/60">Spots: {sib.maxParticipants} max</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEventInfoModal(false)}
+                  className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-all text-center cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ADD FAMILY MEMBER MODAL ─── */}
+      {showAddFamilyModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer animate-fade-in"
+          onClick={() => setShowAddFamilyModal(false)}
+        >
+          <form
+            onSubmit={handleAddFamilyMemberSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto cursor-default"
+          >
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
+
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-primary" />
+                Add Family Member
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddFamilyModal(false)}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                  Full Name <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newFamilyMember.name}
+                  onChange={(e) => setNewFamilyMember({ ...newFamilyMember, name: e.target.value })}
+                  placeholder="Enter member's full name"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Relationship <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    value={newFamilyMember.relation}
+                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, relation: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="Spouse">Spouse</option>
+                    <option value="Son">Son</option>
+                    <option value="Daughter">Daughter</option>
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Brother">Brother</option>
+                    <option value="Sister">Sister</option>
+                    <option value="Grandfather">Grandfather</option>
+                    <option value="Grandmother">Grandmother</option>
+                    <option value="Relative">Relative</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Gender
+                  </label>
+                  <select
+                    value={newFamilyMember.gender}
+                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, gender: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Date of Birth
+                  </label>
+                  <DatePicker
+                    value={newFamilyMember.dob}
+                    onChange={(val) => setNewFamilyMember({ ...newFamilyMember, dob: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select DOB..."
+                    className="w-full"
+                    presets={false}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                    Phone (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    value={newFamilyMember.phone}
+                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, phone: e.target.value })}
+                    placeholder="10-digit mobile"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddFamilyModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={addingFamilyMember || !newFamilyMember.name.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-md shadow-primary/25 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {addingFamilyMember ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Member"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ── 2-Column Responsive Layout ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
         <div className="lg:col-span-7 space-y-4">
           {/* Step Indicator */}
-          <div className="bg-card border border-border rounded-xl p-3 shadow-sm">
+          <div className="hidden sm:block bg-card border border-border rounded-xl p-3 shadow-sm">
             <div className="flex items-center gap-2">
-              {["Format", "Category", "Details", "Role"].map((label, i) => (
+              {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
                   <div className={`h-1.5 rounded-full transition-all duration-500 ${
                     i < currentStep
@@ -741,7 +1363,11 @@ export function SportsRegister() {
                 onClick={() => setFormData(prev => ({
                   ...prev,
                   regType: tab.key,
-                  playerName: tab.key === "self" ? (user?.fullName || "") : "",
+                  playerName: tab.key === "self" ? (userFullName || user?.fullName || "") : "",
+                  gender: tab.key === "self" ? (userGender || "") : "",
+                  dateOfBirth: tab.key === "self" ? (userDob || "") : "",
+                  flatNumber: tab.key === "other" ? "" : userFlat,
+                  age: tab.key === "self" && userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : prev.age,
                 }))}
                 className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 ${
                   formData.regType === tab.key
@@ -757,18 +1383,18 @@ export function SportsRegister() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Profile Incomplete Banner */}
-            {formData.regType === "self" && (!userGender || !userDob) && (
+            {formData.regType === "self" && missingProfileFields.length > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-xl flex-shrink-0 mt-0.5">
                     <AlertTriangle className="w-5 h-5 animate-pulse" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      Profile Incomplete: {!userGender && !userDob ? "Gender & Date of Birth Required" : !userGender ? "Gender Required" : "Date of Birth Required"}
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                      Profile Incomplete: {missingProfileFields.join(", ")} Required
                     </h4>
                     <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
-                      Your profile is missing {!userGender && !userDob ? "Gender and Date of Birth" : !userGender ? "Gender" : "Date of Birth"}. Please update these in your Profile before registering so we can place you in the correct tournament category.
+                      Your profile is missing {missingProfileFields.join(", ")}. These details are mandatory in your profile to place you in tournament brackets. Please update your profile before registering.
                     </p>
                   </div>
                 </div>
@@ -782,190 +1408,131 @@ export function SportsRegister() {
                 </button>
               </div>
             )}
-            {/* 1. Participant Type (Format) */}
-            {availableFormats.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-                <div className="relative">
-                  <div className="flex items-center gap-2.5 mb-1">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Trophy className="w-4 h-4 text-primary" />
-                    </div>
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Participant Type</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-5 ml-[38px]">
-                    Choose your participation format
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    {availableFormats.map((fmt) => {
-                      const isSelected = formData.matchType.toUpperCase() === fmt.toUpperCase();
-                      const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, matchType: fmt }))}
-                          className={`group relative px-5 py-3 rounded-xl border-2 text-sm font-semibold transition-all duration-300 flex items-center gap-2.5 ${
-                            isSelected
-                              ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
-                              : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-sm"
-                          }`}
-                        >
-                          <span>{formatLabel}</span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-white/80" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 2. Select Categories */}
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                  <span className="text-sm">🏷️</span>
-                </div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Select Categories</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-5 ml-[38px]">
-                Pick one or more categories for your registration
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {eventCategories.map((cat) => {
-                  const isChecked = formData.categoryIds.includes(cat.id);
-                  return (
-                    <label
-                      key={cat.id}
-                      className={`relative flex items-start gap-3.5 p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer select-none group ${
-                        isChecked
-                          ? "bg-primary/5 border-primary shadow-sm shadow-primary/10"
-                          : "bg-card border-border hover:border-primary/30 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300 ${
-                        isChecked
-                          ? "bg-primary border-primary"
-                          : "border-border group-hover:border-primary/40"
-                      }`}>
-                        {isChecked && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                        )}
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {
-                          setFormData((prev) => {
-                            const newIds = prev.categoryIds.includes(cat.id)
-                              ? prev.categoryIds.filter((id) => id !== cat.id)
-                              : [...prev.categoryIds, cat.id];
-                            return { ...prev, categoryIds: newIds };
-                          });
-                        }}
-                        className="sr-only"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold transition-colors ${isChecked ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
-                          {cat.name}
-                        </p>
-                        {cat.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{cat.description}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground">
-                            Age: {cat.minAge}–{cat.maxAge}
-                          </span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground">
-                            {cat.gender}
-                          </span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3. Player Identity */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
+            {/* 1. Player Identity */}
+            <div className="bg-card border border-border rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
               <div className="relative">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                    <Info className="w-4 h-4 text-primary" />
+                <div className="flex items-center justify-between gap-2.5 mb-0 md:mb-3 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                      <Info className="w-4 h-4 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
+                    {formData.playerName && (
+                      <span className="text-xs font-semibold text-foreground/80 bg-muted px-2.5 py-0.5 rounded-full border border-border">
+                        {formData.playerName}
+                      </span>
+                    )}
+                    {formData.age > 0 && (
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                        Age: {formData.age} Yrs
+                      </span>
+                    )}
                   </div>
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
                 </div>
 
-                {formData.regType === "family" && savedFamilyMembers.length > 0 && (
-                  <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
-                    <p className="text-xs font-bold text-foreground flex items-center justify-between">
-                      <span>👨‍👩‍👧 Choose from My Family Directory</span>
-                      <span className="text-[10px] text-primary font-normal">Synced with Profile</span>
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {savedFamilyMembers.map((m) => {
-                        const isSelected = formData.playerName.trim().toLowerCase() === m.name.trim().toLowerCase();
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => {
-                              const rel = m.relation?.toUpperCase() || "";
-                              const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
-                                ? "SPOUSE"
-                                : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
-                                ? "CHILD"
-                                : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
-                                ? "PARENT"
-                                : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
-                                ? "SIBLING"
-                                : "OTHER";
-
-                              setFormData(prev => {
-                                let calculatedAge = m.age || prev.age;
-                                if (m.dob) {
-                                  const birthDate = new Date(m.dob);
-                                  if (!isNaN(birthDate.getTime())) {
-                                    calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
-                                  }
-                                }
-                                return {
-                                  ...prev,
-                                  playerName: m.name,
-                                  familyMemberId: m.id,
-                                  gender: m.gender || "",
-                                  dateOfBirth: m.dob || "",
-                                  age: calculatedAge,
-                                  relation: mappedRel,
-                                };
-                              });
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                              isSelected
-                                ? "bg-primary text-white border-primary shadow-xs"
-                                : "bg-card text-foreground border-border hover:border-primary/50"
-                            }`}
-                          >
-                            <span>{m.name}</span>
-                            <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                              {m.relation} {m.gender ? `• ${m.gender}` : ""} {m.age ? `(${m.age}y)` : ""}
-                            </span>
-                          </button>
-                        );
-                      })}
+                {formData.regType === "family" && (
+                  <div className="mt-3 mb-0 md:mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                        <span>Select Family Member:</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewFamilyMember({
+                            name: "",
+                            relation: "Son",
+                            gender: "Male",
+                            gotram: "",
+                            dob: "",
+                            phone: "",
+                            bloodGroup: "",
+                          });
+                          setShowAddFamilyModal(true);
+                        }}
+                        className="px-2.5 py-1 bg-primary text-white hover:bg-primary/90 text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Member</span>
+                      </button>
                     </div>
+
+                    {familyMembersOnly.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {familyMembersOnly.map((m) => {
+                          const isSelected = formData.playerName.trim().toLowerCase() === m.name.trim().toLowerCase();
+                          const dobVal = m.dob || (m as any).dateOfBirth;
+                          let formattedDob = "";
+                          if (dobVal) {
+                            try {
+                              formattedDob = format(new Date(dobVal), "dd MMM yyyy");
+                            } catch {
+                              formattedDob = String(dobVal);
+                            }
+                          }
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                const rel = m.relation?.toUpperCase() || "";
+                                const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+                                  ? "SPOUSE"
+                                  : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+                                  ? "CHILD"
+                                  : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+                                  ? "PARENT"
+                                  : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
+                                  ? "SIBLING"
+                                  : "OTHER";
+
+                                setFormData(prev => {
+                                  let calculatedAge = m.age || prev.age;
+                                  if (m.dob) {
+                                    const birthDate = new Date(m.dob);
+                                    if (!isNaN(birthDate.getTime())) {
+                                      calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+                                    }
+                                  }
+                                  return {
+                                    ...prev,
+                                    playerName: m.name,
+                                    familyMemberId: m.id,
+                                    gender: m.gender || "",
+                                    dateOfBirth: m.dob || "",
+                                    flatNumber: userFlat,
+                                    age: calculatedAge,
+                                    relation: mappedRel,
+                                  };
+                                });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-wrap ${
+                                isSelected
+                                  ? "bg-primary text-white border-primary shadow-xs"
+                                  : "bg-card text-foreground border-border hover:border-primary/50"
+                              }`}
+                            >
+                              <span>{m.name}</span>
+                              <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                                {m.relation} {formattedDob ? `• DOB: ${formattedDob}` : m.age ? `• (${m.age}y)` : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg border border-dashed border-border">
+                        <span>No family members added yet. Click &quot;Add Member&quot; to add family members to your directory.</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="hidden md:grid grid-cols-2 gap-2.5 sm:gap-3">
                   {/* Player Name */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 truncate">
                       Player Name
                     </label>
                     <input
@@ -975,7 +1542,7 @@ export function SportsRegister() {
                       onChange={handleInputChange}
                       readOnly={formData.regType === "self"}
                       placeholder={formData.regType === "self" ? "" : "Enter full name"}
-                      className={`w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                      className={`w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
                         formData.regType === "self"
                           ? "text-muted-foreground cursor-not-allowed opacity-70"
                           : "text-foreground"
@@ -984,41 +1551,35 @@ export function SportsRegister() {
                   </div>
 
                   {/* Gender */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <UserCheck className="w-3.5 h-3.5 text-primary" />
+                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
                         Gender <span className="text-destructive font-bold">*</span>
                       </span>
-                      {formData.regType === "self" && (
-                        userGender ? (
-                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 px-1.5 py-0.2 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
-                            ✓ Synced from Profile
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => navigate("/profile")}
-                            className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
-                          >
-                            <span>⚠️ Add in Profile</span>
-                            <ArrowUpRight className="w-3 h-3" />
-                          </button>
-                        )
+                      {formData.regType === "self" && !userGender && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
                       )}
                     </label>
                     {formData.regType === "self" ? (
-                      <div className={`w-full border rounded-lg px-3 py-2.5 text-sm flex items-center justify-between ${
+                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
                         userGender ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
                       }`}>
-                        <span className="font-medium">{userGender ? userGender.toUpperCase() : "Missing in Profile — Please update profile"}</span>
+                        <span className="font-medium truncate">{userGender ? userGender.toUpperCase() : "Missing"}</span>
                         {!userGender && (
                           <button
                             type="button"
                             onClick={() => navigate("/profile")}
-                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer"
+                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
                           >
-                            Update
+                            Add
                           </button>
                         )}
                       </div>
@@ -1028,7 +1589,7 @@ export function SportsRegister() {
                         value={formData.gender}
                         onChange={handleInputChange}
                         required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
                       >
                         <option value="">Select Gender</option>
                         <option value="MALE">Male</option>
@@ -1039,15 +1600,15 @@ export function SportsRegister() {
                   </div>
 
                   {/* Primary Role */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Primary Role {formData.matchType ? `(${formData.matchType.replace(/_/g, " ")})` : ""}
+                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate block">
+                      Primary Role
                     </label>
                     <select
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
                     >
                       <option value="">Select Role</option>
                       {availableRoles.map((r: string) => (
@@ -1056,83 +1617,395 @@ export function SportsRegister() {
                     </select>
                   </div>
 
-                  {/* Relationship (family) */}
-                  {formData.regType === "family" && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Relationship</label>
-                      <select
-                        name="relation"
-                        value={formData.relation}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                      >
-                        <option value="">Select Relation</option>
-                        <option value="SPOUSE">Spouse</option>
-                        <option value="CHILD">Child</option>
-                        <option value="PARENT">Parent</option>
-                        <option value="SIBLING">Sibling</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Flat Number (admin) */}
-                  {formData.regType === "other" && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Flat Number</label>
-                      <input
-                        name="flatNumber"
-                        type="text"
-                        value={formData.flatNumber}
-                        onChange={handleInputChange}
-                        placeholder="e.g. A-101"
-                        required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                      />
-                    </div>
-                  )}
-
                   {/* Date of Birth (Mandatory) */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        Date of Birth <span className="text-destructive font-bold">*</span>
+                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span>DOB <span className="text-destructive font-bold">*</span></span>
                       </span>
-                      {formData.age > 0 && (
-                        <span className="text-[10px] font-bold text-primary px-1.5 py-0.2 rounded-md bg-primary/10 border border-primary/20">
-                          {formData.age} years old
-                        </span>
+                      {formData.regType === "self" && !userDob && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
                       )}
                     </label>
-                    <DatePicker
-                      value={formData.dateOfBirth}
-                      onChange={handleDobChange}
-                      max={new Date().toISOString().split("T")[0]}
-                      placeholder="Pick date of birth"
-                    />
+                    {formData.regType === "self" ? (
+                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
+                        userDob ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                      }`}>
+                        <span className="font-medium truncate">
+                          {userDob ? format(new Date(userDob), "dd MMM yyyy") : "Missing"}
+                        </span>
+                        {!userDob && (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/profile")}
+                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                          >
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <DatePicker
+                        value={formData.dateOfBirth}
+                        onChange={handleDobChange}
+                        max={new Date().toISOString().split("T")[0]}
+                        presets={false}
+                        placeholder="Pick DOB"
+                      />
+                    )}
                   </div>
 
-                  {/* Age */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Age</label>
+                  {/* Flat Number */}
+                  <div className="space-y-1.5 sm:space-y-2 col-span-1 animate-in fade-in slide-in-from-top-1">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
+                      <span>Block & Flat <span className="text-destructive font-bold">*</span></span>
+                      {!userFlat && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </label>
                     <input
-                      name="age"
-                      type="number"
-                      min={1}
-                      max={120}
-                      value={formData.age}
+                      name="flatNumber"
+                      type="text"
+                      value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      readOnly={formData.regType === "self" || formData.regType === "family"}
+                      placeholder={userFlat || "Missing in Profile"}
+                      className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 ${
+                        formData.regType !== "other"
+                          ? userFlat
+                            ? "bg-muted/50 border-border text-muted-foreground cursor-not-allowed opacity-70"
+                            : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                          : "bg-muted/50 border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      }`}
                     />
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* 2. Participant Type (Format) */}
+            {availableFormats.length === 1 ? (
+              <div className="bg-card border border-border rounded-xl p-3 sm:p-3.5 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Trophy className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Participant Type:</h3>
+                </div>
+                <span className="px-3 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-xs sm:text-sm font-bold capitalize">
+                  {availableFormats[0].replace(/_/g, " ").toLowerCase()}
+                </span>
+              </div>
+            ) : availableFormats.length > 1 ? (
+              <div className="bg-card border border-border rounded-xl p-4 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+                <div className="relative">
+                  <div className="flex items-center justify-between gap-2.5 mb-3.5 flex-wrap">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Trophy className="w-4 h-4 text-primary" />
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Participant Type</h3>
+                      <span className="text-xs text-muted-foreground font-normal">
+                        — Choose one or more formats
+                      </span>
+                    </div>
+                    {formData.matchTypes.length > 1 && (
+                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                        {formData.matchTypes.length} Formats Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {availableFormats.map((fmt) => {
+                      const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+                      const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+                      return (
+                        <button
+                          key={fmt}
+                          type="button"
+                          onClick={() => toggleFormat(fmt)}
+                          className={`group relative px-3.5 py-2 rounded-lg border-2 text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer select-none ${
+                            isSelected
+                              ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-sm shadow-primary/20"
+                              : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-xs"
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                            isSelected ? "bg-white/20 border-white text-white" : "border-muted-foreground/40 group-hover:border-primary"
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span>{formatLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Sport Categories in Tournament */}
+            {siblingEvents.length > 1 && (
+              <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                      <Trophy className="w-3.5 h-3.5 text-violet-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide">Select Category</h3>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {siblingEvents.length} categories available for {event?.sport?.name}
+                      </p>
+                    </div>
+                  </div>
+                  {formData.age > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      Participant Age: {formData.age} Yrs
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {siblingEvents.map(sib => {
+                    const isCurrentEvent = sib.id === event?.id || sib.uuid === eventUuid;
+                    const isRegistered = sib.myRegistrationId != null;
+
+                    // Parse age bracket from category name or event name (e.g., "19+ Men", "Under 14", "Age: 20-35")
+                    const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                    let minAge: number | null = null;
+                    let maxAge: number | null = null;
+
+                    const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                    const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                    const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+
+                    if (underMatch) {
+                      maxAge = parseInt(underMatch[1], 10);
+                    } else if (plusMatch) {
+                      minAge = parseInt(plusMatch[1], 10);
+                    } else if (rangeMatch) {
+                      minAge = parseInt(rangeMatch[1], 10);
+                      maxAge = parseInt(rangeMatch[2], 10);
+                    }
+
+                    const userAge = formData.age;
+                    let isUnderAge = false;
+                    let isOverAge = false;
+                    let warningMsg = "";
+
+                    if (userAge > 0) {
+                      if (maxAge != null && userAge > maxAge) {
+                        isOverAge = true;
+                        warningMsg = `Your age (${userAge}y) exceeds the maximum limit for this category (Max: ${maxAge} yrs). Not eligible to select.`;
+                      } else if (minAge != null && userAge < minAge) {
+                        isUnderAge = true;
+                        warningMsg = `Your age (${userAge}y) is below the standard minimum (${minAge}+ yrs). Upper category selection requires valid Date of Birth (DOB) proof verification.`;
+                      }
+                    }
+
+                    const isBlocked = isOverAge; // Over-age participants strictly cannot participate in junior/under-age events
+
+                    return (
+                      <div
+                        key={sib.id}
+                        className={`rounded-xl border transition-all p-3 ${
+                          isCurrentEvent
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : isRegistered
+                              ? "border-emerald-200 bg-emerald-50/30"
+                              : isBlocked
+                                ? "border-rose-200 bg-rose-50/20 opacity-75 cursor-not-allowed"
+                                : isUnderAge
+                                  ? "border-amber-200 bg-amber-50/20 hover:border-amber-400 cursor-pointer"
+                                  : "border-border hover:border-primary/30 hover:bg-muted/30 cursor-pointer"
+                        }`}
+                        onClick={() => {
+                          if (isCurrentEvent || isRegistered) return;
+                          if (isBlocked) {
+                            toast.error(`Ineligible Category: ${warningMsg}`);
+                            return;
+                          }
+                          if (isUnderAge) {
+                            toast.warning(`Notice: ${warningMsg}`);
+                          }
+                          navigate(`/sports/register/${sib.uuid ?? sib.id}`, { replace: true });
+                        }}
+                        role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
+                        tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              isCurrentEvent ? "bg-primary" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : isUnderAge ? "bg-amber-500" : "bg-muted-foreground/30"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-sm font-semibold ${isCurrentEvent ? "text-primary font-bold" : "text-foreground"}`}>
+                                  {sib.categoryName || sib.name}
+                                </span>
+                                {minAge != null && maxAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                    {minAge}–{maxAge} Yrs
+                                  </span>
+                                ) : minAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                    {minAge}+ Yrs
+                                  </span>
+                                ) : maxAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                    Under {maxAge} Yrs
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {sib.venueName && <span className="text-[10px] text-muted-foreground">{sib.venueName}</span>}
+                                {sib.maxParticipants && <span className="text-[10px] text-primary font-medium">{sib.maxParticipants} max spots</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            {isCurrentEvent ? (
+                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary shrink-0 border border-primary/20">
+                                Selected
+                              </span>
+                            ) : isRegistered ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                ✓ {sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
+                              </span>
+                            ) : isBlocked ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 shrink-0 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> Not Eligible
+                              </span>
+                            ) : isUnderAge ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-300 shrink-0 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Proof Needed
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-muted-foreground shrink-0">
+                                Tap to select
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── DOB Proof Upload for Out-of-Age / Upper Age Category Selection ── */}
+                {(() => {
+                  const currentCategoryName = `${event?.categoryName || ""} ${event?.name || ""}`.toLowerCase();
+                  let currentMinAge: number | null = null;
+                  const plusMatch = currentCategoryName.match(/(\d+)\s*(?:\+|plus|above)/i);
+                  const rangeMatch = currentCategoryName.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  if (plusMatch) currentMinAge = parseInt(plusMatch[1], 10);
+                  else if (rangeMatch) currentMinAge = parseInt(rangeMatch[1], 10);
+
+                  const isUpperCategory = formData.age > 0 && currentMinAge != null && formData.age < currentMinAge;
+
+                  if (!isUpperCategory) return null;
+
+                  return (
+                    <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2.5 animate-fade-in">
+                      <div className="flex items-start gap-2">
+                        <div className="p-1.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded-lg shrink-0 mt-0.5">
+                          <FileUp className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                            Valid DOB Proof Required for Upper Age Category
+                          </h4>
+                          <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                            Participant age ({formData.age} yrs) is under the standard age window ({currentMinAge}+ yrs). Please upload a valid Government/School ID with Date of Birth proof (Aadhaar, Passport, Birth Certificate, etc.) for tournament committee verification.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <input
+                          ref={ageProofInputRef}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error("File size must be under 5MB");
+                                setAgeProofError("File size must be under 5MB");
+                                return;
+                              }
+                              setAgeProofFile(file);
+                              setAgeProofName(file.name);
+                              setAgeProofError("");
+                              toast.success(`Attached DOB proof: ${file.name}`);
+                            }
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => ageProofInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{ageProofName ? "Change DOB Proof" : "Upload DOB Proof"}</span>
+                        </button>
+
+                        {ageProofName ? (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="font-semibold truncate max-w-[200px]">{ageProofName}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAgeProofFile(null);
+                                setAgeProofName("");
+                                if (ageProofInputRef.current) ageProofInputRef.current.value = "";
+                              }}
+                              className="text-slate-400 hover:text-slate-600 ml-1 cursor-pointer"
+                              title="Remove attachment"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-amber-700 font-medium">
+                            * Supported: PDF, JPG, PNG (Max 5MB)
+                          </span>
+                        )}
+                      </div>
+                      {ageProofError && (
+                        <p className="text-[11px] text-rose-600 font-semibold">{ageProofError}</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+
+
             {/* 4. Career Statistics */}
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+            <div className="hidden sm:block bg-card border border-border rounded-xl p-4 shadow-sm">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                   <span className="text-sm">📊</span>
@@ -1257,7 +2130,7 @@ export function SportsRegister() {
         </div>
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
-        <div className="lg:col-span-5 lg:sticky lg:top-6">
+        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-6">
           <div className="relative rounded-3xl overflow-hidden shadow-xl border border-white/10">
             {/* Gradient Backgrounds */}
             <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-90" />
@@ -1324,6 +2197,64 @@ export function SportsRegister() {
                     <div>
                       <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
                       <p className="font-semibold">{event.community.name}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* All Sport Categories & Age Details */}
+                {siblingEvents.length > 0 && (
+                  <div className="pt-2 border-t border-white/10 space-y-2">
+                    <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-orange-400" />
+                      <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                    </p>
+
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {siblingEvents.map(sib => {
+                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                        let ageLabel = "All Ages";
+                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+
+                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+
+                        return (
+                          <div
+                            key={sib.id}
+                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
+                              isCurrent
+                                ? "bg-white/15 border-white/30 text-white shadow-xs"
+                                : "bg-white/5 border-white/10 text-white/85"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-white text-xs truncate">
+                                {sib.categoryName || sib.name}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
+                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
+                              {sib.venueName && <span>📍 {sib.venueName}</span>}
+                              {sib.eventDateStart && (
+                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                              )}
+                              {sib.maxParticipants && (
+                                <span className="text-white/60">Spots: {sib.maxParticipants} max</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

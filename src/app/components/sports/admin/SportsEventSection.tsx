@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { cn } from "../../ui/utils";
 import type { SportMeta, PlayerCategory, Venue, SportFormEntry } from "../../../../types/api";
 import { PREDEFINED_SPORTS, isTeamSport } from "../utils/sportsConstants";
+import { isValidIndianPhone, isValidEmail } from "../sportsValidation";
 
 interface SportsEventSectionProps {
   user: any;
@@ -737,7 +738,7 @@ export function SportsEventSection({
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactNumber", e.target.value)}
                               placeholder="e.g. +91 9876543210"
                               className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
-                                !ev.contactNumber?.trim() ? "border-red-300" : "border-slate-200"
+                                !ev.contactNumber?.trim() || !isValidIndianPhone(ev.contactNumber) ? "border-red-300" : "border-slate-200"
                               }`}
                             />
                           </div>
@@ -749,7 +750,7 @@ export function SportsEventSection({
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactEmail", e.target.value)}
                               placeholder="e.g. contact@tournament.com"
                               className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
-                                !ev.contactEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim()) ? "border-red-300" : "border-slate-200"
+                                !ev.contactEmail?.trim() || !isValidEmail(ev.contactEmail) ? "border-red-300" : "border-slate-200"
                               }`}
                             />
                           </div>

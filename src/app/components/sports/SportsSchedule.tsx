@@ -1609,7 +1609,7 @@ export function SportsSchedule() {
             const formatDisplayDate = (d: Date | null, fallback?: string) => {
               if (!d) return fallback || "Not specified";
               try {
-                return format(d, "EEE, dd MMM yyyy, hh:mm a");
+                return format(d, "dd MMM yyyy, hh:mm a");
               } catch {
                 return fallback || "Not specified";
               }

@@ -34,6 +34,16 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Typography Tokens */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-md: 16px;
+  --font-lg: 18px;
+  --font-xl: 20px;
+  --font-2xl: 24px;
+  --font-3xl: 28px;
+  --font-4xl: 32px;
+
   --font-size: 16px;
   --background: #f0f4ff;
   --foreground: #0d0d2b;
@@ -334,3 +344,59 @@ canvas {
 .bg-sidebar {
   background: linear-gradient(rgb(30, 27, 75) 0%, rgb(22, 20, 74) 60%, rgb(18, 16, 61) 100%) !important;
 }
+
+/* ─── Standard Mobile-First Typography Helpers ───────────────────────────── */
+.page-title {
+  font-size: var(--font-2xl, 24px);
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.section-title {
+  font-size: var(--font-lg, 18px);
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.card-title {
+  font-size: var(--font-md, 16px);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.body-text {
+  font-size: var(--font-md, 16px);
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.secondary-text {
+  font-size: var(--font-sm, 14px);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--mana-text-muted, #6b7094);
+}
+
+.caption-text {
+  font-size: var(--font-xs, 12px);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--mana-text-muted, #6b7094);
+}
+
+.input-label {
+  font-size: var(--font-sm, 14px);
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.kpi-number {
+  font-size: var(--font-3xl, 28px);
+  line-height: 1.1;
+  font-weight: 700;
+}
+

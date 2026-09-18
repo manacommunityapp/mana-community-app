@@ -1546,32 +1546,42 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {availableSaved.map((sm, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => {
-                            const newMember = {
-                              name: sm.name,
-                              dob: sm.dob || undefined,
-                              age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
-                              gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
-                              relationship: sm.relation || "Family",
-                            };
-                            setFormData((prev) => ({
-                              ...prev,
-                              membersCount: prev.members.length + 1,
-                              members: [...prev.members, newMember],
-                            }));
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-background border border-border hover:border-primary text-foreground text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <span>{sm.avatar || "👤"}</span>
-                          <span>{sm.name}</span>
-                          <span className="text-[9.5px] text-muted-foreground">({sm.relation})</span>
-                          <span className="text-primary font-bold ml-0.5">+</span>
-                        </button>
-                      ))}
+                      {availableSaved.map((sm, i) => {
+                        let formattedDob = "";
+                        if (sm.dob) {
+                          try {
+                            formattedDob = format(new Date(sm.dob), "dd MMM yyyy");
+                          } catch {
+                            formattedDob = String(sm.dob);
+                          }
+                        }
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              const newMember = {
+                                name: sm.name,
+                                dob: sm.dob || undefined,
+                                age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
+                                gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
+                                relationship: sm.relation || "Family",
+                              };
+                              setFormData((prev) => ({
+                                ...prev,
+                                membersCount: prev.members.length + 1,
+                                members: [...prev.members, newMember],
+                              }));
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-background border border-border hover:border-primary text-foreground text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <span>{sm.avatar || "👤"}</span>
+                            <span>{sm.name}</span>
+                            <span className="text-[9.5px] text-muted-foreground">({sm.relation}{formattedDob ? ` • DOB: ${formattedDob}` : ""})</span>
+                            <span className="text-primary font-bold ml-0.5">+</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

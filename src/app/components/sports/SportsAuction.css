@@ -293,10 +293,11 @@
 
 /* Buttons */
 .auction-hub-wrapper .btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
   cursor: pointer;
   border: none;
   transition: all 0.18s ease;
@@ -748,15 +749,17 @@
   .auction-hub-wrapper .nav-section {
     flex-direction: row;
     padding: 8px 10px;
-    gap: 6px;
+    gap: 8px;
   }
   .auction-hub-wrapper .nav-label { display: none; }
   .auction-hub-wrapper .nav-item {
     width: auto;
     flex-shrink: 0;
     white-space: nowrap;
-    padding: 7px 12px;
-    font-size: 12px;
+    padding: 10px 14px;
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 600;
   }
   .auction-hub-wrapper .active-indicator { display: none; }
 
@@ -768,7 +771,16 @@
     gap: 10px;
     margin-bottom: 14px;
   }
-  .auction-hub-wrapper .page-title { font-size: 20px; }
+  .auction-hub-wrapper .page-title { 
+    font-size: 24px; 
+    line-height: 1.25;
+    font-weight: 700;
+  }
+  .auction-hub-wrapper .page-sub {
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
 
   /* Collapse multi-column grids */
   .auction-hub-wrapper .stat-grid,
@@ -785,18 +797,35 @@
   .auction-hub-wrapper .bid-actions { flex-wrap: wrap; }
   .auction-hub-wrapper .bid-raise,
   .auction-hub-wrapper .bid-sold,
-  .auction-hub-wrapper .bid-pass { flex: 1 1 100%; }
+  .auction-hub-wrapper .bid-pass { flex: 1 1 100%; min-height: 48px; }
 }
 
 @media (max-width: 480px) {
-  .auction-hub-wrapper .page { padding: 10px; }
-  .auction-hub-wrapper .page-title { font-size: 18px; }
-  .auction-hub-wrapper .page-sub { font-size: 11px; }
-  .auction-hub-wrapper .stat-val { font-size: 18px; }
+  .auction-hub-wrapper .page { padding: 12px; }
+  .auction-hub-wrapper .page-title { 
+    font-size: 24px; 
+    line-height: 1.25;
+    font-weight: 700;
+  }
+  .auction-hub-wrapper .page-sub { 
+    font-size: 14px; 
+    line-height: 1.4;
+    font-weight: 400;
+  }
+  .auction-hub-wrapper .stat-val { 
+    font-size: 24px; 
+    line-height: 1.1;
+    font-weight: 700;
+  }
   .auction-hub-wrapper .stat-grid,
-  .auction-hub-wrapper .grid4 { gap: 6px; }
-  .auction-hub-wrapper .bid-amount { font-size: 26px; }
+  .auction-hub-wrapper .grid4 { gap: 8px; }
+  .auction-hub-wrapper .bid-amount { font-size: 28px; }
   /* Tighter collapsed tab strip */
-  .auction-hub-wrapper .nav-section { padding: 6px 8px; gap: 4px; }
-  .auction-hub-wrapper .nav-item { padding: 6px 10px; font-size: 11px; }
+  .auction-hub-wrapper .nav-section { padding: 6px 8px; gap: 6px; }
+  .auction-hub-wrapper .nav-item { 
+    padding: 10px 14px; 
+    font-size: 13px; 
+    font-weight: 600;
+    min-height: 44px;
+  }
 }

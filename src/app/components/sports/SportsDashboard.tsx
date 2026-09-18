@@ -21,9 +21,26 @@ import {
   CREATE_EDIT_PLAYER_POOL,
   CREATE_EDIT_EVENT_REGISTRATIONS,
 } from "../../../constants/permissions";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
+
+function getSportEmoji(sportName: string | null | undefined): string {
+  const n = (sportName || "").toLowerCase();
+  if (n.includes("cricket")) return "🏏";
+  if (n.includes("football") || n.includes("soccer")) return "⚽";
+  if (n.includes("badminton")) return "🏸";
+  if (n.includes("volleyball")) return "🏐";
+  if (n.includes("basketball")) return "🏀";
+  if (n.includes("kabaddi")) return "🤼";
+  if (n.includes("hockey")) return "🏑";
+  if (n.includes("throwball")) return "🏐";
+  if (n.includes("table tennis") || n.includes("tt")) return "🏓";
+  if (n.includes("tennis")) return "🎾";
+  if (n.includes("chess")) return "♟️";
+  if (n.includes("carrom")) return "🎯";
+  return "🏆";
+}
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
@@ -56,22 +73,68 @@ function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon }
   );
 }
 
+// ─── Compact Match Timer ───────────────────────────────────────────────────
+
+function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
+  const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    if (!targetDate) return;
+    const calculateTime = () => {
+      const diff = targetDate.getTime() - new Date().getTime();
+      if (diff <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        s: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  if (!timeLeft) return null;
+
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[11px] font-bold tabular-nums shrink-0 ml-1.5 shadow-2xs">
+      <span className="text-[10px] text-amber-600/70">⏱</span>
+      {timeLeft.d > 0 && <span>{timeLeft.d}d</span>}
+      <span>{pad(timeLeft.h)}h</span>
+      <span>:</span>
+      <span>{pad(timeLeft.m)}m</span>
+      <span>:</span>
+      <span className="text-amber-600">{pad(timeLeft.s)}s</span>
+    </span>
+  );
+}
+
 // ─── Event Row ───────────────────────────────────────────────────────────────
 
-interface EventRowProps { event: (typeof SPORTS_DATA.upcomingEvents)[number]; onClick: () => void; }
+interface EventRowProps { event: (typeof SPORTS_DATA.upcomingEvents)[number] & { targetDate?: Date }; onClick: () => void; }
 
 function EventRow({ event, onClick }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse"
     : event.status === "COMPLETED" ? "bg-slate-500" : "bg-[#f97316]";
   return (
     <div onClick={onClick} className="flex items-center justify-between gap-3 p-3 rounded-lg mb-2 cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
-        <div className="min-w-0 text-left">
-          <div className="text-sm font-bold text-[#0d0d2b] truncate">
-            {event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}
+        <div className="min-w-0 text-left flex-1">
+          <div className="text-sm font-bold text-[#0d0d2b] flex items-center flex-wrap gap-1">
+            <span className="truncate">{event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}</span>
+            {event.targetDate && event.targetDate.getTime() > Date.now() && (
+              <CompactMatchBadge targetDate={event.targetDate} />
+            )}
           </div>
-          <div className="text-xs text-[#6b7094] mt-0.5 font-medium">{event.venue} · {event.category}</div>
+          <div className="text-xs text-[#6b7094] mt-0.5 font-medium">{event.venue}</div>
         </div>
       </div>
       <div className="text-right flex-shrink-0">
@@ -113,16 +176,24 @@ function RegCard({
 }: RegCardProps) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg mb-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
-      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
+      {item.sportEmoji ? (
+        <span className="text-lg flex-shrink-0 mt-0.5">{item.sportEmoji}</span>
+      ) : (
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
+      )}
       <div className="flex-1 min-w-0 text-left">
         <div className="text-sm font-bold text-[#0d0d2b]">
           {item.name} <span className="text-[#6b7094] font-medium">— {item.date}</span>
         </div>
-        <div className="text-xs text-[#6b7094] mt-0.5 font-medium">{item.category}</div>
-        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1">{item.spots}</div>}
-        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2 border border-slate-200/50">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.progress}%`, background: item.progressColor }} />
+        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+          <span className="text-xs text-[#6b7094] font-medium">{item.category}</span>
+          {item.categoryName && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+              {item.categoryName}
+            </span>
+          )}
         </div>
+        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1">{item.spots}</div>}
       </div>
       <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
         <div className="flex gap-1.5 justify-end">
@@ -221,56 +292,80 @@ interface NextMatchData {
 }
 
 function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
-  const [timeLeft, setTimeLeft] = useState<{ h: number, m: number, s: number }>({ h: 0, m: 0, s: 0 });
+  const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number }>({ d: 0, h: 0, m: 0, s: 0 });
 
   useEffect(() => {
     if (!nextMatch) return;
-    const interval = setInterval(() => {
+    const calculateTime = () => {
       const diff = nextMatch.targetDate.getTime() - new Date().getTime();
       if (diff <= 0) {
-        setTimeLeft({ h: 0, m: 0, s: 0 });
-        clearInterval(interval);
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0 });
         return;
       }
       setTimeLeft({
-        h: Math.floor(diff / (1000 * 60 * 60)),
+        d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
         m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        s: Math.floor((diff % (1000 * 60)) / 1000)
+        s: Math.floor((diff % (1000 * 60)) / 1000),
       });
-    }, 1000);
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
   }, [nextMatch]);
 
   if (!nextMatch) return null;
 
-  const isUrgent = timeLeft.h === 0 && timeLeft.m < 60;
+  const isUrgent = timeLeft.d === 0 && timeLeft.h === 0 && timeLeft.m < 60;
   const accent = isUrgent ? "#ef4444" : "#f97316";
 
+  const timeUnits = [
+    { v: timeLeft.d, l: "DAYS" },
+    { v: timeLeft.h, l: "HOURS" },
+    { v: timeLeft.m, l: "MIN" },
+    { v: timeLeft.s, l: "SEC" },
+  ];
+
   return (
-    <div className="rounded-xl p-4"
+    <div
+      className="rounded-xl p-3.5 sm:p-4"
       style={{
         background: "white",
         border: "1px solid rgba(99, 102, 241, 0.12)",
         boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
-      <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Next Match Timer</div>
+      <div className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>
+        Next Match Timer
+      </div>
       <div className="text-center">
-        <div className="text-xs mb-3 font-semibold text-slate-800">{nextMatch.title}</div>
-        <div className="flex justify-center items-center gap-2">
-          {[{ v: timeLeft.h, l: "HRS" }, { v: timeLeft.m, l: "MIN" }, { v: timeLeft.s, l: "SEC" }].map(({ v, l }, i) => (
-            <div key={l} className="flex items-center gap-2">
+        <div className="text-xs mb-2.5 font-semibold text-slate-800 truncate px-1" title={nextMatch.title}>
+          {nextMatch.title}
+        </div>
+        <div className="flex justify-center items-center gap-1.5 sm:gap-2">
+          {timeUnits.map(({ v, l }, i) => (
+            <div key={l} className="flex items-center gap-1.5 sm:gap-2">
               <div className="text-center">
-                <div className="text-3xl font-semibold bg-slate-50 px-3 py-2 rounded-lg min-w-[52px] tabular-nums" style={{ color: accent, border: `1px solid ${accent}30` }}>
+                <div
+                  className="text-lg sm:text-2xl font-bold bg-slate-50 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg min-w-[40px] sm:min-w-[48px] tabular-nums"
+                  style={{ color: accent, border: `1px solid ${accent}30` }}
+                >
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-[10px] mt-1 tracking-widest" style={{ color: "#6b7094" }}>{l}</div>
+                <div className="text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wider" style={{ color: "#6b7094" }}>
+                  {l}
+                </div>
               </div>
-              {i < 2 && <div className="text-2xl text-[#334155] font-light mb-4">:</div>}
+              {i < timeUnits.length - 1 && (
+                <div className="text-base sm:text-xl text-slate-400 font-light mb-4 sm:mb-5 select-none">:</div>
+              )}
             </div>
           ))}
         </div>
-        <div className="text-xs mt-3 font-medium" style={{ color: "#6b7094" }}>{nextMatch.subtitle}</div>
+        <div className="text-xs mt-2.5 font-medium truncate px-1" style={{ color: "#6b7094" }} title={nextMatch.subtitle}>
+          {nextMatch.subtitle}
+        </div>
       </div>
     </div>
   );
@@ -285,6 +380,7 @@ export function SportsDashboard() {
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
   const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
   const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
+  const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
   const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
   const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
@@ -363,13 +459,15 @@ export function SportsDashboard() {
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
-          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 10,
-          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#3b82f6",
+          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 0,
+          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
           registrationId: e.myRegistrationId ?? undefined,
           isTeamSport: e.teamSport,
+          sportEmoji: getSportEmoji(e.sportName),
+          categoryName: e.categoryName ?? undefined,
         };
       };
 
@@ -397,6 +495,8 @@ export function SportsDashboard() {
           progressColor: "#ef4444",
           dotColor: "#ef4444",
           action: "View" as const,
+          sportEmoji: getSportEmoji(e.sportName),
+          categoryName: e.categoryName ?? undefined,
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
           isTeamSport: e.teamSport,
@@ -426,19 +526,47 @@ export function SportsDashboard() {
       }
 
       // Map my upcoming events
-      const mappedMyEvents = upcomingData.map(e => ({
-        id: e.id,
-        name: e.name,
-        subtitle: e.tournamentName ? `${e.tournamentName} · ${e.sportName ?? ""}` : (e.sportName ?? ""),
-        venue: e.venueName ?? "TBD",
-        category: e.categoryName ?? "General",
-        status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
-        statusText: e.registrationStatus === "LIVE" ? "LIVE NOW" : (e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d, h:mm a") : "TBD"),
-        statusSub: e.registrationStatus === "LIVE" ? "In Progress" : "Confirmed ✓",
-        dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-        timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-        targetDate: e.eventDateStart ? new Date(e.eventDateStart) : new Date(),
-      }));
+      const mappedMyEvents = upcomingData.map(e => {
+        let exactTargetDate: Date | undefined;
+        if (e.eventDateStart) {
+          try {
+            if (e.startTime) {
+              const datePart = e.eventDateStart.includes("T") ? e.eventDateStart.split("T")[0] : e.eventDateStart;
+              const combined = new Date(`${datePart}T${e.startTime.length === 5 ? `${e.startTime}:00` : e.startTime}`);
+              if (!isNaN(combined.getTime())) {
+                exactTargetDate = combined;
+              }
+            }
+            if (!exactTargetDate) {
+              const parsed = new Date(e.eventDateStart);
+              if (!isNaN(parsed.getTime())) {
+                exactTargetDate = parsed;
+              }
+            }
+          } catch {
+            exactTargetDate = undefined;
+          }
+        }
+
+        return {
+          id: e.id,
+          name: e.name,
+          subtitle: e.tournamentName ? `${e.tournamentName} · ${e.sportName ?? ""}` : (e.sportName ?? ""),
+          venue: e.venueName ?? "TBD",
+          category: e.categoryName ?? "General",
+          status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
+          statusText: e.registrationStatus === "LIVE" ? "LIVE NOW"
+            : e.registrationStatus === "COMPLETED" ? (exactTargetDate ? format(exactTargetDate, "MMM d, h:mm a") : "Completed")
+            : (exactTargetDate && exactTargetDate.getTime() <= Date.now()) ? format(exactTargetDate, "MMM d, h:mm a")
+            : "Upcoming",
+          statusSub: e.registrationStatus === "LIVE" ? "In Progress"
+            : e.registrationStatus === "COMPLETED" ? "Completed"
+            : "Confirmed ✓",
+          dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
+          timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
+          targetDate: exactTargetDate,
+        };
+      });
       setLiveEvents(mappedMyEvents);
 
       // Stats (server-computed counts)
@@ -451,15 +579,17 @@ export function SportsDashboard() {
 
       // Next match
       const upcoming = mappedMyEvents
-        .filter(e => e.targetDate.getTime() > new Date().getTime())
-        .sort((a, b) => a.targetDate.getTime() - b.targetDate.getTime())[0];
+        .filter(e => e.targetDate && e.targetDate.getTime() > new Date().getTime())
+        .sort((a, b) => (a.targetDate?.getTime() ?? 0) - (b.targetDate?.getTime() ?? 0))[0];
 
-      if (upcoming) {
+      if (upcoming && upcoming.targetDate) {
         setNextMatch({
           title: upcoming.name,
           subtitle: upcoming.subtitle ? `${upcoming.subtitle} · ${upcoming.venue}` : `${upcoming.venue} · ${upcoming.category}`,
           targetDate: upcoming.targetDate
         });
+      } else {
+        setNextMatch(null);
       }
 
       // Database notifications
@@ -575,7 +705,7 @@ export function SportsDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-3.5 ${idx >= 2 ? 'hidden sm:block' : ''}`}>
+            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-3.5 ${idx >= 2 ? "hidden sm:block" : ""}`}>
               <div className="h-7 bg-slate-200/60 rounded w-1/3"></div>
               <div className="h-3.5 bg-slate-200/60 rounded w-2/3 mt-2"></div>
               <div className="h-3.5 bg-slate-200/60 rounded w-1/2 mt-2"></div>
@@ -584,9 +714,9 @@ export function SportsDashboard() {
         ) : (
           stats.map((s, idx) => {
             const bc = badgeMap[s.badgeType as keyof typeof badgeMap] || { bg: "rgba(0,0,0,0.1)", text: "#94a3b8" };
-            const isHiddenOnMobile = s.label === "Open Registrations" || s.id === 3 || s.label === "Upcoming Tournaments" || s.id === 4;
+            const isHiddenOnMobile = s.label === "Open Registrations" || s.label === "Upcoming Tournaments" || s.id === 3 || s.id === 4;
             return (
-              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1} ${isHiddenOnMobile ? 'hidden sm:block' : ''}`}>
+              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1} ${isHiddenOnMobile ? "hidden sm:block" : ""}`}>
                 <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} icon={s.icon} />
               </div>
             );
@@ -605,7 +735,21 @@ export function SportsDashboard() {
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
               </div>
             ) : liveEvents.length === 0 ? (
-              <div className="text-center py-4 text-xs font-semibold" style={{ color: "#6b7094" }}>No upcoming events</div>
+              <div className="text-center py-5">
+                <div className="text-xs font-semibold" style={{ color: "#6b7094" }}>No upcoming events</div>
+                {(openTournaments.length > 0 || openRegs.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("open-registrations-section");
+                      el?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100 transition-all cursor-pointer inline-flex items-center gap-1"
+                  >
+                    Browse Open Registrations <ArrowUpRight className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             ) : (
               liveEvents.map((ev, idx) => {
               const myReg = myRegistrations.find(r => r.event.id === ev.id);
@@ -660,7 +804,7 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations — grouped by tournament */}
-          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+          <div id="open-registrations-section" className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
             <div className="flex items-center justify-between mb-2.5">
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
@@ -682,94 +826,223 @@ export function SportsDashboard() {
             ) : openTournaments.length > 0 ? (
               openTournaments.map((t, tIdx) => {
                 const isExpanded = expandedTournaments.has(t.id);
+                const totalCount = t.mappedEvents.length;
+                const deadlineDays = t.eventDateStart ? differenceInDays(new Date(t.eventDateStart), new Date()) : null;
+                const sportCatMap = new Map<string, { emoji: string; registered: boolean }>();
+                t.mappedEvents.forEach(ev => {
+                  const sport = (ev.category?.split(" · ")[0]) || "Sport";
+                  const emoji = ev.sportEmoji || getSportEmoji(sport);
+                  if (!sportCatMap.has(sport)) sportCatMap.set(sport, { emoji, registered: false });
+                  if (ev.action === "Confirmed" || ev.action === "Withdraw") {
+                    sportCatMap.get(sport)!.registered = true;
+                  }
+                });
+                const sportCats = Array.from(sportCatMap.entries());
                 return (
                   <div key={t.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
                     {/* Tournament header */}
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setExpandedTournaments(prev => {
                         const next = new Set(prev);
                         if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                         return next;
                       })}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setExpandedTournaments(prev => {
+                            const next = new Set(prev);
+                            if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                            return next;
+                          });
+                        }
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group select-none relative overflow-hidden"
+                      style={{
+                        background: t.bannerImage
+                          ? `linear-gradient(135deg, rgba(238,242,255,0.92), rgba(237,233,254,0.92)), url(${t.bannerImage}) center/cover`
+                          : "linear-gradient(to right, #eef2ff, #ede9fe)",
+                      }}
                     >
                       <div className="h-8 w-8 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
                         <Trophy className="h-4 w-4 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
-                        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
-                          {t.eventDateStart && t.eventDateEnd
-                            ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
-                            : "Dates TBD"}
-                          {" · "}
-                          {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
+                              Open
+                            </span>
+                            {totalCount > 1 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/sports/register-tournament/${t.id}`);
+                                }}
+                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                                title="Register for multiple events in this tournament"
+                              >
+                                <span>Register All</span>
+                                <ArrowUpRight className="w-3 h-3" />
+                              </button>
+                            )}
+                            {isExpanded
+                              ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                              : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                          <span className="text-[10px] text-[#6b7094] font-medium">
+                            {t.eventDateStart && t.eventDateEnd
+                              ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
+                              : "Dates TBD"}
+                            {" · "}
+                            {sportCats.length} sport{sportCats.length !== 1 ? "s" : ""}
+                          </span>
+                          {sportCats.map(([sport, { emoji, registered }]) => (
+                            <span
+                              key={sport}
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border inline-flex items-center gap-0.5 ${
+                                registered
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-slate-50 text-slate-400 border-slate-200"
+                              }`}
+                              title={`${sport}: ${registered ? "Registered" : "Not registered"}`}
+                            >
+                              {emoji} {registered ? "1" : "0"}
+                            </span>
+                          ))}
+                          {deadlineDays !== null && deadlineDays >= 0 && deadlineDays <= 7 && (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                              deadlineDays <= 2
+                                ? "bg-red-50 text-red-600 border-red-200"
+                                : "bg-amber-50 text-amber-600 border-amber-200"
+                            }`}>
+                              {deadlineDays === 0 ? "Starts today" : `${deadlineDays}d left`}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {t.mappedEvents.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/sports/register-tournament/${t.id}`);
-                            }}
-                            className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-xs shadow-indigo-500/20 transition-all flex items-center gap-1 cursor-pointer"
-                            title="Register for multiple events in this tournament"
-                          >
-                            <span>Register All</span>
-                            <ArrowUpRight className="w-3 h-3" />
-                          </button>
-                        )}
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
-                          Open
-                        </span>
-                        {isExpanded
-                          ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                          : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
-                      </div>
-                    </button>
-                    {/* Child events */}
-                    {isExpanded && (
-                      <div className="mt-2 ml-3 pl-2.5 border-l-2 border-indigo-100 space-y-0 max-h-[290px] overflow-y-auto pr-1">
-                        {t.mappedEvents.map((item, idx) => (
-                          <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                            <RegCard
-                              item={item}
-                              onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
-                              onView={() => navigate("/sports/auction")}
-                              onWithdraw={async (regItem) => {
-                                if (!regItem.registrationId) return;
-                                if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
-                                try {
-                                  await sportsService.withdraw(regItem.registrationId);
-                                  toast.success(`Successfully withdrawn from ${regItem.name}`);
-                                  fetchData();
-                                } catch (err: any) {
-                                  toast.error(err?.message || "Failed to withdraw registration");
-                                }
-                              }}
-                              isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                              toggling={togglingId === item.id}
-                              onToggleStatus={async (evt) => {
-                                setTogglingId(evt.id);
-                                try {
-                                  const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                                  await sportsService.updateEventStatus(evt.id, newStatus);
-                                  toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                                  fetchData();
-                                } catch {
-                                  toast.error("Failed to update status");
-                                } finally {
-                                  setTogglingId(null);
-                                }
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    </div>
+                    {/* Child events — grouped by sport, one row per sport */}
+                    {isExpanded && (() => {
+                      const sportGroupMap = new Map<string, { emoji: string; events: OpenRegistration[] }>();
+                      t.mappedEvents.forEach(ev => {
+                        const sport = (ev.category?.split(" · ")[0]) || "Sport";
+                        if (!sportGroupMap.has(sport)) sportGroupMap.set(sport, { emoji: ev.sportEmoji || getSportEmoji(sport), events: [] });
+                        sportGroupMap.get(sport)!.events.push(ev);
+                      });
+                      const sportEntries = Array.from(sportGroupMap.entries());
+                      return (
+                        <div className="mt-2 space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+                          {sportEntries.map(([sport, { emoji, events }], sIdx) => {
+                            const regCount = events.filter(e => e.action === "Confirmed" || e.action === "Withdraw").length;
+                            const allRegistered = regCount === events.length;
+                            const firstEvent = events[0];
+                            const sportKey = `${t.id}-${sport}`;
+                            const isSportExpanded = expandedSports.has(sportKey);
+                            return (
+                              <div
+                                key={sport}
+                                className={`rounded-lg border overflow-hidden transition-all animate-fade-in-up stagger-${(sIdx % 8) + 1} ${
+                                  allRegistered
+                                    ? "border-emerald-100 bg-emerald-50/30"
+                                    : "border-slate-100 bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 px-3 py-2.5">
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setExpandedSports(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(sportKey)) next.delete(sportKey); else next.add(sportKey);
+                                      return next;
+                                    })}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        setExpandedSports(prev => {
+                                          const next = new Set(prev);
+                                          if (next.has(sportKey)) next.delete(sportKey); else next.add(sportKey);
+                                          return next;
+                                        });
+                                      }
+                                    }}
+                                    className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer select-none group"
+                                  >
+                                    <span className="text-xl shrink-0">{emoji}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-sm font-bold text-slate-900">{sport}</span>
+                                        <span className="text-[10px] text-slate-400 font-medium">
+                                          · {events.length} {events.length === 1 ? "category" : "categories"}
+                                        </span>
+                                      </div>
+                                      {regCount > 0 && (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex mt-0.5">
+                                          {regCount}/{events.length} registered
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isSportExpanded
+                                      ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
+                                      : <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />}
+                                  </div>
+                                  {allRegistered ? (
+                                    <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0 flex items-center gap-1">
+                                      ✓ Registered
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/sports/register/${firstEvent.uuid ?? firstEvent.id}`);
+                                      }}
+                                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm shadow-indigo-500/20 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
+                                    >
+                                      Register
+                                      <ArrowUpRight className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                {isSportExpanded && (
+                                  <div className="border-t border-slate-100 divide-y divide-slate-50 bg-slate-50/40">
+                                    {events.map(item => {
+                                      const isReg = item.action === "Confirmed" || item.action === "Withdraw";
+                                      return (
+                                        <div key={item.id} className="flex items-center gap-2.5 px-4 py-2 pl-11">
+                                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isReg ? "bg-emerald-500" : "bg-slate-300"}`} />
+                                          <div className="flex-1 min-w-0">
+                                            <span className="text-[13px] font-semibold text-slate-800">{item.categoryName || item.name}</span>
+                                            <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                              <span className="text-[10px] text-slate-400">{item.date}</span>
+                                              {item.spots && <span className="text-[10px] text-indigo-500 font-medium">{item.spots}</span>}
+                                            </div>
+                                          </div>
+                                          {isReg ? (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                              {item.action === "Confirmed" ? "✓ Confirmed" : "Registered"}
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] font-medium text-slate-400 shrink-0">Not registered</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })
