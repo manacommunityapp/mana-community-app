@@ -34,6 +34,7 @@ import { isRegistrationClosed } from "../../../../utils/eventDeadlineUtils";
 import { fileUploadService } from "../../../../services/files/fileUploadService";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 import { showSuccess, showWarning } from "../../../../utils/ToastUtils";
+import { format } from "date-fns";
 
 export interface TicketCategoryItem {
   id?: string;

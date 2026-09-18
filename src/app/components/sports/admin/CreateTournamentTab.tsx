@@ -160,7 +160,7 @@ export function CreateTournamentTab({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-left">
               <label className="text-xs text-slate-500 font-semibold block mb-1.5">Tournament Name</label>
-              <input value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Box Cricket Tournament Season 2" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
+              <input value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Box Cricket Tournament Season 2" maxLength={150} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
             </div>
 
             {user?.role === "SUPER_ADMIN" ? (

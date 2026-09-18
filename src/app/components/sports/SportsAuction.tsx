@@ -535,7 +535,6 @@ export function SportsAuction() {
 
   // Filter sports events to only include those configured or flagged for auction
   const auctionEvents = communityEvents.filter(ev =>
-    Boolean(ev.auction) ||
     Boolean(ev.auctionEnabled) ||
     availableConfigs.some(c => c.eventId === ev.id) ||
     Boolean(ev.auctionStatus)

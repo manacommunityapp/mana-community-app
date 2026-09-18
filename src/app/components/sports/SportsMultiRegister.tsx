@@ -253,9 +253,53 @@ const SPORT_CONFIGS: Record<string, SportConfig> = {
   },
   badminton: {
     categories: [
-      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
-      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
-      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles"] },
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles", "Singles Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles", "Doubles Partner"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles Partner"] },
+    ],
+  },
+  tennis: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles", "Singles Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles", "Doubles Partner"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles Partner"] },
+    ],
+  },
+  "table tennis": {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles", "Singles Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles", "Doubles Partner"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles Partner"] },
+    ],
+  },
+  pickleball: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles", "Singles Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles", "Doubles Partner"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles Partner"] },
+    ],
+  },
+  squash: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles", "Singles Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Doubles Partner"] },
+    ],
+  },
+  padel: {
+    categories: [
+      { value: "DOUBLES", label: "Doubles", roles: ["Doubles Partner"] },
+      { value: "SINGLES", label: "Singles", roles: ["Singles Player"] },
+    ],
+  },
+  carrom: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Singles Player", "Player"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Doubles Partner", "Partner"] },
+    ],
+  },
+  chess: {
+    categories: [
+      { value: "INDIVIDUAL", label: "Individual", roles: ["Player"] },
     ],
   },
   volleyball: {
@@ -305,6 +349,118 @@ const SPORT_CONFIGS: Record<string, SportConfig> = {
   },
 };
 
+function normalizeFormatList(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+        }
+      } catch {}
+    }
+    return trimmed.split(",").map(s => s.trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+  }
+  return [];
+}
+
+function getAvailableEventFormats(
+  ev: any,
+  sportName: string,
+  eventName: string,
+  tournamentName?: string,
+  metaList: any[] = []
+): string[] {
+  const eName = (eventName || "").toLowerCase();
+  const tName = (tournamentName || "").toLowerCase();
+  const sName = (sportName || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName} ${(ev?.name || "").toLowerCase()}`;
+  const sKey = detectSport(combined);
+
+  // 1. Check if event or tournament explicitly specifies formats
+  const rawExplicit = ev?.formats || ev?.format || ev?.sport?.formats || ev?.sport?.format;
+  const parsedExplicit = normalizeFormatList(rawExplicit);
+  if (parsedExplicit.length > 0) {
+    // If the event name specifically targets a single format (e.g. "Men's Singles" in a tournament with both):
+    if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+      return parsedExplicit.includes("MIXED_DOUBLES") ? ["MIXED_DOUBLES"] : parsedExplicit;
+    }
+    if (eName.includes("doubles") && !eName.includes("singles")) {
+      return parsedExplicit.includes("DOUBLES") ? ["DOUBLES"] : parsedExplicit;
+    }
+    if (eName.includes("singles") && !eName.includes("doubles")) {
+      return parsedExplicit.includes("SINGLES") ? ["SINGLES"] : parsedExplicit;
+    }
+    return parsedExplicit;
+  }
+
+  // 2. Check event name keywords for specific format
+  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (eName.includes("doubles") && !eName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (eName.includes("singles") && eName.includes("doubles")) {
+    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+  }
+
+  // 3. Formats from sports metadata
+  const meta = metaList.find((m: any) => m.name && (
+    m.name.toLowerCase() === sName ||
+    eName.includes(m.name.toLowerCase()) ||
+    tName.includes(m.name.toLowerCase()) ||
+    sName.includes(m.name.toLowerCase())
+  ));
+  if (meta?.formats) {
+    const metaFormats = normalizeFormatList(meta.formats);
+    if (metaFormats.length > 0) {
+      return metaFormats;
+    }
+  }
+
+  // 4. Default available formats based on sport type (when tournament is open for all formats)
+  if (
+    ["badminton", "table tennis", "tennis", "pickleball"].includes(sKey) ||
+    combined.includes("badminton") ||
+    combined.includes("tennis") ||
+    combined.includes("table tennis") ||
+    combined.includes("pickleball") ||
+    combined.includes("shuttle") ||
+    combined.includes("tt")
+  ) {
+    return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+  }
+
+  if (
+    ["squash", "padel", "carrom"].includes(sKey) ||
+    combined.includes("squash") ||
+    combined.includes("padel") ||
+    combined.includes("carrom")
+  ) {
+    return ["SINGLES", "DOUBLES"];
+  }
+
+  if (
+    ["swimming", "athletics"].includes(sKey) ||
+    combined.includes("swimming") ||
+    combined.includes("athletics") ||
+    combined.includes("track")
+  ) {
+    return ["INDIVIDUAL", "RELAY"];
+  }
+
+  return [];
+}
+
 interface SportEventSelection {
   eventId: number;
   uuid?: string;
@@ -317,6 +473,8 @@ interface SportEventSelection {
   isRegistered?: boolean;
   selected: boolean;
   matchType: string;
+  matchTypes?: string[];
+  availableFormats?: string[];
   role: string;
   categoryId?: number;
 }
@@ -482,14 +640,17 @@ export function SportsMultiRegister() {
   // Accordion toggle state for sport groups: true means open (expanded by default)
   const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({});
 
-  // Mobile Bottom Sheet Picker state
-  const [activeMobilePicker, setActiveMobilePicker] = useState<{
+  // Inline Mobile Dropdown Picker state (full width within parent div)
+  const [openInlinePicker, setOpenInlinePicker] = useState<{
     eventId: number;
     type: "role" | "category";
-    title: string;
-    options: { value: any; label: string; subLabel?: string; disabled?: boolean }[];
-    currentValue: any;
   } | null>(null);
+
+  const toggleInlinePicker = (eventId: number, type: "role" | "category") => {
+    setOpenInlinePicker(prev =>
+      prev?.eventId === eventId && prev?.type === type ? null : { eventId, type }
+    );
+  };
 
   const toggleSportCollapse = (sportName: string) => {
     setExpandedSports(prev => ({
@@ -576,13 +737,15 @@ export function SportsMultiRegister() {
                       name: ce.name,
                       eventDateStart: ce.eventDateStart || null,
                       eventDateEnd: ce.eventDateEnd || null,
-                      sportName: ce.sportName || ce.sport?.name || null,
+                      sportName: ce.sportName || ce.sport?.name || (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
                       categoryName: ce.categoryName || ce.category?.name || null,
                       venueName: ce.venueName || ce.venue?.name || null,
                       maxParticipants: ce.maxParticipants || null,
                       registrationStatus: ce.registrationStatus || ce.status || null,
                       auctionStatus: ce.auctionStatus || null,
                       teamSport: Boolean(ce.teamSport),
+                      format: ce.format || ce.formats || (rawTourney as any).format || (rawTourney as any).formats || null,
+                      formats: ce.formats || ce.format || (rawTourney as any).formats || (rawTourney as any).format || null,
                       myRegistrationId: ce.myRegistrationId || null,
                       myRegistrationStatus: ce.myRegistrationStatus || null,
                     }))
@@ -592,13 +755,15 @@ export function SportsMultiRegister() {
                       name: rawTourney.name,
                       eventDateStart: rawTourney.eventDateStart || null,
                       eventDateEnd: rawTourney.eventDateEnd || null,
-                      sportName: (rawTourney as any).sportName || (rawTourney as any).sport?.name || null,
+                      sportName: (rawTourney as any).sportName || (rawTourney as any).sport?.name || rawTourney.name || null,
                       categoryName: (rawTourney as any).categoryName || (rawTourney as any).category?.name || null,
                       venueName: (rawTourney as any).venueName || (rawTourney as any).venue?.name || null,
                       maxParticipants: rawTourney.maxParticipants || null,
                       registrationStatus: rawTourney.registrationStatus || rawTourney.status || null,
                       auctionStatus: (rawTourney as any).auctionStatus || null,
                       teamSport: Boolean((rawTourney as any).teamSport),
+                      format: (rawTourney as any).format || (rawTourney as any).formats || null,
+                      formats: (rawTourney as any).formats || (rawTourney as any).format || null,
                       myRegistrationId: null,
                       myRegistrationStatus: null,
                     }],
@@ -614,24 +779,25 @@ export function SportsMultiRegister() {
           const initialAge = calculateAge(dateOfBirth);
 
           const initialSelections: SportEventSelection[] = targetTourney.events.map(ev => {
-            const sportKey = detectSport(ev.sportName || ev.name);
+            const resolvedSportName = ev.sportName || (targetTourney as any).sportName || (targetTourney as any).sport?.name || targetTourney.name || "Sports";
+            const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
             const isAlreadyRegistered = Boolean(ev.myRegistrationId);
 
             // Find single related category from service categories for this specific event
-            const matchedCategory = findBestEligibleCategory(cats, ev.sportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
+            const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
             const isEligible = matchedCategory ? checkCategoryEligibility(matchedCategory, initialAge, gender).eligible : false;
 
-            // Detect format from sports metadata if available
-            const sportMeta = metaList.find((m: any) => m.name && m.name.toLowerCase() === (ev.sportName || "").toLowerCase());
-            const defaultFormat = sportMeta?.formats?.[0] || "SINGLES";
+            // Detect available participation formats (e.g. Singles, Doubles, Mixed Doubles)
+            const availableFormats = getAvailableEventFormats(ev, resolvedSportName, ev.name, targetTourney.name, metaList);
+            const defaultFormat = availableFormats[0] || "SINGLES";
 
             return {
               eventId: ev.id,
               uuid: ev.uuid ?? undefined,
               name: ev.name,
-              sportName: ev.sportName || "Sports",
+              sportName: resolvedSportName,
               categoryName: ev.categoryName || undefined,
               venueName: ev.venueName || undefined,
               eventDateStart: ev.eventDateStart || undefined,
@@ -639,6 +805,8 @@ export function SportsMultiRegister() {
               isRegistered: isAlreadyRegistered,
               selected: !isAlreadyRegistered && isEligible, // Pre-select only eligible un-registered events
               matchType: defaultFormat,
+              matchTypes: availableFormats.length > 0 ? [defaultFormat] : ["SINGLES"],
+              availableFormats: availableFormats,
               role: defaultRole,
               categoryId: matchedCategory?.id,
             };
@@ -786,6 +954,31 @@ export function SportsMultiRegister() {
     });
   };
 
+  const toggleEventFormat = (eventId: number, formatToToggle: string) => {
+    setEventSelections(prev => prev.map(ev => {
+      if (ev.eventId === eventId) {
+        const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || "SINGLES"];
+        const isAlready = current.some(f => f.toUpperCase() === formatToToggle.toUpperCase());
+        let nextFormats: string[];
+        if (isAlready) {
+          if (current.length === 1) {
+            toast.error("At least one participant format must be selected");
+            return ev;
+          }
+          nextFormats = current.filter(f => f.toUpperCase() !== formatToToggle.toUpperCase());
+        } else {
+          nextFormats = [...current, formatToToggle];
+        }
+        return {
+          ...ev,
+          matchTypes: nextFormats,
+          matchType: nextFormats[0] || formatToToggle,
+        };
+      }
+      return ev;
+    }));
+  };
+
   const [registeringEventId, setRegisteringEventId] = useState<number | null>(null);
 
   // Single Event Direct Registration Handler
@@ -844,22 +1037,29 @@ export function SportsMultiRegister() {
       return copy;
     });
 
-    try {
-      await sportsService.registerForEvent({
-        eventId: ev.eventId,
-        categoryId: selectedCategory.id,
-        matchType: ev.matchType || "SINGLES",
-        role: ev.role || "Player",
-        age: calculatedAge,
-        dateOfBirth: dateOfBirth,
-        playerName: playerName.trim(),
-        email: email.trim() || undefined,
-        relation: relation || undefined,
-        flatNumber: flatNumber || undefined,
-        familyMemberId: regType === "family" ? familyMemberId : undefined,
-      });
+    const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
 
-      toast.success(`Successfully registered for ${ev.name}!`);
+    try {
+      for (const fmt of formatsToRegister) {
+        await sportsService.registerForEvent({
+          eventId: ev.eventId,
+          categoryId: selectedCategory.id,
+          matchType: fmt,
+          role: ev.role || "Player",
+          age: calculatedAge,
+          dateOfBirth: dateOfBirth,
+          playerName: playerName.trim(),
+          email: email.trim() || undefined,
+          relation: relation || undefined,
+          flatNumber: flatNumber || undefined,
+          familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
+        });
+      }
+
+      const formatText = formatsToRegister.length > 1
+        ? ` (${formatsToRegister.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})`
+        : "";
+      toast.success(`Successfully registered for ${ev.name}${formatText}!`);
 
       // Update state: mark this event as registered and unselect from batch
       setEventSelections(prev => prev.map(e => {
@@ -1043,27 +1243,31 @@ export function SportsMultiRegister() {
     const submissionErrors: Record<number, string> = {};
 
     for (const ev of selectedEvents) {
-      try {
-        const catId = ev.categoryId || categories[0]?.id || 1;
-        await sportsService.registerForEvent({
-          eventId: ev.eventId,
-          categoryId: catId,
-          matchType: ev.matchType || "SINGLES",
-          role: ev.role || "Player",
-          age: calculatedAge,
-          dateOfBirth: dateOfBirth,
-          playerName: playerName.trim(),
-          email: email.trim() || undefined,
-          relation: relation || undefined,
-          flatNumber: flatNumber || undefined,
-          familyMemberId: regType === "family" ? familyMemberId : undefined,
-        });
-        successCount++;
-      } catch (err: any) {
-        const errMsg = err?.response?.data?.message || err?.message || `Failed to register for ${ev.name}`;
-        submissionErrors[ev.eventId] = errMsg;
-        console.error(`Failed to register for ${ev.name}:`, err);
-        failedCount++;
+      const catId = ev.categoryId || categories[0]?.id || 1;
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      for (const fmt of formatsToRegister) {
+        try {
+          await sportsService.registerForEvent({
+            eventId: ev.eventId,
+            categoryId: catId,
+            matchType: fmt,
+            role: ev.role || "Player",
+            age: calculatedAge,
+            dateOfBirth: dateOfBirth,
+            playerName: playerName.trim(),
+            email: email.trim() || undefined,
+            relation: relation || undefined,
+            flatNumber: flatNumber || undefined,
+            familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
+          });
+          successCount++;
+        } catch (err: any) {
+          const fmtLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+          const errMsg = err?.response?.data?.message || err?.message || `Failed to register for ${ev.name} (${fmtLabel})`;
+          submissionErrors[ev.eventId] = errMsg;
+          console.error(`Failed to register for ${ev.name}:`, err);
+          failedCount++;
+        }
       }
     }
 
@@ -1803,8 +2007,49 @@ export function SportsMultiRegister() {
                                   <span className="hidden sm:inline">Register</span>
                                 </button>
                               </div>
-                              {/* Dropdowns section (category bracket & mobile role) */}
-                              <div className="mt-1.5 pl-6 sm:pl-6 space-y-1.5 w-full max-w-full overflow-hidden">
+                              {/* Dropdowns & Options section (participant formats, category bracket & mobile role) */}
+                              <div className="mt-1.5 pl-6 sm:pl-6 space-y-2 w-full max-w-full overflow-hidden">
+                                {/* Participant Type (Format Multi-selection, e.g. Singles, Doubles, Mixed Doubles) */}
+                                {ev.availableFormats && ev.availableFormats.length > 0 && (
+                                  <div className="w-full max-w-full">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                        Participant Type:
+                                      </label>
+                                      {ev.availableFormats.length > 1 && (
+                                        <span className="text-[10px] text-slate-400 font-normal">
+                                          (Select one or more)
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {ev.availableFormats.map((fmt) => {
+                                        const selectedList = ev.matchTypes || [ev.matchType || "SINGLES"];
+                                        const isFmtSelected = selectedList.some(f => f.toUpperCase() === fmt.toUpperCase());
+                                        const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                        return (
+                                          <button
+                                            key={fmt}
+                                            type="button"
+                                            onClick={() => toggleEventFormat(ev.eventId, fmt)}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition select-none cursor-pointer border ${
+                                              isFmtSelected
+                                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs"
+                                                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                            }`}
+                                          >
+                                            <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition ${
+                                              isFmtSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 bg-white"
+                                            }`}>
+                                              {isFmtSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                            </div>
+                                            <span>{formatLabel}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                                 {/* Category selection for multi-category events */}
                                 {eventCats.length > 1 && (
                                   <div className="w-full max-w-full">
@@ -1832,33 +2077,57 @@ export function SportsMultiRegister() {
                                     {/* Mobile Custom Trigger Button */}
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        setActiveMobilePicker({
-                                          eventId: ev.eventId,
-                                          type: "category",
-                                          title: "Select Age Bracket",
-                                          currentValue: ev.categoryId || eventCats[0]?.id,
-                                          options: eventCats.map(c => {
-                                            const itemEl = checkCategoryEligibility(c, currentAge, gender);
-                                            const ageLabel = c.minAge != null && c.maxAge != null
-                                              ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
-                                              : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
-                                            return {
-                                              value: c.id,
-                                              label: c.name,
-                                              subLabel: `${ageLabel} yrs ${!itemEl.eligible ? `(Ineligible: ${itemEl.reason || ""})` : "Eligible"}`,
-                                              disabled: !itemEl.eligible,
-                                            };
-                                          }),
-                                        });
-                                      }}
+                                      onClick={() => toggleInlinePicker(ev.eventId, "category")}
                                       className="sm:hidden w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
                                     >
                                       <span className="truncate">
                                         {selectedCat?.name || "Select Category"}
                                       </span>
-                                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" ? "rotate-180 text-indigo-600" : ""}`} />
                                     </button>
+
+                                    {/* Full-width inline category options list inside parent div */}
+                                    {openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "category" && (
+                                      <div className="sm:hidden mt-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-xs space-y-1 w-full max-h-56 overflow-y-auto">
+                                        {eventCats.map(c => {
+                                          const itemEl = checkCategoryEligibility(c, currentAge, gender);
+                                          const isSelected = (ev.categoryId || eventCats[0]?.id) === c.id;
+                                          const ageLabel = c.minAge != null && c.maxAge != null
+                                            ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
+                                            : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
+                                          return (
+                                            <button
+                                              key={c.id}
+                                              type="button"
+                                              disabled={!itemEl.eligible}
+                                              onClick={() => {
+                                                updateEventField(ev.eventId, "categoryId", c.id);
+                                                setOpenInlinePicker(null);
+                                              }}
+                                              className={`w-full p-2 rounded-lg text-left transition flex items-center justify-between gap-2 ${
+                                                isSelected
+                                                  ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold"
+                                                  : !itemEl.eligible
+                                                  ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400 border border-transparent"
+                                                  : "hover:bg-slate-50 text-slate-800 border border-transparent"
+                                              }`}
+                                            >
+                                              <div className="min-w-0 flex-1">
+                                                <div className="text-xs font-semibold truncate leading-tight">
+                                                  {c.name}
+                                                </div>
+                                                <div className={`text-[10px] mt-0.5 ${!itemEl.eligible ? "text-rose-500" : "text-slate-500"}`}>
+                                                  {ageLabel} yrs · {!itemEl.eligible ? `Ineligible (${itemEl.reason || ""})` : "Eligible"}
+                                                </div>
+                                              </div>
+                                              {isSelected && (
+                                                <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[2.5]" />
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
 
@@ -1869,25 +2138,43 @@ export function SportsMultiRegister() {
                                   </label>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setActiveMobilePicker({
-                                        eventId: ev.eventId,
-                                        type: "role",
-                                        title: "Select Playing Role",
-                                        currentValue: ev.role || roles[0],
-                                        options: roles.map(r => ({
-                                          value: r,
-                                          label: r,
-                                        })),
-                                      });
-                                    }}
+                                    onClick={() => toggleInlinePicker(ev.eventId, "role")}
                                     className="w-full h-8 px-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-lg text-xs font-medium text-slate-800 flex items-center justify-between gap-1.5 transition text-left"
                                   >
                                     <span className="truncate">
                                       {ev.role || roles[0] || "Select Role"}
                                     </span>
-                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-150 ${openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "role" ? "rotate-180 text-indigo-600" : ""}`} />
                                   </button>
+
+                                  {/* Full-width inline role options list inside parent div */}
+                                  {openInlinePicker?.eventId === ev.eventId && openInlinePicker?.type === "role" && (
+                                    <div className="mt-1.5 p-1 bg-white border border-slate-200 rounded-xl shadow-xs space-y-1 w-full max-h-56 overflow-y-auto">
+                                      {roles.map(r => {
+                                        const isSelected = (ev.role || roles[0]) === r;
+                                        return (
+                                          <button
+                                            key={r}
+                                            type="button"
+                                            onClick={() => {
+                                              updateEventField(ev.eventId, "role", r);
+                                              setOpenInlinePicker(null);
+                                            }}
+                                            className={`w-full p-2 rounded-lg text-left transition flex items-center justify-between gap-2 ${
+                                              isSelected
+                                                ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold"
+                                                : "hover:bg-slate-50 text-slate-800 border border-transparent"
+                                            }`}
+                                          >
+                                            <span className="text-xs truncate flex-1">{r}</span>
+                                            {isSelected && (
+                                              <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0 stroke-[2.5]" />
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -2152,76 +2439,6 @@ export function SportsMultiRegister() {
         </div>
       )}
 
-      {/* ── Mobile Selection Bottom Sheet Modal (for role and category) ── */}
-      {activeMobilePicker && (
-        <div 
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end justify-center p-0 sm:hidden animate-in fade-in duration-200"
-          onClick={() => setActiveMobilePicker(null)}
-        >
-          <div 
-            className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[75vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Sheet Handle and Header */}
-            <div className="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <div>
-                <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-2" />
-                <h3 className="text-sm font-bold text-slate-900">{activeMobilePicker.title}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveMobilePicker(null)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Sheet Options List */}
-            <div className="p-3 overflow-y-auto space-y-1.5 divide-y divide-slate-50">
-              {activeMobilePicker.options.map((opt) => {
-                const isSelected = String(activeMobilePicker.currentValue) === String(opt.value);
-                return (
-                  <button
-                    key={String(opt.value)}
-                    type="button"
-                    disabled={opt.disabled}
-                    onClick={() => {
-                      if (activeMobilePicker.type === "category") {
-                        updateEventField(activeMobilePicker.eventId, "categoryId", Number(opt.value));
-                      } else {
-                        updateEventField(activeMobilePicker.eventId, "role", opt.value);
-                      }
-                      setActiveMobilePicker(null);
-                    }}
-                    className={`w-full p-2.5 rounded-xl text-left transition flex items-center justify-between gap-2.5 ${
-                      isSelected
-                        ? "bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold"
-                        : opt.disabled
-                        ? "opacity-50 cursor-not-allowed bg-slate-50/50 text-slate-400"
-                        : "hover:bg-slate-50 text-slate-800 border border-transparent"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold truncate leading-tight">
-                        {opt.label}
-                      </div>
-                      {opt.subLabel && (
-                        <div className={`text-[10px] mt-0.5 ${opt.disabled ? "text-rose-500" : "text-slate-500"}`}>
-                          {opt.subLabel}
-                        </div>
-                      )}
-                    </div>
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-indigo-600 shrink-0 stroke-[2.5]" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
