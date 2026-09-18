@@ -221,6 +221,9 @@ export interface SportsEvent {
   /** Public, non-sequential id used in shareable registration links. */
   uuid?: string;
   name: string;
+  sportName?: string;
+  categoryName?: string;
+  venueName?: string;
   sport?: SportMeta;
   community?: Community;
   eventDateStart: string; // LocalDate → string

@@ -49,6 +49,7 @@ export function removeToken(): void {
 export interface StoredUser {
   userId: string;
   communityId?: number;
+  communityName?: string;
   roleId?: number;
   role?: string;
   /** All assigned roles as an array (backend may return multi-role users). */
