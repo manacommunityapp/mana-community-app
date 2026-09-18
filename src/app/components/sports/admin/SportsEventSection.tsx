@@ -874,7 +874,28 @@ export function SportsEventSection({
       >
         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2.5">Scheduled Community Events</h3>
         {activeEvents.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 italic">No community events scheduled yet.</div>
+          <div className="text-center py-10 px-4 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3 text-indigo-600">
+              <Plus className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-slate-800 mb-1">No Community Events Scheduled</h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+              There are no sports events configured yet. Select a sport from the list to get started.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                resetSportForm();
+                setShowSportPicker(true);
+              }}
+              className="px-4 py-2 text-white text-xs font-semibold rounded-lg border-none cursor-pointer transition-colors inline-flex items-center gap-1.5 shadow-sm hover:brightness-105"
+              style={{
+                background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
+              }}
+            >
+              <Plus className="w-3.5 h-3.5" /> Select a Sport
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {activeEvents.map(e => {

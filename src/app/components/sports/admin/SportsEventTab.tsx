@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Trophy, X } from "lucide-react";
 import { TournamentsListTab } from "./TournamentsListTab";
 import { ConfigureEventsTab } from "./ConfigureEventsTab";
@@ -151,12 +151,25 @@ export function SportsEventTab({
     setSportsEventSubTab("config");
   };
 
+  const hasAutoOpenedRef = useRef(false);
+
   useEffect(() => {
     if (activeTournamentId) {
       setSportsEventSubTab("config");
       setShowSportPicker(true);
     }
   }, [activeTournamentId, setShowSportPicker]);
+
+  // When on the sports-event page and no tournaments or events exist at all,
+  // automatically trigger the "Select a Sport" popup so the admin can configure their first sport event immediately.
+  useEffect(() => {
+    const totalEventsCount = draftEvents.length + liveEvents.length + completedEvents.length + (activeEvents?.length || 0);
+    if (!hasAutoOpenedRef.current && totalEventsCount === 0 && !showSportForm && !showSportPicker) {
+      hasAutoOpenedRef.current = true;
+      setSportsEventSubTab("config");
+      setShowSportPicker(true);
+    }
+  }, [draftEvents, liveEvents, completedEvents, activeEvents, showSportForm, showSportPicker, setShowSportPicker]);
 
   // Load each sub-tab's data only when it becomes active (initial "list" on mount,
   // and "config" when the user clicks Configure Events).
@@ -246,6 +259,11 @@ export function SportsEventTab({
           clearTournamentContext={clearTournamentContext}
           onGoToConfigureEvents={() => setSportsEventSubTab("config")}
           handleSportEdit={onEditEventFromList}
+          onOpenSportPicker={() => {
+            setSportsEventSubTab("config");
+            resetSportForm();
+            setShowSportPicker(true);
+          }}
         />
       ) : (
         <ConfigureEventsTab
