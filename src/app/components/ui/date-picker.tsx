@@ -85,9 +85,8 @@ export function formatReadableDate(dateStr?: string | Date | null): string {
   if (isNaN(dateObj.getTime())) return iso;
 
   return dateObj.toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
     month: "short",
+    day: "numeric",
     year: "numeric",
   });
 }
@@ -133,33 +132,47 @@ export function DatePicker({
 
   const selectedDateStr = useMemo(() => formatToDateString(value), [value]);
 
+  // Helper to clamp a year/month Date object to min/max
+  const clampDateToRange = useCallback((d: Date): Date => {
+    if (max) {
+      const [maxY, maxM] = max.split("-").map(Number);
+      if (maxY && maxM) {
+        if (d.getFullYear() > maxY || (d.getFullYear() === maxY && d.getMonth() > maxM - 1)) {
+          return new Date(maxY, maxM - 1, 1);
+        }
+      }
+    }
+    if (min) {
+      const [minY, minM] = min.split("-").map(Number);
+      if (minY && minM) {
+        if (d.getFullYear() < minY || (d.getFullYear() === minY && d.getMonth() < minM - 1)) {
+          return new Date(minY, minM - 1, 1);
+        }
+      }
+    }
+    return d;
+  }, [min, max]);
+
   // Current browsing month and year in calendar view
   const [viewDate, setViewDate] = useState<Date>(() => {
     if (selectedDateStr) {
       const [y, m, d] = selectedDateStr.split("-").map(Number);
-      if (y && m && d) return new Date(y, m - 1, 1);
+      if (y && m && d) return clampDateToRange(new Date(y, m - 1, 1));
     }
-    if (min) {
-      const [y, m, d] = min.split("-").map(Number);
-      if (y && m && d) return new Date(y, m - 1, 1);
-    }
-    return new Date();
+    return clampDateToRange(new Date());
   });
 
-  // Sync viewDate when value or min changes from external source
+  // Sync viewDate when value or min/max changes from external source
   useEffect(() => {
     if (selectedDateStr) {
       const [y, m, d] = selectedDateStr.split("-").map(Number);
       if (y && m && d) {
-        setViewDate(new Date(y, m - 1, 1));
+        setViewDate(clampDateToRange(new Date(y, m - 1, 1)));
       }
-    } else if (min) {
-      const [y, m, d] = min.split("-").map(Number);
-      if (y && m && d) {
-        setViewDate(new Date(y, m - 1, 1));
-      }
+    } else {
+      setViewDate(clampDateToRange(new Date()));
     }
-  }, [selectedDateStr, min]);
+  }, [selectedDateStr, min, max, clampDateToRange]);
 
   // Reset dropdown sub-menus on close
   useEffect(() => {
@@ -203,22 +216,40 @@ export function DatePicker({
   const viewYear = viewDate.getFullYear();
   const viewMonth = viewDate.getMonth();
 
+  const isNextMonthDisabled = useMemo(() => {
+    if (!max) return false;
+    const [maxY, maxM] = max.split("-").map(Number);
+    if (!maxY || !maxM) return false;
+    return viewYear > maxY || (viewYear === maxY && viewMonth >= maxM - 1);
+  }, [viewYear, viewMonth, max]);
+
+  const isPrevMonthDisabled = useMemo(() => {
+    if (!min) return false;
+    const [minY, minM] = min.split("-").map(Number);
+    if (!minY || !minM) return false;
+    return viewYear < minY || (viewYear === minY && viewMonth <= minM - 1);
+  }, [viewYear, viewMonth, min]);
+
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setViewDate(new Date(viewYear, viewMonth - 1, 1));
+    if (isPrevMonthDisabled) return;
+    setViewDate(clampDateToRange(new Date(viewYear, viewMonth - 1, 1)));
     setShowMonthSelect(false);
     setShowYearSelect(false);
   };
 
   const handleNextMonth = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setViewDate(new Date(viewYear, viewMonth + 1, 1));
+    if (isNextMonthDisabled) return;
+    setViewDate(clampDateToRange(new Date(viewYear, viewMonth + 1, 1)));
     setShowMonthSelect(false);
     setShowYearSelect(false);
   };
 
   const handleSelectDate = (dateString: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (max && dateString > max) return;
+    if (min && dateString < min) return;
     onChange(dateString);
     if (autoCloseOnSelect) {
       setIsOpen(false);
@@ -298,15 +329,17 @@ export function DatePicker({
 
   const selectedYearRef = useRef<HTMLButtonElement | null>(null);
 
-  // Year options list for fast jumping (supported back to 1940 for DOB / historical dates)
+  // Year options list for fast jumping (strictly bounded by min and max so future years never show when max is set)
   const yearOptions = useMemo(() => {
     const currentYr = new Date().getFullYear();
-    const minBound = min ? Math.min(1940, parseInt(min.split("-")[0], 10)) : 1940;
+    const minBound = min ? parseInt(min.split("-")[0], 10) : 1920;
+    const maxBound = max ? parseInt(max.split("-")[0], 10) : currentYr + 20;
     const start = Math.min(minBound, viewYear - 10);
-    const maxBound = max ? Math.max(currentYr + 20, parseInt(max.split("-")[0], 10)) : currentYr + 20;
-    const end = Math.max(viewYear + 20, maxBound);
+    const end = Math.max(maxBound, viewYear);
     const years: number[] = [];
     for (let y = start; y <= end; y++) {
+      if (min && y < minBound) continue;
+      if (max && y > maxBound) continue;
       years.push(y);
     }
     return years;
@@ -337,26 +370,56 @@ export function DatePicker({
     return null;
   }, [selectedDateStr]);
 
-  // Preset date shortcuts
-  const handlePreset = (type: "today" | "tomorrow" | "weekend" | "next_week", e: React.MouseEvent) => {
-    e.stopPropagation();
-    const d = new Date();
-    if (type === "tomorrow") {
-      d.setDate(d.getDate() + 1);
-    } else if (type === "weekend") {
-      const day = d.getDay();
-      const diff = day === 6 ? 0 : 6 - day;
-      d.setDate(d.getDate() + diff);
-    } else if (type === "next_week") {
-      const day = d.getDay();
-      const diff = (8 - day) % 7 || 7;
-      d.setDate(d.getDate() + diff);
+  // Available Preset date shortcuts (filtered strictly by min & max)
+  const availablePresets = useMemo(() => {
+    if (!presets) return [];
+    const today = new Date();
+    const todayStr = formatToDateString(today);
+
+    const list: Array<{ id: "today" | "tomorrow" | "weekend" | "next_week"; label: string; dateStr: string }> = [];
+
+    // Today
+    if ((!min || todayStr >= min) && (!max || todayStr <= max)) {
+      list.push({ id: "today", label: "Today", dateStr: todayStr });
     }
-    const str = formatToDateString(d);
-    if (min && str < min) return;
-    if (max && str > max) return;
-    handleSelectDate(str);
-  };
+
+    // Tomorrow
+    const tom = new Date(today);
+    tom.setDate(tom.getDate() + 1);
+    const tomStr = formatToDateString(tom);
+    if ((!min || tomStr >= min) && (!max || tomStr <= max)) {
+      list.push({ id: "tomorrow", label: "Tomorrow", dateStr: tomStr });
+    }
+
+    // Weekend
+    const wDay = today.getDay();
+    const wDiff = wDay === 6 ? 0 : 6 - wDay;
+    const weekend = new Date(today);
+    weekend.setDate(weekend.getDate() + wDiff);
+    const weekendStr = formatToDateString(weekend);
+    if ((!min || weekendStr >= min) && (!max || weekendStr <= max)) {
+      list.push({ id: "weekend", label: "Weekend", dateStr: weekendStr });
+    }
+
+    // Next Mon
+    const mDay = today.getDay();
+    const mDiff = (8 - mDay) % 7 || 7;
+    const nextMon = new Date(today);
+    nextMon.setDate(nextMon.getDate() + mDiff);
+    const nextMonStr = formatToDateString(nextMon);
+    if ((!min || nextMonStr >= min) && (!max || nextMonStr <= max)) {
+      list.push({ id: "next_week", label: "Next Mon", dateStr: nextMonStr });
+    }
+
+    return list;
+  }, [presets, min, max]);
+
+  const isTodayAllowed = useMemo(() => {
+    const todayStr = formatToDateString(new Date());
+    if (min && todayStr < min) return false;
+    if (max && todayStr > max) return false;
+    return true;
+  }, [min, max]);
 
   const sizeClasses = {
     sm: "h-8.5 text-xs px-2.5 rounded-lg",
@@ -398,37 +461,22 @@ export function DatePicker({
         </div>
       )}
 
-      {/* Preset Shortcuts */}
-      {presets && (
+      {/* Preset Shortcuts (only shown when applicable within min/max bounds) */}
+      {availablePresets.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/80 hide-scrollbar" style={{ scrollbarWidth: "none" }}>
-          <button
-            type="button"
-            onClick={(e) => handlePreset("today", e)}
-            className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-muted/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer shrink-0"
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            onClick={(e) => handlePreset("tomorrow", e)}
-            className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-muted/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer shrink-0"
-          >
-            Tomorrow
-          </button>
-          <button
-            type="button"
-            onClick={(e) => handlePreset("weekend", e)}
-            className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-muted/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer shrink-0"
-          >
-            Weekend
-          </button>
-          <button
-            type="button"
-            onClick={(e) => handlePreset("next_week", e)}
-            className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-muted/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer shrink-0"
-          >
-            Next Mon
-          </button>
+          {availablePresets.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectDate(p.dateStr, e);
+              }}
+              className="px-2.5 py-1 rounded-lg text-[10.5px] font-bold bg-muted/80 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer shrink-0"
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -456,25 +504,45 @@ export function DatePicker({
                 onClick={(e) => e.stopPropagation()}
                 className="absolute top-full left-0 mt-1 z-[100000] w-48 bg-popover border border-border rounded-2xl shadow-xl p-2 grid grid-cols-3 gap-1 animate-in fade-in duration-100"
               >
-                {MONTH_NAMES.map((mName, idx) => (
-                  <button
-                    key={mName}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewDate(new Date(viewYear, idx, 1));
-                      setShowMonthSelect(false);
-                    }}
-                    className={cn(
-                      "px-2 py-1.5 rounded-xl text-[11px] font-bold text-center transition-all cursor-pointer",
-                      idx === viewMonth
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "hover:bg-muted text-foreground"
-                    )}
-                  >
-                    {MONTH_SHORT[idx]}
-                  </button>
-                ))}
+                {MONTH_NAMES.map((mName, idx) => {
+                  let isMonthDisabled = false;
+                  if (max) {
+                    const [maxY, maxM] = max.split("-").map(Number);
+                    if (maxY && maxM && (viewYear > maxY || (viewYear === maxY && idx > maxM - 1))) {
+                      isMonthDisabled = true;
+                    }
+                  }
+                  if (min) {
+                    const [minY, minM] = min.split("-").map(Number);
+                    if (minY && minM && (viewYear < minY || (viewYear === minY && idx < minM - 1))) {
+                      isMonthDisabled = true;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={mName}
+                      type="button"
+                      disabled={isMonthDisabled}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isMonthDisabled) return;
+                        setViewDate(new Date(viewYear, idx, 1));
+                        setShowMonthSelect(false);
+                      }}
+                      className={cn(
+                        "px-2 py-1.5 rounded-xl text-[11px] font-bold text-center transition-all cursor-pointer",
+                        idx === viewMonth
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : isMonthDisabled
+                          ? "opacity-25 cursor-not-allowed text-muted-foreground"
+                          : "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      {MONTH_SHORT[idx]}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -507,7 +575,7 @@ export function DatePicker({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setViewDate(new Date(yr, viewMonth, 1));
+                      setViewDate(clampDateToRange(new Date(yr, viewMonth, 1)));
                       setShowYearSelect(false);
                     }}
                     className={cn(
@@ -529,16 +597,24 @@ export function DatePicker({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            disabled={isPrevMonthDisabled}
             onClick={handlePrevMonth}
-            className="w-8 h-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
+            className={cn(
+              "w-8 h-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer",
+              isPrevMonthDisabled && "opacity-25 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground pointer-events-none"
+            )}
             title="Previous Month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             type="button"
+            disabled={isNextMonthDisabled}
             onClick={handleNextMonth}
-            className="w-8 h-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
+            className={cn(
+              "w-8 h-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer",
+              isNextMonthDisabled && "opacity-25 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground pointer-events-none"
+            )}
             title="Next Month"
           >
             <ChevronRight className="w-4 h-4" />
@@ -580,7 +656,7 @@ export function DatePicker({
                   ? "text-foreground hover:bg-primary/10 hover:text-primary"
                   : "text-muted-foreground/40 hover:bg-muted/50",
                 day.isToday && !day.isSelected && "border border-primary/50 text-primary font-black",
-                day.isDisabled && "opacity-20 cursor-not-allowed hover:bg-transparent hover:text-inherit"
+                day.isDisabled && "opacity-20 cursor-not-allowed hover:bg-transparent hover:text-inherit pointer-events-none"
               )}
             >
               <span>{day.dayNumber}</span>
@@ -594,18 +670,20 @@ export function DatePicker({
 
       {/* Footer Quick Action Bar */}
       <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={(e) => {
-            const todayStr = formatToDateString(new Date());
-            if (min && todayStr < min) return;
-            if (max && todayStr > max) return;
-            handleSelectDate(todayStr, e);
-          }}
-          className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
-        >
-          <Sparkles className="w-3.5 h-3.5" /> Set Today
-        </button>
+        {isTodayAllowed ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              const todayStr = formatToDateString(new Date());
+              handleSelectDate(todayStr, e);
+            }}
+            className="text-[11px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Set Today
+          </button>
+        ) : (
+          <div />
+        )}
 
         <div className="flex items-center gap-2">
           {selectedDateStr && (

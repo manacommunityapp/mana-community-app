@@ -415,7 +415,7 @@ export function SportsRegistration() {
                               {i < myMatches.length - 1 && <div className="w-px flex-1 bg-border mt-1.5" />}
                             </div>
                             <div className="flex-1 min-w-0 pb-1 text-left animate-fade-in-up">
-                              <div className="text-xs text-muted-foreground font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Date TBD"}</div>
+                              <div className="text-xs text-muted-foreground font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Date TBD"}</div>
                               <h4 className="text-sm font-bold text-foreground mt-1">{m.sport?.name} — {m.name}</h4>
                               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                 <MapPin className="w-3.5 h-3.5 text-primary" /> {m.venue?.name || "Venue TBD"}{m.venue?.city ? `, ${m.venue.city}` : ""}

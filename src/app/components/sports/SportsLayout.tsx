@@ -108,25 +108,25 @@ export function SportsLayout() {
       {/* Sports sub-nav pill bar */}
       <div className="w-full shrink-0">
         <div 
-          className="flex items-center gap-1 sm:gap-1.5 p-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-indigo-100 shadow-[0_2px_10px_rgba(99,102,241,0.06)] overflow-x-auto w-full hide-scrollbar"
+          className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-md border border-indigo-100 shadow-[0_2px_10px_rgba(99,102,241,0.06)] overflow-x-auto w-full hide-scrollbar"
         >
           {visibleNav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
-              className="flex-1 min-w-[110px] sm:min-w-0 select-none group"
+              className="flex-1 min-w-[100px] sm:min-w-0 select-none group"
             >
               {({ isActive }) => (
                 <div
-                  className={`w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-[11px] text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                  className={`w-full min-h-[36px] sm:min-h-[38px] flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-[9px] sm:rounded-[11px] text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-[0_8px_18px_-6px_rgba(99,102,241,0.55)]"
+                      ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-[0_4px_12px_-4px_rgba(99,102,241,0.5)] font-semibold"
                       : "text-slate-500 group-hover:text-indigo-600 group-hover:bg-indigo-50/80"
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-colors ${
                       isActive
                         ? "text-white"
                         : "text-slate-400 group-hover:text-indigo-600"

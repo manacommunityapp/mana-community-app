@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
-  Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle
+  Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle,
+  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -13,6 +14,7 @@ import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
+import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory } from "../../../types/api";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
@@ -133,40 +135,103 @@ function checkCategoryEligibility(
   };
 }
 
+function getEventCategories(
+  categories: PlayerCategory[],
+  sportName: string,
+  eventName?: string,
+  eventCategoryName?: string
+): PlayerCategory[] {
+  if (!categories || categories.length === 0) return [];
+
+  // 1. Direct match by event's configured categoryName from backend/service
+  if (eventCategoryName) {
+    const direct = categories.filter(
+      c => c.name.trim().toLowerCase() === eventCategoryName.trim().toLowerCase()
+    );
+    if (direct.length > 0) return [direct[0]];
+  }
+
+  const eName = (eventName || "").toLowerCase();
+  const sportKey = detectSport(sportName || eventName || "").toLowerCase();
+
+  // 2. Check if event name directly mentions a specific category name (e.g. "Under 18", "Above 18", "Men's Singles", "Kids", "Open")
+  // Sort categories by name length descending so specific names like "Under 18" match before shorter sub-tokens
+  const sortedCats = [...categories].sort((a, b) => (b.name?.length || 0) - (a.name?.length || 0));
+  for (const cat of sortedCats) {
+    const cName = (cat.name || "").toLowerCase().trim();
+    if (cName && (eName.includes(cName) || (cName.length > 3 && cName.split(" ").every(w => eName.includes(w))))) {
+      return [cat];
+    }
+  }
+
+  // 3. Keyword-based age bracket matching from event title
+  const ageKeywords = [
+    { key: "under 18", match: (c: string) => c.includes("under 18") || c.includes("u-18") || c.includes("u18") || c.includes("below 18") },
+    { key: "u-18", match: (c: string) => c.includes("under 18") || c.includes("u-18") || c.includes("u18") },
+    { key: "u18", match: (c: string) => c.includes("under 18") || c.includes("u-18") || c.includes("u18") },
+    { key: "above 18", match: (c: string) => c.includes("above 18") || c.includes("18+") || c.includes("adult") || c.includes("senior") },
+    { key: "18+", match: (c: string) => c.includes("above 18") || c.includes("18+") || c.includes("adult") },
+    { key: "under 14", match: (c: string) => c.includes("under 14") || c.includes("u-14") || c.includes("u14") },
+    { key: "u-14", match: (c: string) => c.includes("under 14") || c.includes("u-14") || c.includes("u14") },
+    { key: "u14", match: (c: string) => c.includes("under 14") || c.includes("u-14") || c.includes("u14") },
+    { key: "under 12", match: (c: string) => c.includes("under 12") || c.includes("u-12") || c.includes("u12") || c.includes("kid") },
+    { key: "u-12", match: (c: string) => c.includes("under 12") || c.includes("u-12") || c.includes("u12") },
+    { key: "u12", match: (c: string) => c.includes("under 12") || c.includes("u-12") || c.includes("u12") },
+    { key: "kids", match: (c: string) => c.includes("kid") || c.includes("under 12") || c.includes("u-12") },
+    { key: "senior", match: (c: string) => c.includes("senior") || c.includes("55+") || c.includes("above") },
+    { key: "mens", match: (c: string) => c.includes("men") || c.includes("male") },
+    { key: "womens", match: (c: string) => c.includes("women") || c.includes("female") },
+    { key: "open", match: (c: string) => c.includes("open") || c.includes("general") },
+  ];
+
+  for (const { key, match } of ageKeywords) {
+    if (eName.includes(key)) {
+      const matched = categories.filter(c => match((c.name || "").toLowerCase()));
+      if (matched.length > 0) return [matched[0]];
+    }
+  }
+
+  // 4. Sport-specific category (categories that specifically mention this sport)
+  const sportSpecific = categories.filter(c => {
+    const cName = (c.name || "").toLowerCase();
+    const cDesc = (c.description || "").toLowerCase();
+    return cName.includes(sportKey) || cDesc.includes(sportKey);
+  });
+  if (sportSpecific.length > 0) {
+    return [sportSpecific[0]];
+  }
+
+  // 5. Exclude categories belonging to other sports
+  const ALL_OTHER_SPORTS = [
+    "cricket", "football", "soccer", "volleyball", "basketball",
+    "badminton", "kabaddi", "hockey", "throwball", "table tennis",
+    "tennis", "chess", "carrom", "swimming", "pickleball", "padel", "squash"
+  ].filter(s => s !== sportKey && !sportKey.includes(s) && !s.includes(sportKey));
+
+  const nonOther = categories.filter(c => {
+    const cName = (c.name || "").toLowerCase();
+    const cDesc = (c.description || "").toLowerCase();
+    return !ALL_OTHER_SPORTS.some(other => cName.includes(other) || cDesc.includes(other));
+  });
+
+  return nonOther.length > 0 ? [nonOther[0]] : categories.slice(0, 1);
+}
+
 function findBestEligibleCategory(
   categories: PlayerCategory[],
   sportName: string,
   age: number | null,
-  gender: string
+  gender: string,
+  eventName?: string,
+  eventCategoryName?: string
 ): PlayerCategory | undefined {
   if (!categories || categories.length === 0) return undefined;
-  const sportKey = detectSport(sportName);
-
-  // 1. Fully eligible & sport-name matched
-  const eligibleSport = categories.filter(c => {
-    const el = checkCategoryEligibility(c, age, gender);
-    const matchesSport = c.name.toLowerCase().includes(sportKey) || sportKey.includes(c.name.toLowerCase());
-    return el.eligible && matchesSport;
-  });
-  if (eligibleSport.length > 0) return eligibleSport[0];
-
-  // 2. Any fully eligible category
-  const allEligible = categories.filter(c => checkCategoryEligibility(c, age, gender).eligible);
-  if (allEligible.length > 0) {
-    // Prefer open/general/men/women/adult
-    const openCat = allEligible.find(c =>
-      c.name.toLowerCase().includes("open") ||
-      c.name.toLowerCase().includes("general") ||
-      c.name.toLowerCase().includes("adult")
-    );
-    return openCat || allEligible[0];
+  const eventPool = getEventCategories(categories, sportName, eventName, eventCategoryName);
+  if (eventPool.length === 1) {
+    return eventPool[0];
   }
-
-  // 3. Fallback: match sport name
-  const sportMatched = categories.find(c =>
-    c.name.toLowerCase().includes(sportKey) || sportKey.includes(c.name.toLowerCase())
-  );
-  return sportMatched || categories[0];
+  const eligible = eventPool.find(c => checkCategoryEligibility(c, age, gender).eligible);
+  return eligible || eventPool[0];
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {
@@ -268,53 +333,273 @@ export function SportsMultiRegister() {
   const [eventSelections, setEventSelections] = useState<SportEventSelection[]>([]);
 
   // User / Registrant details
+  const [liveUser, setLiveUser] = useState<any>(user);
   const [regType, setRegType] = useState<"self" | "family">("self");
   const [playerName, setPlayerName] = useState(user?.fullName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [gender, setGender] = useState((user as any)?.gender || "");
   const [dateOfBirth, setDateOfBirth] = useState((user as any)?.dateOfBirth || (user as any)?.dob || "");
   const [relation, setRelation] = useState("");
-  const [flatNumber, setFlatNumber] = useState((user as any)?.flatNumber || (user as any)?.unitNumber || "");
+  const [flatNumber, setFlatNumber] = useState((user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "");
   const [familyMemberId, setFamilyMemberId] = useState<number | string | undefined>();
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+
+  const userProfileName = liveUser?.fullName || user?.fullName || "";
+  const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
+  const userProfileDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob || "";
+  
+  const userBlock = liveUser?.block || (liveUser as any)?.tower || user?.block || (user as any)?.tower || "";
+  const rawUserFlat = liveUser?.flatNo || (liveUser as any)?.flatNumber || (liveUser as any)?.unitNumber || user?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "";
+
+  const userProfileFlat = useMemo(() => {
+    const b = userBlock?.trim() || "";
+    const f = rawUserFlat?.trim() || "";
+    if (b && f) {
+      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
+        return f;
+      }
+      return `Block ${b}, Flat ${f}`;
+    }
+    if (f) return f;
+    if (b) return `Block ${b}`;
+    return "";
+  }, [userBlock, rawUserFlat]);
+
+  const missingProfileFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!userProfileName?.trim()) missing.push("Full Name");
+    if (!userProfileGender?.trim()) missing.push("Gender");
+    if (!userProfileDob?.trim()) missing.push("Date of Birth");
+    if (!userProfileFlat?.trim()) missing.push("Block & Flat");
+    return missing;
+  }, [userProfileName, userProfileGender, userProfileDob, userProfileFlat]);
+
+  const familyMembersOnly = useMemo(() => {
+    return savedFamilyMembers.filter((m) => {
+      const rel = (m.relation || (m as any).relationship || "").toUpperCase().trim();
+      const isSelf =
+        rel === "SELF" ||
+        rel === "HEAD" ||
+        m.id === "self" ||
+        m.id === "member-self" ||
+        (user?.fullName && m.name?.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+      return !isSelf;
+    });
+  }, [savedFamilyMembers, user?.fullName]);
+
+  // Add Family Member Modal State
+  const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
+  const [addingFamilyMember, setAddingFamilyMember] = useState(false);
+  const [newFamilyMember, setNewFamilyMember] = useState({
+    name: "",
+    relation: "Son",
+    gender: "Male",
+    gotram: "",
+    dob: "",
+    phone: "",
+    bloodGroup: "",
+  });
+
+  const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFamilyMember.name.trim()) {
+      toast.error("Please enter family member's full name");
+      return;
+    }
+    if (newFamilyMember.phone?.trim() && !isValidIndianPhone(newFamilyMember.phone)) {
+      toast.error("Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)");
+      return;
+    }
+    setAddingFamilyMember(true);
+    try {
+      let computedAge = 18;
+      if (newFamilyMember.dob) {
+        const birth = new Date(newFamilyMember.dob);
+        if (!isNaN(birth.getTime())) {
+          computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      }
+
+      const payload = {
+        name: newFamilyMember.name.trim(),
+        relation: newFamilyMember.relation,
+        dob: newFamilyMember.dob || undefined,
+        gender: newFamilyMember.gender || "Male",
+        gotram: newFamilyMember.gotram?.trim() || undefined,
+        phone: newFamilyMember.phone?.trim() || undefined,
+        bloodGroup: newFamilyMember.bloodGroup?.trim() || undefined,
+        age: computedAge,
+        status: "ACTIVE",
+      };
+
+      const saved = await familyService.addFamilyMember(payload);
+      toast.success(`Family member "${payload.name}" added successfully!`);
+
+      // Refresh list
+      const members = await familyService.getFamilyMembers(true);
+      setSavedFamilyMembers(members);
+
+      // Auto-select newly created family member
+      const rel = payload.relation.toUpperCase();
+      const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+        ? "SPOUSE"
+        : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+        ? "CHILD"
+        : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+        ? "PARENT"
+        : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+        ? "SIBLING"
+        : "OTHER";
+
+      setPlayerName(payload.name);
+      setFamilyMemberId(saved.id);
+      setGender(payload.gender || "");
+      setDateOfBirth(payload.dob || "");
+      setRelation(mappedRel);
+      setFormErrors({});
+      setEventErrors({});
+
+      setShowAddFamilyModal(false);
+      setNewFamilyMember({
+        name: "",
+        relation: "Son",
+        gender: "Male",
+        gotram: "",
+        dob: "",
+        phone: "",
+        bloodGroup: "",
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add family member");
+    } finally {
+      setAddingFamilyMember(false);
+    }
+  };
 
   // Validation errors
   const [formErrors, setFormErrors] = useState<{ playerName?: string; gender?: string; dateOfBirth?: string }>({});
   const [eventErrors, setEventErrors] = useState<Record<number, string>>({});
+  // Accordion toggle state for sport groups: true means open (expanded by default)
+  const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({});
+
+  const toggleSportCollapse = (sportName: string) => {
+    setExpandedSports(prev => ({
+      ...prev,
+      [sportName]: prev[sportName] === false ? true : false,
+    }));
+  };
 
   const currentAge = useMemo(() => calculateAge(dateOfBirth), [dateOfBirth]);
 
   // Load user profile & family members
   useEffect(() => {
     userService.getMe().then((me) => {
-      if (me.gender || me.dateOfBirth || (me as any).flatNumber || (me as any).unitNumber) {
+      setLiveUser(me);
+      const userGenderVal = me.gender || "";
+      const userDobVal = me.dateOfBirth || (me as any).dob || "";
+      const userFlatVal = me.flatNo || (me as any).flatNumber || (me as any).unitNumber || "";
+      const userNameVal = me.fullName || "";
+
+      if (me.gender || me.dateOfBirth || userFlatVal) {
         updateUser({
           gender: me.gender,
           dateOfBirth: me.dateOfBirth || (me as any).dob,
         });
-        if (!gender) setGender(me.gender || "");
-        if (!dateOfBirth) setDateOfBirth(me.dateOfBirth || (me as any).dob || "");
-        if (!flatNumber) setFlatNumber((me as any).flatNumber || (me as any).unitNumber || "");
+      }
+
+      if (regType === "self") {
+        if (userNameVal) setPlayerName(userNameVal);
+        if (userGenderVal) setGender(userGenderVal);
+        if (userDobVal) setDateOfBirth(userDobVal);
+        if (userFlatVal) setFlatNumber(userFlatVal);
+        if (me.email) setEmail(me.email);
       }
     }).catch((err) => {
       console.warn("Could not fetch latest user profile:", err);
     });
 
     familyService.getFamilyMembers().then(setSavedFamilyMembers).catch(() => {});
-  }, [updateUser]);
 
-  // Load tournament and open events
+    const handleFamilyUpdated = (e: any) => {
+      if (Array.isArray(e.detail)) {
+        setSavedFamilyMembers(e.detail);
+      } else {
+        familyService.getFamilyMembers(true).then(setSavedFamilyMembers).catch(() => {});
+      }
+    };
+    window.addEventListener("mana_family_updated", handleFamilyUpdated);
+    return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
+  }, [updateUser, regType]);
+
+  // Load tournament, open events, and player categories directly from service repository
   useEffect(() => {
     const fetchTournamentData = async () => {
       setLoading(true);
       try {
-        const [openTourneys, cats] = await Promise.all([
-          sportsDashboardService.getOpenTournaments(),
-          sportsService.getCategories(),
+        const [openTourneys, cats, metaList] = await Promise.all([
+          sportsDashboardService.getOpenTournaments().catch(() => [] as DashboardTournamentCard[]),
+          sportsService.getCategories().catch(() => [] as PlayerCategory[]),
+          sportsService.getSportsMeta().catch(() => [] as any[]),
         ]);
         setCategories(cats);
 
-        const targetTourney = openTourneys.find(t => String(t.id) === String(tournamentId));
+        let targetTourney = openTourneys.find(t => String(t.id) === String(tournamentId));
+
+        // If not found in dashboard open tournaments list, fetch directly from sportsEventService / sportsService
+        if (!targetTourney && tournamentId) {
+          try {
+            const rawTourney = await sportsService.getTournamentById(Number(tournamentId));
+            if (rawTourney) {
+              const childEvents = (rawTourney as any).childEvents || (rawTourney as any).events;
+              targetTourney = {
+                id: rawTourney.id,
+                name: rawTourney.name,
+                bannerImage: (rawTourney as any).bannerImage || null,
+                eventDateStart: rawTourney.eventDateStart || null,
+                eventDateEnd: rawTourney.eventDateEnd || null,
+                registrationStatus: rawTourney.registrationStatus || rawTourney.status || "REGISTRATION_OPEN",
+                communityId: (rawTourney as any).communityId || null,
+                communityName: (rawTourney as any).community?.name || null,
+                events: childEvents && childEvents.length > 0
+                  ? childEvents.map((ce: any) => ({
+                      id: ce.id,
+                      uuid: ce.uuid || null,
+                      name: ce.name,
+                      eventDateStart: ce.eventDateStart || null,
+                      eventDateEnd: ce.eventDateEnd || null,
+                      sportName: ce.sportName || ce.sport?.name || null,
+                      categoryName: ce.categoryName || ce.category?.name || null,
+                      venueName: ce.venueName || ce.venue?.name || null,
+                      maxParticipants: ce.maxParticipants || null,
+                      registrationStatus: ce.registrationStatus || ce.status || null,
+                      auctionStatus: ce.auctionStatus || null,
+                      teamSport: Boolean(ce.teamSport),
+                      myRegistrationId: ce.myRegistrationId || null,
+                      myRegistrationStatus: ce.myRegistrationStatus || null,
+                    }))
+                  : [{
+                      id: rawTourney.id,
+                      uuid: rawTourney.uuid || null,
+                      name: rawTourney.name,
+                      eventDateStart: rawTourney.eventDateStart || null,
+                      eventDateEnd: rawTourney.eventDateEnd || null,
+                      sportName: (rawTourney as any).sportName || (rawTourney as any).sport?.name || null,
+                      categoryName: (rawTourney as any).categoryName || (rawTourney as any).category?.name || null,
+                      venueName: (rawTourney as any).venueName || (rawTourney as any).venue?.name || null,
+                      maxParticipants: rawTourney.maxParticipants || null,
+                      registrationStatus: rawTourney.registrationStatus || rawTourney.status || null,
+                      auctionStatus: (rawTourney as any).auctionStatus || null,
+                      teamSport: Boolean((rawTourney as any).teamSport),
+                      myRegistrationId: null,
+                      myRegistrationStatus: null,
+                    }],
+              };
+            }
+          } catch (e) {
+            console.warn("Could not fetch tournament directly by ID from service:", e);
+          }
+        }
+
         if (targetTourney) {
           setTournament(targetTourney);
           const initialAge = calculateAge(dateOfBirth);
@@ -325,8 +610,13 @@ export function SportsMultiRegister() {
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
             const isAlreadyRegistered = Boolean(ev.myRegistrationId);
 
-            // Find best eligible category for participant
-            const bestCat = findBestEligibleCategory(cats, ev.sportName || ev.name, initialAge, gender);
+            // Find single related category from service categories for this specific event
+            const matchedCategory = findBestEligibleCategory(cats, ev.sportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
+            const isEligible = matchedCategory ? checkCategoryEligibility(matchedCategory, initialAge, gender).eligible : false;
+
+            // Detect format from sports metadata if available
+            const sportMeta = metaList.find((m: any) => m.name && m.name.toLowerCase() === (ev.sportName || "").toLowerCase());
+            const defaultFormat = sportMeta?.formats?.[0] || "SINGLES";
 
             return {
               eventId: ev.id,
@@ -338,10 +628,10 @@ export function SportsMultiRegister() {
               eventDateStart: ev.eventDateStart || undefined,
               eventDateEnd: ev.eventDateEnd || undefined,
               isRegistered: isAlreadyRegistered,
-              selected: !isAlreadyRegistered, // Pre-select all un-registered events
-              matchType: "SINGLES",
+              selected: !isAlreadyRegistered && isEligible, // Pre-select only eligible un-registered events
+              matchType: defaultFormat,
               role: defaultRole,
-              categoryId: bestCat?.id,
+              categoryId: matchedCategory?.id,
             };
           });
           setEventSelections(initialSelections);
@@ -366,17 +656,27 @@ export function SportsMultiRegister() {
     const age = calculateAge(dateOfBirth);
 
     setEventSelections(prev => prev.map(ev => {
+      let catId = ev.categoryId;
       const currentCat = categories.find(c => c.id === ev.categoryId);
-      const isEligible = checkCategoryEligibility(currentCat, age, gender).eligible;
+      let isEligible = checkCategoryEligibility(currentCat, age, gender).eligible;
 
-      // If current category is ineligible or not set, switch to best eligible category
+      // If current category is ineligible or not set, switch to best eligible category for this event
       if (!isEligible) {
-        const best = findBestEligibleCategory(categories, ev.sportName || ev.name, age, gender);
+        const best = findBestEligibleCategory(categories, ev.sportName || ev.name, age, gender, ev.name, ev.categoryName);
         if (best && best.id !== ev.categoryId) {
-          return { ...ev, categoryId: best.id };
+          catId = best.id;
+          isEligible = checkCategoryEligibility(best, age, gender).eligible;
         }
       }
-      return ev;
+
+      // If ineligible or already registered, uncheck it
+      const shouldBeSelected = ev.isRegistered ? false : (isEligible ? ev.selected : false);
+
+      return {
+        ...ev,
+        categoryId: catId,
+        selected: shouldBeSelected,
+      };
     }));
 
     // Clear event errors when user updates participant demographic details
@@ -389,20 +689,22 @@ export function SportsMultiRegister() {
     setFormErrors({});
     setEventErrors({});
     if (type === "self") {
-      setPlayerName(user?.fullName || "");
-      setEmail(user?.email || "");
-      setGender((user as any)?.gender || "");
-      setDateOfBirth((user as any)?.dateOfBirth || (user as any)?.dob || "");
+      setPlayerName(userProfileName);
+      setEmail(liveUser?.email || user?.email || "");
+      setGender(userProfileGender);
+      setDateOfBirth(userProfileDob);
+      setFlatNumber(userProfileFlat);
       setRelation("");
       setFamilyMemberId(undefined);
     } else {
-      if (savedFamilyMembers.length > 0) {
-        const first = savedFamilyMembers[0];
+      setFlatNumber(userProfileFlat);
+      if (familyMembersOnly.length > 0) {
+        const first = familyMembersOnly[0];
         setPlayerName(first.name);
         setEmail(first.email || "");
         setGender(first.gender || "");
-        setDateOfBirth(first.dateOfBirth || "");
-        setRelation(first.relationship || "");
+        setDateOfBirth(first.dob || (first as any).dateOfBirth || "");
+        setRelation(first.relation || (first as any).relationship || "");
         setFamilyMemberId(first.id);
       } else {
         setPlayerName("");
@@ -416,13 +718,14 @@ export function SportsMultiRegister() {
   };
 
   const handleFamilyMemberSelect = (memberId: string | number) => {
-    const member = savedFamilyMembers.find(m => String(m.id) === String(memberId));
+    const member = familyMembersOnly.find(m => String(m.id) === String(memberId));
     if (member) {
       setPlayerName(member.name);
       setEmail(member.email || "");
       setGender(member.gender || "");
-      setDateOfBirth(member.dateOfBirth || "");
-      setRelation(member.relationship || "");
+      setDateOfBirth(member.dob || (member as any).dateOfBirth || "");
+      setRelation(member.relation || (member as any).relationship || "");
+      setFlatNumber(userProfileFlat);
       setFamilyMemberId(member.id);
       setFormErrors({});
       setEventErrors({});
@@ -432,6 +735,13 @@ export function SportsMultiRegister() {
   const toggleEventSelection = (eventId: number) => {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
+        if (ev.isRegistered) return ev;
+        const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+        const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+        const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+        if (!isEligible) {
+          return { ...ev, selected: false };
+        }
         return { ...ev, selected: !ev.selected };
       }
       return ev;
@@ -447,7 +757,15 @@ export function SportsMultiRegister() {
   const updateEventField = (eventId: number, field: "role" | "matchType" | "categoryId", value: any) => {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
-        return { ...ev, [field]: value };
+        const updated = { ...ev, [field]: value };
+        if (field === "categoryId") {
+          const selectedCat = categories.find(c => c.id === value);
+          const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+          if (!isEligible) {
+            updated.selected = false;
+          }
+        }
+        return updated;
       }
       return ev;
     }));
@@ -459,14 +777,194 @@ export function SportsMultiRegister() {
     });
   };
 
+  const [registeringEventId, setRegisteringEventId] = useState<number | null>(null);
+
+  // Single Event Direct Registration Handler
+  const handleSingleRegister = async (eventId: number) => {
+    if (regType === "self" && missingProfileFields.length > 0) {
+      toast.error(`Please update your ${missingProfileFields.join(" and ")} in your Profile before registering.`, {
+        duration: 6000,
+        action: {
+          label: "Update Profile",
+          onClick: () => navigate("/profile"),
+        },
+      });
+      return;
+    }
+
+    const errors: { playerName?: string; gender?: string; dateOfBirth?: string } = {};
+    if (!playerName.trim()) errors.playerName = "Participant name is required";
+    if (!gender) errors.gender = "Gender is required";
+    if (!dateOfBirth) errors.dateOfBirth = "Date of birth is mandatory for category validation";
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast.error("Please complete the required participant information first");
+      return;
+    }
+    setFormErrors({});
+
+    const ev = eventSelections.find(e => e.eventId === eventId);
+    if (!ev) return;
+
+    const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+    const selectedCategory = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+    if (!selectedCategory) {
+      setEventErrors(prev => ({ ...prev, [eventId]: "Please select a category bracket" }));
+      toast.error("Please select a category bracket for this sport");
+      return;
+    }
+
+    if (email.trim() && !isValidEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const calculatedAge = currentAge !== null ? currentAge : 25;
+    const eligibility = checkCategoryEligibility(selectedCategory, calculatedAge, gender);
+    if (!eligibility.eligible) {
+      setEventErrors(prev => ({ ...prev, [eventId]: eligibility.reason || "Ineligible for selected category" }));
+      toast.error(`Ineligible: ${eligibility.reason}`);
+      return;
+    }
+
+    setRegisteringEventId(eventId);
+    setEventErrors(prev => {
+      const copy = { ...prev };
+      delete copy[eventId];
+      return copy;
+    });
+
+    try {
+      await sportsService.registerForEvent({
+        eventId: ev.eventId,
+        categoryId: selectedCategory.id,
+        matchType: ev.matchType || "SINGLES",
+        role: ev.role || "Player",
+        age: calculatedAge,
+        dateOfBirth: dateOfBirth,
+        playerName: playerName.trim(),
+        email: email.trim() || undefined,
+        relation: relation || undefined,
+        flatNumber: flatNumber || undefined,
+        familyMemberId: regType === "family" ? familyMemberId : undefined,
+      });
+
+      toast.success(`Successfully registered for ${ev.name}!`);
+
+      // Update state: mark this event as registered and unselect from batch
+      setEventSelections(prev => prev.map(e => {
+        if (e.eventId === eventId) {
+          return { ...e, isRegistered: true, selected: false };
+        }
+        return e;
+      }));
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || `Failed to register for ${ev.name}`;
+      setEventErrors(prev => ({ ...prev, [eventId]: errMsg }));
+      toast.error(errMsg);
+    } finally {
+      setRegisteringEventId(null);
+    }
+  };
+
   const selectedEvents = useMemo(() => {
     return eventSelections.filter(e => e.selected && !e.isRegistered);
   }, [eventSelections]);
 
   const selectedCount = selectedEvents.length;
 
+  const registeredCount = useMemo(() => eventSelections.filter(e => e.isRegistered).length, [eventSelections]);
+
+  // Distinct sport category counts (e.g. Cricket, Badminton, Football count as 1 sport each)
+  const totalSportsCount = useMemo(() => {
+    const set = new Set<string>();
+    eventSelections.forEach(e => set.add(e.sportName || "Other"));
+    return set.size;
+  }, [eventSelections]);
+
+  const selectedSportsCount = useMemo(() => {
+    const set = new Set<string>();
+    eventSelections.forEach(e => {
+      if (e.selected && !e.isRegistered) {
+        set.add(e.sportName || "Other");
+      }
+    });
+    return set.size;
+  }, [eventSelections]);
+
+  const registeredSportsCount = useMemo(() => {
+    const set = new Set<string>();
+    eventSelections.forEach(e => {
+      if (e.isRegistered) {
+        set.add(e.sportName || "Other");
+      }
+    });
+    return set.size;
+  }, [eventSelections]);
+
+  const sportGroups = useMemo(() => {
+    const groups = new Map<string, SportEventSelection[]>();
+    eventSelections.forEach(ev => {
+      const key = ev.sportName || "Other";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(ev);
+    });
+
+    return Array.from(groups.entries()).map(([sportName, events]) => {
+      const meta = getSportMeta(sportName);
+      const eligible: SportEventSelection[] = [];
+      const ineligible: SportEventSelection[] = [];
+      const registered: SportEventSelection[] = [];
+
+      events.forEach(ev => {
+        if (ev.isRegistered) {
+          registered.push(ev);
+        } else {
+          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+          const elig = checkCategoryEligibility(selectedCat, currentAge, gender);
+          if (elig.eligible) {
+            eligible.push(ev);
+          } else {
+            ineligible.push(ev);
+          }
+        }
+      });
+
+      return {
+        sportName,
+        emoji: meta.emoji,
+        bgClass: meta.bg,
+        venueName: events.find(e => e.venueName)?.venueName,
+        dateStart: events.find(e => e.eventDateStart)?.eventDateStart,
+        eligible,
+        ineligible,
+        registered,
+        allEvents: events,
+      };
+    });
+  }, [eventSelections, categories, currentAge, gender]);
+
   const selectAll = () => {
-    setEventSelections(prev => prev.map(e => e.isRegistered ? e : { ...e, selected: true }));
+    setEventSelections(prev => prev.map(e => {
+      if (e.isRegistered) return e;
+      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
+      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
+      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      return { ...e, selected: isEligible };
+    }));
+  };
+
+  const toggleSportSelectAll = (sportName: string, select: boolean) => {
+    setEventSelections(prev => prev.map(e => {
+      if ((e.sportName || "Other") !== sportName || e.isRegistered) return e;
+      if (!select) return { ...e, selected: false };
+      const eventCats = getEventCategories(categories, e.sportName || e.name, e.name, e.categoryName);
+      const selectedCat = categories.find(c => c.id === e.categoryId) || eventCats[0];
+      const isEligible = checkCategoryEligibility(selectedCat, currentAge, gender).eligible;
+      return { ...e, selected: isEligible };
+    }));
   };
 
   const deselectAll = () => {
@@ -475,14 +973,26 @@ export function SportsMultiRegister() {
 
   // Comprehensive Submission Handler with Client-Side Eligibility Validation
   const handleSubmit = async () => {
-    const errors: { playerName?: string; gender?: string; dateOfBirth?: string } = {};
+    if (regType === "self" && missingProfileFields.length > 0) {
+      toast.error(`Please update your ${missingProfileFields.join(" and ")} in your Profile before registering.`, {
+        duration: 6000,
+        action: {
+          label: "Update Profile",
+          onClick: () => navigate("/profile"),
+        },
+      });
+      return;
+    }
+
+    const errors: { playerName?: string; gender?: string; dateOfBirth?: string; email?: string } = {};
     if (!playerName.trim()) errors.playerName = "Participant name is required";
     if (!gender) errors.gender = "Gender is required";
     if (!dateOfBirth) errors.dateOfBirth = "Date of birth is mandatory for category validation";
+    if (email.trim() && !isValidEmail(email)) errors.email = "Please enter a valid email address";
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
-      toast.error("Please complete the required participant information");
+      toast.error(errors.email || "Please complete the required participant information");
       return;
     }
     setFormErrors({});
@@ -558,10 +1068,9 @@ export function SportsMultiRegister() {
       toast.success(`Successfully registered for ${successCount} sport${successCount > 1 ? "s" : ""}!`);
       navigate("/sports");
     } else if (successCount > 0 && failedCount > 0) {
-      toast.warning(`Registered for ${successCount} event(s), but ${failedCount} event(s) failed. See errors below.`);
-    } else {
-      const firstErrMsg = Object.values(submissionErrors)[0] || "Registration failed. Please check the requirements.";
-      toast.error(firstErrMsg);
+      toast.warning(`Registered for ${successCount} event(s), but ${failedCount} failed. Please check errors.`);
+    } else if (failedCount > 0) {
+      toast.error("Failed to register. Please review the errors below.");
     }
   };
 
@@ -575,8 +1084,8 @@ export function SportsMultiRegister() {
           <Sparkles className="w-4 h-4 text-amber-500 absolute -top-1 -right-1 animate-pulse" />
         </div>
         <div className="text-center">
-          <h4 className="text-sm font-bold text-slate-800">Loading Tournament Details</h4>
-          <p className="text-xs text-slate-500 mt-0.5">Fetching events and categories...</p>
+          <h3 className="text-lg font-semibold text-slate-800">Loading Tournament Details</h3>
+          <p className="text-sm text-slate-500 mt-1">Fetching events and categories...</p>
         </div>
       </div>
     );
@@ -588,15 +1097,15 @@ export function SportsMultiRegister() {
         <div className="w-14 h-14 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-amber-600 shadow-sm">
           <AlertCircle className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-slate-900 mb-1">Tournament Not Available</h3>
-        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">Tournament Not Available</h2>
+        <p className="text-sm text-slate-500 mb-5 leading-relaxed">
           This tournament does not have open events or registrations have closed.
         </p>
         <button
           onClick={() => navigate("/sports")}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-bold rounded-xl hover:opacity-95 shadow-md shadow-indigo-500/20 transition cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-base font-semibold rounded-xl hover:opacity-95 shadow-md shadow-indigo-500/20 transition cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
+          <ArrowLeft className="w-4 h-4" />
           Return to Sports Hub
         </button>
       </div>
@@ -604,60 +1113,70 @@ export function SportsMultiRegister() {
   }
 
   return (
-    <div className="space-y-4 pb-24 md:pb-12 max-w-7xl mx-auto">
+    <div className="space-y-2.5 pb-24 md:pb-8 max-w-7xl mx-auto px-2 sm:px-3">
       {/* ── Top Navigation Bar with Tournament Title ──────────────────── */}
-      <div className="flex items-center justify-between gap-3 bg-white p-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200/80 shadow-xs">
+      <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
         <button
           onClick={() => navigate("/sports")}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 text-xs font-semibold text-slate-700 hover:text-indigo-600 transition-all cursor-pointer shrink-0"
+          className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 text-xs font-medium text-slate-700 hover:text-indigo-600 transition-all cursor-pointer shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Back to Hub</span>
           <span className="sm:hidden">Back</span>
         </button>
 
-        <div className="flex items-center gap-2 min-w-0 px-2 text-center">
-          <div className="h-6 w-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
+        <div className="flex items-center gap-2 min-w-0 px-1 text-center">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
             <Trophy className="h-3.5 w-3.5 text-white" />
           </div>
-          <h4 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 truncate">
+          <h2 className="text-[13px] sm:text-base md:text-lg font-bold text-slate-900 truncate leading-tight">
             {tournament.name}
-          </h4>
+          </h2>
           {tournament.events && (
-            <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-semibold shrink-0">
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold shrink-0">
               {tournament.events.length} sports
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-            <Sparkles className="w-3 h-3 text-indigo-500 animate-spin-slow" />
-            <span className="hidden sm:inline">Multi-Sport Registration</span>
-            <span className="sm:hidden">Registration</span>
-          </span>
-        </div>
+        <span className="hidden sm:flex px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold uppercase tracking-wider items-center gap-1 shadow-2xs shrink-0">
+          <Sparkles className="w-3 h-3 text-indigo-500 animate-spin-slow" />
+          <span className="hidden md:inline">Multi-Sport Registration</span>
+          <span className="md:hidden">Register</span>
+        </span>
       </div>
 
       {/* ── Main Layout: Participant Info (Col 4) & Sports Selection (Col 8) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-3 items-start">
         {/* ── Left Column: Participant Information (4 cols) ─────────── */}
-        <div className="lg:col-span-4 space-y-3">
-          <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-4 shadow-xs">
+        <div className="lg:col-span-4 space-y-2.5">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
             <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow-2xs">1</span>
-                Participant Details
-              </h2>
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Required</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                <h4 className="text-[13px] sm:text-sm font-semibold text-slate-900 flex items-center gap-1.5 shrink-0">
+                  <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">1</span>
+                  <span>Participant Details</span>
+                </h4>
+                {playerName && (
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 truncate max-w-[120px] sm:max-w-[160px]">
+                    {playerName}
+                  </span>
+                )}
+                {currentAge !== null && (
+                  <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                    Age: {currentAge} Yrs
+                  </span>
+                )}
+              </div>
+              <span className="hidden sm:inline text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">Required</span>
             </div>
 
             {/* Self vs Family Member Toggle */}
-            <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-100/90 rounded-lg mb-3 text-xs">
+            <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-100/90 rounded-lg mb-2.5">
               <button
                 type="button"
                 onClick={() => handleRegTypeChange("self")}
-                className={`py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer font-semibold ${
+                className={`min-h-[38px] py-1.5 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer text-[13px] sm:text-sm font-semibold ${
                   regType === "self"
                     ? "bg-white text-indigo-700 shadow-2xs font-bold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
@@ -669,7 +1188,7 @@ export function SportsMultiRegister() {
               <button
                 type="button"
                 onClick={() => handleRegTypeChange("family")}
-                className={`py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer font-semibold ${
+                className={`min-h-[38px] py-1.5 px-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer text-[13px] sm:text-sm font-semibold ${
                   regType === "family"
                     ? "bg-white text-indigo-700 shadow-2xs font-bold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
@@ -680,194 +1199,335 @@ export function SportsMultiRegister() {
               </button>
             </div>
 
-            {/* Quick Family Member Pills */}
-            {regType === "family" && savedFamilyMembers.length > 0 && (
-              <div className="mb-3 p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
-                <label className="block text-[9px] font-extrabold uppercase tracking-wider text-indigo-900 mb-1.5">
-                  Select Family Member:
-                </label>
-                <div className="flex flex-wrap gap-1">
-                  {savedFamilyMembers.map((m) => {
-                    const isSelected = String(familyMemberId) === String(m.id);
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleFamilyMemberSelect(m.id)}
-                        className={`text-[11px] px-2 py-1 rounded-md font-semibold transition-all flex items-center gap-1 cursor-pointer border ${
-                          isSelected
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
-                        }`}
-                      >
-                        <span>{m.name}</span>
-                        {m.relationship && (
-                          <span className={`text-[9px] px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
-                            {m.relationship}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+            {/* Quick Family Member Pills & Add Button */}
+            {regType === "family" && (
+              <div className="mb-2.5 p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-900">
+                    Select Family Member:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewFamilyMember({
+                        name: "",
+                        relation: "Son",
+                        gender: "Male",
+                        gotram: "",
+                        dob: "",
+                        phone: "",
+                        bloodGroup: "",
+                      });
+                      setShowAddFamilyModal(true);
+                    }}
+                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-md shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Member</span>
+                  </button>
                 </div>
+                {familyMembersOnly.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {familyMembersOnly.map((m) => {
+                      const isSelected = String(familyMemberId) === String(m.id);
+                      const dobVal = m.dob || (m as any).dateOfBirth;
+                      let formattedDob = "";
+                      if (dobVal) {
+                        try {
+                          formattedDob = format(new Date(dobVal), "dd MMM yyyy");
+                        } catch {
+                          formattedDob = String(dobVal);
+                        }
+                      }
+
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleFamilyMemberSelect(m.id)}
+                          className={`min-h-[32px] text-xs px-2.5 py-1 rounded-md font-medium transition-all flex items-center gap-1 cursor-pointer border flex-wrap ${
+                            isSelected
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          <span className="font-semibold">{m.name}</span>
+                          {(m.relation || (m as any).relationship) && (
+                            <span className={`text-[11px] px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
+                              {m.relation || (m as any).relationship}
+                            </span>
+                          )}
+                          {formattedDob ? (
+                            <span className={`text-[11px] px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
+                              DOB: {formattedDob}
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 py-0.5">
+                    No family members added yet. Click &quot;Add Member&quot; to add details.
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Form Fields */}
-            <div className="space-y-2.5">
-              {/* Row 1: Full Name & Email in single line */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between h-4 mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      Full Name <span className="text-rose-500">*</span>
-                    </label>
+            {/* Profile Incomplete Banner for Self */}
+            {regType === "self" && missingProfileFields.length > 0 && (
+              <div className="mb-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-left shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-lg flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-4 h-4 animate-pulse" />
                   </div>
-                  <input
-                    type="text"
-                    value={playerName}
-                    onChange={(e) => {
-                      setPlayerName(e.target.value);
-                      if (formErrors.playerName) setFormErrors(p => ({ ...p, playerName: undefined }));
-                    }}
-                    placeholder="Participant's full name"
-                    className={`w-full h-8.5 text-xs border rounded-lg px-2.5 bg-slate-50/50 focus:bg-white text-slate-800 focus:outline-none focus:ring-2 transition shadow-2xs ${
-                      formErrors.playerName
-                        ? "border-rose-400 focus:ring-rose-400/20 focus:border-rose-500 bg-rose-50/20"
-                        : "border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    }`}
-                  />
-                  {formErrors.playerName && (
-                    <p className="text-[10px] text-rose-600 font-medium mt-0.5 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {formErrors.playerName}
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                      Profile Incomplete: {missingProfileFields.join(", ")} Required
+                    </h4>
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                      Your profile is missing {missingProfileFields.join(", ")}. Please update your profile before registering.
                     </p>
-                  )}
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between h-4 mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      Email Address
-                    </label>
                   </div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full h-8.5 text-xs border border-slate-200 rounded-lg px-2.5 bg-slate-50/50 focus:bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
-                  />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile")}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 whitespace-nowrap"
+                >
+                  <span>Update Profile</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
               </div>
+            )}
 
-              {/* Row 2: Gender, DOB and Flat in single line */}
-              <div className="grid grid-cols-3 gap-2 items-start">
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between h-4 mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      Gender <span className="text-rose-500">*</span>
-                    </label>
+            {/* Registrant Details Display */}
+            {regType === "family" ? (
+              playerName ? (
+                <div className="hidden md:block bg-slate-50/70 border border-slate-200 rounded-xl p-2.5 space-y-2">
+                  <div className="grid grid-cols-2 gap-2 items-start">
+                    {/* Participant Full Name */}
+                    <div className="min-w-0">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                        Participant Name
+                      </label>
+                      <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
+                        {playerName}
+                      </div>
+                    </div>
+
+                    {/* Relationship */}
+                    <div className="min-w-0">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                        Relationship
+                      </label>
+                      <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
+                        {relation || "Family Member"}
+                      </div>
+                    </div>
                   </div>
-                  <select
-                    value={gender}
-                    onChange={(e) => {
-                      setGender(e.target.value);
-                      if (formErrors.gender) setFormErrors(p => ({ ...p, gender: undefined }));
-                    }}
-                    className={`w-full h-8.5 text-xs border rounded-lg px-2 bg-slate-50/50 focus:bg-white text-slate-800 focus:outline-none focus:ring-2 transition shadow-2xs cursor-pointer ${
-                      formErrors.gender
-                        ? "border-rose-400 focus:ring-rose-400/20 focus:border-rose-500 bg-rose-50/20"
-                        : "border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    }`}
-                  >
-                    <option value="">Select</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  {formErrors.gender && (
-                    <p className="text-[9px] text-rose-600 font-medium mt-0.5">
-                      {formErrors.gender}
-                    </p>
-                  )}
+
+                  <div className="grid grid-cols-3 gap-2 items-start">
+                    {/* Gender */}
+                    <div className="min-w-0">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                        Gender
+                      </label>
+                      <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
+                        {gender ? gender.toUpperCase() : "Not specified"}
+                      </div>
+                    </div>
+
+                    {/* DOB & Age */}
+                    <div className="min-w-0">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                        DOB / Age
+                      </label>
+                      <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
+                        {dateOfBirth ? (
+                          <span>{format(new Date(dateOfBirth), "dd MMM yyyy")} {currentAge !== null ? `(${currentAge}y)` : ""}</span>
+                        ) : (
+                          <span className="text-slate-400">Not provided</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Block & Flat */}
+                    <div className="min-w-0">
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                        Block & Flat
+                      </label>
+                      <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
+                        {userProfileFlat || "Not specified"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="hidden md:block p-3 bg-indigo-50/30 border border-dashed border-indigo-200 rounded-xl text-center space-y-1.5">
+                  <p className="text-xs font-medium text-slate-600">
+                    Please select a family member above or click &quot;Add Member&quot; to register them.
+                  </p>
+                </div>
+              )
+            ) : (
+              /* Self Registration Details */
+              <div className="hidden md:block space-y-2.5">
+                {/* Row 1: Full Name & Gender */}
+                <div className="grid grid-cols-2 gap-2 items-start">
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between h-4 mb-1">
+                      <label className="text-xs font-medium text-slate-700 truncate">
+                        Full Name <span className="text-rose-500">*</span>
+                      </label>
+                      {!userProfileName && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={userProfileName}
+                      readOnly
+                      placeholder={userProfileName || "Missing in Profile"}
+                      className={`w-full h-8 text-xs border rounded-lg px-2.5 transition shadow-2xs ${
+                        userProfileName
+                          ? "bg-slate-100/70 border-slate-200 text-slate-800 cursor-not-allowed"
+                          : "bg-amber-50/50 border-amber-300 text-amber-900"
+                      }`}
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between h-4 mb-1">
+                      <label className="text-xs font-medium text-slate-700 truncate">
+                        Gender <span className="text-rose-500">*</span>
+                      </label>
+                      {!userProfileGender && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className={`w-full h-8 text-xs border rounded-lg px-2.5 flex items-center justify-between ${
+                      userProfileGender
+                        ? "bg-slate-100/70 border-slate-200 text-slate-800 cursor-not-allowed"
+                        : "bg-amber-50/50 border-amber-300 text-amber-800"
+                    }`}>
+                      <span className="font-medium truncate">{userProfileGender ? userProfileGender.toUpperCase() : "Missing in Profile"}</span>
+                      {!userProfileGender && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between h-4 mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      DOB <span className="text-rose-500">*</span>
-                    </label>
-                    {currentAge !== null && (
-                      <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-                        {currentAge}y
+                {/* Row 2: DOB & Flat */}
+                <div className="grid grid-cols-2 gap-2 items-start">
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between h-4 mb-1">
+                      <label className="text-xs font-medium text-slate-700 truncate">
+                        DOB <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {currentAge !== null && (
+                          <span className="text-[11px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                            {currentAge}y
+                          </span>
+                        )}
+                        {!userProfileDob && (
+                          <button
+                            type="button"
+                            onClick={() => navigate("/profile")}
+                            className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>⚠️ Add</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`w-full h-8 text-xs border rounded-lg px-2.5 flex items-center justify-between ${
+                      userProfileDob
+                        ? "bg-slate-100/70 border-slate-200 text-slate-800 cursor-not-allowed"
+                        : "bg-amber-50/50 border-amber-300 text-amber-800"
+                    }`}>
+                      <span className="font-medium truncate">
+                        {userProfileDob ? format(new Date(userProfileDob), "dd MMM yyyy") : "Missing in Profile"}
                       </span>
-                    )}
+                      {!userProfileDob && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <DatePicker
-                    size="sm"
-                    value={dateOfBirth}
-                    onChange={(val) => {
-                      setDateOfBirth(val || "");
-                      if (formErrors.dateOfBirth) setFormErrors(p => ({ ...p, dateOfBirth: undefined }));
-                    }}
-                    placeholder="DOB"
-                    className={`h-8.5 text-xs rounded-lg px-2 bg-slate-50/50 hover:bg-white focus:bg-white border-slate-200 shadow-2xs ${
-                      formErrors.dateOfBirth ? "border-rose-400" : ""
-                    }`}
-                  />
-                  {formErrors.dateOfBirth && (
-                    <p className="text-[9px] text-rose-600 font-medium mt-0.5">
-                      {formErrors.dateOfBirth}
-                    </p>
-                  )}
-                </div>
 
-                <div className="min-w-0">
-                  <div className="flex items-center justify-between h-4 mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700 truncate">
-                      Flat / Villa
-                    </label>
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between h-4 mb-1">
+                      <label className="text-xs font-medium text-slate-700 truncate">
+                        Block & Flat <span className="text-rose-500">*</span>
+                      </label>
+                      {!userProfileFlat && (
+                        <button
+                          type="button"
+                          onClick={() => navigate("/profile")}
+                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>⚠️ Add</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={userProfileFlat || flatNumber}
+                      readOnly
+                      placeholder={userProfileFlat || "Missing in Profile"}
+                      className={`w-full h-8 text-xs border rounded-lg px-2.5 transition shadow-2xs ${
+                        userProfileFlat
+                          ? "bg-slate-100/70 border-slate-200 text-slate-800 cursor-not-allowed"
+                          : "bg-amber-50/50 border-amber-300 text-amber-900"
+                      }`}
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={flatNumber}
-                    onChange={(e) => setFlatNumber(e.target.value)}
-                    placeholder="e.g. A-402"
-                    className="w-full h-8.5 text-xs border border-slate-200 rounded-lg px-2 bg-slate-50/50 focus:bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
-                  />
                 </div>
               </div>
-
-              {/* Optional Row 3: Relationship (when Family Member selected) */}
-              {regType === "family" && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
-                    Relationship
-                  </label>
-                  <input
-                    type="text"
-                    value={relation}
-                    onChange={(e) => setRelation(e.target.value)}
-                    placeholder="e.g. Son, Daughter, Spouse"
-                    className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50/50 focus:bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition shadow-2xs"
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Desktop Summary & Submit Card */}
-          <div className="bg-gradient-to-br from-indigo-50/90 via-violet-50/60 to-purple-50/40 border border-indigo-100/90 rounded-xl p-3 sm:p-3.5 shadow-xs hidden md:block">
+          <div className="bg-gradient-to-br from-indigo-50/90 via-violet-50/60 to-purple-50/40 border border-indigo-100/90 rounded-xl p-3 shadow-2xs hidden md:block">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-800">Summary:</span>
-              <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-indigo-600 text-white shadow-xs">
+              <span className="text-sm font-semibold text-slate-800">Summary:</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-600 text-white shadow-2xs">
                 {selectedCount} Selected
               </span>
             </div>
 
             {selectedCount > 0 ? (
-              <div className="mb-3 space-y-1 max-h-44 overflow-y-auto pr-1">
+              <div className="mb-2.5 space-y-1.5 max-h-44 overflow-y-auto pr-1">
                 {selectedEvents.map(e => {
                   const meta = getSportMeta(e.sportName || e.name);
                   const selCat = categories.find(c => c.id === e.categoryId);
@@ -876,7 +1536,7 @@ export function SportsMultiRegister() {
                   return (
                     <div
                       key={e.eventId}
-                      className={`flex flex-col gap-0.5 text-[10px] p-2 rounded-lg border ${
+                      className={`flex flex-col gap-0.5 text-xs p-2 rounded-lg border ${
                         !el.eligible || eventErrors[e.eventId]
                           ? "bg-rose-50/80 border-rose-200 text-rose-900"
                           : "bg-white/90 border-indigo-100/60 text-slate-700"
@@ -887,21 +1547,21 @@ export function SportsMultiRegister() {
                           <span>{meta.emoji}</span>
                           <span className="truncate">{e.name}</span>
                         </span>
-                        <span className="text-[9px] text-indigo-600 font-bold shrink-0">
+                        <span className="text-xs text-indigo-600 font-bold shrink-0">
                           {e.role}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[9px] text-slate-500">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500">
                         <span className="truncate font-medium text-slate-600">
                           {selCat ? selCat.name : "No category"}
                         </span>
                         {!el.eligible ? (
-                          <span className="text-rose-600 font-bold flex items-center gap-0.5">
-                            <AlertTriangle className="w-2.5 h-2.5" /> Ineligible
+                          <span className="text-rose-600 font-bold flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> Ineligible
                           </span>
                         ) : (
-                          <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
-                            <Check className="w-2.5 h-2.5" /> Eligible
+                          <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Eligible
                           </span>
                         )}
                       </div>
@@ -910,8 +1570,8 @@ export function SportsMultiRegister() {
                 })}
               </div>
             ) : (
-              <p className="text-[10px] text-slate-500 mb-3 flex items-center gap-1 bg-white/70 p-2 rounded-lg border border-slate-200/60">
-                <Info className="w-3 h-3 text-amber-500 shrink-0" />
+              <p className="text-xs text-slate-500 mb-2.5 flex items-center gap-1.5 bg-white/70 p-2 rounded-lg border border-slate-200/60">
+                <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 Select sports from the right.
               </p>
             )}
@@ -920,7 +1580,7 @@ export function SportsMultiRegister() {
               type="button"
               onClick={handleSubmit}
               disabled={submitting || selectedCount === 0}
-              className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm shadow-indigo-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-indigo-500/30"
+              className="w-full min-h-[40px] py-2 px-3.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-semibold shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
                 <>
@@ -938,201 +1598,324 @@ export function SportsMultiRegister() {
         </div>
 
         {/* ── Right Column: Available Sports Selection (8 cols) ──────── */}
-        <div className="lg:col-span-8 space-y-3.5">
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">2</span>
-                <h2 className="text-sm font-bold text-slate-900">Choose Sports Events</h2>
-                <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                  {selectedCount} of {eventSelections.length}
+        <div className="lg:col-span-8 space-y-2.5">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs shrink-0">2</span>
+                <h2 className="text-[13px] sm:text-sm font-semibold text-slate-900">Choose Sports</h2>
+                <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                  {selectedSportsCount}/{totalSportsCount}
                 </span>
               </div>
-              
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={selectAll}
-                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer"
+                  className="min-h-[32px] text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition cursor-pointer"
                 >
-                  Select All
+                  All
                 </button>
                 <button
                   type="button"
                   onClick={deselectAll}
-                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
+                  className="min-h-[32px] text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer"
                 >
-                  Clear All
+                  Clear
                 </button>
               </div>
             </div>
 
-            {/* List of sport event cards */}
-            <div className="space-y-3">
-              {eventSelections.map((ev) => {
-                const sportKey = detectSport(ev.sportName || ev.name);
+            {/* Progress bar */}
+            {totalSportsCount > 0 && (
+              <div className="mb-2.5">
+                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-medium text-slate-500 mb-1">
+                  <span>{registeredSportsCount} of {totalSportsCount} registered</span>
+                  <span>{Math.round((registeredSportsCount / totalSportsCount) * 100)}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                    style={{ width: `${(registeredSportsCount / totalSportsCount) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Grouped sport cards */}
+            <div className="space-y-2.5">
+              {sportGroups.map((group) => {
+                const sportKey = detectSport(group.sportName);
                 const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
                 const roles = cfg.categories.flatMap(c => c.roles);
-                const meta = getSportMeta(ev.sportName || ev.name);
-                const selectedCat = categories.find(c => c.id === ev.categoryId);
-                const eligibility = checkCategoryEligibility(selectedCat, currentAge, gender);
-                const hasError = Boolean(eventErrors[ev.eventId] || (ev.selected && !eligibility.eligible));
+                const isExpanded = expandedSports[group.sportName] !== false; // expanded by default
+                const eligibleSelectedCount = group.eligible.filter(e => e.selected).length;
+                const isAllEligibleSelected = group.eligible.length > 0 && eligibleSelectedCount === group.eligible.length;
 
                 return (
-                  <div
-                    key={ev.eventId}
-                    className={`rounded-2xl border transition-all duration-200 p-3.5 sm:p-4 ${
-                      ev.isRegistered
-                        ? "bg-slate-50/80 border-slate-200 opacity-80"
-                        : hasError
-                          ? "bg-rose-50/30 border-rose-300 shadow-xs ring-1 ring-rose-400/20"
-                          : ev.selected
-                            ? "bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 border-indigo-300 shadow-xs ring-1 ring-indigo-400/20"
-                            : "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Selection Checkbox */}
-                      <button
-                        type="button"
-                        disabled={ev.isRegistered}
-                        onClick={() => toggleEventSelection(ev.eventId)}
-                        className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all flex-shrink-0 mt-0.5 ${
-                          ev.isRegistered
-                            ? "bg-emerald-500 text-white cursor-not-allowed shadow-xs"
-                            : ev.selected
-                              ? hasError ? "bg-rose-600 text-white shadow-xs cursor-pointer" : "bg-indigo-600 text-white shadow-xs cursor-pointer"
-                              : "border border-slate-300 bg-white hover:border-indigo-500 hover:bg-indigo-50/20 cursor-pointer"
-                        }`}
-                      >
-                        {ev.isRegistered ? (
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        ) : ev.selected ? (
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                        ) : null}
-                      </button>
-
-                      {/* Event Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-base sm:text-lg flex-shrink-0">{meta.emoji}</span>
-                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                              {ev.name}
-                            </h3>
-                          </div>
-                          
-                          {ev.isRegistered ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold whitespace-nowrap flex items-center gap-1">
-                              <Check className="w-3 h-3 stroke-[2.5]" />
-                              Already Registered
-                            </span>
-                          ) : (
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${meta.bg}`}>
-                              {ev.sportName}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Location, category & schedule info */}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 mt-1">
-                          {ev.venueName && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3 text-slate-400" />
-                              {ev.venueName}
-                            </span>
-                          )}
-                          {ev.eventDateStart && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3 text-slate-400" />
-                              {format(new Date(ev.eventDateStart), "MMM d")}
-                              {ev.eventDateEnd && ` – ${format(new Date(ev.eventDateEnd), "MMM d")}`}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Server or Inline Error Banner */}
-                        {eventErrors[ev.eventId] && (
-                          <div className="mt-2.5 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-rose-900">Registration Error</p>
-                              <p className="text-[11px] text-rose-700">{eventErrors[ev.eventId]}</p>
-                            </div>
+                  <div key={group.sportName} className="rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
+                    {/* Sport Group Header */}
+                    <div
+                      className={`px-2.5 py-2.5 sm:px-3 sm:py-2.5 ${group.bgClass} border-b flex items-center justify-between gap-2 cursor-pointer select-none transition-colors hover:brightness-98`}
+                      onClick={() => toggleSportCollapse(group.sportName)}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                        {group.eligible.length > 0 && (
+                          <div
+                            className="flex items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isAllEligibleSelected}
+                              ref={el => {
+                                if (el) {
+                                  el.indeterminate = eligibleSelectedCount > 0 && !isAllEligibleSelected;
+                                }
+                              }}
+                              onChange={(e) => toggleSportSelectAll(group.sportName, e.target.checked)}
+                              title={isAllEligibleSelected ? "Deselect all categories in this sport" : "Select all eligible categories"}
+                              className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0"
+                            />
                           </div>
                         )}
 
-                        {/* Inline Role & Bracket Customization when selected */}
-                        {ev.selected && !ev.isRegistered && (
-                          <div className="mt-3 pt-2.5 border-t border-slate-200/80 space-y-2.5 bg-white/70 p-3 rounded-xl">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                                  Playing Role
-                                </label>
+                        <span className="text-lg sm:text-xl shrink-0">{group.emoji}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <h3 className="text-[13px] sm:text-sm font-bold truncate">{group.sportName}</h3>
+                            {eligibleSelectedCount > 0 && (
+                              <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-600 text-white shadow-2xs">
+                                {eligibleSelectedCount} selected
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] sm:text-[11px] opacity-75 mt-0.5">
+                            {group.venueName && (
+                              <span className="flex items-center gap-0.5">
+                                <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {group.venueName}
+                              </span>
+                            )}
+                            {group.dateStart && (
+                              <span className="flex items-center gap-0.5">
+                                <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {format(new Date(group.dateStart), "MMM d")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+                        {group.registered.length > 0 && (
+                          <span className="hidden sm:inline text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            {group.registered.length} Reg
+                          </span>
+                        )}
+                        <span className="text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/70 border text-slate-700">
+                          {group.allEvents.length} {group.allEvents.length === 1 ? "Cat" : "Cats"}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={isExpanded ? "Collapse sport" : "Expand sport"}
+                          className="p-0.5 sm:p-1 rounded-md hover:bg-black/5 text-slate-600 transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Category Rows */}
+                    {isExpanded && (
+                      <div className="divide-y divide-slate-100 bg-white">
+                        {/* Eligible categories */}
+                        {group.eligible.map((ev) => {
+                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+                          const hasError = Boolean(eventErrors[ev.eventId]);
+
+                          return (
+                            <div key={ev.eventId} className={`px-2.5 py-2 sm:px-3 sm:py-2.5 transition-colors ${
+                              ev.selected ? "bg-indigo-50/40" : hasError ? "bg-rose-50/30" : "hover:bg-slate-50/50"
+                            }`}>
+                              <div className="flex items-center gap-2 sm:gap-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={ev.selected}
+                                  onChange={() => toggleEventSelection(ev.eventId)}
+                                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer accent-indigo-600 shrink-0"
+                                />
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                                    <span className="text-[13px] sm:text-sm font-semibold text-slate-900">{ev.name}</span>
+                                    {selectedCat && (
+                                      <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium whitespace-nowrap">
+                                        {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
+                                        {selectedCat.minAge != null && selectedCat.maxAge != null
+                                          ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
+                                          : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
+                                        } yrs
+                                      </span>
+                                    )}
+                                  </div>
+                                  {eventErrors[ev.eventId] && (
+                                    <p className="text-[10px] sm:text-[11px] text-rose-600 mt-0.5 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" /> {eventErrors[ev.eventId]}
+                                    </p>
+                                  )}
+                                </div>
+
                                 <select
                                   value={ev.role}
                                   onChange={(e) => updateEventField(ev.eventId, "role", e.target.value)}
-                                  className="w-full text-xs font-semibold border border-slate-200 rounded-lg p-2 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
+                                  className="hidden sm:block h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-32 shrink-0"
                                 >
                                   {roles.map(r => (
                                     <option key={r} value={r}>{r}</option>
                                   ))}
                                 </select>
-                              </div>
 
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                                  Category / Age Bracket <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                  value={ev.categoryId || ""}
-                                  onChange={(e) => updateEventField(ev.eventId, "categoryId", Number(e.target.value))}
-                                  className={`w-full text-xs font-semibold border rounded-lg p-2 bg-white text-slate-800 focus:outline-none focus:ring-2 shadow-xs ${
-                                    !eligibility.eligible
-                                      ? "border-rose-400 focus:ring-rose-400/20 focus:border-rose-500 bg-rose-50/20"
-                                      : "border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500"
-                                  }`}
+                                <button
+                                  type="button"
+                                  onClick={() => handleSingleRegister(ev.eventId)}
+                                  disabled={registeringEventId === ev.eventId}
+                                  className="min-h-[32px] px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition shrink-0"
                                 >
-                                  {categories.map(c => {
-                                    const itemEl = checkCategoryEligibility(c, currentAge, gender);
-                                    const ageLabel = `Age: ${c.minAge ?? 0}–${c.maxAge ?? 99}`;
-                                    const genderLabel = c.gender || "All";
-                                    return (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name} ({genderLabel}, {ageLabel}) {!itemEl.eligible ? "— ⚠️ Ineligible" : "— ✓ Eligible"}
-                                      </option>
-                                    );
-                                  })}
-                                </select>
+                                  {registeringEventId === ev.eventId ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-3 h-3" />
+                                  )}
+                                  <span className="hidden sm:inline">Register</span>
+                                </button>
                               </div>
-                            </div>
-
-                            {/* Eligibility Status Feedback under the Category selector */}
-                            {selectedCat && (
-                              <div className="pt-1">
-                                {eligibility.eligible ? (
-                                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50/80 px-2.5 py-1.5 rounded-lg border border-emerald-200">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                    <span>
-                                      Eligible for <span className="font-bold">{selectedCat.name}</span> (Participant age {currentAge !== null ? `${currentAge} yrs` : "N/A"} meets allowed {selectedCat.minAge ?? 0}–{selectedCat.maxAge ?? 99} yrs range)
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-start gap-1.5 text-[11px] font-semibold text-rose-800 bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-200">
-                                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                                    <div>
-                                      <p className="font-bold text-rose-900">Ineligible for this category</p>
-                                      <p className="text-[10px] text-rose-700 font-normal">{eligibility.reason}</p>
-                                    </div>
+                              {/* Dropdowns section (category bracket & mobile role) */}
+                              <div className="mt-1.5 pl-6 sm:pl-6 space-y-1.5 w-full max-w-full overflow-hidden">
+                                {/* Category dropdown for multi-category events */}
+                                {eventCats.length > 1 && (
+                                  <div className="w-full max-w-full">
+                                    <label className="sm:hidden block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                                      Age Bracket:
+                                    </label>
+                                    <select
+                                      value={ev.categoryId || ""}
+                                      onChange={(e) => updateEventField(ev.eventId, "categoryId", Number(e.target.value))}
+                                      className="box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-full sm:w-auto sm:min-w-[180px] max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                    >
+                                      {eventCats.map(c => {
+                                        const itemEl = checkCategoryEligibility(c, currentAge, gender);
+                                        const ageLabel = c.minAge != null && c.maxAge != null
+                                          ? (c.maxAge >= 90 ? `${c.minAge}+` : c.minAge <= 0 ? `U-${c.maxAge}` : `${c.minAge}–${c.maxAge}`)
+                                          : (c.minAge != null ? `${c.minAge}+` : c.maxAge != null ? `U-${c.maxAge}` : "All");
+                                        return (
+                                          <option key={c.id} value={c.id} className="text-xs truncate">
+                                            {c.name} ({ageLabel} yrs) {!itemEl.eligible ? "— Ineligible" : ""}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
                                   </div>
                                 )}
+
+                                {/* Mobile role dropdown */}
+                                <div className="sm:hidden w-full max-w-full">
+                                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                                    Playing Role:
+                                  </label>
+                                  <select
+                                    value={ev.role}
+                                    onChange={(e) => updateEventField(ev.eventId, "role", e.target.value)}
+                                    className="box-border h-8 text-xs font-medium border border-slate-200 rounded-lg px-2 bg-white text-slate-700 w-full max-w-full truncate focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                  >
+                                    {roles.map(r => (
+                                      <option key={r} value={r} className="text-xs truncate">{r}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Registered categories */}
+                        {group.registered.map((ev) => {
+                          const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                          const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+
+                          return (
+                            <div key={ev.eventId} className="px-2.5 py-2 sm:px-3 sm:py-2.5 bg-emerald-50/30">
+                              <div className="flex items-center gap-2 sm:gap-2.5">
+                                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                                    <span className="text-[13px] sm:text-sm font-semibold text-slate-700">{ev.name}</span>
+                                    {selectedCat && (
+                                      <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-medium whitespace-nowrap">
+                                        {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
+                                        {selectedCat.minAge != null && selectedCat.maxAge != null
+                                          ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
+                                          : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
+                                        } yrs
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shrink-0">
+                                  <Check className="w-3 h-3 stroke-[2.5]" /> Registered
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Ineligible categories */}
+                        {group.ineligible.length > 0 && (
+                          <>
+                            <div className="px-2.5 sm:px-3 py-1.5 bg-rose-50/40 border-t border-rose-100">
+                              <span className="text-[10px] sm:text-[11px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> Ineligible
+                              </span>
+                            </div>
+                            {group.ineligible.map((ev) => {
+                              const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
+                              const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+                              const eligibility = checkCategoryEligibility(selectedCat, currentAge, gender);
+
+                              return (
+                                <div key={ev.eventId} className="px-2.5 py-2 sm:px-3 sm:py-2 bg-rose-50/20 opacity-60">
+                                  <div className="flex items-center gap-2 sm:gap-2.5">
+                                    <div className="w-4 h-4 rounded border-2 border-slate-200 bg-slate-50 shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+                                        <span className="text-[13px] sm:text-sm font-medium text-slate-500">{ev.name}</span>
+                                        {selectedCat && (
+                                          <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-400 border border-rose-200 font-medium whitespace-nowrap">
+                                            {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
+                                            {selectedCat.minAge != null && selectedCat.maxAge != null
+                                              ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
+                                              : (selectedCat.minAge != null ? `${selectedCat.minAge}+` : selectedCat.maxAge != null ? `U-${selectedCat.maxAge}` : "All Ages")
+                                            } yrs
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] sm:text-[11px] text-rose-500 mt-0.5">{eligibility.reason}</p>
+                                    </div>
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 text-[10px] sm:text-[11px] font-bold shrink-0">
+                                      Ineligible
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
                         )}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -1142,21 +1925,21 @@ export function SportsMultiRegister() {
       </div>
 
       {/* ── Sticky Bottom Bar on Mobile for Instant Registration ── */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 px-3 py-2.5 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 md:hidden safe-area-bottom">
         <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
-          <div>
-            <div className="text-xs font-extrabold text-slate-900">
+          <div className="min-w-0">
+            <div className="text-[13px] font-bold text-slate-900">
               {selectedCount} Sport{selectedCount !== 1 ? "s" : ""} Selected
             </div>
-            <div className="text-[10px] text-slate-500 truncate">
-              {playerName || "Participant"} {currentAge !== null ? `(${currentAge} yrs)` : ""}
+            <div className="text-[11px] text-slate-500 truncate">
+              {playerName || "Participant"} {currentAge !== null ? `· ${currentAge} yrs` : ""}
             </div>
           </div>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={submitting || selectedCount === 0}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[13px] font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 active:scale-95"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1167,6 +1950,155 @@ export function SportsMultiRegister() {
           </button>
         </div>
       </div>
+
+      {/* ── Add Family Member Modal ── */}
+      {showAddFamilyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 border border-slate-100 relative my-8">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Add Family Member</h3>
+                  <p className="text-xs text-slate-500">Add details to register them for sports</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddFamilyModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAddFamilyMemberSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newFamilyMember.name}
+                  onChange={(e) => setNewFamilyMember({ ...newFamilyMember, name: e.target.value })}
+                  placeholder="e.g. Aarav Sharma"
+                  className="w-full h-10 text-sm border border-slate-200 rounded-xl px-3 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    Relationship <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={newFamilyMember.relation}
+                    onChange={(e) => {
+                      const rel = e.target.value;
+                      let autoGender = newFamilyMember.gender;
+                      if (rel === "Wife" || rel === "Mother" || rel === "Daughter" || rel === "Sister") {
+                        autoGender = "Female";
+                      } else if (rel === "Husband" || rel === "Father" || rel === "Son" || rel === "Brother") {
+                        autoGender = "Male";
+                      }
+                      setNewFamilyMember({ ...newFamilyMember, relation: rel, gender: autoGender });
+                    }}
+                    className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
+                  >
+                    <option value="Son">Son</option>
+                    <option value="Daughter">Daughter</option>
+                    <option value="Spouse">Spouse</option>
+                    <option value="Wife">Wife</option>
+                    <option value="Husband">Husband</option>
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Brother">Brother</option>
+                    <option value="Sister">Sister</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    Gender <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={newFamilyMember.gender}
+                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, gender: e.target.value })}
+                    className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    Date of Birth <span className="text-slate-400 font-normal">(Age)</span>
+                  </label>
+                  <DatePicker
+                    value={newFamilyMember.dob}
+                    onChange={(val) => setNewFamilyMember({ ...newFamilyMember, dob: val || "" })}
+                    max={new Date().toISOString().split("T")[0]}
+                    presets={false}
+                    placeholder="DOB"
+                    className="h-10 text-sm rounded-xl px-2.5 bg-slate-50/50 border-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={newFamilyMember.phone}
+                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, phone: e.target.value })}
+                    placeholder="10-digit mobile"
+                    className="w-full h-10 text-sm border border-slate-200 rounded-xl px-3 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddFamilyModal(false)}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingFamilyMember}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {addingFamilyMember ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Adding...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>Save Member</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

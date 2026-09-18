@@ -23,6 +23,7 @@ import { ClipboardList } from "lucide-react";
 import { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS, SPORT_COLORS, DEFAULT_AVATAR_URL } from "../utils/sportsConstants";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
 import type { AnnouncementConfig } from "./TournamentAnnouncementModal";
+import { isValidIndianPhone, isValidEmail } from "../sportsValidation";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -783,6 +784,7 @@ export function useSportsAdminState() {
       const form = addPlayerForms[idx];
       if (!form.playerName.trim()) { toast.error(`Player Name is required for card #${idx + 1}`); return; }
       if (!form.playerEmail.trim()) { toast.error(`Player Email is required for card #${idx + 1}`); return; }
+      if (!isValidEmail(form.playerEmail)) { toast.error(`Please enter a valid Player Email for card #${idx + 1}`); return; }
       if (!form.categoryId) { toast.error(`Player Category is required for card #${idx + 1}`); return; }
     }
     setSubmitting(true);
@@ -1222,9 +1224,9 @@ export function useSportsAdminState() {
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
+    if (!isValidIndianPhone(eventContactNumber)) { toast.error("Tournament Contact Number must be a valid 10-digit Indian mobile number"); return; }
     if (!eventContactEmail.trim()) { toast.error("Tournament Contact Email is required"); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(eventContactEmail)) { toast.error("Please enter a valid Tournament Contact Email"); return; }
+    if (!isValidEmail(eventContactEmail)) { toast.error("Please enter a valid Tournament Contact Email"); return; }
     for (let i = 0; i < sponsors.length; i++) {
       const s = sponsors[i];
       if (!s.category.trim()) { toast.error(`Sponsor Category is required for sponsor #${i + 1}`); return; }
@@ -1774,9 +1776,11 @@ export function useSportsAdminState() {
       const c = venueContacts[i];
       if (!c.name?.trim()) { toast.error(`Contact #${i + 1} Name is required`); return; }
       if (!c.number?.trim()) { toast.error(`Contact #${i + 1} Number is required`); return; }
+      if (!isValidIndianPhone(c.number)) {
+        toast.error(`Contact #${i + 1} Number must be a valid 10-digit Indian mobile number`); return;
+      }
       if (!c.email?.trim()) { toast.error(`Contact #${i + 1} Email is required`); return; }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(c.email)) {
+      if (!isValidEmail(c.email)) {
         toast.error(`Please enter a valid email for Contact #${i + 1}`); return;
       }
     }
@@ -2186,9 +2190,10 @@ export function useSportsAdminState() {
         }
         if (!ev.contactName?.trim()) { toast.error("Contact Name is required"); return; }
         if (!ev.contactNumber?.trim()) { toast.error("Contact Number is required"); return; }
+        if (!isValidIndianPhone(ev.contactNumber)) { toast.error(`Contact Number for "${ev.eventName || 'Event'}" must be a valid 10-digit Indian mobile number`); return; }
         if (!ev.contactEmail?.trim()) { toast.error("Contact Email is required"); return; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim())) {
-          toast.error("Please enter a valid Contact Email"); return;
+        if (!isValidEmail(ev.contactEmail)) {
+          toast.error(`Please enter a valid Contact Email for "${ev.eventName || 'Event'}"`); return;
         }
       }
     }
