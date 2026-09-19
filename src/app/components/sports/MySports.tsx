@@ -32,6 +32,7 @@ import {
   Shield,
   Compass,
   HeartHandshake,
+  X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { toast, Toaster } from "sonner";
@@ -43,6 +44,8 @@ import { sportsScheduleService, type EventListItem, type RegistrationListItem } 
 import { auctionService } from "../../../services/sports/auctionService";
 import { communityService } from "../../../services/community/communityService";
 import { venueService } from "../../../services/bookings/venueService";
+import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import type { SportMeta, AuctionTeam, CommunityResponse, Venue } from "../../../types/api";
 
 const ALL_SPORTS = [
@@ -149,6 +152,20 @@ export function MySports() {
   const [loadingData, setLoadingData] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Partner Nomination Modal state
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [partnerModalState, setPartnerModalState] = useState<{
+    open: boolean;
+    registration: RegistrationListItem | null;
+    selectedPartner: SelectedPartnerInfo | null;
+    saving: boolean;
+  }>({
+    open: false,
+    registration: null,
+    selectedPartner: null,
+    saving: false,
+  });
+
   // Tournament tab filters
   const [tournamentSearch, setTournamentSearch] = useState("");
   const [tournamentSportFilter, setTournamentSportFilter] = useState("All");
@@ -182,16 +199,18 @@ export function MySports() {
     if (!user?.userId) return;
     setLoadingData(true);
     try {
-      const [regs, myTeams, events, partnerInvites] = await Promise.all([
+      const [regs, myTeams, events, partnerInvites, famMembers] = await Promise.all([
         sportsScheduleService.getMyRegistrations().catch(() => []),
         auctionService.getCaptainRegistration().catch(() => []),
         sportsScheduleService.getMyEvents().catch(() => []),
         sportsService.getPartnerInvitations("PENDING").catch(() => []),
+        familyService.getFamilyMembers().catch(() => []),
       ]);
       setRegistrations(regs || []);
       setTeams(myTeams || []);
       setMyMatches(events || []);
       setPartnerInvitations(partnerInvites || []);
+      setFamilyMembers(famMembers || []);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -243,6 +262,37 @@ export function MySports() {
       toast.error(err?.response?.data?.message || err?.message || "Failed to respond to invitation");
     } finally {
       setRespondingInviteId(null);
+    }
+  };
+
+  const handleSavePartner = async () => {
+    if (!partnerModalState.registration) return;
+    const regId = partnerModalState.registration.id;
+    setPartnerModalState(prev => ({ ...prev, saving: true }));
+    try {
+      const partnerUserId = partnerModalState.selectedPartner?.userId || null;
+      await sportsService.nominatePartner(regId, partnerUserId);
+      toast.success(
+        partnerUserId
+          ? `Partner invitation sent to ${partnerModalState.selectedPartner?.name || "partner"}!`
+          : "Registered in Open Pairing Pool. You'll be matched with a partner soon."
+      );
+      setRegistrations(prev => prev.map(r => {
+        if (r.id === regId) {
+          return {
+            ...r,
+            partnerUserId,
+            partnerName: partnerModalState.selectedPartner?.name || (partnerUserId ? "Nominated Partner" : null),
+            partnerStatus: partnerUserId ? "PENDING" : "LOOKING_FOR_PARTNER",
+          };
+        }
+        return r;
+      }));
+      setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false });
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update partner");
+      setPartnerModalState(prev => ({ ...prev, saving: false }));
     }
   };
 
@@ -795,6 +845,11 @@ export function MySports() {
                                   <h4 className="text-sm font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
 
                                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                    {reg.matchType && (
+                                      <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-bold capitalize">
+                                        {reg.matchType.replace(/_/g, " ").toLowerCase()}
+                                      </span>
+                                    )}
                                     {reg.categoryName && (
                                       <span className="text-[9px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">
                                         Category: {reg.categoryName}
@@ -811,6 +866,62 @@ export function MySports() {
                                       </span>
                                     )}
                                   </div>
+
+                                  {/* Doubles / Mixed Doubles Partner Info */}
+                                  {((reg.matchType && reg.matchType.toUpperCase().includes("DOUBLES")) ||
+                                    (reg.eventName && reg.eventName.toLowerCase().includes("doubles")) ||
+                                    (reg.categoryName && reg.categoryName.toLowerCase().includes("doubles"))) && (
+                                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                                      {reg.partnerUserId || reg.partnerName ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${
+                                            reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED"
+                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                              : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED"
+                                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                                              : "bg-amber-50 text-amber-700 border-amber-200"
+                                          }`}>
+                                            <Users className="w-3 h-3" />
+                                            <span>
+                                              Partner: <strong>{reg.partnerName || "Partner"}</strong>
+                                            </span>
+                                            <span className="text-[9px] font-medium opacity-80">
+                                              ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
+                                            </span>
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                                            <Sparkles className="w-3 h-3 text-purple-600" />
+                                            <span>Open Pairing Pool</span>
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setPartnerModalState({
+                                              open: true,
+                                              registration: reg,
+                                              selectedPartner: reg.partnerUserId ? {
+                                                userId: reg.partnerUserId,
+                                                name: reg.partnerName || undefined,
+                                                mode: "community",
+                                              } : null,
+                                              saving: false,
+                                            });
+                                          }}
+                                          className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-indigo-200"
+                                        >
+                                          <HeartHandshake className="w-3 h-3 text-indigo-600" />
+                                          <span>{reg.partnerUserId ? "Change Partner" : "Nominate Partner"}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 text-xs">
@@ -1388,6 +1499,75 @@ export function MySports() {
             </div>
           </div>
         </div>
+
+        {/* ════════════════════ PARTNER NOMINATION MODAL ════════════════════ */}
+        {partnerModalState.open && partnerModalState.registration && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                    <HeartHandshake className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      {partnerModalState.registration.partnerUserId ? "Change Doubles Partner" : "Nominate Doubles Partner"}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {partnerModalState.registration.eventName}
+                      {partnerModalState.registration.categoryName ? ` · ${partnerModalState.registration.categoryName}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <SportsPartnerSelector
+                selectedPartner={partnerModalState.selectedPartner}
+                onChange={(partner) => {
+                  setPartnerModalState(prev => ({
+                    ...prev,
+                    selectedPartner: partner,
+                  }));
+                }}
+                matchType={partnerModalState.registration.matchType || "DOUBLES"}
+                currentGender={(user as any)?.gender}
+                currentUserId={user?.id}
+                communityId={user?.communityId}
+                familyMembers={familyMembers}
+                disabled={partnerModalState.saving}
+              />
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setPartnerModalState({ open: false, registration: null, selectedPartner: null, saving: false })}
+                  disabled={partnerModalState.saving}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePartner}
+                  disabled={partnerModalState.saving}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {partnerModalState.saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {partnerModalState.selectedPartner?.userId ? "Send Partner Invite" : "Save as Open Pool"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
