@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
   Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle,
   ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
@@ -829,6 +829,33 @@ export function SportsMultiRegister() {
     window.addEventListener("mana_family_updated", handleFamilyUpdated);
     return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
   }, [updateUser, regType]);
+
+  const [searchParams] = useSearchParams();
+  const queryFor = searchParams.get("for");
+  const queryMemberId = searchParams.get("memberId");
+
+  useEffect(() => {
+    if (queryFor === "family" && queryMemberId && savedFamilyMembers.length > 0) {
+      const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
+      if (targetMember) {
+        setRegType("family");
+        setPlayerName(targetMember.name);
+        setEmail(targetMember.email || "");
+        setGender(targetMember.gender || "");
+        setDateOfBirth(targetMember.dob || (targetMember as any).dateOfBirth || "");
+        setRelation(targetMember.relation || (targetMember as any).relationship || "");
+        setFamilyMemberId(targetMember.id);
+      }
+    } else if (queryFor === "self") {
+      setRegType("self");
+      setPlayerName(userProfileName);
+      setEmail(liveUser?.email || user?.email || "");
+      setGender(userProfileGender);
+      setDateOfBirth(userProfileDob);
+      setRelation("");
+      setFamilyMemberId(undefined);
+    }
+  }, [queryFor, queryMemberId, savedFamilyMembers, userProfileName, userProfileGender, userProfileDob, liveUser?.email, user?.email]);
 
   // Load tournament, open events, and player categories directly from service repository
   useEffect(() => {
@@ -2329,10 +2356,19 @@ export function SportsMultiRegister() {
                                               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                                                 Optional
                                               </span>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  toast.info("Lead a team & participate in the player auction/draft");
+                                                }}
+                                                className="inline-flex text-slate-400 hover:text-amber-600 cursor-pointer p-0.5 active:scale-95"
+                                                title="Team Captain Information"
+                                                aria-label="Captain nomination information"
+                                              >
+                                                <Info className="w-3.5 h-3.5" />
+                                              </button>
                                             </div>
-                                            <p className="text-[10px] text-slate-500 mt-0.5">
-                                              Lead a team & participate in the player auction/draft
-                                            </p>
                                           </div>
                                         </div>
 
@@ -2852,6 +2888,7 @@ export function SportsMultiRegister() {
         </div>
       )}
 
+      <Toaster richColors position="top-right" />
     </div>
   );
 }

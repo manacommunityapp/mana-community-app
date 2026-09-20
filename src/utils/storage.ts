@@ -22,9 +22,9 @@ export const STORAGE_KEYS = {
   APP_PREFERENCES: "mana_app_preferences",
   PRIVACY_FALLBACK: "mana_privacy_preferences_fallback",
   SPORTS_PASSPORT: "mana_player_sports_passport",
-  LEADER_HISTORY: "mana_leader_history",
+  LEADER_HISTORY: "mana_leader_history_log",
   EVENT_PANTRY_CUSTOM: "mana_event_pantry_custom",
-  EVENT_MOCK_MODE: "mana_event_mock_mode",
+  EVENT_MOCK_MODE: "events_mock_mode",
   FAMILY_MEMBERS: (userId?: string) => (userId ? `mana_family_members_${userId}` : "mana_family_members"),
   DRAFT_STEP: (targetId: string | number) => `mana_draft_step_${targetId}`,
 } as const;

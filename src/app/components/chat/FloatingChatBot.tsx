@@ -110,24 +110,7 @@ export function FloatingChatBot() {
       {/* Floating Action Launchers */}
       {!isModalActive && (
         <div className="flex flex-col items-center gap-2 sm:gap-2.5">
-          {/* Floating devotional Ganesha button */}
-          <Link
-            to="/events"
-            title="Open Events Dashboard"
-            className="ganesh-animated-idol flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
-            style={{
-              boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
-            }}
-          >
-            <video
-              src="/ganesh-animated.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full rounded-full object-cover scale-110"
-            />
-          </Link>
+          {/* Floating devotional Ganesha button (hidden as requested) */}
 
           {/* Floating Sports Dashboard button */}
           <Link
