@@ -369,10 +369,6 @@ export function MySports() {
 
   // Performance calculations
   const totalMatches = myMatches.length;
-  const estimatedWins = Math.max(0, Math.floor(totalMatches * 0.7));
-  const estimatedLosses = Math.max(0, totalMatches - estimatedWins);
-  const winRate = totalMatches > 0 ? Math.round((estimatedWins / totalMatches) * 100) : 0;
-  const formPills = totalMatches > 0 ? ["W", "W", "L", "W", "W"].slice(0, Math.min(totalMatches, 5)) : [];
 
   const xpPoints = (registrations.length * 150) + (teams.length * 200) + (myMatches.length * 100) + 100;
   const playerLevel = Math.floor(xpPoints / 400) + 1;
@@ -570,53 +566,53 @@ export function MySports() {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Link
                           to="/sports/register"
-                          className="p-3 bg-white hover:bg-indigo-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2.5 group"
+                          className="p-2.5 sm:p-3 min-h-[56px] bg-white hover:bg-indigo-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2 sm:gap-2.5 group"
                         >
-                          <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                             <Plus className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Register</p>
-                            <p className="text-[9px] text-slate-400">Join sport</p>
+                            <p className="text-[13px] sm:text-xs font-bold text-slate-800">Register</p>
+                            <p className="text-[11px] sm:text-[9px] text-slate-400">Join sport</p>
                           </div>
                         </Link>
 
                         <Link
                           to="/sports/schedule"
-                          className="p-3 bg-white hover:bg-emerald-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2.5 group"
+                          className="p-2.5 sm:p-3 min-h-[56px] bg-white hover:bg-emerald-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2 sm:gap-2.5 group"
                         >
-                          <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                          <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                             <Calendar className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Schedule</p>
-                            <p className="text-[9px] text-slate-400">View draws</p>
+                            <p className="text-[13px] sm:text-xs font-bold text-slate-800">Schedule</p>
+                            <p className="text-[11px] sm:text-[9px] text-slate-400">View draws</p>
                           </div>
                         </Link>
 
                         <Link
                           to="/sports/analytics"
-                          className="p-3 bg-white hover:bg-amber-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2.5 group"
+                          className="p-2.5 sm:p-3 min-h-[56px] bg-white hover:bg-amber-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2 sm:gap-2.5 group"
                         >
-                          <div className="p-2 rounded-lg bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                          <div className="p-1.5 sm:p-2 rounded-lg bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                             <TrendingUp className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Leaderboard</p>
-                            <p className="text-[9px] text-slate-400">Standings</p>
+                            <p className="text-[13px] sm:text-xs font-bold text-slate-800">Leaderboard</p>
+                            <p className="text-[11px] sm:text-[9px] text-slate-400">Standings</p>
                           </div>
                         </Link>
 
                         <button
                           onClick={() => setActiveTab("settings")}
-                          className="p-3 bg-white hover:bg-purple-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2.5 group cursor-pointer"
+                          className="p-2.5 sm:p-3 min-h-[56px] bg-white hover:bg-purple-50/40 rounded-xl border border-slate-200/70 shadow-xs hover:shadow-sm active:scale-95 transition-all text-left flex items-center gap-2 sm:gap-2.5 group cursor-pointer"
                         >
-                          <div className="p-2 rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                          <div className="p-1.5 sm:p-2 rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
                             <Settings className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-800">Settings</p>
-                            <p className="text-[9px] text-slate-400">Player profile</p>
+                            <p className="text-[13px] sm:text-xs font-bold text-slate-800">Settings</p>
+                            <p className="text-[11px] sm:text-[9px] text-slate-400">Player profile</p>
                           </div>
                         </button>
                       </div>
@@ -681,7 +677,7 @@ export function MySports() {
                                       type="button"
                                       disabled={isBusy}
                                       onClick={() => handleRespondInvitation(invId, true)}
-                                      className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                                      className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-[11px] font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                                     >
                                       <CheckCircle className="w-3.5 h-3.5" />
                                       <span>{isBusy ? "Confirming..." : "Accept Partner"}</span>
@@ -690,7 +686,7 @@ export function MySports() {
                                       type="button"
                                       disabled={isBusy}
                                       onClick={() => handleRespondInvitation(invId, false)}
-                                      className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                                      className="flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[12px] sm:text-[11px] font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
                                       <span>Decline</span>
@@ -705,30 +701,30 @@ export function MySports() {
 
                       {/* Next Upcoming Match Hero Card */}
                       {nextMatch && (
-                        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-4 sm:p-5 text-white shadow-md border border-indigo-500/20 space-y-3">
+                        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-xl sm:rounded-2xl p-3 sm:p-5 text-white shadow-md border border-indigo-500/20 space-y-2 sm:space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/30 text-red-300 text-[9px] font-extrabold uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/30 text-red-300 text-[9px] sm:text-[9px] font-extrabold uppercase tracking-wider">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                               Next Up On Court
                             </span>
-                            <span className="text-xs text-indigo-200 font-mono font-bold">
+                            <span className="text-[11px] sm:text-xs text-indigo-200 font-mono font-bold">
                               {nextMatch.eventDateStart ? new Date(nextMatch.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Scheduled"}
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="space-y-1">
-                              <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">{nextMatch.sportName || "Tournament"}</p>
-                              <h3 className="text-sm sm:text-base font-extrabold text-white leading-snug">{nextMatch.name}</h3>
-                              <p className="text-[11px] text-slate-300 flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                                <span>{nextMatch.venueName || "Main Sports Complex"}{nextMatch.venueCity ? `, ${nextMatch.venueCity}` : ""}</span>
+                          <div className="flex items-center justify-between gap-3 sm:gap-4">
+                            <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                              <p className="text-[10px] sm:text-[10px] text-indigo-300 font-bold uppercase tracking-wider">{nextMatch.sportName || "Tournament"}</p>
+                              <h3 className="text-[13px] sm:text-base font-extrabold text-white leading-snug truncate">{nextMatch.name}</h3>
+                              <p className="text-[11px] text-slate-300 flex items-center gap-1 truncate">
+                                <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
+                                <span className="truncate">{nextMatch.venueName || "Main Sports Complex"}{nextMatch.venueCity ? `, ${nextMatch.venueCity}` : ""}</span>
                               </p>
                             </div>
 
                             <Link
                               to="/sports/schedule"
-                              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-indigo-600/30 shrink-0"
+                              className="px-2.5 sm:px-3 py-2 min-h-[40px] bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] sm:text-xs font-bold transition shadow-md shadow-indigo-600/30 shrink-0 flex items-center"
                             >
                               View Fixture →
                             </Link>
@@ -739,33 +735,33 @@ export function MySports() {
                       {/* Two Column Section: Upcoming Matches + Active Registrations */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {/* Upcoming Matches Preview */}
-                        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-100 shadow-sm space-y-3">
+                        <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm space-y-2 sm:space-y-3">
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 text-indigo-500" />
                               Match Timeline
                             </h3>
-                            <button onClick={() => setActiveTab("matches")} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                            <button onClick={() => setActiveTab("matches")} className="text-[11px] sm:text-[10px] font-bold text-indigo-600 hover:text-indigo-800 min-h-[32px] flex items-center">
                               View All ({myMatches.length}) →
                             </button>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-1.5 sm:space-y-2">
                             {myMatches.length === 0 ? (
-                              <div className="text-center py-6 text-slate-400 text-xs">
+                              <div className="text-center py-6 text-slate-400 text-[13px] sm:text-xs">
                                 No scheduled matches yet.
                               </div>
                             ) : (
                               myMatches.slice(0, 3).map((m) => (
-                                <div key={m.id} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                  <div>
-                                    <span className="text-[8px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded font-bold uppercase">
+                                <div key={m.id} className="p-2 sm:p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <span className="text-[9px] sm:text-[8px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded font-bold uppercase">
                                       {m.sportName}
                                     </span>
-                                    <h4 className="text-xs font-bold text-slate-800 mt-0.5 truncate max-w-[170px]">{m.name}</h4>
-                                    <p className="text-[10px] text-slate-400">{m.venueName || "Venue TBD"}</p>
+                                    <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 mt-0.5 truncate">{m.name}</h4>
+                                    <p className="text-[11px] sm:text-[10px] text-slate-400 truncate">{m.venueName || "Venue TBD"}</p>
                                   </div>
-                                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-white px-1.5 sm:px-2 py-1 rounded-lg border border-slate-200 shrink-0">
                                     {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
                                   </span>
                                 </div>
@@ -775,33 +771,33 @@ export function MySports() {
                         </div>
 
                         {/* Active Registrations Preview */}
-                        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-100 shadow-sm space-y-3">
+                        <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm space-y-2 sm:space-y-3">
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                               <Trophy className="w-3.5 h-3.5 text-amber-500" />
                               Tournaments
                             </h3>
-                            <button onClick={() => setActiveTab("tournaments")} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">
+                            <button onClick={() => setActiveTab("tournaments")} className="text-[11px] sm:text-[10px] font-bold text-indigo-600 hover:text-indigo-800 min-h-[32px] flex items-center">
                               Manage ({registrations.length}) →
                             </button>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-1.5 sm:space-y-2">
                             {registrations.length === 0 ? (
-                              <div className="text-center py-6 text-slate-400 text-xs">
+                              <div className="text-center py-6 text-slate-400 text-[13px] sm:text-xs">
                                 No active registrations.
                               </div>
                             ) : (
                               registrations.slice(0, 3).map((reg) => {
                                 const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
                                 return (
-                                  <div key={reg.id} className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                                    <div>
-                                      <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
-                                      <h4 className="text-xs font-bold text-slate-800 truncate max-w-[170px]">{reg.eventName}</h4>
-                                      <p className="text-[9px] text-slate-500">{reg.categoryName || "Open Category"}</p>
+                                  <div key={reg.id} className="p-2 sm:p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <span className="text-[9px] sm:text-[8px] font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
+                                      <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 truncate">{reg.eventName}</h4>
+                                      <p className="text-[10px] sm:text-[9px] text-slate-500">{reg.categoryName || "Open Category"}</p>
                                     </div>
-                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                    <span className={`text-[9px] sm:text-[8px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
                                       isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                                       "bg-yellow-50 text-yellow-600 border border-yellow-100"
                                     }`}>
@@ -821,23 +817,23 @@ export function MySports() {
                   {activeTab === "tournaments" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
                       {/* Search & Filter Bar */}
-                      <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5 w-full sm:w-72">
-                          <Search className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center justify-between">
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 sm:py-1.5 w-full sm:w-72">
+                          <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <input
                             type="text"
                             placeholder="Search tournament, sport..."
                             value={tournamentSearch}
                             onChange={e => setTournamentSearch(e.target.value)}
-                            className="bg-transparent border-none outline-none text-xs text-slate-800 placeholder-slate-400 w-full"
+                            className="bg-transparent border-none outline-none text-[13px] sm:text-xs text-slate-800 placeholder-slate-400 w-full"
                           />
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+                        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                           <select
                             value={tournamentSportFilter}
                             onChange={e => setTournamentSportFilter(e.target.value)}
-                            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
+                            className="text-[13px] sm:text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 sm:py-1.5 font-semibold text-slate-700 outline-none flex-1 sm:flex-none min-h-[40px] sm:min-h-0"
                           >
                             <option value="All">All Sports</option>
                             {ALL_SPORTS.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
@@ -846,7 +842,7 @@ export function MySports() {
                           <select
                             value={tournamentStatusFilter}
                             onChange={e => setTournamentStatusFilter(e.target.value)}
-                            className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-semibold text-slate-700 outline-none"
+                            className="text-[13px] sm:text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 sm:py-1.5 font-semibold text-slate-700 outline-none flex-1 sm:flex-none min-h-[40px] sm:min-h-0"
                           >
                             <option value="All">All Statuses</option>
                             <option value="CONFIRMED">Confirmed</option>
@@ -858,9 +854,9 @@ export function MySports() {
                       </div>
 
                       {filteredTournaments.length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-3">
-                          <Trophy className="w-12 h-12 text-slate-300 mx-auto" />
-                          <p className="font-bold text-slate-800 text-sm">No tournament registrations found</p>
+                        <div className="text-center py-8 sm:py-16 bg-white rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-6 space-y-2.5 sm:space-y-3">
+                          <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto" />
+                          <p className="font-bold text-slate-800 text-[13px] sm:text-sm">No tournament registrations found</p>
                           <p className="text-xs text-slate-500 max-w-sm mx-auto">
                             Browse upcoming society tournaments and sports leagues to sign up and start playing.
                           </p>
@@ -880,14 +876,14 @@ export function MySports() {
                             return (
                               <div
                                 key={reg.id}
-                                className="p-3 sm:p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between gap-3 text-left"
+                                className="p-2.5 sm:p-5 bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all flex flex-col justify-between gap-2.5 sm:gap-3 text-left"
                               >
                                 <div>
                                   <div className="flex items-start justify-between gap-2">
-                                    <span className="text-[9px] uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                    <span className="text-[10px] sm:text-[9px] uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                                       {reg.sportName || "Sports Event"}
                                     </span>
-                                    <span className={`text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                    <span className={`text-[9px] sm:text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                                       isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
                                       reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" :
                                       "bg-yellow-50 text-yellow-700 border border-yellow-200"
@@ -896,26 +892,26 @@ export function MySports() {
                                     </span>
                                   </div>
 
-                                  <h4 className="text-sm font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
+                                  <h4 className="text-[13px] sm:text-sm font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
 
-                                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                  <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1.5 sm:mt-2">
                                     {reg.matchType && (
-                                      <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-bold capitalize">
+                                      <span className="text-[10px] sm:text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 sm:px-2 py-0.5 rounded font-bold capitalize">
                                         {reg.matchType.replace(/_/g, " ").toLowerCase()}
                                       </span>
                                     )}
                                     {reg.categoryName && (
-                                      <span className="text-[9px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">
-                                        Category: {reg.categoryName}
+                                      <span className="text-[10px] sm:text-[9px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
+                                        {reg.categoryName}
                                       </span>
                                     )}
                                     {reg.flatNumber && (
-                                      <span className="text-[9px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-semibold">
+                                      <span className="text-[10px] sm:text-[9px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
                                         Flat: {reg.flatNumber}
                                       </span>
                                     )}
                                     {reg.captainNomination && (
-                                      <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-bold">
+                                      <span className="text-[10px] sm:text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded font-bold">
                                         Captain Nominee
                                       </span>
                                     )}
@@ -1021,25 +1017,25 @@ export function MySports() {
                                   )}
                                 </div>
 
-                                <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 text-xs">
-                                  <div className="text-[10px] text-slate-400 font-medium">
-                                    Registered: {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "Active"}
+                                <div className="border-t border-slate-100 pt-2 sm:pt-3 flex items-center justify-between gap-2 text-xs">
+                                  <div className="text-[11px] sm:text-[10px] text-slate-400 font-medium">
+                                    {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "Active"}
                                   </div>
 
                                   <div className="flex items-center gap-1.5">
                                     <Link
                                       to="/sports/schedule"
-                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition"
+                                      className="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] sm:text-[10px] font-bold rounded-lg transition flex items-center"
                                     >
                                       Draws & Fixtures
                                     </Link>
                                     {["PENDING", "REGISTERED"].includes(reg.status) && (
                                       <button
                                         onClick={() => handleWithdraw(reg.id)}
-                                        className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                                        className="p-1.5 sm:p-1 min-h-[36px] sm:min-h-0 min-w-[36px] sm:min-w-0 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
                                         title="Withdraw registration"
                                       >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                       </button>
                                     )}
                                   </div>
@@ -1056,23 +1052,23 @@ export function MySports() {
                   {activeTab === "community" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
                       {!myCommunity ? (
-                        <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-                          <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                          <p className="font-bold text-slate-800 text-sm">No community selected</p>
+                        <div className="text-center py-6 sm:py-12 bg-white rounded-2xl border border-slate-100 p-3 sm:p-6 shadow-sm">
+                          <Building2 className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto mb-2.5 sm:mb-3" />
+                          <p className="font-bold text-slate-800 text-[13px] sm:text-sm">No community selected</p>
                           <p className="text-xs text-slate-500 mt-1">Please select or link your apartment/society in your profile.</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
                           {/* Community Info Card */}
-                          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                              <div className="flex items-center gap-3">
-                                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-                                  <Building2 className="w-6 h-6" />
+                          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 sm:pb-3 gap-2">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <div className="p-2 sm:p-3 bg-indigo-50 text-indigo-600 rounded-xl sm:rounded-2xl shrink-0">
+                                  <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </div>
-                                <div>
-                                  <h3 className="text-base font-extrabold text-slate-900">{myCommunity.name}</h3>
-                                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 inline-block">
+                                <div className="min-w-0">
+                                  <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 truncate">{myCommunity.name}</h3>
+                                  <span className="text-[9px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 inline-block">
                                     {myCommunity.type} Community
                                   </span>
                                 </div>
@@ -1082,7 +1078,7 @@ export function MySports() {
                                 <button
                                   type="button"
                                   onClick={() => handleCopyInviteCode(myCommunity.code || "")}
-                                  className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                                  className="flex items-center gap-1 px-2 sm:px-3 py-1.5 min-h-[36px] sm:min-h-0 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] sm:text-xs font-bold transition cursor-pointer shrink-0"
                                 >
                                   {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                   <span>{copiedCode ? "Copied!" : myCommunity.code}</span>
@@ -1090,13 +1086,13 @@ export function MySports() {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs">
                               <div>
-                                <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Classification</span>
-                                <p className="font-bold text-slate-800 mt-0.5">{myCommunity.subtype || "Residential Gated Society"}</p>
+                                <span className="text-slate-400 font-semibold uppercase text-[10px] sm:text-[9px] tracking-wider">Classification</span>
+                                <p className="font-bold text-slate-800 mt-0.5 text-[13px] sm:text-xs">{myCommunity.subtype || "Residential Gated Society"}</p>
                               </div>
                               <div>
-                                <span className="text-slate-400 font-semibold uppercase text-[9px] tracking-wider">Location / City</span>
+                                <span className="text-slate-400 font-semibold uppercase text-[10px] sm:text-[9px] tracking-wider">Location / City</span>
                                 <p className="font-bold text-slate-800 mt-0.5">
                                   {myCommunity.area ? `${myCommunity.area}, ` : ""}{myCommunity.city || "Bangalore"}
                                 </p>
@@ -1105,11 +1101,12 @@ export function MySports() {
                           </div>
 
                           {/* Community Sports Facilities / Venues */}
-                          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm space-y-3">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                                <Compass className="w-4 h-4 text-indigo-600" />
-                                Community Sports Facilities & Venues ({venues.length})
+                          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-2.5">
+                              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+                                <span className="hidden sm:inline">Community Sports Facilities & Venues ({venues.length})</span>
+                                <span className="sm:hidden">Venues ({venues.length})</span>
                               </h3>
                               <span className="text-[10px] text-slate-400 font-medium">Auto-synced</span>
                             </div>
@@ -1119,21 +1116,21 @@ export function MySports() {
                                 No sports grounds or courts registered in this community yet.
                               </div>
                             ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                                 {venues.map(v => (
-                                  <div key={v.id} className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
-                                    <div className="flex items-center justify-between">
-                                      <h4 className="text-xs font-bold text-slate-800">{v.name}</h4>
-                                      <span className="text-[8px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 uppercase">
-                                        Active Ground
+                                  <div key={v.id} className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 truncate">{v.name}</h4>
+                                      <span className="text-[9px] sm:text-[8px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 uppercase shrink-0">
+                                        Active
                                       </span>
                                     </div>
-                                    <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                                      <MapPin className="w-3 h-3 text-indigo-500" />
-                                      {v.address || "Society Clubhouse Sports Wing"}
+                                    <p className="text-[11px] sm:text-[10px] text-slate-500 flex items-center gap-1">
+                                      <MapPin className="w-3 h-3 text-indigo-500 shrink-0" />
+                                      <span className="truncate">{v.address || "Society Clubhouse Sports Wing"}</span>
                                     </p>
                                     {v.capacity && (
-                                      <p className="text-[9px] text-slate-400 font-medium">Court Capacity: {v.capacity} players</p>
+                                      <p className="text-[10px] sm:text-[9px] text-slate-400 font-medium">Capacity: {v.capacity} players</p>
                                     )}
                                   </div>
                                 ))}
@@ -1149,9 +1146,9 @@ export function MySports() {
                   {activeTab === "teams" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
                       {teams.length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-3">
-                          <Users className="w-12 h-12 text-slate-300 mx-auto" />
-                          <p className="font-bold text-slate-800 text-sm">No auction / league teams found</p>
+                        <div className="text-center py-8 sm:py-16 bg-white rounded-2xl border border-slate-100 p-3 sm:p-6 shadow-sm space-y-2.5 sm:space-y-3">
+                          <Users className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto" />
+                          <p className="font-bold text-slate-800 text-[13px] sm:text-sm">No auction / league teams found</p>
                           <p className="text-xs text-slate-500 max-w-sm mx-auto">
                             You will see your squads here once player auctions or team drafts are completed.
                           </p>
@@ -1174,27 +1171,27 @@ export function MySports() {
                             return (
                               <div
                                 key={team.id}
-                                className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition space-y-3.5"
+                                className="p-3 sm:p-5 bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition space-y-3 sm:space-y-3.5"
                               >
-                                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                                  <div>
-                                    <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 sm:pb-3 gap-2">
+                                  <div className="min-w-0">
+                                    <h4 className="text-[13px] sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 truncate">
                                       {team.emoji || "🛡️"} {team.teamName}
                                     </h4>
-                                    <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
+                                    <span className="text-[11px] sm:text-[10px] text-slate-400 font-semibold block mt-0.5 truncate">
                                       Owner: {team.ownerName || "Community Franchise"}
                                     </span>
                                   </div>
-                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide ${
+                                  <span className={`text-[10px] sm:text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide shrink-0 ${
                                     team.captainConfirmation ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-indigo-50 text-indigo-600 border border-indigo-200"
                                   }`}>
-                                    {team.captainConfirmation ? "Captain" : "Squad Member"}
+                                    {team.captainConfirmation ? "Captain" : "Squad"}
                                   </span>
                                 </div>
 
                                 <div className="space-y-1.5">
-                                  <div className="flex justify-between text-xs font-semibold text-slate-600">
-                                    <span>Squad Budget Spent</span>
+                                  <div className="flex justify-between text-[13px] sm:text-xs font-semibold text-slate-600">
+                                    <span>Budget Spent</span>
                                     <span>₹{spent.toLocaleString()} / ₹{total.toLocaleString()}</span>
                                   </div>
                                   <div className="w-full bg-slate-100 rounded-full h-2">
@@ -1203,17 +1200,17 @@ export function MySports() {
                                       style={{ width: `${percent}%` }}
                                     />
                                   </div>
-                                  <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                                  <div className="flex justify-between text-[11px] sm:text-[10px] font-bold text-slate-400">
                                     <span>{percent}% utilized</span>
                                     <span className="text-emerald-600">Remaining: ₹{remaining.toLocaleString()}</span>
                                   </div>
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                                  <span className="text-[10px] text-slate-400 font-medium">Auction Roster Active</span>
+                                  <span className="text-[11px] sm:text-[10px] text-slate-400 font-medium">Roster Active</span>
                                   <Link
                                     to="/sports/auction"
-                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                                    className="text-[13px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 min-h-[36px] sm:min-h-0"
                                   >
                                     <span>Team Details</span>
                                     <ArrowUpRight className="w-3 h-3" />
@@ -1231,9 +1228,9 @@ export function MySports() {
                   {activeTab === "matches" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
                       {myMatches.length === 0 ? (
-                        <div className="text-center py-16 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-3">
-                          <Calendar className="w-12 h-12 text-slate-300 mx-auto" />
-                          <p className="font-bold text-slate-800 text-sm">No scheduled matches found</p>
+                        <div className="text-center py-8 sm:py-16 bg-white rounded-2xl border border-slate-100 p-3 sm:p-6 shadow-sm space-y-2.5 sm:space-y-3">
+                          <Calendar className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300 mx-auto" />
+                          <p className="font-bold text-slate-800 text-[13px] sm:text-sm">No scheduled matches found</p>
                           <p className="text-xs text-slate-500 max-w-sm mx-auto">
                             Matches will appear in your timeline as soon as tournament brackets and round-robin draws are published.
                           </p>
@@ -1246,52 +1243,52 @@ export function MySports() {
                           </Link>
                         </div>
                       ) : (
-                        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm space-y-4">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                              My Match Timeline & Fixtures ({myMatches.length})
+                        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider">
+                              My Match Timeline ({myMatches.length})
                             </h3>
                             <Link
                               to="/sports/schedule"
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                              className="text-[11px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 min-h-[32px] flex items-center"
                             >
-                              Live Match Center →
+                              Match Center →
                             </Link>
                           </div>
 
-                          <div className="space-y-3">
+                          <div className="space-y-2.5 sm:space-y-3">
                             {myMatches.map((m, i) => (
                               <div
                                 key={m.id}
-                                className="relative flex gap-3.5 pb-4 border-b border-slate-100 last:border-b-0 last:pb-0"
+                                className="relative flex gap-2.5 sm:gap-3.5 pb-3 sm:pb-4 border-b border-slate-100 last:border-b-0 last:pb-0"
                               >
                                 <div className="flex flex-col items-center">
-                                  <div className="w-3 h-3 rounded-full bg-indigo-600 shrink-0 mt-1 shadow-xs shadow-indigo-400" />
+                                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-indigo-600 shrink-0 mt-1 shadow-xs shadow-indigo-400" />
                                   {i < myMatches.length - 1 && <div className="w-px flex-1 bg-slate-200 mt-1" />}
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[9px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded">
+                                    <span className="text-[10px] sm:text-[9px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-1.5 sm:px-2 py-0.5 rounded">
                                       {m.sportName || "Sport"}
                                     </span>
-                                    <span className="text-xs font-mono font-bold text-slate-700">
+                                    <span className="text-[11px] sm:text-xs font-mono font-bold text-slate-700">
                                       {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Scheduled"}
                                     </span>
                                   </div>
 
-                                  <h4 className="text-sm font-extrabold text-slate-900 mt-1">{m.name}</h4>
+                                  <h4 className="text-[13px] sm:text-sm font-extrabold text-slate-900 mt-1 truncate">{m.name}</h4>
 
-                                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                                    <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                                    <span>{m.venueName || "Main Arena"}{m.venueCity ? `, ${m.venueCity}` : ""}</span>
+                                  <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5 sm:mt-1 flex items-center gap-1">
+                                    <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 shrink-0" />
+                                    <span className="truncate">{m.venueName || "Main Arena"}{m.venueCity ? `, ${m.venueCity}` : ""}</span>
                                   </div>
 
-                                  <div className="flex items-center gap-2 mt-2.5">
-                                    <span className="text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
+                                  <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-2.5 flex-wrap">
+                                    <span className="text-[10px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
                                       {m.format?.[0] || "Tournament Fixture"}
                                     </span>
-                                    <span className="text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="text-[10px] sm:text-[9px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                                       {m.registrationStatus || "CONFIRMED"}
                                     </span>
                                   </div>
@@ -1307,23 +1304,23 @@ export function MySports() {
                   {/* ════════════════════ SETTINGS TAB ════════════════════ */}
                   {activeTab === "settings" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
-                      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-sm space-y-5">
-                        <div className="border-b border-slate-100 pb-3">
-                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
-                            <Settings className="w-5 h-5 text-indigo-600" />
-                            <span>Player Sports Settings & Preferences</span>
+                      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm space-y-4 sm:space-y-5">
+                        <div className="border-b border-slate-100 pb-2.5 sm:pb-3">
+                          <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
+                            <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+                            <span>Player Settings & Preferences</span>
                           </h3>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Set your playing tier, preferred roles, dominant hand, and jersey preferences for society tournaments.
+                          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                            Set your playing tier, preferred roles, and jersey preferences.
                           </p>
                         </div>
 
                         {/* Skill Tier Selector */}
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                          <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block">
                             Athlete Skill Tier
                           </label>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {SKILL_LEVELS.map(level => {
                               const isSelected = passport.skillLevel === level.id;
                               return (
@@ -1331,17 +1328,17 @@ export function MySports() {
                                   type="button"
                                   key={level.id}
                                   onClick={() => setPassport(p => ({ ...p, skillLevel: level.id }))}
-                                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                  className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                     isSelected
                                       ? "border-indigo-600 bg-indigo-50/50 shadow-xs"
                                       : "border-slate-200 bg-white hover:border-slate-300"
                                   }`}
                                 >
-                                  <span className="text-[10px] font-extrabold block" style={{ color: level.color }}>
+                                  <span className="text-[11px] sm:text-[10px] font-extrabold block" style={{ color: level.color }}>
                                     {level.badge}
                                   </span>
-                                  <p className="text-xs font-bold text-slate-900 mt-0.5">{level.label}</p>
-                                  <p className="text-[9px] text-slate-500 mt-0.5 leading-snug">{level.desc}</p>
+                                  <p className="text-[13px] sm:text-xs font-bold text-slate-900 mt-0.5">{level.label}</p>
+                                  <p className="text-[10px] sm:text-[9px] text-slate-500 mt-0.5 leading-snug">{level.desc}</p>
                                 </button>
                               );
                             })}
@@ -1349,24 +1346,24 @@ export function MySports() {
                         </div>
 
                         {/* Playing Attributes */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
                           <div>
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                              Dominant Hand / Foot
+                            <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                              Dominant Hand
                             </label>
                             <select
                               value={passport.dominantHand}
                               onChange={e => setPassport(p => ({ ...p, dominantHand: e.target.value }))}
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 sm:py-2 text-[13px] sm:text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 min-h-[44px] sm:min-h-0"
                             >
-                              <option value="Right">Right-Handed / Right-Footed</option>
-                              <option value="Left">Left-Handed / Left-Footed</option>
-                              <option value="Ambidextrous">Ambidextrous (Both)</option>
+                              <option value="Right">Right-Handed</option>
+                              <option value="Left">Left-Handed</option>
+                              <option value="Ambidextrous">Ambidextrous</option>
                             </select>
                           </div>
 
                           <div>
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                            <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
                               Jersey Number
                             </label>
                             <input
@@ -1375,33 +1372,33 @@ export function MySports() {
                               value={passport.jerseyNumber}
                               onChange={e => setPassport(p => ({ ...p, jerseyNumber: e.target.value }))}
                               placeholder="e.g. 7 or 10"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 sm:py-2 text-[13px] sm:text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 min-h-[44px] sm:min-h-0"
                             />
                           </div>
 
                           <div>
-                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                              Jersey Name Print
+                            <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                              Jersey Name
                             </label>
                             <input
                               type="text"
                               value={passport.jerseyName}
                               onChange={e => setPassport(p => ({ ...p, jerseyName: e.target.value }))}
                               placeholder="e.g. SANDEEP"
-                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 uppercase outline-none focus:border-indigo-500"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 sm:py-2 text-[13px] sm:text-xs font-semibold text-slate-800 uppercase outline-none focus:border-indigo-500 min-h-[44px] sm:min-h-0"
                             />
                           </div>
                         </div>
 
                         {/* Preferred Roles per Sport */}
                         <div className="space-y-2.5">
-                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                            Preferred Playing Role per Sport
+                          <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                            Preferred Role per Sport
                           </label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                             {ALL_SPORTS.slice(0, 4).map(s => (
-                              <div key={s.id} className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1.5">
-                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <div key={s.id} className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1.5">
+                                <span className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
                                   <span>{s.icon}</span>
                                   <span>{s.name}</span>
                                 </span>
@@ -1411,7 +1408,7 @@ export function MySports() {
                                     const val = e.target.value;
                                     setPassport(p => ({ ...p, sportRoles: { ...p.sportRoles, [s.id]: val } }));
                                   }}
-                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 sm:py-1.5 text-[13px] sm:text-xs font-semibold text-slate-700 outline-none min-h-[40px] sm:min-h-0"
                                 >
                                   {s.roles.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
@@ -1422,8 +1419,8 @@ export function MySports() {
 
                         {/* Availability Preferences */}
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                            Match Availability Slots
+                          <label className="text-[11px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                            Match Availability
                           </label>
                           <div className="flex flex-wrap gap-2">
                             {["Weekends", "Weekday Evenings", "Weekday Mornings"].map(slot => {
@@ -1440,7 +1437,7 @@ export function MySports() {
                                         : [...p.preferredSlots, slot],
                                     }));
                                   }}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  className={`px-3 py-2 sm:py-1.5 min-h-[40px] sm:min-h-0 rounded-xl text-[13px] sm:text-xs font-bold border transition cursor-pointer ${
                                     active
                                       ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                                       : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
@@ -1454,14 +1451,14 @@ export function MySports() {
                         </div>
 
                         {/* Save Action */}
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                          <p className="text-[10px] text-slate-400">
-                            Updates are saved to your athlete settings and visible to team captains and conveners.
+                        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-0">
+                          <p className="text-[11px] sm:text-[10px] text-slate-400 hidden sm:block">
+                            Saved to your athlete settings.
                           </p>
                           <button
                             type="button"
                             onClick={handleSavePassport}
-                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-extrabold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer flex items-center gap-1.5"
+                            className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] sm:min-h-0 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[13px] sm:text-xs font-extrabold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-1.5"
                           >
                             {passportSaved ? <Check className="w-4 h-4" /> : <Settings className="w-4 h-4" />}
                             <span>{passportSaved ? "Saved!" : "Save Settings"}</span>
@@ -1483,42 +1480,24 @@ export function MySports() {
                 <div className="flex items-center justify-between">
                   <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-indigo-600" />
-                    <span>My Performance</span>
+                    <span>My Activity</span>
                   </h3>
-                  <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
-                    {winRate}% Win Rate
-                  </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-center">
-                    <p className="text-xl font-extrabold text-indigo-600">{totalMatches}</p>
-                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Matches</p>
+                    <p className="text-xl font-extrabold text-indigo-600">{registrations.length}</p>
+                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Registered</p>
                   </div>
                   <div className="p-2.5 bg-emerald-50/50 border border-emerald-100 rounded-xl text-center">
-                    <p className="text-xl font-extrabold text-emerald-600">{estimatedWins}</p>
-                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Victories</p>
+                    <p className="text-xl font-extrabold text-emerald-600">{teams.length}</p>
+                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Teams</p>
+                  </div>
+                  <div className="p-2.5 bg-amber-50/50 border border-amber-100 rounded-xl text-center">
+                    <p className="text-xl font-extrabold text-amber-600">{totalMatches}</p>
+                    <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Matches</p>
                   </div>
                 </div>
-
-                {/* Form Guide */}
-                {formPills.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">Recent Form</span>
-                    <div className="flex items-center gap-1">
-                      {formPills.map((res, i) => (
-                        <span
-                          key={i}
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black ${
-                            res === "W" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
-                          }`}
-                        >
-                          {res}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Player Level & XP Progress */}

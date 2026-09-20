@@ -142,7 +142,7 @@ export function SportsPartnerSelector({
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <span>Doubles Partner</span>
               {isMixedDoubles && (
                 <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded uppercase tracking-wider">
@@ -150,7 +150,7 @@ export function SportsPartnerSelector({
                 </span>
               )}
             </h4>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[11px] sm:text-[10px] text-slate-500">
               {isMixedDoubles
                 ? "Mixed Doubles requires one Male and one Female player."
                 : "Choose a teammate or request auto-pairing from the open pool."}
@@ -160,11 +160,11 @@ export function SportsPartnerSelector({
 
         {/* Mode Selector Tabs */}
         {!selectedPartner && (
-          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-[10px] font-semibold">
+          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-[11px] sm:text-[10px] font-semibold">
             <button
               type="button"
               onClick={() => { setPartnerMode("community"); onChange(null); }}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${
+              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
                 partnerMode === "community" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -174,7 +174,7 @@ export function SportsPartnerSelector({
               <button
                 type="button"
                 onClick={() => { setPartnerMode("family"); onChange(null); }}
-                className={`px-2 py-1 rounded-md transition cursor-pointer ${
+                className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
                   partnerMode === "family" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -184,7 +184,7 @@ export function SportsPartnerSelector({
             <button
               type="button"
               onClick={handleSetOpenPool}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${
+              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
                 partnerMode === "open_pool" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
               }`}
             >
@@ -209,7 +209,7 @@ export function SportsPartnerSelector({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-900 truncate">{selectedPartner.name}</span>
+                <span className="text-[13px] sm:text-xs font-bold text-slate-900 truncate">{selectedPartner.name}</span>
                 {selectedPartner.gender && (
                   <span className="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
                     {selectedPartner.gender}
@@ -261,7 +261,7 @@ export function SportsPartnerSelector({
                     setIsDropdownOpen(true);
                   }}
                   placeholder="Search neighbor by name or flat number..."
-                  className="w-full h-8.5 pl-8 pr-8 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
+                  className="w-full h-[36px] sm:h-[34px] pl-8 pr-8 bg-white border border-slate-200 rounded-lg text-[13px] sm:text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition"
                 />
                 {searching && (
                   <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
@@ -290,11 +290,11 @@ export function SportsPartnerSelector({
                           key={u.id}
                           type="button"
                           onClick={() => handleSelectCommunityUser(u)}
-                          className="w-full p-2.5 text-left hover:bg-indigo-50/50 flex items-center justify-between gap-2 transition cursor-pointer group"
+                          className="w-full p-2.5 min-h-[44px] sm:min-h-0 text-left hover:bg-indigo-50/50 flex items-center justify-between gap-2 transition cursor-pointer group"
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition truncate">
+                              <span className="text-[13px] sm:text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition truncate">
                                 {fullName}
                               </span>
                               {u.gender && (
@@ -340,13 +340,13 @@ export function SportsPartnerSelector({
                       type="button"
                       disabled={disabled}
                       onClick={() => handleSelectFamilyMember(fm)}
-                      className="p-2 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-lg text-left transition flex items-center justify-between gap-2 cursor-pointer shadow-2xs"
+                      className="p-2.5 sm:p-2 min-h-[44px] sm:min-h-0 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-lg text-left transition flex items-center justify-between gap-2 cursor-pointer shadow-2xs"
                     >
                       <div className="min-w-0">
-                        <span className="text-xs font-semibold text-slate-800 block truncate">{fm.name}</span>
-                        <span className="text-[9px] text-slate-400 capitalize">{fm.relation} {fm.gender ? `• ${fm.gender}` : ""}</span>
+                        <span className="text-[13px] sm:text-xs font-semibold text-slate-800 block truncate">{fm.name}</span>
+                        <span className="text-[10px] sm:text-[9px] text-slate-400 capitalize">{fm.relation} {fm.gender ? `• ${fm.gender}` : ""}</span>
                       </div>
-                      <span className="text-[10px] text-indigo-600 font-bold">Pick</span>
+                      <span className="text-[11px] sm:text-[10px] text-indigo-600 font-bold">Pick</span>
                     </button>
                   ))}
                 </div>
@@ -358,7 +358,7 @@ export function SportsPartnerSelector({
           {partnerMode === "open_pool" && (
             <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <p className="text-[11px] text-amber-800 leading-tight">
+              <p className="text-[12px] sm:text-[11px] text-amber-800 leading-tight">
                 You will register solo. The tournament organizers or auto-pairing system will pair you with another solo player before match draws are finalized.
               </p>
             </div>

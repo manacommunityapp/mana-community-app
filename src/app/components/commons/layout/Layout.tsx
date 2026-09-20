@@ -110,7 +110,14 @@ function UserProfileMenu({
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
             className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
-            onError={() => setImgError(true)}
+            onError={(e) => {
+              const currentSrc = e.currentTarget.src;
+              if (currentSrc && currentSrc.includes("?")) {
+                e.currentTarget.src = currentSrc.split("?")[0];
+              } else {
+                setImgError(true);
+              }
+            }}
           />
         ) : (
           <div className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md flex items-center justify-center text-primary-foreground text-[10px] font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
@@ -138,7 +145,14 @@ function UserProfileMenu({
                 src={userAvatar}
                 alt={user?.fullName ?? "Profile"}
                 className="h-8 w-8 rounded-lg object-cover ring-1 ring-border/80 shadow-2xs shrink-0"
-                onError={() => setImgError(true)}
+                onError={(e) => {
+                  const currentSrc = e.currentTarget.src;
+                  if (currentSrc && currentSrc.includes("?")) {
+                    e.currentTarget.src = currentSrc.split("?")[0];
+                  } else {
+                    setImgError(true);
+                  }
+                }}
               />
             ) : (
               <div className="h-8 w-8 rounded-lg flex items-center justify-center text-primary-foreground text-xs font-black bg-primary shadow-2xs shrink-0">

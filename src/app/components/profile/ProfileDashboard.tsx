@@ -215,6 +215,10 @@ export function ProfileDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setImageError(false);
+  }, [profile?.profilePicUrl, user?.profilePicUrl, user?.profilePic]);
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -809,6 +813,7 @@ export function ProfileDashboard() {
       });
 
       setProfile(res);
+      setImageError(false);
       updateUser({
         fullName: res.fullName,
         profilePicUrl: res.profilePicUrl || finalUrl,
@@ -1076,7 +1081,14 @@ export function ProfileDashboard() {
                     src={userAvatar}
                     alt={profile.fullName}
                     className="w-full h-full object-cover"
-                    onError={() => setImageError(true)}
+                    onError={(e) => {
+                      const currentSrc = e.currentTarget.src;
+                      if (currentSrc && currentSrc.includes("?")) {
+                        e.currentTarget.src = currentSrc.split("?")[0];
+                      } else {
+                        setImageError(true);
+                      }
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white font-black select-none">

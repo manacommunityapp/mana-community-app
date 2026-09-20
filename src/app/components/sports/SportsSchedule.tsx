@@ -78,16 +78,16 @@ interface ScheduleEntry {
 
 function TimelineItem({ item, isLast }: { item: ScheduleEntry; isLast: boolean }) {
   return (
-    <div className="relative flex gap-4 pb-5">
+    <div className="relative flex gap-2.5 sm:gap-4 pb-4 sm:pb-5">
       {/* Dot + line */}
       <div className="flex flex-col items-center">
-        <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1" style={{ background: item.statusColor, boxShadow: `0 0 6px ${item.statusColor}` }} />
+        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 mt-1" style={{ background: item.statusColor, boxShadow: `0 0 6px ${item.statusColor}` }} />
         {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1" />}
       </div>
       <div className="flex-1 min-w-0 pb-1 text-left">
-        <div className="text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
-        <div className="text-sm font-bold mb-1 text-slate-800">{item.name}</div>
-        <div className="text-xs mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
+        <div className="text-[11px] sm:text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
+        <div className="text-[13px] sm:text-sm font-bold mb-1 text-slate-800">{item.name}</div>
+        <div className="text-[11px] sm:text-xs mb-1.5 sm:mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
         <div className="flex flex-wrap gap-2">
           {item.badges.map(b => (
             <span key={b.label} className="text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${b.color}15`, color: b.color }}>{b.label}</span>
@@ -1041,14 +1041,14 @@ export function SportsSchedule() {
 
       {/* My Matches */}
       {activeTab === "My Matches" && (
-        <div className="rounded-xl p-4"
+        <div className="rounded-xl p-2.5 sm:p-4"
           style={{
             background: "white",
             border: "1px solid rgba(99, 102, 241, 0.12)",
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
+          <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-2.5 sm:mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
           {loading ? (
             <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
           ) : myMatches.length === 0 ? (

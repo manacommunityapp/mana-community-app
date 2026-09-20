@@ -38,6 +38,9 @@ export interface DashboardUpcomingEvent {
   startTime: string | null;
   tournamentId?: number | null;
   tournamentName?: string | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardMyRegistration {
@@ -52,6 +55,9 @@ export interface DashboardMyRegistration {
   matchType: string | null;
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardTournamentCard {
