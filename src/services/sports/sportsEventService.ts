@@ -206,4 +206,12 @@ export const sportsEventService = {
     const statusParam = status ? `?status=${status}` : "";
     return apiClient.get<EventRegistration[]>(`/sports/registrations/partner-invitations${statusParam}`);
   },
+
+  /** PUT /api/sports/registrations/{id}/nominate-partner — nominate or update partner */
+  async nominatePartner(registrationId: number, partnerUserId?: number | null): Promise<EventRegistration> {
+    const url = partnerUserId != null
+      ? `/sports/registrations/${registrationId}/nominate-partner?partnerUserId=${partnerUserId}`
+      : `/sports/registrations/${registrationId}/nominate-partner`;
+    return apiClient.put<EventRegistration>(url);
+  },
 };

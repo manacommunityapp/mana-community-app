@@ -130,7 +130,7 @@ export function SportsRegistration() {
           communityId: user.communityId,
           eventDateStart: new Date().toISOString().split("T")[0],
           eventDateEnd: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-          format: matchTypes[sport.id] ?? undefined,
+          format: matchTypes[sport.id] ? [matchTypes[sport.id]] : undefined,
         });
       }
       toast.success(`Registered for ${selectedSports.length} sport(s)!`);

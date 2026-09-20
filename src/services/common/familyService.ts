@@ -1,4 +1,5 @@
 import { apiClient, getStoredUser } from "./apiClient";
+import { safeStorage } from "../../utils/storage";
 
 export interface FamilyMember {
   id: string | number;
@@ -111,27 +112,16 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
 }
 
 function getStoredMembers(): FamilyMember[] {
-  try {
-    const raw = localStorage.getItem(getStorageKey());
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return mergeWithSelf(parsed);
-      }
-    }
-  } catch (err) {
-    console.warn("Could not read family members from localStorage:", err);
+  const parsed = safeStorage.getJSON<FamilyMember[] | null>(getStorageKey(), null);
+  if (Array.isArray(parsed)) {
+    return mergeWithSelf(parsed);
   }
   const self = getSelfMember();
   return self ? [self] : [];
 }
 
 function persistMembers(members: FamilyMember[], notify = true): void {
-  try {
-    localStorage.setItem(getStorageKey(), JSON.stringify(members));
-  } catch (err) {
-    console.warn("Could not save family members to localStorage:", err);
-  }
+  safeStorage.setJSON(getStorageKey(), members);
   if (notify) {
     window.dispatchEvent(new CustomEvent("mana_family_updated", { detail: members }));
   }

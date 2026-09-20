@@ -330,6 +330,8 @@ export interface RegistrationRequest {
   strikeRate?: number;
   avgScore?: number;
   partnerUserId?: number;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
   playerName?: string;
   email?: string;
   relation?: string;

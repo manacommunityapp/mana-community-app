@@ -78,6 +78,7 @@ import type { UserProfileResponse, UserActivityItem } from "../../../types/api";
 import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 import { PrivacySettingsTab } from "../privacy/PrivacySettingsTab";
 import { canAccessModule } from "../../../utils/permissionUtils";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -230,13 +231,7 @@ export function ProfileDashboard() {
   const [isScoreModalOpen, setIsScoreModalOpen] = useState(false);
 
   const [notifications, setNotifications] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem("mana_notification_preferences");
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
-    return {
+    return safeStorage.getJSON<Record<string, boolean>>(STORAGE_KEYS.NOTIFICATION_PREFS, {
       communityPosts: true,
       marketplaceUpdates: true,
       jobAlerts: false,
@@ -246,7 +241,7 @@ export function ProfileDashboard() {
       visitorsAlerts: true,
       emailDigest: false,
       pushNotifications: true,
-    };
+    });
   });
 
   const visibleNotificationChannels = useMemo(() => {
@@ -438,24 +433,18 @@ export function ProfileDashboard() {
     loginAlerts: boolean;
     biometricPasskey: boolean;
   }>(() => {
-    try {
-      const saved = localStorage.getItem("mana_security_settings");
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
+    return safeStorage.getJSON(STORAGE_KEYS.SECURITY_SETTINGS, {
       twoFactorEnabled: false,
       smsOtpBackup: true,
       loginAlerts: true,
       biometricPasskey: false,
-    };
+    });
   });
 
   const handleToggleSecuritySetting = (key: keyof typeof securitySettings) => {
     setSecuritySettings((prev) => {
       const updated = { ...prev, [key]: !prev[key] };
-      try {
-        localStorage.setItem("mana_security_settings", JSON.stringify(updated));
-      } catch {}
+      safeStorage.setJSON(STORAGE_KEYS.SECURITY_SETTINGS, updated);
       return updated;
     });
     const titles: Record<string, string> = {
@@ -498,21 +487,15 @@ export function ProfileDashboard() {
     quietHours: boolean;
     autoCheckinPass: boolean;
   }>(() => {
-    try {
-      const saved = localStorage.getItem("mana_app_preferences");
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // fallback
-    }
     const isDark = document.documentElement.classList.contains("dark");
-    return {
+    return safeStorage.getJSON(STORAGE_KEYS.APP_PREFERENCES, {
       theme: isDark ? "dark" : "light",
       language: "English",
       soundEffects: true,
       vibration: true,
       quietHours: false,
       autoCheckinPass: true,
-    };
+    });
   });
 
   const applyTheme = useCallback((themeChoice: string) => {
@@ -532,11 +515,7 @@ export function ProfileDashboard() {
   const handleUpdatePreferences = useCallback((patch: Partial<typeof appPreferences>) => {
     setAppPreferences((prev) => {
       const updated = { ...prev, ...patch };
-      try {
-        localStorage.setItem("mana_app_preferences", JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
+      safeStorage.setJSON(STORAGE_KEYS.APP_PREFERENCES, updated);
       if (patch.theme) {
         applyTheme(patch.theme);
       }
@@ -2443,11 +2422,7 @@ export function ProfileDashboard() {
                                       ...prev,
                                       [item.key]: !currentVal,
                                     };
-                                    try {
-                                      localStorage.setItem("mana_notification_preferences", JSON.stringify(updated));
-                                    } catch {
-                                      // ignore storage error
-                                    }
+                                    safeStorage.setJSON(STORAGE_KEYS.NOTIFICATION_PREFS, updated);
                                     return updated;
                                   });
                                   toast.info(`Updated preference for ${item.title}`);

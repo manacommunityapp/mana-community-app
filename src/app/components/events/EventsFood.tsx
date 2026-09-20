@@ -17,6 +17,7 @@ import {
 } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 
 type LunchDinner = {
   id: number;
@@ -75,12 +76,7 @@ export function EventsFood() {
   const [liveRegistrations, setLiveRegistrations] = useState<any[]>([]);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
   const [customStockList, setCustomStockList] = useState<IngredientStock[]>(() => {
-    try {
-      const saved = localStorage.getItem("mana_event_pantry_custom");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON<IngredientStock[]>(STORAGE_KEYS.EVENT_PANTRY_CUSTOM, []);
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -445,9 +441,7 @@ export function EventsFood() {
     setCustomStockList(prev => {
       const idx = prev.findIndex(s => s.item.toLowerCase() === updatedCustom.item.toLowerCase());
       const next = idx >= 0 ? prev.map((s, i) => i === idx ? updatedCustom : s) : [...prev, updatedCustom];
-      try {
-        localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next));
-      } catch {}
+      safeStorage.setJSON(STORAGE_KEYS.EVENT_PANTRY_CUSTOM, next);
       return next;
     });
 
@@ -458,7 +452,7 @@ export function EventsFood() {
   const handleDeleteStockItem = (ing: IngredientStock) => {
     setCustomStockList(prev => {
       const next = prev.filter(s => s.id !== ing.id && s.item.toLowerCase() !== ing.item.toLowerCase());
-      try { localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next)); } catch {}
+      safeStorage.setJSON(STORAGE_KEYS.EVENT_PANTRY_CUSTOM, next);
       return next;
     });
     setPantryItems(prev => prev.filter(p => String(p.id) !== ing.id && p.itemName.toLowerCase() !== ing.item.toLowerCase()));

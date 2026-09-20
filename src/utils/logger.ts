@@ -1,3 +1,5 @@
+import { safeStorage, STORAGE_KEYS } from "./storage";
+
 // Plain const object instead of an enum so the file is type-erasable
 // (tsconfig `erasableSyntaxOnly`); numeric values preserve level ordering.
 const LogLevel = {
@@ -84,7 +86,7 @@ function flush() {
   if (BUFFER.length === 0) return;
 
   const batch = BUFFER.splice(0);
-  const token = localStorage.getItem("mana_token");
+  const token = safeStorage.getItem(STORAGE_KEYS.TOKEN);
   if (!token) return;
 
   const body = JSON.stringify(batch);

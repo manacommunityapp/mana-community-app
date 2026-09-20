@@ -1,4 +1,4 @@
-import { apiClient } from "../common/apiClient";
+import { apiClient, getToken } from "../common/apiClient";
 import { EMAIL_TEMPLATES_COLLECTION, renderSampleHtml, type SystemEmailTemplate } from "./emailTemplatesData";
 
 export interface EmailTemplateInfo {
@@ -179,7 +179,7 @@ export const emailAdminService = {
 
     const query = communityId != null ? `?communityId=${communityId}` : "";
     const url = `/api/admin/email/preview/${encodeURIComponent(cleanKey)}${query}`;
-    const token = localStorage.getItem("mana_token") || "";
+    const token = getToken() || "";
 
     try {
       let res;

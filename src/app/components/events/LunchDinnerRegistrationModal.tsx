@@ -20,6 +20,7 @@ import {
 import { useAuth } from "../../../contexts/AuthContext";
 import { eventService } from "../../../services/events/eventService";
 import { userService } from "../../../services/common/userService";
+import { getStoredUser } from "../../../services/common/apiClient";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
@@ -143,14 +144,11 @@ export function LunchDinnerRegistrationModal({
         "";
 
       if (!initialPhone || !initialName) {
-        try {
-          const cached = localStorage.getItem("mana_user") || localStorage.getItem("mana_user_profile");
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (!initialName) initialName = parsed.fullName || parsed.name || parsed.username || "";
-            if (!initialPhone) initialPhone = parsed.phone || parsed.mobile || parsed.phoneNumber || parsed.contactPhone || "";
-          }
-        } catch {}
+        const stored = getStoredUser();
+        if (stored) {
+          if (!initialName) initialName = stored.fullName || (stored as any).name || (stored as any).username || "";
+          if (!initialPhone) initialPhone = stored.phone || (stored as any).mobile || (stored as any).phoneNumber || (stored as any).contactPhone || "";
+        }
       }
 
       setParticipantName(initialName);

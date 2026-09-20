@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
+import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { otpService } from "../../../services/common/otpService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
@@ -38,10 +41,28 @@ function detectSport(name: string): string {
   return "generic";
 }
 
+function calculateAge(dobString: string): number | null {
+  if (!dobString) return null;
+  const dob = new Date(dobString);
+  if (isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : null;
+}
+
 function normalizeFormatList(raw: any): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) {
-    return raw.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+    return raw.map(s => {
+      if (typeof s === "object" && s !== null) {
+        return String(s.name || s.format || s.value || s.type || "").trim().toUpperCase().replace(/\s+/g, "_");
+      }
+      return String(s).trim().toUpperCase().replace(/\s+/g, "_");
+    }).filter(Boolean);
   }
   if (typeof raw === "string") {
     const trimmed = raw.trim();
@@ -49,7 +70,12 @@ function normalizeFormatList(raw: any): string[] {
       try {
         const parsed = JSON.parse(trimmed);
         if (Array.isArray(parsed)) {
-          return parsed.map(s => String(s).trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+          return parsed.map(s => {
+            if (typeof s === "object" && s !== null) {
+              return String(s.name || s.format || s.value || s.type || "").trim().toUpperCase().replace(/\s+/g, "_");
+            }
+            return String(s).trim().toUpperCase().replace(/\s+/g, "_");
+          }).filter(Boolean);
         }
       } catch {}
     }
@@ -61,39 +87,37 @@ function normalizeFormatList(raw: any): string[] {
 function getEventFormats(event: SportsEvent | null): string[] {
   if (!event) return [];
   const eName = (event.name || "").toLowerCase();
-  const sName = (event.sport?.name || "").toLowerCase();
+  const sName = (event.sport?.name || (event as any).sportName || "").toLowerCase();
   const tName = ((event as any).tournamentName || (event as any).tournament?.name || "").toLowerCase();
   const combined = `${sName} ${tName} ${eName}`;
   const sKey = detectSport(combined);
 
   // 1. Check if event explicitly specifies formats
-  const rawExplicit = event.format || (event as any).formats || event.sport?.formats || event.sport?.format;
+  const rawExplicit =
+    event.format ||
+    (event as any).formats ||
+    event.sport?.formats ||
+    (event.sport as any)?.format ||
+    (event as any).tournament?.format ||
+    (event as any).tournament?.formats;
+
   const parsedExplicit = normalizeFormatList(rawExplicit);
   if (parsedExplicit.length > 0) {
-    if (eName.includes("mixed") || eName.includes("mixed doubles")) {
-      return parsedExplicit.includes("MIXED_DOUBLES") ? ["MIXED_DOUBLES"] : parsedExplicit;
-    }
-    if (eName.includes("doubles") && !eName.includes("singles")) {
-      return parsedExplicit.includes("DOUBLES") ? ["DOUBLES"] : parsedExplicit;
-    }
-    if (eName.includes("singles") && !eName.includes("doubles")) {
-      return parsedExplicit.includes("SINGLES") ? ["SINGLES"] : parsedExplicit;
+    if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
+      return ["MIXED_DOUBLES"];
     }
     return parsedExplicit;
   }
 
   // 2. Check event name keywords for specific format
+  if (eName.includes("singles") && eName.includes("doubles")) {
+    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+  }
   if (eName.includes("mixed") || eName.includes("mixed doubles")) {
     return ["MIXED_DOUBLES"];
   }
   if (eName.includes("doubles") && !eName.includes("singles")) {
     return ["DOUBLES"];
-  }
-  if (eName.includes("singles") && !eName.includes("doubles")) {
-    return ["SINGLES"];
-  }
-  if (eName.includes("singles") && eName.includes("doubles")) {
-    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
 
   // 3. Default available formats based on sport type
@@ -126,7 +150,7 @@ function getEventFormats(event: SportsEvent | null): string[] {
     return ["INDIVIDUAL", "RELAY"];
   }
 
-  return [];
+  return ["SINGLES", "DOUBLES"];
 }
 
 interface StatField {
@@ -367,6 +391,10 @@ interface RegistrationFormData {
   relation: string;
   flatNumber: string;
   familyMemberId?: number | string;
+  partnerUserId?: number | null;
+  partnerInfo?: SelectedPartnerInfo | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -500,96 +528,229 @@ export function SportsRegister() {
     relation: "",
     flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
     familyMemberId: undefined as number | string | undefined,
+    partnerUserId: null,
+    partnerInfo: null,
+    captainNomination: false,
+    proposedTeamName: "",
   });
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
-  const [showAddFamilyModal, setShowAddFamilyModal] = useState(false);
-  const [addingFamilyMember, setAddingFamilyMember] = useState(false);
-  const [newFamilyMember, setNewFamilyMember] = useState({
+
+  // Unified Edit / Add Details Modal State (Self or Family Member)
+  const [profileModalState, setProfileModalState] = useState<{
+    open: boolean;
+    mode: "self" | "family_edit" | "family_add";
+    memberId?: number | string;
+    name: string;
+    relation: string;
+    gender: string;
+    dob: string;
+    phone: string;
+    flatNo?: string;
+    gotram?: string;
+    bloodGroup?: string;
+  }>({
+    open: false,
+    mode: "self",
     name: "",
     relation: "Son",
     gender: "Male",
-    gotram: "",
     dob: "",
     phone: "",
+    flatNo: "",
+    gotram: "",
     bloodGroup: "",
   });
 
-  const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFamilyMember.name.trim()) {
-      toast.error("Please enter family member's full name");
-      return;
-    }
-    if (newFamilyMember.phone?.trim() && !isValidIndianPhone(newFamilyMember.phone)) {
-      toast.error("Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)");
-      return;
-    }
-    setAddingFamilyMember(true);
-    try {
-      let computedAge = 18;
-      if (newFamilyMember.dob) {
-        const birth = new Date(newFamilyMember.dob);
-        if (!isNaN(birth.getTime())) {
-          computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
-        }
+  const [savingProfileModal, setSavingProfileModal] = useState(false);
+
+  const openUpdateDetailsModal = (mode: "self" | "family_edit" | "family_add", targetMemberId?: number | string) => {
+    if (mode === "self") {
+      setProfileModalState({
+        open: true,
+        mode: "self",
+        name: formData.playerName || userFullName || user?.fullName || "",
+        relation: "SELF",
+        gender: formData.gender || userGender || "",
+        dob: formData.dateOfBirth || userDob || "",
+        phone: (liveUser as any)?.phone || user?.phone || "",
+        flatNo: formData.flatNumber || userFlat || "",
+        gotram: "",
+        bloodGroup: "",
+      });
+    } else if (mode === "family_edit") {
+      const targetId = targetMemberId || formData.familyMemberId;
+      const mem = familyMembersOnly.find(m => String(m.id) === String(targetId)) || familyMembersOnly[0];
+      if (mem) {
+        setProfileModalState({
+          open: true,
+          mode: "family_edit",
+          memberId: mem.id,
+          name: mem.name || "",
+          relation: mem.relation || (mem as any).relationship || "Son",
+          gender: mem.gender || "",
+          dob: mem.dob || (mem as any).dateOfBirth || "",
+          phone: mem.phone || "",
+          flatNo: userFlat,
+          gotram: mem.gotram || "",
+          bloodGroup: mem.bloodGroup || "",
+        });
+      } else {
+        openUpdateDetailsModal("family_add");
       }
-
-      const payload = {
-        name: newFamilyMember.name.trim(),
-        relation: newFamilyMember.relation,
-        dob: newFamilyMember.dob || undefined,
-        gender: newFamilyMember.gender || "Male",
-        gotram: newFamilyMember.gotram?.trim() || undefined,
-        phone: newFamilyMember.phone?.trim() || undefined,
-        bloodGroup: newFamilyMember.bloodGroup?.trim() || undefined,
-        age: computedAge,
-        status: "ACTIVE",
-      };
-
-      const saved = await familyService.addFamilyMember(payload);
-      toast.success(`Family member "${payload.name}" added successfully!`);
-
-      // Refresh list
-      const members = await familyService.getFamilyMembers(true);
-      setSavedFamilyMembers(members);
-
-      // Auto-select newly created family member
-      const rel = payload.relation.toUpperCase();
-      const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
-        ? "SPOUSE"
-        : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
-        ? "CHILD"
-        : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
-        ? "PARENT"
-        : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
-        ? "SIBLING"
-        : "OTHER";
-
-      setFormData(prev => ({
-        ...prev,
-        playerName: payload.name,
-        familyMemberId: saved.id,
-        gender: payload.gender || "",
-        dateOfBirth: payload.dob || "",
-        age: computedAge,
-        relation: mappedRel,
-      }));
-
-      setShowAddFamilyModal(false);
-      setNewFamilyMember({
+    } else {
+      setProfileModalState({
+        open: true,
+        mode: "family_add",
         name: "",
         relation: "Son",
         gender: "Male",
-        gotram: "",
         dob: "",
         phone: "",
+        flatNo: userFlat,
+        gotram: "",
         bloodGroup: "",
       });
+    }
+  };
+
+  const handleProfileModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileModalState.name.trim()) {
+      toast.error("Please enter full name");
+      return;
+    }
+    if (!profileModalState.gender) {
+      toast.error("Please select a gender");
+      return;
+    }
+    if (!profileModalState.dob) {
+      toast.error("Please select Date of Birth");
+      return;
+    }
+    if (profileModalState.phone?.trim() && !isValidIndianPhone(profileModalState.phone)) {
+      toast.error("Please enter a valid 10-digit Indian mobile number");
+      return;
+    }
+
+    setSavingProfileModal(true);
+    try {
+      const computedAge = calculateAge(profileModalState.dob) || 18;
+
+      if (profileModalState.mode === "self") {
+        if (user?.userId) {
+          try {
+            await userService.updateUser(Number(user.userId), {
+              gender: profileModalState.gender,
+              dateOfBirth: profileModalState.dob,
+              fullName: profileModalState.name.trim(),
+              flatNo: profileModalState.flatNo?.trim() || undefined,
+            });
+          } catch (apiErr) {
+            console.warn("Could not save to userService.updateUser directly, fallback to context sync:", apiErr);
+          }
+        }
+        updateUser({
+          gender: profileModalState.gender,
+          dateOfBirth: profileModalState.dob,
+          fullName: profileModalState.name.trim(),
+          flatNo: profileModalState.flatNo?.trim(),
+        });
+        familyService.syncUserProfile(
+          profileModalState.name.trim(),
+          profileModalState.dob,
+          profileModalState.gender,
+          profileModalState.phone?.trim() || user?.phone,
+          user?.email
+        );
+        setFormData(prev => ({
+          ...prev,
+          playerName: profileModalState.name.trim(),
+          gender: profileModalState.gender,
+          dateOfBirth: profileModalState.dob,
+          flatNumber: profileModalState.flatNo?.trim() || prev.flatNumber,
+          age: computedAge,
+        }));
+        toast.success("Profile details updated successfully!");
+      } else if (profileModalState.mode === "family_edit") {
+        const payload = {
+          name: profileModalState.name.trim(),
+          relation: profileModalState.relation,
+          dob: profileModalState.dob,
+          gender: profileModalState.gender,
+          phone: profileModalState.phone?.trim() || undefined,
+          gotram: profileModalState.gotram?.trim() || undefined,
+          bloodGroup: profileModalState.bloodGroup?.trim() || undefined,
+          age: computedAge,
+          status: "ACTIVE",
+        };
+        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        const refreshed = await familyService.getFamilyMembers(true);
+        setSavedFamilyMembers(refreshed);
+
+        const rel = payload.relation.toUpperCase();
+        const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+          ? "SPOUSE"
+          : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+          ? "CHILD"
+          : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+          ? "PARENT"
+          : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+          ? "SIBLING"
+          : "OTHER";
+
+        setFormData(prev => ({
+          ...prev,
+          playerName: payload.name,
+          gender: payload.gender,
+          dateOfBirth: payload.dob,
+          relation: mappedRel,
+          age: computedAge,
+        }));
+        toast.success(`Family member "${payload.name}" updated successfully!`);
+      } else {
+        const payload = {
+          name: profileModalState.name.trim(),
+          relation: profileModalState.relation,
+          dob: profileModalState.dob,
+          gender: profileModalState.gender,
+          phone: profileModalState.phone?.trim() || undefined,
+          gotram: profileModalState.gotram?.trim() || undefined,
+          bloodGroup: profileModalState.bloodGroup?.trim() || undefined,
+          age: computedAge,
+          status: "ACTIVE",
+        };
+        const saved = await familyService.addFamilyMember(payload);
+        const refreshed = await familyService.getFamilyMembers(true);
+        setSavedFamilyMembers(refreshed);
+
+        const rel = payload.relation.toUpperCase();
+        const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+          ? "SPOUSE"
+          : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+          ? "CHILD"
+          : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+          ? "PARENT"
+          : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+          ? "SIBLING"
+          : "OTHER";
+
+        setFormData(prev => ({
+          ...prev,
+          playerName: payload.name,
+          familyMemberId: saved.id,
+          gender: payload.gender,
+          dateOfBirth: payload.dob,
+          relation: mappedRel,
+          age: computedAge,
+        }));
+        toast.success(`Family member "${payload.name}" added successfully!`);
+      }
+      setProfileModalState(prev => ({ ...prev, open: false }));
     } catch (err: any) {
-      toast.error(err?.message || "Failed to add family member");
+      toast.error(err?.message || "Failed to save details");
     } finally {
-      setAddingFamilyMember(false);
+      setSavingProfileModal(false);
     }
   };
 
@@ -932,29 +1093,22 @@ export function SportsRegister() {
 
     // Check user profile for Full Name, Gender, Date of Birth, Flat / Villa
     if (formData.regType === "self") {
-      if (missingProfileFields.length > 0) {
-        toast.error(`Please update your ${missingProfileFields.join(" and ")} in your Profile before registering for sports events.`, {
-          duration: 6000,
-          action: {
-            label: "Update Profile",
-            onClick: () => navigate("/profile"),
-          },
-        });
+      if (!formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.playerName?.trim()) {
+        toast.error("Please complete your Gender and Date of Birth to proceed with registration.");
+        openUpdateDetailsModal("self");
         return;
       }
     } else if (formData.regType === "family") {
-      const missingFields: string[] = [];
-      if (!formData.gender?.trim()) missingFields.push("Gender");
-      if (!formData.dateOfBirth?.trim()) missingFields.push("Date of Birth");
-
-      if (missingFields.length > 0) {
-        toast.error(`Please provide ${missingFields.join(" and ")} for this family member before registering.`);
+      if (!formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.playerName?.trim()) {
+        toast.error("Please complete Gender and Date of Birth for this family member before registering.");
+        openUpdateDetailsModal("family_edit", formData.familyMemberId);
         return;
       }
     }
 
     if (!formData.dateOfBirth?.trim()) {
       toast.error("Date of Birth is mandatory. Please provide your Date of Birth.");
+      openUpdateDetailsModal(formData.regType === "family" ? "family_edit" : "self");
       return;
     }
     if (formData.categoryIds.length === 0) {
@@ -1024,6 +1178,7 @@ export function SportsRegister() {
     try {
       for (const catId of formData.categoryIds) {
         for (const fmt of selectedFormats) {
+          const isDoubles = fmt.toUpperCase().includes("DOUBLES");
           await sportsService.registerForEvent({
             eventId: event.id,
             categoryId: catId,
@@ -1041,8 +1196,20 @@ export function SportsRegister() {
             relation: formData.relation,
             flatNumber: formData.flatNumber,
             familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
+            partnerUserId: isDoubles && formData.partnerUserId ? formData.partnerUserId : undefined,
+            captainNomination: formData.captainNomination || undefined,
+            proposedTeamName: formData.captainNomination && formData.proposedTeamName ? formData.proposedTeamName.trim() : undefined,
             recaptchaToken,
           });
+        }
+      }
+
+      // If user nominated as team captain, trigger the auction captain nomination hook
+      if (formData.captainNomination && event.id) {
+        try {
+          await auctionService.nominateCaptain(event.id, true, formData.proposedTeamName?.trim());
+        } catch (capErr) {
+          console.warn("Auction captain nomination hook error (non-fatal):", capErr);
         }
       }
 
@@ -1276,136 +1443,222 @@ export function SportsRegister() {
         </div>
       )}
 
-      {/* ─── ADD FAMILY MEMBER MODAL ─── */}
-      {showAddFamilyModal && (
+      {/* ─── UNIFIED PROFILE / FAMILY MEMBER MODAL ─── */}
+      {profileModalState.open && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer animate-fade-in"
-          onClick={() => setShowAddFamilyModal(false)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
         >
-          <form
-            onSubmit={handleAddFamilyMemberSubmit}
+          <div
+            className="w-full max-w-md bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto cursor-default"
           >
-            {/* Mobile Drag Indicator */}
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
-
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <h3 className="text-sm font-black text-foreground flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-primary" />
-                Add Family Member
-              </h3>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  {profileModalState.mode === "self" ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                    {profileModalState.mode === "self"
+                      ? "Update Your Profile Details"
+                      : profileModalState.mode === "family_edit"
+                      ? "Update Family Member Details"
+                      : "Add New Family Member"}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {profileModalState.mode === "self"
+                      ? "Required for tournament eligibility & category verification"
+                      : "Provide member details for age & category validation"}
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowAddFamilyModal(false)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
-                title="Close modal (Esc)"
+                onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
+                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
+            {/* Form */}
+            <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                   Full Name <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  value={newFamilyMember.name}
-                  onChange={(e) => setNewFamilyMember({ ...newFamilyMember, name: e.target.value })}
-                  placeholder="Enter member's full name"
-                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  value={profileModalState.name}
+                  onChange={(e) => setProfileModalState({ ...profileModalState, name: e.target.value })}
+                  placeholder="Enter full name"
+                  className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                    Relationship <span className="text-destructive">*</span>
-                  </label>
-                  <select
-                    value={newFamilyMember.relation}
-                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, relation: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="Spouse">Spouse</option>
-                    <option value="Son">Son</option>
-                    <option value="Daughter">Daughter</option>
-                    <option value="Father">Father</option>
-                    <option value="Mother">Mother</option>
-                    <option value="Brother">Brother</option>
-                    <option value="Sister">Sister</option>
-                    <option value="Grandfather">Grandfather</option>
-                    <option value="Grandmother">Grandmother</option>
-                    <option value="Relative">Relative</option>
-                  </select>
-                </div>
+              {profileModalState.mode !== "self" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Relationship <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={profileModalState.relation}
+                      onChange={(e) => {
+                        const rel = e.target.value;
+                        let autoGender = profileModalState.gender;
+                        if (rel === "Wife" || rel === "Mother" || rel === "Daughter" || rel === "Sister") {
+                          autoGender = "Female";
+                        } else if (rel === "Husband" || rel === "Father" || rel === "Son" || rel === "Brother") {
+                          autoGender = "Male";
+                        }
+                        setProfileModalState({ ...profileModalState, relation: rel, gender: autoGender });
+                      }}
+                      className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
+                    >
+                      <option value="Son">Son</option>
+                      <option value="Daughter">Daughter</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Wife">Wife</option>
+                      <option value="Husband">Husband</option>
+                      <option value="Father">Father</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Brother">Brother</option>
+                      <option value="Sister">Sister</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
 
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Gender <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={profileModalState.gender}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
+                      className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
                 <div>
-                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                    Gender
+                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    Gender <span className="text-destructive">*</span>
                   </label>
                   <select
-                    value={newFamilyMember.gender}
-                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, gender: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    value={profileModalState.gender}
+                    onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
+                    className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
                   >
+                    <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                    Date of Birth <span className="text-destructive">*</span>
+                  </label>
+                  {profileModalState.dob && calculateAge(profileModalState.dob) !== null && (
+                    <span className="text-[11px] font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                      {calculateAge(profileModalState.dob)} yrs old
+                    </span>
+                  )}
+                </div>
+                <DatePicker
+                  value={profileModalState.dob}
+                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  max={new Date().toISOString().split("T")[0]}
+                  presets={false}
+                  placeholder="Select Date of Birth"
+                  className="h-10 text-sm rounded-xl px-2.5 bg-muted/40 border-border"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                    Date of Birth
-                  </label>
-                  <DatePicker
-                    value={newFamilyMember.dob}
-                    onChange={(val) => setNewFamilyMember({ ...newFamilyMember, dob: val })}
-                    max={new Date().toISOString().split("T")[0]}
-                    placeholder="Select DOB..."
-                    className="w-full"
-                    presets={false}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                    Phone (Optional)
+                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    Phone Number
                   </label>
                   <input
                     type="tel"
-                    value={newFamilyMember.phone}
-                    onChange={(e) => setNewFamilyMember({ ...newFamilyMember, phone: e.target.value })}
+                    value={profileModalState.phone}
+                    onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
                     placeholder="10-digit mobile"
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm sm:text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
                   />
                 </div>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAddFamilyModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={addingFamilyMember || !newFamilyMember.name.trim()}
-                className="flex-1 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-md shadow-primary/25 disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {addingFamilyMember ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Member"}
-              </button>
-            </div>
-          </form>
+                {profileModalState.mode === "self" ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Flat / Villa No.
+                    </label>
+                    <input
+                      type="text"
+                      value={profileModalState.flatNo || ""}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
+                      placeholder="e.g. A-402"
+                      className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Blood Group
+                    </label>
+                    <input
+                      type="text"
+                      value={profileModalState.bloodGroup || ""}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}
+                      placeholder="e.g. O+, B+"
+                      className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-4">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
+                  className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfileModal}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+                >
+                  {savingProfileModal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>{profileModalState.mode === "self" ? "Save Profile" : "Save Details"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -1479,13 +1732,13 @@ export function SportsRegister() {
                       Profile Incomplete: {missingProfileFields.join(", ")} Required
                     </h4>
                     <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
-                      Your profile is missing {missingProfileFields.join(", ")}. These details are mandatory in your profile to place you in tournament brackets. Please update your profile before registering.
+                      Your profile is missing {missingProfileFields.join(", ")}. These details are mandatory in your profile to place you in tournament brackets. Please update your details to proceed.
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate("/profile")}
+                  onClick={() => openUpdateDetailsModal("self")}
                   className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95"
                 >
                   <span>Update Profile</span>
@@ -1514,6 +1767,16 @@ export function SportsRegister() {
                       </span>
                     )}
                   </div>
+                  {formData.regType === "self" && (
+                    <button
+                      type="button"
+                      onClick={() => openUpdateDetailsModal("self")}
+                      className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Edit My Info</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
                 {formData.regType === "family" && (
@@ -1524,18 +1787,7 @@ export function SportsRegister() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => {
-                          setNewFamilyMember({
-                            name: "",
-                            relation: "Son",
-                            gender: "Male",
-                            gotram: "",
-                            dob: "",
-                            phone: "",
-                            bloodGroup: "",
-                          });
-                          setShowAddFamilyModal(true);
-                        }}
+                        onClick={() => openUpdateDetailsModal("family_add")}
                         className="px-2.5 py-1 bg-primary text-white hover:bg-primary/90 text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1556,10 +1808,10 @@ export function SportsRegister() {
                               formattedDob = String(dobVal);
                             }
                           }
+                          const isMissingDetails = !dobVal || !m.gender;
                           return (
-                            <button
+                            <div
                               key={m.id}
-                              type="button"
                               onClick={() => {
                                 const rel = m.relation?.toUpperCase() || "";
                                 const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
@@ -1592,7 +1844,7 @@ export function SportsRegister() {
                                   };
                                 });
                               }}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-wrap ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-wrap select-none ${
                                 isSelected
                                   ? "bg-primary text-white border-primary shadow-xs"
                                   : "bg-card text-foreground border-border hover:border-primary/50"
@@ -1600,15 +1852,47 @@ export function SportsRegister() {
                             >
                               <span>{m.name}</span>
                               <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                                {m.relation} {formattedDob ? `• DOB: ${formattedDob}` : m.age ? `• (${m.age}y)` : ""}
+                                {m.relation} {formattedDob ? `• DOB: ${formattedDob}` : m.age ? `• (${m.age}y)` : isMissingDetails ? "• ⚠️ Incomplete" : ""}
                               </span>
-                            </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openUpdateDetailsModal("family_edit", m.id);
+                                }}
+                                title="Edit details"
+                                className={`ml-0.5 p-0.5 rounded text-[11px] transition ${
+                                  isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                ✏️
+                              </button>
+                            </div>
                           );
                         })}
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg border border-dashed border-border">
                         <span>No family members added yet. Click &quot;Add Member&quot; to add family members to your directory.</span>
+                      </div>
+                    )}
+
+                    {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
+                      <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                            Missing {(!formData.gender && !formData.dateOfBirth) ? "Gender & Date of Birth" : !formData.gender ? "Gender" : "Date of Birth"} for {formData.playerName}.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openUpdateDetailsModal("family_edit", formData.familyMemberId)}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                        >
+                          <span>Update Member</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1642,13 +1926,13 @@ export function SportsRegister() {
                         <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
                         Gender <span className="text-destructive font-bold">*</span>
                       </span>
-                      {formData.regType === "self" && !userGender && (
+                      {formData.regType === "self" && (
                         <button
                           type="button"
-                          onClick={() => navigate("/profile")}
-                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          onClick={() => openUpdateDetailsModal("self")}
+                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
                         >
-                          <span>⚠️ Add</span>
+                          <span>{!userGender ? "⚠️ Add" : "Edit"}</span>
                           <ArrowUpRight className="w-3 h-3" />
                         </button>
                       )}
@@ -1661,7 +1945,7 @@ export function SportsRegister() {
                         {!userGender && (
                           <button
                             type="button"
-                            onClick={() => navigate("/profile")}
+                            onClick={() => openUpdateDetailsModal("self")}
                             className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
                           >
                             Add
@@ -1709,13 +1993,13 @@ export function SportsRegister() {
                         <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
                         <span>DOB <span className="text-destructive font-bold">*</span></span>
                       </span>
-                      {formData.regType === "self" && !userDob && (
+                      {formData.regType === "self" && (
                         <button
                           type="button"
-                          onClick={() => navigate("/profile")}
-                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          onClick={() => openUpdateDetailsModal("self")}
+                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
                         >
-                          <span>⚠️ Add</span>
+                          <span>{!userDob ? "⚠️ Add" : "Edit"}</span>
                           <ArrowUpRight className="w-3 h-3" />
                         </button>
                       )}
@@ -1730,7 +2014,7 @@ export function SportsRegister() {
                         {!userDob && (
                           <button
                             type="button"
-                            onClick={() => navigate("/profile")}
+                            onClick={() => openUpdateDetailsModal("self")}
                             className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
                           >
                             Add
@@ -1755,7 +2039,7 @@ export function SportsRegister() {
                       {!userFlat && (
                         <button
                           type="button"
-                          onClick={() => navigate("/profile")}
+                          onClick={() => openUpdateDetailsModal("self")}
                           className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
                         >
                           <span>⚠️ Add</span>
@@ -1844,6 +2128,86 @@ export function SportsRegister() {
                 </div>
               </div>
             ) : null}
+
+            {/* 2b. Partner Nomination for Doubles / Mixed Doubles */}
+            {formData.matchTypes.some(f => f.toUpperCase().includes("DOUBLES")) && (
+              <SportsPartnerSelector
+                selectedPartner={formData.partnerInfo}
+                onChange={(partner) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    partnerInfo: partner,
+                    partnerUserId: partner?.userId || null,
+                  }));
+                }}
+                matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
+                currentGender={formData.gender}
+                currentUserId={user?.userId || (user as any)?.id}
+                communityId={user?.communityId}
+                familyMembers={savedFamilyMembers}
+                disabled={submitting}
+              />
+            )}
+
+            {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
+            {isTeamSport(event?.sport?.name || event?.name || "") && (
+              <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Crown className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                          Team Captain Nomination
+                        </h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300">
+                          Optional
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Are you interested in leading a team and participating in the player auction/draft?
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.captainNomination ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {formData.captainNomination && (
+                  <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
+                    <label className="block text-[11px] font-bold text-foreground">
+                      Proposed Team Name <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Royal Strikers, Sector 12 Blasters"
+                      value={formData.proposedTeamName || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, proposedTeamName: e.target.value }))}
+                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <Info className="w-3 h-3 shrink-0" />
+                      Organizers will review captain nominations and finalize teams before the auction.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Sport Categories in Tournament */}
             {siblingEvents.length > 1 && (
@@ -2190,6 +2554,26 @@ export function SportsRegister() {
               </div>
             )}
 
+            {/* Missing Gender/DOB Alert */}
+            {(!formData.gender?.trim() || !formData.dateOfBirth?.trim()) && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-left animate-in fade-in shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                    Registration is disabled. Please provide {(!formData.gender?.trim() && !formData.dateOfBirth?.trim()) ? "Gender and Date of Birth" : !formData.gender?.trim() ? "Gender" : "Date of Birth"} to proceed.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openUpdateDetailsModal(formData.regType === "family" ? (formData.familyMemberId ? "family_edit" : "family_add") : "self", formData.familyMemberId)}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
+                >
+                  <span>Provide Details</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
             {/* Submit Actions */}
             <div className="flex gap-3 pt-1">
               <button
@@ -2201,11 +2585,13 @@ export function SportsRegister() {
               </button>
               <button
                 type="submit"
-                disabled={submitting || (OTP_REQUIRED && !emailVerified)}
-                className="flex-[2] py-3 bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 text-white font-bold rounded-xl shadow-lg shadow-primary/25 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
+                disabled={submitting || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className="flex-[2] py-3 bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 text-white font-bold rounded-xl shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
               >
                 {submitting ? (
                   <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
+                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                  <>Provide Gender &amp; DOB to Register</>
                 ) : (
                   <>Submit Registration <span className="text-lg">→</span></>
                 )}
