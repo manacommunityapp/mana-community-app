@@ -2055,6 +2055,8 @@ export function useSportsAdminState() {
   };
 
   const handleSportEdit = (e: any) => {
+    setShowSportPicker(false);
+    setSportPickerSearch("");
     if (e.tournament) {
       setActiveTournamentId(e.tournament.id);
       setActiveTournamentName(e.tournament.name || "");
