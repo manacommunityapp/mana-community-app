@@ -17,6 +17,7 @@ import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
 import { resolveUserAvatar } from "../../../../utils/imageUrlUtils";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
+import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -66,6 +67,11 @@ function UserProfileMenu({
   }, [open]);
 
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.profilePicUrl, user?.profilePic]);
+
   const userAvatar = !imgError ? resolveUserAvatar(user) : undefined;
 
   const initials = user?.fullName
@@ -278,11 +284,7 @@ function UserProfileMenu({
 export function Layout() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("mana_sidebar_collapsed") === "true";
-    } catch {
-      return false;
-    }
+    return safeStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === "true";
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
@@ -361,9 +363,7 @@ export function Layout() {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
       setIsSidebarCollapsed((prev) => {
         const next = !prev;
-        try {
-          localStorage.setItem("mana_sidebar_collapsed", String(next));
-        } catch {}
+        safeStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(next));
         return next;
       });
     } else {

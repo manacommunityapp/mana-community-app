@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
+import { getStoredUser } from "../../../services/common/apiClient";
 import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { eventService, type PoojaRegistrationRequest, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
@@ -491,17 +492,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       if (flat) setDevoteeFlat(flat);
     }
 
-    // 2. Check localStorage cached profile
-    try {
-      const cached = localStorage.getItem("mana_user") || localStorage.getItem("mana_user_profile");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const flat = resolveUserFlat(parsed);
-        if (parsed.fullName || parsed.name) setDevoteeName((prev) => prev || parsed.fullName || parsed.name);
-        if (parsed.phone || parsed.mobile) setDevoteePhone((prev) => prev || parsed.phone || parsed.mobile);
-        if (flat) setDevoteeFlat((prev) => prev || flat);
-      }
-    } catch {}
+    // 2. Check cached profile via getStoredUser
+    const stored = getStoredUser();
+    if (stored) {
+      const flat = resolveUserFlat(stored);
+      if (stored.fullName || (stored as any).name) setDevoteeName((prev) => prev || stored.fullName || (stored as any).name);
+      if (stored.phone || (stored as any).mobile) setDevoteePhone((prev) => prev || stored.phone || (stored as any).mobile);
+      if (flat) setDevoteeFlat((prev) => prev || flat);
+    }
 
     // 3. Fetch latest from userService.getMe()
     userService

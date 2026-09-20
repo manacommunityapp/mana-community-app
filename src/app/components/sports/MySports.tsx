@@ -32,6 +32,7 @@ import {
   Shield,
   Compass,
   HeartHandshake,
+  Crown,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -42,6 +43,7 @@ import "./SportsAuction.css";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsScheduleService, type EventListItem, type RegistrationListItem } from "../../../services/sports/sportsScheduleService";
 import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
 import { communityService } from "../../../services/community/communityService";
 import { venueService } from "../../../services/bookings/venueService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
@@ -163,6 +165,21 @@ export function MySports() {
     open: false,
     registration: null,
     selectedPartner: null,
+    saving: false,
+  });
+
+  // Captain Nomination Modal state
+  const [captainModalState, setCaptainModalState] = useState<{
+    open: boolean;
+    registration: RegistrationListItem | null;
+    nominated: boolean;
+    teamName: string;
+    saving: boolean;
+  }>({
+    open: false,
+    registration: null,
+    nominated: false,
+    teamName: "",
     saving: false,
   });
 
@@ -293,6 +310,43 @@ export function MySports() {
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Failed to update partner");
       setPartnerModalState(prev => ({ ...prev, saving: false }));
+    }
+  };
+
+  const handleSaveCaptainNomination = async () => {
+    if (!captainModalState.registration) return;
+    const reg = captainModalState.registration;
+    const willNominate = captainModalState.nominated;
+    const teamName = captainModalState.teamName.trim() || undefined;
+
+    setCaptainModalState(prev => ({ ...prev, saving: true }));
+    try {
+      await sportsService.nominateCaptain(reg.id, willNominate, teamName);
+      if (reg.eventId) {
+        await auctionService.nominateCaptain(reg.eventId, willNominate, teamName).catch(() => {});
+      }
+
+      toast.success(
+        willNominate
+          ? "Captain self-nomination submitted! Good luck for the team selection."
+          : "Captain nomination withdrawn."
+      );
+
+      setRegistrations(prev => prev.map(r => {
+        if (r.id === reg.id) {
+          return {
+            ...r,
+            captainNomination: willNominate,
+          };
+        }
+        return r;
+      }));
+
+      setCaptainModalState({ open: false, registration: null, nominated: false, teamName: "", saving: false });
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to update captain nomination");
+      setCaptainModalState(prev => ({ ...prev, saving: false }));
     }
   };
 
@@ -922,6 +976,49 @@ export function MySports() {
                                       )}
                                     </div>
                                   )}
+
+                                  {/* Team Captain Status & Action (for Cricket and Team Sports) */}
+                                  {(isTeamSport(reg.eventName || "") || reg.matchType === "TEAM") && (
+                                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${
+                                          reg.captainConfirmation
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : reg.captainNomination
+                                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                                            : "bg-slate-50 text-slate-600 border-slate-200"
+                                        }`}>
+                                          <Crown className="w-3 h-3 text-amber-600" />
+                                          <span>
+                                            {reg.captainConfirmation
+                                              ? "Confirmed Captain 🏆"
+                                              : reg.captainNomination
+                                              ? "Captain Nominee"
+                                              : "Captaincy: Not Nominated"}
+                                          </span>
+                                        </span>
+                                      </div>
+
+                                      {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && !reg.captainConfirmation && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setCaptainModalState({
+                                              open: true,
+                                              registration: reg,
+                                              nominated: !!reg.captainNomination,
+                                              teamName: "",
+                                              saving: false,
+                                            });
+                                          }}
+                                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold rounded-lg transition inline-flex items-center gap-1 cursor-pointer border border-amber-200"
+                                        >
+                                          <Crown className="w-3 h-3 text-amber-600" />
+                                          <span>{reg.captainNomination ? "Manage Captaincy" : "Nominate as Captain"}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 text-xs">
@@ -1538,7 +1635,7 @@ export function MySports() {
                 }}
                 matchType={partnerModalState.registration.matchType || "DOUBLES"}
                 currentGender={(user as any)?.gender}
-                currentUserId={user?.id}
+                currentUserId={user?.userId || (user as any)?.id}
                 communityId={user?.communityId}
                 familyMembers={familyMembers}
                 disabled={partnerModalState.saving}
@@ -1562,6 +1659,104 @@ export function MySports() {
                   {partnerModalState.saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>
                     {partnerModalState.selectedPartner?.userId ? "Send Partner Invite" : "Save as Open Pool"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════ CAPTAIN NOMINATION MODAL ════════════════════ */}
+        {captainModalState.open && captainModalState.registration && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                    <Crown className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      Team Captain Nomination
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {captainModalState.registration.eventName}
+                      {captainModalState.registration.categoryName ? ` · ${captainModalState.registration.categoryName}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCaptainModalState({ open: false, registration: null, nominated: false, teamName: "", saving: false })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-amber-950">Self-Nominate as Captain</p>
+                      <p className="text-[11px] text-amber-800 mt-0.5">
+                        Lead a team in the tournament and participate in the player draft/auction.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCaptainModalState(prev => ({ ...prev, nominated: !prev.nominated }))}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        captainModalState.nominated ? "bg-amber-600" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          captainModalState.nominated ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {captainModalState.nominated && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Royal Strikers, Blasters XI"
+                      value={captainModalState.teamName}
+                      onChange={(e) => setCaptainModalState(prev => ({ ...prev, teamName: e.target.value }))}
+                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
+                    />
+                  </div>
+                )}
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Note: Submitting a nomination expresses your willingness to captain a team. Organizers will review nominations and confirm team appointments before the tournament draft.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCaptainModalState({ open: false, registration: null, nominated: false, teamName: "", saving: false })}
+                  disabled={captainModalState.saving}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCaptainNomination}
+                  disabled={captainModalState.saving}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {captainModalState.saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {captainModalState.nominated ? "Submit Nomination" : "Withdraw Nomination"}
                   </span>
                 </button>
               </div>

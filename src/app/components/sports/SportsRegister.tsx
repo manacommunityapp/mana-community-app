@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { otpService } from "../../../services/common/otpService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
@@ -95,7 +97,7 @@ function getEventFormats(event: SportsEvent | null): string[] {
     event.format ||
     (event as any).formats ||
     event.sport?.formats ||
-    event.sport?.format ||
+    (event.sport as any)?.format ||
     (event as any).tournament?.format ||
     (event as any).tournament?.formats;
 
@@ -391,6 +393,8 @@ interface RegistrationFormData {
   familyMemberId?: number | string;
   partnerUserId?: number | null;
   partnerInfo?: SelectedPartnerInfo | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -526,6 +530,8 @@ export function SportsRegister() {
     familyMemberId: undefined as number | string | undefined,
     partnerUserId: null,
     partnerInfo: null,
+    captainNomination: false,
+    proposedTeamName: "",
   });
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
@@ -1191,8 +1197,19 @@ export function SportsRegister() {
             flatNumber: formData.flatNumber,
             familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
             partnerUserId: isDoubles && formData.partnerUserId ? formData.partnerUserId : undefined,
+            captainNomination: formData.captainNomination || undefined,
+            proposedTeamName: formData.captainNomination && formData.proposedTeamName ? formData.proposedTeamName.trim() : undefined,
             recaptchaToken,
           });
+        }
+      }
+
+      // If user nominated as team captain, trigger the auction captain nomination hook
+      if (formData.captainNomination && event.id) {
+        try {
+          await auctionService.nominateCaptain(event.id, true, formData.proposedTeamName?.trim());
+        } catch (capErr) {
+          console.warn("Auction captain nomination hook error (non-fatal):", capErr);
         }
       }
 
@@ -2125,11 +2142,71 @@ export function SportsRegister() {
                 }}
                 matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
                 currentGender={formData.gender}
-                currentUserId={user?.id}
+                currentUserId={user?.userId || (user as any)?.id}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
               />
+            )}
+
+            {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
+            {isTeamSport(event?.sport?.name || event?.name || "") && (
+              <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Crown className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs sm:text-sm font-bold text-foreground">
+                          Team Captain Nomination
+                        </h4>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300">
+                          Optional
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Are you interested in leading a team and participating in the player auction/draft?
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.captainNomination ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {formData.captainNomination && (
+                  <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
+                    <label className="block text-[11px] font-bold text-foreground">
+                      Proposed Team Name <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Royal Strikers, Sector 12 Blasters"
+                      value={formData.proposedTeamName || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, proposedTeamName: e.target.value }))}
+                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <Info className="w-3 h-3 shrink-0" />
+                      Organizers will review captain nominations and finalize teams before the auction.
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Sport Categories in Tournament */}

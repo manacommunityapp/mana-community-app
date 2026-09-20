@@ -4,11 +4,13 @@ import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
   Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle,
-  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil
+  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown
 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
@@ -502,6 +504,8 @@ interface SportEventSelection {
   categoryId?: number;
   partnerUserId?: number | null;
   partnerInfo?: SelectedPartnerInfo | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
 }
 
 export function SportsMultiRegister() {
@@ -1180,7 +1184,17 @@ export function SportsMultiRegister() {
           flatNumber: flatNumber || undefined,
           familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
           partnerUserId: isDoubles && ev.partnerUserId ? ev.partnerUserId : undefined,
+          captainNomination: ev.captainNomination || undefined,
+          proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
         });
+      }
+
+      if (ev.captainNomination && ev.eventId) {
+        try {
+          await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
+        } catch (capErr) {
+          console.warn("Auction captain nomination hook error (non-fatal):", capErr);
+        }
       }
 
       const formatText = formatsToRegister.length > 1
@@ -1393,6 +1407,8 @@ export function SportsMultiRegister() {
             flatNumber: flatNumber || undefined,
             familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
             partnerUserId: isDoubles && ev.partnerUserId ? ev.partnerUserId : undefined,
+            captainNomination: ev.captainNomination || undefined,
+            proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
           });
           successCount++;
         } catch (err: any) {
@@ -1401,6 +1417,14 @@ export function SportsMultiRegister() {
           submissionErrors[ev.eventId] = errMsg;
           console.error(`Failed to register for ${ev.name}:`, err);
           failedCount++;
+        }
+      }
+
+      if (ev.captainNomination && ev.eventId) {
+        try {
+          await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
+        } catch (capErr) {
+          console.warn("Auction captain nomination hook error (non-fatal):", capErr);
         }
       }
     }
@@ -2281,11 +2305,82 @@ export function SportsMultiRegister() {
                                         (ev.matchType && ev.matchType.toUpperCase().includes("DOUBLES") ? ev.matchType : "DOUBLES")
                                       }
                                       currentGender={gender}
-                                      currentUserId={user?.id}
+                                      currentUserId={user?.userId || (user as any)?.id}
                                       communityId={user?.communityId}
                                       familyMembers={savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
                                     />
+                                  </div>
+                                )}
+                                {/* Team Captain Nomination (Cricket, Football, and other Team Sports) */}
+                                {isTeamSport(ev.sportName || ev.name) && (
+                                  <div className="w-full mt-2 pt-2 border-t border-slate-100">
+                                    <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-3 space-y-2.5">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-start gap-2">
+                                          <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Crown className="w-3.5 h-3.5 text-amber-600" />
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <span className="text-xs font-bold text-slate-800">
+                                                Nominate as Team Captain
+                                              </span>
+                                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                                Optional
+                                              </span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">
+                                              Lead a team & participate in the player auction/draft
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEventSelections(prev => prev.map(item => {
+                                              if (item.eventId === ev.eventId) {
+                                                return { ...item, captainNomination: !item.captainNomination };
+                                              }
+                                              return item;
+                                            }));
+                                          }}
+                                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                            ev.captainNomination ? "bg-amber-600" : "bg-slate-300"
+                                          }`}
+                                        >
+                                          <span
+                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                              ev.captainNomination ? "translate-x-4" : "translate-x-0"
+                                            }`}
+                                          />
+                                        </button>
+                                      </div>
+
+                                      {ev.captainNomination && (
+                                        <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1.5">
+                                          <label className="block text-[10px] font-bold text-slate-700">
+                                            Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
+                                          </label>
+                                          <input
+                                            type="text"
+                                            placeholder="e.g. Royal Strikers"
+                                            value={ev.proposedTeamName || ""}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setEventSelections(prev => prev.map(item => {
+                                                if (item.eventId === ev.eventId) {
+                                                  return { ...item, proposedTeamName: val };
+                                                }
+                                                return item;
+                                              }));
+                                            }}
+                                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-amber-300/80 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
                                 {/* Category selection for multi-category events */}

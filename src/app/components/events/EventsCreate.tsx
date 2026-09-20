@@ -23,6 +23,7 @@ import { DatePicker } from "../ui/date-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
 import { ticketCategoryService, type TicketCategoryMasterResponse } from "../../../services/events/ticketCategoryService";
@@ -4637,13 +4638,11 @@ export function EventCreateWizard({
       return initialData.draftStep;
     }
     if (rawId) {
-      try {
-        const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
-        if (localSaved && !isNaN(Number(localSaved))) {
-          const s = parseInt(localSaved, 10);
-          if (s >= 1 && s <= 8) return s;
-        }
-      } catch {}
+      const localSaved = safeStorage.getItem(STORAGE_KEYS.DRAFT_STEP(rawId));
+      if (localSaved && !isNaN(Number(localSaved))) {
+        const s = parseInt(localSaved, 10);
+        if (s >= 1 && s <= 8) return s;
+      }
     }
     return 1;
   });
@@ -4908,13 +4907,11 @@ export function EventCreateWizard({
                 if (typeof draftS === "number" && draftS >= 1 && draftS <= 8) {
                   setStep(draftS);
                 } else {
-                  try {
-                    const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
-                    if (localSaved && !isNaN(Number(localSaved))) {
-                      const s = parseInt(localSaved, 10);
-                      if (s >= 1 && s <= 8) setStep(s);
-                    }
-                  } catch {}
+                  const localSaved = safeStorage.getItem(STORAGE_KEYS.DRAFT_STEP(rawId));
+                  if (localSaved && !isNaN(Number(localSaved))) {
+                    const s = parseInt(localSaved, 10);
+                    if (s >= 1 && s <= 8) setStep(s);
+                  }
                 }
               }
             }
@@ -5156,9 +5153,7 @@ export function EventCreateWizard({
 
       const targetId = resultEvent.id || eventId || (initialData as any)?.id;
       if (targetId) {
-        try {
-          localStorage.setItem(`mana_draft_step_${targetId}`, String(step));
-        } catch {}
+        safeStorage.setItem(STORAGE_KEYS.DRAFT_STEP(targetId), String(step));
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
@@ -5218,9 +5213,7 @@ export function EventCreateWizard({
 
       const targetId = resultEvent.id || eventId || (initialData as any)?.id;
       if (targetId) {
-        try {
-          localStorage.removeItem(`mana_draft_step_${targetId}`);
-        } catch {}
+        safeStorage.removeItem(STORAGE_KEYS.DRAFT_STEP(targetId));
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);

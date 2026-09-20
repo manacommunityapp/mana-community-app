@@ -97,7 +97,7 @@ export function SportsPartnerSelector({
     const flat = u.flatNo || u.block ? `${u.block ? `Block ${u.block}, ` : ""}${u.flatNo || ""}` : "";
     onChange({
       userId: u.id,
-      name: u.fullName || `${u.firstName || ""} ${u.lastName || ""}`.trim(),
+      name: u.fullName || (u as any).name || "Resident",
       flatNumber: flat.trim() || undefined,
       gender: u.gender || undefined,
       email: u.email || undefined,
@@ -281,7 +281,7 @@ export function SportsPartnerSelector({
                     </div>
                   ) : (
                     searchResults.map((u) => {
-                      const fullName = u.fullName || `${u.firstName || ""} ${u.lastName || ""}`.trim();
+                      const fullName = u.fullName || (u as any).name || "Resident";
                       const flatInfo = u.flatNo || u.block ? `${u.block ? `Block ${u.block}, ` : ""}Flat ${u.flatNo || ""}` : "";
                       const isGenderMismatch = targetPartnerGender && u.gender && u.gender.toUpperCase() !== targetPartnerGender;
 

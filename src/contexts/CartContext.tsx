@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { orderService, couponService, type OrderResponse, type CouponItem } from "../services/marketplace/listingService";
 import { showSuccess, showError } from "../utils/ToastUtils";
 import { USE_MOCK_DATA, MOCK_ORDERS, MOCK_COUPONS } from "../app/components/marketplace/mockData";
+import { safeStorage, STORAGE_KEYS } from "../utils/storage";
 
 export interface CartItem {
   id: string | number; // listing or product ID
@@ -49,17 +50,11 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const CART_STORAGE_KEY = "mana_marketplace_cart";
+const CART_STORAGE_KEY = STORAGE_KEYS.MARKETPLACE_CART;
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
-    }
-    return [
+    return safeStorage.getJSON<CartItem[]>(CART_STORAGE_KEY, [
       {
         id: 101,
         title: "Homemade Hyderabadi Dum Biryani",
@@ -71,7 +66,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         quantity: 2,
         type: "FOOD",
       },
-    ];
+    ]);
   });
 
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("FLAT_PICKUP");
@@ -83,11 +78,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // ignore
-    }
+    safeStorage.setJSON(CART_STORAGE_KEY, items);
   }, [items]);
 
   const addItem = (item: Omit<CartItem, "quantity">, qty = 1) => {
