@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
@@ -860,6 +860,111 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     }
   };
 
+  const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
+
+  useEffect(() => {
+    sportsDashboardService.getMyRegistrations()
+      .then(regs => {
+        if (Array.isArray(regs)) setMyRegistrations(regs);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isParticipantRegisteredForEvent = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    if (!targetEventId || !myRegistrations.length) return false;
+    return myRegistrations.some(r => {
+      const matchesEvent =
+        String(r.eventId) === String(targetEventId) ||
+        String(r.event?.id) === String(targetEventId);
+      if (!matchesEvent) return false;
+      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+
+      if (pType === "self") {
+        const regRelation = (r.relation || "").trim().toUpperCase();
+        const regFamilyId = r.familyMemberId;
+        const regPlayerName = (r.playerName || "").trim().toLowerCase();
+        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
+
+        return (
+          !regFamilyId ||
+          regFamilyId === "self" ||
+          regFamilyId === "member-self" ||
+          regRelation === "SELF" ||
+          regRelation === "HEAD" ||
+          (!regFamilyId && !regRelation) ||
+          (userFullNameLower && regPlayerName === userFullNameLower)
+        );
+      } else if (pType === "family") {
+        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
+          return true;
+        }
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    });
+  }, [myRegistrations, userFullName, user?.fullName]);
+
+  const getParticipantRegistration = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    if (!targetEventId || !myRegistrations.length) return undefined;
+    return myRegistrations.find(r => {
+      const matchesEvent =
+        String(r.eventId) === String(targetEventId) ||
+        String(r.event?.id) === String(targetEventId);
+      if (!matchesEvent) return false;
+      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+
+      if (pType === "self") {
+        const regRelation = (r.relation || "").trim().toUpperCase();
+        const regFamilyId = r.familyMemberId;
+        const regPlayerName = (r.playerName || "").trim().toLowerCase();
+        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
+
+        return (
+          !regFamilyId ||
+          regFamilyId === "self" ||
+          regFamilyId === "member-self" ||
+          regRelation === "SELF" ||
+          regRelation === "HEAD" ||
+          (!regFamilyId && !regRelation) ||
+          (userFullNameLower && regPlayerName === userFullNameLower)
+        );
+      } else if (pType === "family") {
+        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
+          return true;
+        }
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    });
+  }, [myRegistrations, userFullName, user?.fullName]);
+
+  const activeParticipantReg = useMemo(() => {
+    return getParticipantRegistration(
+      event?.id,
+      formData.regType,
+      formData.familyMemberId,
+      formData.playerName
+    );
+  }, [getParticipantRegistration, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
+
+  const isAlreadyRegistered = Boolean(activeParticipantReg);
+
   const handleProfileModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profileModalState.name.trim()) {
@@ -1417,6 +1522,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isAlreadyRegistered) {
+      toast.error(`${formData.playerName || "This participant"} is already registered for this event.`);
+      return;
+    }
 
     // Check user profile for Full Name, Gender, Date of Birth, Flat / Villa
     if (formData.regType === "self") {
@@ -2162,108 +2272,96 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         Age: {formData.age} Yrs
                       </span>
                     )}
+                    {isAlreadyRegistered && (
+                      <span className="text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 sm:px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        ✓ Already Registered
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {formData.regType === "family" && (
-                  <div className="mt-3 mb-0 md:mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                        <span>Select Family Member:</span>
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => openUpdateDetailsModal("family_add")}
-                        className="px-2.5 py-1 bg-primary text-white hover:bg-primary/90 text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Member</span>
-                      </button>
-                    </div>
-
+                  <div className="mt-3 mb-0 md:mb-4 p-2.5 sm:p-3 rounded-xl bg-primary/5 border border-primary/20">
                     {familyMembersOnly.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {familyMembersOnly.map((m) => {
-                          const isSelected = formData.playerName.trim().toLowerCase() === m.name.trim().toLowerCase();
-                          const dobVal = m.dob || (m as any).dateOfBirth;
-                          let formattedDob = "";
-                          if (dobVal) {
-                            try {
-                              formattedDob = format(new Date(dobVal), "dd MMM yyyy");
-                            } catch {
-                              formattedDob = String(dobVal);
-                            }
-                          }
-                          const isMissingDetails = !dobVal || !m.gender;
-                          return (
-                            <div
-                              key={m.id}
-                              onClick={() => {
-                                const rel = m.relation?.toUpperCase() || "";
-                                const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
-                                  ? "SPOUSE"
-                                  : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
-                                  ? "CHILD"
-                                  : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
-                                  ? "PARENT"
-                                  : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
-                                  ? "SIBLING"
-                                  : "OTHER";
+                      <div className="flex items-center gap-2 sm:gap-3 flex-nowrap">
+                        <label htmlFor="family-member-dropdown" className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
+                          <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>Select Member:</span>
+                        </label>
+                        <div className="relative flex-1 min-w-0">
+                          <select
+                            id="family-member-dropdown"
+                            value={formData.familyMemberId ? String(formData.familyMemberId) : ""}
+                            onChange={(e) => {
+                              const selectedId = e.target.value;
+                              const m = familyMembersOnly.find(mem => String(mem.id) === String(selectedId));
+                              if (!m) return;
+                              const rel = m.relation?.toUpperCase() || "";
+                              const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+                                ? "SPOUSE"
+                                : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+                                ? "CHILD"
+                                : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+                                ? "PARENT"
+                                : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
+                                ? "SIBLING"
+                                : "OTHER";
 
-                                setFormData(prev => {
-                                  let calculatedAge = m.age || prev.age;
-                                  if (m.dob) {
-                                    const birthDate = new Date(m.dob);
-                                    if (!isNaN(birthDate.getTime())) {
-                                      calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
-                                    }
-                                  }
-                                  return {
-                                    ...prev,
-                                    playerName: m.name,
-                                    familyMemberId: m.id,
-                                    gender: m.gender || "",
-                                    dateOfBirth: m.dob || "",
-                                    flatNumber: userFlat,
-                                    age: calculatedAge,
-                                    relation: mappedRel,
-                                  };
-                                });
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border flex-wrap select-none ${
-                                isSelected
-                                  ? "bg-primary text-white border-primary shadow-xs"
-                                  : "bg-card text-foreground border-border hover:border-primary/50"
-                              }`}
-                            >
-                              <span>{m.name}</span>
-                              <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                                {m.relation} {formattedDob ? `• DOB: ${formattedDob}` : m.age ? `• (${m.age}y)` : isMissingDetails ? "• ⚠️ Incomplete" : ""}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openUpdateDetailsModal("family_edit", m.id);
-                                }}
-                                title="Edit details"
-                                className={`ml-0.5 p-0.5 rounded text-[11px] transition ${
-                                  isSelected ? "hover:bg-white/20 text-white" : "hover:bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                ✏️
-                              </button>
-                            </div>
-                          );
-                        })}
+                              let calculatedAge = m.age || formData.age;
+                              if (m.dob) {
+                                const birthDate = new Date(m.dob);
+                                if (!isNaN(birthDate.getTime())) {
+                                  calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+                                }
+                              }
+
+                              setFormData(prev => ({
+                                ...prev,
+                                playerName: m.name,
+                                familyMemberId: m.id,
+                                gender: m.gender || "",
+                                dateOfBirth: m.dob || "",
+                                flatNumber: userFlat,
+                                age: calculatedAge,
+                                relation: mappedRel,
+                              }));
+                            }}
+                            className="w-full h-9 sm:h-10 text-xs sm:text-sm font-semibold rounded-lg bg-background border border-border text-foreground px-2.5 sm:px-3 pr-8 shadow-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer appearance-none transition-all truncate"
+                          >
+                            <option value="">-- Choose Family Member --</option>
+                            {familyMembersOnly.map((m) => {
+                              const isMemberReg = isParticipantRegisteredForEvent(event?.id, "family", m.id, m.name);
+                              const isMissingDetails = !m.dob && !(m as any).dateOfBirth || !m.gender;
+                              const dobVal = m.dob || (m as any).dateOfBirth;
+                              let ageText = m.age ? `${m.age}y` : "";
+                              if (dobVal) {
+                                const calcAge = calculateAge(dobVal);
+                                if (calcAge) ageText = `${calcAge}y`;
+                              }
+                              const details = [
+                                m.relation,
+                                ageText,
+                                isMemberReg ? "✓ Registered" : null,
+                                isMissingDetails ? "⚠️ Incomplete" : null,
+                              ].filter(Boolean).join(" • ");
+
+                              return (
+                                <option key={m.id} value={String(m.id)}>
+                                  {m.name} ({details})
+                                </option>
+                              );
+                            })}
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded-lg border border-dashed border-border">
-                        <span>No family members added yet. Click &quot;Add Member&quot; to add family members to your directory.</span>
+                        <span>No family members found under your profile directory.</span>
                       </div>
                     )}
 
-                    {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
+                    {formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
                       <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -2636,7 +2734,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 }`}>
                   {siblingEvents.map(sib => {
                     const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
-                    const isRegistered = sib.myRegistrationId != null;
+                    const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
+                    const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
 
                     const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
                     const minAge = elig.minAge;
@@ -2720,11 +2819,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           <div className="shrink-0 flex items-center gap-1.5">
                             {isCurrentEvent ? (
                               <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary shrink-0 border border-primary/20">
-                                Selected
+                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
                               </span>
                             ) : isRegistered ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                ✓ {sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
+                                ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
                               </span>
                             ) : isBlocked ? (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
@@ -2957,6 +3056,23 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
 
+            {/* Already Registered Alert */}
+            {isAlreadyRegistered && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1.5 sm:p-2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg sm:rounded-xl shrink-0">
+                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[11px] sm:text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                    Already Registered for this Category
+                  </h4>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-300 font-medium mt-0.5 leading-relaxed">
+                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already registered for this sports category ({event?.categoryName || event?.name || "Selected Category"}). Registration status: <span className="font-bold uppercase text-emerald-800 dark:text-emerald-200">{activeParticipantReg?.status || "CONFIRMED"}</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Submit Actions — desktop inline, mobile sticky bottom */}
             <div className="hidden sm:flex gap-3 pt-1">
               <button
@@ -2968,11 +3084,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </button>
               <button
                 type="submit"
-                disabled={submitting || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className="flex-[2] py-3 bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 text-white font-bold rounded-xl shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 text-sm active:scale-[0.98] cursor-pointer"
+                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className={`flex-[2] py-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
+                  isAlreadyRegistered
+                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                }`}
               >
                 {submitting ? (
                   <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
+                ) : isAlreadyRegistered ? (
+                  <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered</>
                 ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
                   <>Provide Gender &amp; DOB to Register</>
                 ) : (
@@ -3131,11 +3253,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           <button
             type="button"
             onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
-            disabled={submitting || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-            className="flex-1 min-h-[44px] bg-gradient-to-r from-primary via-indigo-500 to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 text-[13px] active:scale-[0.98] cursor-pointer"
+            disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+            className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
+              isAlreadyRegistered
+                ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+            }`}
           >
             {submitting ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+            ) : isAlreadyRegistered ? (
+              <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
             ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
               <>Add Gender & DOB</>
             ) : (

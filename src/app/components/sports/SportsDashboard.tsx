@@ -463,40 +463,61 @@ export function SportsDashboard() {
     });
   }, [familyMembers, user?.fullName]);
 
+  const isRegistrationForMember = useCallback((
+    reg: any,
+    selectedMemberId: string | number | undefined,
+  ) => {
+    if (!reg) return false;
+    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || selectedMemberId === "SELF" || selectedMemberId === "member-self";
+
+    const regPlayerName = (reg.playerName || "").trim().toLowerCase();
+    const regRelation = (reg.relation || "").trim().toUpperCase();
+    const regFamilyMemberId = reg.familyMemberId;
+    const targetFullName = (user?.fullName || "").trim().toLowerCase();
+
+    const isSelfReg =
+      !regFamilyMemberId ||
+      regFamilyMemberId === "self" ||
+      regFamilyMemberId === "member-self" ||
+      regRelation === "SELF" ||
+      regRelation === "HEAD" ||
+      (!regRelation && !regFamilyMemberId) ||
+      (targetFullName && regPlayerName === targetFullName);
+
+    if (isSelfTarget) {
+      return isSelfReg;
+    }
+
+    if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
+      return true;
+    }
+
+    const targetMember = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+    if (targetMember) {
+      const targetMemberName = (targetMember.name || "").trim().toLowerCase();
+      const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
+      if (targetMemberName && regPlayerName === targetMemberName) {
+        return true;
+      }
+      if (targetMemberRelation && regRelation === targetMemberRelation) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [familyMembers, user?.fullName]);
+
   const filteredLiveEvents = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return liveEvents;
 
-    const selectedMember = familyMembers.find(m => String(m.id) === upcomingFamilyFilter);
-    const selectedMemberName = selectedMember?.name?.trim().toLowerCase();
-
     return liveEvents.filter(ev => {
-      // Find matching registration
-      const reg = myRegistrations.find(r => r.event.id === ev.id || r.eventId === ev.id);
-      
-      const regPlayerName = ((ev as any).playerName || reg?.playerName || "").trim().toLowerCase();
-      const regRelation = ((ev as any).relation || reg?.relation || "").trim().toUpperCase();
-      const regFamilyMemberId = (ev as any).familyMemberId || reg?.familyMemberId;
-      const userFullName = user?.fullName?.trim().toLowerCase() || "";
-
-      const isSelfReg = !regRelation || regRelation === "SELF" || regFamilyMemberId === "self" || regPlayerName === userFullName || (reg && !reg.familyMemberId && !reg.relation);
-
-      if (upcomingFamilyFilter === "SELF") {
-        return isSelfReg;
-      }
-
-      // Filter by specific family member
-      if (regFamilyMemberId && String(regFamilyMemberId) === upcomingFamilyFilter) {
-        return true;
-      }
-      if (selectedMemberName && regPlayerName === selectedMemberName) {
-        return true;
-      }
-      if (selectedMember?.relation && regRelation === selectedMember.relation.trim().toUpperCase()) {
-        return true;
+      const reg = myRegistrations.find(r => r.event?.id === ev.id || r.eventId === ev.id);
+      if (reg) {
+        return isRegistrationForMember(reg, upcomingFamilyFilter);
       }
       return false;
     });
-  }, [liveEvents, myRegistrations, upcomingFamilyFilter, familyMembers, user?.fullName]);
+  }, [liveEvents, myRegistrations, upcomingFamilyFilter, isRegistrationForMember]);
 
   const selectedMemberDisplayName = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return "";
@@ -1117,8 +1138,27 @@ export function SportsDashboard() {
                       return (
                         <div className="mt-2 space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
                           {sportEntries.map(([sport, { emoji, events }], sIdx) => {
-                            const regCount = events.filter(e => e.action === "Confirmed" || e.action === "Withdraw").length;
-                            const allRegistered = regCount === events.length;
+                            const selectedMemberId = selectedMemberByTournament[t.id] || "self";
+                            const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
+                              return myRegistrations.some(r =>
+                                (r.eventId === ev.id || r.event?.id === ev.id) &&
+                                isRegistrationForMember(r, selectedMemberId) &&
+                                r.status !== "CANCELLED" &&
+                                r.status !== "WITHDRAWN"
+                              );
+                            };
+                            const getMemberRegForEvent = (ev: OpenRegistration) => {
+                              return myRegistrations.find(r =>
+                                (r.eventId === ev.id || r.event?.id === ev.id) &&
+                                isRegistrationForMember(r, selectedMemberId) &&
+                                r.status !== "CANCELLED" &&
+                                r.status !== "WITHDRAWN"
+                              );
+                            };
+
+                            const registeredEvents = events.filter(e => isMemberRegisteredForEvent(e));
+                            const regCount = registeredEvents.length;
+                            const allRegistered = regCount === events.length && events.length > 0;
                             const firstEvent = events[0];
                             const sportKey = `${t.id}-${sport}`;
                             const isSportExpanded = expandedSports.has(sportKey);
@@ -1126,7 +1166,7 @@ export function SportsDashboard() {
                               <div
                                 key={sport}
                                 className={`rounded-lg border overflow-hidden transition-all animate-fade-in-up stagger-${(sIdx % 8) + 1} ${
-                                  allRegistered
+                                  regCount > 0
                                     ? "border-emerald-100 bg-emerald-50/30"
                                     : "border-slate-100 bg-white"
                                 }`}
@@ -1160,17 +1200,12 @@ export function SportsDashboard() {
                                           · {events.length} {events.length === 1 ? "category" : "categories"}
                                         </span>
                                       </div>
-                                      {regCount > 0 && (
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 inline-flex mt-0.5">
-                                          {regCount}/{events.length} registered
-                                        </span>
-                                      )}
                                     </div>
                                     {isSportExpanded
                                       ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
                                       : <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />}
                                   </div>
-                                  {allRegistered ? (
+                                  {regCount > 0 ? (
                                     <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0 flex items-center gap-1">
                                       ✓ Registered
                                     </span>
@@ -1179,12 +1214,11 @@ export function SportsDashboard() {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const selectedId = selectedMemberByTournament[t.id] || "self";
-                                        const isSelf = selectedId === "self";
+                                        const isSelf = selectedMemberId === "self";
                                         handleOpenRegistration(
                                           firstEvent.uuid ?? firstEvent.id,
                                           isSelf ? "self" : "family",
-                                          isSelf ? undefined : selectedId
+                                          isSelf ? undefined : selectedMemberId
                                         );
                                       }}
                                       className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm shadow-indigo-500/20 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
@@ -1197,7 +1231,8 @@ export function SportsDashboard() {
                                 {isSportExpanded && (
                                   <div className="border-t border-slate-100 divide-y divide-slate-50 bg-slate-50/40">
                                     {events.map(item => {
-                                      const isReg = item.action === "Confirmed" || item.action === "Withdraw";
+                                      const memberReg = getMemberRegForEvent(item);
+                                      const isReg = Boolean(memberReg);
                                       return (
                                         <div key={item.id} className="flex items-center gap-2.5 px-4 py-2 pl-11">
                                           <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isReg ? "bg-emerald-500" : "bg-slate-300"}`} />
@@ -1210,10 +1245,24 @@ export function SportsDashboard() {
                                           </div>
                                           {isReg ? (
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                              {item.action === "Confirmed" ? "✓ Confirmed" : "Registered"}
+                                              {memberReg?.status === "CONFIRMED" ? "✓ Confirmed" : "✓ Registered"}
                                             </span>
                                           ) : (
-                                            <span className="text-[10px] font-medium text-slate-400 shrink-0">Not registered</span>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const isSelf = selectedMemberId === "self";
+                                                handleOpenRegistration(
+                                                  item.uuid ?? item.id,
+                                                  isSelf ? "self" : "family",
+                                                  isSelf ? undefined : selectedMemberId
+                                                );
+                                              }}
+                                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0 cursor-pointer"
+                                            >
+                                              Register →
+                                            </button>
                                           )}
                                         </div>
                                       );
