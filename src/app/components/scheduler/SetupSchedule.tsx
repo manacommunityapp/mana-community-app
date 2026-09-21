@@ -245,6 +245,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [breakTime, setBreakTime] = useState('10 mins');
   const [limitMatchesPerDay, setLimitMatchesPerDay] = useState(false);
   const [matchDays, setMatchDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [usePlayoffDays, setUsePlayoffDays] = useState(false);
+  const [playoffDays, setPlayoffDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [playoffRoundDates, setPlayoffRoundDates] = useState<Record<string, string>>({});
   const [maxMatchesPerDay, setMaxMatchesPerDay] = useState('2');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -488,6 +491,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       matchDurationMinutes: Number(matchDuration) || 30,
       breakBetweenMatchesMinutes: parseInt(breakTime) || 10,
       matchDays: matchDays.length < 7 ? matchDays : null,
+      playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
+      playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
       venueId: selectedVenues.length > 0 ? selectedVenues[0] : null,
       pointsForWin: Number(ptsWin),
       pointsForDraw: Number(ptsDraw),
@@ -739,11 +744,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return new Date(dateStr);
   };
 
-  const advanceToAllowedDay = (date: Date): Date => {
-    if (matchDays.length === 0 || matchDays.length === 7) return date;
+  const advanceToAllowedDay = (date: Date, allowedDays?: number[]): Date => {
+    const days = allowedDays ?? matchDays;
+    if (days.length === 0 || days.length === 7) return date;
     const d = new Date(date);
     let guard = 0;
-    while (!matchDays.includes(d.getDay()) && guard < 7) {
+    while (!days.includes(d.getDay()) && guard < 7) {
       d.setDate(d.getDate() + 1);
       guard++;
     }
@@ -942,9 +948,19 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     let matches = draftOverride ?? playoffDraft;
 
     if (isKnockoutOnly) {
-      // Player-aware path: the backend already returns real players, BYE auto-advance and
-      // parallel court allocation — use as-is (only manual overrides on top).
-      return applyPlayoffOverrides(matches, matchOverrides);
+      let koMatches = applyPlayoffOverrides(matches, matchOverrides);
+      if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+        koMatches = koMatches.map(m => {
+          const roundDate = playoffRoundDates[m.round];
+          if (roundDate) return { ...m, date: roundDate };
+          if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
+            const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
+            return { ...m, date: d.toISOString().split('T')[0] };
+          }
+          return m;
+        });
+      }
+      return koMatches;
     }
 
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
@@ -955,6 +971,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       venueId: playoffVenueId,
       courtId: resolveCourtId(playoffVenueId, idx),
     }));
+
+    if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+      matches = matches.map(m => {
+        const roundDate = playoffRoundDates[m.round];
+        if (roundDate) return { ...m, date: roundDate };
+        if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
+          const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
+          return { ...m, date: d.toISOString().split('T')[0] };
+        }
+        return m;
+      });
+    }
 
     return applyPlayoffOverrides(matches, matchOverrides);
   };
@@ -1545,7 +1573,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             {/* Match Days */}
             <div>
               <div className="flex items-center gap-2 mb-1.5">
-                <label className={labelCls + ' !mb-0'}>Match Days</label>
+                <label className={labelCls + ' !mb-0'}>{isGroupKnockout ? 'Group Stage Days' : 'Match Days'}</label>
                 <div className="flex gap-1 ml-auto">
                   {([
                     { label: 'Weekends', days: [0, 6] },
@@ -1563,7 +1591,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   ))}
                 </div>
               </div>
-              <p className="text-[10px] text-[#6b7094] mb-2">Select which days of the week matches can be scheduled.</p>
+              <p className="text-[10px] text-[#6b7094] mb-2">
+                {isGroupKnockout ? 'Days for group stage matches (e.g. weekends only).' : 'Select which days of the week matches can be scheduled.'}
+              </p>
               <div className="flex gap-1.5">
                 {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
                   const isSelected = matchDays.includes(idx);
@@ -1593,6 +1623,113 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <p className="text-[10px] text-red-400 mt-1">Select at least one day</p>
               )}
             </div>
+
+            {/* Playoff / Knockout Days — shown when format has a knockout stage */}
+            {(isGroupKnockout || isKnockoutOnly) && (
+              <div className="border-t border-[rgba(99,102,241,0.08)] pt-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={usePlayoffDays}
+                    onChange={e => setUsePlayoffDays(e.target.checked)}
+                    className="w-4 h-4 accent-[#4f46e5] rounded"
+                    id="usePlayoffDays"
+                  />
+                  <label htmlFor="usePlayoffDays" className="text-sm text-slate-700 cursor-pointer font-medium">
+                    {isKnockoutOnly ? 'Custom Knockout Days' : 'Different Days for Playoffs'}
+                  </label>
+                </div>
+
+                {usePlayoffDays && (
+                  <div className="ml-7 space-y-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
+                          {isKnockoutOnly ? 'Knockout Days' : 'Playoff Days'}
+                        </span>
+                        <div className="flex gap-1 ml-auto">
+                          {([
+                            { label: 'Weekends', days: [0, 6] },
+                            { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
+                            { label: 'All', days: [0, 1, 2, 3, 4, 5, 6] },
+                          ] as const).map(preset => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setPlayoffDays([...preset.days])}
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-[#f0f0ff] text-[#4f46e5] hover:bg-[#e0e0ff] transition-colors cursor-pointer font-medium"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
+                          const isSelected = playoffDays.includes(idx);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                setPlayoffDays(prev =>
+                                  isSelected
+                                    ? prev.filter(d => d !== idx)
+                                    : [...prev, idx].sort()
+                                );
+                              }}
+                              className={`w-10 h-8 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#f59e0b] text-white shadow-md'
+                                  : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#f59e0b]'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Specific round dates */}
+                    <div>
+                      <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
+                        Pin Round to Specific Date <span className="normal-case font-normal">(optional)</span>
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 mt-1.5">
+                        {([
+                          { round: 'QUARTER_FINAL', label: 'Quarter-Finals' },
+                          { round: 'SEMI_FINAL', label: 'Semi-Finals' },
+                          { round: 'FINAL', label: 'Final' },
+                          { round: 'THIRD_PLACE', label: '3rd Place' },
+                        ] as const).map(r => (
+                          <div key={r.round} className="flex items-center gap-2">
+                            <span className="text-[11px] text-[#6b7094] w-24 shrink-0">{r.label}</span>
+                            <input
+                              type="date"
+                              value={playoffRoundDates[r.round] || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setPlayoffRoundDates(prev => {
+                                  if (!val) {
+                                    const next = { ...prev };
+                                    delete next[r.round];
+                                    return next;
+                                  }
+                                  return { ...prev, [r.round]: val };
+                                });
+                              }}
+                              className="flex-1 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-[#6b7094] mt-1">Set a fixed date for any round. Leave blank to use day-of-week rules above.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
