@@ -1371,6 +1371,24 @@ export function SportsAuction() {
               <div><div className="page-title">Player Pool</div><div className="page-sub">{eventRegistrations.length} Confirmed Participants from Registration</div></div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>Pool for Event ID: {selectedEventId || 'None'}</span>
+                 {canEditPlayerPool && selectedConfigId && (
+                   <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                     <Download size={14} style={{ transform: 'rotate(180deg)' }} /> Upload CSV
+                     <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={async (e) => {
+                       const file = e.target.files?.[0];
+                       if (!file || !selectedConfigId) return;
+                       try {
+                         await auctionService.uploadPlayers(selectedConfigId, file);
+                         toast.success(`Players uploaded from ${file.name}`);
+                         const refreshed = await auctionService.getPlayers(selectedConfigId);
+                         if (refreshed.length) setPlayers(refreshed);
+                       } catch (err: any) {
+                         toast.error(err?.message || 'Upload failed');
+                       }
+                       e.target.value = '';
+                     }} />
+                   </label>
+                 )}
               </div>
             </div>
 
@@ -1394,6 +1412,32 @@ export function SportsAuction() {
                     <div style={{ fontSize: 11, marginTop: 4 }}>Players appear here after their registration is confirmed.</div>
                   </div>
                 )}
+              </div>
+              <div>
+                <div className="sec-title" style={{ marginBottom: 12 }}>Auction Player Pool ({players.length})</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                  {players.length > 0 ? players.map(p => (
+                    <div key={p.id} className="player-row" style={{ background: p.status === 'SOLD' ? 'rgba(34,197,94,0.05)' : 'rgba(99,102,241,0.03)', border: `1px solid ${p.status === 'SOLD' ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
+                      <div className="player-avatar av-bat" style={{ background: p.status === 'SOLD' ? 'var(--green)' : 'var(--gold)', color: '#000' }}>
+                        {(p.name || '').charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
+                        {p.soldPrice ? <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>₹{p.soldPrice.toLocaleString('en-IN')}</div> : null}
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
+                      <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+                      <div>No players in auction pool yet.</div>
+                      <div style={{ fontSize: 11, marginTop: 4 }}>Upload a CSV or add players manually.</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
