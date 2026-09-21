@@ -1520,7 +1520,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
           <div className="p-5 space-y-4 flex-1">
             {/* Start / End Date */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Schedule Start Date</label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
@@ -1532,7 +1532,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
 
             {/* Start / End Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Matches Start Time <span className="text-red-400">*</span></label>
                 <select value={startTime} onChange={e => setStartTime(e.target.value)} className={inputCls}>
@@ -1548,7 +1548,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
 
             {/* Duration / Break */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Match Duration (min) <span className="text-red-400">*</span></label>
                 <input type="number" min="1" value={matchDuration} onChange={e => setMatchDuration(e.target.value)} className={inputCls} placeholder="30" />
@@ -1572,9 +1572,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
             {/* Match Days */}
             <div>
-              <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
                 <label className={labelCls + ' !mb-0'}>{isGroupKnockout ? 'Group Stage Days' : 'Match Days'}</label>
-                <div className="flex gap-1 ml-auto">
+                <div className="flex gap-1 sm:ml-auto">
                   {([
                     { label: 'Weekends', days: [0, 6] },
                     { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
@@ -1594,7 +1594,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <p className="text-[10px] text-[#6b7094] mb-2">
                 {isGroupKnockout ? 'Days for group stage matches (e.g. weekends only).' : 'Select which days of the week matches can be scheduled.'}
               </p>
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
                   const isSelected = matchDays.includes(idx);
                   return (
@@ -1608,7 +1608,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             : [...prev, idx].sort()
                         );
                       }}
-                      className={`w-10 h-8 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`min-w-[2.25rem] h-8 px-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-[#4f46e5] text-white shadow-md'
                           : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#4f46e5]'
@@ -1641,13 +1641,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 </div>
 
                 {usePlayoffDays && (
-                  <div className="ml-7 space-y-3">
+                  <div className="ml-3 sm:ml-7 space-y-3">
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
                           {isKnockoutOnly ? 'Knockout Days' : 'Playoff Days'}
                         </span>
-                        <div className="flex gap-1 ml-auto">
+                        <div className="flex gap-1 sm:ml-auto">
                           {([
                             { label: 'Weekends', days: [0, 6] },
                             { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
@@ -1664,7 +1664,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           ))}
                         </div>
                       </div>
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
                           const isSelected = playoffDays.includes(idx);
                           return (
@@ -1678,7 +1678,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     : [...prev, idx].sort()
                                 );
                               }}
-                              className={`w-10 h-8 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                              className={`min-w-[2.25rem] h-8 px-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                                 isSelected
                                   ? 'bg-[#f59e0b] text-white shadow-md'
                                   : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#f59e0b]'
@@ -1696,7 +1696,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
                         Pin Round to Specific Date <span className="normal-case font-normal">(optional)</span>
                       </span>
-                      <div className="grid grid-cols-2 gap-2 mt-1.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
                         {([
                           { round: 'QUARTER_FINAL', label: 'Quarter-Finals' },
                           { round: 'SEMI_FINAL', label: 'Semi-Finals' },
@@ -1704,7 +1704,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           { round: 'THIRD_PLACE', label: '3rd Place' },
                         ] as const).map(r => (
                           <div key={r.round} className="flex items-center gap-2">
-                            <span className="text-[11px] text-[#6b7094] w-24 shrink-0">{r.label}</span>
+                            <span className="text-[11px] text-[#6b7094] w-20 sm:w-24 shrink-0">{r.label}</span>
                             <input
                               type="date"
                               value={playoffRoundDates[r.round] || ''}
@@ -1719,7 +1719,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                   return { ...prev, [r.round]: val };
                                 });
                               }}
-                              className="flex-1 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                              className="flex-1 min-w-0 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
                             />
                           </div>
                         ))}
@@ -1903,17 +1903,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           {/* Summary Widget */}
           <div className="rounded-2xl p-5 bg-white border border-[rgba(99,102,241,0.12)] shadow-[rgba(99,102,241,0.06)_0px_2px_12px]"
             style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.04))" }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]">
                 <CheckCircle2 className="h-5 w-5 text-white" />
               </div>
-              <div className="text-left">
+              <div className="text-left min-w-0 flex-1">
                 <p className="font-bold text-[#0d0d2b]">Schedule Generated!</p>
-                <p className="text-xs text-[#6b7094]">
+                <p className="text-xs text-[#6b7094] truncate">
                   {events.find(e => e.id.toString() === selectedEvent)?.name || 'Untitled Event'} · {format.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </p>
               </div>
-              <div className="ml-auto flex gap-2">
+              <div className="sm:ml-auto flex gap-2">
                 <div className="relative">
                   <button
                     type="button"
