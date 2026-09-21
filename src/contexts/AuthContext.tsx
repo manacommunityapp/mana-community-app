@@ -58,7 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = useCallback((patch: Partial<StoredUser>) => {
     setUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, ...patch };
+      // Filter out undefined keys so we don't accidentally overwrite existing valid values (e.g. profilePicUrl)
+      const cleanPatch: Partial<StoredUser> = {};
+      (Object.keys(patch) as (keyof StoredUser)[]).forEach((key) => {
+        if (patch[key] !== undefined) {
+          (cleanPatch as any)[key] = patch[key];
+        }
+      });
+      const updated = { ...prev, ...cleanPatch };
       storeUser(updated);
       return updated;
     });
@@ -70,19 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       userService.getMe()
         .then((me) => {
+          const resolvedPic = me.profilePicUrl || (me as any).profilePic;
           updateUser({
             role: me.role,
             roles: me.roles,
             fullName: me.fullName,
             email: me.email,
+            phone: me.phone,
             communityId: me.communityId,
             roleId: me.roleId,
             gender: me.gender,
             dateOfBirth: me.dateOfBirth || (me as any).dob,
+            flatNo: me.flatNo,
+            block: me.block,
             permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
             menuPermissions: me.menuPermissions,
-            profilePicUrl: me.profilePicUrl || (me as any).profilePic,
+            ...(resolvedPic ? { profilePicUrl: resolvedPic } : {}),
             occupancyStatus: me.occupancyStatus,
             residentType: me.residentType,
             userType: me.userType || me.occupancyStatus,
@@ -127,10 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles: me.roles,
         fullName: me.fullName,
         email: me.email,
+        phone: me.phone,
         communityId: me.communityId,
         roleId: me.roleId,
         gender: me.gender || newUser.gender,
         dateOfBirth: me.dateOfBirth || (me as any).dob || newUser.dateOfBirth,
+        flatNo: me.flatNo,
+        block: me.block,
+        tower: me.tower,
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,

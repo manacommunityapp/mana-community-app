@@ -20,6 +20,7 @@ export interface DashboardEventCard {
   categoryName: string | null;
   venueName: string | null;
   maxParticipants: number | null;
+  registeredCount?: number | null;
   registrationStatus: string | null;
   auctionStatus: string | null;
   teamSport: boolean;
@@ -38,6 +39,9 @@ export interface DashboardUpcomingEvent {
   startTime: string | null;
   tournamentId?: number | null;
   tournamentName?: string | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardMyRegistration {
@@ -52,6 +56,9 @@ export interface DashboardMyRegistration {
   matchType: string | null;
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardTournamentCard {

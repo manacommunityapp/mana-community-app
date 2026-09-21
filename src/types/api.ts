@@ -221,15 +221,19 @@ export interface SportsEvent {
   /** Public, non-sequential id used in shareable registration links. */
   uuid?: string;
   name: string;
+  sportName?: string;
+  categoryName?: string;
+  venueName?: string;
   sport?: SportMeta;
   community?: Community;
   eventDateStart: string; // LocalDate → string
   eventDateEnd: string;
   venue?: Venue;
   maxParticipants?: number;
+  registeredCount?: number;
   registrationStatus?: EventStatus;
   tournament?: any;
-  format?: MatchFormat;
+  format?: MatchFormat[];
   tournamentType?: TournamentType;
   categories?: PlayerCategory[];
   sponsors?: Sponsor[];
@@ -271,7 +275,7 @@ export interface SportsEventRequest {
   eventDateEnd: string;
   venueId?: number;
   maxParticipants?: number;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   categoryIds?: number[];
   contactName?: string;
@@ -326,12 +330,15 @@ export interface RegistrationRequest {
   wickets?: number;
   strikeRate?: number;
   avgScore?: number;
-  partnerUserId?: number;
+  partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
   playerName?: string;
   email?: string;
   relation?: string;
   flatNumber?: string;
-  familyMemberId?: number | string;
+  familyMemberId?: number | string | null;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }
@@ -383,7 +390,7 @@ export interface SportsTournament {
   id: number;
   name: string;
   event?: SportsEvent;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   createdAt?: string;
   updatedAt?: string;

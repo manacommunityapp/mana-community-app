@@ -1,4 +1,4 @@
-import { safeStorage } from "../../utils/storage";
+import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage";
 import { createLogger, setCorrelationId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
 
@@ -13,9 +13,9 @@ function generateId(): string {
   });
 }
 
-const TOKEN_KEY = "mana_token";
-const REFRESH_TOKEN_KEY = "mana_refresh_token";
-const USER_KEY = "mana_user";
+const TOKEN_KEY = STORAGE_KEYS.TOKEN;
+const REFRESH_TOKEN_KEY = STORAGE_KEYS.REFRESH_TOKEN;
+const USER_KEY = STORAGE_KEYS.USER;
 
 export function getToken(): string | null {
   return safeStorage.getItem(TOKEN_KEY);
@@ -40,15 +40,13 @@ export function setTokens(token: string, refreshToken?: string | null): void {
 }
 
 export function removeToken(): void {
-  safeStorage.removeItem(TOKEN_KEY);
-  safeStorage.removeItem(REFRESH_TOKEN_KEY);
-  safeStorage.removeItem(USER_KEY);
-  safeStorage.removeItem("mana_last_activity");
+  clearUserStorage();
 }
 
 export interface StoredUser {
   userId: string;
   communityId?: number;
+  communityName?: string;
   roleId?: number;
   role?: string;
   /** All assigned roles as an array (backend may return multi-role users). */
@@ -59,7 +57,9 @@ export interface StoredUser {
   gender?: string;
   dateOfBirth?: string;
   flatNo?: string;
+  flatNumber?: string;
   block?: string;
+  tower?: string;
   status?: string;
   profilePicUrl?: string;
   profilePic?: string;

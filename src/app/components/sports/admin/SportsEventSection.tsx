@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { cn } from "../../ui/utils";
 import type { SportMeta, PlayerCategory, Venue, SportFormEntry } from "../../../../types/api";
 import { PREDEFINED_SPORTS, isTeamSport } from "../utils/sportsConstants";
+import { isValidIndianPhone, isValidEmail } from "../sportsValidation";
 
 interface SportsEventSectionProps {
   user: any;
@@ -136,7 +137,7 @@ export function SportsEventSection({
             boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
           }}
         >
-          <Plus className="w-4 h-4" /> {showSportForm ? "Close Form" : "Add Event"}
+          <Plus className="w-4 h-4" /> {showSportForm ? "Close Form" : "Select a Sport"}
         </button>
       </div>
 
@@ -335,6 +336,7 @@ export function SportsEventSection({
                           type="text"
                           value={ev.eventName}
                           onChange={e => updateSportFormEvent(form.id, ev.id, "eventName", e.target.value)}
+                          maxLength={150}
                           placeholder="Event Name"
                           className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
                             !ev.eventName.trim() ? "border-red-300" : "border-slate-200"
@@ -737,7 +739,7 @@ export function SportsEventSection({
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactNumber", e.target.value)}
                               placeholder="e.g. +91 9876543210"
                               className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
-                                !ev.contactNumber?.trim() ? "border-red-300" : "border-slate-200"
+                                !ev.contactNumber?.trim() || !isValidIndianPhone(ev.contactNumber) ? "border-red-300" : "border-slate-200"
                               }`}
                             />
                           </div>
@@ -749,7 +751,7 @@ export function SportsEventSection({
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactEmail", e.target.value)}
                               placeholder="e.g. contact@tournament.com"
                               className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
-                                !ev.contactEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim()) ? "border-red-300" : "border-slate-200"
+                                !ev.contactEmail?.trim() || !isValidEmail(ev.contactEmail) ? "border-red-300" : "border-slate-200"
                               }`}
                             />
                           </div>
@@ -861,7 +863,7 @@ export function SportsEventSection({
         </div>
       )}
 
-      {/* List of active scheduled sports events */}
+      {/* List of active scheduled sports events or Clean Select a Sport empty state */}
       <div 
         className="rounded-xl p-6 text-left"
         style={{
@@ -870,11 +872,34 @@ export function SportsEventSection({
           boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
         }}
       >
-        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2.5">Scheduled Community Events</h3>
         {activeEvents.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 italic">No community events scheduled yet.</div>
+          <div className="text-center py-12 px-4 bg-slate-50/60 rounded-xl border border-dashed border-indigo-200/80">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3.5 text-2xl shadow-xs">
+              🏆
+            </div>
+            <h4 className="text-base font-bold text-slate-800 mb-1">No Sports Events Configured</h4>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5">
+              There are no sports events configured yet. Select a sport from the list to get started.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                resetSportForm();
+                setShowSportPicker(true);
+              }}
+              className="px-5 py-2.5 text-white text-sm font-semibold rounded-xl border-none cursor-pointer transition-all inline-flex items-center gap-2 shadow-md hover:brightness-105"
+              style={{
+                background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                boxShadow: "0 4px 14px rgba(99,102,241,0.35)"
+              }}
+            >
+              <Plus className="w-4 h-4" /> Select a Sport
+            </button>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <>
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2.5">Scheduled Community Events</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {activeEvents.map(e => {
               const iconUrl = e.sport?.iconUrl || e.iconUrl;
               const icon = e.sport?.icon || e.icon || "🏆";
@@ -975,6 +1000,7 @@ export function SportsEventSection({
               );
             })}
           </div>
+          </>
         )}
       </div>
     </div>

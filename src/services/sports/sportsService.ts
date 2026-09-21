@@ -59,6 +59,7 @@ export const sportsService = {
   getTournamentById: sportsEventService.getTournamentById,
   getEventById: sportsEventService.getEventById,
   getEventByUuid: sportsEventService.getEventByUuid,
+  getRegistrationDetails: sportsEventService.getRegistrationDetails,
   getTournamentMap: sportsEventService.getTournamentMap,
   getEventMap: sportsEventService.getEventMap,
   getConfirmedCount: sportsEventService.getConfirmedCount,
@@ -87,6 +88,7 @@ export const sportsService = {
   confirmCaptain: sportsEventService.confirmCaptain,
   respondToPartnerInvitation: sportsEventService.respondToPartnerInvitation,
   getPartnerInvitations: sportsEventService.getPartnerInvitations,
+  nominatePartner: sportsEventService.nominatePartner,
   async getScheduleStats(): Promise<{ totalGames: number; liveNow: number; upcoming: number; completed: number }> {
     return apiClient.get<{ totalGames: number; liveNow: number; upcoming: number; completed: number }>("/sports/schedule/stats");
   },

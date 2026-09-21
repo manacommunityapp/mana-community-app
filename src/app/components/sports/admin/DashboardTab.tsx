@@ -82,69 +82,69 @@ export function DashboardTab({
       </div>
 
       {/* Quick Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <Trophy className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
+            <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Events</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
+            <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 uppercase tracking-wider">Events</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
-            <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
-              <CalendarCheck className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
+            <div className="p-1 sm:p-1.5 bg-violet-50 text-violet-600 rounded-lg">
+              <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">Scheduled</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
+            <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 uppercase tracking-wider">Scheduled</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              <Users className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
+            <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Approved</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
+            <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 uppercase tracking-wider">Approved</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-              <ClipboardList className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
+            <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+              <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold animate-pulse">Pending</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
+            <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 uppercase tracking-wider animate-pulse">Pending</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-              <MapPin className="w-5 h-5" />
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
+            <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Locations</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
+            <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 uppercase tracking-wider">Locations</span>
           </div>
         </div>
       </div>

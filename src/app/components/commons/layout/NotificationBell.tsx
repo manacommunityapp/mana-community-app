@@ -15,6 +15,7 @@ import { sportsEventService } from "../../../../services/sports/sportsEventServi
 import { useAuth } from "../../../../contexts/AuthContext";
 import { VIEW_NOTICES, VIEW_EVENTS, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN } from "../../../../constants/permissions";
 import { canAccessModule } from "../../../../utils/permissionUtils";
+import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -74,56 +75,44 @@ const CATEGORIES: Record<string, CategoryMeta> = {
   },
 };
 
+const MAX_CACHED_NOTIFICATION_IDS = 200;
+
 function getStoredReadIds(): Set<number> {
-  try {
-    const raw = localStorage.getItem("mana_read_notification_ids");
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw));
-  } catch {
-    return new Set();
-  }
+  const ids = safeStorage.getJSON<number[]>(STORAGE_KEYS.READ_NOTIFICATIONS, []);
+  return new Set(Array.isArray(ids) ? ids : []);
 }
 
 function saveStoredReadId(id: number) {
-  try {
-    const set = getStoredReadIds();
-    set.add(id);
-    localStorage.setItem("mana_read_notification_ids", JSON.stringify(Array.from(set)));
-  } catch { /* silent */ }
+  const set = getStoredReadIds();
+  set.add(id);
+  const trimmed = Array.from(set).slice(-MAX_CACHED_NOTIFICATION_IDS);
+  safeStorage.setJSON(STORAGE_KEYS.READ_NOTIFICATIONS, trimmed);
 }
 
 function saveAllStoredReadIds(ids: number[]) {
-  try {
-    const set = getStoredReadIds();
-    ids.forEach(id => set.add(id));
-    localStorage.setItem("mana_read_notification_ids", JSON.stringify(Array.from(set)));
-  } catch { /* silent */ }
+  const set = getStoredReadIds();
+  ids.forEach(id => set.add(id));
+  const trimmed = Array.from(set).slice(-MAX_CACHED_NOTIFICATION_IDS);
+  safeStorage.setJSON(STORAGE_KEYS.READ_NOTIFICATIONS, trimmed);
 }
 
 function getStoredDismissedIds(): Set<number> {
-  try {
-    const raw = localStorage.getItem("mana_dismissed_notification_ids");
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw));
-  } catch {
-    return new Set();
-  }
+  const ids = safeStorage.getJSON<number[]>(STORAGE_KEYS.DISMISSED_NOTIFICATIONS, []);
+  return new Set(Array.isArray(ids) ? ids : []);
 }
 
 function saveStoredDismissedId(id: number) {
-  try {
-    const set = getStoredDismissedIds();
-    set.add(id);
-    localStorage.setItem("mana_dismissed_notification_ids", JSON.stringify(Array.from(set)));
-  } catch { /* silent */ }
+  const set = getStoredDismissedIds();
+  set.add(id);
+  const trimmed = Array.from(set).slice(-MAX_CACHED_NOTIFICATION_IDS);
+  safeStorage.setJSON(STORAGE_KEYS.DISMISSED_NOTIFICATIONS, trimmed);
 }
 
 function saveAllStoredDismissedIds(ids: number[]) {
-  try {
-    const set = getStoredDismissedIds();
-    ids.forEach(id => set.add(id));
-    localStorage.setItem("mana_dismissed_notification_ids", JSON.stringify(Array.from(set)));
-  } catch { /* silent */ }
+  const set = getStoredDismissedIds();
+  ids.forEach(id => set.add(id));
+  const trimmed = Array.from(set).slice(-MAX_CACHED_NOTIFICATION_IDS);
+  safeStorage.setJSON(STORAGE_KEYS.DISMISSED_NOTIFICATIONS, trimmed);
 }
 
 function timeAgo(dateStr: string): string {
@@ -142,7 +131,7 @@ function timeAgo(dateStr: string): string {
 
 export function playNotificationChime() {
   try {
-    const isMuted = localStorage.getItem("mana_notifications_muted") === "true";
+    const isMuted = safeStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_MUTED) === "true";
     if (isMuted) return;
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
@@ -438,11 +427,7 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [respondingId, setRespondingId] = useState<number | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("mana_notifications_muted") === "true";
-    } catch {
-      return false;
-    }
+    return safeStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_MUTED) === "true";
   });
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [preferences, setPreferences] = useState<{
@@ -451,11 +436,12 @@ export function NotificationBell() {
     community: boolean;
     sound: boolean;
   }>(() => {
-    try {
-      const stored = localStorage.getItem("mana_notification_preferences");
-      if (stored) return JSON.parse(stored);
-    } catch { /* silent */ }
-    return { events: true, sports: true, community: true, sound: true };
+    return safeStorage.getJSON(STORAGE_KEYS.NOTIFICATION_PREFS, {
+      events: true,
+      sports: true,
+      community: true,
+      sound: true,
+    });
   });
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -465,18 +451,14 @@ export function NotificationBell() {
   const toggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
-    try {
-      localStorage.setItem("mana_notifications_muted", String(next));
-    } catch { /* silent */ }
+    safeStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_MUTED, String(next));
   };
 
   const handleSavePreferences = (nextPrefs: typeof preferences) => {
     setPreferences(nextPrefs);
-    try {
-      localStorage.setItem("mana_notification_preferences", JSON.stringify(nextPrefs));
-      localStorage.setItem("mana_notifications_muted", String(!nextPrefs.sound));
-      setIsMuted(!nextPrefs.sound);
-    } catch { /* silent */ }
+    safeStorage.setJSON(STORAGE_KEYS.NOTIFICATION_PREFS, nextPrefs);
+    safeStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_MUTED, String(!nextPrefs.sound));
+    setIsMuted(!nextPrefs.sound);
   };
 
   const triggerBlink = useCallback(() => {

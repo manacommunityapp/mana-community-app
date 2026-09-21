@@ -1,6 +1,7 @@
 import { apiClient } from "../common/apiClient";
 import type {
   SportsEvent,
+  PlayerCategory,
   SportsEventRequest,
   RegistrationRequest,
   EventRegistration,
@@ -8,12 +9,29 @@ import type {
   TournamentRegistration,
 } from "../../types/api";
 
+export interface EventRegistrationDetailsResponse {
+  event: SportsEvent;
+  categories?: PlayerCategory[];
+  siblingCategories?: any[];
+}
+
 export const sportsEventService = {
   mapEvent(e: SportsEvent): SportsEvent {
     if (e) {
       e.status = e.status || e.registrationStatus || e.tournament?.registrationStatus;
     }
     return e;
+  },
+
+  /** GET /api/sports/events/{idOrUuid}/registration-details — consolidated registration details */
+  async getRegistrationDetails(idOrUuid: string | number): Promise<EventRegistrationDetailsResponse> {
+    return apiClient.get<EventRegistrationDetailsResponse>(`/sports/events/${idOrUuid}/registration-details`)
+      .then((res: any) => {
+        if (res && res.event) {
+          res.event = this.mapEvent(res.event);
+        }
+        return res;
+      });
   },
 
   /** GET /api/sports/tournaments/open?communityId= — tournaments available for registration */
@@ -205,5 +223,13 @@ export const sportsEventService = {
   async getPartnerInvitations(status?: string): Promise<EventRegistration[]> {
     const statusParam = status ? `?status=${status}` : "";
     return apiClient.get<EventRegistration[]>(`/sports/registrations/partner-invitations${statusParam}`);
+  },
+
+  /** PUT /api/sports/registrations/{id}/nominate-partner — nominate or update partner */
+  async nominatePartner(registrationId: number, partnerUserId?: number | null): Promise<EventRegistration> {
+    const url = partnerUserId != null
+      ? `/sports/registrations/${registrationId}/nominate-partner?partnerUserId=${partnerUserId}`
+      : `/sports/registrations/${registrationId}/nominate-partner`;
+    return apiClient.put<EventRegistration>(url);
   },
 };

@@ -35,7 +35,7 @@ const TABS = [
   { id: "community",   label: "My Community",   icon: Building2 },
   { id: "teams",       label: "My Teams",       icon: Users },
   { id: "matches",     label: "My Matches",     icon: Calendar },
-  { id: "settings",    label: "Sports Settings",icon: Settings },
+  { id: "settings",    label: "Settings",       icon: Settings },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -130,7 +130,7 @@ export function SportsRegistration() {
           communityId: user.communityId,
           eventDateStart: new Date().toISOString().split("T")[0],
           eventDateEnd: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-          format: matchTypes[sport.id] ?? undefined,
+          format: matchTypes[sport.id] ? [matchTypes[sport.id]] : undefined,
         });
       }
       toast.success(`Registered for ${selectedSports.length} sport(s)!`);
@@ -145,13 +145,13 @@ export function SportsRegistration() {
   const myCommunity = communities.find(c => c.id === user?.communityId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <Toaster position="top-center" richColors />
 
       {/* Primary Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-[#0d0d2b]">My Sports Hub</h1>
-        <p className="text-sm text-[#6b7094] mt-1">Manage your active tournaments, matches, teams, and registrations</p>
+        <h1 className="text-lg sm:text-2xl font-semibold text-[#0d0d2b]">My Sports Hub</h1>
+        <p className="text-[13px] sm:text-sm text-[#6b7094] mt-0.5 sm:mt-1">Manage your active tournaments, matches, teams, and registrations</p>
       </div>
 
       {/* Sub navigation bar */}
@@ -170,7 +170,7 @@ export function SportsRegistration() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold cursor-pointer border transition-all duration-200"
+              className="flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-semibold cursor-pointer border transition-all duration-200 min-h-[36px]"
               style={isActive ? {
                 background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
                 color: "white",
@@ -214,10 +214,10 @@ export function SportsRegistration() {
             {activeTab === "tournaments" && (
               <div className="space-y-4 text-left">
                 {registrations.length === 0 ? (
-                  <div className="text-center py-16 bg-card border border-border rounded-xl shadow-lg">
-                    <Trophy className="w-12 h-12 text-border mx-auto mb-4" />
-                    <p className="text-muted-foreground font-medium">You haven't registered for any tournaments yet.</p>
-                    <p className="text-xs text-muted-foreground/80 mt-1 mb-6">Explore the baseline categories and register in the "Sports Settings" tab.</p>
+                  <div className="text-center py-8 sm:py-16 bg-card border border-border rounded-xl shadow-lg px-3 sm:px-6">
+                    <Trophy className="w-10 h-10 sm:w-12 sm:h-12 text-border mx-auto mb-3 sm:mb-4" />
+                    <p className="text-[13px] sm:text-base text-muted-foreground font-medium">You haven't registered for any tournaments yet.</p>
+                    <p className="text-xs text-muted-foreground/80 mt-1 mb-6">Explore the baseline categories and register in the "Settings" tab.</p>
                     <button
                       onClick={() => setActiveTab("settings")}
                       className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-lg shadow-md transition-all active:scale-[0.97] cursor-pointer border-none"
@@ -226,7 +226,7 @@ export function SportsRegistration() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-4">
                     {registrations.map(reg => {
                       const statusColors: Record<string, string> = {
                         PENDING: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
@@ -236,11 +236,11 @@ export function SportsRegistration() {
                       };
 
                       return (
-                        <div key={reg.id} className="p-5 bg-card border border-border rounded-xl flex flex-col justify-between gap-4 relative hover:border-primary/30 transition-all duration-300">
+                        <div key={reg.id} className="p-3 sm:p-5 bg-card border border-border rounded-xl flex flex-col justify-between gap-3 sm:gap-4 relative hover:border-primary/30 transition-all duration-300">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">{reg.event?.sport?.name || "Sport Event"}</div>
-                              <h4 className="text-sm font-bold text-foreground truncate mt-1 leading-snug">{reg.event?.name}</h4>
+                              <h4 className="text-[13px] sm:text-sm font-bold text-foreground truncate mt-1 leading-snug">{reg.event?.name}</h4>
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 {reg.category?.name && (
                                   <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
@@ -291,16 +291,16 @@ export function SportsRegistration() {
             {activeTab === "community" && (
               <div className="space-y-4">
                 {!myCommunity ? (
-                  <div className="text-center py-12 bg-card border border-border rounded-xl p-6 shadow-lg">
-                    <Building2 className="w-12 h-12 text-border mx-auto mb-4" />
+                  <div className="text-center py-6 sm:py-12 bg-card border border-border rounded-xl p-3 sm:p-6 shadow-lg">
+                    <Building2 className="w-10 h-10 sm:w-12 sm:h-12 text-border mx-auto mb-3 sm:mb-4" />
                     <p className="text-muted-foreground font-medium">No community settings found.</p>
                     <p className="text-xs text-muted-foreground/80 mt-1">Make sure you have selected or joined a community in your profile dashboard.</p>
                   </div>
                 ) : (
-                  <div className="max-w-2xl mx-auto bg-card border border-border rounded-2xl p-6 shadow-xl relative hover:border-primary/20 transition-all duration-300">
-                    <div className="flex items-center gap-4 border-b border-border pb-4 mb-5">
-                      <div className="p-3.5 bg-primary/10 rounded-2xl border border-primary/20 text-primary">
-                        <Building2 className="w-6 h-6" />
+                  <div className="max-w-2xl mx-auto bg-card border border-border rounded-2xl p-3 sm:p-6 shadow-xl relative hover:border-primary/20 transition-all duration-300">
+                    <div className="flex items-center gap-3 sm:gap-4 border-b border-border pb-3 sm:pb-4 mb-3 sm:mb-5">
+                      <div className="p-2.5 sm:p-3.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 text-primary">
+                        <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                       <div className="text-left">
                         <h3 className="text-base font-bold text-foreground uppercase tracking-wider">{myCommunity.name}</h3>
@@ -310,7 +310,7 @@ export function SportsRegistration() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs text-left">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5 text-xs text-left">
                       <div className="space-y-1">
                         <span className="text-muted-foreground uppercase tracking-wider block font-medium">Community Code</span>
                         <p className="text-sm font-bold text-primary">{myCommunity.code || "—"}</p>
@@ -341,13 +341,13 @@ export function SportsRegistration() {
             {activeTab === "teams" && (
               <div className="space-y-4 text-left">
                 {teams.length === 0 ? (
-                  <div className="text-center py-16 bg-card border border-border rounded-xl p-6 shadow-lg">
-                    <Users className="w-12 h-12 text-border mx-auto mb-4" />
+                  <div className="text-center py-8 sm:py-16 bg-card border border-border rounded-xl p-3 sm:p-6 shadow-lg">
+                    <Users className="w-10 h-10 sm:w-12 sm:h-12 text-border mx-auto mb-3 sm:mb-4" />
                     <p className="text-muted-foreground font-medium">No auction/tournament teams found.</p>
                     <p className="text-xs text-muted-foreground/80 mt-1">Teams will appear here once you are assigned to an auction team or nominated as a captain.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-4">
                     {teams.map(team => {
                       const total = team.totalBudget || 1000;
                       const spent = team.spent || 0;
@@ -355,7 +355,7 @@ export function SportsRegistration() {
                       const percent = Math.min(100, Math.round((spent / total) * 100));
 
                       return (
-                        <div key={team.id} className="p-5 bg-card border border-border rounded-xl flex flex-col gap-4 hover:border-primary/30 transition-all duration-300 animate-fade-in-up">
+                        <div key={team.id} className="p-3 sm:p-5 bg-card border border-border rounded-xl flex flex-col gap-3 sm:gap-4 hover:border-primary/30 transition-all duration-300 animate-fade-in-up">
                           <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
                             <div>
                               <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -390,14 +390,14 @@ export function SportsRegistration() {
             {activeTab === "matches" && (
               <div className="space-y-4">
                 {myMatches.length === 0 ? (
-                  <div className="text-center py-16 bg-card border border-border rounded-xl p-6 shadow-lg">
-                    <Calendar className="w-12 h-12 text-border mx-auto mb-4" />
+                  <div className="text-center py-8 sm:py-16 bg-card border border-border rounded-xl p-3 sm:p-6 shadow-lg">
+                    <Calendar className="w-10 h-10 sm:w-12 sm:h-12 text-border mx-auto mb-3 sm:mb-4" />
                     <p className="text-muted-foreground font-medium">No upcoming scheduled matches found.</p>
                     <p className="text-xs text-muted-foreground/80 mt-1">Once brackets are seeded and matches are scheduled, they will appear in your timeline.</p>
                   </div>
                 ) : (
-                  <div className="bg-card border border-border rounded-xl p-5 max-w-3xl mx-auto shadow-lg">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-5 border-b border-border/60 pb-2 text-left">My Match Timeline</div>
+                  <div className="bg-card border border-border rounded-xl p-3 sm:p-5 max-w-3xl mx-auto shadow-lg">
+                    <div className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 sm:mb-5 border-b border-border/60 pb-2 text-left">My Match Timeline</div>
                     <div className="space-y-1">
                       {myMatches.map((m, i) => {
                         const statusColors: Record<string, string> = {
@@ -409,14 +409,14 @@ export function SportsRegistration() {
                         const color = statusColors[m.registrationStatus] || "#64748b";
 
                         return (
-                          <div key={m.id} className="relative flex gap-4 pb-6">
+                          <div key={m.id} className="relative flex gap-2.5 sm:gap-4 pb-4 sm:pb-6">
                             <div className="flex flex-col items-center">
                               <div className="w-3.5 h-3.5 rounded-full flex-shrink-0 mt-1 border border-card" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
                               {i < myMatches.length - 1 && <div className="w-px flex-1 bg-border mt-1.5" />}
                             </div>
                             <div className="flex-1 min-w-0 pb-1 text-left animate-fade-in-up">
-                              <div className="text-xs text-muted-foreground font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Date TBD"}</div>
-                              <h4 className="text-sm font-bold text-foreground mt-1">{m.sport?.name} — {m.name}</h4>
+                              <div className="text-xs text-muted-foreground font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Date TBD"}</div>
+                              <h4 className="text-[13px] sm:text-sm font-bold text-foreground mt-1">{m.sport?.name} — {m.name}</h4>
                               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                 <MapPin className="w-3.5 h-3.5 text-primary" /> {m.venue?.name || "Venue TBD"}{m.venue?.city ? `, ${m.venue.city}` : ""}
                               </div>
@@ -434,12 +434,12 @@ export function SportsRegistration() {
               </div>
             )}
 
-            {/* ════════════ SPORTS SETTINGS (REGISTRATION) TAB ════════════ */}
+            {/* ════════════ SETTINGS TAB ════════════ */}
             {activeTab === "settings" && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-left">
-                <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 sm:gap-4 text-left">
+                <div className="space-y-2.5 sm:space-y-4">
                   {/* Sport selection */}
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
+                  <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Select Sports</div>
                     {loadingMeta ? (
                       <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin" /> Loading...</div>
@@ -449,7 +449,7 @@ export function SportsRegistration() {
                           <button
                             key={s.id}
                             onClick={() => toggleSport(s.id)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
+                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-[11px] sm:text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
                               selected[s.id]
                                 ? "border-primary bg-primary/10 text-primary"
                                 : "border-border bg-input text-muted-foreground hover:border-border-hover"
@@ -463,25 +463,25 @@ export function SportsRegistration() {
                   </div>
 
                   {/* Player profile */}
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Player Profile</div>
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
+                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Player Profile</div>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="text-xs text-muted-foreground block mb-1.5">Full Name</label>
-                        <input defaultValue={user?.fullName ?? "Community Player"} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
+                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Full Name</label>
+                        <input defaultValue={user?.fullName ?? "Community Player"} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground block mb-1.5">Age</label>
-                        <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
+                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Age</label>
+                        <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground block mb-1.5">Gender</label>
-                        <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm">
+                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Gender</label>
+                        <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm">
                           <option>Male</option><option>Female</option><option>Other</option>
                         </select>
                       </div>
                       <div>
-                        <label className="text-xs text-muted-foreground block mb-1.5">Govt ID</label>
+                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Govt ID</label>
                         <div className="flex items-center gap-2 px-3 py-2 bg-input border border-success rounded-lg">
                           <CheckCircle className="w-4 h-4 text-success" />
                           <span className="text-xs text-success">Aadhaar Linked</span>
@@ -491,8 +491,8 @@ export function SportsRegistration() {
                   </div>
 
                   {/* Auto category */}
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Auto-assigned Category</div>
+                  <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
+                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Auto-assigned Category</div>
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">{autoCategory}</span>
                       <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">Open</span>
@@ -503,17 +503,17 @@ export function SportsRegistration() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2.5 sm:space-y-4">
                   {/* Match type per sport */}
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Match Type per Sport</div>
+                  <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
+                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Match Type per Sport</div>
                     {selectedSports.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">Select sports from the left panel</p>
                     ) : (
                       selectedSports.map(sport => (
-                        <div key={sport.id} className="bg-input/50 border border-border rounded-xl p-4 mb-3">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-sm font-medium text-foreground">{sport.icon} {sport.name}</div>
+                        <div key={sport.id} className="bg-input/50 border border-border rounded-xl p-2.5 sm:p-4 mb-2.5 sm:mb-3">
+                          <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                            <div className="text-[13px] sm:text-sm font-medium text-foreground">{sport.icon} {sport.name}</div>
                             <span className="text-[10px] px-2 py-0.5 rounded bg-success/15 text-success">Age OK</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -521,7 +521,7 @@ export function SportsRegistration() {
                               <button
                                 key={type}
                                 onClick={() => setMatchType(sport.id, type)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
+                                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
                                   matchTypes[sport.id] === type || (!matchTypes[sport.id] && type === (MATCH_TYPES[sport.id]?.[0]))
                                     ? "border-primary bg-primary/10 text-primary"
                                     : "border-border bg-input text-muted-foreground hover:border-border-hover"
@@ -537,8 +537,8 @@ export function SportsRegistration() {
                   </div>
 
                   {/* Age check */}
-                  <div className="bg-card border border-border rounded-xl p-4 shadow-lg">
-                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">Age Restriction Check</div>
+                  <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
+                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Age Restriction Check</div>
                     <div className="bg-input rounded-lg overflow-hidden border border-border">
                       <div className="flex justify-between px-3 py-2 border-b border-border text-xs text-muted-foreground font-semibold">
                         <span>Sport</span><span>Age Range</span><span>Status</span>
@@ -555,7 +555,7 @@ export function SportsRegistration() {
                     <button
                       onClick={handleSubmit}
                       disabled={submitting}
-                      className="w-full mt-4 py-3 bg-primary hover:bg-primary/90 disabled:opacity-70 text-primary-foreground text-sm font-semibold rounded-lg border-none cursor-pointer transition-colors flex items-center justify-center gap-2 active:scale-[0.97]"
+                      className="w-full mt-3 sm:mt-4 py-3 bg-primary hover:bg-primary/90 disabled:opacity-70 text-primary-foreground text-[13px] sm:text-sm font-semibold rounded-lg border-none cursor-pointer transition-colors flex items-center justify-center gap-2 active:scale-[0.97] min-h-[44px]"
                     >
                       {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Submitting...</> : "Submit Registration ↗"}
                     </button>

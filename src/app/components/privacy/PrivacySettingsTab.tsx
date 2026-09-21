@@ -33,6 +33,7 @@ import {
   type DataDeletionRequest,
 } from "../../../services/privacy/privacyService";
 import { useAuth } from "../../../contexts/AuthContext";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -119,13 +120,9 @@ export const PrivacySettingsTab: React.FC = () => {
       setSavedSettings(merged);
       toast.success("Privacy preferences saved successfully");
     } catch (err: any) {
-      try {
-        localStorage.setItem("mana_privacy_preferences_fallback", JSON.stringify(settings));
-        setSavedSettings(settings);
-        toast.success("Privacy preferences saved locally");
-      } catch {
-        toast.error(err.message || "Failed to save privacy settings");
-      }
+      safeStorage.setJSON(STORAGE_KEYS.PRIVACY_FALLBACK, settings);
+      setSavedSettings(settings);
+      toast.success("Privacy preferences saved locally");
     } finally {
       setSaving(false);
     }

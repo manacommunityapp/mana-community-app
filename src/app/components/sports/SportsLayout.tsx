@@ -66,9 +66,9 @@ export function SportsLayout() {
   });
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
+    <div className="flex flex-col gap-2 h-full min-h-0">
       {/* Breadcrumb + page header in a single horizontal row */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+      <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100 pb-1.5">
         {/* Left: Breadcrumbs */}
         <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
@@ -89,72 +89,55 @@ export function SportsLayout() {
         </div>
 
         {/* Right: Page Header */}
-        <div className="flex items-center gap-3 sm:text-right sm:justify-end">
-          <div className="text-left sm:text-right">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
-            <p className="text-xs" style={{ color: "#6b7094" }}>
-              Leagues, teams, schedules &amp; player auctions
-            </p>
-          </div>
+        <div className="flex items-center gap-2.5">
           <div
-            className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"
+            className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
           >
-            <Trophy className="h-4.5 w-4.5 text-white" />
+            <Trophy className="h-4 w-4 text-white" />
+          </div>
+          <div className="text-left hidden sm:block">
+            <h2 className="text-base sm:text-lg font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
+            <p className="text-[11px]" style={{ color: "#6b7094" }}>
+              Leagues, teams, schedules &amp; player auctions
+            </p>
           </div>
         </div>
       </div>
 
       {/* Sports sub-nav pill bar */}
-      <div 
-        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0"
-        style={{
-          background: "white",
-          border: "1px solid rgba(99, 102, 241, 0.12)",
-          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-        }}
-      >
-        {visibleNav.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className="flex-shrink-0"
-          >
-            {({ isActive }) => (
-              <div
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
-                style={
-                  isActive
-                    ? {
-                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                        color: "white",
-                        boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
-                      }
-                    : {
-                        color: "rgb(107, 112, 148)",
-                        background: "transparent",
-                      }
-                }
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
-                    e.currentTarget.style.color = "#4f46e5";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "rgb(107, 112, 148)";
-                  }
-                }}
-              >
-                <Icon className="w-4 h-4 flex-shrink-0" />
-                {label}
-              </div>
-            )}
-          </NavLink>
-        ))}
+      <div className="w-full shrink-0">
+        <div 
+          className="flex items-center gap-1 sm:gap-1.5 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl bg-white/95 backdrop-blur-md border border-indigo-100 shadow-[0_2px_8px_rgba(99,102,241,0.05)] overflow-x-auto w-full hide-scrollbar"
+        >
+          {visibleNav.map(({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className="flex-1 min-w-[90px] sm:min-w-0 select-none group"
+            >
+              {({ isActive }) => (
+                <div
+                  className={`w-full min-h-[32px] sm:min-h-[34px] flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-[8px] sm:rounded-[10px] text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-[0_3px_10px_-3px_rgba(99,102,241,0.4)] font-semibold"
+                      : "text-slate-500 group-hover:text-indigo-600 group-hover:bg-indigo-50/80"
+                  }`}
+                >
+                  <Icon
+                    className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-colors ${
+                      isActive
+                        ? "text-white"
+                        : "text-slate-400 group-hover:text-indigo-600"
+                    }`}
+                  />
+                  <span>{label}</span>
+                </div>
+              )}
+            </NavLink>
+          ))}
+        </div>
       </div>
 
       {/* Page content */}

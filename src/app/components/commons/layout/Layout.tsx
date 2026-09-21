@@ -17,6 +17,7 @@ import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
 import { resolveUserAvatar } from "../../../../utils/imageUrlUtils";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
+import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -66,6 +67,11 @@ function UserProfileMenu({
   }, [open]);
 
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user?.profilePicUrl, user?.profilePic]);
+
   const userAvatar = !imgError ? resolveUserAvatar(user) : undefined;
 
   const initials = user?.fullName
@@ -104,7 +110,14 @@ function UserProfileMenu({
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
             className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
-            onError={() => setImgError(true)}
+            onError={(e) => {
+              const currentSrc = e.currentTarget.src;
+              if (currentSrc && currentSrc.includes("?")) {
+                e.currentTarget.src = currentSrc.split("?")[0];
+              } else {
+                setImgError(true);
+              }
+            }}
           />
         ) : (
           <div className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md flex items-center justify-center text-primary-foreground text-[10px] font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
@@ -132,7 +145,14 @@ function UserProfileMenu({
                 src={userAvatar}
                 alt={user?.fullName ?? "Profile"}
                 className="h-8 w-8 rounded-lg object-cover ring-1 ring-border/80 shadow-2xs shrink-0"
-                onError={() => setImgError(true)}
+                onError={(e) => {
+                  const currentSrc = e.currentTarget.src;
+                  if (currentSrc && currentSrc.includes("?")) {
+                    e.currentTarget.src = currentSrc.split("?")[0];
+                  } else {
+                    setImgError(true);
+                  }
+                }}
               />
             ) : (
               <div className="h-8 w-8 rounded-lg flex items-center justify-center text-primary-foreground text-xs font-black bg-primary shadow-2xs shrink-0">
@@ -278,11 +298,7 @@ function UserProfileMenu({
 export function Layout() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("mana_sidebar_collapsed") === "true";
-    } catch {
-      return false;
-    }
+    return safeStorage.getItem(STORAGE_KEYS.SIDEBAR_COLLAPSED) === "true";
   });
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
@@ -361,9 +377,7 @@ export function Layout() {
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
       setIsSidebarCollapsed((prev) => {
         const next = !prev;
-        try {
-          localStorage.setItem("mana_sidebar_collapsed", String(next));
-        } catch {}
+        safeStorage.setItem(STORAGE_KEYS.SIDEBAR_COLLAPSED, String(next));
         return next;
       });
     } else {
