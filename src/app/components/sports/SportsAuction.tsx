@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
-import { useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams, useNavigate as useRouterNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   Gavel,
@@ -12,7 +12,9 @@ import {
   Settings,
   Users,
   Search,
-  FileText
+  FileText,
+  CalendarDays,
+  ExternalLink
 } from "lucide-react";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -76,6 +78,7 @@ export function SportsAuction() {
   // Kept for backward compat with any code that still references isAuctionAdmin
   const isAuctionAdmin = canEditAuctionConfig || canEditLiveAuction;
   const { eventId } = useParams();
+  const routerNavigate = useRouterNavigate();
 
   // Navigation State
   type TabType = 'overview' | 'config' | 'live' | 'teams' | 'players' | 'registrations' | 'results' | 'badminton' | 'football' | 'volleyball' | string;
@@ -113,7 +116,7 @@ export function SportsAuction() {
   // Live Auction State
   const [players, setPlayers] = useState<AuctionPlayer[]>([]);
   const [teams, setTeams] = useState<AuctionTeam[]>([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // Live Auction — dynamic state
   const [livePlayer, setLivePlayer] = useState<PlayerWithBidResponse | null>(null);
@@ -292,7 +295,7 @@ export function SportsAuction() {
 
   const handleSaveConfig = async () => {
     const payload = {
-      sportId: sport === 'cricket' ? 1 : sport === 'badminton' ? 2 : 3,
+      sportId: selectedEventId ? (communityEvents.find(e => e.id === selectedEventId)?.sport?.id ?? 1) : 1,
       eventId: selectedEventId || undefined,
       seasonName,
       auctionFormat,
@@ -445,6 +448,23 @@ export function SportsAuction() {
     }
   };
 
+  const handleExportTeams = () => {
+    if (teams.length === 0) { toast.error('No teams to export'); return; }
+    const headers = ['#', 'Team Name', 'Owner', 'Budget', 'Spent', 'Remaining', 'Players'];
+    const rows = teams.map((t, i) => [
+      i + 1, t.teamName || t.name || '', t.ownerName || t.ownerUser?.name || '',
+      t.totalBudget ?? t.budget ?? 0, t.spent ?? 0, t.remainingBudget ?? (t.budget - t.spent) ?? 0,
+      t.playerCount ?? ''
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `teams-${seasonName.replace(/\s+/g, '-')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Teams CSV downloaded');
+  };
+
   const handleSoldPlayer = async () => {
     if (!livePlayer || !biddingTeamId) {
       toast.error("No bid has been placed yet!");
@@ -532,6 +552,17 @@ export function SportsAuction() {
   const frontendQueuedCount = queuedPlayersList.filter(p => p.role?.toLowerCase() !== 'captain' && p.category?.toLowerCase() !== 'captain').length;
   const queuedCount = auctionStats?.queuedPlayers ?? frontendQueuedCount;
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+        <div style={{ textAlign: 'center', color: '#6b7094' }}>
+          <div className="spinner" style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          Loading Auction Hub...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="auction-hub-wrapper">
       <aside className="sidebar">
@@ -562,6 +593,12 @@ export function SportsAuction() {
           {canViewPlayerPool      && <NavItem id="players"       label="Player Pool" icon={Search} />}
           {canViewRegistrations   && <NavItem id="registrations" label="Registrations" icon={FileText} />}
           {canViewResults         && <NavItem id="results"       label="Auction Results" icon={Trophy} />}
+        </div>
+        <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginTop: 8 }}>
+          <div className="nav-label">Quick Links</div>
+          <button className="nav-item" onClick={() => routerNavigate('/sports/schedule')} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>
+            <CalendarDays size={16} /> Schedule <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+          </button>
         </div>
       </aside>
 
@@ -672,7 +709,7 @@ export function SportsAuction() {
         {activeTab === 'config' && (
           <div className="page active">
             <div className="page-hdr">
-              <div><div className="page-title">Auction Configuration</div><div className="page-sub">Cricket · Season 2025 · Dynamically configurable rules</div></div>
+              <div><div className="page-title">Auction Configuration</div><div className="page-sub">{sport.charAt(0).toUpperCase() + sport.slice(1)} · {seasonName} · Dynamically configurable rules</div></div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginRight: 12 }}>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>Select Event:</span>
@@ -826,7 +863,7 @@ export function SportsAuction() {
                       />
                     </div>
 
-                    {userSearchQuery.length >= 0 && document.activeElement === document.getElementById('committee-search') && (
+                    {userSearchQuery.length >= 2 && document.activeElement === document.getElementById('committee-search') && (
                       <div className="search-results-dropdown" style={{
                         position: 'absolute', top: '100%', left: 0, right: 0,
                         background: '#1a1d21', border: '1px solid #444',
@@ -1088,7 +1125,7 @@ export function SportsAuction() {
                     {showAddTeam ? '✕ Cancel' : '+ Create Team'}
                   </button>
                 )}
-                <button className="btn btn-outline" onClick={() => toast.success('Team CSV export ready')}>Export ↗</button>
+                <button className="btn btn-outline" onClick={handleExportTeams}>Export CSV ↗</button>
               </div>
             </div>
 
@@ -1279,7 +1316,7 @@ export function SportsAuction() {
                             </span>
                           </td>
                           <td style={{ padding: '12px 16px' }}>
-                            <button className="btn btn-outline btn-sm" style={{ padding: '4px 10px', fontSize: 11 }}>
+                            <button className="btn btn-outline btn-sm" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${reg.flatNumber || 'External'} · Status: ${reg.status}`)}>
                               View Profile
                             </button>
                           </td>
@@ -1363,7 +1400,7 @@ export function SportsAuction() {
               <>
                 <div className="card card-gold">
                   <div className="sec-title">Dispute Committee</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Any dispute to be referred to: <strong style={{ color: 'var(--gold)' }}>{committee.join(", ")}</strong>. Decision is final.</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Any dispute to be referred to: <strong style={{ color: 'var(--gold)' }}>{committee.map(m => m.name).join(", ")}</strong>. Decision is final.</div>
                 </div>
                 <div className="grid2" style={{ marginTop: 16 }}>
                   {teams.map(team => {
