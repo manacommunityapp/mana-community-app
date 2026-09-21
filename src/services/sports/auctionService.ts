@@ -108,6 +108,11 @@ export const auctionService = {
     return apiClient.get<number>(`/auction/config/${configId}/registration-count`);
   },
 
+  /** GET /api/auction/live/bids/{playerId} — get bid history for a player */
+  async getBidHistory(playerId: number): Promise<import("../../types/api").AuctionBidResponse[]> {
+    return apiClient.get(`/auction/live/bids/${playerId}`);
+  },
+
   /** GET /api/auction/teams/nominated/{eventId} — get nominated captains */
   async getNominatedCaptains(eventId: number): Promise<AuctionTeam[]> {
     return apiClient.get<AuctionTeam[]>(`/auction/teams/nominated/${eventId}`);

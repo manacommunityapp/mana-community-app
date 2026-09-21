@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download } from 'lucide-react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -244,6 +244,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [matchDuration, setMatchDuration] = useState('30');
   const [breakTime, setBreakTime] = useState('10 mins');
   const [limitMatchesPerDay, setLimitMatchesPerDay] = useState(false);
+  const [matchDays, setMatchDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [usePlayoffDays, setUsePlayoffDays] = useState(false);
+  const [playoffDays, setPlayoffDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [playoffRoundDates, setPlayoffRoundDates] = useState<Record<string, string>>({});
   const [maxMatchesPerDay, setMaxMatchesPerDay] = useState('2');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -259,6 +263,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -454,7 +459,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (!format) { showWarning('Please select a format'); return false; }
     if (!participants || Number(participants) < 2) { showWarning('Enter valid participants'); return false; }
     if (selectedVenues.length === 0) { showWarning('Select at least one venue — required to generate the schedule.'); return false; }
-    // For every selected venue that has courts available, require at least one court to be selected.
+    if (matchDays.length === 0) { showWarning('Select at least one match day'); return false; }
     for (const vid of selectedVenues) {
       const venue = venues.find(v => v.id === vid);
       if (venue?.courts && venue.courts.length > 0 && (selectedCourts[vid]?.length || 0) === 0) {
@@ -485,6 +490,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endDate: endDate || null,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakBetweenMatchesMinutes: parseInt(breakTime) || 10,
+      matchDays: matchDays.length < 7 ? matchDays : null,
+      playoffDays: usePlayoffDays && playoffDays.length < 7 ? playoffDays : null,
+      playoffRoundDates: Object.keys(playoffRoundDates).length > 0 ? playoffRoundDates : null,
       venueId: selectedVenues.length > 0 ? selectedVenues[0] : null,
       pointsForWin: Number(ptsWin),
       pointsForDraw: Number(ptsDraw),
@@ -736,17 +744,30 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return new Date(dateStr);
   };
 
+  const advanceToAllowedDay = (date: Date, allowedDays?: number[]): Date => {
+    const days = allowedDays ?? matchDays;
+    if (days.length === 0 || days.length === 7) return date;
+    const d = new Date(date);
+    let guard = 0;
+    while (!days.includes(d.getDay()) && guard < 7) {
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+    return d;
+  };
+
   const getActiveGroupMatches = (group: typeof generatedGroups[0], groupIdx: number) => {
     const baseMatches = getGroupMatches(group, groupIdx);
-    
+
     return baseMatches.map((m, mIdx) => {
       const key = `${groupIdx}-${mIdx}`;
       const override = matchOverrides[key];
-      
+
       const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
       const defaultDate = new Date(baseDate);
       defaultDate.setDate(baseDate.getDate() + groupIdx + mIdx * 2);
-      const defaultDateStr = defaultDate.toISOString().split('T')[0];
+      const adjusted = advanceToAllowedDay(defaultDate);
+      const defaultDateStr = adjusted.toISOString().split('T')[0];
       
       const defaultVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
       const defaultCourtId = resolveCourtId(defaultVenueId, groupIdx + mIdx);
@@ -892,6 +913,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       courtId: defaultCourtId,
       participants: playerParticipants,
       courtIds: selectedCourtIds(defaultVenueId),
+      matchDays: matchDays.length < 7 ? matchDays : undefined,
     };
   };
 
@@ -926,9 +948,19 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     let matches = draftOverride ?? playoffDraft;
 
     if (isKnockoutOnly) {
-      // Player-aware path: the backend already returns real players, BYE auto-advance and
-      // parallel court allocation — use as-is (only manual overrides on top).
-      return applyPlayoffOverrides(matches, matchOverrides);
+      let koMatches = applyPlayoffOverrides(matches, matchOverrides);
+      if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+        koMatches = koMatches.map(m => {
+          const roundDate = playoffRoundDates[m.round];
+          if (roundDate) return { ...m, date: roundDate };
+          if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
+            const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
+            return { ...m, date: d.toISOString().split('T')[0] };
+          }
+          return m;
+        });
+      }
+      return koMatches;
     }
 
     // Group → knockout (slot-based): distribute matches across the venue's selected courts
@@ -939,6 +971,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       venueId: playoffVenueId,
       courtId: resolveCourtId(playoffVenueId, idx),
     }));
+
+    if (usePlayoffDays || Object.keys(playoffRoundDates).length > 0) {
+      matches = matches.map(m => {
+        const roundDate = playoffRoundDates[m.round];
+        if (roundDate) return { ...m, date: roundDate };
+        if (usePlayoffDays && playoffDays.length > 0 && playoffDays.length < 7 && m.date) {
+          const d = advanceToAllowedDay(new Date(m.date + 'T00:00:00'), playoffDays);
+          return { ...m, date: d.toISOString().split('T')[0] };
+        }
+        return m;
+      });
+    }
 
     return applyPlayoffOverrides(matches, matchOverrides);
   };
@@ -1169,6 +1213,104 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return maxRound || 1;
   };
 
+  const handleExportSchedule = (formatType: 'csv' | 'pdf') => {
+    const allMatches = collectAllMatches();
+    if (allMatches.length === 0) {
+      showWarning('No matches to export');
+      return;
+    }
+
+    const eventName = events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament';
+    const safeName = eventName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    if (formatType === 'csv') {
+      const headers = ['#', 'Match', 'Stage', 'Group', 'Home', 'Away', 'Date', 'Time', 'Venue', 'Court', 'Status'];
+      const rows = allMatches.map((m, idx) => [
+        idx + 1,
+        `Match ${m.matchNumber}`,
+        m.stage,
+        m.groupName || '—',
+        m.homeName,
+        m.awayName,
+        m.matchDate || '—',
+        m.matchTime || '—',
+        resolveVenueName(m.venueId) || '—',
+        resolveCourtName(m.courtId) || '—',
+        m.status,
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${safeName}_Schedule.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showSuccess(`Schedule exported as CSV (${allMatches.length} matches)`);
+    } else {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) { showError('Pop-up blocked. Please allow pop-ups to export PDF.'); return; }
+
+      const matchRows = allMatches.map((m, idx) => `
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">${idx + 1}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.stage}${m.groupName ? ' — ' + m.groupName : ''}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.homeName}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">vs</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.awayName}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchDate || '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchTime || '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${resolveVenueName(m.venueId) || '—'}</td>
+        </tr>
+      `).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${eventName} — Schedule</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; color: #1e293b; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #f1f5f9; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+            .summary { display: flex; gap: 24px; margin-bottom: 20px; }
+            .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; text-align: center; }
+            .stat-value { font-size: 20px; font-weight: 700; }
+            .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+            @media print { body { padding: 15px; } }
+          </style>
+        </head>
+        <body>
+          <h1>${eventName}</h1>
+          <div class="subtitle">${format.replace(/_/g, ' ')} · ${allMatches.length} Matches · Generated ${new Date().toLocaleDateString()}</div>
+          <div class="summary">
+            <div class="stat"><div class="stat-value">${allMatches.length}</div><div class="stat-label">Matches</div></div>
+            <div class="stat"><div class="stat-value">${participants}</div><div class="stat-label">Teams</div></div>
+            <div class="stat"><div class="stat-value">${selectedVenues.length}</div><div class="stat-label">Venues</div></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Stage</th><th>Home</th><th></th><th>Away</th><th>Date</th><th>Time</th><th>Venue</th>
+              </tr>
+            </thead>
+            <tbody>${matchRows}</tbody>
+          </table>
+          <script>window.onload = function() { window.print(); }</script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      showSuccess('Schedule PDF ready for printing');
+    }
+  };
+
   // Reusable styles
   const inputCls = 'w-full bg-[#fafbff] border border-[rgba(99,102,241,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/10 transition-all duration-200';
   const labelCls = 'block text-xs font-bold text-[#6b7094] uppercase tracking-wider mb-1.5';
@@ -1378,7 +1520,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
           <div className="p-5 space-y-4 flex-1">
             {/* Start / End Date */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Schedule Start Date</label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
@@ -1390,7 +1532,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
 
             {/* Start / End Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Matches Start Time <span className="text-red-400">*</span></label>
                 <select value={startTime} onChange={e => setStartTime(e.target.value)} className={inputCls}>
@@ -1406,7 +1548,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
 
             {/* Duration / Break */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Match Duration (min) <span className="text-red-400">*</span></label>
                 <input type="number" min="1" value={matchDuration} onChange={e => setMatchDuration(e.target.value)} className={inputCls} placeholder="30" />
@@ -1427,6 +1569,167 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <input type="number" min="1" max="10" value={maxMatchesPerDay} onChange={e => setMaxMatchesPerDay(e.target.value)} className="w-16 bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-2 py-1 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5]" />
               )}
             </div>
+
+            {/* Match Days */}
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <label className={labelCls + ' !mb-0'}>{isGroupKnockout ? 'Group Stage Days' : 'Match Days'}</label>
+                <div className="flex gap-1 sm:ml-auto">
+                  {([
+                    { label: 'Weekends', days: [0, 6] },
+                    { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
+                    { label: 'All', days: [0, 1, 2, 3, 4, 5, 6] },
+                  ] as const).map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setMatchDays([...preset.days])}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-[#f0f0ff] text-[#4f46e5] hover:bg-[#e0e0ff] transition-colors cursor-pointer font-medium"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-[#6b7094] mb-2">
+                {isGroupKnockout ? 'Days for group stage matches (e.g. weekends only).' : 'Select which days of the week matches can be scheduled.'}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
+                  const isSelected = matchDays.includes(idx);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setMatchDays(prev =>
+                          isSelected
+                            ? prev.filter(d => d !== idx)
+                            : [...prev, idx].sort()
+                        );
+                      }}
+                      className={`min-w-[2.25rem] h-8 px-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#4f46e5] text-white shadow-md'
+                          : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#4f46e5]'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              {matchDays.length === 0 && (
+                <p className="text-[10px] text-red-400 mt-1">Select at least one day</p>
+              )}
+            </div>
+
+            {/* Playoff / Knockout Days — shown when format has a knockout stage */}
+            {(isGroupKnockout || isKnockoutOnly) && (
+              <div className="border-t border-[rgba(99,102,241,0.08)] pt-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={usePlayoffDays}
+                    onChange={e => setUsePlayoffDays(e.target.checked)}
+                    className="w-4 h-4 accent-[#4f46e5] rounded"
+                    id="usePlayoffDays"
+                  />
+                  <label htmlFor="usePlayoffDays" className="text-sm text-slate-700 cursor-pointer font-medium">
+                    {isKnockoutOnly ? 'Custom Knockout Days' : 'Different Days for Playoffs'}
+                  </label>
+                </div>
+
+                {usePlayoffDays && (
+                  <div className="ml-3 sm:ml-7 space-y-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
+                          {isKnockoutOnly ? 'Knockout Days' : 'Playoff Days'}
+                        </span>
+                        <div className="flex gap-1 sm:ml-auto">
+                          {([
+                            { label: 'Weekends', days: [0, 6] },
+                            { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
+                            { label: 'All', days: [0, 1, 2, 3, 4, 5, 6] },
+                          ] as const).map(preset => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setPlayoffDays([...preset.days])}
+                              className="text-[10px] px-2 py-0.5 rounded-md bg-[#f0f0ff] text-[#4f46e5] hover:bg-[#e0e0ff] transition-colors cursor-pointer font-medium"
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
+                          const isSelected = playoffDays.includes(idx);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                setPlayoffDays(prev =>
+                                  isSelected
+                                    ? prev.filter(d => d !== idx)
+                                    : [...prev, idx].sort()
+                                );
+                              }}
+                              className={`min-w-[2.25rem] h-8 px-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#f59e0b] text-white shadow-md'
+                                  : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#f59e0b]'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Specific round dates */}
+                    <div>
+                      <span className="text-[10px] font-bold text-[#6b7094] uppercase tracking-wider">
+                        Pin Round to Specific Date <span className="normal-case font-normal">(optional)</span>
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1.5">
+                        {([
+                          { round: 'QUARTER_FINAL', label: 'Quarter-Finals' },
+                          { round: 'SEMI_FINAL', label: 'Semi-Finals' },
+                          { round: 'FINAL', label: 'Final' },
+                          { round: 'THIRD_PLACE', label: '3rd Place' },
+                        ] as const).map(r => (
+                          <div key={r.round} className="flex items-center gap-2">
+                            <span className="text-[11px] text-[#6b7094] w-20 sm:w-24 shrink-0">{r.label}</span>
+                            <input
+                              type="date"
+                              value={playoffRoundDates[r.round] || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setPlayoffRoundDates(prev => {
+                                  if (!val) {
+                                    const next = { ...prev };
+                                    delete next[r.round];
+                                    return next;
+                                  }
+                                  return { ...prev, [r.round]: val };
+                                });
+                              }}
+                              className="flex-1 min-w-0 bg-[#fafbff] border border-[rgba(99,102,241,0.15)] rounded-lg px-2 py-1 text-[11px] text-[#0d0d2b] focus:outline-none focus:border-[#6366f1]"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-[#6b7094] mt-1">Set a fixed date for any round. Leave blank to use day-of-week rules above.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1600,26 +1903,44 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           {/* Summary Widget */}
           <div className="rounded-2xl p-5 bg-white border border-[rgba(99,102,241,0.12)] shadow-[rgba(99,102,241,0.06)_0px_2px_12px]"
             style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.04))" }}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]">
                 <CheckCircle2 className="h-5 w-5 text-white" />
               </div>
-              <div className="text-left">
+              <div className="text-left min-w-0 flex-1">
                 <p className="font-bold text-[#0d0d2b]">Schedule Generated!</p>
-                <p className="text-xs text-[#6b7094]">
+                <p className="text-xs text-[#6b7094] truncate">
                   {events.find(e => e.id.toString() === selectedEvent)?.name || 'Untitled Event'} · {format.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </p>
               </div>
-              <div className="ml-auto flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    showInfo('Exporting schedule...');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
-                >
-                  <Download className="h-3.5 w-3.5" /> Export
-                </button>
+              <div className="sm:ml-auto flex gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showExportMenu && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-[rgba(99,102,241,0.12)] rounded-xl shadow-lg z-50 min-w-[160px] py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setShowExportMenu(false); handleExportSchedule('csv'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-green-600" /> Download CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowExportMenu(false); handleExportSchedule('pdf'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-red-500" /> Export PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

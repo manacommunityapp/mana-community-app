@@ -28,7 +28,7 @@ const toast = {
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
-import { tournamentService } from "../../../services/sports/tournamentService";
+import { tournamentService, type ConfigInfo } from "../../../services/sports/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
 import { LiveMatchView } from "./LiveMatchView";
 import { LiveScoringPanel } from "./LiveScoringPanel";
@@ -166,12 +166,56 @@ function MatchCard({ match }: { match: BracketMatch }) {
   );
 }
 
-function BracketView({ eventId }: { eventId?: string }) {
+function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournamentConfigs: ConfigInfo[] }) {
   const [rounds, setRounds] = useState<BracketRound[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
+  const [bracketMatches, setBracketMatches] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (tournamentConfigs.length > 0 && !selectedConfigId) {
+      setSelectedConfigId(tournamentConfigs[0].id);
+    }
+  }, [tournamentConfigs, selectedConfigId]);
+
+  useEffect(() => {
+    if (selectedConfigId) {
+      setLoading(true);
+      tournamentService.getMatchesByConfigId(selectedConfigId)
+        .then(matches => {
+          setBracketMatches(matches);
+          const matchesBySport = matches.filter(m => m.status !== "BYE");
+          if (matchesBySport.length > 0) {
+            const roundMap = new Map<string, any[]>();
+            for (const m of matchesBySport) {
+              const roundName = m.roundName || "Round 1";
+              if (!roundMap.has(roundName)) roundMap.set(roundName, []);
+              roundMap.get(roundName)!.push(m);
+            }
+            const generatedRounds: BracketRound[] = Array.from(roundMap.entries()).map(([name, rMatches]) => ({
+              name,
+              matches: rMatches.map((m, idx) => ({
+                id: `M-${m.matchId}`,
+                label: `${name} #${m.matchNumber || idx + 1}`,
+                date: m.scheduledAt ? safeFormatDate(m.scheduledAt.split("T")[0], "MMM dd") : "—",
+                time: m.scheduledAt ? safeFormatDate(m.scheduledAt, "hh:mm a") : "—",
+                p1: m.teamAName ? { initials: getPlayerInitials(m.teamAName), fullName: m.teamAName } : null,
+                p2: m.teamBName ? { initials: getPlayerInitials(m.teamBName), fullName: m.teamBName } : null,
+                venue: { initials: m.venueName ? m.venueName.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 3) : "TBD", name: m.venueName || "TBD" },
+                isBye: !m.teamAName || !m.teamBName,
+              })),
+            }));
+            setRounds(generatedRounds);
+          } else {
+            setRounds([]);
+          }
+        })
+        .catch(() => setRounds([]))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    if (!eventId) { setRounds([]); return; }
 
     const fetchAndGenerateBracket = async () => {
       setLoading(true);
@@ -203,67 +247,97 @@ function BracketView({ eventId }: { eventId?: string }) {
     };
 
     fetchAndGenerateBracket();
-  }, [eventId]);
-
-  if (loading) {
-    return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>;
-  }
-
-  if (rounds.length === 0) {
-    return (
-      <div className="rounded-xl p-6 text-center"
-        style={{
-          background: "white",
-          border: "1px solid rgba(99, 102, 241, 0.12)",
-          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-        }}
-      >
-        <p className="text-sm text-[#6b7094]">No confirmed players yet. Bracket will be generated once players are confirmed.</p>
-      </div>
-    );
-  }
+  }, [eventId, selectedConfigId]);
 
   return (
-    <div className="space-y-6">
-      {rounds.map(round => (
-        <div key={round.name}>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {round.matches.map(match => (
-              <MatchCard key={match.id} match={match} />
-            ))}
+    <div className="space-y-4">
+      {/* Tournament Selector */}
+      {tournamentConfigs.length > 0 && (
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Select Tournament</label>
+              <select
+                value={selectedConfigId ?? ""}
+                onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+              >
+                {tournamentConfigs.map(c => (
+                  <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
+                ))}
+              </select>
+            </div>
+            {selectedConfigId && (
+              <div className="text-[10px] sm:text-xs text-slate-500 sm:pt-4">
+                {(() => {
+                  const cfg = tournamentConfigs.find(c => c.id === selectedConfigId);
+                  return cfg ? `${cfg.tournamentType} · ${cfg.totalTeams} teams` : "";
+                })()}
+              </div>
+            )}
           </div>
         </div>
-      ))}
-      <div>
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">Results</span>
-          <div className="flex-1 h-px bg-slate-200" />
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
+      ) : rounds.length === 0 ? (
+        <div className="rounded-xl p-6 text-center"
+          style={{
+            background: "white",
+            border: "1px solid rgba(99, 102, 241, 0.12)",
+            boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+          }}
+        >
+          <p className="text-sm text-[#6b7094]">
+            {tournamentConfigs.length === 0
+              ? "No tournaments configured yet. Create a tournament from the Config tab to see brackets."
+              : "No matches found for this tournament. Generate a schedule first."}
+          </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { label: "Winner", icon: "🏆", name: "Winner Of Final" },
-            { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
-          ].map(r => (
-            <div key={r.label} className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
-              style={{
-                background: "white",
-                border: "1px solid rgba(99, 102, 241, 0.12)",
-                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-              }}
-            >
-              <span className="text-2xl">{r.icon}</span>
-              <div>
-                <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
-                <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
+      ) : (
+        <>
+          {rounds.map(round => (
+            <div key={round.name}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {round.matches.map(match => (
+                  <MatchCard key={match.id} match={match} />
+                ))}
               </div>
             </div>
           ))}
-        </div>
-      </div>
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">Results</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { label: "Winner", icon: "🏆", name: "Winner Of Final" },
+                { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
+              ].map(r => (
+                <div key={r.label} className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+                  style={{
+                    background: "white",
+                    border: "1px solid rgba(99, 102, 241, 0.12)",
+                    boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                  }}
+                >
+                  <span className="text-2xl">{r.icon}</span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
+                    <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -392,6 +466,12 @@ export function SportsSchedule() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
 
+  // ─── Tournament & Event selectors ───
+  const [tournamentConfigs, setTournamentConfigs] = useState<ConfigInfo[]>([]);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null);
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
+  const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
+
   const metaLoadedRef = useRef(false);
   const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events";
   useEffect(() => {
@@ -400,6 +480,14 @@ export function SportsSchedule() {
     venueService.getVenues(user.communityId).then(setVenues).catch(() => {});
     sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
   }, [user?.communityId, needsMeta]);
+
+  useEffect(() => {
+    tournamentService.getConfigs()
+      .then(cfgs => {
+        setTournamentConfigs(cfgs);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleFixtureSave = () => {
     if (!fixtureName.trim() || !fixtureSport || !fixtureVenue || !fixtureDate || !fixtureTime || !fixtureTeam1 || !fixtureTeam2) {
@@ -534,9 +622,13 @@ export function SportsSchedule() {
       const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
       const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
       const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
-      return matchesSearch && matchesSport;
+      const matchesStatus = fixtureStatusFilter === "All" || f.status === fixtureStatusFilter;
+      const matchesTournament = selectedTournamentId === null || f.name.includes(
+        tournamentConfigs.find(c => c.id === selectedTournamentId)?.tournamentName || ""
+      );
+      return matchesSearch && matchesSport && matchesStatus && matchesTournament;
     });
-  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter]);
+  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter, fixtureStatusFilter, selectedTournamentId, tournamentConfigs]);
 
   const sortedFixtures = useMemo(() => {
     const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
@@ -777,6 +869,7 @@ export function SportsSchedule() {
             <div className="nav-dot"></div>Brackets
           </button>
         </div>
+        {isAdmin && (
         <div className="nav-section">
           <div className="nav-label">Operations</div>
           <button
@@ -798,6 +891,7 @@ export function SportsSchedule() {
             <div className="nav-dot"></div>Manual
           </button>
         </div>
+        )}
       </aside>
 
       <main className="main-content">
@@ -833,6 +927,44 @@ export function SportsSchedule() {
               </p>
             </div>
           </div>
+
+          {/* Tournament & Sport Event Quick Selector */}
+          {tournamentConfigs.length > 0 && (
+            <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
+                <h3 className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider">Active Tournaments</h3>
+              </div>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                {tournamentConfigs.map(cfg => {
+                  const sportName = cfg.eventName || "Tournament";
+                  const IconComponent = getSportIcon(sportName);
+                  const colors = getSportColor(sportName);
+                  const isActive = cfg.status === "IN_PROGRESS" || cfg.status === "PUBLISHED";
+                  return (
+                    <button
+                      key={cfg.id}
+                      onClick={() => { setSelectedTournamentId(cfg.id); setActiveTab("All Events"); }}
+                      className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border transition-all duration-150 cursor-pointer hover:shadow-md active:scale-[0.97] text-left"
+                      style={{
+                        borderColor: isActive ? colors.color + "40" : "rgba(226, 232, 240, 0.8)",
+                        backgroundColor: isActive ? colors.bg : "white",
+                      }}
+                    >
+                      <div className="p-1 rounded" style={{ backgroundColor: colors.bg, color: colors.color }}>
+                        <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[9px] sm:text-[10px] font-bold text-slate-800 truncate max-w-[120px] sm:max-w-[180px]">{cfg.tournamentName}</div>
+                        <div className="text-[8px] sm:text-[9px] text-slate-500">{cfg.eventName} · {cfg.totalTeams} teams</div>
+                      </div>
+                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Quick Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
@@ -887,7 +1019,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
+                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{venues.length || "—"}</span>
                 <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
               </div>
             </div>
@@ -1041,25 +1173,61 @@ export function SportsSchedule() {
 
       {/* My Matches */}
       {activeTab === "My Matches" && (
-        <div className="rounded-xl p-2.5 sm:p-4"
-          style={{
-            background: "white",
-            border: "1px solid rgba(99, 102, 241, 0.12)",
-            boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-          }}
-        >
-          <div className="text-[11px] sm:text-xs font-bold uppercase tracking-widest mb-2.5 sm:mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
-          {loading ? (
-            <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
-          ) : myMatches.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-[#6b7094]">No matches found in your schedule.</p>
+        <div className="space-y-3 sm:space-y-4 animate-fade-in-up text-left">
+          {/* Sport Event Filter for My Matches */}
+          {sportsMeta.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {["All", ...sportsMeta.map(s => s.name)].map(s => {
+                const isActive = selectedSportFilter === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSelectedSportFilter(s)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm"
+                        : "bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/60"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            myMatches.map((item, i) => (
-              <TimelineItem key={i} item={item} isLast={i === myMatches.length - 1} />
-            ))
           )}
+
+          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
+            <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
+            {loading ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
+            ) : myMatches.length === 0 ? (
+              <div className="text-center py-8 space-y-3">
+                <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-sm text-[#6b7094]">No matches found in your schedule.</p>
+                <button
+                  onClick={() => setActiveTab("All Events")}
+                  className="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition"
+                >
+                  Browse Events
+                </button>
+              </div>
+            ) : (
+              myMatches
+                .filter(item => {
+                  if (selectedSportFilter === "All") return true;
+                  return item.name.toLowerCase().includes(selectedSportFilter.toLowerCase());
+                })
+                .map((item, i, arr) => (
+                <TimelineItem key={i} item={item} isLast={i === arr.length - 1} />
+              ))
+            )}
+          </div>
         </div>
       )}
 
@@ -1257,7 +1425,66 @@ export function SportsSchedule() {
             </div>
           )}
 
-          {/* Search, Filter and Actions Bar */}
+          {/* Tournament & Sport Event Selectors */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
+                <select
+                  value={selectedTournamentId ?? ""}
+                  onChange={e => setSelectedTournamentId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                >
+                  <option value="">All Tournaments</option>
+                  {tournamentConfigs.map(c => (
+                    <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 min-w-0">
+                <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sport</label>
+                <select
+                  value={selectedSportFilter}
+                  onChange={e => { setSelectedSportFilter(e.target.value); setFixtureSportFilter(e.target.value); }}
+                  className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
+                >
+                  <option value="All">All Sports</option>
+                  {sportsMeta.map(s => (
+                    <option key={s.id} value={s.name}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            {["All", "LIVE", "SCHEDULED", "COMPLETED"].map(status => {
+              const isActive = fixtureStatusFilter === status;
+              const count = status === "All" ? fixturesList.length : fixturesList.filter(f => f.status === status).length;
+              const statusColors: Record<string, string> = {
+                "All": isActive ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-100" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60",
+                "LIVE": isActive ? "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md shadow-red-100" : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60",
+                "SCHEDULED": isActive ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-100" : "bg-amber-50 hover:bg-amber-100 text-amber-600 border border-amber-200/60",
+                "COMPLETED": isActive ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-md shadow-emerald-100" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200/60",
+              };
+              return (
+                <button
+                  key={status}
+                  onClick={() => setFixtureStatusFilter(status)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center gap-1.5 ${statusColors[status]}`}
+                >
+                  {status === "LIVE" && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                  {status === "All" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isActive ? "bg-white/20" : "bg-slate-200/60 text-slate-500"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search and Actions Bar */}
           <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/50">
               <Search className="w-4 h-4 text-slate-400" />
@@ -1270,24 +1497,6 @@ export function SportsSchedule() {
               />
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                {["All", ...sportsMeta.map(s => s.name)].map((f) => {
-                  const isActive = fixtureSportFilter === f;
-                  return (
-                    <button
-                      key={f}
-                      onClick={() => setFixtureSportFilter(f)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
-                        isActive
-                          ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-100"
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60"
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  );
-                })}
-              </div>
               {isAdmin && !showFixtureForm && (
                 <button
                   onClick={() => setShowFixtureForm(true)}
@@ -1766,7 +1975,7 @@ export function SportsSchedule() {
       )}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && <BracketView eventId={eventId} />}
+      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} />}
 
       {/* Config */}
       {activeTab === "Config" && <TournamentScheduler />}
