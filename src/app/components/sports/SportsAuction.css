@@ -484,6 +484,15 @@
   color: var(--muted) !important;
 }
 
+/* Bid timer urgent pulse */
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.auction-hub-wrapper .bid-timer-urgent {
+  animation: timerPulse 0.6s ease-in-out infinite;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Responsive / mobile
    The hub is a fixed two-column (220px sidebar + content) layout. On narrow

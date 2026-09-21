@@ -463,6 +463,25 @@ export interface AuctionBid {
   createdAt?: string; // mapped from bidAt
 }
 
+export interface AuctionBidResponse {
+  id: number;
+  configId: number;
+  playerId: number;
+  teamId: number;
+  teamName: string;
+  bidAmount: number;
+  incrementUsed: number;
+  isRtm: boolean;
+  bidByUserId?: number;
+  bidAt: string;
+}
+
+export interface AuctionEvent {
+  type: 'BID_PLACED' | 'PLAYER_PICKED' | 'PLAYER_SOLD' | 'PLAYER_PASSED' | 'STATUS_CHANGED';
+  payload: any;
+  timestamp: string;
+}
+
 export interface AuctionTeamSummary {
   teamId: number;
   teamName: string;

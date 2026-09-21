@@ -14,11 +14,14 @@ import {
   Search,
   FileText,
   CalendarDays,
-  ExternalLink
+  ExternalLink,
+  Timer,
+  Download
 } from "lucide-react";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MENU, CREATE_EDIT_SPORTS_MENU,
@@ -30,7 +33,7 @@ import {
   VIEW_AUCTION_RESULTS, CREATE_EDIT_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration } from "../../../types/api";
+import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration, AuctionEvent } from "../../../types/api";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -139,6 +142,11 @@ export function SportsAuction() {
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
+  // Bid Timer State
+  const [bidTimeLeft, setBidTimeLeft] = useState<number | null>(null);
+  const bidTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
@@ -283,6 +291,95 @@ export function SportsAuction() {
     }
   }, [selectedEventId]);
 
+  // ─── WebSocket: subscribe to live auction events ───────────────────────
+  useEffect(() => {
+    if (!selectedConfigId || (auctionStatus !== 'LIVE' && auctionStatus !== 'ACTIVE')) return;
+
+    const unsub = stompClient.subscribe(`/topic/auction/${selectedConfigId}`, (data: unknown) => {
+      const event = data as AuctionEvent;
+      switch (event.type) {
+        case 'BID_PLACED': {
+          const bid = event.payload;
+          setBiddingTeamId(bid.teamId);
+          setLiveBidHistory(prev => [
+            { team: bid.teamName, amount: bid.bidAmount, time: new Date(bid.bidAt || event.timestamp).toLocaleTimeString() },
+            ...prev
+          ]);
+          auctionService.getCurrentPlayer(selectedConfigId).then(p => setLivePlayer(p)).catch(() => {});
+          resetBidTimer();
+          break;
+        }
+        case 'PLAYER_PICKED': {
+          const player = event.payload as PlayerWithBidResponse;
+          setLivePlayer(player);
+          setLiveBidHistory([{ team: "Base Price", amount: player.basePrice, time: new Date(event.timestamp).toLocaleTimeString() }]);
+          setBiddingTeamId(null);
+          startBidTimer();
+          toast.info(`🏏 ${player.playerName} is up for auction!`);
+          break;
+        }
+        case 'PLAYER_SOLD': {
+          const sold = event.payload;
+          toast.success(`🎉 ${sold.playerName} SOLD to ${sold.teamName} for ₹${sold.soldPrice?.toLocaleString('en-IN')}!`);
+          setTeams(prev => prev.map(t =>
+            t.id === sold.teamId
+              ? { ...t, spent: t.spent + sold.soldPrice, remainingBudget: t.budget - (t.spent + sold.soldPrice), players: [...(t.players || []), { name: sold.playerName, soldPrice: sold.soldPrice, category: '' }] }
+              : t
+          ));
+          stopBidTimer();
+          auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
+          break;
+        }
+        case 'PLAYER_PASSED': {
+          toast.info(`${event.payload.playerName} passed`);
+          stopBidTimer();
+          auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
+          break;
+        }
+        case 'STATUS_CHANGED': {
+          const { newStatus } = event.payload;
+          setAuctionStatus(newStatus);
+          if (newStatus === 'COMPLETED') { stopBidTimer(); toast.success('🏆 Auction completed!'); }
+          break;
+        }
+      }
+    });
+
+    const unsubConnect = stompClient.onConnect(() => setWsConnected(true));
+    const unsubDisconnect = stompClient.onDisconnect(() => setWsConnected(false));
+    setWsConnected(stompClient.connected);
+
+    return () => { unsub(); unsubConnect(); unsubDisconnect(); };
+  }, [selectedConfigId, auctionStatus]);
+
+  // ─── Bid Timer ─────────────────────────────────────────────────────────
+  const startBidTimer = useCallback(() => {
+    if (!bidTimerSeconds || bidTimerSeconds <= 0) return;
+    stopBidTimer();
+    setBidTimeLeft(bidTimerSeconds);
+    bidTimerRef.current = setInterval(() => {
+      setBidTimeLeft(prev => {
+        if (prev === null || prev <= 1) {
+          if (bidTimerRef.current) clearInterval(bidTimerRef.current);
+          bidTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [bidTimerSeconds]);
+
+  const resetBidTimer = useCallback(() => {
+    startBidTimer();
+  }, [startBidTimer]);
+
+  const stopBidTimer = useCallback(() => {
+    if (bidTimerRef.current) { clearInterval(bidTimerRef.current); bidTimerRef.current = null; }
+    setBidTimeLeft(null);
+  }, []);
+
+  useEffect(() => { return () => stopBidTimer(); }, [stopBidTimer]);
+
   // ─── Handlers ─────────────────────────────────────────────────────────
   const nav = (tab: string) => setActiveTab(tab);
   const configId = selectedConfigId ?? 0;
@@ -407,6 +504,7 @@ export function SportsAuction() {
         { team: "Base Price", amount: player.basePrice, time: new Date().toLocaleTimeString() }
       ]);
       setBiddingTeamId(null);
+      startBidTimer();
       toast.success(`🏏 ${player.playerName} is up for auction!`);
     } catch (err: any) {
       const msg = err?.message || "";
@@ -442,6 +540,7 @@ export function SportsAuction() {
       // Refresh live player data from backend to get the updated nextBid
       const updated = await auctionService.getCurrentPlayer(configId);
       setLivePlayer(updated);
+      resetBidTimer();
       toast.success(`${team.name} bids ₹${bidAmount.toLocaleString('en-IN')}!`);
     } catch (err: any) {
       toast.error(err?.message || 'Bid failed');
@@ -463,6 +562,35 @@ export function SportsAuction() {
     a.href = url; a.download = `teams-${seasonName.replace(/\s+/g, '-')}.csv`; a.click();
     URL.revokeObjectURL(url);
     toast.success('Teams CSV downloaded');
+  };
+
+  const handleExportResults = () => {
+    if (teams.length === 0) { toast.error('No results to export'); return; }
+    const headers = ['Team', 'Player', 'Role', 'Sold Price', 'Category'];
+    const rows: string[][] = [];
+    teams.forEach(team => {
+      const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
+      if (teamPlayers.length === 0) {
+        rows.push([team.teamName || team.name || '', '(no players)', '', '', '']);
+      } else {
+        teamPlayers.forEach(p => {
+          rows.push([
+            team.teamName || team.name || '',
+            (p as any).playerName || p.name || '',
+            (p as any).playerRole || p.role || '',
+            String(p.soldPrice || 0),
+            p.category || ''
+          ]);
+        });
+      }
+    });
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `auction-results-${seasonName.replace(/\s+/g, '-')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Auction results CSV downloaded');
   };
 
   const handleSoldPlayer = async () => {
@@ -941,6 +1069,11 @@ export function SportsAuction() {
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {auctionStatus === 'LIVE' && <span className="tag tag-live">● Auction Live</span>}
+                {(auctionStatus === 'LIVE' || auctionStatus === 'ACTIVE') && (
+                  <span className={`tag ${wsConnected ? 'tag-green' : 'tag-amber'}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+                    {wsConnected ? '⚡ Real-time' : '📡 Polling'}
+                  </span>
+                )}
                 {(auctionStatus === 'PAUSED' || auctionStatus === 'ACTIVE') && <span className="tag tag-blue">⏸ Paused</span>}
                 {auctionStatus === 'COMPLETED' && <span className="tag tag-green">🏆 Completed</span>}
                 {canEditLiveAuction && auctionStatus !== 'LIVE' && auctionStatus !== 'COMPLETED' && (<button className="btn btn-gold btn-sm" onClick={() => handleStatusChange('LIVE')}>▶ Start</button>)}
@@ -1042,10 +1175,14 @@ export function SportsAuction() {
                         try { stats = livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { }
                         return (
                           <div className="stats-row">
-                            <div className="pstat"><div className="pstat-val">{stats.matches || livePlayer.age || '-'}</div><div className="pstat-lbl">{stats.matches ? 'Matches' : 'Age'}</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.runs || '-'}</div><div className="pstat-lbl">Runs</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.wickets || '-'}</div><div className="pstat-lbl">Wickets</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.strikeRate || '-'}</div><div className="pstat-lbl">SR</div></div>
+                            <div className="pstat"><div className="pstat-val">{livePlayer.age || '-'}</div><div className="pstat-lbl">Age</div></div>
+                            {Object.keys(stats).length > 0 ? (
+                              Object.entries(stats).slice(0, 3).map(([key, val]) => (
+                                <div className="pstat" key={key}><div className="pstat-val">{String(val) || '-'}</div><div className="pstat-lbl">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</div></div>
+                              ))
+                            ) : (
+                              <div className="pstat"><div className="pstat-val">{livePlayer.playerRole || '-'}</div><div className="pstat-lbl">Role</div></div>
+                            )}
                           </div>
                         );
                       })()}
@@ -1054,6 +1191,15 @@ export function SportsAuction() {
                         <div className="bid-amount">₹{livePlayer.currentBid.toLocaleString('en-IN')}</div>
                         <div className="bid-team">{livePlayer.currentBidTeamName || 'No bids yet — click a team to bid'}</div>
                       </div>
+                      {bidTimeLeft !== null && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, margin: '12px 0', padding: '8px 16px', borderRadius: 8, background: bidTimeLeft <= 5 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)' }}>
+                          <Timer size={16} style={{ color: bidTimeLeft <= 5 ? '#ef4444' : 'var(--gold)' }} />
+                          <span style={{ fontSize: 24, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: bidTimeLeft <= 5 ? '#ef4444' : bidTimeLeft <= 10 ? '#f59e0b' : 'var(--gold)' }}>
+                            {bidTimeLeft}s
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>remaining</span>
+                        </div>
+                      )}
                       <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>Next bid: ₹{livePlayer.nextBid.toLocaleString('en-IN')} (increment: ₹{livePlayer.nextIncrement.toLocaleString('en-IN')})</div>
                       {isAuctionAdmin ? (
                         <div className="bid-actions">
@@ -1382,6 +1528,11 @@ export function SportsAuction() {
                     )}
                   </select>
                 </div>
+                {auctionStatus === 'COMPLETED' && (
+                  <button className="btn btn-outline btn-sm" onClick={handleExportResults} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Download size={14} /> Export CSV
+                  </button>
+                )}
               </div>
             </div>
             {auctionStatus !== 'COMPLETED' ? (
