@@ -1859,13 +1859,13 @@ export function Feed() {
 
         {/* Sidebar */}
         <div className="hidden lg:block sticky top-20 space-y-4">
+          <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <EventsNotificationCard badgeCount={summaryCounts?.upcomingEventsCount} passCount={summaryCounts?.myPassCount} />
           <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
           <MyGroupsCard badgeCount={summaryCounts?.myGroupsCount} />
           <LeaderboardCard badgeCount={summaryCounts?.topContributorsCount} getInitials={getInitials} />
           <CommunityDirectory badgeCount={summaryCounts?.directoryCount} />
           <EngagementScoreCard summaryScore={summaryCounts ? { totalPoints: summaryCounts.myEngagementPoints, level: summaryCounts.myEngagementLevel } : undefined} />
-          <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <SidebarAnnouncements posts={posts} />
           <QuickLinksCard />
         </div>

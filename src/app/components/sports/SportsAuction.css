@@ -771,13 +771,13 @@
     gap: 10px;
     margin-bottom: 14px;
   }
-  .auction-hub-wrapper .page-title { 
-    font-size: 24px; 
+  .auction-hub-wrapper .page-title {
+    font-size: 20px;
     line-height: 1.25;
     font-weight: 700;
   }
   .auction-hub-wrapper .page-sub {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.4;
     font-weight: 400;
   }
@@ -801,14 +801,14 @@
 }
 
 @media (max-width: 480px) {
-  .auction-hub-wrapper .page { padding: 12px; }
-  .auction-hub-wrapper .page-title { 
-    font-size: 24px; 
+  .auction-hub-wrapper .page { padding: 10px; }
+  .auction-hub-wrapper .page-title {
+    font-size: 18px;
     line-height: 1.25;
     font-weight: 700;
   }
-  .auction-hub-wrapper .page-sub { 
-    font-size: 14px; 
+  .auction-hub-wrapper .page-sub {
+    font-size: 12px;
     line-height: 1.4;
     font-weight: 400;
   }

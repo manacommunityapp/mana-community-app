@@ -8,6 +8,10 @@ export const sportsRankingService = {
     );
   },
 
+  async getBySportAndCommunity(sportId: number, communityId: number, season = "CURRENT"): Promise<SportsPlayerRanking[]> {
+    return this.list(sportId, communityId, season);
+  },
+
   async listForUser(userId: number, communityId: number, season = "CURRENT"): Promise<SportsPlayerRanking[]> {
     return apiClient.get<SportsPlayerRanking[]>(
       `/sports/rankings/user/${userId}?communityId=${communityId}&season=${season}`

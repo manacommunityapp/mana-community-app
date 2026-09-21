@@ -6,6 +6,7 @@ import type { FamilyMember } from "../../../services/common/familyService";
 
 export interface SelectedPartnerInfo {
   userId: number | null;
+  familyMemberId?: number | string;
   name?: string;
   flatNumber?: string;
   gender?: string;
@@ -110,7 +111,8 @@ export function SportsPartnerSelector({
 
   const handleSelectFamilyMember = (fm: FamilyMember) => {
     onChange({
-      userId: null, // family member without direct user ID
+      userId: null,
+      familyMemberId: fm.id,
       name: fm.name,
       flatNumber: undefined,
       gender: fm.gender,
@@ -143,7 +145,7 @@ export function SportsPartnerSelector({
           </div>
           <div>
             <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <span>Doubles Partner</span>
+              <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
                 <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles

@@ -137,7 +137,7 @@ export function SportsEventSection({
             boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
           }}
         >
-          <Plus className="w-4 h-4" /> {showSportForm ? "Close Form" : "Add Event"}
+          <Plus className="w-4 h-4" /> {showSportForm ? "Close Form" : "Select a Sport"}
         </button>
       </div>
 
@@ -863,7 +863,7 @@ export function SportsEventSection({
         </div>
       )}
 
-      {/* List of active scheduled sports events */}
+      {/* List of active scheduled sports events or Clean Select a Sport empty state */}
       <div 
         className="rounded-xl p-6 text-left"
         style={{
@@ -872,14 +872,13 @@ export function SportsEventSection({
           boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
         }}
       >
-        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2.5">Scheduled Community Events</h3>
         {activeEvents.length === 0 ? (
-          <div className="text-center py-10 px-4 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3 text-indigo-600">
-              <Plus className="w-6 h-6" />
+          <div className="text-center py-12 px-4 bg-slate-50/60 rounded-xl border border-dashed border-indigo-200/80">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3.5 text-2xl shadow-xs">
+              🏆
             </div>
-            <h4 className="text-sm font-bold text-slate-800 mb-1">No Community Events Scheduled</h4>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+            <h4 className="text-base font-bold text-slate-800 mb-1">No Sports Events Configured</h4>
+            <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-5">
               There are no sports events configured yet. Select a sport from the list to get started.
             </p>
             <button
@@ -888,16 +887,19 @@ export function SportsEventSection({
                 resetSportForm();
                 setShowSportPicker(true);
               }}
-              className="px-4 py-2 text-white text-xs font-semibold rounded-lg border-none cursor-pointer transition-colors inline-flex items-center gap-1.5 shadow-sm hover:brightness-105"
+              className="px-5 py-2.5 text-white text-sm font-semibold rounded-xl border-none cursor-pointer transition-all inline-flex items-center gap-2 shadow-md hover:brightness-105"
               style={{
-                background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
+                background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                boxShadow: "0 4px 14px rgba(99,102,241,0.35)"
               }}
             >
-              <Plus className="w-3.5 h-3.5" /> Select a Sport
+              <Plus className="w-4 h-4" /> Select a Sport
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <>
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2.5">Scheduled Community Events</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {activeEvents.map(e => {
               const iconUrl = e.sport?.iconUrl || e.iconUrl;
               const icon = e.sport?.icon || e.icon || "🏆";
@@ -998,6 +1000,7 @@ export function SportsEventSection({
               );
             })}
           </div>
+          </>
         )}
       </div>
     </div>

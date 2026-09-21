@@ -598,6 +598,7 @@ interface RegistrationFormData {
   flatNumber: string;
   familyMemberId?: number | string;
   partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
   partnerInfo?: SelectedPartnerInfo | null;
   captainNomination?: boolean;
   proposedTeamName?: string;
@@ -671,89 +672,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const [liveUser, setLiveUser] = useState<any>(user);
 
-  useEffect(() => {
-    // If user object is already populated from AuthContext, skip fetching /api/users/me
-    if (user && (user.fullName || (user as any).name || user.email)) {
-      setLiveUser(user);
-      return;
-    }
-    userService.getMe().then((me) => {
-      setLiveUser(me);
-      const userNameVal = me.fullName || "";
-      const userGenderVal = me.gender || "";
-      const userDobVal = me.dateOfBirth || (me as any).dob || "";
-      const rawUserBlock = me.block || (me as any).tower || "";
-      const rawUserFlatNum = me.flatNo || (me as any).flatNumber || (me as any).unitNumber || "";
-      let userFlatVal = rawUserFlatNum;
-      if (rawUserBlock && rawUserFlatNum) {
-        if (rawUserFlatNum.toUpperCase().startsWith(rawUserBlock.toUpperCase()) || rawUserFlatNum.toUpperCase().includes(rawUserBlock.toUpperCase())) {
-          userFlatVal = rawUserFlatNum;
-        } else {
-          userFlatVal = `Block ${rawUserBlock}, Flat ${rawUserFlatNum}`;
-        }
-      } else if (rawUserBlock) {
-        userFlatVal = `Block ${rawUserBlock}`;
-      }
-
-      if (me.gender || me.dateOfBirth) {
-        updateUser({
-          gender: me.gender,
-          dateOfBirth: me.dateOfBirth || (me as any).dob,
-        });
-      }
-
-      setFormData(prev => {
-        if (prev.regType === "self") {
-          const uName = userNameVal || prev.playerName;
-          const uGen = userGenderVal || prev.gender;
-          const uDob = userDobVal || prev.dateOfBirth;
-          const uFlat = userFlatVal || prev.flatNumber;
-          const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
-          return {
-            ...prev,
-            playerName: uName,
-            gender: uGen,
-            dateOfBirth: uDob,
-            flatNumber: uFlat,
-            age: uAge,
-          };
-        }
-        return prev;
-      });
-    }).catch((err) => {
-      console.warn("Could not fetch latest user profile in SportsRegister:", err);
-    });
-  }, [user, updateUser]);
-
-  const userFullName = liveUser?.fullName || user?.fullName || "";
-  const userGender = liveUser?.gender || user?.gender || "";
-  const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
-  const userBlock = liveUser?.block || (liveUser as any)?.tower || user?.block || (user as any)?.tower || "";
-  const rawUserFlat = liveUser?.flatNo || (liveUser as any)?.flatNumber || (liveUser as any)?.unitNumber || user?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "";
-
-  const userFlat = useMemo(() => {
-    const b = userBlock?.trim() || "";
-    const f = rawUserFlat?.trim() || "";
-    if (b && f) {
-      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
-        return f;
-      }
-      return `Block ${b}, Flat ${f}`;
-    }
-    if (f) return f;
-    if (b) return `Block ${b}`;
-    return "";
-  }, [userBlock, rawUserFlat]);
-
-  const missingProfileFields = useMemo(() => {
-    const missing: string[] = [];
-    if (!userFullName?.trim()) missing.push("Full Name");
-    if (!userGender?.trim()) missing.push("Gender");
-    if (!userDob?.trim()) missing.push("Date of Birth");
-    if (!userFlat?.trim()) missing.push("Block & Flat");
-    return missing;
-  }, [userFullName, userGender, userDob, userFlat]);
-
   const [formData, setFormData] = useState<RegistrationFormData>({
     categoryIds: [] as number[],
     matchTypes: ["SINGLES"],
@@ -779,6 +697,96 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     captainNomination: false,
     proposedTeamName: "",
   });
+
+  useEffect(() => {
+    userService.getMe().then((me) => {
+      setLiveUser(me);
+      const userNameVal = me.fullName || "";
+      const userGenderVal = me.gender || "";
+      const userDobVal = me.dateOfBirth || (me as any).dob || "";
+      const rawUserBlock = me.block || (me as any).tower || (me as any).wing || "";
+      const rawUserFlatNum = me.flatNo || (me as any).flat_no || (me as any).flatNumber || (me as any).flat || (me as any).unitNumber || "";
+      let userFlatVal = rawUserFlatNum;
+      if (rawUserBlock && rawUserFlatNum) {
+        if (rawUserFlatNum.toUpperCase().startsWith(rawUserBlock.toUpperCase()) || rawUserFlatNum.toUpperCase().includes(rawUserBlock.toUpperCase())) {
+          userFlatVal = rawUserFlatNum;
+        } else {
+          userFlatVal = `Block ${rawUserBlock}, Flat ${rawUserFlatNum}`;
+        }
+      } else if (rawUserBlock) {
+        userFlatVal = `Block ${rawUserBlock}`;
+      }
+
+      updateUser({
+        fullName: me.fullName,
+        gender: me.gender,
+        dateOfBirth: me.dateOfBirth || (me as any).dob,
+        flatNo: me.flatNo,
+        block: me.block,
+      });
+
+      setFormData(prev => {
+        if (prev.regType === "self") {
+          const uName = userNameVal || prev.playerName;
+          const uGen = userGenderVal || prev.gender;
+          const uDob = userDobVal || prev.dateOfBirth;
+          const uFlat = userFlatVal || prev.flatNumber;
+          const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
+          return {
+            ...prev,
+            playerName: uName,
+            gender: uGen,
+            dateOfBirth: uDob,
+            flatNumber: uFlat,
+            age: uAge,
+          };
+        }
+        return prev;
+      });
+    }).catch((err) => {
+      console.warn("Could not fetch latest user profile in SportsRegister:", err);
+    });
+  }, [updateUser]);
+
+  const userFullName = liveUser?.fullName || user?.fullName || "";
+  const userGender = liveUser?.gender || user?.gender || "";
+  const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
+  const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
+  const rawUserFlat =
+    liveUser?.flatNo ||
+    (liveUser as any)?.flat_no ||
+    (liveUser as any)?.flatNumber ||
+    (liveUser as any)?.flat ||
+    (liveUser as any)?.unitNumber ||
+    user?.flatNo ||
+    (user as any)?.flat_no ||
+    (user as any)?.flatNumber ||
+    (user as any)?.flat ||
+    (user as any)?.unitNumber ||
+    "";
+
+  const userFlat = useMemo(() => {
+    const b = userBlock?.trim() || "";
+    const f = (rawUserFlat?.trim() || formData.flatNumber?.trim()) || "";
+    if (b && f) {
+      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
+        return f;
+      }
+      return `Block ${b}, Flat ${f}`;
+    }
+    if (f) return f;
+    if (b) return `Block ${b}`;
+    return "";
+  }, [userBlock, rawUserFlat, formData.flatNumber]);
+
+  const missingProfileFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!userFullName?.trim()) missing.push("Full Name");
+    if (!userGender?.trim()) missing.push("Gender");
+    if (!userDob?.trim()) missing.push("Date of Birth");
+    if (!userFlat?.trim()) missing.push("Block & Flat");
+    return missing;
+  }, [userFullName, userGender, userDob, userFlat]);
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
 
@@ -912,14 +920,14 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     });
   }, [myRegistrations, userFullName, user?.fullName]);
 
-  const getParticipantRegistration = useCallback((
+  const getParticipantRegistrations = useCallback((
     targetEventId: number | string | undefined,
     pType: "self" | "family" | "other",
     pMemberId?: number | string,
     pPlayerName?: string
   ) => {
-    if (!targetEventId || !myRegistrations.length) return undefined;
-    return myRegistrations.find(r => {
+    if (!targetEventId || !myRegistrations.length) return [];
+    return myRegistrations.filter(r => {
       const matchesEvent =
         String(r.eventId) === String(targetEventId) ||
         String(r.event?.id) === String(targetEventId);
@@ -954,16 +962,47 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     });
   }, [myRegistrations, userFullName, user?.fullName]);
 
-  const activeParticipantReg = useMemo(() => {
-    return getParticipantRegistration(
+  const getParticipantRegistration = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    const list = getParticipantRegistrations(targetEventId, pType, pMemberId, pPlayerName);
+    return list[0];
+  }, [getParticipantRegistrations]);
+
+  const activeParticipantRegistrations = useMemo(() => {
+    return getParticipantRegistrations(
       event?.id,
       formData.regType,
       formData.familyMemberId,
       formData.playerName
     );
-  }, [getParticipantRegistration, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
+  }, [getParticipantRegistrations, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
 
-  const isAlreadyRegistered = Boolean(activeParticipantReg);
+  const registeredFormats = useMemo(() => {
+    return activeParticipantRegistrations.map(r => (r.matchType || "SINGLES").toUpperCase());
+  }, [activeParticipantRegistrations]);
+
+  const selectedFormats = useMemo(() => {
+    return (formData.matchTypes && formData.matchTypes.length > 0)
+      ? formData.matchTypes
+      : [formData.matchType || "SINGLES"];
+  }, [formData.matchTypes, formData.matchType]);
+
+  const unregisteredSelectedFormats = useMemo(() => {
+    return selectedFormats.filter(fmt => !registeredFormats.includes(fmt.toUpperCase()));
+  }, [selectedFormats, registeredFormats]);
+
+  const isAlreadyRegistered = useMemo(() => {
+    if (selectedFormats.length === 0) return false;
+    return selectedFormats.every(fmt => registeredFormats.includes(fmt.toUpperCase()));
+  }, [selectedFormats, registeredFormats]);
+
+  const activeParticipantReg = useMemo(() => {
+    return activeParticipantRegistrations[0];
+  }, [activeParticipantRegistrations]);
 
   const handleProfileModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1602,19 +1641,23 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
     }
 
-    const selectedFormats = (formData.matchTypes && formData.matchTypes.length > 0)
-      ? formData.matchTypes
-      : [formData.matchType];
+    const formatsToSubmit = unregisteredSelectedFormats.length > 0 ? unregisteredSelectedFormats : selectedFormats;
 
-    if (selectedFormats.length === 0) {
-      toast.error("Please select at least one participation format");
+    if (formatsToSubmit.length === 0) {
+      toast.error("Selected format is already registered.");
+      return;
+    }
+
+    const isDoublesSelected = formatsToSubmit.some(f => f.toUpperCase().includes("DOUBLES")) || formData.matchTypes.some(f => f.toUpperCase().includes("DOUBLES"));
+    if (isDoublesSelected && !formData.partnerInfo && !formData.partnerUserId && !formData.partnerFamilyMemberId) {
+      toast.error("Doubles Partner is mandatory. Please choose a partner or select 'Looking for Partner (Open Pool)'.");
       return;
     }
 
     setSubmitting(true);
     try {
       for (const catId of formData.categoryIds) {
-        for (const fmt of selectedFormats) {
+        for (const fmt of formatsToSubmit) {
           const isDoubles = fmt.toUpperCase().includes("DOUBLES");
           await sportsService.registerForEvent({
             eventId: event.id,
@@ -1633,7 +1676,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             relation: formData.relation,
             flatNumber: formData.flatNumber,
             familyMemberId: formData.regType === "family" ? formData.familyMemberId : undefined,
-            partnerUserId: isDoubles && formData.partnerUserId ? formData.partnerUserId : undefined,
+            partnerUserId: isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId) ? (formData.partnerInfo?.userId || formData.partnerUserId) : undefined,
+            partnerFamilyMemberId: isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) : undefined,
             captainNomination: formData.captainNomination || undefined,
             proposedTeamName: formData.captainNomination && formData.proposedTeamName ? formData.proposedTeamName.trim() : undefined,
             recaptchaToken,
@@ -1650,10 +1694,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         }
       }
 
-      const formatCount = selectedFormats.length;
+      const formatCount = formatsToSubmit.length;
+      const targetName = formData.regType === "family" && formData.playerName ? ` for ${formData.playerName}` : "";
+      const formatLabels = formatsToSubmit.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ");
       toast.success(event.adminApprovalRequired === false
-        ? `Registration confirmed${formatCount > 1 ? ` for ${formatCount} formats` : ""}! Good luck.`
-        : `Registration submitted${formatCount > 1 ? ` for ${formatCount} formats` : ""}! You'll be notified once it's approved.`);
+        ? `Registration confirmed${targetName} (${formatLabels})! Good luck.`
+        : `Registration submitted${targetName} (${formatLabels})! You'll be notified once it's approved.`);
+
+      if (formData.captainNomination) {
+        toast.info(`Captain nomination recorded${formData.proposedTeamName ? ` for team "${formData.proposedTeamName.trim()}"` : ""}.`);
+      }
       if (props.onSuccess) props.onSuccess();
       if (isModal) {
         handleClose();
@@ -1923,7 +1973,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
                               )}
                               {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {sib.maxParticipants} max</span>
+                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
                               )}
                             </div>
                           </div>
@@ -2560,8 +2610,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                   <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Participant Type:</h3>
                 </div>
-                <span className="px-2.5 sm:px-3 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-[11px] sm:text-sm font-bold capitalize">
-                  {availableFormats[0].replace(/_/g, " ").toLowerCase()}
+                <span className={`px-2.5 sm:px-3 py-1 rounded-lg text-[11px] sm:text-sm font-bold capitalize border ${
+                  registeredFormats.includes(availableFormats[0].toUpperCase())
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
+                    : "bg-primary/10 text-primary border-primary/20"
+                }`}>
+                  {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
             ) : availableFormats.length > 1 ? (
@@ -2587,6 +2641,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="flex flex-wrap gap-2">
                     {availableFormats.map((fmt) => {
                       const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+                      const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
                       const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
                       return (
                         <button
@@ -2596,7 +2651,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           className={`group relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg border-2 text-[13px] sm:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none min-h-[36px] sm:min-h-0 ${
                             isSelected
                               ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-sm shadow-primary/20"
-                              : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-xs"
+                              : isFmtRegistered
+                                ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/70"
+                                : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-xs"
                           }`}
                         >
                           <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
@@ -2605,6 +2662,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
                           <span>{formatLabel}</span>
+                          {isFmtRegistered && (
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
+                              isSelected
+                                ? "bg-white/25 text-white border border-white/30"
+                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
+                            }`}>
+                              Registered
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -2622,6 +2688,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     ...prev,
                     partnerInfo: partner,
                     partnerUserId: partner?.userId || null,
+                    partnerFamilyMemberId: partner?.familyMemberId ? Number(partner.familyMemberId) : null,
                   }));
                 }}
                 matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
@@ -2804,7 +2871,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 )}
                                 {sib.maxParticipants && (
                                   <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-medium border border-primary/20">
-                                    {sib.maxParticipants} max spots
+                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max spots
                                   </span>
                                 )}
                               </div>
@@ -3056,7 +3123,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
 
-            {/* Already Registered Alert */}
+            {/* Already Registered Alert (When ALL selected formats are already registered) */}
             {isAlreadyRegistered && (
               <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 text-left animate-in fade-in shadow-2xs">
                 <div className="p-1.5 sm:p-2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg sm:rounded-xl shrink-0">
@@ -3064,10 +3131,32 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-[11px] sm:text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
-                    Already Registered for this Category
+                    Already Registered ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})
                   </h4>
                   <p className="text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-300 font-medium mt-0.5 leading-relaxed">
-                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already registered for this sports category ({event?.categoryName || event?.name || "Selected Category"}). Registration status: <span className="font-bold uppercase text-emerald-800 dark:text-emerald-200">{activeParticipantReg?.status || "CONFIRMED"}</span>.
+                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already registered for this format ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")}). Registration status: <span className="font-bold uppercase text-emerald-800 dark:text-emerald-200">{activeParticipantReg?.status || "CONFIRMED"}</span>.
+                    {availableFormats.length > selectedFormats.length && (
+                      <span className="block mt-1 text-primary font-bold">
+                        Tip: Select another format (like {availableFormats.filter(f => !registeredFormats.includes(f.toUpperCase())).map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ") || "other available formats"}) above to register.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Partial format alert (e.g. Registered for Singles, currently registering for Doubles) */}
+            {!isAlreadyRegistered && registeredFormats.length > 0 && unregisteredSelectedFormats.length > 0 && (
+              <div className="bg-sky-50 dark:bg-sky-950/40 border-2 border-sky-300 dark:border-sky-700/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1.5 sm:p-2 bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-400 rounded-lg sm:rounded-xl shrink-0">
+                  <Info className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[11px] sm:text-xs font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wide">
+                    Adding New Format Registration
+                  </h4>
+                  <p className="text-[10px] sm:text-[11px] text-sky-700 dark:text-sky-300 font-medium mt-0.5 leading-relaxed">
+                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already confirmed for <span className="font-bold">{registeredFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>. You are now submitting registration for <span className="font-bold text-primary">{unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>.
                   </p>
                 </div>
               </div>
@@ -3094,9 +3183,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 {submitting ? (
                   <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
                 ) : isAlreadyRegistered ? (
-                  <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered</>
+                  <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
                 ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
                   <>Provide Gender &amp; DOB to Register</>
+                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-lg">→</span></>
                 ) : (
                   <>Submit Registration <span className="text-lg">→</span></>
                 )}
@@ -3225,7 +3316,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
                               )}
                               {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {sib.maxParticipants} max</span>
+                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
                               )}
                             </div>
                           </div>
@@ -3266,6 +3357,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
             ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
               <>Add Gender & DOB</>
+            ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+              <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
             ) : (
               <>Submit Registration →</>
             )}

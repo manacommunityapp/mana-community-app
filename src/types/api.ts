@@ -230,6 +230,7 @@ export interface SportsEvent {
   eventDateEnd: string;
   venue?: Venue;
   maxParticipants?: number;
+  registeredCount?: number;
   registrationStatus?: EventStatus;
   tournament?: any;
   format?: MatchFormat[];
@@ -329,14 +330,15 @@ export interface RegistrationRequest {
   wickets?: number;
   strikeRate?: number;
   avgScore?: number;
-  partnerUserId?: number;
+  partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
   captainNomination?: boolean;
   proposedTeamName?: string;
   playerName?: string;
   email?: string;
   relation?: string;
   flatNumber?: string;
-  familyMemberId?: number | string;
+  familyMemberId?: number | string | null;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }

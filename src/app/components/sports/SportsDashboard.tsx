@@ -603,13 +603,14 @@ export function SportsDashboard() {
         if (e.myRegistrationId) {
           actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
         }
+        const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
           id: e.id,
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
-          spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "Unlimited spots",
           progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 0,
           progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
@@ -813,14 +814,15 @@ export function SportsDashboard() {
       const regId = isAdminNomination ? selectedRegForNomination : nominatingRegId;
       if (!regId) return;
 
-      const eventId = isAdminNomination ? selectedCaptainEventId : myRegistrations.find(r => r.id === regId)?.event.id;
+      const foundReg = myRegistrations.find(r => r.id === regId);
+      const eventId = isAdminNomination ? selectedCaptainEventId : (foundReg?.eventId || foundReg?.event?.id || selectedCaptainEventId);
       if (!eventId) {
         toast.error("Event not found");
         return;
       }
 
-      await auctionService.nominateCaptain(eventId, true, nominateTeamName);
-      toast.success("Nominated successfully!");
+      await auctionService.nominateCaptain(eventId, true, nominateTeamName.trim());
+      toast.success(`Captain nomination submitted for team "${nominateTeamName.trim()}"!`);
       setIsNominateModalOpen(false);
       setNominateTeamName("");
       setNominatingRegId(null);
@@ -980,13 +982,20 @@ export function SportsDashboard() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (myReg?.captainConfirmation) return;
-                              try {
-                                const newVal = !isNominated;
-                                await auctionService.nominateCaptain(ev.id, newVal);
-                                toast.success(newVal ? "Self-nominated for captaincy!" : "Nomination withdrawn");
-                                fetchData();
-                              } catch {
-                                toast.error("Failed to update nomination");
+                              if (isNominated) {
+                                try {
+                                  await auctionService.nominateCaptain(ev.id, false);
+                                  toast.success("Nomination withdrawn");
+                                  fetchData();
+                                } catch {
+                                  toast.error("Failed to update nomination");
+                                }
+                              } else {
+                                setNominatingRegId(myReg?.id ?? null);
+                                setSelectedCaptainEventId(ev.id);
+                                setNominateTeamName(myReg?.proposedTeamName || myReg?.teamName || "");
+                                setIsAdminNomination(false);
+                                setIsNominateModalOpen(true);
                               }
                             }}
                             disabled={myReg?.captainConfirmation}
@@ -1243,27 +1252,21 @@ export function SportsDashboard() {
                                               {item.spots && <span className="text-[10px] text-indigo-500 font-medium">{item.spots}</span>}
                                             </div>
                                           </div>
-                                          {isReg ? (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                              {memberReg?.status === "CONFIRMED" ? "✓ Confirmed" : "✓ Registered"}
-                                            </span>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                const isSelf = selectedMemberId === "self";
-                                                handleOpenRegistration(
-                                                  item.uuid ?? item.id,
-                                                  isSelf ? "self" : "family",
-                                                  isSelf ? undefined : selectedMemberId
-                                                );
-                                              }}
-                                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0 cursor-pointer"
-                                            >
-                                              Register →
-                                            </button>
-                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const isSelf = selectedMemberId === "self";
+                                              handleOpenRegistration(
+                                                item.uuid ?? item.id,
+                                                isSelf ? "self" : "family",
+                                                isSelf ? undefined : selectedMemberId
+                                              );
+                                            }}
+                                            className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0 cursor-pointer"
+                                          >
+                                            Register →
+                                          </button>
                                         </div>
                                       );
                                     })}
@@ -1640,8 +1643,11 @@ export function SportsDashboard() {
                       ))}
                     </select>
                   ) : (
-                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed">
-                      {user?.fullName || user?.email || "Logged in user"}
+                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl px-4 py-3 cursor-not-allowed">
+                      {(() => {
+                        const targetReg = myRegistrations.find(r => r.id === nominatingRegId);
+                        return targetReg?.playerName || user?.fullName || user?.email || "Logged in user";
+                      })()}
                     </div>
                   )}
                 </div>

@@ -57,7 +57,9 @@ export interface StoredUser {
   gender?: string;
   dateOfBirth?: string;
   flatNo?: string;
+  flatNumber?: string;
   block?: string;
+  tower?: string;
   status?: string;
   profilePicUrl?: string;
   profilePic?: string;
