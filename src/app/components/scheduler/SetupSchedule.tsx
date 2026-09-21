@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download } from 'lucide-react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -259,6 +259,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -1169,6 +1170,104 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return maxRound || 1;
   };
 
+  const handleExportSchedule = (formatType: 'csv' | 'pdf') => {
+    const allMatches = collectAllMatches();
+    if (allMatches.length === 0) {
+      showWarning('No matches to export');
+      return;
+    }
+
+    const eventName = events.find(e => e.id.toString() === selectedEvent)?.name || 'Tournament';
+    const safeName = eventName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    if (formatType === 'csv') {
+      const headers = ['#', 'Match', 'Stage', 'Group', 'Home', 'Away', 'Date', 'Time', 'Venue', 'Court', 'Status'];
+      const rows = allMatches.map((m, idx) => [
+        idx + 1,
+        `Match ${m.matchNumber}`,
+        m.stage,
+        m.groupName || '—',
+        m.homeName,
+        m.awayName,
+        m.matchDate || '—',
+        m.matchTime || '—',
+        resolveVenueName(m.venueId) || '—',
+        resolveCourtName(m.courtId) || '—',
+        m.status,
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${safeName}_Schedule.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showSuccess(`Schedule exported as CSV (${allMatches.length} matches)`);
+    } else {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) { showError('Pop-up blocked. Please allow pop-ups to export PDF.'); return; }
+
+      const matchRows = allMatches.map((m, idx) => `
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">${idx + 1}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.stage}${m.groupName ? ' — ' + m.groupName : ''}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.homeName}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">vs</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.awayName}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchDate || '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchTime || '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${resolveVenueName(m.venueId) || '—'}</td>
+        </tr>
+      `).join('');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${eventName} — Schedule</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; color: #1e293b; }
+            h1 { font-size: 20px; margin-bottom: 4px; }
+            .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { background: #f1f5f9; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+            .summary { display: flex; gap: 24px; margin-bottom: 20px; }
+            .stat { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; text-align: center; }
+            .stat-value { font-size: 20px; font-weight: 700; }
+            .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+            @media print { body { padding: 15px; } }
+          </style>
+        </head>
+        <body>
+          <h1>${eventName}</h1>
+          <div class="subtitle">${format.replace(/_/g, ' ')} · ${allMatches.length} Matches · Generated ${new Date().toLocaleDateString()}</div>
+          <div class="summary">
+            <div class="stat"><div class="stat-value">${allMatches.length}</div><div class="stat-label">Matches</div></div>
+            <div class="stat"><div class="stat-value">${participants}</div><div class="stat-label">Teams</div></div>
+            <div class="stat"><div class="stat-value">${selectedVenues.length}</div><div class="stat-label">Venues</div></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Stage</th><th>Home</th><th></th><th>Away</th><th>Date</th><th>Time</th><th>Venue</th>
+              </tr>
+            </thead>
+            <tbody>${matchRows}</tbody>
+          </table>
+          <script>window.onload = function() { window.print(); }</script>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      showSuccess('Schedule PDF ready for printing');
+    }
+  };
+
   // Reusable styles
   const inputCls = 'w-full bg-[#fafbff] border border-[rgba(99,102,241,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/10 transition-all duration-200';
   const labelCls = 'block text-xs font-bold text-[#6b7094] uppercase tracking-wider mb-1.5';
@@ -1611,15 +1710,33 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 </p>
               </div>
               <div className="ml-auto flex gap-2">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    showInfo('Exporting schedule...');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
-                >
-                  <Download className="h-3.5 w-3.5" /> Export
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showExportMenu && (
+                    <div className="absolute right-0 top-full mt-1 bg-white border border-[rgba(99,102,241,0.12)] rounded-xl shadow-lg z-50 min-w-[160px] py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setShowExportMenu(false); handleExportSchedule('csv'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5 text-green-600" /> Download CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowExportMenu(false); handleExportSchedule('pdf'); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#0d0d2b] hover:bg-[#f0f0ff] transition-colors cursor-pointer"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-red-500" /> Export PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
