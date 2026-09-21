@@ -20,6 +20,7 @@ export interface DashboardEventCard {
   categoryName: string | null;
   venueName: string | null;
   maxParticipants: number | null;
+  registeredCount?: number | null;
   registrationStatus: string | null;
   auctionStatus: string | null;
   teamSport: boolean;

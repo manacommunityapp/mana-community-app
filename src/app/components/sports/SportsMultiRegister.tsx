@@ -535,12 +535,23 @@ export function SportsMultiRegister() {
   const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
   const userProfileDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob || "";
   
-  const userBlock = liveUser?.block || (liveUser as any)?.tower || user?.block || (user as any)?.tower || "";
-  const rawUserFlat = liveUser?.flatNo || (liveUser as any)?.flatNumber || (liveUser as any)?.unitNumber || user?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "";
+  const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
+  const rawUserFlat =
+    liveUser?.flatNo ||
+    (liveUser as any)?.flat_no ||
+    (liveUser as any)?.flatNumber ||
+    (liveUser as any)?.flat ||
+    (liveUser as any)?.unitNumber ||
+    user?.flatNo ||
+    (user as any)?.flat_no ||
+    (user as any)?.flatNumber ||
+    (user as any)?.flat ||
+    (user as any)?.unitNumber ||
+    "";
 
   const userProfileFlat = useMemo(() => {
     const b = userBlock?.trim() || "";
-    const f = rawUserFlat?.trim() || "";
+    const f = (rawUserFlat?.trim() || flatNumber?.trim()) || "";
     if (b && f) {
       if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
         return f;
@@ -550,7 +561,7 @@ export function SportsMultiRegister() {
     if (f) return f;
     if (b) return `Block ${b}`;
     return "";
-  }, [userBlock, rawUserFlat]);
+  }, [userBlock, rawUserFlat, flatNumber]);
 
   const missingProfileFields = useMemo(() => {
     const missing: string[] = [];
@@ -1194,6 +1205,12 @@ export function SportsMultiRegister() {
     });
 
     const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+    const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
+    if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
+      setEventErrors(prev => ({ ...prev, [eventId]: "Doubles partner is mandatory. Please choose a partner or select Open Pool." }));
+      toast.error(`Doubles partner is mandatory for ${ev.name}. Please select a partner.`);
+      return;
+    }
 
     try {
       for (const fmt of formatsToRegister) {
@@ -1210,7 +1227,8 @@ export function SportsMultiRegister() {
           relation: relation || undefined,
           flatNumber: flatNumber || undefined,
           familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
-          partnerUserId: isDoubles && ev.partnerUserId ? ev.partnerUserId : undefined,
+          partnerUserId: isDoubles && (ev.partnerInfo?.userId || ev.partnerUserId) ? (ev.partnerInfo?.userId || ev.partnerUserId) : undefined,
+          partnerFamilyMemberId: isDoubles && (ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) ? Number(ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) : undefined,
           captainNomination: ev.captainNomination || undefined,
           proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
         });
@@ -1228,6 +1246,9 @@ export function SportsMultiRegister() {
         ? ` (${formatsToRegister.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})`
         : "";
       toast.success(`Successfully registered for ${ev.name}${formatText}!`);
+      if (ev.captainNomination) {
+        toast.info(`Captain nomination recorded for ${ev.name}${ev.proposedTeamName ? ` (Team: "${ev.proposedTeamName.trim()}")` : ""}.`);
+      }
 
       // Update state: mark this event as registered and unselect from batch
       setEventSelections(prev => prev.map(e => {
@@ -1401,11 +1422,17 @@ export function SportsMultiRegister() {
         newEventErrors[ev.eventId] = eligibility.reason || "Ineligible for selected category";
         hasEligibilityIssues = true;
       }
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
+      if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
+        newEventErrors[ev.eventId] = "Doubles partner is mandatory. Please select a partner or choose Open Pool.";
+        hasEligibilityIssues = true;
+      }
     }
 
     if (hasEligibilityIssues) {
       setEventErrors(newEventErrors);
-      toast.error("Category eligibility mismatch. Please update the categories for the highlighted sports.");
+      toast.error("Please complete the required details for the highlighted sports.");
       return;
     }
 
@@ -1433,7 +1460,8 @@ export function SportsMultiRegister() {
             relation: relation || undefined,
             flatNumber: flatNumber || undefined,
             familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
-            partnerUserId: isDoubles && ev.partnerUserId ? ev.partnerUserId : undefined,
+            partnerUserId: isDoubles && (ev.partnerInfo?.userId || ev.partnerUserId) ? (ev.partnerInfo?.userId || ev.partnerUserId) : undefined,
+            partnerFamilyMemberId: isDoubles && (ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) ? Number(ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) : undefined,
             captainNomination: ev.captainNomination || undefined,
             proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
           });
@@ -1462,8 +1490,12 @@ export function SportsMultiRegister() {
       setEventErrors(submissionErrors);
     }
 
+    const nominatedCount = selectedEvents.filter(e => e.captainNomination).length;
     if (successCount > 0 && failedCount === 0) {
       toast.success(`Successfully registered for ${successCount} sport${successCount > 1 ? "s" : ""}!`);
+      if (nominatedCount > 0) {
+        toast.info(`Captain nomination recorded for ${nominatedCount} event${nominatedCount > 1 ? "s" : ""}.`);
+      }
       navigate("/sports");
     } else if (successCount > 0 && failedCount > 0) {
       toast.warning(`Registered for ${successCount} event(s), but ${failedCount} failed. Please check errors.`);
@@ -2322,6 +2354,7 @@ export function SportsMultiRegister() {
                                               ...item,
                                               partnerInfo: partner,
                                               partnerUserId: partner?.userId || null,
+                                              partnerFamilyMemberId: partner?.familyMemberId ? Number(partner.familyMemberId) : null,
                                             };
                                           }
                                           return item;

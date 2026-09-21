@@ -543,7 +543,7 @@ export function MySports() {
                     <div className="space-y-3 sm:space-y-5 text-left animate-fade-in-up">
                       {/* Hero Welcome Banner */}
                       <div
-                        className="rounded-2xl sm:rounded-3xl py-3 px-4 sm:py-4 sm:px-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+                        className="hidden sm:block rounded-2xl sm:rounded-3xl py-3 px-4 sm:py-4 sm:px-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
                         style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)" }}
                       >
                         <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
