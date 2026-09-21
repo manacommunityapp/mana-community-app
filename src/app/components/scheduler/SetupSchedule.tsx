@@ -244,6 +244,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [matchDuration, setMatchDuration] = useState('30');
   const [breakTime, setBreakTime] = useState('10 mins');
   const [limitMatchesPerDay, setLimitMatchesPerDay] = useState(false);
+  const [matchDays, setMatchDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [maxMatchesPerDay, setMaxMatchesPerDay] = useState('2');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -455,7 +456,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (!format) { showWarning('Please select a format'); return false; }
     if (!participants || Number(participants) < 2) { showWarning('Enter valid participants'); return false; }
     if (selectedVenues.length === 0) { showWarning('Select at least one venue — required to generate the schedule.'); return false; }
-    // For every selected venue that has courts available, require at least one court to be selected.
+    if (matchDays.length === 0) { showWarning('Select at least one match day'); return false; }
     for (const vid of selectedVenues) {
       const venue = venues.find(v => v.id === vid);
       if (venue?.courts && venue.courts.length > 0 && (selectedCourts[vid]?.length || 0) === 0) {
@@ -486,6 +487,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       endDate: endDate || null,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakBetweenMatchesMinutes: parseInt(breakTime) || 10,
+      matchDays: matchDays.length < 7 ? matchDays : null,
       venueId: selectedVenues.length > 0 ? selectedVenues[0] : null,
       pointsForWin: Number(ptsWin),
       pointsForDraw: Number(ptsDraw),
@@ -737,17 +739,29 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return new Date(dateStr);
   };
 
+  const advanceToAllowedDay = (date: Date): Date => {
+    if (matchDays.length === 0 || matchDays.length === 7) return date;
+    const d = new Date(date);
+    let guard = 0;
+    while (!matchDays.includes(d.getDay()) && guard < 7) {
+      d.setDate(d.getDate() + 1);
+      guard++;
+    }
+    return d;
+  };
+
   const getActiveGroupMatches = (group: typeof generatedGroups[0], groupIdx: number) => {
     const baseMatches = getGroupMatches(group, groupIdx);
-    
+
     return baseMatches.map((m, mIdx) => {
       const key = `${groupIdx}-${mIdx}`;
       const override = matchOverrides[key];
-      
+
       const baseDate = startDate ? new Date(startDate) : new Date('2025-12-06');
       const defaultDate = new Date(baseDate);
       defaultDate.setDate(baseDate.getDate() + groupIdx + mIdx * 2);
-      const defaultDateStr = defaultDate.toISOString().split('T')[0];
+      const adjusted = advanceToAllowedDay(defaultDate);
+      const defaultDateStr = adjusted.toISOString().split('T')[0];
       
       const defaultVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
       const defaultCourtId = resolveCourtId(defaultVenueId, groupIdx + mIdx);
@@ -893,6 +907,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       courtId: defaultCourtId,
       participants: playerParticipants,
       courtIds: selectedCourtIds(defaultVenueId),
+      matchDays: matchDays.length < 7 ? matchDays : undefined,
     };
   };
 
@@ -1524,6 +1539,58 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <label htmlFor="limitPerDay" className="text-sm text-slate-700 cursor-pointer">Limit Participant Matches Per Day</label>
               {limitMatchesPerDay && (
                 <input type="number" min="1" max="10" value={maxMatchesPerDay} onChange={e => setMaxMatchesPerDay(e.target.value)} className="w-16 bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-2 py-1 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5]" />
+              )}
+            </div>
+
+            {/* Match Days */}
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <label className={labelCls + ' !mb-0'}>Match Days</label>
+                <div className="flex gap-1 ml-auto">
+                  {([
+                    { label: 'Weekends', days: [0, 6] },
+                    { label: 'Weekdays', days: [1, 2, 3, 4, 5] },
+                    { label: 'All', days: [0, 1, 2, 3, 4, 5, 6] },
+                  ] as const).map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setMatchDays([...preset.days])}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-[#f0f0ff] text-[#4f46e5] hover:bg-[#e0e0ff] transition-colors cursor-pointer font-medium"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10px] text-[#6b7094] mb-2">Select which days of the week matches can be scheduled.</p>
+              <div className="flex gap-1.5">
+                {(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const).map((day, idx) => {
+                  const isSelected = matchDays.includes(idx);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setMatchDays(prev =>
+                          isSelected
+                            ? prev.filter(d => d !== idx)
+                            : [...prev, idx].sort()
+                        );
+                      }}
+                      className={`w-10 h-8 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#4f46e5] text-white shadow-md'
+                          : 'bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:border-[#4f46e5]'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              {matchDays.length === 0 && (
+                <p className="text-[10px] text-red-400 mt-1">Select at least one day</p>
               )}
             </div>
           </div>
