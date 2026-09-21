@@ -34,15 +34,25 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Typography Tokens */
-  --font-xs: 12px;
-  --font-sm: 14px;
-  --font-md: 16px;
-  --font-lg: 18px;
-  --font-xl: 20px;
-  --font-2xl: 24px;
-  --font-3xl: 28px;
-  --font-4xl: 32px;
+  /* Typography — Font Size Tokens */
+  --font-xs: 0.75rem;    /* 12px */
+  --font-sm: 0.875rem;   /* 14px */
+  --font-md: 1rem;       /* 16px */
+  --font-lg: 1.125rem;   /* 18px */
+  --font-xl: 1.25rem;    /* 20px */
+  --font-2xl: 1.5rem;    /* 24px */
+  --font-3xl: 1.75rem;   /* 28px */
+  --font-4xl: 2rem;      /* 32px */
+
+  /* Typography — Line Height Tokens */
+  --line-height-xs: 1rem;      /* 16px — tight for captions/badges */
+  --line-height-sm: 1.25rem;   /* 20px — labels, secondary text */
+  --line-height-md: 1.5rem;    /* 24px — body text, inputs */
+  --line-height-lg: 1.75rem;   /* 28px — section titles */
+  --line-height-xl: 1.75rem;   /* 28px — page headings */
+  --line-height-2xl: 2rem;     /* 32px — large headings */
+  --line-height-3xl: 2.25rem;  /* 36px — hero/kpi numbers */
+  --line-height-4xl: 2.5rem;   /* 40px — display text */
 
   --font-size: 16px;
   --background: #f0f4ff;
@@ -204,39 +214,39 @@
   }
 
   h1 {
-    font-size: var(--text-2xl);
+    font-size: var(--font-2xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-2xl);
   }
 
   h2 {
-    font-size: var(--text-xl);
+    font-size: var(--font-xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-xl);
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: var(--font-lg);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-lg);
   }
 
   h4 {
-    font-size: var(--text-base);
+    font-size: var(--font-md);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-md);
   }
 
   label {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
   }
 
   button {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
     transition: transform 0.1s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -246,13 +256,15 @@
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
     color: var(--mana-text-primary);
   }
 
   select, textarea {
+    font-size: var(--font-sm);
+    line-height: var(--line-height-sm);
     color: var(--mana-text-primary);
   }
 }
@@ -347,56 +359,56 @@ canvas {
 
 /* ─── Standard Mobile-First Typography Helpers ───────────────────────────── */
 .page-title {
-  font-size: var(--font-2xl, 24px);
-  line-height: 1.25;
+  font-size: var(--font-2xl);
+  line-height: var(--line-height-2xl);
   font-weight: 700;
   color: var(--mana-text-primary, #0d0d2b);
 }
 
 .section-title {
-  font-size: var(--font-lg, 18px);
-  line-height: 1.35;
+  font-size: var(--font-lg);
+  line-height: var(--line-height-lg);
   font-weight: 600;
   color: var(--mana-text-primary, #0d0d2b);
 }
 
 .card-title {
-  font-size: var(--font-md, 16px);
-  line-height: 1.4;
+  font-size: var(--font-md);
+  line-height: var(--line-height-md);
   font-weight: 600;
   color: var(--mana-text-primary, #0d0d2b);
 }
 
 .body-text {
-  font-size: var(--font-md, 16px);
-  line-height: 1.5;
+  font-size: var(--font-md);
+  line-height: var(--line-height-md);
   font-weight: 400;
 }
 
 .secondary-text {
-  font-size: var(--font-sm, 14px);
-  line-height: 1.4;
+  font-size: var(--font-sm);
+  line-height: var(--line-height-sm);
   font-weight: 400;
   color: var(--mana-text-muted, #6b7094);
 }
 
 .caption-text {
-  font-size: var(--font-xs, 12px);
-  line-height: 1.4;
+  font-size: var(--font-xs);
+  line-height: var(--line-height-xs);
   font-weight: 400;
   color: var(--mana-text-muted, #6b7094);
 }
 
 .input-label {
-  font-size: var(--font-sm, 14px);
-  line-height: 1.3;
+  font-size: var(--font-sm);
+  line-height: var(--line-height-sm);
   font-weight: 500;
   color: var(--mana-text-primary, #0d0d2b);
 }
 
 .kpi-number {
-  font-size: var(--font-3xl, 28px);
-  line-height: 1.1;
+  font-size: var(--font-3xl);
+  line-height: var(--line-height-3xl);
   font-weight: 700;
 }
 
