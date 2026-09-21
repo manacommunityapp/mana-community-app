@@ -131,13 +131,16 @@ const DEFAULT_TRIGGER_STATES = {
   }
 };
 
-const createDefaultPlayerForm = (categoryId?: string) => ({
+import type { AddPlayerForm } from "./AddPlayerModal";
+
+const createDefaultPlayerForm = (categoryId?: string, familyMemberId?: number): AddPlayerForm => ({
   id: Math.random().toString(),
   playerName: "",
   playerEmail: "",
   categoryId: categoryId || "",
   avatarUrl: DEFAULT_AVATAR_URL,
   matchType: "SINGLES",
+  gender: "",
   age: 25,
   flatNumber: "",
   relation: "OTHER",
@@ -147,7 +150,17 @@ const createDefaultPlayerForm = (categoryId?: string) => ({
   wickets: 0,
   strikeRate: 0,
   avgScore: 0,
+  familyMemberId: familyMemberId || undefined,
+  partnerUserId: null,
+  partnerFamilyMemberId: null,
+  partnerName: "",
+  partnerEmail: "",
+  partnerPhone: "",
+  partnerFlatNumber: "",
+  partnerGender: "",
+  partnerMode: "community",
 });
+
 
 const parseOtherContacts = (raw: any): { title: string; name: string; detail: string; }[] => {
   if (!raw) return [];
@@ -661,27 +674,22 @@ export function useSportsAdminState() {
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
-  const [addPlayerForms, setAddPlayerForms] = useState<Array<{
-    id: string;
-    playerName: string;
-    playerEmail: string;
-    categoryId: string;
-    avatarUrl: string;
-    matchType: string;
-    age: number;
-    flatNumber: string;
-    relation: string;
-    role: string;
-    matches: number;
-    runs: number;
-    wickets: number;
-    strikeRate: number;
-    avgScore: number;
-  }>>([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
+  const [addPlayerForms, setAddPlayerForms] = useState<AddPlayerForm[]>([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
 
   const [communityUsers, setCommunityUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersTotalPages, setUsersTotalPages] = useState(0);
+  const [usersTotalElements, setUsersTotalElements] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
+  const searchTimeoutRef = useRef<any>(null);
+  const [addPlayerSubmitResults, setAddPlayerSubmitResults] = useState<Array<{
+    formId: string;
+    playerName: string;
+    status: "success" | "error" | "duplicate";
+    message?: string;
+  }>>([]);
 
   const lastFetchedVenueCommIdRef = useRef<number | null>(null);
   const refreshVenues = useCallback((force?: boolean) => {
@@ -706,21 +714,66 @@ export function useSportsAdminState() {
   }, [selectedCommId, user?.communityId, user?.role, communities, (user as any)?.community]);
 
   useEffect(() => {
-    if (showAddPlayerModal) {
-      const commId = user?.communityId || selectedCommId;
-      if (commId) {
-        setLoadingUsers(true);
-        userService.getCommunityUsers(Number(commId))
-          .then(res => setCommunityUsers(res || []))
-          .catch(err => console.error("Failed to load community users", err))
-          .finally(() => setLoadingUsers(false));
+    refreshVenues();
+  }, [refreshVenues]);
+
+  const fetchCommunityUsers = useCallback(async (query: string, page = 0, append = false) => {
+    try {
+      if (page === 0 && !append) setLoadingUsers(true);
+      else setLoadingMoreUsers(true);
+
+      const isSuperAdmin = user?.role === "SUPER_ADMIN";
+      const commId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
+
+      if (!commId) {
+        setCommunityUsers([]);
+        setUsersTotalPages(0);
+        setUsersTotalElements(0);
+        return;
       }
+
+      const res = await userService.getCommunityUsersSummary(commId, { search: query.trim(), page, size: 50 });
+
+      setUsersPage(res.page ?? page);
+      setUsersTotalPages(res.totalPages ?? 1);
+      setUsersTotalElements(res.totalElements ?? (res.content ?? []).length);
+
+      setCommunityUsers(prev => append ? [...prev, ...(res.content ?? [])] : (res.content ?? []));
+    } catch (err) {
+      console.error("Failed to fetch community users summary", err);
+      if (!append) setCommunityUsers([]);
+    } finally {
+      setLoadingUsers(false);
+      setLoadingMoreUsers(false);
     }
-  }, [showAddPlayerModal, user?.communityId, selectedCommId]);
+  }, [user, selectedCommId]);
+
+  useEffect(() => {
+    if (!showAddPlayerModal) return;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchCommunityUsers(friendSearchQuery, 0, false);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [showAddPlayerModal, friendSearchQuery, fetchCommunityUsers]);
+
+  const loadMoreUsers = useCallback(() => {
+    if (loadingMoreUsers || loadingUsers || usersPage >= usersTotalPages - 1) return;
+    fetchCommunityUsers(friendSearchQuery, usersPage + 1, true);
+  }, [loadingMoreUsers, loadingUsers, usersPage, usersTotalPages, friendSearchQuery, fetchCommunityUsers]);
+
+  const goToUsersPage = useCallback((page: number) => {
+    if (loadingUsers || loadingMoreUsers || page < 0 || page >= usersTotalPages) return;
+    fetchCommunityUsers(friendSearchQuery, page, false);
+  }, [loadingUsers, loadingMoreUsers, usersTotalPages, friendSearchQuery, fetchCommunityUsers]);
 
   const handleSelectFriend = (friend: any) => {
     setAddPlayerForms(prev => {
-      if (prev.some(p => p.playerEmail === friend.email || p.playerName === friend.fullName)) {
+      if (prev.some(p => !p.familyMemberId && (p.playerEmail === friend.email || p.playerName === friend.fullName))) {
         toast.warning("Player is already in the list");
         return prev;
       }
@@ -731,6 +784,7 @@ export function useSportsAdminState() {
         categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
         avatarUrl: friend.avatarUrl || DEFAULT_AVATAR_URL,
         matchType: "SINGLES",
+        gender: friend.gender || "",
         age: friend.dateOfBirth ? new Date().getFullYear() - new Date(friend.dateOfBirth).getFullYear() : 25,
         flatNumber: friend.flatNo || "",
         relation: "SELF",
@@ -740,6 +794,15 @@ export function useSportsAdminState() {
         wickets: 0,
         strikeRate: 0,
         avgScore: 0,
+        familyMemberId: undefined,
+        partnerUserId: null,
+        partnerFamilyMemberId: null,
+        partnerName: "",
+        partnerEmail: "",
+        partnerPhone: "",
+        partnerFlatNumber: "",
+        partnerGender: "",
+        partnerMode: "community" as const,
       };
       if (prev.length === 1 && !prev[0].playerName.trim() && !prev[0].playerEmail.trim()) {
         return [newCard];
@@ -748,6 +811,59 @@ export function useSportsAdminState() {
     });
     toast.success(`Selected ${friend.fullName}`);
   };
+
+  const handleSelectFamilyMember = (familyMember: any, resident: any) => {
+    setAddPlayerForms(prev => {
+      if (prev.some(p => p.familyMemberId === familyMember.id || (p.playerName === familyMember.name && p.flatNumber === resident.flatNo))) {
+        toast.warning("Family member is already in the list");
+        return prev;
+      }
+      let memberAge = familyMember.age;
+      if (!memberAge && familyMember.dob) {
+        try {
+          const birth = new Date(familyMember.dob);
+          if (!isNaN(birth.getTime())) {
+            memberAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+          }
+        } catch {}
+      }
+      if (!memberAge) memberAge = 18;
+
+      const newCard = {
+        id: Math.random().toString(),
+        playerName: familyMember.name,
+        playerEmail: familyMember.email || resident.email || "",
+        categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
+        avatarUrl: DEFAULT_AVATAR_URL,
+        matchType: "SINGLES",
+        gender: familyMember.gender || "",
+        age: memberAge,
+        flatNumber: resident.flatNo || "",
+        relation: (familyMember.relation || "CHILD").toUpperCase(),
+        role: "",
+        matches: 0,
+        runs: 0,
+        wickets: 0,
+        strikeRate: 0,
+        avgScore: 0,
+        familyMemberId: familyMember.id,
+        partnerUserId: null,
+        partnerFamilyMemberId: null,
+        partnerName: "",
+        partnerEmail: "",
+        partnerPhone: "",
+        partnerFlatNumber: "",
+        partnerGender: "",
+        partnerMode: "community" as const,
+      };
+      if (prev.length === 1 && !prev[0].playerName.trim() && !prev[0].playerEmail.trim()) {
+        return [newCard];
+      }
+      return [...prev, newCard];
+    });
+    toast.success(`Selected family member: ${familyMember.name}`);
+  };
+
 
   const handleAddNewPlayerCard = () => {
     setAddPlayerForms(prev => [...prev, createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
@@ -772,62 +888,188 @@ export function useSportsAdminState() {
     }
   };
 
-  const filteredFriends = communityUsers.filter(u =>
-    u.fullName.toLowerCase().includes(friendSearchQuery.toLowerCase()) ||
-    (u.email && u.email.toLowerCase().includes(friendSearchQuery.toLowerCase()))
-  );
+  const filteredFriends = communityUsers;
+
 
   const handleAddPlayerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEventIdForAdd) return;
+
+    // ── 1. Comprehensive Client-side field & eligibility validation ─────────
     for (let idx = 0; idx < addPlayerForms.length; idx++) {
       const form = addPlayerForms[idx];
+      const cardLabel = `Card #${idx + 1} (${form.playerName.trim() || `Player ${idx + 1}`})`;
+
+      // Required fields
       if (!form.playerName.trim()) { toast.error(`Player Name is required for card #${idx + 1}`); return; }
       if (!form.playerEmail.trim()) { toast.error(`Player Email is required for card #${idx + 1}`); return; }
       if (!isValidEmail(form.playerEmail)) { toast.error(`Please enter a valid Player Email for card #${idx + 1}`); return; }
-      if (!form.categoryId) { toast.error(`Player Category is required for card #${idx + 1}`); return; }
+      if (!form.categoryId) { toast.error(`Tournament Category is required for card #${idx + 1}`); return; }
+      if (isNaN(form.age) || Number(form.age) <= 0 || Number(form.age) > 120) {
+        toast.error(`Please enter a valid age (1-120) for ${cardLabel}`);
+        return;
+      }
+
+      // Category rules (Age & Gender)
+      const category = playerCategories.find(c => String(c.id) === String(form.categoryId));
+      if (category) {
+        // Age validation
+        if (category.minAge != null && category.minAge > 0 && Number(form.age) < category.minAge) {
+          toast.error(`${cardLabel}: Age ${form.age} is below the minimum required age (${category.minAge}) for category "${category.name}".`);
+          return;
+        }
+        if (category.maxAge != null && category.maxAge > 0 && Number(form.age) > category.maxAge) {
+          toast.error(`${cardLabel}: Age ${form.age} exceeds the maximum allowed age (${category.maxAge}) for category "${category.name}".`);
+          return;
+        }
+
+        // Gender validation
+        if (category.gender && category.gender.trim() && form.gender && form.gender.trim()) {
+          const catGen = category.gender.trim().toUpperCase();
+          const pGen = form.gender.trim().toUpperCase();
+          if (["MALE", "MEN", "BOYS"].includes(catGen) && ["FEMALE", "WOMEN", "GIRLS"].includes(pGen)) {
+            toast.error(`${cardLabel}: Category "${category.name}" is restricted to Male players, but player's profile is Female.`);
+            return;
+          }
+          if (["FEMALE", "WOMEN", "GIRLS"].includes(catGen) && ["MALE", "MEN", "BOYS"].includes(pGen)) {
+            toast.error(`${cardLabel}: Category "${category.name}" is restricted to Female players, but player's profile is Male.`);
+            return;
+          }
+        }
+      }
+
+      // Doubles & Mixed Doubles partner validation
+      const isDoublesFormat = form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES";
+      if (isDoublesFormat) {
+        const hasPartner = !!(form.partnerUserId || form.partnerFamilyMemberId || form.partnerName?.trim() || form.partnerMode === "open_pool");
+        if (!hasPartner) {
+          toast.error(`${cardLabel}: ${form.matchType === "MIXED_DOUBLES" ? "Mixed Doubles" : "Doubles"} format requires a partner. Please select a partner or choose "Open Pool".`);
+          return;
+        }
+
+        // Validate partner when not open pool
+        if (form.partnerMode !== "open_pool") {
+          // Cannot select self as partner
+          if (form.partnerEmail && form.playerEmail && form.partnerEmail.trim().toLowerCase() === form.playerEmail.trim().toLowerCase()) {
+            toast.error(`${cardLabel}: Primary player cannot be their own doubles partner.`);
+            return;
+          }
+          if (form.partnerName && form.playerName && form.partnerName.trim().toLowerCase() === form.playerName.trim().toLowerCase() && form.flatNumber === form.partnerFlatNumber) {
+            toast.error(`${cardLabel}: Primary player cannot be their own doubles partner.`);
+            return;
+          }
+
+          // Mixed Doubles gender validation
+          if (form.matchType === "MIXED_DOUBLES" && form.gender && form.partnerGender) {
+            const pGen = form.gender.trim().toUpperCase();
+            const partGen = form.partnerGender.trim().toUpperCase();
+            const isPMale = ["MALE", "MEN", "BOYS"].includes(pGen);
+            const isPFemale = ["FEMALE", "WOMEN", "GIRLS"].includes(pGen);
+            const isPartMale = ["MALE", "MEN", "BOYS"].includes(partGen);
+            const isPartFemale = ["FEMALE", "WOMEN", "GIRLS"].includes(partGen);
+
+            if ((isPMale && isPartMale) || (isPFemale && isPartFemale)) {
+              toast.error(`${cardLabel}: Mixed Doubles requires one Male and one Female player. Both selected players are ${isPMale ? "Male" : "Female"}.`);
+              return;
+            }
+          }
+        }
+      }
     }
+
+    // ── 2. Batch duplicate pre-checks (across cards in the same submit) ───────
+    const seenPlayerInBatch = new Map<string, number>();
+    const seenPartnerInBatch = new Map<string, number>();
+
+    for (let idx = 0; idx < addPlayerForms.length; idx++) {
+      const form = addPlayerForms[idx];
+      const playerKey = `${form.familyMemberId ? `fam-${form.familyMemberId}` : form.playerEmail.toLowerCase()}|${form.playerName.toLowerCase()}|${form.matchType}`;
+      if (seenPlayerInBatch.has(playerKey)) {
+        toast.error(`Card #${idx + 1} (${form.playerName}) duplicates card #${seenPlayerInBatch.get(playerKey)! + 1} — same participant & match format`);
+        return;
+      }
+      seenPlayerInBatch.set(playerKey, idx);
+
+      // Check partner uniqueness in batch
+      if ((form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES") && form.partnerMode !== "open_pool") {
+        const partnerKey = `${form.partnerFamilyMemberId ? `fam-${form.partnerFamilyMemberId}` : (form.partnerUserId ? `user-${form.partnerUserId}` : (form.partnerEmail || form.partnerName || "").toLowerCase())}|${form.matchType}`;
+        if (partnerKey && seenPartnerInBatch.has(partnerKey)) {
+          toast.error(`Card #${idx + 1}: Partner (${form.partnerName || "Selected partner"}) is already assigned in card #${seenPartnerInBatch.get(partnerKey)! + 1} for ${form.matchType}.`);
+          return;
+        }
+        seenPartnerInBatch.set(partnerKey, idx);
+      }
+    }
+
     setSubmitting(true);
-    let successCount = 0;
-    let failCount = 0;
+    const results: Array<{ formId: string; playerName: string; status: "success" | "error" | "duplicate"; message?: string }> = [];
+
     try {
       for (const form of addPlayerForms) {
         try {
+          const isDoubles = form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES";
+          const isOpenPool = form.partnerMode === "open_pool";
+
           await sportsService.registerForEvent({
             eventId: selectedEventIdForAdd,
             categoryId: Number(form.categoryId),
             matchType: form.matchType,
             role: form.role,
             age: Number(form.age),
+            gender: form.gender || undefined,
             matches: Number(form.matches),
             runs: Number(form.runs),
             wickets: Number(form.wickets),
             strikeRate: Number(form.strikeRate),
             avgScore: Number(form.avgScore),
             playerName: form.playerName,
+            email: form.playerEmail || undefined,
             relation: form.relation,
             flatNumber: form.flatNumber,
+            familyMemberId: form.familyMemberId ? Number(form.familyMemberId) : undefined,
+            // Partner fields for DOUBLES / MIXED_DOUBLES
+            partnerUserId: isDoubles && !isOpenPool && form.partnerUserId ? Number(form.partnerUserId) : (isOpenPool ? null : undefined),
+            partnerFamilyMemberId: isDoubles && !isOpenPool && form.partnerFamilyMemberId ? Number(form.partnerFamilyMemberId) : (isOpenPool ? null : undefined),
           });
-          successCount++;
+          results.push({ formId: form.id, playerName: form.playerName, status: "success", message: `Registered for ${form.matchType.replace('_', ' ')}` });
         } catch (err: any) {
+
+          const errCode: string = err?.response?.data?.error || err?.code || "";
+          const isAlreadyReg = errCode === "ALREADY_REGISTERED" || err?.response?.status === 409;
           console.error(`Failed to register player ${form.playerName}:`, err);
-          failCount++;
+          results.push({
+            formId: form.id,
+            playerName: form.playerName,
+            status: isAlreadyReg ? "duplicate" : "error",
+            message: isAlreadyReg
+              ? `Already registered for ${form.matchType.replace('_', ' ')}`
+              : (err?.response?.data?.message || err?.message || "Registration failed"),
+          });
         }
       }
-      if (successCount > 0) toast.success(`Successfully registered ${successCount} participant(s)!`);
-      if (failCount > 0) toast.error(`Failed to register ${failCount} participant(s)`);
-      setShowAddPlayerModal(false);
+
+      const successCount = results.filter(r => r.status === "success").length;
+      const failCount = results.filter(r => r.status !== "success").length;
+
+      if (successCount > 0) toast.success(`Successfully registered ${successCount} participant${successCount > 1 ? "s" : ""}!`);
+      if (failCount > 0) toast.warning(`${failCount} participant${failCount > 1 ? "s" : ""} could not be registered — see details.`);
+
+      // Show result summary inside the modal
+      setAddPlayerSubmitResults(results);
       setAddPlayerForms([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
+
       if (viewingEventId) {
         const regs = await sportsService.getEventRegistrations(viewingEventId);
         setRegistrations(regs);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to add participants");
+      console.error("Batch player registration error:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to add players");
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const handleDownloadSample = () => {
     const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score\n" +
@@ -1028,6 +1270,7 @@ export function useSportsAdminState() {
       case "settings":
         break;
       case "sports-meta":
+      case "rankings":
         sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
         break;
       case "create-tournament":
@@ -2367,10 +2610,20 @@ export function useSportsAdminState() {
     selectedEventIdForAdd, setSelectedEventIdForAdd,
     addPlayerForms, setAddPlayerForms,
     communityUsers, loadingUsers,
+    loadingMoreUsers,
+    hasMoreUsers: usersPage < usersTotalPages - 1,
+    loadMoreUsers,
+    goToUsersPage,
+    usersPage,
+    usersTotalPages,
+    usersTotalElements,
     friendSearchQuery, setFriendSearchQuery,
     filteredFriends,
-    handleSelectFriend, handleAddNewPlayerCard, handleDeletePlayerCard,
+    handleSelectFriend, handleSelectFamilyMember, handleAddNewPlayerCard, handleDeletePlayerCard,
     handleAddPlayerSubmit, formatDob,
+    addPlayerSubmitResults, setAddPlayerSubmitResults,
+
+
 
     // CSV Import
     showImportModal, setShowImportModal,

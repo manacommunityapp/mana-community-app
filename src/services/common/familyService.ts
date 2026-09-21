@@ -134,7 +134,11 @@ export interface FamilyMemberSlim {
   relation?: string;
   phone?: string;
   gender?: string;
+  age?: number;
+  dob?: string;
+  email?: string;
 }
+
 
 let inFlightFamilyMembersPromise: Promise<FamilyMember[]> | null = null;
 let lastFetchTime = 0;

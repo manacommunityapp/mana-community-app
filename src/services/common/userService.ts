@@ -38,6 +38,29 @@ export interface UserStatsResponse {
   roleBreakdown: Record<string, number>;
 }
 
+export interface UserSummaryResponse {
+  id: number;
+  fullName: string;
+  email: string;
+  phone?: string;
+  profilePicUrl?: string;
+  avatarUrl?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  flatNo?: string;
+  block?: string;
+  communityId?: number;
+}
+
+export interface PagedUserSummaryResponse {
+  content: UserSummaryResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+
 export interface PagedUserResponse {
   content: UserResponse[];
   page: number;
@@ -137,6 +160,20 @@ export const userService = {
   async getCommunityUsers(communityId: number): Promise<UserResponse[]> {
     return apiClient.get<UserResponse[]>(`/users/community/${communityId}`);
   },
+
+  /** GET /api/users/community/{id}/summary — paginated lightweight summary for player selection / mentions */
+  async getCommunityUsersSummary(
+    communityId: number,
+    params?: { search?: string; page?: number; size?: number }
+  ): Promise<PagedUserSummaryResponse> {
+    const searchParam = params?.search ? `&search=${encodeURIComponent(params.search)}` : "";
+    const page = params?.page ?? 0;
+    const size = params?.size ?? 20;
+    return apiClient.get<PagedUserSummaryResponse>(
+      `/users/community/${communityId}/summary?page=${page}&size=${size}${searchParam}`
+    );
+  },
+
 
   /** GET /api/users — unwraps the paginated response into a list.
    *  The backend returns a PagedResponse ({ content, totalElements, ... });
