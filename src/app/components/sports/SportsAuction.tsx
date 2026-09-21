@@ -1230,7 +1230,7 @@ export function SportsAuction() {
                 </div>
                 <div>
                   <div style={{ marginBottom: 12 }}><div className="sec-title" style={{ margin: 0 }}>🏆 Click a team to place their bid</div></div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div className="team-bid-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     {teams.map(team => {
                       const remaining = team.budget - team.spent;
                       const canBid = remaining >= livePlayer.nextBid;
@@ -1278,7 +1278,7 @@ export function SportsAuction() {
             {showAddTeam && (
               <div className="card card-gold" style={{ marginBottom: 24, padding: 24 }}>
                 <div className="sec-title">Create New Team</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 16, alignItems: 'end' }}>
+                <div className="create-team-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 16, alignItems: 'end' }}>
                   <div className="fgrp">
                     <div className="flabel">Team Name</div>
                     <input className="finput" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="e.g. Royal Challengers" />
@@ -1358,6 +1358,80 @@ export function SportsAuction() {
                     <div style={{ fontSize: 40, marginBottom: 16 }}>🛡️</div>
                     <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)' }}>No Teams Found</div>
                     <div style={{ fontSize: 13, marginTop: 8 }}>Start by creating your first team for the auction.</div>
+                  </div>
+                )}
+              </div>
+              {/* Captain Nominations Panel */}
+              <div>
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="sec-title">👑 Captain Nominations</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                    Players can nominate themselves as team captains. Admins confirm nominations below.
+                  </div>
+                  {teams.filter(t => t.captainNomination && !t.captainConfirmation).length > 0 ? (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {teams.filter(t => t.captainNomination && !t.captainConfirmation).map(team => (
+                        <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{team.captainUser?.name || team.ownerName || 'Unknown'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Nominated for: {team.name}</div>
+                          </div>
+                          {canEditTeams && (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button className="btn btn-gold btn-sm" style={{ padding: '4px 12px', fontSize: 11 }} onClick={async () => {
+                                try {
+                                  await auctionService.confirmCaptainByTeamId(team.id, true);
+                                  toast.success(`Captain confirmed for ${team.name}`);
+                                  setTeams(prev => prev.map(t => t.id === team.id ? { ...t, captainConfirmation: true } : t));
+                                } catch (err: any) { toast.error(err?.message || 'Failed to confirm'); }
+                              }}>✓ Confirm</button>
+                              <button className="btn btn-outline btn-sm" style={{ padding: '4px 12px', fontSize: 11, color: 'var(--red)', borderColor: 'var(--red)' }} onClick={async () => {
+                                try {
+                                  await auctionService.confirmCaptainByTeamId(team.id, false);
+                                  toast.info(`Captain nomination rejected for ${team.name}`);
+                                  setTeams(prev => prev.map(t => t.id === team.id ? { ...t, captainNomination: false } : t));
+                                } catch (err: any) { toast.error(err?.message || 'Failed to reject'); }
+                              }}>✕ Reject</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--muted)', fontSize: 12 }}>
+                      {teams.filter(t => t.captainConfirmation).length > 0 ? (
+                        <>
+                          <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+                          All captain nominations have been confirmed.
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+                          No pending captain nominations.
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Confirmed Captains */}
+                {teams.filter(t => t.captainConfirmation).length > 0 && (
+                  <div className="card">
+                    <div className="sec-title" style={{ color: 'var(--green)' }}>✅ Confirmed Captains</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {teams.filter(t => t.captainConfirmation).map(team => (
+                        <div key={team.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(34,197,94,0.05)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.12)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: team.color || 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                            {(team.captainUser?.name || team.ownerName || 'C').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{team.captainUser?.name || team.ownerName}</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)' }}>Captain — {team.name}</div>
+                          </div>
+                          <span className="tag tag-green" style={{ fontSize: 9 }}>Confirmed</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1593,11 +1667,54 @@ export function SportsAuction() {
               </div>
             ) : (
               <>
-                <div className="card card-gold">
-                  <div className="sec-title">Dispute Committee</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Any dispute to be referred to: <strong style={{ color: 'var(--gold)' }}>{committee.map(m => m.name).join(", ")}</strong>. Decision is final.</div>
+                {/* Summary Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--gold)' }}>{teams.length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Teams</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--green)' }}>{players.filter(p => p.status === 'SOLD').length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Players Sold</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--red)' }}>{players.filter(p => p.status === 'PASSED').length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unsold</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--gold)' }}>₹{teams.reduce((s, t) => s + (t.spent || 0), 0).toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Total Spent</div>
+                  </div>
                 </div>
-                <div className="grid2" style={{ marginTop: 16 }}>
+
+                <div className="card card-gold" style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div className="sec-title" style={{ margin: 0 }}>⚖️ Dispute Resolution Committee</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+                        Any disputes arising from the auction process should be referred to the committee below. All decisions are final and binding.
+                      </div>
+                    </div>
+                  </div>
+                  {committee.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+                      {committee.map((m: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(234,179,8,0.06)', borderRadius: 8, border: '1px solid rgba(234,179,8,0.12)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#000' }}>
+                            {(m.name || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)' }}>{m.role || 'Committee Member'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--muted)', fontSize: 12 }}>No committee members assigned.</div>
+                  )}
+                </div>
+                <div className="grid2 results-grid" style={{ marginTop: 16 }}>
                   {teams.map(team => {
                     const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
                     const budget = team.budget || 0;
