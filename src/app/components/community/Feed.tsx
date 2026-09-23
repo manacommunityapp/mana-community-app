@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import {
   MessageSquare,
   Heart,
@@ -2397,7 +2398,7 @@ const PostCard = React.memo(function PostCard({
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
 
-      {!isEditing && <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
+      {!isEditing && <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content).replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
 
       {/* Hashtags display */}
       {post.hashtags && (
