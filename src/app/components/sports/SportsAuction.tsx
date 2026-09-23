@@ -143,6 +143,11 @@ export function SportsAuction() {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
+  // Search / Filter State
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerStatusFilter, setPlayerStatusFilter] = useState<string>("ALL");
+  const [registrationSearchQuery, setRegistrationSearchQuery] = useState("");
+
   // Bid Timer State
   const [bidTimeLeft, setBidTimeLeft] = useState<number | null>(null);
   const bidTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1463,51 +1468,94 @@ export function SportsAuction() {
               </div>
             </div>
 
+            {/* Player Pool Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 16 }}>
+              {[
+                { label: 'Registered', value: eventRegistrations.length, color: 'var(--gold)' },
+                { label: 'In Pool', value: players.length, color: 'var(--blue)' },
+                { label: 'Sold', value: players.filter(p => p.status === 'SOLD').length, color: 'var(--green)' },
+                { label: 'Queued', value: players.filter(p => p.status === 'QUEUED' || p.status === 'queue').length, color: 'var(--amber)' },
+                { label: 'Unsold', value: players.filter(p => p.status === 'PASSED').length, color: 'var(--red)' },
+              ].map(s => (
+                <div key={s.label} className="card" style={{ textAlign: 'center', padding: '12px 8px' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
             <div className="grid2">
-              <div className="grid grid-cols-1 gap-2">
-                {eventRegistrations.length > 0 ? eventRegistrations.map(p => (
-                  <div key={p.id} className="player-row bg-[rgba(212,160,23,0.05)] border border-[rgba(212,160,23,0.1)] min-h-[48px] sm:min-h-0">
-                    <div className="player-avatar av-bat !bg-[var(--gold)] !text-black">{p.name[0].toUpperCase()}</div>
-                    <div className="flex-1">
-                      <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--text)]">{p.name}</div>
-                      <div className="text-[10px] text-[var(--muted)]">Role: {p.role}</div>
-                    </div>
-                    <div className="text-right">
-                      <span className="tag tag-green">Confirmed</span>
-                    </div>
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="relative flex-1">
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                    <input className="finput" placeholder="Search registered players..." value={playerSearchQuery} onChange={e => setPlayerSearchQuery(e.target.value)} style={{ paddingLeft: 32, fontSize: 12 }} />
                   </div>
-                )) : (
-                  <div className="text-center p-8 sm:p-10 text-[var(--muted)] bg-white/[0.02] rounded-lg">
-                    <div className="text-3xl mb-3">📋</div>
-                    <div>No confirmed players found for this event.</div>
-                    <div className="text-[11px] mt-1">Players appear here after their registration is confirmed.</div>
-                  </div>
-                )}
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {(() => {
+                    const filtered = eventRegistrations.filter(p =>
+                      !playerSearchQuery || p.name?.toLowerCase().includes(playerSearchQuery.toLowerCase()) || p.role?.toLowerCase().includes(playerSearchQuery.toLowerCase())
+                    );
+                    return filtered.length > 0 ? filtered.map(p => (
+                      <div key={p.id} className="player-row bg-[rgba(212,160,23,0.05)] border border-[rgba(212,160,23,0.1)] min-h-[48px] sm:min-h-0">
+                        <div className="player-avatar av-bat !bg-[var(--gold)] !text-black">{p.name[0].toUpperCase()}</div>
+                        <div className="flex-1">
+                          <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--text)]">{p.name}</div>
+                          <div className="text-[10px] text-[var(--muted)]">Role: {p.role}</div>
+                        </div>
+                        <div className="text-right">
+                          <span className="tag tag-green">Confirmed</span>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center p-8 sm:p-10 text-[var(--muted)] bg-white/[0.02] rounded-lg">
+                        <div className="text-3xl mb-3">📋</div>
+                        <div>{playerSearchQuery ? 'No players match your search.' : 'No confirmed players found for this event.'}</div>
+                        <div className="text-[11px] mt-1">Players appear here after their registration is confirmed.</div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
               <div>
-                <div className="sec-title" style={{ marginBottom: 12 }}>Auction Player Pool ({players.length})</div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="sec-title" style={{ margin: 0 }}>Auction Player Pool ({players.length})</div>
+                  <div className="flex gap-1">
+                    {['ALL', 'QUEUED', 'SOLD', 'PASSED'].map(s => (
+                      <button key={s} className={`tag ${playerStatusFilter === s ? 'tag-gold' : ''}`} style={{ cursor: 'pointer', fontSize: 9 }} onClick={() => setPlayerStatusFilter(s)}>{s}</button>
+                    ))}
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
-                  {players.length > 0 ? players.map(p => (
-                    <div key={p.id} className="player-row" style={{ background: p.status === 'SOLD' ? 'rgba(34,197,94,0.05)' : 'rgba(99,102,241,0.03)', border: `1px solid ${p.status === 'SOLD' ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
-                      <div className="player-avatar av-bat" style={{ background: p.status === 'SOLD' ? 'var(--green)' : 'var(--gold)', color: '#000' }}>
-                        {(p.name || '').charAt(0).toUpperCase()}
+                  {(() => {
+                    const filtered = players.filter(p =>
+                      (playerStatusFilter === 'ALL' || p.status === playerStatusFilter || (playerStatusFilter === 'QUEUED' && p.status === 'queue')) &&
+                      (!playerSearchQuery || p.name?.toLowerCase().includes(playerSearchQuery.toLowerCase()))
+                    );
+                    return filtered.length > 0 ? filtered.map(p => (
+                      <div key={p.id} className="player-row" style={{ background: p.status === 'SOLD' ? 'rgba(34,197,94,0.05)' : 'rgba(99,102,241,0.03)', border: `1px solid ${p.status === 'SOLD' ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
+                        <div className="player-avatar av-bat" style={{ background: p.status === 'SOLD' ? 'var(--green)' : 'var(--gold)', color: '#000' }}>
+                          {(p.name || '').charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' || p.status === 'queue' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
+                          {p.soldPrice ? <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>₹{p.soldPrice.toLocaleString('en-IN')}</div> : null}
+                          {p.assignedTeam ? <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{(p.assignedTeam as any).teamName || (p.assignedTeam as any).name}</div> : null}
+                        </div>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}</div>
+                    )) : (
+                      <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
+                        <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+                        <div>{playerStatusFilter !== 'ALL' ? `No ${playerStatusFilter} players.` : 'No players in auction pool yet.'}</div>
+                        <div style={{ fontSize: 11, marginTop: 4 }}>Upload a CSV or add players manually.</div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
-                        {p.soldPrice ? <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>₹{p.soldPrice.toLocaleString('en-IN')}</div> : null}
-                      </div>
-                    </div>
-                  )) : (
-                    <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
-                      <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
-                      <div>No players in auction pool yet.</div>
-                      <div style={{ fontSize: 11, marginTop: 4 }}>Upload a CSV or add players manually.</div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -1545,6 +1593,16 @@ export function SportsAuction() {
               </div>
             </div>
 
+            {eventRegistrations.length > 0 && (
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative flex-1" style={{ maxWidth: 320 }}>
+                  <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                  <input className="finput" placeholder="Search by name, role, flat..." value={registrationSearchQuery} onChange={e => setRegistrationSearchQuery(e.target.value)} style={{ paddingLeft: 32, fontSize: 12 }} />
+                </div>
+                <span className="text-xs text-[var(--muted)]">{eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).length} of {eventRegistrations.length}</span>
+              </div>
+            )}
+
             <div className="card card-gold">
               {loadingRegistrations ? (
                 <div className="p-8 sm:p-10 text-center text-[var(--muted)]">Loading registrations...</div>
@@ -1560,7 +1618,7 @@ export function SportsAuction() {
                       </tr>
                     </thead>
                     <tbody>
-                      {eventRegistrations.map(reg => (
+                      {eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).map(reg => (
                         <tr key={reg.id} className="border-b border-white/5">
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                             <div className="font-semibold text-[13px]">{reg.playerName || reg.user?.name}</div>
