@@ -723,6 +723,15 @@
   color: var(--muted) !important;
 }
 
+/* Bid timer urgent pulse */
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.auction-hub-wrapper .bid-timer-urgent {
+  animation: timerPulse 0.6s ease-in-out infinite;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Responsive / mobile
    ─────────────────────────────────────────────────────────────────────────── */
@@ -798,6 +807,23 @@
   .auction-hub-wrapper .bid-raise,
   .auction-hub-wrapper .bid-sold,
   .auction-hub-wrapper .bid-pass { flex: 1 1 100%; min-height: 48px; }
+
+  /* Team bid cards: single column on mobile */
+  .auction-hub-wrapper .team-bid-grid { grid-template-columns: 1fr !important; }
+
+  /* Player ring smaller on mobile */
+  .auction-hub-wrapper .player-ring { width: 60px; height: 60px; font-size: 22px; }
+  .auction-hub-wrapper .player-name-big { font-size: 22px; }
+
+  /* Create team form stacks */
+  .auction-hub-wrapper .create-team-grid { grid-template-columns: 1fr !important; }
+
+  /* Results grid: single column on mobile */
+  .auction-hub-wrapper .results-grid { grid-template-columns: 1fr !important; }
+
+  /* Header selects stack vertically */
+  .auction-hub-wrapper .page-hdr select { min-width: 0 !important; width: 100% !important; }
+  .auction-hub-wrapper .page-hdr > div { flex-wrap: wrap; }
 }
 
 @media (max-width: 480px) {

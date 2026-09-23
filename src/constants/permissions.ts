@@ -421,6 +421,25 @@ export const MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
 export const VIEW_WORK_ORDERS         = "View Work Orders";
 export const MANAGE_SERVICE_WORK_ORDERS       = "Manage Work Orders";
 
+// ──── HOME SERVICES / COMMUNITY HELP ────
+export const VIEW_HOME_SERVICE             = "View Home Service";
+export const CREATE_HOME_SERVICE_BOOKING   = "Create Home Service Booking";
+export const CANCEL_HOME_SERVICE_BOOKING   = "Cancel Home Service Booking";
+export const MANAGE_HOME_HELP              = "Manage Home Help";
+export const VIEW_WORKER_PROFILE           = "View Worker Profile";
+export const VIEW_WORKER_CONTACT           = "View Worker Contact";
+export const MANAGE_WORKER                 = "Manage Worker";
+export const VERIFY_WORKER                 = "Verify Worker";
+export const VIEW_WORKER_DOCUMENT          = "View Worker Document";
+export const MANAGE_SERVICE_CATEGORY       = "Manage Service Category";
+export const MANAGE_SERVICE_PACKAGE        = "Manage Service Package";
+export const MANAGE_ATTENDANCE             = "Manage Attendance";
+export const VIEW_HOME_SERVICE_PAYMENT     = "View Home Service Payment";
+export const VIEW_HOME_SERVICE_REVIEWS     = "View Home Service Reviews";
+export const CREATE_HOME_SERVICE_REPORT    = "Create Home Service Report";
+export const VIEW_HOME_SERVICE_HISTORY     = "View Home Service History";
+export const EXPORT_HOME_SERVICE_DATA      = "Export Home Service Data";
+
 /**
  * Permission categories grouped for the Role Management UI.
  * Used by AdminRoleManagement component.
@@ -430,6 +449,17 @@ export const PERMISSION_CATEGORIES = [
     id: "feed",
     title: "COMMUNITY FEED Permission",
     permissions: [VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST],
+  },
+  {
+    id: "home_services",
+    title: "HOME SERVICES / COMMUNITY HELP Permission",
+    permissions: [
+      VIEW_HOME_SERVICE, CREATE_HOME_SERVICE_BOOKING, CANCEL_HOME_SERVICE_BOOKING,
+      MANAGE_HOME_HELP, VIEW_WORKER_PROFILE, VIEW_WORKER_CONTACT, MANAGE_WORKER,
+      VERIFY_WORKER, VIEW_WORKER_DOCUMENT, MANAGE_SERVICE_CATEGORY, MANAGE_SERVICE_PACKAGE,
+      MANAGE_ATTENDANCE, VIEW_HOME_SERVICE_PAYMENT, VIEW_HOME_SERVICE_REVIEWS,
+      CREATE_HOME_SERVICE_REPORT, VIEW_HOME_SERVICE_HISTORY, EXPORT_HOME_SERVICE_DATA
+    ],
   },
   {
     id: "sports",

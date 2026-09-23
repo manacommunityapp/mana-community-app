@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
-import { useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams, useNavigate as useRouterNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   Gavel,
@@ -12,11 +12,16 @@ import {
   Settings,
   Users,
   Search,
-  FileText
+  FileText,
+  CalendarDays,
+  ExternalLink,
+  Timer,
+  Download
 } from "lucide-react";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MENU, CREATE_EDIT_SPORTS_MENU,
@@ -28,7 +33,7 @@ import {
   VIEW_AUCTION_RESULTS, CREATE_EDIT_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration } from "../../../types/api";
+import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration, AuctionEvent } from "../../../types/api";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -76,6 +81,7 @@ export function SportsAuction() {
   // Kept for backward compat with any code that still references isAuctionAdmin
   const isAuctionAdmin = canEditAuctionConfig || canEditLiveAuction;
   const { eventId } = useParams();
+  const routerNavigate = useRouterNavigate();
 
   // Navigation State
   type TabType = 'overview' | 'config' | 'live' | 'teams' | 'players' | 'registrations' | 'results' | 'badminton' | 'football' | 'volleyball' | string;
@@ -113,7 +119,7 @@ export function SportsAuction() {
   // Live Auction State
   const [players, setPlayers] = useState<AuctionPlayer[]>([]);
   const [teams, setTeams] = useState<AuctionTeam[]>([]);
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // Live Auction — dynamic state
   const [livePlayer, setLivePlayer] = useState<PlayerWithBidResponse | null>(null);
@@ -136,6 +142,11 @@ export function SportsAuction() {
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+
+  // Bid Timer State
+  const [bidTimeLeft, setBidTimeLeft] = useState<number | null>(null);
+  const bidTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
@@ -281,6 +292,95 @@ export function SportsAuction() {
     }
   }, [selectedEventId]);
 
+  // ─── WebSocket: subscribe to live auction events ───────────────────────
+  useEffect(() => {
+    if (!selectedConfigId || (auctionStatus !== 'LIVE' && auctionStatus !== 'ACTIVE')) return;
+
+    const unsub = stompClient.subscribe(`/topic/auction/${selectedConfigId}`, (data: unknown) => {
+      const event = data as AuctionEvent;
+      switch (event.type) {
+        case 'BID_PLACED': {
+          const bid = event.payload;
+          setBiddingTeamId(bid.teamId);
+          setLiveBidHistory(prev => [
+            { team: bid.teamName, amount: bid.bidAmount, time: new Date(bid.bidAt || event.timestamp).toLocaleTimeString() },
+            ...prev
+          ]);
+          auctionService.getCurrentPlayer(selectedConfigId).then(p => setLivePlayer(p)).catch(() => {});
+          resetBidTimer();
+          break;
+        }
+        case 'PLAYER_PICKED': {
+          const player = event.payload as PlayerWithBidResponse;
+          setLivePlayer(player);
+          setLiveBidHistory([{ team: "Base Price", amount: player.basePrice, time: new Date(event.timestamp).toLocaleTimeString() }]);
+          setBiddingTeamId(null);
+          startBidTimer();
+          toast.info(`🏏 ${player.playerName} is up for auction!`);
+          break;
+        }
+        case 'PLAYER_SOLD': {
+          const sold = event.payload;
+          toast.success(`🎉 ${sold.playerName} SOLD to ${sold.teamName} for ₹${sold.soldPrice?.toLocaleString('en-IN')}!`);
+          setTeams(prev => prev.map(t =>
+            t.id === sold.teamId
+              ? { ...t, spent: t.spent + sold.soldPrice, remainingBudget: t.budget - (t.spent + sold.soldPrice), players: [...(t.players || []), { name: sold.playerName, soldPrice: sold.soldPrice, category: '' }] }
+              : t
+          ));
+          stopBidTimer();
+          auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
+          break;
+        }
+        case 'PLAYER_PASSED': {
+          toast.info(`${event.payload.playerName} passed`);
+          stopBidTimer();
+          auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
+          break;
+        }
+        case 'STATUS_CHANGED': {
+          const { newStatus } = event.payload;
+          setAuctionStatus(newStatus);
+          if (newStatus === 'COMPLETED') { stopBidTimer(); toast.success('🏆 Auction completed!'); }
+          break;
+        }
+      }
+    });
+
+    const unsubConnect = stompClient.onConnect(() => setWsConnected(true));
+    const unsubDisconnect = stompClient.onDisconnect(() => setWsConnected(false));
+    setWsConnected(stompClient.connected);
+
+    return () => { unsub(); unsubConnect(); unsubDisconnect(); };
+  }, [selectedConfigId, auctionStatus]);
+
+  // ─── Bid Timer ─────────────────────────────────────────────────────────
+  const startBidTimer = useCallback(() => {
+    if (!bidTimerSeconds || bidTimerSeconds <= 0) return;
+    stopBidTimer();
+    setBidTimeLeft(bidTimerSeconds);
+    bidTimerRef.current = setInterval(() => {
+      setBidTimeLeft(prev => {
+        if (prev === null || prev <= 1) {
+          if (bidTimerRef.current) clearInterval(bidTimerRef.current);
+          bidTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [bidTimerSeconds]);
+
+  const resetBidTimer = useCallback(() => {
+    startBidTimer();
+  }, [startBidTimer]);
+
+  const stopBidTimer = useCallback(() => {
+    if (bidTimerRef.current) { clearInterval(bidTimerRef.current); bidTimerRef.current = null; }
+    setBidTimeLeft(null);
+  }, []);
+
+  useEffect(() => { return () => stopBidTimer(); }, [stopBidTimer]);
+
   // ─── Handlers ─────────────────────────────────────────────────────────
   const nav = (tab: string) => setActiveTab(tab);
   const configId = selectedConfigId ?? 0;
@@ -293,7 +393,7 @@ export function SportsAuction() {
 
   const handleSaveConfig = async () => {
     const payload = {
-      sportId: sport === 'cricket' ? 1 : sport === 'badminton' ? 2 : 3,
+      sportId: selectedEventId ? (communityEvents.find(e => e.id === selectedEventId)?.sport?.id ?? 1) : 1,
       eventId: selectedEventId || undefined,
       seasonName,
       auctionFormat,
@@ -405,6 +505,7 @@ export function SportsAuction() {
         { team: "Base Price", amount: player.basePrice, time: new Date().toLocaleTimeString() }
       ]);
       setBiddingTeamId(null);
+      startBidTimer();
       toast.success(`🏏 ${player.playerName} is up for auction!`);
     } catch (err: any) {
       const msg = err?.message || "";
@@ -440,10 +541,57 @@ export function SportsAuction() {
       // Refresh live player data from backend to get the updated nextBid
       const updated = await auctionService.getCurrentPlayer(configId);
       setLivePlayer(updated);
+      resetBidTimer();
       toast.success(`${team.name} bids ₹${bidAmount.toLocaleString('en-IN')}!`);
     } catch (err: any) {
       toast.error(err?.message || 'Bid failed');
     }
+  };
+
+  const handleExportTeams = () => {
+    if (teams.length === 0) { toast.error('No teams to export'); return; }
+    const headers = ['#', 'Team Name', 'Owner', 'Budget', 'Spent', 'Remaining', 'Players'];
+    const rows = teams.map((t, i) => [
+      i + 1, t.teamName || t.name || '', t.ownerName || t.ownerUser?.fullName || (t.ownerUser as any)?.name || '',
+      t.totalBudget ?? t.budget ?? 0, t.spent ?? 0, t.remainingBudget ?? ((t.budget ?? 0) - (t.spent ?? 0)),
+      (t as any).playerCount ?? t.players?.length ?? ''
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `teams-${seasonName.replace(/\s+/g, '-')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Teams CSV downloaded');
+  };
+
+  const handleExportResults = () => {
+    if (teams.length === 0) { toast.error('No results to export'); return; }
+    const headers = ['Team', 'Player', 'Role', 'Sold Price', 'Category'];
+    const rows: string[][] = [];
+    teams.forEach(team => {
+      const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
+      if (teamPlayers.length === 0) {
+        rows.push([team.teamName || team.name || '', '(no players)', '', '', '']);
+      } else {
+        teamPlayers.forEach(p => {
+          rows.push([
+            team.teamName || team.name || '',
+            (p as any).playerName || p.name || '',
+            (p as any).playerRole || p.role || '',
+            String(p.soldPrice || 0),
+            p.category || ''
+          ]);
+        });
+      }
+    });
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `auction-results-${seasonName.replace(/\s+/g, '-')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Auction results CSV downloaded');
   };
 
   const handleSoldPlayer = async () => {
@@ -543,6 +691,17 @@ export function SportsAuction() {
     ? auctionEvents.map(ev => ({ id: ev.id, name: ev.name }))
     : eventMap.filter(em => availableConfigs.some(c => c.eventId === em.id));
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+        <div style={{ textAlign: 'center', color: '#6b7094' }}>
+          <div className="spinner" style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          Loading Auction Hub...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="auction-hub-wrapper">
       <aside className="sidebar">
@@ -573,6 +732,12 @@ export function SportsAuction() {
           {canViewPlayerPool      && <NavItem id="players"       label="Player Pool" icon={Search} />}
           {canViewRegistrations   && <NavItem id="registrations" label="Registrations" icon={FileText} />}
           {canViewResults         && <NavItem id="results"       label="Auction Results" icon={Trophy} />}
+        </div>
+        <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginTop: 8 }}>
+          <div className="nav-label">Quick Links</div>
+          <button className="nav-item" onClick={() => routerNavigate('/sports/schedule')} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>
+            <CalendarDays size={16} /> Schedule <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+          </button>
         </div>
       </aside>
 
@@ -687,7 +852,7 @@ export function SportsAuction() {
         {activeTab === 'config' && (
           <div className="page active">
             <div className="page-hdr">
-              <div><div className="page-title">Auction Configuration</div><div className="page-sub">Cricket · Season 2025 · Dynamically configurable rules</div></div>
+              <div><div className="page-title">Auction Configuration</div><div className="page-sub">{sport.charAt(0).toUpperCase() + sport.slice(1)} · {seasonName} · Dynamically configurable rules</div></div>
               <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center sm:mr-3">
                   <span className="text-xs sm:text-[13px] text-[var(--muted)]">Select Event:</span>
@@ -829,7 +994,7 @@ export function SportsAuction() {
                       />
                     </div>
 
-                    {userSearchQuery.length >= 0 && document.activeElement === document.getElementById('committee-search') && (
+                    {userSearchQuery.length >= 2 && document.activeElement === document.getElementById('committee-search') && (
                       <div className="search-results-dropdown absolute top-full left-0 right-0 bg-[#1a1d21] border border-[#444] rounded-lg z-[100] max-h-[250px] overflow-y-auto mt-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.6)]">
                         {communityUsers
                           .filter(u =>
@@ -901,6 +1066,11 @@ export function SportsAuction() {
               </div>
               <div className="flex flex-wrap gap-2 items-center">
                 {auctionStatus === 'LIVE' && <span className="tag tag-live">● Auction Live</span>}
+                {(auctionStatus === 'LIVE' || auctionStatus === 'ACTIVE') && (
+                  <span className={`tag ${wsConnected ? 'tag-green' : 'tag-amber'}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+                    {wsConnected ? '⚡ Real-time' : '📡 Polling'}
+                  </span>
+                )}
                 {(auctionStatus === 'PAUSED' || auctionStatus === 'ACTIVE') && <span className="tag tag-blue">⏸ Paused</span>}
                 {auctionStatus === 'COMPLETED' && <span className="tag tag-green">🏆 Completed</span>}
                 {canEditLiveAuction && auctionStatus !== 'LIVE' && auctionStatus !== 'COMPLETED' && (<button className="btn btn-gold btn-sm" onClick={() => handleStatusChange('LIVE')}>▶ Start</button>)}
@@ -1002,10 +1172,14 @@ export function SportsAuction() {
                         try { stats = livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { }
                         return (
                           <div className="stats-row">
-                            <div className="pstat"><div className="pstat-val">{stats.matches || livePlayer.age || '-'}</div><div className="pstat-lbl">{stats.matches ? 'Matches' : 'Age'}</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.runs || '-'}</div><div className="pstat-lbl">Runs</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.wickets || '-'}</div><div className="pstat-lbl">Wickets</div></div>
-                            <div className="pstat"><div className="pstat-val">{stats.strikeRate || '-'}</div><div className="pstat-lbl">SR</div></div>
+                            <div className="pstat"><div className="pstat-val">{livePlayer.age || '-'}</div><div className="pstat-lbl">Age</div></div>
+                            {Object.keys(stats).length > 0 ? (
+                              Object.entries(stats).slice(0, 3).map(([key, val]) => (
+                                <div className="pstat" key={key}><div className="pstat-val">{String(val) || '-'}</div><div className="pstat-lbl">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</div></div>
+                              ))
+                            ) : (
+                              <div className="pstat"><div className="pstat-val">{livePlayer.playerRole || '-'}</div><div className="pstat-lbl">Role</div></div>
+                            )}
                           </div>
                         );
                       })()}
@@ -1014,6 +1188,15 @@ export function SportsAuction() {
                         <div className="bid-amount">₹{livePlayer.currentBid.toLocaleString('en-IN')}</div>
                         <div className="bid-team">{livePlayer.currentBidTeamName || 'No bids yet — click a team to bid'}</div>
                       </div>
+                      {bidTimeLeft !== null && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, margin: '12px 0', padding: '8px 16px', borderRadius: 8, background: bidTimeLeft <= 5 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)' }}>
+                          <Timer size={16} style={{ color: bidTimeLeft <= 5 ? '#ef4444' : 'var(--gold)' }} />
+                          <span style={{ fontSize: 24, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: bidTimeLeft <= 5 ? '#ef4444' : bidTimeLeft <= 10 ? '#f59e0b' : 'var(--gold)' }}>
+                            {bidTimeLeft}s
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>remaining</span>
+                        </div>
+                      )}
                       <div className="text-[10px] sm:text-[11px] text-[var(--muted)] mb-2.5">Next bid: ₹{livePlayer.nextBid.toLocaleString('en-IN')} (increment: ₹{livePlayer.nextIncrement.toLocaleString('en-IN')})</div>
                       {isAuctionAdmin ? (
                         <div className="bid-actions">
@@ -1044,7 +1227,7 @@ export function SportsAuction() {
                 </div>
                 <div>
                   <div className="mb-3"><div className="sec-title !m-0">🏆 Click a team to place their bid</div></div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="team-bid-grid grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {teams.map(team => {
                       const remaining = team.budget - team.spent;
                       const canBid = remaining >= livePlayer.nextBid;
@@ -1085,14 +1268,14 @@ export function SportsAuction() {
                     {showAddTeam ? '✕ Cancel' : '+ Create Team'}
                   </button>
                 )}
-                <button className="btn btn-outline min-h-[44px] sm:min-h-0" onClick={() => toast.success('Team CSV export ready')}>Export ↗</button>
+                <button className="btn btn-outline min-h-[44px] sm:min-h-0" onClick={handleExportTeams}>Export CSV ↗</button>
               </div>
             </div>
 
             {showAddTeam && (
               <div className="card card-gold mb-4 sm:mb-6 p-4 sm:p-6">
                 <div className="sec-title">Create New Team</div>
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 sm:gap-4 items-end">
+                <div className="create-team-grid grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 sm:gap-4 items-end">
                   <div className="fgrp">
                     <div className="flabel">Team Name</div>
                     <input className="finput" value={newTeamName} onChange={e => setNewTeamName(e.target.value)} placeholder="e.g. Royal Challengers" />
@@ -1175,6 +1358,80 @@ export function SportsAuction() {
                   </div>
                 )}
               </div>
+              {/* Captain Nominations Panel */}
+              <div>
+                <div className="card" style={{ marginBottom: 16 }}>
+                  <div className="sec-title">👑 Captain Nominations</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+                    Players can nominate themselves as team captains. Admins confirm nominations below.
+                  </div>
+                  {teams.filter(t => t.captainNomination && !t.captainConfirmation).length > 0 ? (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {teams.filter(t => t.captainNomination && !t.captainConfirmation).map(team => (
+                        <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName || 'Unknown'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Nominated for: {team.name}</div>
+                          </div>
+                          {canEditTeams && (
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button className="btn btn-gold btn-sm" style={{ padding: '4px 12px', fontSize: 11 }} onClick={async () => {
+                                try {
+                                  await auctionService.confirmCaptainByTeamId(team.id, true);
+                                  toast.success(`Captain confirmed for ${team.name}`);
+                                  setTeams(prev => prev.map(t => t.id === team.id ? { ...t, captainConfirmation: true } : t));
+                                } catch (err: any) { toast.error(err?.message || 'Failed to confirm'); }
+                              }}>✓ Confirm</button>
+                              <button className="btn btn-outline btn-sm" style={{ padding: '4px 12px', fontSize: 11, color: 'var(--red)', borderColor: 'var(--red)' }} onClick={async () => {
+                                try {
+                                  await auctionService.confirmCaptainByTeamId(team.id, false);
+                                  toast.info(`Captain nomination rejected for ${team.name}`);
+                                  setTeams(prev => prev.map(t => t.id === team.id ? { ...t, captainNomination: false } : t));
+                                } catch (err: any) { toast.error(err?.message || 'Failed to reject'); }
+                              }}>✕ Reject</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '24px 16px', color: 'var(--muted)', fontSize: 12 }}>
+                      {teams.filter(t => t.captainConfirmation).length > 0 ? (
+                        <>
+                          <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+                          All captain nominations have been confirmed.
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+                          No pending captain nominations.
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Confirmed Captains */}
+                {teams.filter(t => t.captainConfirmation).length > 0 && (
+                  <div className="card">
+                    <div className="sec-title" style={{ color: 'var(--green)' }}>✅ Confirmed Captains</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {teams.filter(t => t.captainConfirmation).map(team => (
+                        <div key={team.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(34,197,94,0.05)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.12)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: team.color || 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                            {(team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName || 'C').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName}</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)' }}>Captain — {team.name}</div>
+                          </div>
+                          <span className="tag tag-green" style={{ fontSize: 9 }}>Confirmed</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1185,6 +1442,24 @@ export function SportsAuction() {
               <div><div className="page-title">Player Pool</div><div className="page-sub">{eventRegistrations.length} Confirmed Participants from Registration</div></div>
               <div className="flex gap-3 items-center">
                  <span className="text-xs sm:text-[13px] text-[var(--muted)]">Pool for Event ID: {selectedEventId || 'None'}</span>
+                 {canEditPlayerPool && selectedConfigId && (
+                   <label className="btn btn-outline btn-sm cursor-pointer flex items-center gap-1.5">
+                     <Download size={14} style={{ transform: 'rotate(180deg)' }} /> Upload CSV
+                     <input type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={async (e) => {
+                       const file = e.target.files?.[0];
+                       if (!file || !selectedConfigId) return;
+                       try {
+                         await auctionService.uploadPlayers(selectedConfigId, file);
+                         toast.success(`Players uploaded from ${file.name}`);
+                         const refreshed = await auctionService.getPlayers(selectedConfigId);
+                         if (refreshed.length) setPlayers(refreshed);
+                       } catch (err: any) {
+                         toast.error(err?.message || 'Upload failed');
+                       }
+                       e.target.value = '';
+                     }} />
+                   </label>
+                 )}
               </div>
             </div>
 
@@ -1208,6 +1483,32 @@ export function SportsAuction() {
                     <div className="text-[11px] mt-1">Players appear here after their registration is confirmed.</div>
                   </div>
                 )}
+              </div>
+              <div>
+                <div className="sec-title" style={{ marginBottom: 12 }}>Auction Player Pool ({players.length})</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                  {players.length > 0 ? players.map(p => (
+                    <div key={p.id} className="player-row" style={{ background: p.status === 'SOLD' ? 'rgba(34,197,94,0.05)' : 'rgba(99,102,241,0.03)', border: `1px solid ${p.status === 'SOLD' ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
+                      <div className="player-avatar av-bat" style={{ background: p.status === 'SOLD' ? 'var(--green)' : 'var(--gold)', color: '#000' }}>
+                        {(p.name || '').charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
+                        {p.soldPrice ? <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>₹{p.soldPrice.toLocaleString('en-IN')}</div> : null}
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
+                      <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+                      <div>No players in auction pool yet.</div>
+                      <div style={{ fontSize: 11, marginTop: 4 }}>Upload a CSV or add players manually.</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1275,7 +1576,7 @@ export function SportsAuction() {
                             </span>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
-                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-[11px] min-h-[36px] sm:min-h-0">
+                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-[11px] min-h-[36px] sm:min-h-0" onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${reg.flatNumber || 'External'} · Status: ${reg.status}`)}>
                               View Profile
                             </button>
                           </td>
@@ -1338,6 +1639,11 @@ export function SportsAuction() {
                     )}
                   </select>
                 </div>
+                {auctionStatus === 'COMPLETED' && (
+                  <button className="btn btn-outline btn-sm" onClick={handleExportResults} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Download size={14} /> Export CSV
+                  </button>
+                )}
               </div>
             </div>
             {auctionStatus !== 'COMPLETED' ? (
@@ -1354,11 +1660,54 @@ export function SportsAuction() {
               </div>
             ) : (
               <>
-                <div className="card card-gold">
-                  <div className="sec-title">Dispute Committee</div>
-                  <div className="text-xs text-[var(--muted)]">Any dispute to be referred to: <strong className="text-[var(--gold)]">{committee.join(", ")}</strong>. Decision is final.</div>
+                {/* Summary Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--gold)' }}>{teams.length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Teams</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--green)' }}>{players.filter(p => p.status === 'SOLD').length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Players Sold</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--red)' }}>{players.filter(p => p.status === 'PASSED').length}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Unsold</div>
+                  </div>
+                  <div className="card" style={{ textAlign: 'center', padding: '16px 12px' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--gold)' }}>₹{teams.reduce((s, t) => s + (t.spent || 0), 0).toLocaleString('en-IN')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Total Spent</div>
+                  </div>
                 </div>
-                <div className="grid2 mt-3 sm:mt-4">
+
+                <div className="card card-gold" style={{ padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div className="sec-title" style={{ margin: 0 }}>⚖️ Dispute Resolution Committee</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+                        Any disputes arising from the auction process should be referred to the committee below. All decisions are final and binding.
+                      </div>
+                    </div>
+                  </div>
+                  {committee.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+                      {committee.map((m: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', background: 'rgba(234,179,8,0.06)', borderRadius: 8, border: '1px solid rgba(234,179,8,0.12)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#000' }}>
+                            {(m.name || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{m.name}</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)' }}>{m.role || 'Committee Member'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--muted)', fontSize: 12 }}>No committee members assigned.</div>
+                  )}
+                </div>
+                <div className="grid2 results-grid mt-3 sm:mt-4">
                   {teams.map(team => {
                     const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
                     const budget = team.budget || 0;

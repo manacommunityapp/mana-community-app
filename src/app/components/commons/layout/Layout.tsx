@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -7,7 +7,7 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_NOTICES, VIEW_AMENITIES,
-  VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY,
+  VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY, VIEW_HOME_SERVICE,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -361,6 +361,7 @@ export function Layout() {
 
   const labelToModule: Record<string, string> = {
     "Community Feed": "COMMUNITY_FEED",
+    "Home Services": "HOME_SERVICES",
     "Sports": "SPORTS",
     "Marketplace": "MARKETPLACE",
     "Visitors": "VISITORS",
@@ -391,6 +392,7 @@ export function Layout() {
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },
+    { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
     { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
@@ -416,6 +418,7 @@ export function Layout() {
     if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
 
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
+    if (link.label === "Home Services") return true; // Community members can view home services
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
     if (link.label === "Visitors") return permissions.includes(VIEW_VISITORS);

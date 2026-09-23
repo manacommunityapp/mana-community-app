@@ -48,6 +48,7 @@ export type PlayoffScheduleInput = {
   participants?: Array<{ id: string; name: string; flatNumber: string | null; rating?: number | null }>;
   /** Selected court IDs for parallel allocation (Rule 4). */
   courtIds?: number[];
+  matchDays?: number[];
 };
 
 export function parseBreakMinutes(breakTime: string): number {
