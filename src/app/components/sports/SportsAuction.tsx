@@ -552,9 +552,9 @@ export function SportsAuction() {
     if (teams.length === 0) { toast.error('No teams to export'); return; }
     const headers = ['#', 'Team Name', 'Owner', 'Budget', 'Spent', 'Remaining', 'Players'];
     const rows = teams.map((t, i) => [
-      i + 1, t.teamName || t.name || '', t.ownerName || t.ownerUser?.name || '',
-      t.totalBudget ?? t.budget ?? 0, t.spent ?? 0, t.remainingBudget ?? (t.budget - t.spent) ?? 0,
-      t.playerCount ?? ''
+      i + 1, t.teamName || t.name || '', t.ownerName || t.ownerUser?.fullName || (t.ownerUser as any)?.name || '',
+      t.totalBudget ?? t.budget ?? 0, t.spent ?? 0, t.remainingBudget ?? ((t.budget ?? 0) - (t.spent ?? 0)),
+      (t as any).playerCount ?? t.players?.length ?? ''
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1370,7 +1370,7 @@ export function SportsAuction() {
                       {teams.filter(t => t.captainNomination && !t.captainConfirmation).map(team => (
                         <div key={team.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(245,158,11,0.06)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.15)' }}>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{team.captainUser?.name || team.ownerName || 'Unknown'}</div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName || 'Unknown'}</div>
                             <div style={{ fontSize: 11, color: 'var(--muted)' }}>Nominated for: {team.name}</div>
                           </div>
                           {canEditTeams && (
@@ -1419,10 +1419,10 @@ export function SportsAuction() {
                       {teams.filter(t => t.captainConfirmation).map(team => (
                         <div key={team.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(34,197,94,0.05)', borderRadius: 8, border: '1px solid rgba(34,197,94,0.12)' }}>
                           <div style={{ width: 28, height: 28, borderRadius: '50%', background: team.color || 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
-                            {(team.captainUser?.name || team.ownerName || 'C').charAt(0).toUpperCase()}
+                            {(team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName || 'C').charAt(0).toUpperCase()}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{team.captainUser?.name || team.ownerName}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{team.captainUser?.fullName || (team.captainUser as any)?.name || team.ownerName}</div>
                             <div style={{ fontSize: 10, color: 'var(--muted)' }}>Captain — {team.name}</div>
                           </div>
                           <span className="tag tag-green" style={{ fontSize: 9 }}>Confirmed</span>

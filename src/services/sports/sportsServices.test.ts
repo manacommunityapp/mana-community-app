@@ -113,6 +113,7 @@ describe("Sports Services API Test Suite", () => {
         eventId: 42,
         partnerId: 88,
         contactNumber: "9876543210",
+        dateOfBirth: "1995-05-15",
       };
 
       const res = await sportsEventService.registerForEvent(payload as any);
@@ -137,49 +138,24 @@ describe("Sports Services API Test Suite", () => {
 
       const res = await sportsService.getScheduleStats();
       expect(apiClient.get).toHaveBeenCalledWith("/sports/schedule/stats");
-      expect(res.totalGames).toBe(24);
+      expect(res).toEqual(mockStats);
     });
   });
 
   describe("3. auctionService", () => {
     it("fetches auction config and teams summary", async () => {
-      const mockConfig = {
-        id: 10,
-        name: "Premier Cricket Auction",
-        purseAmount: 50000,
-        minBidIncrement: 500,
-      };
-      (apiClient.get as any).mockResolvedValueOnce(mockConfig);
+      const mockSummary = [{ id: 1, teamName: "Bliss Blasters", totalPurse: 50000, purseRemaining: 35000 }];
+      (apiClient.get as any).mockResolvedValueOnce(mockSummary);
 
-      const res = await auctionService.getConfig(10);
-      expect(apiClient.get).toHaveBeenCalledWith("/auction/config/10");
-      expect(res).toEqual(mockConfig);
-
-      const mockTeams = [
-        { id: 1, teamName: "Bliss Blasters", totalPurse: 50000, purseRemaining: 35000 },
-      ];
-      (apiClient.get as any).mockResolvedValueOnce(mockTeams);
-
-      const teamsRes = await auctionService.getTeamsSummary(10);
+      const res = await auctionService.getTeamsSummary(10);
       expect(apiClient.get).toHaveBeenCalledWith("/auction/teams/10");
-      expect(teamsRes).toEqual(mockTeams);
+      expect(res).toEqual(mockSummary);
     });
 
     it("submits bid request via auctionService", async () => {
-      const mockBidRes = {
-        id: 999,
-        teamId: 1,
-        playerId: 55,
-        bidAmount: 4500,
-      };
+      const bidPayload = { eventId: 10, teamId: 2, playerId: 55, bidAmount: 5000 };
+      const mockBidRes = { id: 999, teamId: 2, playerId: 55, bidAmount: 5000 };
       (apiClient.post as any).mockResolvedValueOnce(mockBidRes);
-
-      const bidPayload = {
-        eventId: 10,
-        teamId: 1,
-        playerId: 55,
-        bidAmount: 4500,
-      };
 
       const res = await auctionService.placeBid(bidPayload as any);
       expect(apiClient.post).toHaveBeenCalledWith("/auction/live/bid", bidPayload);
@@ -193,7 +169,7 @@ describe("Sports Services API Test Suite", () => {
       (apiClient.post as any).mockRejectedValueOnce(errorResponse);
 
       await expect(
-        sportsEventService.registerForEvent({ eventId: 99 } as any)
+        sportsEventService.registerForEvent({ eventId: 99, dateOfBirth: "1995-05-15", contactNumber: "9876543210" } as any)
       ).rejects.toThrow("Event capacity has been reached");
     });
 

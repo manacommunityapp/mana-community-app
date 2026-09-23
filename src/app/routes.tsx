@@ -171,6 +171,17 @@ import { ServiceBrowse } from "./components/services/ServiceBrowse";
 import { MyRequests } from "./components/services/MyRequests";
 import { ProviderDashboard } from "./components/services/ProviderDashboard";
 import { AdminServices } from "./components/services/AdminServices";
+// Home Services (Community Help) pages
+import { HomeServicesLayout } from "./components/home-services/HomeServicesLayout";
+import { HomeServicesDashboard } from "./components/home-services/HomeServicesDashboard";
+import { FindHomeHelp } from "./components/home-services/FindHomeHelp";
+import { MyHomeHelp } from "./components/home-services/MyHomeHelp";
+import { MyHomeServiceBookings } from "./components/home-services/MyHomeServiceBookings";
+import { HomeServiceRequirements } from "./components/home-services/HomeServiceRequirements";
+import { WorkerPackagesView } from "./components/home-services/WorkerPackagesView";
+import { HomeServiceReviews } from "./components/home-services/HomeServiceReviews";
+import { HomeServiceReports } from "./components/home-services/HomeServiceReports";
+import { HomeServiceAdminDashboard } from "./components/home-services/HomeServiceAdminDashboard";
 
 // Permission constants
 import {
@@ -194,6 +205,7 @@ import {
   VIEW_FOOD_CATERING, VIEW_FOOD_PROFILE, VIEW_FOOD_ANALYTICS,
   VIEW_FOOD_HOME_CHEFS,
   VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
+  VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -383,6 +395,21 @@ export const router = createBrowserRouter([
             path: "admin",
             element: <PermissionGuard permission={MANAGE_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><AdminServices /></PermissionGuard>,
           },
+        ],
+      },
+      {
+        path: "home-services",
+        Component: HomeServicesLayout,
+        children: [
+          { index: true, Component: HomeServicesDashboard },
+          { path: "find-help", Component: FindHomeHelp },
+          { path: "my-help", Component: MyHomeHelp },
+          { path: "bookings", Component: MyHomeServiceBookings },
+          { path: "requirements", Component: HomeServiceRequirements },
+          { path: "packages", Component: WorkerPackagesView },
+          { path: "reviews", Component: HomeServiceReviews },
+          { path: "reports", Component: HomeServiceReports },
+          { path: "admin", Component: HomeServiceAdminDashboard },
         ],
       },
       {

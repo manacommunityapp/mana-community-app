@@ -6,6 +6,7 @@ export const MOCK_TOKEN = "mock-jwt-token-sports-e2e";
 
 export const MOCK_USER = {
   id: 1,
+  userId: "1",
   name: "Admin User",
   email: "admin@manacommunity.test",
   phone: "9999999999",
@@ -358,6 +359,299 @@ export async function mockProfileRoutes(page: Page): Promise<void> {
 }
 
 // ── Mock analytics routes ─────────────────────────────────────────────────────
+
+// ── Mock sports registration API routes ──────────────────────────────────────
+
+export const MOCK_REGISTRATION_EVENT = {
+  id: 100,
+  uuid: "evt-uuid-cricket-open",
+  name: "Cricket Open · Men's Singles",
+  sport: "Cricket",
+  sportName: "Cricket",
+  status: "REGISTRATION_OPEN",
+  registrationStatus: "REGISTRATION_OPEN",
+  eventDateStart: "2026-10-01",
+  eventDateEnd: "2026-10-10",
+  venue: "Main Ground",
+  venueName: "Main Ground",
+  maxParticipants: 32,
+  registeredCount: 12,
+  categoryName: "Open",
+  teamSport: false,
+  auctionStatus: null,
+  tournament: {
+    id: 1,
+    name: "Cricket Premier League 2026",
+    registrationStatus: "REGISTRATION_OPEN",
+  },
+};
+
+export const MOCK_DOUBLES_EVENT = {
+  id: 101,
+  uuid: "evt-uuid-badminton-doubles",
+  name: "Badminton · Mixed Doubles",
+  sport: "Badminton",
+  sportName: "Badminton",
+  status: "REGISTRATION_OPEN",
+  registrationStatus: "REGISTRATION_OPEN",
+  eventDateStart: "2026-10-05",
+  eventDateEnd: "2026-10-12",
+  venue: "Indoor Hall",
+  venueName: "Indoor Hall",
+  maxParticipants: 16,
+  registeredCount: 4,
+  categoryName: "Open",
+  teamSport: false,
+  auctionStatus: null,
+  tournament: {
+    id: 2,
+    name: "Badminton Cup 2026",
+    registrationStatus: "REGISTRATION_OPEN",
+  },
+};
+
+export const MOCK_TEAM_EVENT = {
+  id: 102,
+  uuid: "evt-uuid-football-team",
+  name: "Football · Team Event",
+  sport: "Football",
+  sportName: "Football",
+  status: "REGISTRATION_OPEN",
+  registrationStatus: "REGISTRATION_OPEN",
+  eventDateStart: "2026-10-10",
+  eventDateEnd: "2026-10-20",
+  venue: "Main Ground",
+  venueName: "Main Ground",
+  maxParticipants: 64,
+  registeredCount: 20,
+  categoryName: "Open",
+  teamSport: true,
+  auctionStatus: null,
+  tournament: {
+    id: 3,
+    name: "Football League 2026",
+    registrationStatus: "REGISTRATION_OPEN",
+  },
+};
+
+export const MOCK_CATEGORIES = [
+  { id: 1, name: "Open", ageMin: 18, ageMax: 60, gender: null },
+  { id: 2, name: "Youth (U-17)", ageMin: 14, ageMax: 17, gender: null },
+  { id: 3, name: "Senior (50+)", ageMin: 50, ageMax: 99, gender: null },
+  { id: 4, name: "Women", ageMin: 18, ageMax: 60, gender: "FEMALE" },
+];
+
+export const MOCK_FAMILY_MEMBERS = [
+  { id: 1, name: "Priya Sharma", relation: "Spouse", gender: "Female", age: 30, dob: "1995-08-20", dateOfBirth: "1995-08-20", emergencyContact: true, isDevotee: true },
+  { id: 2, name: "Rohan Sharma", relation: "Child", gender: "Male", age: 8, dob: "2018-03-10", dateOfBirth: "2018-03-10", emergencyContact: false, isDevotee: false },
+];
+
+export const MOCK_BADMINTON_EVENT = {
+  id: 200,
+  uuid: "evt-uuid-badminton-men",
+  name: "Badminton Men (19+)",
+  sport: "Badminton",
+  sportName: "Badminton",
+  status: "REGISTRATION_OPEN",
+  registrationStatus: "REGISTRATION_OPEN",
+  eventDateStart: "2026-10-05",
+  eventDateEnd: "2026-10-12",
+  venue: "Indoor Hall",
+  venueName: "Indoor Hall",
+  maxParticipants: 24,
+  registeredCount: 8,
+  categoryName: "Open",
+  teamSport: false,
+  auctionStatus: null,
+  tournament: {
+    id: 2,
+    name: "Badminton Cup 2026",
+    registrationStatus: "REGISTRATION_OPEN",
+  },
+};
+
+export const MOCK_OPEN_TOURNAMENTS = [
+  {
+    id: 1,
+    name: "Cricket Premier League 2026",
+    bannerImage: null,
+    eventDateStart: "2026-10-01",
+    eventDateEnd: "2026-10-15",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Le Community",
+    events: [
+      {
+        id: 100,
+        uuid: "evt-uuid-cricket-open",
+        name: "Cricket Open · Men's Singles",
+        sportName: "Cricket",
+        categoryName: "Open",
+        eventDateStart: "2026-10-01",
+        eventDateEnd: "2026-10-10",
+        venueName: "Main Ground",
+        maxParticipants: 32,
+        registeredCount: 12,
+        registrationStatus: "REGISTRATION_OPEN",
+        auctionStatus: null,
+        teamSport: false,
+        myRegistrationId: null,
+        myRegistrationStatus: null,
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: "Badminton Cup 2026",
+    bannerImage: null,
+    eventDateStart: "2026-10-05",
+    eventDateEnd: "2026-10-12",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Le Community",
+    events: [
+      {
+        id: 200,
+        uuid: "evt-uuid-badminton-men",
+        name: "Badminton Men (19+)",
+        sportName: "Badminton",
+        categoryName: "Open",
+        eventDateStart: "2026-10-05",
+        eventDateEnd: "2026-10-12",
+        venueName: "Indoor Hall",
+        maxParticipants: 24,
+        registeredCount: 8,
+        registrationStatus: "REGISTRATION_OPEN",
+        auctionStatus: null,
+        teamSport: false,
+        myRegistrationId: null,
+        myRegistrationStatus: null,
+      },
+    ],
+  },
+];
+
+export async function mockSportsRegistrationRoutes(page: Page): Promise<void> {
+  // Override menu permissions to include "View Sports Menu" needed by the PermissionGuard
+  await page.route("**/api/menu-permissions**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_USER_WITH_PROFILE.permissions });
+  });
+
+  // Override /users/me so AuthContext boot picks up the extended permissions & profile
+  await page.route("**/api/users/me", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_USER_WITH_PROFILE });
+  });
+
+  await page.route("**/api/sports/events/*/registration-details", async (route: Route) => {
+    const url = route.request().url();
+    const isDoubles = url.includes("badminton-doubles");
+    const isTeam = url.includes("football-team");
+    const event = isDoubles ? MOCK_DOUBLES_EVENT : isTeam ? MOCK_TEAM_EVENT : MOCK_REGISTRATION_EVENT;
+    await route.fulfill({
+      status: 200,
+      json: {
+        event,
+        categories: MOCK_CATEGORIES,
+        siblingCategories: [],
+      },
+    });
+  });
+
+  await page.route("**/api/sports/dashboard/open-tournaments", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_OPEN_TOURNAMENTS });
+  });
+
+  await page.route("**/api/sports/dashboard/closed-tournaments", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/my-registrations", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/upcoming", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/notifications", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/register", async (route: Route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        json: {
+          id: 999,
+          eventId: body.eventId,
+          status: "PENDING",
+          playerName: MOCK_PROFILE.fullName,
+          captainNomination: body.captainNomination ?? false,
+          captainConfirmation: false,
+          matchType: body.matchType || "SINGLES",
+          ...body,
+        },
+      });
+    } else {
+      await route.fulfill({ status: 200, json: { success: true } });
+    }
+  });
+
+  await page.route("**/api/sports/registrations/mine", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/family**", async (route: Route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, json: MOCK_FAMILY_MEMBERS });
+    } else {
+      await route.fulfill({ status: 200, json: { success: true } });
+    }
+  });
+
+  await page.route("**/api/sports/community-members**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        { id: 10, name: "Rahul Verma", flatNo: "B-201", gender: "Male", dob: "1992-06-15" },
+        { id: 11, name: "Sneha Patel", flatNo: "C-102", gender: "Female", dob: "1994-11-22" },
+      ],
+    });
+  });
+}
+
+// ── Mock user with complete profile (gender + DOB for registration) ──────────
+
+export const MOCK_USER_WITH_PROFILE = {
+  ...MOCK_USER,
+  fullName: "Arjun Sharma",
+  name: "Arjun Sharma",
+  gender: "MALE",
+  dateOfBirth: "1990-04-15",
+  dob: "1990-04-15",
+  flatNo: "101",
+  block: "A",
+  flat_no: "101",
+  unitNumber: "101",
+  permissions: [
+    ...MOCK_USER.permissions,
+    "View Sports Menu",
+    "Create/Edit Sports Menu",
+    "Delete Sports Menu",
+  ],
+};
+
+export async function injectAuthWithProfile(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ token, user }) => {
+      localStorage.setItem("mana_token", token);
+      localStorage.setItem("mana_refresh_token", token + "_refresh");
+      localStorage.setItem("mana_user", JSON.stringify(user));
+    },
+    { token: MOCK_TOKEN, user: MOCK_USER_WITH_PROFILE }
+  );
+}
 
 export async function mockAnalyticsRoutes(page: Page): Promise<void> {
   await page.route("**/api/analytics/**", async (route: Route) => {
