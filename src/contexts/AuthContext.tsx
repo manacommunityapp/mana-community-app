@@ -107,6 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await authService.login(data);
+    if (!response || !response.token) {
+      throw new Error("Invalid response from authentication server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
     setTokens(response.token, response.refreshToken);
 
@@ -163,6 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authService.register(data);
+    if (!response || !response.token) {
+      throw new Error("Invalid response from registration server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
     setTokens(response.token, response.refreshToken);
 

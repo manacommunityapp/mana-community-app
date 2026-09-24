@@ -34,7 +34,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { communityService } from "../../../../services/community/communityService";
 import { authService } from "../../../../services/common/authService";
@@ -967,8 +967,6 @@ export function Signup() {
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
-      <Toaster position="top-center" richColors />
-
       {/* Left Brand Showcase Panel (Desktop Browser) */}
       <div className="lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0">
         <BrandPanel />

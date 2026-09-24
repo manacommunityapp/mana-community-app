@@ -16,7 +16,7 @@ import {
   ShieldAlert,
   Zap,
 } from "lucide-react";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { authService } from "../../../../services/common/authService";
 import { otpService } from "../../../../services/common/otpService";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
@@ -200,8 +200,6 @@ export function ForgotPassword() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       {/* Ambient background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-
-      <Toaster position="top-center" richColors />
 
       <div className="w-full max-w-md relative z-10">
         {/* Top Header & Branding */}
