@@ -52,7 +52,6 @@ import { useSearchParams, useNavigate } from "react-router";
 import { cn } from "../ui/utils";
 import { feedService, type CreatePostRequest, type UpdatePostRequest, type FeedSummaryCountsResponse } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
-import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
@@ -723,25 +722,6 @@ export function Feed() {
 
   const [summaryCounts, setSummaryCounts] = useState<FeedSummaryCountsResponse | null>(null);
   const [leaderMap, setLeaderMap] = useState<Record<number, string>>({});
-
-  useEffect(() => {
-    if (!user?.communityId) return;
-    communityDirectoryService.getDirectory()
-      .then((leaders) => {
-        if (Array.isArray(leaders)) {
-          const map: Record<number, string> = {};
-          leaders.forEach((l) => {
-            if (l.userId && l.designation) {
-              map[l.userId] = l.designation;
-            }
-          });
-          setLeaderMap(map);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load directory for feed roles:", err);
-      });
-  }, [user?.communityId]);
 
   const infiniteScrollSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -1889,7 +1869,7 @@ export function Feed() {
           <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
           <MyGroupsCard badgeCount={summaryCounts?.myGroupsCount} />
           <LeaderboardCard badgeCount={summaryCounts?.topContributorsCount} getInitials={getInitials} />
-          <CommunityDirectory badgeCount={summaryCounts?.directoryCount} />
+          <CommunityDirectory badgeCount={summaryCounts?.directoryCount} onDirectoryLoaded={setLeaderMap} />
           <EngagementScoreCard summaryScore={summaryCounts ? { totalPoints: summaryCounts.myEngagementPoints, level: summaryCounts.myEngagementLevel } : undefined} />
           <SidebarAnnouncements posts={posts} />
           <QuickLinksCard />

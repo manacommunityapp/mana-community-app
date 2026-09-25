@@ -225,6 +225,7 @@ import {
   VIEW_FOOD_HOME_CHEFS,
   VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
   VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
+  VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -709,12 +710,12 @@ export const router = createBrowserRouter([
       { path: "cpos/documents", element: <CPOSDocumentVault /> },
       { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
       // ── New Community Ecosystem Modules ─────────────────────────
-      { path: "emergency", element: <EmergencyCenter /> },
-      { path: "group-buying", element: <GroupBuyingCatalog /> },
-      { path: "trips", element: <ExploreTrips /> },
+      { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
+      { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
+      { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
-      { path: "discover", element: <PersonalizedFeed /> },
-      { path: "finance/maintenance", element: <MaintenanceDues /> },
+      { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
+      { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
     ],
   },
