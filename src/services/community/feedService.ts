@@ -52,12 +52,27 @@ export const feedService = {
     return apiClient.get<PaginatedResponse<PostResponse>>(url);
   },
 
+  /** Lightweight feed stream with slim public author fields, avoiding heavy entity queries */
+  async getFeedStream(page = 0, size = 10, type?: string): Promise<PaginatedResponse<PostResponse>> {
+    let url = `/posts/stream?page=${page}&size=${size}`;
+    if (type) url += `&type=${type}`;
+    return apiClient.get<PaginatedResponse<PostResponse>>(url);
+  },
+
   async getGroupFeed(groupId: number, page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
     return apiClient.get<PaginatedResponse<PostResponse>>(`/posts/group/${groupId}?page=${page}&size=${size}`);
   },
 
+  async getGroupFeedStream(groupId: number, page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
+    return apiClient.get<PaginatedResponse<PostResponse>>(`/posts/group/${groupId}/stream?page=${page}&size=${size}`);
+  },
+
   async searchPosts(query: string, page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
     return apiClient.get<PaginatedResponse<PostResponse>>(`/posts/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`);
+  },
+
+  async searchFeedStream(query: string, page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
+    return apiClient.get<PaginatedResponse<PostResponse>>(`/posts/search-stream?q=${encodeURIComponent(query)}&page=${page}&size=${size}`);
   },
 
   async getBookmarks(page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
