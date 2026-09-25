@@ -97,6 +97,16 @@ import { SportsRegister }     from "./components/sports/SportsRegister";
 import { SportsMultiRegister }from "./components/sports/SportsMultiRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
+import {
+  MatchDetailPage,
+  MatchLivePage,
+  MatchScorePage,
+  GenericMatchLivePage,
+  GenericMatchScorePage,
+  LeaderboardPage,
+  RaceResultsPage,
+  RaceScorePage,
+} from "./components/sports/pages/SportsRoutePages";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
@@ -182,6 +192,15 @@ import { WorkerPackagesView } from "./components/home-services/WorkerPackagesVie
 import { HomeServiceReviews } from "./components/home-services/HomeServiceReviews";
 import { HomeServiceReports } from "./components/home-services/HomeServiceReports";
 import { HomeServiceAdminDashboard } from "./components/home-services/HomeServiceAdminDashboard";
+
+// Community Ecosystem New Modules
+import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
+import { GroupBuyingCatalog } from "./components/group-buying/GroupBuyingCatalog";
+import { ExploreTrips } from "./components/trips/ExploreTrips";
+import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashboard";
+import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
+import { MaintenanceDues } from "./components/finance/MaintenanceDues";
+import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
 
 // Permission constants
 import {
@@ -293,6 +312,42 @@ export const router = createBrowserRouter([
           {
             path: "analytics",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard>
+          },
+          {
+            path: "match/:matchId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><MatchDetailPage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/live",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><MatchLivePage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><MatchScorePage /></PermissionGuard>,
+          },
+          {
+            path: "match/generic/:matchId/live",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><GenericMatchLivePage /></PermissionGuard>,
+          },
+          {
+            path: "match/generic/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><GenericMatchScorePage /></PermissionGuard>,
+          },
+          {
+            path: "leaderboard",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><LeaderboardPage /></PermissionGuard>,
+          },
+          {
+            path: "leaderboard/:tournamentId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><LeaderboardPage /></PermissionGuard>,
+          },
+          {
+            path: "race/:matchId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><RaceResultsPage /></PermissionGuard>,
+          },
+          {
+            path: "race/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><RaceScorePage /></PermissionGuard>,
           },
         ],
       },
@@ -653,6 +708,14 @@ export const router = createBrowserRouter([
       { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
       { path: "cpos/documents", element: <CPOSDocumentVault /> },
       { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
+      // ── New Community Ecosystem Modules ─────────────────────────
+      { path: "emergency", element: <EmergencyCenter /> },
+      { path: "group-buying", element: <GroupBuyingCatalog /> },
+      { path: "trips", element: <ExploreTrips /> },
+      { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
+      { path: "discover", element: <PersonalizedFeed /> },
+      { path: "finance/maintenance", element: <MaintenanceDues /> },
+      { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
     ],
   },
 ]);

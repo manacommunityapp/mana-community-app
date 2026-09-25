@@ -743,12 +743,14 @@ export function Feed() {
       });
   }, [user?.communityId]);
 
+  const infiniteScrollSentinelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     async function loadInitialFeed() {
       if (!user?.communityId) { setLoading(false); return; }
       try {
         setLoading(true);
-        const res = await feedService.getFeed(0, 10, activeFilter !== "ALL" ? activeFilter : undefined);
+        const res = await feedService.getFeedStream(0, 10, activeFilter !== "ALL" ? activeFilter : undefined);
         setPosts(res.content);
         setHasMore(!res.last);
         setPage(0);
@@ -772,7 +774,7 @@ export function Feed() {
 
     let active = true;
     setLoadingCreatedEvents(true);
-    eventService.getAllEvents()
+    eventService.getUpcomingEventsForDashboard()
       .then((events) => {
         if (!active) return;
         const sorted = [...events].sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
@@ -798,12 +800,12 @@ export function Feed() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLoadMore = async () => {
+  const handleLoadMore = useCallback(async () => {
     if (!hasMore || loading) return;
     try {
       setLoading(true);
       const nextPage = page + 1;
-      const res = await feedService.getFeed(nextPage, 10, activeFilter !== "ALL" ? activeFilter : undefined);
+      const res = await feedService.getFeedStream(nextPage, 10, activeFilter !== "ALL" ? activeFilter : undefined);
       setPosts((prev) => [...prev, ...res.content]);
       setHasMore(!res.last);
       setPage(nextPage);
@@ -812,13 +814,32 @@ export function Feed() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasMore, loading, page, activeFilter]);
+
+  // Automatic infinite scroll observer
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const sentinel = infiniteScrollSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, handleLoadMore]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
       setLoading(true);
-      const res = await feedService.searchPosts(searchQuery, 0, 20);
+      const res = await feedService.searchFeedStream(searchQuery, 0, 20);
       setPosts(res.content);
       setHasMore(!res.last);
       setPage(0);
@@ -1855,6 +1876,9 @@ export function Feed() {
                 </button>
               </div>
             )}
+
+            {/* Infinite Scroll trigger sentinel */}
+            {hasMore && <div ref={infiniteScrollSentinelRef} className="h-6 w-full pointer-events-none" />}
           </div>
         </div>
 

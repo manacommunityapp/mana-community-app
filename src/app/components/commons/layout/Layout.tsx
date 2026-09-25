@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -392,14 +392,19 @@ export function Layout() {
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },
+    { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS" },
     { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
+    { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
+    { to: "/trips", icon: Compass, label: "Community Trips" },
+    { to: "/discover", icon: Sparkles, label: "Community Discover" },
     { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
     { to: "/visitors", icon: Shield, label: "Visitors" },
     { to: "/notices", icon: Megaphone, label: "Notices" },
     { to: "/bookings", icon: Building2, label: "Bookings" },
-    { to: "/helpdesk", icon: Headphones, label: "Helpdesk" },
+    { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
+    { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
     { to: "/polls", icon: Vote, label: "Polls" },
     { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
     { to: "/events", icon: CalendarDays, label: "Events" },
