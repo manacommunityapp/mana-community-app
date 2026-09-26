@@ -113,6 +113,29 @@ export const VIEW_JOBS  = "View Jobs";
 export const CREATE_JOB = "Create Job";
 export const APPLY_JOB  = "Apply Job";
 
+// ──── EMERGENCY & SOS ────
+export const VIEW_EMERGENCY   = "View Emergency";
+export const TRIGGER_SOS      = "Trigger SOS";
+export const MANAGE_EMERGENCY = "Manage Emergency";
+
+// ──── GROUP BUYING ────
+export const VIEW_GROUP_BUYING   = "View Group Buying";
+export const JOIN_GROUP_DEAL     = "Join Group Deal";
+export const MANAGE_GROUP_BUYING = "Manage Group Buying";
+
+// ──── COMMUNITY TRIPS ────
+export const VIEW_TRIPS  = "View Trips";
+export const BOOK_TRIP   = "Book Trip";
+export const CREATE_TRIP = "Create Trip";
+
+// ──── COMMUNITY DISCOVER / GRAPH ────
+export const VIEW_DISCOVER = "View Discover";
+
+// ──── MAINTENANCE BILLING & DUES ────
+export const VIEW_MAINTENANCE_DUES = "View Maintenance Dues";
+export const PAY_MAINTENANCE_DUES  = "Pay Maintenance Dues";
+export const MANAGE_BILLING        = "Manage Billing";
+
 // ──── EVENTS — GRANULAR PERMISSIONS ────
 // Core
 export const VIEW_EVENTS    = "View Events";
@@ -590,6 +613,31 @@ export const PERMISSION_CATEGORIES = [
       CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_REQUESTS,
       VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS,
     ],
+  },
+  {
+    id: "emergency",
+    title: "EMERGENCY & SOS Permission",
+    permissions: [VIEW_EMERGENCY, TRIGGER_SOS, MANAGE_EMERGENCY],
+  },
+  {
+    id: "group-buying",
+    title: "GROUP BUYING Permission",
+    permissions: [VIEW_GROUP_BUYING, JOIN_GROUP_DEAL, MANAGE_GROUP_BUYING],
+  },
+  {
+    id: "trips",
+    title: "COMMUNITY TRIPS Permission",
+    permissions: [VIEW_TRIPS, BOOK_TRIP, CREATE_TRIP],
+  },
+  {
+    id: "discover",
+    title: "COMMUNITY DISCOVER & GRAPH Permission",
+    permissions: [VIEW_DISCOVER],
+  },
+  {
+    id: "maintenance",
+    title: "MAINTENANCE BILLING & DUES Permission",
+    permissions: [VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, MANAGE_BILLING],
   },
 ] as const;
 

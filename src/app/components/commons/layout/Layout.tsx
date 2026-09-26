@@ -8,6 +8,7 @@ import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_NOTICES, VIEW_AMENITIES,
   VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY, VIEW_HOME_SERVICE,
+  VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -361,13 +362,19 @@ export function Layout() {
 
   const labelToModule: Record<string, string> = {
     "Community Feed": "COMMUNITY_FEED",
+    "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
+    "Group Buying": "GROUP_BUYING",
+    "Community Trips": "TRIPS",
+    "Community Discover": "COMMUNITY_GRAPH",
     "Sports": "SPORTS",
     "Marketplace": "MARKETPLACE",
     "Visitors": "VISITORS",
     "Notices": "NOTICES",
     "Bookings": "BOOKINGS",
     "Helpdesk": "HELPDESK",
+    "Smart Helpdesk": "HELPDESK",
+    "Maintenance Dues": "FINANCE_MGMT",
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
@@ -416,6 +423,7 @@ export function Layout() {
   ];
 
   const filteredNavLinks = navLinks.filter((link) => {
+    // Only super admin has access to everything without permissions
     if (isSuperAdmin) return true;
     if (loadingPermissions) return true;
 
@@ -423,18 +431,23 @@ export function Layout() {
     if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
 
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
-    if (link.label === "Home Services") return true; // Community members can view home services
+    if (link.label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
+    if (link.label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
+    if (link.label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
+    if (link.label === "Community Trips") return permissions.includes(VIEW_TRIPS);
+    if (link.label === "Community Discover") return permissions.includes(VIEW_DISCOVER);
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
     if (link.label === "Visitors") return permissions.includes(VIEW_VISITORS);
     if (link.label === "Notices") return permissions.includes(VIEW_NOTICES);
     if (link.label === "Bookings") return permissions.includes(VIEW_AMENITIES);
-    if (link.label === "Helpdesk") return permissions.includes(VIEW_TICKETS);
+    if (link.label === "Helpdesk" || link.label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
+    if (link.label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
-    return true;
+    return false;
   });
 
   const filteredAdminLinks = adminLinks.filter((link) => {

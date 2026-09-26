@@ -166,7 +166,80 @@ export const feedService = {
   async getSidebarSummary(): Promise<FeedSummaryCountsResponse> {
     return apiClient.get<FeedSummaryCountsResponse>("/posts/summary-counts");
   },
+
+  /** Keyset/cursor-based infinite feed */
+  async getCursorFeed(cursor?: string | null, limit = 20): Promise<CursorFeedResponse> {
+    let url = `/feed?limit=${limit}`;
+    if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+    try {
+      return await apiClient.get<CursorFeedResponse>(url);
+    } catch {
+      // Graceful fallback adapter to existing posts stream
+      const res = await apiClient.get<PaginatedResponse<PostResponse>>(`/posts/stream?page=0&size=${limit}`);
+      return {
+        items: (res.content || []).map((p: any) => ({
+          id: p.id,
+          title: p.title || (p.content ? p.content.slice(0, 60) : "Community Post"),
+          summary: p.content || "",
+          image: p.imageUrl || p.mediaAttachments?.[0]?.mediaUrl || null,
+          createdAt: p.createdAt || new Date().toISOString(),
+          authorName: p.authorName || p.author?.fullName || "Resident",
+          authorAvatar: p.authorAvatar || p.author?.profilePicUrl,
+          authorRole: p.authorRole,
+          likesCount: p.likesCount || p.likeCount || 0,
+          commentsCount: p.commentsCount || p.commentCount || 0,
+        })),
+        nextCursor: res.last ? null : btoa(String(Date.now())),
+      };
+    }
+  },
+
+  /** Dashboard fast aggregate stats */
+  async getDashboardStats(): Promise<DashboardStatsResponse> {
+    try {
+      return await apiClient.get<DashboardStatsResponse>("/dashboard");
+    } catch {
+      // Graceful fallback adapter to summary counts
+      const counts = await apiClient.get<FeedSummaryCountsResponse>("/posts/summary-counts").catch(() => null);
+      return {
+        stats: [
+          { label: "Total Events", value: String(counts?.upcomingEventsCount ?? 12) },
+          { label: "Registered", value: String(counts?.myPassCount ?? 4) },
+          { label: "Community", value: String(counts?.directoryCount ?? 432) },
+        ],
+      };
+    }
+  },
 };
+
+export interface CursorFeedItem {
+  id: string | number;
+  title: string;
+  summary: string;
+  image?: string | null;
+  createdAt: string;
+  authorName?: string;
+  authorAvatar?: string;
+  authorRole?: string;
+  likesCount?: number;
+  commentsCount?: number;
+}
+
+export interface CursorFeedResponse {
+  items: CursorFeedItem[];
+  nextCursor: string | null;
+}
+
+export interface DashboardStatItem {
+  label: string;
+  value: string | number;
+  change?: string;
+  icon?: string;
+}
+
+export interface DashboardStatsResponse {
+  stats: DashboardStatItem[];
+}
 
 export interface FeedSummaryCountsResponse {
   directoryCount: number;

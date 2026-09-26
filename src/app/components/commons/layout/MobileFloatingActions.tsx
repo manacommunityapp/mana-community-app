@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { CommunityDirectory } from "../../community/CommunityDirectory";
 import { NotificationBell } from "./NotificationBell";
+import { feedService, type FeedSummaryCountsResponse } from "../../../../services/community/feedService";
 
 interface SearchResultItem {
   label: string;
@@ -46,6 +47,17 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
   const navigate = useNavigate();
   const [activeModal, setActiveModal] = useState<"directory" | "search" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [directoryCount, setDirectoryCount] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    feedService.getSidebarSummary()
+      .then((res: FeedSummaryCountsResponse) => {
+        if (res && typeof res.directoryCount === "number") {
+          setDirectoryCount(res.directoryCount);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleOpenSearch = () => {
@@ -245,14 +257,19 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
           </button>
         )}
 
-        {/* Button 1: Community Directory (Icon Only) */}
+        {/* Button 1: Community Directory (Icon with Count Badge) */}
         <button
           type="button"
           onClick={() => setActiveModal("directory")}
           title="Community Directory"
-          className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 border border-emerald-100/80 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          className="relative p-1.5 sm:p-2 rounded-lg bg-emerald-50 border border-emerald-100/80 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
         >
           <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+          {directoryCount !== undefined && directoryCount > 0 && (
+            <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-[15px] bg-emerald-600 text-white text-[9px] font-extrabold rounded-full hidden sm:flex items-center justify-center shadow-xs">
+              {directoryCount > 99 ? "99+" : directoryCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -372,7 +389,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
 
           {/* Directory Content */}
           <div className="flex-1 overflow-y-auto p-1.5 sm:p-2.5 bg-slate-50/60">
-            <CommunityDirectory isModal={true} />
+            <CommunityDirectory isModal={true} badgeCount={directoryCount} />
           </div>
         </div>
       )}

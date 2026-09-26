@@ -171,6 +171,7 @@ export interface HomeServiceBooking {
   flatId: string;
   tower: string;
   flatNumber: string;
+  vehicleNumber?: string;
   residentUserId: string;
   residentName?: string;
   residentPhoneMasked?: string;
@@ -198,18 +199,31 @@ export interface HomeServiceBooking {
   updatedAt: string;
 }
 
-export type AttendanceStatus = 'COMPLETED' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'CANCELLED';
+export type AttendanceStatus = 'SCHEDULED' | 'GATE_CHECKED_IN' | 'IN_PROGRESS' | 'COMPLETED' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'CANCELLED';
 
 export interface ServiceAttendance {
   id: string;
   bookingId: string;
   scheduleId?: string;
   workerId: string;
+  workerName?: string;
   residentUserId: string;
+  residentName?: string;
   serviceDate: string; // 'YYYY-MM-DD'
   status: AttendanceStatus;
   checkInTime?: string;
   checkOutTime?: string;
+  inTime?: string;
+  outTime?: string;
+  verificationPin?: string;
+  vehicleNumber?: string;
+  tower?: string;
+  flatNumber?: string;
+  serviceCategoryName?: string;
+  beforePhotoUrl?: string;
+  afterPhotoUrl?: string;
+  rating?: number;
+  reviewText?: string;
   markedBy: 'RESIDENT' | 'WORKER' | 'SYSTEM' | 'ADMIN';
   notes?: string;
   createdAt: string;
