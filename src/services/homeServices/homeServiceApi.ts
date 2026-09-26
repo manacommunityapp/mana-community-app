@@ -15,6 +15,8 @@ import type {
   AttendanceStatus,
   PricingModel,
   DayOfWeek,
+  ServiceCategoryCode,
+  BookingFrequency,
 } from "../../types/homeServices";
 
 const STORAGE_KEY_CATEGORIES = "mana_hs_categories_v1";
@@ -827,6 +829,171 @@ export const homeServiceApi = {
 
     setStorage(STORAGE_KEY_ATTENDANCE, all);
     return record;
+  },
+
+  // ── Hyperlocal Job Execution Engine (GoPrezz & Resident OTP Workflow) ──
+  async getTodayJobsForResident(residentUserId = "user-current"): Promise<ServiceAttendance[]> {
+    const all = getStorage(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const today = new Date().toISOString().split("T")[0];
+    let todayJobs = all.filter((a) => a.residentUserId === residentUserId && a.serviceDate === today);
+
+    // If no jobs generated for today yet, auto-populate today's active tickets with 4-digit PINs
+    if (todayJobs.length === 0) {
+      const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+      const activeBookings = bookings.filter((b) => b.residentUserId === residentUserId && (b.status === "CONFIRMED" || b.status === "SCHEDULED"));
+      const generated: ServiceAttendance[] = activeBookings.map((b, idx) => ({
+        id: `job-today-${b.id}-${idx}`,
+        bookingId: b.id,
+        workerId: b.workerId,
+        workerName: b.workerName,
+        residentUserId: b.residentUserId,
+        residentName: b.residentName || "Resident",
+        serviceDate: today,
+        status: idx === 0 ? "IN_PROGRESS" : "SCHEDULED",
+        inTime: idx === 0 ? "06:30" : undefined,
+        verificationPin: String(4820 + idx),
+        vehicleNumber: b.vehicleNumber || (b.categoryCode === "VEHICLE_CLEANING" ? "TS09AB1234" : undefined),
+        tower: b.tower,
+        flatNumber: b.flatNumber,
+        serviceCategoryName: b.categoryName,
+        markedBy: "SYSTEM",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }));
+      if (generated.length > 0) {
+        const merged = [...all, ...generated];
+        setStorage(STORAGE_KEY_ATTENDANCE, merged);
+        return generated;
+      }
+    }
+    return todayJobs;
+  },
+
+  async getTodayJobsForWorker(workerId: string): Promise<ServiceAttendance[]> {
+    const all = getStorage(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const today = new Date().toISOString().split("T")[0];
+    return all.filter((a) => a.workerId === workerId && a.serviceDate === today);
+  },
+
+  async startJobWithOtp(jobId: string, otp: string): Promise<ServiceAttendance> {
+    const all = getStorage<ServiceAttendance[]>(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const job = all.find((a) => a.id === jobId);
+    if (!job) throw new Error("Service job record not found");
+
+    if (job.verificationPin && job.verificationPin.trim() !== otp.trim()) {
+      throw new Error("Invalid 4-Digit Service PIN. Please request the correct PIN from resident.");
+    }
+
+    job.status = "IN_PROGRESS";
+    job.inTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    job.updatedAt = new Date().toISOString();
+    setStorage(STORAGE_KEY_ATTENDANCE, all);
+    return job;
+  },
+
+  async completeJobWithProof(
+    jobId: string,
+    proof: { beforePhotoUrl?: string; afterPhotoUrl?: string; notes?: string }
+  ): Promise<ServiceAttendance> {
+    const all = getStorage<ServiceAttendance[]>(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const job = all.find((a) => a.id === jobId);
+    if (!job) throw new Error("Service job record not found");
+
+    job.status = "COMPLETED";
+    job.outTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (proof.beforePhotoUrl) job.beforePhotoUrl = proof.beforePhotoUrl;
+    if (proof.afterPhotoUrl) job.afterPhotoUrl = proof.afterPhotoUrl;
+    if (proof.notes) job.notes = proof.notes;
+    job.updatedAt = new Date().toISOString();
+    setStorage(STORAGE_KEY_ATTENDANCE, all);
+    return job;
+  },
+
+  async rateJob(jobId: string, rating: number, reviewText?: string): Promise<ServiceAttendance> {
+    const all = getStorage<ServiceAttendance[]>(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const job = all.find((a) => a.id === jobId);
+    if (!job) throw new Error("Service job record not found");
+
+    job.rating = rating;
+    job.reviewText = reviewText;
+    job.updatedAt = new Date().toISOString();
+    setStorage(STORAGE_KEY_ATTENDANCE, all);
+    return job;
+  },
+
+  async subscribeToRecurringPackage(params: {
+    workerId: string;
+    workerName: string;
+    categoryId: string;
+    categoryName: string;
+    categoryCode?: ServiceCategoryCode;
+    packageName: string;
+    frequency: BookingFrequency;
+    vehicleNumber?: string;
+    tower: string;
+    flatNumber: string;
+    price: number;
+    startTime: string;
+    endTime?: string;
+    notes?: string;
+  }): Promise<HomeServiceBooking> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+    const newBooking: HomeServiceBooking = {
+      id: `booking-sub-${Date.now()}`,
+      communityId: "comm-mana-1",
+      flatId: `flat-${params.tower}-${params.flatNumber}`,
+      tower: params.tower,
+      flatNumber: params.flatNumber,
+      vehicleNumber: params.vehicleNumber,
+      residentUserId: "user-current",
+      residentName: "Sandesh Patil",
+      workerId: params.workerId,
+      workerName: params.workerName,
+      categoryId: params.categoryId,
+      categoryName: params.categoryName,
+      categoryCode: params.categoryCode,
+      packageName: params.packageName,
+      bookingType: params.frequency,
+      pricingModel: "FIXED_MONTHLY",
+      startDate: new Date().toISOString().split("T")[0],
+      recurringDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
+      startTime: params.startTime,
+      endTime: params.endTime || "08:00",
+      price: params.price,
+      status: "CONFIRMED",
+      notes: params.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    bookings.push(newBooking);
+    setStorage(STORAGE_KEY_BOOKINGS, bookings);
+
+    // Also auto-generate today's service ticket if start date is today
+    const today = new Date().toISOString().split("T")[0];
+    const attendances = getStorage(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE);
+    const newTicket: ServiceAttendance = {
+      id: `job-today-${newBooking.id}`,
+      bookingId: newBooking.id,
+      workerId: newBooking.workerId,
+      workerName: newBooking.workerName,
+      residentUserId: newBooking.residentUserId,
+      residentName: newBooking.residentName,
+      serviceDate: today,
+      status: "SCHEDULED",
+      verificationPin: String(Math.floor(1000 + Math.random() * 9000)),
+      vehicleNumber: newBooking.vehicleNumber,
+      tower: newBooking.tower,
+      flatNumber: newBooking.flatNumber,
+      serviceCategoryName: newBooking.categoryName,
+      markedBy: "SYSTEM",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    attendances.push(newTicket);
+    setStorage(STORAGE_KEY_ATTENDANCE, attendances);
+
+    return newBooking;
   },
 
   calculateMonthlyBill(booking: HomeServiceBooking, attendanceRecords: ServiceAttendance[]): {

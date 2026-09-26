@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { CommunityDirectory } from "../../community/CommunityDirectory";
 import { NotificationBell } from "./NotificationBell";
-import { feedService } from "../../../services/community/feedService";
+import { feedService, type FeedSummaryCountsResponse } from "../../../../services/community/feedService";
 
 interface SearchResultItem {
   label: string;
@@ -51,7 +51,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
 
   useEffect(() => {
     feedService.getSidebarSummary()
-      .then((res) => {
+      .then((res: FeedSummaryCountsResponse) => {
         if (res && typeof res.directoryCount === "number") {
           setDirectoryCount(res.directoryCount);
         }
@@ -266,7 +266,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
         >
           <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
           {directoryCount !== undefined && directoryCount > 0 && (
-            <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-[15px] bg-emerald-600 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+            <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-[15px] bg-emerald-600 text-white text-[9px] font-extrabold rounded-full hidden sm:flex items-center justify-center shadow-xs">
               {directoryCount > 99 ? "99+" : directoryCount}
             </span>
           )}
