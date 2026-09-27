@@ -78,6 +78,7 @@ import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
 import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
+import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 
 type FeedMediaAttachment = {
   mediaUrl: string;
@@ -1921,10 +1922,11 @@ export function Feed() {
                         <div className="relative">
                           <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                             {liker.profilePicUrl ? (
-                              <img src={liker.profilePicUrl} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              getInitials(liker.fullName)
-                            )}
+                              <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                            ) : null}
+                            <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                              {getInitials(liker.fullName)}
+                            </span>
                           </div>
                           <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white shadow-xs border border-slate-200 flex items-center justify-center ${rc.color}`}>
                             <IconComp className="w-2.5 h-2.5" />
@@ -2000,10 +2002,11 @@ export function Feed() {
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
                         {liker.profilePicUrl ? (
-                          <img src={liker.profilePicUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          getInitials(liker.fullName)
-                        )}
+                          <img src={resolveImageUrl(liker.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                        ) : null}
+                        <span className={liker.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                          {getInitials(liker.fullName)}
+                        </span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-bold text-slate-900 truncate">{liker.fullName}</h4>
@@ -2159,12 +2162,14 @@ const PostCard = React.memo(function PostCard({
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
           {(() => {
-            const authorPic =
+            const authorPic = resolveImageUrl(
               post.authorProfilePic ||
               (post as any).profilePicUrl ||
               (post as any).authorProfilePicUrl ||
               (post as any).profilePic ||
-              (typeof post.authorAvatar === "string" && (post.authorAvatar.startsWith("http") || post.authorAvatar.startsWith("data:") || post.authorAvatar.startsWith("/")) ? post.authorAvatar : undefined);
+              (typeof post.authorAvatar === "string" && (post.authorAvatar.startsWith("http") || post.authorAvatar.startsWith("data:") || post.authorAvatar.startsWith("/")) ? post.authorAvatar : undefined)
+            );
+            const initials = (typeof post.authorAvatar === "string" && !post.authorAvatar.startsWith("http") && post.authorAvatar) || getInitials(post.authorName);
 
             return (
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden shrink-0">
@@ -2175,11 +2180,14 @@ const PostCard = React.memo(function PostCard({
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = "flex";
                     }}
                   />
-                ) : (
-                  (typeof post.authorAvatar === "string" && !post.authorAvatar.startsWith("http") && post.authorAvatar) || getInitials(post.authorName)
-                )}
+                ) : null}
+                <span className={authorPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                  {initials}
+                </span>
               </div>
             );
           })()}
@@ -2762,12 +2770,14 @@ function CommentItem({
     <div className={`${depth > 0 ? "ml-6 border-l-2 border-slate-100 pl-3" : ""}`}>
       <div className="flex gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-100/50">
         {(() => {
-          const commentPic =
+          const commentPic = resolveImageUrl(
             comment.authorProfilePic ||
             (comment as any).profilePicUrl ||
             (comment as any).authorProfilePicUrl ||
             (comment as any).profilePic ||
-            (typeof comment.authorAvatar === "string" && (comment.authorAvatar.startsWith("http") || comment.authorAvatar.startsWith("data:") || comment.authorAvatar.startsWith("/")) ? comment.authorAvatar : undefined);
+            (typeof comment.authorAvatar === "string" && (comment.authorAvatar.startsWith("http") || comment.authorAvatar.startsWith("data:") || comment.authorAvatar.startsWith("/")) ? comment.authorAvatar : undefined)
+          );
+          const initials = (typeof comment.authorAvatar === "string" && !comment.authorAvatar.startsWith("http") && comment.authorAvatar) || getInitials(comment.authorName);
 
           return (
             <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-[10px] text-slate-600 font-bold overflow-hidden">
@@ -2778,11 +2788,14 @@ function CommentItem({
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     (e.currentTarget as HTMLElement).style.display = "none";
+                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                    if (fallback) fallback.style.display = "flex";
                   }}
                 />
-              ) : (
-                (typeof comment.authorAvatar === "string" && !comment.authorAvatar.startsWith("http") && comment.authorAvatar) || getInitials(comment.authorName)
-              )}
+              ) : null}
+              <span className={commentPic ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                {initials}
+              </span>
             </div>
           );
         })()}
@@ -3234,7 +3247,12 @@ function LeaderboardCard({ badgeCount, getInitials }: { badgeCount?: number; get
                 <div key={entry.userId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-amber-50/60 transition-all">
                   <span className="text-xs w-5 text-center">{medals[i] || `${i + 1}`}</span>
                   <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 overflow-hidden shrink-0">
-                    {entry.profilePicUrl ? <img src={entry.profilePicUrl} alt="" className="w-full h-full object-cover" /> : getInitials(entry.userName)}
+                    {entry.profilePicUrl ? (
+                      <img src={resolveImageUrl(entry.profilePicUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; const fb = e.currentTarget.nextElementSibling as HTMLElement; if (fb) fb.style.display = "flex"; }} />
+                    ) : null}
+                    <span className={entry.profilePicUrl ? "hidden" : "flex"} style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
+                      {getInitials(entry.userName)}
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-slate-800 truncate">{entry.userName}</div>
