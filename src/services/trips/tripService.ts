@@ -1,3 +1,5 @@
+import { apiClient } from "../common/apiClient";
+
 export type TripCategory = "TREKKING" | "PILGRIMAGE" | "OUTING" | "CAMPING" | "ADVENTURE" | "WELLNESS";
 export type TripStatus = "UPCOMING" | "ONGOING" | "COMPLETED" | "CANCELLED";
 export type BookingStatus = "CONFIRMED" | "WAITLISTED" | "CANCELLED" | "REFUNDED";
@@ -556,5 +558,85 @@ export const tripService = {
     trips[idx].reviews!.unshift(newReview);
     saveStoredTrips(trips);
     return newReview;
+  },
+
+  // --- Backend Microservice API Sync Methods ---
+
+  /** Fetch trips from backend Spring Boot travel microservice with fallback to cache */
+  async fetchTripsFromApi(): Promise<Trip[]> {
+    try {
+      const response = await apiClient.get<any>("/trips");
+      const list = Array.isArray(response) ? response : (response?.content || []);
+      if (list && list.length > 0) {
+        // Map backend response fields if needed
+        return list;
+      }
+    } catch (e) {
+      console.warn("Backend trips API unreachable, using local storage:", e);
+    }
+    return getStoredTrips();
+  },
+
+  /** Create trip on backend */
+  async createTripApi(
+    tripData: Omit<Trip, "id" | "bookedSeats" | "waitlistCount" | "status" | "reviews">,
+    hostUser: { id: string; fullName: string; flatNo?: string; phone?: string }
+  ): Promise<Trip> {
+    try {
+      const result = await apiClient.post<Trip>("/trips", { ...tripData, hostId: hostUser.id });
+      if (result && result.id) {
+        return result;
+      }
+    } catch (e) {
+      console.warn("Failed to create trip on backend, saving locally:", e);
+    }
+    return this.createTrip(tripData, hostUser);
+  },
+
+  /** Join/Book trip via backend */
+  async joinTripApi(
+    tripId: string,
+    bookingData: {
+      passengers: PassengerInfo[];
+      selectedRoomType?: string;
+      selectedPickupPoint?: string;
+      paymentMethod: "UPI" | "CARD" | "NETBANKING";
+    },
+    user: { id: string; fullName: string; flatNo?: string; phone?: string }
+  ): Promise<TripBooking> {
+    try {
+      const result = await apiClient.post<any>(`/trips/${tripId}/join`, { ...bookingData, userId: user.id });
+      if (result) {
+        return result;
+      }
+    } catch (e) {
+      console.warn("Failed to join trip on backend, saving locally:", e);
+    }
+    return this.bookTrip(tripId, bookingData, user);
+  },
+
+  /** Check in passenger via QR scanning endpoint */
+  async checkInPassengerApi(tripId: string, bookingId: string, scannedBy: string): Promise<any> {
+    try {
+      const result = await apiClient.post<any>(`/trips/${tripId}/checkin/scan`, {
+        bookingId,
+        scannedBy,
+      });
+      if (result) return result;
+    } catch (e) {
+      console.warn("Backend check-in scan failed, saving locally:", e);
+    }
+    return this.checkInPassenger(bookingId, scannedBy);
+  },
+
+  /** Submit review via backend API */
+  async submitReviewApi(tripId: string, review: Omit<TripReview, "id" | "createdAt">): Promise<TripReview> {
+    try {
+      const result = await apiClient.post<TripReview>(`/trips/${tripId}/reviews`, review);
+      if (result) return result;
+    } catch (e) {
+      console.warn("Backend review submission failed, saving locally:", e);
+    }
+    return this.submitTripReview(tripId, review);
   },
 };

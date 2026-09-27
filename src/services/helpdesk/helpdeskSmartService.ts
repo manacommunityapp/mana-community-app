@@ -1,3 +1,5 @@
+import { apiClient } from "../common/apiClient";
+
 export type TicketPriority = "EMERGENCY" | "HIGH" | "MEDIUM" | "LOW";
 export type TicketStatus = "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REOPENED";
 
@@ -265,5 +267,59 @@ export const helpdeskSmartService = {
     tickets[idx] = { ...tickets[idx], residentRating: rating, residentComment: comment };
     saveTickets(tickets);
     return true;
+  },
+
+  // ──── BACKEND HELPDESK MICROSERVICE API METHODS ────
+
+  /** Fetch tickets from backend Helpdesk service */
+  async fetchTicketsApi(): Promise<SmartTicket[]> {
+    try {
+      const response = await apiClient.get<any>("/helpdesk/tickets");
+      const list = Array.isArray(response) ? response : (response?.content || []);
+      if (list && list.length > 0) {
+        return list;
+      }
+    } catch (e) {
+      console.warn("Backend tickets API unreachable, using local storage:", e);
+    }
+    return loadTickets();
+  },
+
+  /** Create ticket on backend */
+  async createTicketApi(payload: any): Promise<SmartTicket> {
+    try {
+      const result = await apiClient.post<any>("/helpdesk/tickets", payload);
+      if (result && (result.id || result.ticketNumber)) {
+        return result;
+      }
+    } catch (e) {
+      console.warn("Backend create ticket failed, saving locally:", e);
+    }
+    return this.createTicket(payload);
+  },
+
+  /** Fetch SLA policies configured in backend */
+  async getSlaPoliciesApi(): Promise<any[]> {
+    try {
+      const result = await apiClient.get<any[]>("/helpdesk/sla-policies");
+      if (result && Array.isArray(result)) return result;
+    } catch (e) {
+      console.warn("Backend SLA policies API unreachable:", e);
+    }
+    return [];
+  },
+
+  /** Submit feedback / rating to backend */
+  async submitRatingApi(ticketId: string, rating: number, comment: string): Promise<boolean> {
+    try {
+      await apiClient.post<any>(`/helpdesk/tickets/${ticketId}/feedback`, {
+        rating,
+        comments: comment,
+      });
+      return true;
+    } catch (e) {
+      console.warn("Backend submit rating failed, saving locally:", e);
+    }
+    return this.submitRating(ticketId, rating, comment);
   },
 };

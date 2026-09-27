@@ -1,3 +1,4 @@
+import { apiClient } from '../common/apiClient';
 import type {
   VisitorPass,
   VisitorLog,
@@ -630,6 +631,77 @@ class SafetyService {
       matchedEntityType: 'UNKNOWN',
       message: 'Unrecognized RFID FastPass tag.',
     };
+  }
+
+  // ──── BACKEND MICROSERVICE API METHODS ────
+
+  /** Create Pre-Approved Visitor Pass on backend */
+  async createVisitorPassApi(passData: Partial<VisitorPass>): Promise<VisitorPass> {
+    try {
+      const res = await apiClient.post<any>('/v1/safety/visitors/pre-approved', passData);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('Backend create visitor pass failed, falling back to local store:', e);
+    }
+    return this.createVisitorPass(passData);
+  }
+
+  /** Register resident vehicle on backend */
+  async registerVehicleApi(vehicleData: Partial<Vehicle>): Promise<Vehicle> {
+    try {
+      const res = await apiClient.post<any>('/v1/safety/vehicles/register', vehicleData);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('Backend register vehicle failed, falling back to local store:', e);
+    }
+    return this.registerVehicle(vehicleData);
+  }
+
+  /** Register domestic staff on backend */
+  async registerStaffApi(staffData: Partial<DomesticStaff>): Promise<DomesticStaff> {
+    try {
+      const res = await apiClient.post<any>('/v1/safety/staff/register', staffData);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('Backend register staff failed, falling back to local store:', e);
+    }
+    return this.registerStaff(staffData);
+  }
+
+  /** Fetch active security watchlist from backend */
+  async getWatchlistApi(communityId = 1): Promise<any[]> {
+    try {
+      const res = await apiClient.get<any[]>('/v1/security/watchlist', {
+        headers: { 'X-Community-Id': communityId.toString() },
+      });
+      if (res && Array.isArray(res)) {
+        return res;
+      }
+    } catch (e) {
+      console.warn('Backend watchlist API failed:', e);
+    }
+    return [];
+  }
+
+  /** Fetch security rules from backend */
+  async getSecurityRulesApi(communityId = 1): Promise<any[]> {
+    try {
+      const res = await apiClient.get<any[]>('/v1/security/rules', {
+        headers: { 'X-Community-Id': communityId.toString() },
+      });
+      if (res && Array.isArray(res)) {
+        return res;
+      }
+    } catch (e) {
+      console.warn('Backend security rules API failed:', e);
+    }
+    return [];
   }
 }
 
