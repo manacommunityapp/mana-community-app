@@ -1,3 +1,5 @@
+import { apiClient } from "../common/apiClient";
+
 export type EmergencyCategory =
   | "MEDICAL" | "FIRE" | "LIFT" | "SECURITY" | "GAS_LEAK"
   | "FLOOD" | "POWER" | "CHILD_SAFETY" | "NATURAL_DISASTER" | "OTHER";
@@ -167,5 +169,46 @@ export const emergencyService = {
     };
     saveIncidents(incidents);
     return incidents[idx];
+  },
+
+  // --- Backend Safety & SOS API Integration ---
+
+  /** Fetch active incidents from Safety microservice */
+  async fetchIncidentsFromApi(): Promise<EmergencyIncident[]> {
+    try {
+      const response = await apiClient.get<any>("/v1/safety/incidents");
+      const list = Array.isArray(response) ? response : (response?.data || response?.content || []);
+      if (list && list.length > 0) {
+        return list;
+      }
+    } catch (e) {
+      console.warn("Backend emergency incidents API unreachable, using local storage:", e);
+    }
+    return loadIncidents();
+  },
+
+  /** Trigger Gate/Society SOS alert on backend */
+  async triggerSOSApi(payload: {
+    category: EmergencyCategory;
+    tower: string;
+    flatNumber: string;
+    description: string;
+    reportedBy: string;
+    reportedByPhone: string;
+  }): Promise<EmergencyIncident> {
+    try {
+      const result = await apiClient.post<any>("/v1/safety/sos/trigger", {
+        category: payload.category,
+        tower: payload.tower,
+        flatNumber: payload.flatNumber,
+        notes: payload.description,
+      });
+      if (result && result.data) {
+        return result.data;
+      }
+    } catch (e) {
+      console.warn("Backend SOS trigger failed, saving locally:", e);
+    }
+    return this.triggerSOS(payload);
   },
 };

@@ -84,10 +84,19 @@ export function ExploreTrips() {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     setTrips(tripService.getTrips());
     setMyBookings(tripService.getMyBookings(currentUser.id));
     setHostTrips(tripService.getHostTrips(currentUser.id));
+
+    try {
+      const apiTrips = await tripService.fetchTripsFromApi();
+      if (apiTrips && apiTrips.length > 0) {
+        setTrips(apiTrips);
+      }
+    } catch {
+      // Retain offline cache
+    }
   };
 
   const filteredTrips = trips.filter((t) => {

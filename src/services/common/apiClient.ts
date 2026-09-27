@@ -307,6 +307,7 @@ interface RequestInitLike {
   body?: BodyInit;
   /** When true, skip the JSON Content-Type header (used for FormData uploads). */
   form?: boolean;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -329,6 +330,7 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
+    ...(init.headers || {}),
   };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -391,6 +393,7 @@ const DEDUPE_TTL_MS = 1000; // 1 second coalescing window for identical GET requ
 
 export interface RequestOptions {
   bypassCache?: boolean;
+  headers?: Record<string, string>;
 }
 
 export const apiClient = {
@@ -406,7 +409,7 @@ export const apiClient = {
       return existing.promise as Promise<T>;
     }
 
-    const promise = request<T>(path, { method: "GET" }).catch((err) => {
+    const promise = request<T>(path, { method: "GET", headers: options?.headers }).catch((err) => {
       // Remove immediately on error so failed requests aren't cached or blocking retries
       getCache.delete(path);
       throw err;
