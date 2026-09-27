@@ -1,406 +1,269 @@
-import { useState, useEffect } from "react";
+// MaintenanceDues.tsx - Resident Maintenance Bill, Advance Wallet & Pay Now Flow
+import React, { useState } from "react";
 import {
-  CreditCard,
-  Wallet,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
-  Download,
-  Calendar,
-  Building,
-  ArrowRight,
-  ShieldCheck,
-  Receipt,
-  Clock,
-  QrCode,
+  CreditCard, Wallet, CheckCircle2, Clock, AlertTriangle,
+  Download, ChevronRight, ShieldCheck, ArrowDownRight, Layers, FileText, X
 } from "lucide-react";
-import { Button } from "../ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../ui/card";
-import { Badge } from "../ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import {
-  communityFinanceService,
-  type MaintenanceBill,
-  type BillStatus,
-} from "../../../services/finance/communityFinanceService";
-import { useAuth } from "../../../contexts/AuthContext";
-
-const STATUS_BADGES: Record<BillStatus, { label: string; className: string }> = {
-  PAID: { label: "PAID", className: "bg-emerald-100 text-emerald-800 border-emerald-300" },
-  PARTIAL: { label: "PARTIALLY PAID", className: "bg-blue-100 text-blue-800 border-blue-300" },
-  OVERDUE: { label: "OVERDUE", className: "bg-red-100 text-red-800 border-red-300" },
-  PENDING: { label: "PENDING", className: "bg-amber-100 text-amber-800 border-amber-300" },
-};
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+import { communityFinanceService } from "../../../services/finance/communityFinanceService";
+import type { MaintenanceBill, CommunityReceipt, PaymentMode } from "../../../services/finance/communityFinanceService";
 
 export function MaintenanceDues() {
-  const { user } = useAuth();
-  const [currentBill, setCurrentBill] = useState<MaintenanceBill | null>(null);
-  const [allBills, setAllBills] = useState<MaintenanceBill[]>([]);
-  const [walletBalance, setWalletBalance] = useState(2500);
+  const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill("302"));
+  const [wallet, setWallet] = useState(communityFinanceService.getAdvanceWallet("302"));
+  const [history] = useState<MaintenanceBill[]>(communityFinanceService.getMyBillHistory("302"));
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
 
-  // Pay Modal State
-  const [isPayOpen, setIsPayOpen] = useState(false);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [payMethod, setPayMethod] = useState<string>("UPI");
-  const [paySuccess, setPaySuccess] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("UPI");
+  const [useAdvanceWallet, setUseAdvanceWallet] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  // Receipt Modal State
-  const [selectedReceipt, setSelectedReceipt] = useState<MaintenanceBill | null>(null);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
-    const flatNo = user?.flatNumber || "A-101";
-    const bill = communityFinanceService.getMyBill(flatNo);
-    const bills = communityFinanceService.getAllBills();
-    setCurrentBill(bill);
-    setAllBills(bills);
-    if (bill) {
-      setPayAmount(bill.dueAmount);
-    }
-  };
-
-  const handleOpenPay = () => {
-    if (currentBill) {
-      setPayAmount(currentBill.dueAmount);
-    }
-    setPaySuccess(false);
-    setIsPayOpen(true);
-  };
-
-  const handleConfirmPay = () => {
-    if (!currentBill || payAmount <= 0) return;
-    communityFinanceService.recordPayment(currentBill.id, payAmount);
-
-    if (payMethod === "WALLET") {
-      setWalletBalance((prev) => Math.max(0, prev - payAmount));
-    }
-
-    setPaySuccess(true);
-    loadData();
+  const handlePay = () => {
+    setIsProcessing(true);
     setTimeout(() => {
-      setIsPayOpen(false);
-      setPaySuccess(false);
-    }, 1500);
+      const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, paymentMode);
+      setIsProcessing(false);
+      if (res) {
+        setBill({ ...res.bill });
+        setSelectedReceipt(res.receipt);
+        setPaymentSuccess(true);
+        setShowPayModal(false);
+        setShowReceiptModal(true);
+      }
+    }, 1200);
+  };
+
+  const handleOpenReceipt = (receiptNum?: string) => {
+    if (!receiptNum) return;
+    const r = communityFinanceService.getReceipt(receiptNum);
+    setSelectedReceipt(r);
+    setShowReceiptModal(true);
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-6xl space-y-6">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-700 via-teal-700 to-slate-900 text-white p-6 rounded-2xl shadow-xl">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-8 h-8 text-emerald-300" />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Society Maintenance & Dues</h1>
-          </div>
-          <p className="text-emerald-100 text-sm sm:text-base max-w-2xl">
-            View monthly itemized maintenance invoices, check advance wallet balance, and download immutable GST receipts.
+    <div className="space-y-6">
+      {/* ── Page Header ────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-[#1E1E36] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+            Resident Financial Portal
+          </span>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+            My Maintenance Dues & Invoices
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Unit: <strong>Flat 302 · Tower A</strong> (1,200 sq.ft) · Account Ref: <span className="font-mono">BA-0001302A</span>
           </p>
         </div>
 
-        {/* Advance Wallet Balance Card */}
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-emerald-500 rounded-full text-white">
-            <Wallet className="w-6 h-6" />
-          </div>
+        {/* Advance Wallet Box */}
+        <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60"><Wallet className="w-5 h-5" /></div>
           <div>
-            <p className="text-xs text-emerald-200 uppercase font-semibold">Advance Wallet Balance</p>
-            <p className="text-2xl font-black text-white">₹{walletBalance.toLocaleString()}</p>
+            <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Advance Wallet Balance</div>
+            <div className="text-lg font-black text-purple-900 dark:text-white">₹{wallet.balanceAmount.toLocaleString("en-IN")}</div>
           </div>
         </div>
       </div>
 
-      {/* Current Month Bill Card */}
-      {currentBill ? (
-        <Card className="border-2 border-emerald-500/30 shadow-md overflow-hidden">
-          <CardHeader className="bg-slate-50 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-xs">{currentBill.billNumber}</Badge>
-                <Badge variant="outline" className={`font-bold text-xs ${STATUS_BADGES[currentBill.status]?.className}`}>
-                  {STATUS_BADGES[currentBill.status]?.label}
-                </Badge>
+      {/* ── Current Active Bill Card ─────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-black text-slate-900 dark:text-white">{bill.billNumber}</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                bill.status === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
+                bill.status === "OVERDUE" ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300" :
+                "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              }`}>
+                {bill.status}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Billing Period: <strong>{bill.month}/{bill.year}</strong> · Due Date: <strong>{new Date(bill.dueDate).toLocaleDateString()}</strong>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {bill.status !== "PAID" ? (
+              <button
+                onClick={() => setShowPayModal(true)}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                Pay Now (₹{bill.dueAmount.toLocaleString("en-IN")})
+              </button>
+            ) : (
+              <button
+                onClick={() => handleOpenReceipt(bill.receiptNumber)}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <Download className="w-3.5 h-3.5" /> Download Receipt
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Itemized Charges Breakdown Table */}
+        <div className="mt-5 space-y-3">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Itemized Charge Breakdown</h3>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+            {bill.charges.map((c, i) => (
+              <div key={i} className="p-3 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/30">
+                <span className="font-medium text-slate-800 dark:text-slate-200">{c.item}</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">₹{c.amount.toLocaleString("en-IN")}</span>
               </div>
-              <CardTitle className="text-xl text-slate-900 pt-1">
-                Maintenance Statement &mdash; {MONTH_NAMES[currentBill.month - 1]} {currentBill.year}
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500 flex items-center gap-1">
-                <Building className="w-3.5 h-3.5" />
-                Tower {currentBill.tower} &bull; Flat {currentBill.flatNumber}
-              </CardDescription>
+            ))}
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-black text-slate-700 dark:text-slate-300">Total Bill Amount</span>
+            <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">₹{bill.totalAmount.toLocaleString("en-IN")}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bill History ─────────────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4">Previous Invoices & Receipts</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="pb-3">Invoice No</th>
+                <th className="pb-3">Period</th>
+                <th className="pb-3">Amount</th>
+                <th className="pb-3">Status</th>
+                <th className="pb-3">Payment Date</th>
+                <th className="pb-3 text-right">Receipt</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {history.map(h => (
+                <tr key={h.id}>
+                  <td className="py-3 font-mono font-bold text-indigo-600">{h.billNumber}</td>
+                  <td className="py-3 text-slate-600 dark:text-slate-300">{h.month}/{h.year}</td>
+                  <td className="py-3 font-bold text-slate-900 dark:text-white">₹{h.totalAmount.toLocaleString("en-IN")}</td>
+                  <td className="py-3">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      {h.status}
+                    </span>
+                  </td>
+                  <td className="py-3 text-slate-500">{h.paidAt ? new Date(h.paidAt).toLocaleDateString() : "-"}</td>
+                  <td className="py-3 text-right">
+                    {h.receiptNumber && (
+                      <button
+                        onClick={() => handleOpenReceipt(h.receiptNumber)}
+                        className="text-xs text-indigo-600 font-bold hover:underline"
+                      >
+                        {h.receiptNumber}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Payment Modal ────────────────────────────────────────────────────── */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Pay Maintenance Dues</h3>
+              <button onClick={() => setShowPayModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="text-right">
-              <span className="text-xs text-slate-400">Due by:</span>
-              <p className="text-sm font-bold text-slate-800">
-                {new Date(currentBill.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-          </CardHeader>
-
-          <CardContent className="p-6 space-y-6">
-            {/* Itemized Table */}
-            <div className="rounded-xl border overflow-hidden">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-100 text-slate-600 font-bold uppercase">
-                  <tr>
-                    <th className="p-3">Charge Description</th>
-                    <th className="p-3 text-right">Amount (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-slate-700">
-                  {currentBill.charges.map((c, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="p-3 font-medium">{c.item}</td>
-                      <td className="p-3 text-right font-mono">₹{c.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-slate-50 font-bold text-slate-900 border-t-2">
-                    <td className="p-3">Total Billed</td>
-                    <td className="p-3 text-right font-mono text-sm">₹{currentBill.totalAmount.toLocaleString()}</td>
-                  </tr>
-                  {currentBill.paidAmount > 0 && (
-                    <tr className="text-emerald-700 font-medium">
-                      <td className="p-3">Less: Paid Amount</td>
-                      <td className="p-3 text-right font-mono">-₹{currentBill.paidAmount.toLocaleString()}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Total Due & Pay CTA */}
-            <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-xl gap-4">
+            <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-between">
               <div>
-                <span className="text-xs text-emerald-800 font-semibold block uppercase">Total Payable Outstanding</span>
-                <span className="text-3xl font-black text-emerald-900 font-mono">
-                  ₹{currentBill.dueAmount.toLocaleString()}
-                </span>
+                <div className="text-xs text-indigo-700 dark:text-indigo-300">Amount Due</div>
+                <div className="text-xl font-black text-indigo-900 dark:text-white">₹{bill.dueAmount.toLocaleString("en-IN")}</div>
               </div>
-
-              {currentBill.dueAmount > 0 ? (
-                <Button
-                  size="lg"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 shadow-md"
-                  onClick={handleOpenPay}
-                >
-                  Pay Outstanding Due &rarr;
-                </Button>
-              ) : (
-                <div className="flex items-center gap-2 text-emerald-800 font-bold">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                  Bill is fully cleared. Thank you!
-                </div>
-              )}
+              <span className="text-xs text-indigo-600 font-mono">Invoice #{bill.billNumber}</span>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="p-12 text-center text-slate-400">
-          <p>No active bill found for your flat.</p>
-        </Card>
+
+            {/* Payment Method Selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Payment Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["UPI", "NET_BANKING", "CARD", "WALLET"] as PaymentMode[]).map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaymentMode(m)}
+                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                      paymentMode === m
+                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300"
+                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handlePay}
+              disabled={isProcessing}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-md mt-4"
+            >
+              {isProcessing ? "Verifying & Allocating..." : `Confirm Payment of ₹${bill.dueAmount.toLocaleString("en-IN")}`}
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Bill History & Receipts Table */}
-      <Card className="border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Recent Invoices & Receipts History</CardTitle>
-          <CardDescription className="text-xs">Download printable GST receipts for society maintenance payments.</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 text-slate-600 uppercase font-bold border-b">
-                <tr>
-                  <th className="p-3.5">Bill Number</th>
-                  <th className="p-3.5">Month/Year</th>
-                  <th className="p-3.5">Total Amount</th>
-                  <th className="p-3.5">Paid Amount</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Receipt</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-slate-700">
-                {allBills.slice(0, 6).map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-50">
-                    <td className="p-3.5 font-mono font-bold">{b.billNumber}</td>
-                    <td className="p-3.5">{MONTH_NAMES[b.month - 1]} {b.year}</td>
-                    <td className="p-3.5 font-mono">₹{b.totalAmount.toLocaleString()}</td>
-                    <td className="p-3.5 font-mono text-emerald-700 font-semibold">₹{b.paidAmount.toLocaleString()}</td>
-                    <td className="p-3.5">
-                      <Badge variant="outline" className={`text-[10px] ${STATUS_BADGES[b.status]?.className}`}>
-                        {b.status}
-                      </Badge>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs font-semibold text-emerald-700 hover:bg-emerald-50 gap-1"
-                        onClick={() => setSelectedReceipt(b)}
-                      >
-                        <Receipt className="w-3.5 h-3.5" />
-                        View Receipt
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* ── Official Receipt Modal ───────────────────────────────────────────── */}
+      {showReceiptModal && selectedReceipt && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Official Community Receipt</h3>
+              </div>
+              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 space-y-2 text-xs">
+              <div className="flex justify-between font-mono font-bold text-indigo-600">
+                <span>Receipt: {selectedReceipt.receiptNumber}</span>
+                <span>Date: {new Date(selectedReceipt.receiptDate).toLocaleDateString()}</span>
+              </div>
+              <div className="text-slate-500">Unit: Flat {selectedReceipt.flatNumber} ({selectedReceipt.tower})</div>
+              <div className="text-slate-500">Tx Reference: <span className="font-mono">{selectedReceipt.transactionRef}</span></div>
+            </div>
+
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+              {selectedReceipt.allocations.map((a, i) => (
+                <div key={i} className="py-2 flex justify-between text-slate-700 dark:text-slate-300">
+                  <span>{a.item}</span>
+                  <span className="font-mono font-bold">₹{a.amount.toLocaleString("en-IN")}</span>
+                </div>
+              ))}
+              <div className="pt-3 flex justify-between font-black text-sm text-slate-900 dark:text-white">
+                <span>Total Paid</span>
+                <span className="text-emerald-600">₹{selectedReceipt.amountPaid.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="px-5 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
+              >
+                Done
+              </button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Payment Modal */}
-      <Dialog open={isPayOpen} onOpenChange={setIsPayOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-900">Pay Maintenance Dues</DialogTitle>
-            <DialogDescription>
-              {currentBill && `${MONTH_NAMES[currentBill.month - 1]} ${currentBill.year} Bill`}
-            </DialogDescription>
-          </DialogHeader>
-
-          {paySuccess ? (
-            <div className="p-6 text-center space-y-3">
-              <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto animate-bounce" />
-              <h3 className="text-lg font-bold text-slate-900">Payment Successful!</h3>
-              <p className="text-xs text-slate-500">Your ledger balance has been credited immediately.</p>
-            </div>
-          ) : (
-            <div className="space-y-4 py-2 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700">Payment Amount (₹)</label>
-                <Input
-                  type="number"
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(Number(e.target.value))}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700">Payment Method</label>
-                <Select value={payMethod} onValueChange={setPayMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UPI">UPI (Google Pay / PhonePe / Paytm)</SelectItem>
-                    <SelectItem value="CARD">Debit / Credit Card</SelectItem>
-                    <SelectItem value="NETBANKING">Net Banking (HDFC / ICICI / SBI)</SelectItem>
-                    <SelectItem value="WALLET">Advance Wallet (Balance: ₹{walletBalance})</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl border space-y-1">
-                <div className="flex justify-between text-slate-600">
-                  <span>Convenience Fee:</span>
-                  <strong>₹0 (Free)</strong>
-                </div>
-                <div className="flex justify-between font-bold text-slate-900 pt-1 border-t text-sm">
-                  <span>Total Debit:</span>
-                  <span className="text-emerald-700">₹{payAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!paySuccess && (
-            <DialogFooter className="flex gap-2">
-              <Button variant="outline" onClick={() => setIsPayOpen(false)}>Cancel</Button>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 font-bold" onClick={handleConfirmPay}>
-                Confirm & Pay ₹{payAmount.toLocaleString()}
-              </Button>
-            </DialogFooter>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Printable Receipt Modal */}
-      <Dialog open={!!selectedReceipt} onOpenChange={() => setSelectedReceipt(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-emerald-600" />
-              Official Society Maintenance Receipt
-            </DialogTitle>
-            <DialogDescription>Tax invoice & payment verification</DialogDescription>
-          </DialogHeader>
-
-          {selectedReceipt && (
-            <div className="p-4 bg-slate-50 border rounded-xl space-y-4 text-xs">
-              <div className="flex justify-between items-start border-b pb-3">
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Mana Community Owners Association</h4>
-                  <p className="text-slate-500">Reg. No: BLR/SOC/2024/09842</p>
-                  <p className="text-slate-500">GSTIN: 29AAAAA0000A1Z5</p>
-                </div>
-                <div className="text-right font-mono">
-                  <span className="text-slate-400 block text-[10px]">Receipt No</span>
-                  <strong>{selectedReceipt.billNumber}</strong>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-slate-700">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Resident Flat</span>
-                  <strong>Tower {selectedReceipt.tower} &bull; {selectedReceipt.flatNumber}</strong>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-400 block text-[10px]">Billing Period</span>
-                  <strong>{MONTH_NAMES[selectedReceipt.month - 1]} {selectedReceipt.year}</strong>
-                </div>
-              </div>
-
-              <div className="border-t pt-2 space-y-1">
-                {selectedReceipt.charges.map((c, i) => (
-                  <div key={i} className="flex justify-between text-slate-600">
-                    <span>{c.item}</span>
-                    <span className="font-mono">₹{c.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between font-bold text-slate-900 pt-2 border-t text-sm">
-                  <span>Total Paid:</span>
-                  <span className="text-emerald-700">₹{selectedReceipt.paidAmount.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-2 border-t text-[11px] text-slate-400">
-                <span className="flex items-center gap-1 text-emerald-600 font-bold">
-                  <ShieldCheck className="w-4 h-4" />
-                  Verified Digital Ledger Entry
-                </span>
-                <span>Stamp: {new Date(selectedReceipt.generatedAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedReceipt(null)}>Close</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 font-bold gap-1" onClick={() => setSelectedReceipt(null)}>
-              <Download className="w-4 h-4" />
-              Download PDF
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }
