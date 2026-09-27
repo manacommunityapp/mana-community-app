@@ -221,6 +221,16 @@ import { BusinessDirectoryView } from "./components/offers/BusinessDirectoryView
 import { CommunityDemandView } from "./components/offers/CommunityDemandView";
 import { CommerceAdminHub } from "./components/offers/CommerceAdminHub";
 
+// Mana Governance (Community Decisions, Meetings & Voting)
+import { GovernanceLayout } from "./components/governance/GovernanceLayout";
+import { GovernanceDashboard } from "./components/governance/GovernanceDashboard";
+import { MeetingsManagement } from "./components/governance/MeetingsManagement";
+import { ProposalsHub } from "./components/governance/ProposalsHub";
+import { VotingCenter } from "./components/governance/VotingCenter";
+import { ResolutionsBoard } from "./components/governance/ResolutionsBoard";
+import { DigitalVault } from "./components/governance/DigitalVault";
+import { CommitteeAndElections } from "./components/governance/CommitteeAndElections";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
@@ -772,6 +782,21 @@ export const router = createBrowserRouter([
           { path: "demands", element: <CommunityDemandView /> },
           { path: "my-claims", element: <MyClaimsView /> },
           { path: "admin", element: <CommerceAdminHub /> },
+        ],
+      },
+      // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
+      {
+        path: "governance",
+        element: <GovernanceLayout />,
+        children: [
+          { index: true, element: <GovernanceDashboard /> },
+          { path: "dashboard", element: <GovernanceDashboard /> },
+          { path: "meetings", element: <MeetingsManagement /> },
+          { path: "proposals", element: <ProposalsHub /> },
+          { path: "voting", element: <VotingCenter /> },
+          { path: "resolutions", element: <ResolutionsBoard /> },
+          { path: "vault", element: <DigitalVault /> },
+          { path: "committee", element: <CommitteeAndElections /> },
         ],
       },
     ],
