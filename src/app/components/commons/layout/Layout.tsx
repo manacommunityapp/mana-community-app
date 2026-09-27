@@ -363,12 +363,13 @@ export function Layout() {
   const labelToModule: Record<string, string> = {
     "Community Feed": "COMMUNITY_FEED",
     "Mana Deals": "COMMUNITY_OFFERS",
+    "Mana Academy": "ACADEMY",
     "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
     "Group Buying": "GROUP_BUYING",
     "Community Trips": "TRIPS",
     "Community Discover": "COMMUNITY_GRAPH",
-    "Mana Academy": "ACADEMY",
+    "Governance & Decisions": "GOVERNANCE",
     "Sports": "SPORTS",
     "Marketplace": "MARKETPLACE",
     "Visitors": "VISITORS",
@@ -409,6 +410,7 @@ export function Layout() {
     { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
     { to: "/trips", icon: Compass, label: "Community Trips" },
     { to: "/discover", icon: Sparkles, label: "Community Discover" },
+    { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
     { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
@@ -439,6 +441,7 @@ export function Layout() {
     if (link.label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
     if (link.label === "Mana Deals") return true; // Accessible to all authenticated community members
     if (link.label === "Mana Academy") return true; // Accessible to all authenticated community members
+    if (link.label === "Governance & Decisions") return true; // Accessible to all authenticated community members
     if (link.label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
     if (link.label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
     if (link.label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
