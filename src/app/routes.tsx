@@ -80,6 +80,8 @@ import { CPNFeed } from "./components/cpn/CPNFeed";
 import { CPNJobs } from "./components/cpn/CPNJobs";
 import { CPNMentorship } from "./components/cpn/CPNMentorship";
 import { CPNAIAssistant } from "./components/cpn/CPNAIAssistant";
+import { MyProfessionalProfile } from "./components/cpn/MyProfessionalProfile";
+import { ProfessionalDirectory } from "./components/cpn/ProfessionalDirectory";
 import {
   CPNReferrals, CPNFreelance, CPNLearning, CPNCompanies,
   CPNBusiness, CPNStartups, CPNCollaborate, CPNResume,
@@ -201,6 +203,33 @@ import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashb
 import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
+import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
+
+// Mana Academy
+import { AcademyLayout } from "./components/academy/AcademyLayout";
+import { AcademyDashboard } from "./components/academy/AcademyDashboard";
+import { MyLearningView } from "./components/academy/MyLearningView";
+import { InstructorHubView } from "./components/academy/InstructorHubView";
+import { AcademyAdminHub } from "./components/academy/AcademyAdminHub";
+
+// Mana Deals & Community Commerce Network
+import { OffersLayout } from "./components/offers/OffersLayout";
+import { OffersDashboard } from "./components/offers/OffersDashboard";
+import { MyClaimsView } from "./components/offers/MyClaimsView";
+import { MarketEventsView } from "./components/offers/MarketEventsView";
+import { BusinessDirectoryView } from "./components/offers/BusinessDirectoryView";
+import { CommunityDemandView } from "./components/offers/CommunityDemandView";
+import { CommerceAdminHub } from "./components/offers/CommerceAdminHub";
+
+// Mana Governance (Community Decisions, Meetings & Voting)
+import { GovernanceLayout } from "./components/governance/GovernanceLayout";
+import { GovernanceDashboard } from "./components/governance/GovernanceDashboard";
+import { MeetingsManagement } from "./components/governance/MeetingsManagement";
+import { ProposalsHub } from "./components/governance/ProposalsHub";
+import { VotingCenter } from "./components/governance/VotingCenter";
+import { ResolutionsBoard } from "./components/governance/ResolutionsBoard";
+import { DigitalVault } from "./components/governance/DigitalVault";
+import { CommitteeAndElections } from "./components/governance/CommitteeAndElections";
 
 // Permission constants
 import {
@@ -212,7 +241,7 @@ import {
   VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
   VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY,
   VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD, MANAGE_EVENT_FORMS,
-  VIEW_VISITORS,
+  VIEW_VISITORS, VIEW_SAFETY,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -669,7 +698,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CPNFeed /> },
           { path: "feed", element: <CPNFeed /> },
-          { path: "profile", element: <ProfileDashboard /> },
+          { path: "directory", element: <ProfessionalDirectory /> },
+          { path: "profile", element: <MyProfessionalProfile /> },
           { path: "network", element: <CPNNetwork /> },
           { path: "jobs", element: <CPNJobs /> },
           { path: "referrals", element: <CPNReferrals /> },
@@ -717,6 +747,58 @@ export const router = createBrowserRouter([
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
+      { path: "safety", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><SafetyCommandCenter /></PermissionGuard> },
+      // ── Mana Academy (Community Learning & Skill-Sharing) ────────
+      {
+        path: "academy",
+        element: <AcademyLayout />,
+        children: [
+          { index: true, element: <AcademyDashboard /> },
+          { path: "my-learning", element: <MyLearningView /> },
+          { path: "teaching", element: <InstructorHubView /> },
+          { path: "admin", element: <AcademyAdminHub /> },
+        ],
+      },
+      // ── Mana Deals & Community Commerce Network ──────────────
+      {
+        path: "deals",
+        element: <OffersLayout />,
+        children: [
+          { index: true, element: <OffersDashboard /> },
+          { path: "market-days", element: <MarketEventsView /> },
+          { path: "partners", element: <BusinessDirectoryView /> },
+          { path: "demands", element: <CommunityDemandView /> },
+          { path: "my-claims", element: <MyClaimsView /> },
+          { path: "admin", element: <CommerceAdminHub /> },
+        ],
+      },
+      {
+        path: "offers",
+        element: <OffersLayout />,
+        children: [
+          { index: true, element: <OffersDashboard /> },
+          { path: "market-days", element: <MarketEventsView /> },
+          { path: "partners", element: <BusinessDirectoryView /> },
+          { path: "demands", element: <CommunityDemandView /> },
+          { path: "my-claims", element: <MyClaimsView /> },
+          { path: "admin", element: <CommerceAdminHub /> },
+        ],
+      },
+      // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
+      {
+        path: "governance",
+        element: <GovernanceLayout />,
+        children: [
+          { index: true, element: <GovernanceDashboard /> },
+          { path: "dashboard", element: <GovernanceDashboard /> },
+          { path: "meetings", element: <MeetingsManagement /> },
+          { path: "proposals", element: <ProposalsHub /> },
+          { path: "voting", element: <VotingCenter /> },
+          { path: "resolutions", element: <ResolutionsBoard /> },
+          { path: "vault", element: <DigitalVault /> },
+          { path: "committee", element: <CommitteeAndElections /> },
+        ],
+      },
     ],
   },
 ]);

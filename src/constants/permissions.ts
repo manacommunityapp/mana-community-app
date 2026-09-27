@@ -83,10 +83,12 @@ export const CREATE_LISTING     = "Create Listing";
 export const DELETE_LISTING     = "Delete Listing";
 export const MANAGE_MARKETPLACE = "Manage Marketplace";
 
-// ──── VISITOR / GATE PASS ────
-export const VIEW_VISITORS       = "View Visitors";
-export const CREATE_VISITOR_PASS = "Create Visitor Pass";
-export const MANAGE_GATE         = "Manage Gate";
+// ──── VISITOR / GATE PASS & SAFETY NETWORK ────
+export const VIEW_VISITORS           = "View Visitors";
+export const CREATE_VISITOR_PASS     = "Create Visitor Pass";
+export const MANAGE_GATE             = "Manage Gate";
+export const VIEW_SAFETY             = "View Safety";
+export const MANAGE_SAFETY_DEVICES   = "Manage Safety Devices";
 
 // ──── AMENITY BOOKING ────
 export const VIEW_AMENITIES   = "View Amenities";
