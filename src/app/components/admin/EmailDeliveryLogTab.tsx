@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import DOMPurify from "dompurify";
 import {
   Mail,
   CheckCircle2,
@@ -1311,7 +1312,7 @@ export function EmailDeliveryLogTab() {
                       {selectedLog.body ? (
                         <div
                           className="p-4 overflow-y-auto max-h-[450px] text-xs font-sans"
-                          dangerouslySetInnerHTML={{ __html: selectedLog.body }}
+                          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedLog.body) }}
                         />
                       ) : (
                         <div className="p-8 text-center text-slate-400">
