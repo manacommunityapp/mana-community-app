@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -370,6 +370,7 @@ export function Layout() {
     "Community Trips": "TRIPS",
     "Community Discover": "COMMUNITY_GRAPH",
     "Governance & Decisions": "GOVERNANCE",
+    "Pet Registry": "HOME_SERVICES",
     "Sports": "SPORTS",
     "Marketplace": "MARKETPLACE",
     "Visitors": "VISITORS",
@@ -411,6 +412,7 @@ export function Layout() {
     { to: "/trips", icon: Compass, label: "Community Trips" },
     { to: "/discover", icon: Sparkles, label: "Community Discover" },
     { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
+    { to: "/pets", icon: Heart, label: "Pet Registry" },
     { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
@@ -442,6 +444,7 @@ export function Layout() {
     if (link.label === "Mana Deals") return true; // Accessible to all authenticated community members
     if (link.label === "Mana Academy") return true; // Accessible to all authenticated community members
     if (link.label === "Governance & Decisions") return true; // Accessible to all authenticated community members
+    if (link.label === "Pet Registry") return true; // Accessible to all authenticated community members
     if (link.label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
     if (link.label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
     if (link.label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);

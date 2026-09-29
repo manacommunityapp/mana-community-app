@@ -204,6 +204,7 @@ import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
+import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
 
 // Mana Academy
 import { AcademyLayout } from "./components/academy/AcademyLayout";
@@ -748,6 +749,7 @@ export const router = createBrowserRouter([
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
       { path: "safety", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><SafetyCommandCenter /></PermissionGuard> },
+      { path: "pets", element: <PetRegistryDashboard /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
       {
         path: "academy",
