@@ -92,6 +92,10 @@ export const MANAGE_GATE         = "Manage Gate";
 export const VIEW_PARKING    = "View Parking";
 export const MANAGE_PARKING  = "Manage Parking";
 
+// ──── GUARD ────
+export const VIEW_GUARDS    = "View Guards";
+export const MANAGE_GUARDS  = "Manage Guards";
+
 // ──── AMENITY BOOKING ────
 export const VIEW_AMENITIES   = "View Amenities";
 export const BOOK_AMENITY     = "Book Amenity";
