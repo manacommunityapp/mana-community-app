@@ -422,6 +422,12 @@ export const eventService = {
     return apiClient.get<EventResponse[]>(`/events${qs}`);
   },
 
+  /** Dedicated method for lightweight dashboard & feed preview cards */
+  async getUpcomingEventsForDashboard(type?: string): Promise<EventResponse[]> {
+    const qs = type && type !== "All" ? `?type=${type}` : "";
+    return apiClient.get<EventResponse[]>(`/events/dashboard-preview${qs}`);
+  },
+
   async getAllEvents(): Promise<EventResponse[]> {
     return apiClient.get<EventResponse[]>("/events/all");
   },

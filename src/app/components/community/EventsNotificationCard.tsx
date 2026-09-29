@@ -49,7 +49,7 @@ export function EventsNotificationCard({
     try {
       setLoading(true);
       const [allUpcoming, myPasses] = await Promise.all([
-        eventService.getUpcomingEvents().catch(() => []),
+        eventService.getUpcomingEventsForDashboard().catch(() => []),
         eventService.getMyRegistrations().catch(() => []),
       ]);
       if (Array.isArray(allUpcoming)) setEvents(allUpcoming.slice(0, 4));

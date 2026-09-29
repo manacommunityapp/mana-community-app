@@ -52,7 +52,7 @@ export interface ChangePasswordResponse {
 export interface AuthResponse {
   userId: string;
   message: string;
-  token: string;
+  token?: string;
   refreshToken?: string;
   fullName?: string;
   email?: string;

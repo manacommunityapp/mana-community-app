@@ -46,7 +46,7 @@ export const profileService = {
       // Network count (Community residents)
       communityId
         ? apiClient.get<any>(`/users?communityId=${communityId}&page=0&size=1`).catch(() => apiClient.get<any>(`/users/community/${communityId}`))
-        : apiClient.get<any>("/users?page=0&size=1").catch(() => apiClient.get<any>("/community/directory")),
+        : apiClient.get<any>("/users?page=0&size=1").catch(() => null),
       // Events attended / registered
       apiClient.get<any>("/events/mine").catch(async () => {
         const dash = await apiClient.get<any>("/events/user-dashboard").catch(() => null);

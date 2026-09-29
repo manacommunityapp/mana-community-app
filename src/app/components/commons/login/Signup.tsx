@@ -34,7 +34,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { communityService } from "../../../../services/community/communityService";
 import { authService } from "../../../../services/common/authService";
@@ -967,8 +967,6 @@ export function Signup() {
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
-      <Toaster position="top-center" richColors />
-
       {/* Left Brand Showcase Panel (Desktop Browser) */}
       <div className="lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0">
         <BrandPanel />
@@ -1013,6 +1011,7 @@ export function Signup() {
               {/* Form Body */}
               <form
                 onSubmit={handleSubmit(onSubmit)}
+                autoComplete="off"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && step < 2 && (e.target as HTMLElement).tagName !== "BUTTON") {
                     e.preventDefault();
@@ -1038,6 +1037,7 @@ export function Signup() {
                             <input
                               id="fullName"
                               type="text"
+                              autoComplete="off"
                               {...register("fullName", { required: "Full name is required" })}
                               className={`${inputBase} pl-9 pr-3`}
                               placeholder="e.g. Rahul Sharma"
@@ -1068,6 +1068,7 @@ export function Signup() {
                               type="tel"
                               inputMode="numeric"
                               maxLength={10}
+                              autoComplete="off"
                               {...register("phone", {
                                 required: "Phone number is required",
                                 pattern: {
@@ -1129,6 +1130,7 @@ export function Signup() {
                               <input
                                 id="signup-email"
                                 type="email"
+                                autoComplete="off"
                                 {...register("email", {
                                   required: "Email address is required",
                                   pattern: {
@@ -1171,6 +1173,7 @@ export function Signup() {
                                 type="text"
                                 inputMode="numeric"
                                 maxLength={6}
+                                autoComplete="one-time-code"
                                 value={otpCode}
                                 onChange={(e) => {
                                   const numeric = e.target.value.replace(/\D/g, "").slice(0, 6);
@@ -1208,6 +1211,7 @@ export function Signup() {
                               id="signup-password"
                               type={showPassword ? "text" : "password"}
                               maxLength={20}
+                              autoComplete="new-password"
                               {...register("password", {
                                 required: "Password is required",
                                 minLength: {
@@ -1262,6 +1266,7 @@ export function Signup() {
                               id="confirmPassword"
                               type={showConfirmPassword ? "text" : "password"}
                               maxLength={20}
+                              autoComplete="new-password"
                               {...register("confirmPassword", {
                                 required: "Please confirm your password",
                                 validate: (value) => value === password || "Passwords do not match",

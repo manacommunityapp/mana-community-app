@@ -48,10 +48,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
-    // Hydrate from localStorage on first render
     const stored = getStoredUser();
+    if (!stored) return null;
     const token = getToken();
-    if (stored && token) return stored as AuthUser;
+    if (token) return stored as AuthUser;
+    if (safeStorage.getItem("mana_last_activity")) return stored as AuthUser;
     return null;
   });
 
@@ -71,10 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Synchronize full profile and permissions on startup
   useEffect(() => {
-    const token = getToken();
-    if (token) {
+    if (user) {
       userService.getMe()
         .then((me) => {
           const resolvedPic = me.profilePicUrl || (me as any).profilePic;
@@ -107,11 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await authService.login(data);
+    if (!response || !response.userId) {
+      throw new Error("Invalid response from authentication server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
-    setTokens(response.token, response.refreshToken);
+    if (response.token) {
+      setTokens(response.token, response.refreshToken);
+    }
 
-    // Try to use direct response fields first, fallback to JWT payload
-    const payload = decodeJwtPayload(response.token);
+    const payload = response.token ? decodeJwtPayload(response.token) : null;
     const newUser: AuthUser = {
       userId: response.userId,
       role: response.role ?? (payload?.role != null ? String(payload.role) : "MEMBER"),
@@ -163,10 +166,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authService.register(data);
+    if (!response || !response.userId) {
+      throw new Error("Invalid response from registration server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
-    setTokens(response.token, response.refreshToken);
+    if (response.token) {
+      setTokens(response.token, response.refreshToken);
+    }
 
-    const payload = decodeJwtPayload(response.token);
+    const payload = response.token ? decodeJwtPayload(response.token) : null;
     const newUser: AuthUser = {
       userId: response.userId,
       role: response.role ?? (payload?.role != null ? String(payload.role) : "MEMBER"),
@@ -259,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     user,
-    isAuthenticated: !!user && !!getToken(),
+    isAuthenticated: !!user,
     isAdmin: userRoleSet.has("ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
     isSuperAdmin,
     isSportsAdmin: userRoleSet.has("SPORTS_ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),

@@ -87,64 +87,113 @@ interface EligibilityResult {
   badgeText?: string;
 }
 
+function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
+  if (!gender) return "";
+  const g = String(gender).trim().toUpperCase();
+  if (g === "MALE" || g === "M" || g === "MEN" || g === "MAN" || g === "BOY" || g === "BOYS") return "MALE";
+  if (g === "FEMALE" || g === "F" || g === "WOMEN" || g === "WOMAN" || g === "GIRL" || g === "GIRLS" || g === "LADIES") return "FEMALE";
+  return "OTHER";
+}
+
 function checkCategoryEligibility(
   cat: PlayerCategory | undefined,
   age: number | null,
   gender: string
 ): EligibilityResult {
-  // If DOB or Gender is missing, registration is disabled until provided
-  if (age === null || !gender || !gender.trim()) {
-    const missing: string[] = [];
-    if (!gender || !gender.trim()) missing.push("Gender");
-    if (age === null) missing.push("Date of Birth");
+  if (!gender || !gender.trim()) {
     return {
       eligible: false,
-      reason: `${missing.join(" & ")} required to verify sports eligibility.`,
-      badgeText: `Missing ${missing.join(" & ")}`,
+      reason: "Gender is required to verify sports eligibility.",
+      badgeText: "Missing Gender",
     };
   }
 
   if (!cat) return { eligible: true };
 
-  // Age validation
-  if (cat.minAge != null && age < cat.minAge) {
-    return {
-      eligible: false,
-      reason: `Age ${age} yrs is below min required age (${cat.minAge} yrs). Allowed: ${cat.minAge}–${cat.maxAge ?? 99} yrs.`,
-      badgeText: `Ineligible: Min age ${cat.minAge} yrs`,
-    };
+  const text = `${cat.name || ""} ${cat.description || ""}`.toLowerCase();
+
+  // Extract min/max age if not explicitly configured in DB
+  let minAge: number | null = cat.minAge ?? null;
+  let maxAge: number | null = cat.maxAge ?? null;
+
+  if (minAge == null && maxAge == null) {
+    const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
+    const plusMatch = text.match(/(?:above|over|>|>=)\s*(\d+)|(\d+)\s*(?:\+|plus|above|and above|and over|over|>|>=)/i);
+    const rangeMatch = text.match(/(?:between\s*)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
+
+    if (rangeMatch) {
+      minAge = parseInt(rangeMatch[1], 10);
+      maxAge = parseInt(rangeMatch[2], 10);
+    } else if (underMatch) {
+      maxAge = parseInt(underMatch[1], 10);
+    } else if (plusMatch) {
+      minAge = parseInt(plusMatch[1] || plusMatch[2], 10);
+    } else if (/\b(kids?|childrens?)\b/i.test(text)) {
+      maxAge = 16;
+    } else if (/\b(seniors?|veterans?)\b/i.test(text)) {
+      minAge = 45;
+    }
   }
-  if (cat.maxAge != null && age > cat.maxAge) {
-    return {
-      eligible: false,
-      reason: `Age ${age} yrs exceeds max allowed age (${cat.maxAge} yrs). Allowed: ${cat.minAge ?? 0}–${cat.maxAge} yrs.`,
-      badgeText: `Ineligible: Max age ${cat.maxAge} yrs`,
-    };
+
+  // Age validation
+  if (age !== null && age > 0) {
+    if (minAge != null && age < minAge) {
+      return {
+        eligible: false,
+        reason: `Age ${age} yrs is below min required age (${minAge} yrs). Allowed: ${minAge}–${maxAge ?? 99} yrs.`,
+        badgeText: `Ineligible: Min age ${minAge} yrs`,
+      };
+    }
+    if (maxAge != null && age > maxAge) {
+      return {
+        eligible: false,
+        reason: `Age ${age} yrs exceeds max allowed age (${maxAge} yrs). Allowed: ${minAge ?? 0}–${maxAge} yrs.`,
+        badgeText: `Ineligible: Max age ${maxAge} yrs`,
+      };
+    }
   }
 
   // Gender validation
-  if (cat.gender && cat.gender.toUpperCase() !== "ALL") {
-    const userG = gender.trim().toUpperCase();
-    const catG = cat.gender.trim().toUpperCase();
-    if (catG === "MALE" && userG !== "MALE") {
+  let requiredGender: "MALE" | "FEMALE" | "MIXED" | "ALL" | null = null;
+  const rawGender = normalizeGender(cat.gender);
+  if (rawGender === "MALE") {
+    requiredGender = "MALE";
+  } else if (rawGender === "FEMALE") {
+    requiredGender = "FEMALE";
+  } else {
+    // Female FIRST — handles womens/women's/woman/female/girl/girls/ladies
+    const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
+    // Male — lookbehind prevents 'men' matching inside 'women'; handles mens/men's/man/male/boy/boys
+    const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
+    const isMixed = /\b(mixed|mix)\b/i.test(text);
+
+    if (isMixed) requiredGender = "MIXED";
+    else if (isFemale) requiredGender = "FEMALE";
+    else if (isMale) requiredGender = "MALE";
+    else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+  }
+
+  const pGender = normalizeGender(gender);
+  if (pGender && requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
+    if (requiredGender === "MALE" && pGender !== "MALE") {
       return {
         eligible: false,
         reason: `Category is reserved for Male participants only (Selected: ${gender}).`,
-        badgeText: `Ineligible: Male only`,
+        badgeText: "Ineligible: Male only",
       };
     }
-    if (catG === "FEMALE" && userG !== "FEMALE") {
+    if (requiredGender === "FEMALE" && pGender !== "FEMALE") {
       return {
         eligible: false,
         reason: `Category is reserved for Female participants only (Selected: ${gender}).`,
-        badgeText: `Ineligible: Female only`,
+        badgeText: "Ineligible: Female only",
       };
     }
   }
 
   return {
     eligible: true,
-    badgeText: `Eligible (Age ${cat.minAge ?? 0}–${cat.maxAge ?? 99} yrs, ${cat.gender || "All"})`,
+    badgeText: `Eligible (Age ${minAge ?? 0}–${maxAge ?? 99} yrs, ${requiredGender || "All"})`,
   };
 }
 
@@ -230,6 +279,45 @@ function getEventCategories(
   return nonOther.length > 0 ? [nonOther[0]] : categories.slice(0, 1);
 }
 
+function getMultiCategoryMatchScore(
+  cat: PlayerCategory | undefined,
+  age: number | null,
+  gender: string
+): number {
+  if (!cat) return -1;
+  const elig = checkCategoryEligibility(cat, age, gender);
+  if (!elig.eligible) return -1;
+
+  let score = 10;
+  const text = `${cat.name || ""} ${cat.description || ""}`.toLowerCase();
+  const rawGender = normalizeGender(cat.gender);
+  const isFemale = rawGender === "FEMALE" || /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
+  const isMale = rawGender === "MALE" || (!isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text));
+
+  if (isFemale || isMale) score += 25;
+
+  let minAge: number | null = cat.minAge ?? null;
+  let maxAge: number | null = cat.maxAge ?? null;
+  if (minAge == null && maxAge == null) {
+    const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
+    const plusMatch = text.match(/(?:above|over|>|>=)\s*(\d+)|(\d+)\s*(?:\+|plus|above|and above|and over|over|>|>=)/i);
+    const rangeMatch = text.match(/(?:between\s*)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
+    if (rangeMatch) { minAge = parseInt(rangeMatch[1], 10); maxAge = parseInt(rangeMatch[2], 10); }
+    else if (underMatch) { maxAge = parseInt(underMatch[1], 10); }
+    else if (plusMatch) { minAge = parseInt(plusMatch[1] || plusMatch[2], 10); }
+  }
+
+  if (minAge != null && maxAge != null) {
+    score += 45;
+  } else if (maxAge != null) {
+    score += 35 + Math.max(0, 30 - maxAge);
+  } else if (minAge != null) {
+    score += 35;
+  }
+
+  return score;
+}
+
 function findBestEligibleCategory(
   categories: PlayerCategory[],
   sportName: string,
@@ -243,8 +331,19 @@ function findBestEligibleCategory(
   if (eventPool.length === 1) {
     return eventPool[0];
   }
-  const eligible = eventPool.find(c => checkCategoryEligibility(c, age, gender).eligible);
-  return eligible || eventPool[0];
+
+  let best: PlayerCategory | undefined;
+  let bestScore = -1;
+
+  for (const cat of eventPool) {
+    const score = getMultiCategoryMatchScore(cat, age, gender);
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+
+  return best || eventPool[0];
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {

@@ -8,7 +8,7 @@ import { sportsDashboardService, type DashboardTournamentCard } from "../../../s
 import { auctionService } from "../../../services/sports/auctionService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { useAuth } from "../../../contexts/AuthContext";
-import { SportsRegister } from "./SportsRegister";
+import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats } from "./SportsRegister";
 import {
   VIEW_SPORTS_MAIN,
   VIEW_EVENT_REGISTRATIONS,
@@ -475,14 +475,11 @@ export function SportsDashboard() {
     const regFamilyMemberId = reg.familyMemberId;
     const targetFullName = (user?.fullName || "").trim().toLowerCase();
 
-    const isSelfReg =
-      !regFamilyMemberId ||
-      regFamilyMemberId === "self" ||
-      regFamilyMemberId === "member-self" ||
-      regRelation === "SELF" ||
-      regRelation === "HEAD" ||
-      (!regRelation && !regFamilyMemberId) ||
-      (targetFullName && regPlayerName === targetFullName);
+    const isExplicitFamily =
+      (regFamilyMemberId && regFamilyMemberId !== "self" && regFamilyMemberId !== "member-self") ||
+      (regRelation && regRelation !== "SELF" && regRelation !== "HEAD");
+
+    const isSelfReg = !isExplicitFamily || (targetFullName && regPlayerName === targetFullName && regRelation === "SELF");
 
     if (isSelfTarget) {
       return isSelfReg;
@@ -511,13 +508,17 @@ export function SportsDashboard() {
     if (upcomingFamilyFilter === "ALL") return liveEvents;
 
     return liveEvents.filter(ev => {
-      const reg = myRegistrations.find(r => r.event?.id === ev.id || r.eventId === ev.id);
-      if (reg) {
-        return isRegistrationForMember(reg, upcomingFamilyFilter);
-      }
-      return false;
+      // Direct check on event's registrant details
+      return isRegistrationForMember(
+        {
+          familyMemberId: ev.familyMemberId,
+          playerName: ev.playerName,
+          relation: ev.relation,
+        },
+        upcomingFamilyFilter
+      );
     });
-  }, [liveEvents, myRegistrations, upcomingFamilyFilter, isRegistrationForMember]);
+  }, [liveEvents, upcomingFamilyFilter, isRegistrationForMember]);
 
   const selectedMemberDisplayName = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return "";
@@ -525,6 +526,71 @@ export function SportsDashboard() {
     const found = familyMembers.find(m => String(m.id) === upcomingFamilyFilter);
     return found ? `${found.name} (${found.relation || "Family"})` : "Selected Member";
   }, [upcomingFamilyFilter, familyMembers, user?.fullName]);
+
+  const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
+    const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
+    if (isSelf) {
+      const hasDob = Boolean(user?.dateOfBirth || (user as any)?.dob);
+      const hasGender = Boolean(user?.gender && String(user.gender).trim());
+      const missingFields: string[] = [];
+      if (!hasDob) missingFields.push("Date of Birth (DOB)");
+      if (!hasGender) missingFields.push("Gender");
+      return {
+        isValid: hasDob && hasGender,
+        hasDob,
+        hasGender,
+        memberName: user?.fullName || "Self",
+        isSelf: true,
+        missingFields,
+      };
+    }
+
+    const member = familyMembers.find(m => String(m.id) === String(memberId));
+    if (!member) {
+      return {
+        isValid: true,
+        hasDob: true,
+        hasGender: true,
+        memberName: "Family Member",
+        isSelf: false,
+        missingFields: [],
+      };
+    }
+
+    const hasDob = Boolean(member.dob && String(member.dob).trim());
+    const hasGender = Boolean(member.gender && String(member.gender).trim());
+    const missingFields: string[] = [];
+    if (!hasDob) missingFields.push("Date of Birth (DOB)");
+    if (!hasGender) missingFields.push("Gender");
+
+    return {
+      isValid: hasDob && hasGender,
+      hasDob,
+      hasGender,
+      memberName: member.name || "Family Member",
+      isSelf: false,
+      missingFields,
+    };
+  }, [familyMembers, user]);
+
+  const notifyIncompleteProfile = useCallback((memberId: string | number | undefined) => {
+    const status = getMemberProfileStatus(memberId);
+    if (!status.isValid) {
+      const missingText = status.missingFields.join(" and ");
+      toast.warning(
+        `Profile Incomplete for ${status.memberName}: Missing ${missingText}. Please update profile to register.`,
+        {
+          duration: 6000,
+          action: {
+            label: "Update Profile",
+            onClick: () => {
+              navigate(status.isSelf ? "/profile" : "/profile?tab=family");
+            },
+          },
+        }
+      );
+    }
+  }, [getMemberProfileStatus, navigate]);
 
   // Registration Modal State for mobile view / quick registration popup
   const [regModalState, setRegModalState] = useState<{
@@ -538,18 +604,18 @@ export function SportsDashboard() {
   });
 
   const handleOpenRegistration = (eventUuidOrId: string | number, forType: "self" | "family" = "self", memberId?: string | number) => {
-    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-    const queryParam = forType === "self" ? "?for=self" : `?for=family&memberId=${memberId}`;
-    if (isMobile) {
-      setRegModalState({
-        open: true,
-        eventUuid: String(eventUuidOrId),
-        forType,
-        memberId,
-      });
-    } else {
-      navigate(`/sports/register/${eventUuidOrId}${queryParam}`);
+    const targetId = forType === "self" ? "self" : memberId;
+    const status = getMemberProfileStatus(targetId);
+    if (!status.isValid) {
+      notifyIncompleteProfile(targetId);
+      return;
     }
+    setRegModalState({
+      open: true,
+      eventUuid: String(eventUuidOrId),
+      forType,
+      memberId,
+    });
   };
 
   const canManageCaptainNominations = hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN);
@@ -700,10 +766,13 @@ export function SportsDashboard() {
           }
         }
 
-        const matchingReg = fetchedMyRegs.find(r => r.eventId === e.id);
+        const matchingReg = fetchedMyRegs.find(r =>
+          r.eventId === e.id &&
+          (e.familyMemberId == null || String(r.familyMemberId) === String(e.familyMemberId))
+        ) || fetchedMyRegs.find(r => r.eventId === e.id);
         const regPlayerName = e.playerName || matchingReg?.playerName;
         const regRelation = e.relation || matchingReg?.relation;
-        const regFamId = e.familyMemberId || matchingReg?.familyMemberId;
+        const regFamId = e.familyMemberId != null ? e.familyMemberId : matchingReg?.familyMemberId;
 
         let registrantBadge: string | undefined;
         if (regPlayerName && regRelation && regRelation.toUpperCase() !== "SELF") {
@@ -957,10 +1026,19 @@ export function SportsDashboard() {
             ) : (
               <div className="max-h-[220px] sm:max-h-[240px] overflow-y-auto pr-1">
                 {filteredLiveEvents.map((ev, idx) => {
-                  const myReg = myRegistrations.find(r => r.event.id === ev.id || r.eventId === ev.id);
+                  const myReg = myRegistrations.find(r => {
+                    if (r.eventId !== ev.id && r.event?.id !== ev.id) return false;
+                    if (ev.familyMemberId != null) return String(r.familyMemberId) === String(ev.familyMemberId);
+                    if (ev.playerName) return r.playerName?.toLowerCase().trim() === ev.playerName.toLowerCase().trim();
+                    if (upcomingFamilyFilter !== "ALL") return isRegistrationForMember(r, upcomingFamilyFilter);
+                    return true;
+                  }) || myRegistrations.find(r => (r.eventId === ev.id || r.event?.id === ev.id));
+
                   const isConfirmed = myReg?.status === "CONFIRMED";
                   const isNominated = myReg?.captainNomination;
                   const isTeamReg = myReg?.matchType === "TEAM";
+                  const regPersonName = myReg?.playerName || user?.fullName || "You";
+                  const isSelfNomination = !myReg?.familyMemberId && (!myReg?.relation || myReg?.relation?.toUpperCase() === "SELF" || myReg?.relation?.toUpperCase() === "HEAD");
 
                   return (
                     <div key={ev.id} className={`mb-1.5 sm:mb-2 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
@@ -1006,7 +1084,13 @@ export function SportsDashboard() {
                                 : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
                               }`}
                           >
-                            {myReg?.captainConfirmation ? 'Confirmed' : isNominated ? 'Withdraw Nomination' : 'Nominate Me as Captain'}
+                            {myReg?.captainConfirmation
+                              ? 'Confirmed'
+                              : isNominated
+                                ? 'Withdraw Nomination'
+                                : isSelfNomination
+                                  ? 'Nominate Me as Captain'
+                                  : `Nominate ${regPersonName} as Captain`}
                           </button>
                         </div>
                       )}
@@ -1105,32 +1189,62 @@ export function SportsDashboard() {
                         {/* Family member registration selector on next line */}
                         {familyMembersOnly.length > 0 && (
                           <div
-                            className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-indigo-100/60 flex-wrap"
+                            className="mt-2 pt-1.5 border-t border-indigo-100/60"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <label className="text-[10px] font-bold text-indigo-950/70 uppercase tracking-wider whitespace-nowrap">
-                              Register For:
-                            </label>
-                            <div className="relative">
-                              <select
-                                value={selectedMemberByTournament[t.id] || "self"}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const val = e.target.value;
-                                  setSelectedMemberByTournament(prev => ({ ...prev, [t.id]: val }));
-                                }}
-                                className="text-xs font-semibold pl-2 pr-6 py-1 rounded-lg bg-white/95 border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all max-w-[150px] sm:max-w-[200px] truncate"
-                                title="Choose family member to register"
-                              >
-                                <option value="self">👤 {user?.fullName || "Self"}</option>
-                                {familyMembersOnly.map(m => (
-                                  <option key={m.id} value={String(m.id)}>
-                                    👥 {m.name}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <label className="text-[10px] font-bold text-indigo-950/70 uppercase tracking-wider whitespace-nowrap">
+                                Register For:
+                              </label>
+                              <div className="relative">
+                                <select
+                                  value={selectedMemberByTournament[t.id] || "self"}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const val = e.target.value;
+                                    setSelectedMemberByTournament(prev => ({ ...prev, [t.id]: val }));
+                                    notifyIncompleteProfile(val);
+                                  }}
+                                  className="text-xs font-semibold pl-2 pr-6 py-1 rounded-lg bg-white/95 border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all max-w-[150px] sm:max-w-[200px] truncate"
+                                  title="Choose family member to register"
+                                >
+                                  <option value="self">👤 {user?.fullName || "Self"}</option>
+                                  {familyMembersOnly.map(m => (
+                                    <option key={m.id} value={String(m.id)}>
+                                      👥 {m.name}{m.relation && m.relation !== "Family" ? ` (${m.relation})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
                             </div>
+
+                            {/* Warning banner when selected member has missing DOB or Gender */}
+                            {(() => {
+                              const selId = selectedMemberByTournament[t.id] || "self";
+                              const status = getMemberProfileStatus(selId);
+                              if (status.isValid) return null;
+                              return (
+                                <div className="w-full mt-2 flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs shadow-2xs animate-fade-in-up">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <span className="truncate text-[11px]">
+                                      <strong className="font-semibold">{status.memberName}</strong> missing {status.missingFields.join(" & ")}. Update profile to register.
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(status.isSelf ? "/profile" : "/profile?tab=family");
+                                    }}
+                                    className="text-[10px] font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2 py-0.5 rounded transition whitespace-nowrap cursor-pointer shrink-0"
+                                  >
+                                    Update Details →
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
@@ -1148,34 +1262,72 @@ export function SportsDashboard() {
                         <div className="mt-2 space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
                           {sportEntries.map(([sport, { emoji, events }], sIdx) => {
                             const selectedMemberId = selectedMemberByTournament[t.id] || "self";
-                            const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
-                              return myRegistrations.some(r =>
+                            const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
+                            const isSelf = selectedMemberId === "self";
+                            const targetMember = isSelf
+                              ? {
+                                  age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
+                                  gender: user?.gender || "",
+                                }
+                              : (() => {
+                                  const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+                                  return {
+                                    age: (fm ? calculateAge(fm.dob || (fm as any)?.dateOfBirth) : 0) || (fm?.age || 0),
+                                    gender: fm?.gender || "",
+                                  };
+                                })();
+
+                            const getMemberRegsForEvent = (ev: OpenRegistration) => {
+                              return myRegistrations.filter(r =>
                                 (r.eventId === ev.id || r.event?.id === ev.id) &&
                                 isRegistrationForMember(r, selectedMemberId) &&
                                 r.status !== "CANCELLED" &&
                                 r.status !== "WITHDRAWN"
                               );
+                            };
+                            const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
+                              return getMemberRegsForEvent(ev).length > 0;
                             };
                             const getMemberRegForEvent = (ev: OpenRegistration) => {
-                              return myRegistrations.find(r =>
-                                (r.eventId === ev.id || r.event?.id === ev.id) &&
-                                isRegistrationForMember(r, selectedMemberId) &&
-                                r.status !== "CANCELLED" &&
-                                r.status !== "WITHDRAWN"
-                              );
+                              return getMemberRegsForEvent(ev)[0];
+                            };
+                            const getMemberRegisteredFormats = (ev: OpenRegistration) => {
+                              return getMemberRegsForEvent(ev).map(r => (r.matchType || "SINGLES").toUpperCase());
+                            };
+                            const getUnregisteredFormats = (ev: OpenRegistration) => {
+                              const regFormats = getMemberRegisteredFormats(ev);
+                              const allFormats = getEventFormats(ev as any);
+                              return allFormats.filter(f => !regFormats.includes(f.toUpperCase()));
+                            };
+                            const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
+                              const allFormats = getEventFormats(ev as any);
+                              if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
+                              return getUnregisteredFormats(ev).length === 0;
                             };
 
-                            const registeredEvents = events.filter(e => isMemberRegisteredForEvent(e));
-                            const regCount = registeredEvents.length;
-                            const allRegistered = regCount === events.length && events.length > 0;
-                            const firstEvent = events[0];
+                            // Filter events based on this specific participant's eligibility
+                            const eligibleEvents = events.filter(e => {
+                              const elig = checkCategoryEligibility(e, targetMember.age, targetMember.gender);
+                              return elig.eligible;
+                            });
+                            const fullyRegisteredEligibleEvents = eligibleEvents.filter(e => isFullyRegisteredForEvent(e));
+                            const registeredEligibleEvents = eligibleEvents.filter(e => isMemberRegisteredForEvent(e));
+                            const unregEligibleEvents = eligibleEvents.filter(e => !isFullyRegisteredForEvent(e));
+                            const anyRegisteredEvents = events.filter(e => isMemberRegisteredForEvent(e));
+
+                            const regCount = fullyRegisteredEligibleEvents.length;
+                            const totalEligibleCount = eligibleEvents.length;
+                            const allEligibleRegistered = totalEligibleCount > 0 && regCount >= totalEligibleCount;
+                            const remainingEligibleCount = unregEligibleEvents.length;
+                            const hasPartialRegistrations = anyRegisteredEvents.length > 0 && !allEligibleRegistered;
+
                             const sportKey = `${t.id}-${sport}`;
                             const isSportExpanded = expandedSports.has(sportKey);
                             return (
                               <div
                                 key={sport}
                                 className={`rounded-lg border overflow-hidden transition-all animate-fade-in-up stagger-${(sIdx % 8) + 1} ${
-                                  regCount > 0
+                                  allEligibleRegistered || anyRegisteredEvents.length > 0
                                     ? "border-emerald-100 bg-emerald-50/30"
                                     : "border-slate-100 bg-white"
                                 }`}
@@ -1203,36 +1355,69 @@ export function SportsDashboard() {
                                   >
                                     <span className="text-xl shrink-0">{emoji}</span>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="text-sm font-bold text-slate-900">{sport}</span>
                                         <span className="text-[10px] text-slate-400 font-medium">
                                           · {events.length} {events.length === 1 ? "category" : "categories"}
                                         </span>
+                                        {totalEligibleCount > 0 && totalEligibleCount < events.length && (
+                                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                            {totalEligibleCount} eligible
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
                                     {isSportExpanded
                                       ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
                                       : <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />}
                                   </div>
-                                  {regCount > 0 ? (
+
+                                  {allEligibleRegistered ? (
                                     <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0 flex items-center gap-1">
                                       ✓ Registered
                                     </span>
+                                  ) : !memberProfileStatus.isValid ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        notifyIncompleteProfile(selectedMemberId);
+                                      }}
+                                      title={`Registration disabled: ${memberProfileStatus.memberName} is missing ${memberProfileStatus.missingFields.join(" & ")}`}
+                                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200/80 cursor-not-allowed transition-all flex items-center gap-1 shrink-0"
+                                    >
+                                      Register {remainingEligibleCount > 0 && regCount > 0 ? `(+${remainingEligibleCount})` : ""}
+                                      <ArrowUpRight className="w-3 h-3 opacity-60" />
+                                    </button>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        const isSelf = selectedMemberId === "self";
+                                        const pool = unregEligibleEvents.length > 0 ? unregEligibleEvents : eligibleEvents.length > 0 ? eligibleEvents : events;
+                                        const bestEvent = findBestMatchingCategory(pool, targetMember.age, targetMember.gender);
+                                        if (!bestEvent) {
+                                          const memberName = isSelf
+                                            ? (user?.fullName || (user as any)?.firstName || "You")
+                                            : familyMembers.find(m => String(m.id) === String(selectedMemberId))?.name || "Selected member";
+                                          toast.error(
+                                            `No eligible category found for ${memberName} (Age: ${targetMember.age} yrs, ${targetMember.gender || "unknown gender"}). This event has no matching age/gender category.`
+                                          );
+                                          return;
+                                        }
                                         handleOpenRegistration(
-                                          firstEvent.uuid ?? firstEvent.id,
+                                          bestEvent.uuid ?? bestEvent.id,
                                           isSelf ? "self" : "family",
                                           isSelf ? undefined : selectedMemberId
                                         );
                                       }}
-                                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm shadow-indigo-500/20 transition-all flex items-center gap-1 cursor-pointer active:scale-95 shrink-0"
+                                      className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer active:scale-95 shrink-0 ${
+                                        regCount > 0 && remainingEligibleCount > 0
+                                          ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-xs"
+                                          : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm shadow-indigo-500/20"
+                                      }`}
                                     >
-                                      Register
+                                      <span>Register{regCount > 0 && remainingEligibleCount > 0 ? ` (+${remainingEligibleCount})` : ""}</span>
                                       <ArrowUpRight className="w-3 h-3" />
                                     </button>
                                   )}
@@ -1242,31 +1427,105 @@ export function SportsDashboard() {
                                     {events.map(item => {
                                       const memberReg = getMemberRegForEvent(item);
                                       const isReg = Boolean(memberReg);
+                                      const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
+                                      const isBlocked = !elig.eligible;
+                                      const eventFormats = getEventFormats(item as any);
+                                      const regFormats = getMemberRegisteredFormats(item);
+                                      const unregFormats = getUnregisteredFormats(item);
+                                      const hasMultipleFormats = eventFormats.length > 1;
+                                      const isFullyReg = isReg && unregFormats.length === 0;
+                                      const isPartiallyReg = isReg && unregFormats.length > 0;
+
                                       return (
-                                        <div key={item.id} className="flex items-center gap-2.5 px-4 py-2 pl-11">
-                                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isReg ? "bg-emerald-500" : "bg-slate-300"}`} />
-                                          <div className="flex-1 min-w-0">
-                                            <span className="text-[13px] font-semibold text-slate-800">{item.categoryName || item.name}</span>
-                                            <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                                              <span className="text-[10px] text-slate-400">{item.date}</span>
-                                              {item.spots && <span className="text-[10px] text-indigo-500 font-medium">{item.spots}</span>}
+                                        <div key={item.id} className={`px-4 py-2.5 pl-11 ${isPartiallyReg ? "space-y-1.5" : ""}`}>
+                                          <div className="flex items-center gap-2.5">
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                              isFullyReg ? "bg-emerald-500" : isPartiallyReg ? "bg-amber-400" : isBlocked ? "bg-rose-400" : "bg-slate-300"
+                                            }`} />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className={`text-[13px] font-semibold ${isBlocked ? "text-slate-500" : "text-slate-800"}`}>
+                                                  {item.categoryName || item.name}
+                                                </span>
+                                                {elig.requiredGender && (
+                                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                                    {elig.requiredGender}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] text-slate-400">{item.date}</span>
+                                                {item.spots && <span className="text-[10px] text-indigo-500 font-medium">{item.spots}</span>}
+                                              </div>
                                             </div>
+                                            {isFullyReg ? (
+                                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                                ✓ {hasMultipleFormats ? "All Formats" : "Registered"}
+                                              </span>
+                                            ) : isPartiallyReg ? (
+                                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50/80 text-emerald-600 border border-emerald-200/80 shrink-0">
+                                                ✓ {regFormats.length}/{eventFormats.length}
+                                              </span>
+                                            ) : isBlocked ? (
+                                            <span
+                                              title={elig.warningMsg}
+                                              className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-200 cursor-not-allowed shrink-0"
+                                            >
+                                              {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
+                                            </span>
+                                          ) : !memberProfileStatus.isValid ? (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                notifyIncompleteProfile(selectedMemberId);
+                                              }}
+                                              title={`Registration disabled: ${memberProfileStatus.memberName} is missing ${memberProfileStatus.missingFields.join(" & ")}`}
+                                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-400 border border-slate-200/60 cursor-not-allowed transition-colors shrink-0"
+                                            >
+                                              Register →
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const isSelf = selectedMemberId === "self";
+                                                handleOpenRegistration(
+                                                  item.uuid ?? item.id,
+                                                  isSelf ? "self" : "family",
+                                                  isSelf ? undefined : selectedMemberId
+                                                );
+                                              }}
+                                              className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0 cursor-pointer"
+                                            >
+                                              Register →
+                                            </button>
+                                          )}
                                           </div>
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const isSelf = selectedMemberId === "self";
-                                              handleOpenRegistration(
-                                                item.uuid ?? item.id,
-                                                isSelf ? "self" : "family",
-                                                isSelf ? undefined : selectedMemberId
-                                              );
-                                            }}
-                                            className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors shrink-0 cursor-pointer"
-                                          >
-                                            Register →
-                                          </button>
+                                          {isPartiallyReg && hasMultipleFormats && (
+                                            <div className="flex items-center gap-2 pl-4 ml-0.5">
+                                              <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50/60 px-1.5 py-0.5 rounded">
+                                                ✓ {regFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  const isSelf = selectedMemberId === "self";
+                                                  handleOpenRegistration(
+                                                    item.uuid ?? item.id,
+                                                    isSelf ? "self" : "family",
+                                                    isSelf ? undefined : selectedMemberId
+                                                  );
+                                                }}
+                                                className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer transition-colors flex items-center gap-0.5"
+                                              >
+                                                + {unregFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
+                                                <ArrowUpRight className="w-2.5 h-2.5" />
+                                              </button>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
@@ -1601,95 +1860,121 @@ export function SportsDashboard() {
         {/* Captain Nomination Modal */}
         {isNominateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800">
-                    {isAdminNomination ? "Appoint Captain" : "Register as Captain"}
-                  </h3>
-                  <p className="text-xs mt-1" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Select a member and assign a team name" : "Propose a name for your future team"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsNominateModalOpen(false);
-                    setIsAdminNomination(false);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <div className="w-5 h-5 flex items-center justify-center text-xl font-light">×</div>
-                </button>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
+              {(() => {
+                const targetReg = myRegistrations.find(r => r.id === nominatingRegId);
+                const targetPersonName = targetReg?.playerName || user?.fullName || "Player";
+                const isTargetSelf = !targetReg?.familyMemberId && (!targetReg?.relation || targetReg?.relation?.toUpperCase() === "SELF" || targetReg?.relation?.toUpperCase() === "HEAD");
+                const targetRelation = isTargetSelf ? "Self" : (targetReg?.relation || "Family Member");
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Select Member" : "Logged In User"}
-                  </label>
-                  {isAdminNomination ? (
-                    <select
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
-                      value={selectedRegForNomination || ""}
-                      onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
-                    >
-                      <option value="">Choose a member...</option>
-                      {loadingCaptains ? (
-                        <option disabled>Loading members...</option>
-                      ) : captainRegs.map(reg => (
-                        <option key={reg.id} value={reg.id}>
-                          {reg.playerName || reg.user?.fullName} {reg.captainNomination ? " (Already Nominated)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-700 font-medium rounded-xl px-4 py-3 cursor-not-allowed">
-                      {(() => {
-                        const targetReg = myRegistrations.find(r => r.id === nominatingRegId);
-                        return targetReg?.playerName || user?.fullName || user?.email || "Logged in user";
-                      })()}
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                          <Crown className="w-5 h-5 text-amber-500" />
+                          {isAdminNomination ? "Appoint Captain" : `Nominate Captain: ${targetPersonName}`}
+                        </h3>
+                        <p className="text-xs mt-1 text-slate-500">
+                          {isAdminNomination
+                            ? "Select a confirmed registrant and assign a team name"
+                            : `Propose team name for ${targetPersonName} (${targetRelation})`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsNominateModalOpen(false);
+                          setIsAdminNomination(false);
+                        }}
+                        className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
-                  )}
-                </div>
 
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus={!isAdminNomination}
-                    placeholder="e.g. Sector 12 Warriors"
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all"
-                    value={nominateTeamName}
-                    onChange={(e) => setNominateTeamName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleNominateSubmit()}
-                  />
-                </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                          {isAdminNomination ? "Select Registrant" : "Nominated Person"}
+                        </label>
+                        {isAdminNomination ? (
+                          <select
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-sm font-semibold"
+                            value={selectedRegForNomination || ""}
+                            onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
+                          >
+                            <option value="">Choose a member...</option>
+                            {loadingCaptains ? (
+                              <option disabled>Loading members...</option>
+                            ) : captainRegs.map(reg => (
+                              <option key={reg.id} value={reg.id}>
+                                {reg.playerName || reg.user?.fullName} {reg.relation ? `(${reg.relation})` : ""} {reg.captainNomination ? " (Already Nominated)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                {isTargetSelf ? "👤" : "👥"}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-bold text-slate-900 truncate">
+                                  {targetPersonName}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-medium truncate">
+                                  {targetRelation} {targetReg?.event?.name ? `· ${targetReg.event.name}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 whitespace-nowrap shrink-0">
+                              {isTargetSelf ? "Self" : "Family Member"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button
-                    onClick={() => {
-                      setIsNominateModalOpen(false);
-                      setIsAdminNomination(false);
-                    }}
-                    className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-200 transition-all border border-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleNominateSubmit}
-                    disabled={isSubmittingNomination || !nominateTeamName.trim() || (isAdminNomination && !selectedRegForNomination)}
-                    className="flex-1 px-4 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-medium shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                  >
-                    {isSubmittingNomination ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      isAdminNomination ? "Confirm Appointment" : "Register Now"
-                    )}
-                  </button>
-                </div>
-              </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                          {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
+                        </label>
+                        <input
+                          type="text"
+                          autoFocus={!isAdminNomination}
+                          placeholder={`e.g. ${targetPersonName.split(' ')[0]}'s Warriors`}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all text-sm font-medium"
+                          value={nominateTeamName}
+                          onChange={(e) => setNominateTeamName(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleNominateSubmit()}
+                        />
+                      </div>
+
+                      <div className="pt-2 flex gap-3">
+                        <button
+                          onClick={() => {
+                            setIsNominateModalOpen(false);
+                            setIsAdminNomination(false);
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-all border border-slate-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNominateSubmit}
+                          disabled={isSubmittingNomination || !nominateTeamName.trim() || (isAdminNomination && !selectedRegForNomination)}
+                          className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {isSubmittingNomination ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            isAdminNomination ? "Confirm Appointment" : `Nominate ${targetPersonName.split(' ')[0]}`
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}

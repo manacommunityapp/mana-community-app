@@ -1,0 +1,12 @@
+﻿spring:
+  cache:
+    type: caffeine
+    cache-names:
+      - dashboard
+    caffeine:
+      spec: maximumSize=5000,expireAfterWrite=30s
+
+logging:
+  level:
+    com.mana.community.feed: DEBUG
+    org.springframework.cache: TRACE

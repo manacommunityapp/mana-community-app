@@ -1,13 +1,14 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
-  VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_NOTICES, VIEW_AMENITIES,
-  VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY,
+  VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_SAFETY, VIEW_NOTICES, VIEW_AMENITIES,
+  VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY, VIEW_HOME_SERVICE,
+  VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -361,12 +362,23 @@ export function Layout() {
 
   const labelToModule: Record<string, string> = {
     "Community Feed": "COMMUNITY_FEED",
+    "Mana Deals": "COMMUNITY_OFFERS",
+    "Mana Academy": "ACADEMY",
+    "Emergency SOS": "EMERGENCY",
+    "Home Services": "HOME_SERVICES",
+    "Group Buying": "GROUP_BUYING",
+    "Community Trips": "TRIPS",
+    "Community Discover": "COMMUNITY_GRAPH",
+    "Governance & Decisions": "GOVERNANCE",
+    "Pet Registry": "HOME_SERVICES",
     "Sports": "SPORTS",
     "Marketplace": "MARKETPLACE",
     "Visitors": "VISITORS",
     "Notices": "NOTICES",
     "Bookings": "BOOKINGS",
     "Helpdesk": "HELPDESK",
+    "Smart Helpdesk": "HELPDESK",
+    "Maintenance Dues": "FINANCE_MGMT",
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
@@ -391,13 +403,24 @@ export function Layout() {
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },
+    { to: "/safety", icon: ShieldCheck, label: "Safety & Security" },
+    { to: "/deals", icon: Tag, label: "Mana Deals" },
+    { to: "/academy", icon: GraduationCap, label: "Mana Academy" },
+    { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS" },
+    { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
+    { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
+    { to: "/trips", icon: Compass, label: "Community Trips" },
+    { to: "/discover", icon: Sparkles, label: "Community Discover" },
+    { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
+    { to: "/pets", icon: Heart, label: "Pet Registry" },
     { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
     { to: "/visitors", icon: Shield, label: "Visitors" },
     { to: "/notices", icon: Megaphone, label: "Notices" },
     { to: "/bookings", icon: Building2, label: "Bookings" },
-    { to: "/helpdesk", icon: Headphones, label: "Helpdesk" },
+    { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
+    { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
     { to: "/polls", icon: Vote, label: "Polls" },
     { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
     { to: "/events", icon: CalendarDays, label: "Events" },
@@ -409,6 +432,7 @@ export function Layout() {
   ];
 
   const filteredNavLinks = navLinks.filter((link) => {
+    // Only super admin has access to everything without permissions
     if (isSuperAdmin) return true;
     if (loadingPermissions) return true;
 
@@ -416,17 +440,28 @@ export function Layout() {
     if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
 
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
+    if (link.label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
+    if (link.label === "Mana Deals") return true; // Accessible to all authenticated community members
+    if (link.label === "Mana Academy") return true; // Accessible to all authenticated community members
+    if (link.label === "Governance & Decisions") return true; // Accessible to all authenticated community members
+    if (link.label === "Pet Registry") return true; // Accessible to all authenticated community members
+    if (link.label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
+    if (link.label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
+    if (link.label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
+    if (link.label === "Community Trips") return permissions.includes(VIEW_TRIPS);
+    if (link.label === "Community Discover") return permissions.includes(VIEW_DISCOVER);
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
     if (link.label === "Visitors") return permissions.includes(VIEW_VISITORS);
     if (link.label === "Notices") return permissions.includes(VIEW_NOTICES);
     if (link.label === "Bookings") return permissions.includes(VIEW_AMENITIES);
-    if (link.label === "Helpdesk") return permissions.includes(VIEW_TICKETS);
+    if (link.label === "Helpdesk" || link.label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
+    if (link.label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
-    return true;
+    return false;
   });
 
   const filteredAdminLinks = adminLinks.filter((link) => {

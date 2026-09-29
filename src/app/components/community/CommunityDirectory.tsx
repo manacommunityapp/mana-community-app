@@ -391,9 +391,10 @@ export interface CommunityDirectoryProps {
   isModal?: boolean;
   defaultExpanded?: boolean;
   badgeCount?: number;
+  onDirectoryLoaded?: (leaderMap: Record<number, string>) => void;
 }
 
-export function CommunityDirectory({ isModal = false, defaultExpanded = false, badgeCount }: CommunityDirectoryProps) {
+export function CommunityDirectory({ isModal = false, defaultExpanded = false, badgeCount, onDirectoryLoaded }: CommunityDirectoryProps) {
   const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [whoToCallDbList, setWhoToCallDbList] = useState<CommunityWhoToCallResponse[]>([]);
@@ -436,9 +437,19 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
     ])
       .then(([dirData, whoToCallData]) => {
         if (!cancelled) {
-          setLeaders(Array.isArray(dirData) ? dirData : []);
+          const lList = Array.isArray(dirData) ? dirData : [];
+          setLeaders(lList);
           setWhoToCallDbList(Array.isArray(whoToCallData) ? whoToCallData : []);
           setHasFetched(true);
+          if (onDirectoryLoaded && lList.length > 0) {
+            const map: Record<number, string> = {};
+            lList.forEach((l) => {
+              if (l.userId && l.designation) {
+                map[l.userId] = l.designation;
+              }
+            });
+            onDirectoryLoaded(map);
+          }
         }
       })
       .catch((err) => {
@@ -450,7 +461,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
     return () => {
       cancelled = true;
     };
-  }, [expanded, isModal, hasFetched]);
+  }, [expanded, isModal, hasFetched, onDirectoryLoaded]);
 
   const filteredLeaders = useMemo(() => {
     if (!searchQuery.trim()) return leaders;

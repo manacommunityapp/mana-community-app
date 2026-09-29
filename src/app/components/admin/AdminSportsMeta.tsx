@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Edit2, Trash2, ArrowLeft, Plus, X, Search, CheckCircle, HelpCircle } from "lucide-react";
+import { Loader2, Edit2, Trash2, ArrowLeft, Plus, X, Search, HelpCircle, Upload, Check } from "lucide-react";
 import { useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -47,7 +47,6 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
     try {
       setLoading(true);
       const data = await sportsService.getSportsMeta();
-      // Wait, getSportsMeta fetches active true, let's just use it or whatever the endpoint returns
       setSports(data || []);
     } catch (err) {
       console.error(err);
@@ -96,13 +95,12 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
       return;
     }
 
-    setSubmitting(true);
     if (selectedFormats.length === 0) {
       toast.error("Please select at least one format");
-      setSubmitting(false);
       return;
     }
 
+    setSubmitting(true);
     const payload = {
       name: name.trim(),
       icon: icon || "🏆",
@@ -154,145 +152,183 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-4 pb-12">
       <Toaster position="top-center" richColors />
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3 text-left">
           {!isTab && (
             <button
               onClick={() => navigate("/admin")}
-              className="p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-700 rounded-xl transition-all text-slate-400 hover:text-white"
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all text-slate-500 hover:text-slate-800 shrink-0 cursor-pointer"
+              title="Back"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
           )}
           <div>
-            <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2 font-['Bebas_Neue'] tracking-wide">
-              SPORTS META MANAGEMENT
+            <h1 className="text-sm sm:text-base font-bold text-slate-800 tracking-tight">
+              Sports Meta Management
             </h1>
-            <p className="text-slate-400 text-xs mt-0.5">Manage global sport categories and baseline rules in the system</p>
+            <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">
+              Configure and manage active sports metadata and baseline rules in the system
+            </p>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={() => {
             if (showForm) resetForm();
             else setShowForm(true);
           }}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/30 text-white text-sm font-semibold rounded-xl shadow-lg transition-all flex items-center gap-2"
+          className="px-3.5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shadow-xs hover:brightness-105 shrink-0 self-start sm:self-auto"
+          style={{
+            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+            boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
+          }}
         >
-          {showForm ? <><X className="w-4 h-4" /> Cancel</> : <><Plus className="w-4 h-4" /> New Sport Meta</>}
+          {showForm ? (
+            <>
+              <X className="w-3.5 h-3.5" /> Cancel
+            </>
+          ) : (
+            <>
+              <Plus className="w-3.5 h-3.5" /> New Sport Meta
+            </>
+          )}
         </button>
       </div>
 
       {/* Inline Creation / Edition Form */}
       {showForm && (
-        <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-2xl p-6 shadow-2xl relative">
-          <h3 className="text-sm font-bold text-[#f97316] uppercase tracking-widest border-b border-[#2a3a5c]/60 pb-2.5 mb-4">
-            {editingId ? "Edit Sport Metadata" : "Create New Sport Meta"}
-          </h3>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <h3 className="text-xs sm:text-[13px] font-bold text-indigo-700 uppercase tracking-wider">
+                {editingId ? "Edit Sport Metadata" : "Create New Sport Meta"}
+              </h3>
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                Set name, default supported match formats, and icon
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer border-none bg-transparent"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
           
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
               {/* Sport Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Sport Name *</label>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+                  Sport Name *
+                </label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="e.g. Pickleball, Box Cricket"
-                  className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-[13px] text-slate-800 placeholder-slate-400 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none"
                 />
               </div>
 
-              {/* Format selection and Status side-by-side */}
-              <div className="space-y-2 md:col-span-2 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-                <div className="space-y-2 flex-1">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-                    Default Formats * <span className="text-[10px] text-slate-500 lowercase font-normal">(select all that apply)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2.5">
-                    {(["SINGLES", "DOUBLES", "MIXED_DOUBLES", "TEAM"] as MatchFormat[]).map(fmt => {
-                      const isSel = selectedFormats.includes(fmt);
-                      const label = fmt === "SINGLES" ? "Singles" 
-                                  : fmt === "DOUBLES" ? "Doubles" 
-                                  : fmt === "MIXED_DOUBLES" ? "Mixed Doubles" 
-                                  : "Team Sport";
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => {
-                            setSelectedFormats(prev => {
-                              if (prev.includes(fmt)) {
-                                // Ensure at least one is selected
-                                if (prev.length === 1) {
-                                  toast.warning("Please select at least one format");
-                                  return prev;
-                                }
-                                return prev.filter(f => f !== fmt);
-                              } else {
-                                return [...prev, fmt];
+              {/* Format selection */}
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+                  Default Formats * <span className="text-[11px] text-slate-400 lowercase font-normal">(select all that apply)</span>
+                </label>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  {(["SINGLES", "DOUBLES", "MIXED_DOUBLES", "TEAM"] as MatchFormat[]).map(fmt => {
+                    const isSel = selectedFormats.includes(fmt);
+                    const label = fmt === "SINGLES" ? "Singles" 
+                                : fmt === "DOUBLES" ? "Doubles" 
+                                : fmt === "MIXED_DOUBLES" ? "Mixed Doubles" 
+                                : "Team Sport";
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFormats(prev => {
+                            if (prev.includes(fmt)) {
+                              if (prev.length === 1) {
+                                toast.warning("Please select at least one format");
+                                return prev;
                               }
-                            });
-                          }}
-                          className={cn(
-                            "px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-                            isSel
-                              ? "bg-[#f97316]/10 border-[#f97316] text-[#f97316] shadow-sm shadow-[#f97316]/5"
-                              : "bg-[#0c1220] border-[#2a3a5c] text-slate-400 hover:border-slate-500 hover:text-slate-300"
-                          )}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Active Toggle */}
-                <div className="space-y-1.5 flex flex-col justify-center pb-1 flex-shrink-0">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Status</label>
-                  <div className="flex items-center gap-3">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={e => setActive(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className={`w-11 h-6 rounded-full transition-colors ${active ? "bg-emerald-500" : "bg-[#1a2540]"} relative`}>
-                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${active ? "translate-x-5" : ""}`} />
-                      </div>
-                    </label>
-                    <span className="text-sm text-slate-300 font-medium">{active ? "Active" : "Inactive"}</span>
-                  </div>
+                              return prev.filter(f => f !== fmt);
+                            } else {
+                              return [...prev, fmt];
+                            }
+                          });
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
+                          isSel
+                            ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs ring-1 ring-indigo-200"
+                            : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                        )}
+                      >
+                        {isSel && <Check className="w-3 h-3 text-indigo-600" />}
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Icon selection */}
-            <div className="space-y-3 border-t border-[#2a3a5c]/60 pt-4">
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Sport Icon *</label>
-                {iconUrl ? (
-                  <div className="w-9 h-9 rounded-xl border border-[#2a3a5c] bg-[#0c1220] flex items-center justify-center overflow-hidden shadow-inner">
-                    <img src={iconUrl} alt="Preview" className="w-8 h-8 rounded-lg object-cover" />
-                  </div>
-                ) : (
-                  <span className="text-xl px-2.5 py-0.5 bg-[#0c1220] rounded-xl border border-[#2a3a5c] shadow-inner">{icon}</span>
-                )}
+            {/* Icon selection & Status Row */}
+            <div className="border-t border-slate-100 pt-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider block">
+                    Sport Icon Preview
+                  </label>
+                  {iconUrl ? (
+                    <div className="w-9 h-9 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-center justify-center overflow-hidden shadow-xs">
+                      <img src={iconUrl} alt="Preview" className="w-8 h-8 rounded-lg object-cover" />
+                    </div>
+                  ) : (
+                    <span className="text-xl px-2.5 py-0.5 bg-slate-50 rounded-xl border border-slate-200 shadow-xs">
+                      {icon}
+                    </span>
+                  )}
+                </div>
+
+                {/* Active Status Toggle */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Status:</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={e => setActive(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-10 h-5.5 rounded-full transition-colors ${active ? "bg-emerald-500" : "bg-slate-300"} relative`}>
+                      <div className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full transition-transform shadow-xs ${active ? "translate-x-4.5" : ""}`} />
+                    </div>
+                  </label>
+                  <span className={cn("text-xs font-bold", active ? "text-emerald-600" : "text-slate-400")}>
+                    {active ? "Active" : "Inactive"}
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
                 {/* Standard Emojis */}
-                <div className="md:col-span-2 space-y-2">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Standard Emojis</span>
-                  <div className="flex flex-wrap gap-2">
+                <div className="md:col-span-2 space-y-1.5">
+                  <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                    Standard Emojis
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-slate-50/70 border border-slate-200/80 rounded-xl">
                     {PREDEFINED_EMOJIS.map(emoji => (
                       <button
                         key={emoji}
@@ -301,18 +337,19 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
                           setIcon(emoji);
                           setIconUrl(null);
                         }}
-                        className={`text-2xl p-2 rounded-xl border transition-all hover:scale-110 cursor-pointer ${
+                        className={cn(
+                          "text-lg p-1.5 rounded-lg border transition-all hover:scale-105 cursor-pointer",
                           !iconUrl && icon === emoji 
-                            ? "bg-orange-500/10 border-orange-500 text-orange-500" 
-                            : "bg-[#0c1220] border-[#2a3a5c] hover:border-slate-500 text-slate-300"
-                        }`}
+                            ? "bg-indigo-50 border-indigo-400 shadow-xs" 
+                            : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                        )}
                       >
                         {emoji}
                       </button>
                     ))}
                     {/* Custom Text Emoji input */}
-                    <div className="flex items-center gap-2 bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-3 min-h-[46px]">
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Text</span>
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Custom</span>
                       <input
                         type="text"
                         maxLength={2}
@@ -322,47 +359,49 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
                           setIcon(e.target.value || "🏆");
                           setIconUrl(null);
                         }}
-                        className="w-8 bg-transparent text-center text-sm font-semibold border-none outline-none text-[#f1f5f9]"
+                        className="w-7 text-center text-xs font-semibold border-none outline-none text-slate-800 bg-transparent"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Custom File Upload */}
-                <div className="space-y-2">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Custom Image Upload</span>
-                  <div className="relative group min-h-[96px] bg-[#0c1220] border border-dashed border-[#2a3a5c] hover:border-[#f97316]/50 rounded-2xl flex flex-col items-center justify-center p-3 text-center transition-all cursor-pointer">
+                <div className="space-y-1.5">
+                  <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                    Custom Image Upload
+                  </span>
+                  <div className="relative group min-h-[80px] bg-slate-50 hover:bg-indigo-50/30 border border-dashed border-slate-300 hover:border-indigo-400 rounded-xl flex flex-col items-center justify-center p-3 text-center transition-all cursor-pointer">
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleIconUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
-                    <Plus className="w-5 h-5 text-slate-500 group-hover:text-[#f97316] mb-1.5 transition-colors" />
-                    <span className="text-[10px] font-semibold text-slate-400 group-hover:text-slate-200 block transition-colors">
-                      {iconUrl ? "Change Custom Image" : "Upload Custom Icon"}
+                    <Upload className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 mb-1 transition-colors" />
+                    <span className="text-[11px] font-semibold text-slate-600 group-hover:text-indigo-700 block transition-colors">
+                      {iconUrl ? "Replace Icon File" : "Upload Custom Icon"}
                     </span>
-                    <span className="text-[9px] text-slate-500 mt-1 block">PNG/JPG <span className="font-mono">&lt; 500KB</span></span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">PNG/JPG &lt; 500KB</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 border-t border-[#2a3a5c]/60 pt-4">
+            <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-3">
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all border border-[#2a3a5c] bg-transparent cursor-pointer text-sm"
+                className="px-3.5 py-1.5 rounded-xl text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-all border border-slate-200 bg-white cursor-pointer text-xs font-medium"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-lg transition-all disabled:opacity-50 text-sm"
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
               >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 {editingId ? "Update Metadata" : "Save Sport Meta"}
               </button>
             </div>
@@ -371,70 +410,76 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
       )}
 
       {/* Main Listing Section */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-2xl p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
-            System Sports <span className="bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full text-xs font-bold">{filteredSports.length}</span>
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h3 className="text-xs sm:text-[13px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            System Sports <span className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full text-xs font-bold">{filteredSports.length}</span>
           </h3>
 
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search sports meta..."
-              className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl pl-10 pr-4 py-2 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none placeholder-slate-600"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8.5 pr-3 py-1.5 text-xs sm:text-[13px] text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none placeholder-slate-400 transition-all"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-            <p className="text-xs text-slate-400">Fetching sports meta configuration...</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-2.5">
+            <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+            <p className="text-xs text-slate-500">Fetching sports meta configuration...</p>
           </div>
         ) : filteredSports.length === 0 ? (
-          <div className="text-center py-16">
-            <HelpCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400 font-medium">No sports metadata configurations found.</p>
-            <p className="text-xs text-slate-500 mt-1">Configure your first baseline sport by clicking "New Sport Meta" above.</p>
+          <div className="text-center py-12">
+            <HelpCircle className="w-10 h-10 text-slate-300 mx-auto mb-2.5" />
+            <p className="text-xs sm:text-[13px] text-slate-600 font-medium">No sports metadata configurations found.</p>
+            <p className="text-[11px] sm:text-xs text-slate-400 mt-1">Configure your first baseline sport by clicking "New Sport Meta" above.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredSports.map(s => {
               const isEditable = s.communityId != null || user?.role === "SUPER_ADMIN";
               return (
                 <div
                   key={s.id}
-                  className={`p-4 rounded-2xl border transition-all duration-300 flex items-center justify-between ${s.active ? "bg-[#0c1220] border-[#2a3a5c] hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/5" : "bg-[#0c1220]/40 border-[#2a3a5c]/40 opacity-60"}`}
+                  className={`p-3.5 rounded-xl border transition-all duration-200 flex items-center justify-between ${
+                    s.active 
+                      ? "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xs" 
+                      : "bg-slate-50/60 border-slate-200/50 opacity-70"
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     {s.iconUrl ? (
-                      <div className="w-14 h-14 bg-slate-800/40 rounded-2xl border border-slate-700/60 shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
-                        <img src={s.iconUrl} alt={s.name} className="w-12 h-12 rounded-xl object-cover" />
+                      <div className="w-11 h-11 bg-slate-50 rounded-xl border border-slate-200 shadow-xs flex items-center justify-center overflow-hidden shrink-0">
+                        <img src={s.iconUrl} alt={s.name} className="w-9 h-9 rounded-lg object-cover" />
                       </div>
                     ) : (
-                      <span className="text-3xl leading-none px-3 py-2 bg-slate-800/40 rounded-2xl border border-slate-700/60 shadow-sm flex-shrink-0">
+                      <span className="text-2xl leading-none px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-200 shadow-xs shrink-0">
                         {s.icon || "🏆"}
                       </span>
                     )}
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-100">{s.name}</h4>
-                      <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                        <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
+                    <div className="min-w-0">
+                      <h4 className="text-xs sm:text-[13px] font-bold text-slate-800 truncate">{s.name}</h4>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="text-[10px] sm:text-[11px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-medium">
                           {s.formats?.join(", ") || "SINGLES"}
                         </span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase tracking-wide flex items-center gap-1 ${s.active ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${s.active ? "bg-emerald-500" : "bg-red-500"}`} />
+                        <span className={`text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${
+                          s.active ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${s.active ? "bg-emerald-500" : "bg-rose-500"}`} />
                           {s.active ? "Active" : "Inactive"}
                         </span>
                         {s.communityId ? (
-                          <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide" title={`ID: ${s.communityId}`}>
+                          <span className="text-[10px] sm:text-[11px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-medium truncate max-w-[110px]" title={`ID: ${s.communityId}`}>
                             {s.community?.name || `Community #${s.communityId}`}
                           </span>
                         ) : (
-                          <span className="text-[10px] bg-slate-800/60 text-slate-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
+                          <span className="text-[10px] sm:text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">
                             System Default
                           </span>
                         )}
@@ -442,27 +487,27 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
                     {isEditable ? (
                       <>
                         <button
                           onClick={() => handleEdit(s)}
-                          className="p-2 hover:bg-slate-800 border border-slate-800 hover:border-orange-500/20 text-slate-400 hover:text-orange-400 rounded-xl transition-all cursor-pointer"
+                          className="p-1.5 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-indigo-600 rounded-lg transition-all cursor-pointer"
                           title="Edit"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(s.id)}
-                          className="p-2 hover:bg-slate-800 border border-slate-800 hover:border-red-500/20 text-slate-400 hover:text-red-400 rounded-xl transition-all cursor-pointer"
+                          className="p-1.5 hover:bg-rose-50 border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 rounded-lg transition-all cursor-pointer"
                           title="Deactivate"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </>
                     ) : (
-                      <div className="px-2 py-1 bg-slate-800/40 border border-slate-700/40 text-slate-500 rounded-xl cursor-not-allowed flex items-center gap-1" title="System default sport (read-only)">
-                        <span className="text-[8px] font-bold uppercase tracking-wider">Locked</span>
+                      <div className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-400 rounded-md cursor-not-allowed flex items-center gap-1" title="System default sport (read-only)">
+                        <span className="text-[9px] font-bold uppercase tracking-wider">Locked</span>
                       </div>
                     )}
                   </div>

@@ -83,10 +83,12 @@ export const CREATE_LISTING     = "Create Listing";
 export const DELETE_LISTING     = "Delete Listing";
 export const MANAGE_MARKETPLACE = "Manage Marketplace";
 
-// ──── VISITOR / GATE PASS ────
-export const VIEW_VISITORS       = "View Visitors";
-export const CREATE_VISITOR_PASS = "Create Visitor Pass";
-export const MANAGE_GATE         = "Manage Gate";
+// ──── VISITOR / GATE PASS & SAFETY NETWORK ────
+export const VIEW_VISITORS           = "View Visitors";
+export const CREATE_VISITOR_PASS     = "Create Visitor Pass";
+export const MANAGE_GATE             = "Manage Gate";
+export const VIEW_SAFETY             = "View Safety";
+export const MANAGE_SAFETY_DEVICES   = "Manage Safety Devices";
 
 // ──── PARKING ────
 export const VIEW_PARKING    = "View Parking";
@@ -120,6 +122,29 @@ export const VOTE_POLL   = "Vote Poll";
 export const VIEW_JOBS  = "View Jobs";
 export const CREATE_JOB = "Create Job";
 export const APPLY_JOB  = "Apply Job";
+
+// ──── EMERGENCY & SOS ────
+export const VIEW_EMERGENCY   = "View Emergency";
+export const TRIGGER_SOS      = "Trigger SOS";
+export const MANAGE_EMERGENCY = "Manage Emergency";
+
+// ──── GROUP BUYING ────
+export const VIEW_GROUP_BUYING   = "View Group Buying";
+export const JOIN_GROUP_DEAL     = "Join Group Deal";
+export const MANAGE_GROUP_BUYING = "Manage Group Buying";
+
+// ──── COMMUNITY TRIPS ────
+export const VIEW_TRIPS  = "View Trips";
+export const BOOK_TRIP   = "Book Trip";
+export const CREATE_TRIP = "Create Trip";
+
+// ──── COMMUNITY DISCOVER / GRAPH ────
+export const VIEW_DISCOVER = "View Discover";
+
+// ──── MAINTENANCE BILLING & DUES ────
+export const VIEW_MAINTENANCE_DUES = "View Maintenance Dues";
+export const PAY_MAINTENANCE_DUES  = "Pay Maintenance Dues";
+export const MANAGE_BILLING        = "Manage Billing";
 
 // ──── EVENTS — GRANULAR PERMISSIONS ────
 // Core
@@ -429,6 +454,25 @@ export const MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
 export const VIEW_WORK_ORDERS         = "View Work Orders";
 export const MANAGE_SERVICE_WORK_ORDERS       = "Manage Work Orders";
 
+// ──── HOME SERVICES / COMMUNITY HELP ────
+export const VIEW_HOME_SERVICE             = "View Home Service";
+export const CREATE_HOME_SERVICE_BOOKING   = "Create Home Service Booking";
+export const CANCEL_HOME_SERVICE_BOOKING   = "Cancel Home Service Booking";
+export const MANAGE_HOME_HELP              = "Manage Home Help";
+export const VIEW_WORKER_PROFILE           = "View Worker Profile";
+export const VIEW_WORKER_CONTACT           = "View Worker Contact";
+export const MANAGE_WORKER                 = "Manage Worker";
+export const VERIFY_WORKER                 = "Verify Worker";
+export const VIEW_WORKER_DOCUMENT          = "View Worker Document";
+export const MANAGE_SERVICE_CATEGORY       = "Manage Service Category";
+export const MANAGE_SERVICE_PACKAGE        = "Manage Service Package";
+export const MANAGE_ATTENDANCE             = "Manage Attendance";
+export const VIEW_HOME_SERVICE_PAYMENT     = "View Home Service Payment";
+export const VIEW_HOME_SERVICE_REVIEWS     = "View Home Service Reviews";
+export const CREATE_HOME_SERVICE_REPORT    = "Create Home Service Report";
+export const VIEW_HOME_SERVICE_HISTORY     = "View Home Service History";
+export const EXPORT_HOME_SERVICE_DATA      = "Export Home Service Data";
+
 /**
  * Permission categories grouped for the Role Management UI.
  * Used by AdminRoleManagement component.
@@ -438,6 +482,17 @@ export const PERMISSION_CATEGORIES = [
     id: "feed",
     title: "COMMUNITY FEED Permission",
     permissions: [VIEW_FEED, CREATE_POST, DELETE_POST, COMMENT_ON_POST],
+  },
+  {
+    id: "home_services",
+    title: "HOME SERVICES / COMMUNITY HELP Permission",
+    permissions: [
+      VIEW_HOME_SERVICE, CREATE_HOME_SERVICE_BOOKING, CANCEL_HOME_SERVICE_BOOKING,
+      MANAGE_HOME_HELP, VIEW_WORKER_PROFILE, VIEW_WORKER_CONTACT, MANAGE_WORKER,
+      VERIFY_WORKER, VIEW_WORKER_DOCUMENT, MANAGE_SERVICE_CATEGORY, MANAGE_SERVICE_PACKAGE,
+      MANAGE_ATTENDANCE, VIEW_HOME_SERVICE_PAYMENT, VIEW_HOME_SERVICE_REVIEWS,
+      CREATE_HOME_SERVICE_REPORT, VIEW_HOME_SERVICE_HISTORY, EXPORT_HOME_SERVICE_DATA
+    ],
   },
   {
     id: "sports",
@@ -568,6 +623,31 @@ export const PERMISSION_CATEGORIES = [
       CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_REQUESTS,
       VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS,
     ],
+  },
+  {
+    id: "emergency",
+    title: "EMERGENCY & SOS Permission",
+    permissions: [VIEW_EMERGENCY, TRIGGER_SOS, MANAGE_EMERGENCY],
+  },
+  {
+    id: "group-buying",
+    title: "GROUP BUYING Permission",
+    permissions: [VIEW_GROUP_BUYING, JOIN_GROUP_DEAL, MANAGE_GROUP_BUYING],
+  },
+  {
+    id: "trips",
+    title: "COMMUNITY TRIPS Permission",
+    permissions: [VIEW_TRIPS, BOOK_TRIP, CREATE_TRIP],
+  },
+  {
+    id: "discover",
+    title: "COMMUNITY DISCOVER & GRAPH Permission",
+    permissions: [VIEW_DISCOVER],
+  },
+  {
+    id: "maintenance",
+    title: "MAINTENANCE BILLING & DUES Permission",
+    permissions: [VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, MANAGE_BILLING],
   },
 ] as const;
 

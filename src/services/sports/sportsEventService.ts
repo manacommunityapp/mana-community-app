@@ -164,6 +164,18 @@ export const sportsEventService = {
 
   /** POST /api/sports/register — register authenticated user for a tournament */
   async registerForTournament(data: RegistrationRequest): Promise<TournamentRegistration> {
+    if (!data.eventId) {
+      throw new Error("Event ID is mandatory for registration.");
+    }
+    if (!data.dateOfBirth && (!data.age || data.age <= 0)) {
+      throw new Error("Valid Date of Birth / Age is required to register.");
+    }
+    if (data.gender) {
+      const g = String(data.gender).trim().toUpperCase();
+      if (!["MALE", "FEMALE", "OTHER", "M", "F", "MEN", "WOMEN"].includes(g)) {
+        throw new Error("Valid gender is required to register.");
+      }
+    }
     return apiClient.post<TournamentRegistration>("/sports/register", data);
   },
   async registerForEvent(data: RegistrationRequest): Promise<EventRegistration> {

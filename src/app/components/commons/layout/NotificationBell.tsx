@@ -468,16 +468,21 @@ export function NotificationBell() {
     return () => clearTimeout(timer);
   }, []);
 
+  const isFetchingRef = useRef(false);
+
   const fetchLiveNotifications = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    if (!user?.userId) return;
+    isFetchingRef.current = true;
     setLoading(true);
     try {
       const readSet = getStoredReadIds();
       const dismissedSet = getStoredDismissedIds();
       const list: NotificationItem[] = [];
 
-      // 1. Fetch from Notification Backend API
+      // Fetch from Notification Backend API
       try {
-        const res = await notificationService.getNotifications(0, 50);
+        const res = await notificationService.getNotificationsSummary(0, 50);
         if (res && Array.isArray(res.content) && res.content.length > 0) {
           for (const item of res.content) {
             const cat = (item.category || "GENERAL").toUpperCase();
@@ -493,72 +498,7 @@ export function NotificationBell() {
             }
           }
         }
-      } catch { /* fallback to dynamic entities */ }
-
-      // 2. Fetch Latest Real Events & Poojas (only if user has access to Events)
-      const canViewEvents = preferences.events && (isSuperAdmin || (canAccessModule(user, "EVENTS") && hasPermission(VIEW_EVENTS)));
-      if (canViewEvents) {
-        try {
-          const events = await eventService.getAllEvents();
-          if (Array.isArray(events)) {
-            events.forEach((evt) => {
-              const notifId = 100000 + (evt.id || 0);
-              if (!dismissedSet.has(notifId)) {
-                const isPooja = (evt.category || "").toLowerCase().includes("pooja") || (evt.type || "").toLowerCase().includes("pooja");
-                list.push({
-                  id: notifId,
-                  type: isPooja ? "POOJA_ANNOUNCEMENT" : "EVENT_ANNOUNCEMENT",
-                  category: "EVENTS",
-                  title: isPooja ? `🪔 ${evt.title}` : `🎉 ${evt.title}`,
-                  body: evt.description
-                    ? evt.description.slice(0, 110) + (evt.description.length > 110 ? "..." : "")
-                    : (evt.location ? `Venue: ${evt.location} • Starting on ${evt.startDate}` : `Scheduled on ${evt.startDate}`),
-                  icon: isPooja ? "sparkles" : "calendar",
-                  actionUrl: `/events?eventId=${evt.id}`,
-                  referenceType: "EVENT",
-                  referenceId: evt.id,
-                  priority: "NORMAL",
-                  read: readSet.has(notifId),
-                  readAt: null,
-                  metadata: null,
-                  createdAt: evt.createdAt || new Date(Date.now() - 3600000).toISOString(),
-                });
-              }
-            });
-          }
-        } catch { /* silent */ }
-      }
-
-      // 3. Fetch Latest Real Notices (only if user has access to Notices)
-      const canViewNotices = preferences.community && (isSuperAdmin || (canAccessModule(user, "NOTICES") && hasPermission(VIEW_NOTICES)));
-      if (canViewNotices) {
-        try {
-          const notices = await noticeService.getNotices();
-          if (Array.isArray(notices)) {
-            notices.forEach((notice) => {
-              const notifId = 200000 + (notice.id || 0);
-              if (!dismissedSet.has(notifId)) {
-                list.push({
-                  id: notifId,
-                  type: "COMMUNITY_NOTICE",
-                  category: "COMMUNITY",
-                  title: `📢 ${notice.title}`,
-                  body: notice.body ? notice.body.slice(0, 110) + (notice.body.length > 110 ? "..." : "") : "New society announcement",
-                  icon: "megaphone",
-                  actionUrl: "/notices",
-                  referenceType: "NOTICE",
-                  referenceId: notice.id,
-                  priority: notice.priority === "URGENT" || notice.priority === "HIGH" ? "HIGH" : "NORMAL",
-                  read: readSet.has(notifId),
-                  readAt: null,
-                  metadata: null,
-                  createdAt: notice.createdAt || new Date(Date.now() - 7200000).toISOString(),
-                });
-              }
-            });
-          }
-        } catch { /* silent */ }
-      }
+      } catch { /* fallback */ }
 
       // Deduplicate by category + title
       const seen = new Set<string>();
@@ -583,8 +523,9 @@ export function NotificationBell() {
       console.warn("Failed to load live notifications:", err);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
-  }, [preferences, isSuperAdmin, user, hasPermission, triggerBlink]);
+  }, [preferences, isSuperAdmin, user?.userId, user?.communityId, hasPermission, triggerBlink]);
 
   useEffect(() => {
     fetchLiveNotifications();
