@@ -88,6 +88,10 @@ export const VIEW_VISITORS       = "View Visitors";
 export const CREATE_VISITOR_PASS = "Create Visitor Pass";
 export const MANAGE_GATE         = "Manage Gate";
 
+// ──── PARKING ────
+export const VIEW_PARKING    = "View Parking";
+export const MANAGE_PARKING  = "Manage Parking";
+
 // ──── AMENITY BOOKING ────
 export const VIEW_AMENITIES   = "View Amenities";
 export const BOOK_AMENITY     = "Book Amenity";

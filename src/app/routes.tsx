@@ -99,6 +99,7 @@ import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
+import { ParkingManagement } from "./components/parking/ParkingManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
 import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
@@ -182,7 +183,7 @@ import {
   VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
   VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY,
   VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD, MANAGE_EVENT_FORMS,
-  VIEW_VISITORS,
+  VIEW_VISITORS, VIEW_PARKING, MANAGE_PARKING,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -388,6 +389,10 @@ export const router = createBrowserRouter([
       {
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
+      },
+      {
+        path: "parking",
+        element: <PermissionGuard permission={VIEW_PARKING} requiredModule="PARKING"><ParkingManagement /></PermissionGuard>
       },
       {
         path: "notices",
