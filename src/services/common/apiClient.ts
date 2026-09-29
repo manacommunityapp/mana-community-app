@@ -4,6 +4,15 @@ import { canAccessEndpoint } from "../../utils/permissionUtils";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
+const PLATFORM_HEADER = "X-Platform";
+const PLATFORM_VALUE = "web";
+const CSRF_HEADER = "X-XSRF-TOKEN";
+const CSRF_COOKIE = "XSRF-TOKEN";
+
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 function generateId(): string {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -116,21 +125,25 @@ function ensureRefreshed(): Promise<boolean> {
 
 async function doRefresh(): Promise<boolean> {
   const rt = getRefreshToken();
-  if (!rt) return false;
   try {
-    // Raw fetch — must NOT go through the interceptor (avoids recursion).
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      [PLATFORM_HEADER]: PLATFORM_VALUE,
+    };
+    const csrf = getCsrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: rt }),
+      headers,
+      credentials: "include",
+      body: rt ? JSON.stringify({ refreshToken: rt }) : "{}",
     });
     if (!res.ok) return false;
     const data = (await res.json()) as { token?: string; refreshToken?: string };
     if (data?.token) {
       setTokens(data.token, data.refreshToken);
-      return true;
     }
-    return false;
+    return true;
   } catch {
     return false;
   }
@@ -138,6 +151,14 @@ async function doRefresh(): Promise<boolean> {
 
 /** Clears the session and bounces to /login. Exposed so the auth layer can reuse it. */
 export function forceLogout(): void {
+  const csrfVal = getCsrfToken();
+  const logoutHeaders: Record<string, string> = { [PLATFORM_HEADER]: PLATFORM_VALUE };
+  if (csrfVal) logoutHeaders[CSRF_HEADER] = csrfVal;
+  fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+    headers: logoutHeaders,
+    credentials: "include",
+  }).catch(() => {});
   removeToken();
   if (window.location.pathname !== "/login") {
     window.location.href = "/login";
@@ -174,6 +195,17 @@ export function stripExceptionPrefix(msg?: string): string {
 function sanitizeErrorMessage(status: number, rawText?: string): string {
   const text = (rawText || "").trim();
   const lower = text.toLowerCase();
+
+  // 429 Too Many Requests — parse retryAfter from response body or header
+  if (status === 429) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.message) return stripExceptionPrefix(parsed.message);
+      const retry = parsed?.retryAfter;
+      if (retry) return `Too many attempts. Please try again after ${retry} seconds.`;
+    } catch { /* fall through */ }
+    return "Too many attempts. Please slow down and try again shortly.";
+  }
 
   // Check for 502 / 503 / 504 / 520 / 521 / 522 / 524
   if (status === 502 || status === 503 || status === 504 || status === 520 || status === 521 || status === 522 || status === 524) {
@@ -330,11 +362,16 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
+    [PLATFORM_HEADER]: PLATFORM_VALUE,
     ...(init.headers || {}),
   };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!init.form) headers["Content-Type"] = "application/json";
+  if (init.method !== "GET") {
+    const csrf = getCsrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
+  }
 
   const start = performance.now();
   let res: Response;
@@ -343,6 +380,7 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
       method: init.method,
       headers,
       body: init.body,
+      credentials: "include",
     });
   } catch (err) {
     log.error(`Network error: ${init.method} ${path}`, err, { correlationId });

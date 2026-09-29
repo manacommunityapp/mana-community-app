@@ -1,4 +1,35 @@
+import { apiClient } from "../common/apiClient";
+
 export type RecommendationType = "PERSON" | "EVENT" | "SPORT" | "TRIP" | "SERVICE" | "FOOD";
+
+export interface OmniSearchItem {
+  id: string;
+  domain: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  badge?: string;
+  avatarUrl?: string;
+  deepLink?: string;
+  relevanceScore?: number;
+  tags?: string[];
+}
+
+export interface OmniSearchResponse {
+  query: string;
+  totalResults: number;
+  domainCounts: Record<string, number>;
+  people: OmniSearchItem[];
+  events: OmniSearchItem[];
+  sports: OmniSearchItem[];
+  jobs: OmniSearchItem[];
+  businesses: OmniSearchItem[];
+  services: OmniSearchItem[];
+  marketplace: OmniSearchItem[];
+  food: OmniSearchItem[];
+  documents: OmniSearchItem[];
+  vendors: OmniSearchItem[];
+}
 
 export interface RecommendationCard {
   id: string;
@@ -78,5 +109,77 @@ export const communityGraphService = {
   updateVisibility(_settings: Partial<CommunityProfile>): void {
     // In production, this would call an API
     console.log("Visibility updated:", _settings);
+  },
+
+  // ──── BACKEND GRAPH & OMNISEARCH API METHODS ────
+
+  /** Call backend Graph OmniSearch across all 10 domains */
+  async omniSearchApi(query: string, limit = 6): Promise<OmniSearchResponse> {
+    try {
+      const res = await apiClient.get<OmniSearchResponse>(
+        `/graph/omnisearch?q=${encodeURIComponent(query)}&limit=${limit}`
+      );
+      if (res && res.domainCounts) {
+        return res;
+      }
+    } catch (e) {
+      console.warn("Graph OmniSearch API call failed, synthesizing local matches:", e);
+    }
+
+    // Fallback: Synthesize matches locally across sample data
+    const q = query.toLowerCase();
+    const matchedPeople: OmniSearchItem[] = SAMPLE_PROFILES.filter(p =>
+      p.name.toLowerCase().includes(q) || p.skills.some(s => s.toLowerCase().includes(q))
+    ).map(p => ({
+      id: p.id,
+      domain: "PEOPLE",
+      title: p.name,
+      subtitle: `${p.tower}-${p.flatNumber} • ${p.professions[0] || "Resident"}`,
+      description: `Skills: ${p.skills.join(", ")}`,
+      badge: "Resident",
+      deepLink: `/community/directory?userId=${p.id}`,
+      relevanceScore: 0.9,
+      tags: p.skills,
+    }));
+
+    const counts: Record<string, number> = {
+      PEOPLE: matchedPeople.length,
+      EVENTS: 0,
+      SPORTS: 0,
+      JOBS: 0,
+      BUSINESSES: 0,
+      SERVICES: 0,
+      MARKETPLACE: 0,
+      FOOD: 0,
+      DOCUMENTS: 0,
+      VENDORS: 0,
+    };
+
+    return {
+      query,
+      totalResults: matchedPeople.length,
+      domainCounts: counts,
+      people: matchedPeople,
+      events: [],
+      sports: [],
+      jobs: [],
+      businesses: [],
+      services: [],
+      marketplace: [],
+      food: [],
+      documents: [],
+      vendors: [],
+    };
+  },
+
+  /** Get trending skills in community */
+  async getTopSkillsApi(): Promise<any[]> {
+    try {
+      const res = await apiClient.get<any[]>("/graph/discover/skills");
+      if (res && Array.isArray(res)) return res;
+    } catch (e) {
+      console.warn("Backend get top skills failed:", e);
+    }
+    return [];
   },
 };
