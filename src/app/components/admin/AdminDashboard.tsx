@@ -9,22 +9,32 @@ import {
   Clock,
   Filter,
   Search,
-  Download,
   AlertTriangle,
-  UserPlus,
-  FileSpreadsheet,
-  Building2,
-  Trophy,
   Loader2,
+  Users,
+  Ticket,
+  Wrench,
+  DollarSign,
+  CalendarDays,
+  Megaphone,
+  Store,
+  Flag,
+  BookOpen,
+  UserPlus,
+  Activity,
 } from "lucide-react";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 const toast = {
   success: (msg: string) => showSuccess(msg),
   error: (msg: string) => showError(msg),
 };
-import { useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
+import {
+  dashboardService,
+  type AdminDashboardStats,
+  type RecentActivityItem,
+} from "../../../services/dashboard/dashboardService";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 
@@ -48,69 +58,55 @@ type UserApplication = {
   };
 };
 
-const mockApplications: UserApplication[] = [
-  {
-    id: "1",
-    fullName: "Priya Sharma",
-    email: "priya.sharma@email.com",
-    communityType: "apartment",
-    communityCode: "APT-TOWER-A-2024",
-    userType: "member",
-    idType: "Aadhar Card",
-    idNumber: "XXXX-XXXX-1234",
-    phoneNumber: "+91 98765 43210",
-    address: "Tower A, Apt 402, Bangalore",
-    submittedAt: "2026-04-22T10:30:00",
-    status: "pending",
-    documents: {
-      idFront: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      idBack: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      selfie: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
-    },
-  },
-  {
-    id: "2",
-    fullName: "Rahul Verma",
-    email: "rahul.verma@email.com",
-    communityType: "apartment",
-    communityCode: "APT-TOWER-B-2024",
-    userType: "vendor",
-    idType: "Driver's License",
-    idNumber: "DL-XX-2024-XXXX",
-    phoneNumber: "+91 98765 12345",
-    address: "Tower B, Apt 1205, Bangalore",
-    submittedAt: "2026-04-21T14:20:00",
-    status: "pending",
-    documents: {
-      idFront: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      idBack: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      selfie: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-    },
-  },
-  {
-    id: "3",
-    fullName: "Anita Desai",
-    email: "anita.desai@email.com",
-    communityType: "apartment",
-    communityCode: "APT-TOWER-A-2024",
-    userType: "member",
-    idType: "Passport",
-    idNumber: "P-XXXX-5678",
-    phoneNumber: "+91 98765 98765",
-    address: "Tower A, Apt 801, Bangalore",
-    submittedAt: "2026-04-20T09:15:00",
-    status: "approved",
-    documents: {
-      idFront: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      idBack: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-      selfie: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-    },
-  },
-];
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color = "primary",
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  color?: "primary" | "warning" | "success" | "danger" | "info";
+}) {
+  const colors: Record<string, { border: string; text: string; bg: string; iconBg: string }> = {
+    primary: { border: "border-primary/30", text: "text-primary", bg: "bg-primary/10", iconBg: "bg-primary/10" },
+    warning: { border: "border-warning/30", text: "text-warning", bg: "bg-warning/10", iconBg: "bg-warning/10" },
+    success: { border: "border-success/30", text: "text-success", bg: "bg-success/10", iconBg: "bg-success/10" },
+    danger: { border: "border-danger/30", text: "text-danger", bg: "bg-danger/10", iconBg: "bg-danger/10" },
+    info: { border: "border-sky-500/30", text: "text-sky-500", bg: "bg-sky-500/10", iconBg: "bg-sky-500/10" },
+  };
+  const c = colors[color] || colors.primary;
+
+  return (
+    <div className={`bg-card p-2.5 sm:p-3 rounded-xl border ${c.border} shadow-2xs flex flex-col justify-between`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className={`text-[10.5px] font-bold ${c.text}`}>{label}</span>
+        <div className={`p-1 rounded-md ${c.iconBg} shrink-0`}>
+          <Icon className={`w-3 h-3 ${c.text}`} />
+        </div>
+      </div>
+      <div className={`text-lg sm:text-xl font-black ${c.text}`}>{value}</div>
+    </div>
+  );
+}
+
+function formatActivityTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return d.toLocaleDateString();
+}
 
 export function AdminDashboard() {
-  const { user, isAnyAdmin } = useAuth();
-  const navigate = useNavigate();
+  const { isAnyAdmin } = useAuth();
 
   if (!isAnyAdmin) {
     return (
@@ -120,16 +116,27 @@ export function AdminDashboard() {
     );
   }
 
+  const [dashStats, setDashStats] = useState<AdminDashboardStats | null>(null);
+  const [dashLoading, setDashLoading] = useState(true);
+
   const [applications, setApplications] = useState<UserApplication[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [kycLoading, setKycLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<UserApplication | null>(null);
   const [filterStatus, setFilterStatus] = useState<VerificationStatus | "all">("pending");
-  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+  const [kycStats, setKycStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
+
+  useEffect(() => {
+    dashboardService
+      .getAdminStats()
+      .then(setDashStats)
+      .catch(() => {})
+      .finally(() => setDashLoading(false));
+  }, []);
 
   const fetchApplications = useCallback(async () => {
     try {
-      setLoading(true);
-      
+      setKycLoading(true);
+
       let backendStatus: "PENDING" | "VERIFIED" | "REJECTED" | undefined = undefined;
       if (filterStatus === "pending") backendStatus = "PENDING";
       else if (filterStatus === "approved") backendStatus = "VERIFIED";
@@ -163,21 +170,18 @@ export function AdminDashboard() {
       });
       setApplications(mapped);
 
-      // Fetch stats count from the dedicated service
       const statsData = await userService.getKycStats();
-      setStats(statsData);
-    } catch (err: any) {
+      setKycStats(statsData);
+    } catch {
       toast.error("Failed to load applications from database");
     } finally {
-      setLoading(false);
+      setKycLoading(false);
     }
   }, [filterStatus]);
 
   useEffect(() => {
     fetchApplications();
   }, [fetchApplications]);
-
-  const filteredApplications = applications;
 
   const handleApprove = async (id: string) => {
     try {
@@ -203,7 +207,72 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-3.5 sm:space-y-4">
-      {/* Top Banner */}
+      {/* ── Community Overview Stats ── */}
+      <div className="flex items-center gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
+          <Activity className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-xs sm:text-sm font-bold text-foreground leading-tight">Community Overview</h2>
+          <p className="text-[10px] sm:text-[11px] text-muted-foreground">Live aggregated stats across all modules</p>
+        </div>
+      </div>
+
+      {dashLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+        </div>
+      ) : dashStats ? (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+            <StatCard label="Total Users" value={dashStats.totalUsers} icon={Users} color="primary" />
+            <StatCard label="Verified Users" value={dashStats.verifiedUsersCount} icon={UserCheck} color="success" />
+            <StatCard label="Pending KYC" value={dashStats.pendingKycCount} icon={Clock} color="warning" />
+            <StatCard label="Active Visitors" value={dashStats.activeVisitorsCount} icon={UserPlus} color="info" />
+            <StatCard label="Open Tickets" value={dashStats.openTicketsCount} icon={Ticket} color="danger" />
+            <StatCard label="In-Progress Tickets" value={dashStats.inProgressTicketsCount} icon={Ticket} color="warning" />
+            <StatCard label="Active Vendors" value={dashStats.activeVendorsCount} icon={Store} color="success" />
+            <StatCard label="Pending Work Orders" value={dashStats.pendingWorkOrdersCount} icon={Wrench} color="warning" />
+            <StatCard label="Pending Expenses" value={dashStats.pendingExpensesCount} icon={DollarSign} color="danger" />
+            <StatCard label="Booking Resources" value={dashStats.totalBookingResourcesCount} icon={BookOpen} color="info" />
+            <StatCard label="Content Reports" value={dashStats.pendingContentReportsCount} icon={Flag} color="danger" />
+            <StatCard label="Active Events" value={dashStats.activeEventsCount} icon={CalendarDays} color="primary" />
+            <StatCard label="Active Notices" value={dashStats.activeNoticesCount} icon={Megaphone} color="primary" />
+            <StatCard label="Total Roles" value={dashStats.totalRolesCount} icon={ShieldCheck} color="info" />
+            <StatCard label="Communities" value={dashStats.totalCommunitiesCount} icon={Users} color="success" />
+          </div>
+
+          {/* Recent Activities */}
+          {dashStats.recentActivities.length > 0 && (
+            <div className="bg-card rounded-xl shadow-2xs border border-border/80 overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-border/60 flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5 text-primary" />
+                <h3 className="text-xs font-bold text-foreground">Recent Activity</h3>
+              </div>
+              <div className="divide-y divide-border/40">
+                {dashStats.recentActivities.map((act: RecentActivityItem, i: number) => (
+                  <div key={i} className="px-3.5 py-2 flex items-center justify-between hover:bg-input/30 transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{act.title}</p>
+                        {act.module && (
+                          <span className="text-[10px] text-muted-foreground">{act.module}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-3">
+                      {formatActivityTime(act.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {/* ── KYC Verification Section ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
@@ -218,47 +287,12 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* KYC Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border/80 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10.5px] font-bold text-muted-foreground">Total Apps</span>
-            <div className="p-1 rounded-md bg-input shrink-0">
-              <UserCheck className="w-3 h-3 text-muted-foreground" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-foreground">{stats.total}</div>
-        </div>
-
-        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-warning/30 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10.5px] font-bold text-warning">Pending</span>
-            <div className="p-1 rounded-md bg-warning/10 shrink-0">
-              <Clock className="w-3 h-3 text-warning" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-warning">{stats.pending}</div>
-        </div>
-
-        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-success/30 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10.5px] font-bold text-success">Approved</span>
-            <div className="p-1 rounded-md bg-success/10 shrink-0">
-              <CheckCircle className="w-3 h-3 text-success" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-success">{stats.approved}</div>
-        </div>
-
-        <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-danger/30 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10.5px] font-bold text-danger">Rejected</span>
-            <div className="p-1 rounded-md bg-danger/10 shrink-0">
-              <XCircle className="w-3 h-3 text-danger" />
-            </div>
-          </div>
-          <div className="text-lg sm:text-xl font-black text-danger">{stats.rejected}</div>
-        </div>
+        <StatCard label="Total Apps" value={kycStats.total} icon={UserCheck} color="primary" />
+        <StatCard label="Pending" value={kycStats.pending} icon={Clock} color="warning" />
+        <StatCard label="Approved" value={kycStats.approved} icon={CheckCircle} color="success" />
+        <StatCard label="Rejected" value={kycStats.rejected} icon={XCircle} color="danger" />
       </div>
 
       {/* Filters */}
@@ -304,21 +338,21 @@ export function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40 text-foreground">
-              {loading ? (
+              {kycLoading ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-xs font-medium">
                     <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1.5 text-primary" />
                     Loading applications...
                   </td>
                 </tr>
-              ) : filteredApplications.length === 0 ? (
+              ) : applications.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground text-xs font-medium">
                     No applications found matching the criteria.
                   </td>
                 </tr>
               ) : (
-                filteredApplications.map((app) => (
+                applications.map((app) => (
                   <tr key={app.id} className="hover:bg-input/30 transition-colors">
                     <td className="px-3.5 py-2 whitespace-nowrap">
                       <div className="flex items-center">
