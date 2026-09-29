@@ -83,6 +83,30 @@ const SAMPLE_PROFILES: CommunityProfile[] = [
 ];
 
 export const communityGraphService = {
+  /** Fetch ML-powered recommendations from backend Graph service */
+  async getDiscoverRecommendations(): Promise<RecommendationCard[]> {
+    try {
+      const res = await apiClient.get<any>("/graph/recommendations/feed");
+      if (res && res.recommendations && Array.isArray(res.recommendations) && res.recommendations.length > 0) {
+        return res.recommendations.map((item: any, idx: number) => ({
+          id: item.id || `rec-${idx}`,
+          type: (item.recommendationType || item.type || "PERSON") as RecommendationType,
+          title: item.title || item.name || "Community Recommendation",
+          subtitle: item.subtitle || item.category || "Recommendation",
+          description: item.description || item.reason || "",
+          score: item.score ? Math.round(item.score * 100) : 90,
+          tags: item.tags || [item.category || "Community"],
+          actionLabel: item.actionLabel || "Connect",
+          actionPath: item.actionPath || "/discover",
+          imagePlaceholderColor: item.imagePlaceholderColor || "#6366f1",
+        }));
+      }
+    } catch (e) {
+      console.warn("Backend /graph/recommendations/feed fallback to local recommendations:", e);
+    }
+    return this.getPersonalizedFeed();
+  },
+
   getPersonalizedFeed(): RecommendationCard[] {
     return [...SAMPLE_RECOMMENDATIONS].sort((a, b) => b.score - a.score);
   },

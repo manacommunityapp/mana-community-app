@@ -65,8 +65,13 @@ export function PersonalizedFeed() {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setFeed(communityGraphService.getPersonalizedFeed());
+  const loadData = async () => {
+    try {
+      const recs = await communityGraphService.getDiscoverRecommendations();
+      setFeed(recs);
+    } catch (e) {
+      setFeed(communityGraphService.getPersonalizedFeed());
+    }
     setProfiles(communityGraphService.getProfiles());
   };
 
