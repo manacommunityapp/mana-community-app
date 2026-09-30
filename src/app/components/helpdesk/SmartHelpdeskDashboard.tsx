@@ -80,8 +80,16 @@ export function SmartHelpdeskDashboard() {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     setTickets(helpdeskSmartService.getTickets());
+    try {
+      const apiTickets = await helpdeskSmartService.fetchTicketsApi();
+      if (apiTickets && apiTickets.length > 0) {
+        setTickets(apiTickets);
+      }
+    } catch {
+      // Keep local state
+    }
   };
 
   // Real-time AI classification heuristic on description change
@@ -94,13 +102,13 @@ export function SmartHelpdeskDashboard() {
     }
   }, [ticketDesc]);
 
-  const handleCreateTicket = () => {
+  const handleCreateTicket = async () => {
     if (!ticketTitle.trim() || !ticketDesc.trim()) return;
     const priority = classification?.priority || "MEDIUM";
     const category = classification?.category || "General";
     const subCategory = classification?.subCategory || "General Inquiry";
 
-    helpdeskSmartService.createTicket({
+    await helpdeskSmartService.createTicketApi({
       title: ticketTitle,
       description: ticketDesc,
       category,
@@ -109,6 +117,7 @@ export function SmartHelpdeskDashboard() {
       tower,
       flatNumber: flatNo,
       priority,
+      reportedBy: user?.fullName || "Resident",
     });
 
     loadData();
@@ -133,21 +142,19 @@ export function SmartHelpdeskDashboard() {
     }
   };
 
-  const handleRateTicket = () => {
+  const handleRateTicket = async () => {
     if (!selectedTicket) return;
-    const ok = helpdeskSmartService.submitRating(
+    await helpdeskSmartService.submitRatingApi(
       selectedTicket.id,
       ratingStars,
       ratingComment || "Satisfied with service."
     );
-    if (ok) {
-      setSelectedTicket({
-        ...selectedTicket,
-        residentRating: ratingStars,
-        residentComment: ratingComment,
-      });
-      loadData();
-    }
+    setSelectedTicket({
+      ...selectedTicket,
+      residentRating: ratingStars,
+      residentComment: ratingComment,
+    });
+    loadData();
   };
 
   const openTicketsCount = tickets.filter((t) => t.status === "OPEN" || t.status === "ASSIGNED").length;
