@@ -1,4 +1,11 @@
 import { createBrowserRouter } from "react-router";
+import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
+import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
+import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
+import { NotificationPreferenceCenter } from "./components/notification/NotificationPreferenceCenter";
+import { AnprGateLiveMonitor } from "./components/parking/AnprGateLiveMonitor";
+import { EvChargingManagement } from "./components/parking/EvChargingManagement";
+
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
 import { Marketplace } from "./components/marketplace/Marketplace";
@@ -728,6 +735,18 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
       // ── CPOS (Community Property Operating System) Routes ─────────
+      
+      // ── Access & Biometric Turnstiles ───────────────────────────
+      { path: "access/turnstiles", element: <BiometricTurnstileMonitor /> },
+      // ── Offline Sync & Queuing ──────────────────────────────────
+      { path: "sync", element: <OfflineSyncManager /> },
+      // ── IoT Sub-Metering & Telemetry ────────────────────────────
+      { path: "iot/meters", element: <SmartMeterDashboard /> },
+      // ── Notifications Preference Center ─────────────────────────
+      { path: "settings/notifications", element: <NotificationPreferenceCenter /> },
+      // ── Smart Parking & ANPR Live Gate ──────────────────────────
+      { path: "parking/anpr", element: <AnprGateLiveMonitor /> },
+      { path: "parking/ev-charging", element: <EvChargingManagement /> },
       { path: "cpos", element: <CPOSDashboardPage /> },
       { path: "cpos/properties", element: <CPOSPropertyListPage /> },
       { path: "cpos/properties/new", element: <CPOSPropertyCreatePage /> },

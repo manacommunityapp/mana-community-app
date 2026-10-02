@@ -2,8 +2,46 @@
  * Centralized utility to resolve, sanitize, and normalize image & S3 URLs across the entire application.
  */
 
+import { getToken } from "../services/common/apiClient";
+
 const DEFAULT_EVENT_FALLBACK = "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
 const DEFAULT_USER_FALLBACK = "";
+
+const refreshCache = new Map<string, { url: string; at: number }>();
+const REFRESH_CACHE_TTL = 55 * 60 * 1000;
+
+/**
+ * Asks the backend to generate a fresh presigned URL for an expired S3 URL.
+ * Cached for 55 minutes to avoid redundant network calls.
+ */
+export async function refreshPresignedUrl(expiredUrl: string): Promise<string | null> {
+  if (!expiredUrl || !expiredUrl.includes("X-Amz-Date")) return null;
+
+  const cached = refreshCache.get(expiredUrl);
+  if (cached && Date.now() - cached.at < REFRESH_CACHE_TTL) return cached.url;
+
+  try {
+    const token = getToken();
+    const res = await fetch("/api/files/refresh-url", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ url: expiredUrl }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const freshUrl = data.url;
+    if (freshUrl && freshUrl !== expiredUrl) {
+      refreshCache.set(expiredUrl, { url: freshUrl, at: Date.now() });
+      return freshUrl;
+    }
+  } catch {
+    // Refresh failed — caller falls back to placeholder
+  }
+  return null;
+}
 
 /**
  * Checks whether an AWS S3 pre-signed URL has expired or is within 5 minutes of expiring.
