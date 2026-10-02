@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react'
-import { resolveImageUrl, isPresignedUrlExpired } from '../../../utils/imageUrlUtils'
+import React, { useState, useCallback, useEffect } from 'react'
+import { resolveImageUrl, isPresignedUrlExpired, refreshPresignedUrl } from '../../../utils/imageUrlUtils'
 
 interface AvatarImageProps {
   src?: string | null
@@ -10,12 +10,41 @@ interface AvatarImageProps {
 }
 
 export function AvatarImage({ src, alt = "", initials, className = "h-8 w-8", size = "text-xs" }: AvatarImageProps) {
+  const [refreshedSrc, setRefreshedSrc] = useState<string | null>(null)
   const [imgFailed, setImgFailed] = useState(false)
+  const [refreshAttempted, setRefreshAttempted] = useState(false)
 
-  const handleError = useCallback(() => setImgFailed(true), [])
+  const resolvedSrc = refreshedSrc ?? (src ? resolveImageUrl(src) : null)
+  const isExpired = resolvedSrc ? isPresignedUrlExpired(resolvedSrc) : false
 
-  const resolvedSrc = src ? resolveImageUrl(src) : null
-  const showImg = resolvedSrc && !imgFailed && !isPresignedUrlExpired(resolvedSrc)
+  useEffect(() => {
+    setRefreshedSrc(null)
+    setImgFailed(false)
+    setRefreshAttempted(false)
+  }, [src])
+
+  useEffect(() => {
+    if (!isExpired || refreshAttempted || !resolvedSrc) return
+    setRefreshAttempted(true)
+    refreshPresignedUrl(resolvedSrc).then((fresh) => {
+      if (fresh) setRefreshedSrc(fresh)
+      else setImgFailed(true)
+    })
+  }, [isExpired, refreshAttempted, resolvedSrc])
+
+  const handleError = useCallback(() => {
+    if (refreshAttempted || !resolvedSrc?.includes("X-Amz-Date")) {
+      setImgFailed(true)
+      return
+    }
+    setRefreshAttempted(true)
+    refreshPresignedUrl(resolvedSrc).then((fresh) => {
+      if (fresh) setRefreshedSrc(fresh)
+      else setImgFailed(true)
+    })
+  }, [refreshAttempted, resolvedSrc])
+
+  const showImg = resolvedSrc && !imgFailed && !isExpired
 
   return (
     <div className={`${className} rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold ${size} border border-slate-200 overflow-hidden shrink-0`}>
