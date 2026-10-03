@@ -643,6 +643,7 @@ export interface UserResponse {
   bio?: string;
   skills?: string[] | string;
   createdAt?: string;
+  createdDate?: string;
   updatedAt?: string;
 }
 

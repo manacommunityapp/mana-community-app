@@ -26,6 +26,13 @@ import {
 import { format, differenceInDays } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
+import {
+  TournamentSponsorBanner,
+  TournamentSponsorShowcase,
+  TournamentSponsorBadge,
+  DEFAULT_TOURNAMENT_SPONSORS,
+  type TournamentSponsor,
+} from "./sponsors";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -435,6 +442,8 @@ export function SportsDashboard() {
   const [upcomingFamilyFilter, setUpcomingFamilyFilter] = useState<string>("ALL");
   // Stats Card Modal State ("registrations" | "live_events" | null)
   const [activeStatsModal, setActiveStatsModal] = useState<"registrations" | "live_events" | null>(null);
+  // Tournament Sponsors State
+  const [sponsors] = useState<TournamentSponsor[]>(DEFAULT_TOURNAMENT_SPONSORS);
 
   useEffect(() => {
     const loadFamily = async () => {
@@ -980,6 +989,21 @@ export function SportsDashboard() {
         )}
       </div>
 
+      {/* Hero Sponsor Banner */}
+      <TournamentSponsorBanner
+        sponsors={sponsors}
+        tournamentName="PHF Premier League Season 5"
+        variant="hero"
+        onExploreClick={() => {
+          const el = document.getElementById("sponsors-showcase");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth" });
+          } else {
+            toast.info("Discover our esteemed partners & sponsors below!");
+          }
+        }}
+      />
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5">
         <div className="lg:col-span-2 space-y-3">
@@ -1174,6 +1198,9 @@ export function SportsDashboard() {
                               <span className="text-[11px] text-[#6b7094] font-medium bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60 whitespace-nowrap">
                                 {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
                               </span>
+                            )}
+                            {sponsors.length > 0 && (
+                              <TournamentSponsorBadge sponsor={sponsors[0]} size="sm" />
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1856,6 +1883,41 @@ export function SportsDashboard() {
               </div>
             )}
           </div>
+
+          {/* Franchises & Squads Quick Card */}
+          <div className="rounded-xl p-3.5 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-500/20 text-left relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
+              <Users className="w-16 h-16 text-indigo-400" />
+            </div>
+            <div className="relative z-10 space-y-1.5">
+              <span className="text-[9px] uppercase font-black tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
+                Tournament Hub
+              </span>
+              <h4 className="text-sm font-bold text-white">Teams & Squad Rosters</h4>
+              <p className="text-[11px] text-indigo-200/80 leading-relaxed">
+                Explore franchise owners, captains, purse utilization, and full squad player lists.
+              </p>
+              <Link
+                to="/sports/schedule"
+                onClick={() => {
+                  // Navigate to schedule and activeTab will be ready
+                }}
+                className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <span>View All Squads</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Tournament Sponsor Showcase Section */}
+        <div className="lg:col-span-3">
+          <TournamentSponsorShowcase
+            sponsors={sponsors}
+            tournamentName="PHF Premier League"
+            season="Season 5"
+          />
         </div>
         {/* Captain Nomination Modal */}
         {isNominateModalOpen && (

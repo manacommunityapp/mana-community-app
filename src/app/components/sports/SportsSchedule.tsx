@@ -40,8 +40,10 @@ import { Leaderboard } from "./Leaderboard";
 import { GenericLeaderboard } from "./GenericLeaderboard";
 import { RaceScoringPanel } from "./RaceScoringPanel";
 import { RaceResultsView } from "./RaceResultsView";
+import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
+import { TeamsHubShowcase } from "./teams";
 
-const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Teams & Squads", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -857,6 +859,12 @@ export function SportsSchedule() {
             <div className="nav-dot"></div>All Events
           </button>
           <button
+            className={`nav-item ${activeTab === "Teams & Squads" ? "active" : ""}`}
+            onClick={() => setActiveTab("Teams & Squads")}
+          >
+            <div className="nav-dot"></div>Teams & Squads
+          </button>
+          <button
             className={`nav-item ${activeTab === "Leaderboard" ? "active" : ""}`}
             onClick={() => setActiveTab("Leaderboard")}
           >
@@ -927,6 +935,12 @@ export function SportsSchedule() {
               </p>
             </div>
           </div>
+
+          {/* Tournament Sponsors Banner */}
+          <TournamentSponsorBanner
+            sponsors={DEFAULT_TOURNAMENT_SPONSORS}
+            variant="compact"
+          />
 
           {/* Tournament & Sport Event Quick Selector */}
           {tournamentConfigs.length > 0 && (
@@ -1967,6 +1981,13 @@ export function SportsSchedule() {
             );
           })()}
         </div>
+      )}
+
+      {/* Teams & Squads */}
+      {activeTab === "Teams & Squads" && (
+        <TeamsHubShowcase
+          tournamentId={selectedTournamentId ?? undefined}
+        />
       )}
 
       {/* Leaderboard */}

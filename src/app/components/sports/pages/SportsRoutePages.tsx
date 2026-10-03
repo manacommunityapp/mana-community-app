@@ -11,6 +11,7 @@ import { Leaderboard } from "../Leaderboard";
 import { GenericLeaderboard } from "../GenericLeaderboard";
 import { RaceResultsView } from "../RaceResultsView";
 import { RaceScoringPanel } from "../RaceScoringPanel";
+import { TeamsHubShowcase } from "../teams";
 import { tournamentService, type GenericMatchState } from "../../../../services/sports/tournamentService";
 
 /**
@@ -284,4 +285,28 @@ export function RaceScorePage() {
   }
 
   return <RaceScoringPanel matchId={id} sportType="ATHLETICS" onClose={() => navigate("/sports/schedule")} />;
+}
+
+/**
+ * 9. Tournament Teams & Squads Hub Page
+ */
+export function TeamsHubPage() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate("/sports")}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Sports</span>
+        </button>
+      </div>
+
+      <TeamsHubShowcase />
+    </div>
+  );
 }
