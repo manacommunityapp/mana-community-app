@@ -16,8 +16,18 @@ import {
   CalendarDays,
   ExternalLink,
   Timer,
-  Download
+  Download,
+  Volume2,
+  VolumeX,
+  Sparkles
 } from "lucide-react";
+import {
+  auctionAudio,
+  PlayerSkillRadarChart,
+  AuctionSoldCelebrationModal,
+  AuctionRtmModal,
+  type RtmPromptData,
+} from "./auction";
 import { auctionService } from "../../../services/sports/auctionService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { userService } from "../../../services/common/userService";
@@ -152,6 +162,23 @@ export function SportsAuction() {
   const [bidTimeLeft, setBidTimeLeft] = useState<number | null>(null);
   const bidTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+
+  // Audio, Radar & Celebration States
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [spotlightViewMode, setSpotlightViewMode] = useState<"stats" | "radar">("stats");
+  const [soldCelebration, setSoldCelebration] = useState<{
+    playerName: string;
+    playerRole?: string;
+    category?: string;
+    soldPrice: number;
+    teamName: string;
+    teamEmoji?: string;
+    teamColor?: string;
+  } | null>(null);
+
+  // Right To Match (RTM) State
+  const [rtmModalData, setRtmModalData] = useState<RtmPromptData | null>(null);
+  const [teamRtmCards, setTeamRtmCards] = useState<Record<number, number>>({}); // teamId -> count (default 2)
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
@@ -312,6 +339,7 @@ export function SportsAuction() {
             ...prev
           ]);
           auctionService.getCurrentPlayer(selectedConfigId).then(p => setLivePlayer(p)).catch(() => {});
+          auctionAudio.playBidDing();
           resetBidTimer();
           break;
         }
@@ -320,12 +348,23 @@ export function SportsAuction() {
           setLivePlayer(player);
           setLiveBidHistory([{ team: "Base Price", amount: player.basePrice, time: new Date(event.timestamp).toLocaleTimeString() }]);
           setBiddingTeamId(null);
+          auctionAudio.playGong();
           startBidTimer();
           toast.info(`🏏 ${player.playerName} is up for auction!`);
           break;
         }
         case 'PLAYER_SOLD': {
           const sold = event.payload;
+          const soldTeamObj = teams.find(t => t.id === sold.teamId);
+          setSoldCelebration({
+            playerName: sold.playerName,
+            playerRole: sold.playerRole || 'Player',
+            category: sold.category,
+            soldPrice: sold.soldPrice,
+            teamName: sold.teamName || soldTeamObj?.name || 'Team',
+            teamEmoji: soldTeamObj?.emoji || '🏆',
+            teamColor: soldTeamObj?.colorHex || soldTeamObj?.color || '#f59e0b',
+          });
           toast.success(`🎉 ${sold.playerName} SOLD to ${sold.teamName} for ₹${sold.soldPrice?.toLocaleString('en-IN')}!`);
           setTeams(prev => prev.map(t =>
             t.id === sold.teamId
@@ -370,7 +409,11 @@ export function SportsAuction() {
           bidTimerRef.current = null;
           return 0;
         }
-        return prev - 1;
+        const next = prev - 1;
+        if (next <= 5 && next > 0) {
+          auctionAudio.playWarningBeep(next);
+        }
+        return next;
       });
     }, 1000);
   }, [bidTimerSeconds]);
@@ -543,6 +586,7 @@ export function SportsAuction() {
         { team: team.teamName, amount: bidAmount, time: new Date().toLocaleTimeString() },
         ...prev
       ]);
+      auctionAudio.playBidDing();
       // Refresh live player data from backend to get the updated nextBid
       const updated = await auctionService.getCurrentPlayer(configId);
       setLivePlayer(updated);
@@ -599,18 +643,25 @@ export function SportsAuction() {
     toast.success('Auction results CSV downloaded');
   };
 
-  const handleSoldPlayer = async () => {
-    if (!livePlayer || !biddingTeamId) {
-      toast.error("No bid has been placed yet!");
-      return;
-    }
-    const soldTeam = teams.find(t => t.id === biddingTeamId);
+  const finalizeSold = async (targetTeamId: number, isRtmMatch: boolean = false) => {
+    if (!livePlayer) return;
+    const soldTeam = teams.find(t => t.id === targetTeamId);
     try {
-      await auctionService.soldPlayer(livePlayer.playerId, biddingTeamId);
-      toast.success(`🎉 ${livePlayer.playerName} SOLD to ${soldTeam?.name} for ₹${livePlayer.currentBid.toLocaleString('en-IN')}!`);
+      await auctionService.soldPlayer(livePlayer.playerId, targetTeamId);
+      // Trigger celebration modal + audio effects
+      setSoldCelebration({
+        playerName: livePlayer.playerName,
+        playerRole: (isRtmMatch ? '⚡ RTM MATCHED • ' : '') + (livePlayer.playerRole || livePlayer.category || 'Player'),
+        category: livePlayer.category,
+        soldPrice: livePlayer.currentBid,
+        teamName: soldTeam?.name || soldTeam?.teamName || 'Team',
+        teamEmoji: soldTeam?.emoji || '🏆',
+        teamColor: soldTeam?.colorHex || soldTeam?.color || '#f59e0b',
+      });
+      toast.success(`🎉 ${livePlayer.playerName} ${isRtmMatch ? 'RTM MATCHED &' : ''} SOLD to ${soldTeam?.name} for ₹${livePlayer.currentBid.toLocaleString('en-IN')}!`);
       // Update team budget and squad locally
       setTeams(prev => prev.map(t =>
-        t.id === biddingTeamId
+        t.id === targetTeamId
           ? {
               ...t,
               spent: t.spent + livePlayer.currentBid,
@@ -626,6 +677,71 @@ export function SportsAuction() {
       await fetchNextPlayer();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to mark player as sold');
+    }
+  };
+
+  const handleSoldPlayer = async () => {
+    if (!livePlayer || !biddingTeamId) {
+      toast.error("No bid has been placed yet!");
+      return;
+    }
+
+    const soldTeam = teams.find(t => t.id === biddingTeamId);
+    
+    // Check if player has an assigned previous franchise eligible for RTM
+    const prevTeamId = (livePlayer as any).previousTeamId || (livePlayer as any).retainedTeamId;
+    const eligibleTeam = teams.find(t => t.id === prevTeamId);
+
+    if (
+      eligibleTeam &&
+      eligibleTeam.id !== biddingTeamId &&
+      (teamRtmCards[eligibleTeam.id] ?? 2) > 0 &&
+      (eligibleTeam.budget - eligibleTeam.spent) >= livePlayer.currentBid
+    ) {
+      // Prompt RTM Modal
+      setRtmModalData({
+        playerId: livePlayer.playerId,
+        playerName: livePlayer.playerName,
+        playerRole: livePlayer.playerRole || livePlayer.category,
+        category: livePlayer.category,
+        bidAmount: livePlayer.currentBid,
+        highestBidderTeam: {
+          id: soldTeam?.id || biddingTeamId,
+          name: soldTeam?.name || soldTeam?.teamName || 'Winning Bidder',
+          emoji: soldTeam?.emoji,
+          color: soldTeam?.colorHex || soldTeam?.color,
+        },
+        rtmEligibleTeam: {
+          id: eligibleTeam.id,
+          name: eligibleTeam.name || eligibleTeam.teamName,
+          emoji: eligibleTeam.emoji,
+          color: eligibleTeam.colorHex || eligibleTeam.color,
+          budget: eligibleTeam.budget,
+          spent: eligibleTeam.spent,
+          remainingBudget: eligibleTeam.budget - eligibleTeam.spent,
+          rtmCardsLeft: teamRtmCards[eligibleTeam.id] ?? 2,
+        },
+      });
+      return;
+    }
+
+    await finalizeSold(biddingTeamId, false);
+  };
+
+  const handleExerciseRtm = async (rtmTeamId: number, matchAmount: number) => {
+    setRtmModalData(null);
+    setTeamRtmCards(prev => ({
+      ...prev,
+      [rtmTeamId]: Math.max(0, (prev[rtmTeamId] ?? 2) - 1),
+    }));
+    await finalizeSold(rtmTeamId, true);
+  };
+
+  const handleDeclineRtm = async () => {
+    const fallbackTeamId = rtmModalData?.highestBidderTeam.id || biddingTeamId;
+    setRtmModalData(null);
+    if (fallbackTeamId) {
+      await finalizeSold(fallbackTeamId, false);
     }
   };
 
@@ -1164,30 +1280,89 @@ export function SportsAuction() {
               <div className="grid2">
                 <div>
                   <div className="auction-stage">
-                    <div className="flex justify-between mb-3 sm:mb-4">
-                      <span className="tag tag-gold">{livePlayer.category || 'Player'}</span>
-                      <span className="text-[10px] sm:text-[11px] text-[var(--muted)]">Base ₹{livePlayer.basePrice.toLocaleString('en-IN')}</span>
+                    <div className="flex justify-between items-center mb-3 sm:mb-4">
+                      <div className="flex items-center gap-2">
+                        <span className="tag tag-gold">{livePlayer.category || 'Player'}</span>
+                        <span className="text-[10px] sm:text-[11px] text-[var(--muted)]">Base ₹{livePlayer.basePrice.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const enabled = auctionAudio.toggleSound();
+                            setSoundEnabled(enabled);
+                            toast.info(enabled ? "🔊 Sound Effects Enabled" : "🔇 Sound Effects Muted");
+                          }}
+                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                            soundEnabled
+                              ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
+                              : "bg-slate-800 text-slate-500 border-slate-700"
+                          }`}
+                          title={soundEnabled ? "Mute Sound Effects" : "Enable Sound Effects"}
+                        >
+                          {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                        </button>
+                        <div className="flex bg-slate-800/80 p-0.5 rounded-lg border border-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => setSpotlightViewMode("stats")}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                              spotlightViewMode === "stats"
+                                ? "bg-indigo-600 text-white"
+                                : "text-slate-400 hover:text-white"
+                            }`}
+                          >
+                            Stats
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSpotlightViewMode("radar")}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer flex items-center gap-0.5 ${
+                              spotlightViewMode === "radar"
+                                ? "bg-indigo-600 text-white"
+                                : "text-slate-400 hover:text-white"
+                            }`}
+                          >
+                            <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                            Radar
+                          </button>
+                        </div>
+                      </div>
                     </div>
                     <div className="player-spotlight">
                       <div className="player-ring">{(livePlayer.playerName.match(/\b\w/g) || []).join('').substring(0, 2).toUpperCase()}</div>
                       <div className="player-name-big">{livePlayer.playerName}</div>
                       <div className="player-role">{livePlayer.playerRole || livePlayer.category}</div>
-                      {(() => {
-                        let stats: any = {};
-                        try { stats = livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { }
-                        return (
-                          <div className="stats-row">
-                            <div className="pstat"><div className="pstat-val">{livePlayer.age || '-'}</div><div className="pstat-lbl">Age</div></div>
-                            {Object.keys(stats).length > 0 ? (
-                              Object.entries(stats).slice(0, 3).map(([key, val]) => (
-                                <div className="pstat" key={key}><div className="pstat-val">{String(val) || '-'}</div><div className="pstat-lbl">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</div></div>
-                              ))
-                            ) : (
-                              <div className="pstat"><div className="pstat-val">{livePlayer.playerRole || '-'}</div><div className="pstat-lbl">Role</div></div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      {spotlightViewMode === "radar" ? (
+                        <div className="my-2 py-1 flex justify-center bg-slate-950/40 rounded-xl border border-indigo-500/10">
+                          <PlayerSkillRadarChart
+                            role={livePlayer.playerRole || livePlayer.category}
+                            category={livePlayer.category}
+                            customStats={(() => {
+                              try { return livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { return {}; }
+                            })()}
+                            size={185}
+                            primaryColor="#f59e0b"
+                          />
+                        </div>
+                      ) : (
+                        (() => {
+                          let stats: any = {};
+                          try { stats = livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { }
+                          return (
+                            <div className="stats-row">
+                              <div className="pstat"><div className="pstat-val">{livePlayer.age || '-'}</div><div className="pstat-lbl">Age</div></div>
+                              {Object.keys(stats).length > 0 ? (
+                                Object.entries(stats).slice(0, 3).map(([key, val]) => (
+                                  <div className="pstat" key={key}><div className="pstat-val">{String(val) || '-'}</div><div className="pstat-lbl">{key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())}</div></div>
+                                ))
+                              ) : (
+                                <div className="pstat"><div className="pstat-val">{livePlayer.playerRole || '-'}</div><div className="pstat-lbl">Role</div></div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      )}
                       <div className="bid-box">
                         <div className="bid-lbl">Current Bid</div>
                         <div className="bid-amount">₹{livePlayer.currentBid.toLocaleString('en-IN')}</div>
@@ -1241,16 +1416,60 @@ export function SportsAuction() {
                       return (
                         <div key={team.id} className={`team-bid-card ${isBidding ? 'highest' : ''} ${(!canBid || !isAuctionAdmin) ? 'disabled' : ''} ${(isAuctionAdmin && canBid) ? 'cursor-pointer' : 'cursor-not-allowed'}`} onClick={() => isAuctionAdmin && canBid && handleTeamBid(team)}>
                           <div className="flex justify-between items-center mb-2">
-                            <div className={`team-name ${isBidding ? 'text-[var(--green)]' : 'text-[var(--text)]'}`}>{team.emoji} {team.name}</div>
+                            <div className={`team-name flex items-center gap-1.5 ${isBidding ? 'text-[var(--green)]' : 'text-[var(--text)]'}`}>
+                              <span>{team.emoji}</span>
+                              <span>{team.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Right to Match Cards Remaining">
+                                ⚡ {teamRtmCards[team.id] ?? 2} RTM
+                              </span>
+                            </div>
                             {isBidding && <span className="tag tag-green text-[8px]">Highest</span>}
                           </div>
                           <div className="team-budget text-[12px] sm:text-[13px] text-[var(--muted)] mt-1">
                             Remaining: <span className="text-[var(--text)] font-semibold">₹{remaining.toLocaleString('en-IN')}</span>
                           </div>
                           <div className="prog-bar my-1.5"><div className="prog-fill" style={{ width: `${pct}%`, background: isBidding ? 'var(--green)' : team.color || 'var(--amber)' }}></div></div>
-                          <div className="flex justify-between items-center mt-1.5">
-                            <div className="team-players">Spent: ₹{team.spent.toLocaleString('en-IN')}</div>
-                            {canBid ? (<span className="tag tag-gold text-[9px]">BID ₹{livePlayer.nextBid.toLocaleString('en-IN')}</span>) : (<span className="tag tag-red text-[9px]">No Budget</span>)}
+                          <div className="flex justify-between items-center mt-1.5 gap-1">
+                            <div className="team-players text-[11px]">Spent: ₹{team.spent.toLocaleString('en-IN')}</div>
+                            <div className="flex items-center gap-1">
+                              {!isBidding && (teamRtmCards[team.id] ?? 2) > 0 && livePlayer && biddingTeamId && isAuctionAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const highestTeam = teams.find(t => t.id === biddingTeamId);
+                                    setRtmModalData({
+                                      playerId: livePlayer.playerId,
+                                      playerName: livePlayer.playerName,
+                                      playerRole: livePlayer.playerRole || livePlayer.category,
+                                      category: livePlayer.category,
+                                      bidAmount: livePlayer.currentBid,
+                                      highestBidderTeam: {
+                                        id: highestTeam?.id || biddingTeamId,
+                                        name: highestTeam?.name || highestTeam?.teamName || 'Winning Bidder',
+                                        emoji: highestTeam?.emoji,
+                                        color: highestTeam?.colorHex || highestTeam?.color,
+                                      },
+                                      rtmEligibleTeam: {
+                                        id: team.id,
+                                        name: team.name || team.teamName,
+                                        emoji: team.emoji,
+                                        color: team.colorHex || team.color,
+                                        budget: team.budget,
+                                        spent: team.spent,
+                                        remainingBudget: remaining,
+                                        rtmCardsLeft: teamRtmCards[team.id] ?? 2,
+                                      },
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-slate-950 hover:bg-amber-400 transition cursor-pointer"
+                                  title="Trigger Right to Match (RTM) Inquiry"
+                                >
+                                  ⚡ RTM
+                                </button>
+                              )}
+                              {canBid ? (<span className="tag tag-gold text-[9px]">BID ₹{livePlayer.nextBid.toLocaleString('en-IN')}</span>) : (<span className="tag tag-red text-[9px]">No Budget</span>)}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1923,6 +2142,30 @@ export function SportsAuction() {
         )}
 
       </main>
+
+      {/* ── Right To Match (RTM) Modal Prompt ── */}
+      {rtmModalData && (
+        <AuctionRtmModal
+          data={rtmModalData}
+          onExerciseRtm={handleExerciseRtm}
+          onDeclineRtm={handleDeclineRtm}
+          onClose={() => setRtmModalData(null)}
+        />
+      )}
+
+      {/* ── Sold Celebration Modal Overlay ── */}
+      {soldCelebration && (
+        <AuctionSoldCelebrationModal
+          playerName={soldCelebration.playerName}
+          playerRole={soldCelebration.playerRole}
+          category={soldCelebration.category}
+          soldPrice={soldCelebration.soldPrice}
+          teamName={soldCelebration.teamName}
+          teamEmoji={soldCelebration.teamEmoji}
+          teamColor={soldCelebration.teamColor}
+          onClose={() => setSoldCelebration(null)}
+        />
+      )}
     </div>
   );
 }

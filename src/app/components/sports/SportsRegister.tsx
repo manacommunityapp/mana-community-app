@@ -19,6 +19,7 @@ import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory } from "../../../types/api";
+import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -2341,6 +2342,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               ))}
             </div>
           )}
+
+          {/* Tournament Sponsor Strip Banner */}
+          <TournamentSponsorBanner
+            sponsors={DEFAULT_TOURNAMENT_SPONSORS}
+            variant="strip"
+            className="mb-2"
+          />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Profile Incomplete Banner */}
