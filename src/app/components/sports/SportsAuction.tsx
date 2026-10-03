@@ -49,6 +49,7 @@ import { sportsCricHeroesService } from "../../../services/sports/sportsCricHero
 import { SportsCricHeroesProfileCard } from "./SportsCricHeroesProfileCard";
 import { SportsPlayerComparisonModal } from "./SportsPlayerComparisonModal";
 import { SportsTeamBalanceRadar } from "./SportsTeamBalanceRadar";
+import { SportsPlayerProfileCard } from "./SportsPlayerProfileCard";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -188,6 +189,7 @@ export function SportsAuction() {
   // CricHeroes Integration State
   const [cricHeroesProfiles, setCricHeroesProfiles] = useState<Record<number, CricHeroesPlayerProfile>>({});
   const [showComparison, setShowComparison] = useState(false);
+  const [familyRelationMap, setFamilyRelationMap] = useState<Record<string, string>>({});
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
@@ -316,6 +318,15 @@ export function SportsAuction() {
           role: r.role || r.category?.name || 'Player'
         }));
         setEventRegistrations(confirmed);
+
+        const relMap: Record<string, string> = {};
+        for (const r of regs) {
+          if (r.relation && r.relation !== 'Self') {
+            const name = (r.playerName || r.user?.fullName || '').toLowerCase();
+            if (name) relMap[name] = r.relation;
+          }
+        }
+        setFamilyRelationMap(relMap);
 
         // Hydrate committee
         if (event.disputeCommitteeIds) {
@@ -1927,33 +1938,14 @@ export function SportsAuction() {
                       (!playerSearchQuery || p.name?.toLowerCase().includes(playerSearchQuery.toLowerCase()))
                     );
                     return filtered.length > 0 ? filtered.map(p => (
-                      <div key={p.id} className="player-row" style={{ background: p.status === 'SOLD' ? 'rgba(34,197,94,0.05)' : 'rgba(99,102,241,0.03)', border: `1px solid ${p.status === 'SOLD' ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.1)'}` }}>
-                        <div className="player-avatar av-bat" style={{ background: p.status === 'SOLD' ? 'var(--green)' : 'var(--gold)', color: '#000' }}>
-                          {(p.name || '').charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</span>
-                            {cricHeroesProfiles[p.id] && <SportsCricHeroesProfileCard playerId={p.id} playerName={p.name} compact />}
-                            {(p.cricHeroesUrl || p.verifiedAt) && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                {p.verifiedAt && <CheckCircle size={10} style={{ color: '#22c55e' }} />}
-                                {p.cricHeroesUrl && (
-                                  <a href={p.cricHeroesUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
-                                    <ExternalLink size={9} /> CH
-                                  </a>
-                                )}
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}{p.bestBowling ? ` · Best ${p.bestBowling}` : ''}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' || p.status === 'queue' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
-                          {p.soldPrice ? <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 2 }}>₹{p.soldPrice.toLocaleString('en-IN')}</div> : null}
-                          {p.assignedTeam ? <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{(p.assignedTeam as any).teamName || (p.assignedTeam as any).name}</div> : null}
-                        </div>
-                      </div>
+                      <SportsPlayerProfileCard
+                        key={p.id}
+                        player={p}
+                        team={p.assignedTeam ? teams.find(t => t.id === p.assignedTeam?.id) : undefined}
+                        cricHeroesProfile={cricHeroesProfiles[p.id]}
+                        familyRelation={familyRelationMap[(p.name || '').toLowerCase()]}
+                        kycVerified={!!p.verifiedAt}
+                      />
                     )) : (
                       <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>
                         <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
@@ -2322,31 +2314,15 @@ export function SportsAuction() {
                             Players ({teamPlayers.length})
                           </div>
                           {teamPlayers.length > 0 ? teamPlayers.map(p => {
-                            const playerName = (p as any).playerName || p.name;
-                            const playerRole = (p as any).playerRole || p.role;
-                            const initials = p.initials || playerName?.match(/\b\w/g)?.join('')?.substring(0, 2)?.toUpperCase() || 'P';
-
                             return (
-                              <div key={p.id} className="player-row sold py-2 px-3 my-1 bg-white/[0.03] !rounded-md min-h-[44px] sm:min-h-0">
-                                <div className="player-avatar av-bat w-8 h-8 text-xs">
-                                  {initials}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-[13px] sm:text-sm font-semibold" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    {playerName}
-                                    {cricHeroesProfiles[p.id] && <CheckCircle size={11} style={{ color: '#22c55e' }} />}
-                                    {p.cricHeroesUrl && (
-                                      <a href={p.cricHeroesUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', color: 'var(--gold)' }}>
-                                        <ExternalLink size={10} />
-                                      </a>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] sm:text-[11px] text-[var(--muted)]">{playerRole}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-[13px] sm:text-sm font-semibold text-[var(--green)]">₹{(p.soldPrice || 0).toLocaleString('en-IN')}</div>
-                                </div>
-                              </div>
+                              <SportsPlayerProfileCard
+                                key={p.id}
+                                player={p}
+                                cricHeroesProfile={cricHeroesProfiles[p.id]}
+                                familyRelation={familyRelationMap[(p.name || (p as any).playerName || '').toLowerCase()]}
+                                kycVerified={!!p.verifiedAt}
+                                compact
+                              />
                             );
                           }) : (
                             <div className="text-xs text-[var(--muted)] text-center py-5">No players assigned yet.</div>
