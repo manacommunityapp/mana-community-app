@@ -149,8 +149,8 @@ export function SportsPlayerProfileCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{playerName}</span>
-            {kycVerified && <Shield size={12} style={{ color: "#22c55e" }} title="KYC Verified" />}
-            {player.verifiedAt && <CheckCircle size={11} style={{ color: "#22c55e" }} title="Stats Verified" />}
+            {kycVerified && <span title="KYC Verified" style={{ display: "inline-flex" }}><Shield size={12} style={{ color: "#22c55e" }} /></span>}
+            {player.verifiedAt && <span title="Stats Verified" style={{ display: "inline-flex" }}><CheckCircle size={11} style={{ color: "#22c55e" }} /></span>}
             {player.cricHeroesUrl && (
               <a href={player.cricHeroesUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ display: "inline-flex", color: "var(--gold)" }}>
                 <ExternalLink size={11} />
@@ -289,7 +289,12 @@ export function SportsPlayerProfileCard({
               )}
 
               {/* Verification & KYC */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {(player.cricHeroesUrl || cricHeroesProfile || player.verifiedAt) && (
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 4, background: "rgba(34,197,94,0.12)", color: "#22c55e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                    Stats Scope: CricHeroes Career
+                  </span>
+                )}
                 {kycVerified && (
                   <span style={{ fontSize: 9, fontWeight: 600, padding: "3px 7px", borderRadius: 4, background: "rgba(34,197,94,0.08)", color: "#22c55e", display: "flex", alignItems: "center", gap: 3, border: "1px solid rgba(34,197,94,0.15)" }}>
                     <Shield size={9} /> KYC Verified
@@ -297,7 +302,7 @@ export function SportsPlayerProfileCard({
                 )}
                 {player.verifiedAt && (
                   <span style={{ fontSize: 9, fontWeight: 600, padding: "3px 7px", borderRadius: 4, background: "rgba(34,197,94,0.08)", color: "#22c55e", display: "flex", alignItems: "center", gap: 3, border: "1px solid rgba(34,197,94,0.15)" }}>
-                    <CheckCircle size={9} /> Stats Verified {new Date(player.verifiedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                    <CheckCircle size={9} /> Verified {new Date(player.verifiedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 )}
                 {familyRelation && (
