@@ -44,6 +44,11 @@ import {
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
 import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration, AuctionEvent } from "../../../types/api";
+import type { CricHeroesPlayerProfile } from "../../../types/sportsCricheroes";
+import { sportsCricHeroesService } from "../../../services/sports/sportsCricHeroesService";
+import { SportsCricHeroesProfileCard } from "./SportsCricHeroesProfileCard";
+import { SportsPlayerComparisonModal } from "./SportsPlayerComparisonModal";
+import { SportsTeamBalanceRadar } from "./SportsTeamBalanceRadar";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -180,6 +185,10 @@ export function SportsAuction() {
   const [rtmModalData, setRtmModalData] = useState<RtmPromptData | null>(null);
   const [teamRtmCards, setTeamRtmCards] = useState<Record<number, number>>({}); // teamId -> count (default 2)
 
+  // CricHeroes Integration State
+  const [cricHeroesProfiles, setCricHeroesProfiles] = useState<Record<number, CricHeroesPlayerProfile>>({});
+  const [showComparison, setShowComparison] = useState(false);
+
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
     // Check if any auction config exists for this community (no sportId filter)
@@ -261,6 +270,14 @@ export function SportsAuction() {
     }).catch((err) => {
       console.error("Failed to load auction data:", err);
     }).finally(() => setLoading(false));
+  }, [selectedConfigId]);
+
+  // Fetch CricHeroes linked profiles when config loads
+  useEffect(() => {
+    if (!selectedConfigId) return;
+    sportsCricHeroesService.getLinkedProfiles(selectedConfigId)
+      .then(profiles => setCricHeroesProfiles(profiles))
+      .catch(() => setCricHeroesProfiles({}));
   }, [selectedConfigId]);
 
   // Fetch community events and event map only when a tab that needs them is active
@@ -368,15 +385,24 @@ export function SportsAuction() {
           toast.success(`🎉 ${sold.playerName} SOLD to ${sold.teamName} for ₹${sold.soldPrice?.toLocaleString('en-IN')}!`);
           setTeams(prev => prev.map(t =>
             t.id === sold.teamId
-              ? { ...t, spent: t.spent + sold.soldPrice, remainingBudget: t.budget - (t.spent + sold.soldPrice), players: [...(t.players || []), { name: sold.playerName, soldPrice: sold.soldPrice, category: '' }] }
+              ? { ...t, spent: t.spent + sold.soldPrice, remainingBudget: t.budget - (t.spent + sold.soldPrice), players: [...(t.players || []), { name: sold.playerName, soldPrice: sold.soldPrice, category: sold.category || sold.playerRole || '' }] }
               : t
+          ));
+          setPlayers(prev => prev.map(p =>
+            p.id === sold.playerId
+              ? { ...p, status: 'SOLD', soldPrice: sold.soldPrice, assignedTeam: { id: sold.teamId, teamName: sold.teamName } as any }
+              : p
           ));
           stopBidTimer();
           auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
           break;
         }
         case 'PLAYER_PASSED': {
-          toast.info(`${event.payload.playerName} passed`);
+          const passed = event.payload;
+          toast.info(`${passed.playerName} passed`);
+          setPlayers(prev => prev.map(p =>
+            p.id === passed.playerId ? { ...p, status: 'PASSED' } : p
+          ));
           stopBidTimer();
           auctionService.getAuctionStats(selectedConfigId).then(s => setAuctionStats(s)).catch(() => {});
           break;
@@ -762,7 +788,8 @@ export function SportsAuction() {
   // Creation States
   const [newPlayer, setNewPlayer] = useState({
     name: "", category: "BATSMEN", role: "Right-Hand Bat", age: 25,
-    basePrice: 1000, matches: 0, runs: 0, wickets: 0, strikeRate: 0, economy: 0
+    basePrice: 1000, matches: 0, runs: 0, wickets: 0, strikeRate: 0, economy: 0,
+    cricHeroesUrl: ""
   });
 
   const handleCreatePlayer = async () => {
@@ -772,7 +799,8 @@ export function SportsAuction() {
       const created = await auctionService.createPlayer(selectedConfigId, {
         playerName: newPlayer.name, category: newPlayer.category, playerRole: newPlayer.role,
         age: newPlayer.age, basePrice: newPlayer.basePrice, matches: newPlayer.matches,
-        runs: newPlayer.runs, wickets: newPlayer.wickets, strikeRate: newPlayer.strikeRate, economy: newPlayer.economy
+        runs: newPlayer.runs, wickets: newPlayer.wickets, strikeRate: newPlayer.strikeRate, economy: newPlayer.economy,
+        cricHeroesUrl: newPlayer.cricHeroesUrl || undefined
       });
       toast.success('Player added to pool!');
       const newPObj: AuctionPlayer = {
@@ -781,7 +809,7 @@ export function SportsAuction() {
         role: newPlayer.role, age: newPlayer.age, basePrice: newPlayer.basePrice, status: "QUEUED"
       };
       setPlayers([...players, newPObj]);
-      setNewPlayer({ ...newPlayer, name: "", matches: 0, runs: 0, wickets: 0 });
+      setNewPlayer({ ...newPlayer, name: "", matches: 0, runs: 0, wickets: 0, cricHeroesUrl: "" });
     } catch (err) {
       toast.error('Failed to create player');
     }
@@ -1266,8 +1294,28 @@ export function SportsAuction() {
               <div className="auction-stage text-center py-10 sm:py-[60px] px-4 sm:px-6">
                 <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🏆</div>
                 <div className="player-name-big mb-2">Auction Complete!</div>
-                <div className="text-[12px] sm:text-[13px] text-[var(--muted)] mb-5 sm:mb-6">The auction has been stopped or all players have been auctioned. Check the Results tab for final rosters.</div>
-                <button className="btn btn-outline min-h-[44px] sm:min-h-0" onClick={() => nav('results')}>View Results ↗</button>
+                <div className="text-[12px] sm:text-[13px] text-[var(--muted)] mb-4">The auction has concluded. Check the Results tab for final rosters and highlights.</div>
+                {/* Mini highlights preview */}
+                {(() => {
+                  const sold = players.filter(p => p.status === 'SOLD' && p.soldPrice).sort((a, b) => (b.soldPrice || 0) - (a.soldPrice || 0));
+                  if (sold.length === 0) return null;
+                  const top = sold[0];
+                  return (
+                    <div style={{ display: 'inline-flex', gap: 14, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.15)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1 }}>Top Buy</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{(top as any).playerName || top.name}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)' }}>₹{(top.soldPrice || 0).toLocaleString('en-IN')}</div>
+                      </div>
+                      <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 1 }}>Total Sold</div>
+                        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)', marginTop: 4 }}>{sold.length}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>₹{sold.reduce((s, p) => s + (p.soldPrice || 0), 0).toLocaleString('en-IN')}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div><button className="btn btn-gold min-h-[44px] sm:min-h-0" onClick={() => nav('results')}>View Full Results & Highlights ↗</button></div>
               </div>
             ) : auctionStatus === 'LIVE' && !livePlayer ? (
               <div className="auction-stage text-center py-10 sm:py-[60px] px-4 sm:px-6">
@@ -1339,6 +1387,15 @@ export function SportsAuction() {
                             role={livePlayer.playerRole || livePlayer.category}
                             category={livePlayer.category}
                             customStats={(() => {
+                              const ch = cricHeroesProfiles[livePlayer.playerId];
+                              if (ch) {
+                                return {
+                                  runs: ch.batting?.runs,
+                                  wickets: ch.bowling?.wickets,
+                                  strikeRate: ch.batting?.strikeRate,
+                                  economy: ch.bowling?.economy,
+                                };
+                              }
                               try { return livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { return {}; }
                             })()}
                             size={185}
@@ -1346,7 +1403,50 @@ export function SportsAuction() {
                           />
                         </div>
                       ) : (
+                        /* ── CricHeroes-aware stats + scope badge + verified + profile link ── */
                         (() => {
+                          const chProfile = cricHeroesProfiles[livePlayer.playerId];
+                          if (chProfile) {
+                            return (
+                              <>
+                                {/* Scope badge + verified timestamp + profile link */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, margin: '6px 0 8px', flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'rgba(34,197,94,0.12)', color: '#22c55e', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                                    Stats Scope: CricHeroes Career
+                                  </span>
+                                  {chProfile.verifiedAt && (
+                                    <span style={{ fontSize: 9, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <CheckCircle size={10} style={{ color: '#22c55e' }} />
+                                      Verified {new Date(chProfile.verifiedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </span>
+                                  )}
+                                  {chProfile.shareUrl && (
+                                    <a href={chProfile.shareUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: 3, textDecoration: 'none' }}>
+                                      <ExternalLink size={10} /> CricHeroes Profile
+                                    </a>
+                                  )}
+                                </div>
+                                {/* Structured Batting Stats */}
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, textAlign: 'left', paddingLeft: 4 }}>Batting</div>
+                                <div className="stats-row" style={{ marginBottom: 6 }}>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.batting?.innings ?? '-'}</div><div className="pstat-lbl">Inn</div></div>
+                                  <div className="pstat"><div className="pstat-val" style={{ color: 'var(--gold)' }}>{chProfile.batting?.runs ?? '-'}</div><div className="pstat-lbl">Runs</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.batting?.average != null ? chProfile.batting.average.toFixed(1) : '-'}</div><div className="pstat-lbl">Avg</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.batting?.strikeRate != null ? chProfile.batting.strikeRate.toFixed(1) : '-'}</div><div className="pstat-lbl">SR</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.batting?.highestScore ?? '-'}</div><div className="pstat-lbl">HS</div></div>
+                                </div>
+                                {/* Structured Bowling Stats */}
+                                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, textAlign: 'left', paddingLeft: 4 }}>Bowling</div>
+                                <div className="stats-row" style={{ marginBottom: 4 }}>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.bowling?.wickets ?? '-'}</div><div className="pstat-lbl">Wkts</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.bowling?.economy != null ? chProfile.bowling.economy.toFixed(1) : '-'}</div><div className="pstat-lbl">Econ</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.bowling?.average != null ? chProfile.bowling.average.toFixed(1) : '-'}</div><div className="pstat-lbl">Avg</div></div>
+                                  <div className="pstat"><div className="pstat-val">{chProfile.bowling?.bestFigures ?? '-'}</div><div className="pstat-lbl">Best</div></div>
+                                </div>
+                              </>
+                            );
+                          }
+                          // Fallback: generic statsJson display
                           let stats: any = {};
                           try { stats = livePlayer.statsJson ? JSON.parse(livePlayer.statsJson) : {}; } catch { }
                           return (
@@ -1363,6 +1463,15 @@ export function SportsAuction() {
                           );
                         })()
                       )}
+                      {/* CricHeroes Profile Card (link/unlink + expandable details) */}
+                      <SportsCricHeroesProfileCard
+                        playerId={livePlayer.playerId}
+                        playerName={livePlayer.playerName}
+                        canEdit={isAuctionAdmin}
+                        onProfileLinked={(profile) => {
+                          setCricHeroesProfiles(prev => ({ ...prev, [livePlayer.playerId]: profile }));
+                        }}
+                      />
                       <div className="bid-box">
                         <div className="bid-lbl">Current Bid</div>
                         <div className="bid-amount">₹{livePlayer.currentBid.toLocaleString('en-IN')}</div>
@@ -1403,6 +1512,15 @@ export function SportsAuction() {
                         </div>
                       ))}
                     </div>
+                    {Object.keys(cricHeroesProfiles).length >= 2 && (
+                      <button
+                        className="btn btn-outline btn-sm mt-3 w-full"
+                        style={{ fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                        onClick={() => setShowComparison(true)}
+                      >
+                        <span style={{ fontSize: 14 }}>⚔️</span> Compare Players
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -1474,6 +1592,53 @@ export function SportsAuction() {
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* ── Live Squad Role Quotas ── */}
+                  <div className="card mt-3 sm:mt-3.5">
+                    <div className="sec-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Users size={14} style={{ color: 'var(--gold)' }} /> Squad Role Quotas
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {teams.map(team => {
+                        const teamPlayers = players.filter(p => p.status === 'SOLD' && (p.assignedTeam?.id === team.id || (p as any).assignedTeamId === team.id));
+                        const roleMap: Record<string, number> = {};
+                        for (const p of teamPlayers) {
+                          const role = (p as any).playerRole || p.role || p.category || 'Unknown';
+                          const normalized = role.toLowerCase().includes('bat') ? 'Batter'
+                            : role.toLowerCase().includes('bowl') ? 'Bowler'
+                            : role.toLowerCase().includes('all') ? 'All-Rounder'
+                            : role.toLowerCase().includes('keep') || role.toLowerCase().includes('wk') ? 'W. Keeper'
+                            : role;
+                          roleMap[normalized] = (roleMap[normalized] || 0) + 1;
+                        }
+                        const roleColors: Record<string, string> = { 'Batter': '#3b82f6', 'Bowler': '#ef4444', 'All-Rounder': '#8b5cf6', 'W. Keeper': '#f59e0b' };
+                        const allRoles = ['Batter', 'Bowler', 'All-Rounder', 'W. Keeper'];
+                        return (
+                          <div key={team.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(148,163,184,0.04)', border: '1px solid rgba(148,163,184,0.08)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700 }}>{team.emoji} {team.name}</span>
+                              <span style={{ fontSize: 10, color: 'var(--muted)' }}>{teamPlayers.length} players</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                              {allRoles.map(role => {
+                                const count = roleMap[role] || 0;
+                                return (
+                                  <span key={role} style={{
+                                    fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                                    background: count > 0 ? `${roleColors[role]}15` : 'rgba(148,163,184,0.06)',
+                                    color: count > 0 ? roleColors[role] : 'var(--muted)',
+                                    border: `1px solid ${count > 0 ? `${roleColors[role]}30` : 'transparent'}`
+                                  }}>
+                                    {count} {role}{count !== 1 ? 's' : ''}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1561,6 +1726,7 @@ export function SportsAuction() {
                             {team.players.map((pl, pIdx) => (
                               <div key={pIdx} className="flex items-center gap-1.5 bg-slate-50 py-1 px-2 rounded-lg border border-slate-200 text-xs">
                                 <span className="text-slate-900 font-semibold">{pl.name}</span>
+                                {(pl as any).id && cricHeroesProfiles[(pl as any).id] && <CheckCircle size={10} style={{ color: '#22c55e', flexShrink: 0 }} />}
                                 {pl.category && <span className="text-[10px] text-[var(--muted)] bg-slate-200 py-px px-1.5 rounded font-semibold">{pl.category}</span>}
                                 <span className="text-emerald-600 font-bold text-[11px]">₹{(pl.soldPrice || 0).toLocaleString('en-IN')}</span>
                               </div>
@@ -1656,6 +1822,14 @@ export function SportsAuction() {
                   </div>
                 )}
               </div>
+
+              {/* Team Balance Analytics (CricHeroes) */}
+              {selectedConfigId && Object.keys(cricHeroesProfiles).length > 0 && (
+                <div className="card mt-3">
+                  <div className="sec-title">📊 Team Balance Analytics</div>
+                  <SportsTeamBalanceRadar configId={selectedConfigId} teams={teams} />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1758,8 +1932,21 @@ export function SportsAuction() {
                           {(p.name || '').charAt(0).toUpperCase()}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
-                          <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</span>
+                            {cricHeroesProfiles[p.id] && <SportsCricHeroesProfileCard playerId={p.id} playerName={p.name} compact />}
+                            {(p.cricHeroesUrl || p.verifiedAt) && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                {p.verifiedAt && <CheckCircle size={10} style={{ color: '#22c55e' }} />}
+                                {p.cricHeroesUrl && (
+                                  <a href={p.cricHeroesUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: 'var(--gold)', display: 'inline-flex', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
+                                    <ExternalLink size={9} /> CH
+                                  </a>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)' }}>{p.role || p.category || 'Player'} · Base ₹{(p.basePrice || 0).toLocaleString('en-IN')}{p.bestBowling ? ` · Best ${p.bestBowling}` : ''}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <span className={`tag ${p.status === 'SOLD' ? 'tag-green' : p.status === 'QUEUED' || p.status === 'queue' ? 'tag-blue' : 'tag-amber'}`}>{p.status}</span>
@@ -1957,6 +2144,132 @@ export function SportsAuction() {
                   </div>
                 </div>
 
+                {/* ── Post-Auction Highlights ── */}
+                {(() => {
+                  const soldPlayers = players
+                    .filter(p => p.status === 'SOLD' && p.soldPrice)
+                    .sort((a, b) => (b.soldPrice || 0) - (a.soldPrice || 0));
+
+                  if (soldPlayers.length === 0) return null;
+
+                  const mostExpensive = soldPlayers[0];
+                  const cheapestPick = [...soldPlayers].sort((a, b) => (a.soldPrice || 0) - (b.soldPrice || 0))[0];
+                  const bestValue = [...soldPlayers].sort((a, b) => {
+                    const ratioA = (a.soldPrice || 0) / Math.max(a.basePrice || 1, 1);
+                    const ratioB = (b.soldPrice || 0) / Math.max(b.basePrice || 1, 1);
+                    return ratioA - ratioB;
+                  })[0];
+                  const biggestBidWar = [...soldPlayers].sort((a, b) => {
+                    const multA = (a.soldPrice || 0) / Math.max(a.basePrice || 1, 1);
+                    const multB = (b.soldPrice || 0) / Math.max(b.basePrice || 1, 1);
+                    return multB - multA;
+                  })[0];
+
+                  const topBuys = soldPlayers.slice(0, 5);
+
+                  const roleDistribution: Record<string, { count: number; totalSpent: number }> = {};
+                  for (const p of soldPlayers) {
+                    const role = (p as any).playerRole || p.role || p.category || 'Unknown';
+                    const normalized = role.toLowerCase().includes('bat') ? 'Batter'
+                      : role.toLowerCase().includes('bowl') ? 'Bowler'
+                      : role.toLowerCase().includes('all') ? 'All-Rounder'
+                      : role.toLowerCase().includes('keep') || role.toLowerCase().includes('wk') ? 'W. Keeper'
+                      : role;
+                    if (!roleDistribution[normalized]) roleDistribution[normalized] = { count: 0, totalSpent: 0 };
+                    roleDistribution[normalized].count++;
+                    roleDistribution[normalized].totalSpent += p.soldPrice || 0;
+                  }
+
+                  const getTeamName = (p: AuctionPlayer) => {
+                    if (p.assignedTeam?.name) return p.assignedTeam.name;
+                    const team = teams.find(t => t.id === (p.assignedTeam?.id || (p as any).assignedTeamId));
+                    return team?.name || team?.teamName || '';
+                  };
+
+                  return (
+                    <div className="card card-gold mb-3 sm:mb-4" style={{ padding: '16px 18px' }}>
+                      <div className="sec-title" style={{ margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Trophy size={15} style={{ color: 'var(--gold)' }} /> Auction Highlights
+                      </div>
+
+                      {/* Highlight Cards */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
+                        <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Most Expensive</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(mostExpensive as any).playerName || mostExpensive.name}</div>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--gold)', marginTop: 2 }}>₹{(mostExpensive.soldPrice || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{getTeamName(mostExpensive)}</div>
+                        </div>
+
+                        <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.12)' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Best Value</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(bestValue as any).playerName || bestValue.name}</div>
+                          <div style={{ fontSize: 13, color: 'var(--green)', marginTop: 2 }}>₹{(bestValue.soldPrice || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>Base ₹{(bestValue.basePrice || 0).toLocaleString('en-IN')} ({((bestValue.soldPrice || 0) / Math.max(bestValue.basePrice || 1, 1)).toFixed(1)}x)</div>
+                        </div>
+
+                        <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Biggest Bid War</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(biggestBidWar as any).playerName || biggestBidWar.name}</div>
+                          <div style={{ fontSize: 13, color: '#8b5cf6', marginTop: 2 }}>{((biggestBidWar.soldPrice || 0) / Math.max(biggestBidWar.basePrice || 1, 1)).toFixed(1)}x base price</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>₹{(biggestBidWar.basePrice || 0).toLocaleString('en-IN')} → ₹{(biggestBidWar.soldPrice || 0).toLocaleString('en-IN')}</div>
+                        </div>
+
+                        <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.12)' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Cheapest Pick</div>
+                          <div style={{ fontSize: 14, fontWeight: 700 }}>{(cheapestPick as any).playerName || cheapestPick.name}</div>
+                          <div style={{ fontSize: 13, color: '#3b82f6', marginTop: 2 }}>₹{(cheapestPick.soldPrice || 0).toLocaleString('en-IN')}</div>
+                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{getTeamName(cheapestPick)}</div>
+                        </div>
+                      </div>
+
+                      {/* Top 5 Buys */}
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <TrendingUp size={11} /> Top {Math.min(topBuys.length, 5)} Buys
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {topBuys.map((p, i) => {
+                            const playerName = (p as any).playerName || p.name;
+                            const playerRole = (p as any).playerRole || p.role || p.category || '';
+                            return (
+                              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6, background: i === 0 ? 'rgba(212,160,23,0.08)' : 'rgba(148,163,184,0.04)' }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: i === 0 ? 'var(--gold)' : 'var(--muted)', width: 18, textAlign: 'center' }}>#{i + 1}</span>
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600 }}>{playerName}</span>
+                                  <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>{playerRole}</span>
+                                </div>
+                                <span style={{ fontSize: 10, color: 'var(--muted)' }}>{getTeamName(p)}</span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', minWidth: 70, textAlign: 'right' }}>₹{(p.soldPrice || 0).toLocaleString('en-IN')}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Role-wise Spend Distribution */}
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Users size={11} /> Spend by Role
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+                          {Object.entries(roleDistribution).sort((a, b) => b[1].totalSpent - a[1].totalSpent).map(([role, data]) => {
+                            const roleColors: Record<string, string> = { 'Batter': '#3b82f6', 'Bowler': '#ef4444', 'All-Rounder': '#8b5cf6', 'W. Keeper': '#f59e0b' };
+                            const c = roleColors[role] || 'var(--gold)';
+                            return (
+                              <div key={role} style={{ padding: '8px 10px', borderRadius: 8, background: `${c}08`, border: `1px solid ${c}18`, textAlign: 'center' }}>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: c }}>{data.count}</div>
+                                <div style={{ fontSize: 10, fontWeight: 600, color: c, marginBottom: 2 }}>{role}{data.count !== 1 ? 's' : ''}</div>
+                                <div style={{ fontSize: 10, color: 'var(--muted)' }}>₹{data.totalSpent.toLocaleString('en-IN')}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="card card-gold" style={{ padding: 20 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
@@ -2019,7 +2332,15 @@ export function SportsAuction() {
                                   {initials}
                                 </div>
                                 <div className="flex-1">
-                                  <div className="text-[13px] sm:text-sm font-semibold">{playerName}</div>
+                                  <div className="text-[13px] sm:text-sm font-semibold" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    {playerName}
+                                    {cricHeroesProfiles[p.id] && <CheckCircle size={11} style={{ color: '#22c55e' }} />}
+                                    {p.cricHeroesUrl && (
+                                      <a href={p.cricHeroesUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', color: 'var(--gold)' }}>
+                                        <ExternalLink size={10} />
+                                      </a>
+                                    )}
+                                  </div>
                                   <div className="text-[10px] sm:text-[11px] text-[var(--muted)]">{playerRole}</div>
                                 </div>
                                 <div className="text-right">
@@ -2116,6 +2437,12 @@ export function SportsAuction() {
                       value={newPlayer.basePrice} onChange={e => setNewPlayer({ ...newPlayer, basePrice: Number(e.target.value) })} />
                   </div>
 
+                  <div className="fgrp mb-3.5">
+                    <div className="flabel">CricHeroes Profile URL <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></div>
+                    <input className="finput" placeholder="https://cricheroes.com/player-profile/..."
+                      value={newPlayer.cricHeroesUrl} onChange={e => setNewPlayer({ ...newPlayer, cricHeroesUrl: e.target.value })} />
+                  </div>
+
                   <div className="sec-title text-sm">Player Statistics</div>
                   <div className="form-row">
                     <div className="fgrp mb-2.5"><div className="flabel">Matches</div><input className="finput" type="number" value={newPlayer.matches} onChange={e => setNewPlayer({ ...newPlayer, matches: Number(e.target.value) })} /></div>
@@ -2166,6 +2493,14 @@ export function SportsAuction() {
           onClose={() => setSoldCelebration(null)}
         />
       )}
+
+      {/* CricHeroes Player Comparison Modal */}
+      <SportsPlayerComparisonModal
+        open={showComparison}
+        onClose={() => setShowComparison(false)}
+        players={players}
+        profiles={cricHeroesProfiles}
+      />
     </div>
   );
 }
