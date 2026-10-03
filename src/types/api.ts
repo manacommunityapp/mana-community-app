@@ -412,6 +412,12 @@ export type SportsEventRegistration = EventRegistration;
 
 export type PlayerStatus = "UNSOLD" | "SOLD" | "RETAINED" | "QUEUE" | "active" | "next" | "queue" | "SELLING" | "PASSED" | "QUEUED";
 
+export interface CricHeroesStats {
+  batting?: { innings: number; runs: number; average: number; strikeRate: number; highestScore: string; fifties: number; hundreds: number; fours: number; sixes: number };
+  bowling?: { innings: number; overs: number; wickets: number; economy: number; average: number; bestFigures: string; maidens: number; threeWickets: number; fiveWickets: number };
+  fielding?: { catches: number; stumpings: number; runOuts: number };
+}
+
 export interface AuctionPlayer {
   id: number;
   name: string; // mapped from playerName
@@ -422,15 +428,20 @@ export interface AuctionPlayer {
   basePrice?: number;
   statsJson?: string;
   matches?: number;
+  innings?: number;
   runs?: number;
   avgScore?: number;
   wickets?: number;
   strikeRate?: number;
   economy?: number;
+  bestBowling?: string;
   status: PlayerStatus;
   assignedTeam?: AuctionTeam;
   soldPrice?: number;
   queueOrder?: number;
+  cricHeroesId?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
 }
 
 export interface AuctionTeam {
@@ -505,6 +516,11 @@ export interface PlayerWithBidResponse {
   age: number;
   basePrice: number;
   statsJson: string;
+  innings?: number;
+  bestBowling?: string;
+  cricHeroesId?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
   currentBid: number;
   nextBid: number;
   nextIncrement: number;
@@ -534,11 +550,14 @@ export interface AuctionPlayerRequest {
   age?: number;
   basePrice: number;
   matches?: number;
+  innings?: number;
   runs?: number;
   wickets?: number;
   strikeRate?: number;
   economy?: number;
   avgScore?: number;
+  bestBowling?: string;
+  cricHeroesUrl?: string;
 }
 
 export interface AuctionTeamRequest {
