@@ -150,6 +150,7 @@ const createDefaultPlayerForm = (categoryId?: string, familyMemberId?: number): 
   wickets: 0,
   strikeRate: 0,
   avgScore: 0,
+  cricHeroesUrl: "",
   familyMemberId: familyMemberId || undefined,
   partnerUserId: null,
   partnerFamilyMemberId: null,
@@ -1026,6 +1027,7 @@ export function useSportsAdminState() {
             email: form.playerEmail || undefined,
             relation: form.relation,
             flatNumber: form.flatNumber,
+            cricHeroesUrl: form.cricHeroesUrl?.trim() || undefined,
             familyMemberId: form.familyMemberId ? Number(form.familyMemberId) : undefined,
             // Partner fields for DOUBLES / MIXED_DOUBLES
             partnerUserId: isDoubles && !isOpenPool && form.partnerUserId ? Number(form.partnerUserId) : (isOpenPool ? null : undefined),
@@ -1072,9 +1074,9 @@ export function useSportsAdminState() {
 
 
   const handleDownloadSample = () => {
-    const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score\n" +
-      "Rahul Sharma,rahul.sharma@gmail.com,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5\n" +
-      "Priya Patel,priya.patel@gmail.com,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2";
+    const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score,CricHeroes URL\n" +
+      "Rahul Sharma,rahul.sharma@gmail.com,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5,https://cricheroes.com/player-profile/123456/rahul-sharma\n" +
+      "Priya Patel,priya.patel@gmail.com,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2,https://cricheroes.com/player-profile/789012/priya-patel";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1148,6 +1150,7 @@ export function useSportsAdminState() {
       const wickets = parseInt(getVal(["wickets", "assists", "totalWickets", "totalAssists"])) || 0;
       const strikeRate = parseFloat(getVal(["strikeRate", "strike_rate"])) || 0.0;
       const avgScore = parseFloat(getVal(["avgScore", "avg_score", "averageScore"])) || 0.0;
+      const cricHeroesUrl = getVal(["cricheroesurl", "cricheroes", "churl", "cricheroeslink", "profileurl"]) || undefined;
       try {
         await sportsService.registerForEvent({
           eventId: selectedEventIdForImport,
@@ -1164,6 +1167,7 @@ export function useSportsAdminState() {
           email,
           relation,
           flatNumber: flat,
+          cricHeroesUrl,
         });
         successCount++;
       } catch (err) {

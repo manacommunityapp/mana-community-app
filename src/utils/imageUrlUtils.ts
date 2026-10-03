@@ -107,9 +107,8 @@ export function resolveImageUrl(url?: string | null, fallback: string = ""): str
     const withoutPrefix = trimmed.slice(5);
     const firstSlashIndex = withoutPrefix.indexOf("/");
     if (firstSlashIndex !== -1) {
-      const bucketName = withoutPrefix.slice(0, firstSlashIndex);
       const key = withoutPrefix.slice(firstSlashIndex + 1);
-      return `https://${bucketName}.s3.amazonaws.com/${key}`;
+      return `/api/files/${key}`;
     }
     return fallback;
   }
@@ -119,6 +118,24 @@ export function resolveImageUrl(url?: string | null, fallback: string = ""): str
     if (trimmed.includes("localhost:") && trimmed.includes("/api/")) {
       const apiIndex = trimmed.indexOf("/api/");
       return trimmed.slice(apiIndex);
+    }
+    
+    // If it's a direct AWS S3 URL WITHOUT pre-signed query signature (which causes 403 on private buckets),
+    // proxy it through the backend files controller: /api/files/<key>
+    if (
+      (trimmed.includes(".s3.") || trimmed.includes(".s3-") || trimmed.includes(".s3.amazonaws.com")) &&
+      !trimmed.includes("X-Amz-Signature") &&
+      !trimmed.includes("X-Amz-Date")
+    ) {
+      try {
+        const parsed = new URL(trimmed);
+        const s3Key = parsed.pathname.replace(/^\/+/, "");
+        if (s3Key) {
+          return `/api/files/${s3Key}`;
+        }
+      } catch {
+        // Keep as-is if URL parsing fails
+      }
     }
     return trimmed;
   }

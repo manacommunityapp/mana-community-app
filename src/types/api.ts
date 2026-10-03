@@ -339,6 +339,7 @@ export interface RegistrationRequest {
   relation?: string;
   flatNumber?: string;
   familyMemberId?: number | string | null;
+  cricHeroesUrl?: string;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }
@@ -355,6 +356,8 @@ export interface EventRegistration {
   flatNumber?: string;
   age?: number;
   role?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
   /** Optional skill rating used for balanced knockout pairing (Rule 6). */
   rating?: number | null;
   captainNomination?: boolean;

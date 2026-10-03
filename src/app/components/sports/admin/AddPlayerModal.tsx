@@ -21,7 +21,8 @@ import {
   UserCheck,
   Shield,
   Tag,
-  Sparkles
+  Sparkles,
+  Link2
 } from "lucide-react";
 import type { PlayerCategory } from "../../../../types/api";
 import { familyService } from "../../../../services/common/familyService";
@@ -57,6 +58,7 @@ export interface AddPlayerForm {
   wickets: number;
   strikeRate: number;
   avgScore: number;
+  cricHeroesUrl?: string;
   familyMemberId?: number;
   partnerUserId?: number | null;
   partnerFamilyMemberId?: number | null;
@@ -858,6 +860,24 @@ export function AddPlayerModal({
                               }}
                               placeholder="e.g. Batsman, Defender, Striker"
                               className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-3 py-2 text-xs sm:text-sm leading-5 text-[#f1f5f9] focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316]/20 outline-none placeholder:text-[#64748b] transition-all"
+                            />
+                          </div>
+
+                          {/* CricHeroes Profile URL */}
+                          <div className="flex flex-col w-full gap-1 text-left">
+                            <label className="text-xs font-medium text-[#cbd5e1] leading-4 flex items-center gap-1.5">
+                              <Link2 className="w-3.5 h-3.5 text-[#d4a017]" />
+                              <span>CricHeroes URL <span className="text-[10px] text-[#64748b] font-normal">(optional)</span></span>
+                            </label>
+                            <input
+                              type="url"
+                              value={form.cricHeroesUrl || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAddPlayerForms(prev => prev.map(p => p.id === form.id ? { ...p, cricHeroesUrl: val } : p));
+                              }}
+                              placeholder="https://cricheroes.com/player-profile/..."
+                              className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-3 py-2 text-xs sm:text-sm leading-5 text-[#f1f5f9] focus:border-[#d4a017] focus:ring-1 focus:ring-[#d4a017]/20 outline-none placeholder:text-[#64748b] transition-all"
                             />
                           </div>
                         </div>
