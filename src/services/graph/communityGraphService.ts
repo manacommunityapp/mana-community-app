@@ -206,4 +206,41 @@ export const communityGraphService = {
     }
     return [];
   },
+
+  /** Server-enforced discover profile search */
+  async searchDiscoverProfilesApi(q?: string, tower?: string, skill?: string): Promise<CommunityProfile[]> {
+    try {
+      const params = new URLSearchParams();
+      if (q) params.append("q", q);
+      if (tower) params.append("tower", tower);
+      if (skill) params.append("skill", skill);
+      const res = await apiClient.get<any[]>(`/graph/discover/search?${params.toString()}`);
+      if (res && Array.isArray(res)) {
+        return res.map(p => ({
+          id: p.userId || p.id,
+          name: p.fullName || p.name,
+          flatNumber: p.flatNumber || "",
+          tower: p.tower || "",
+          skills: p.skills || [],
+          professions: p.profession ? [p.profession] : (p.professions || []),
+          interests: p.interests || [],
+          sports: p.sports || [],
+          visibility: p.visibility || "PUBLIC",
+        }));
+      }
+    } catch (e) {
+      console.warn("Backend /graph/discover/search fallback:", e);
+    }
+    return this.getProfiles({ skill, tower });
+  },
+
+  /** Server-enforced privacy visibility update */
+  async updateVisibilityApi(settings: { visibility: "PUBLIC" | "NEIGHBORS" | "PRIVATE"; shareProfession?: boolean; shareSkills?: boolean; shareInterests?: boolean }): Promise<void> {
+    try {
+      await apiClient.put("/graph/privacy/visibility", settings);
+    } catch (e) {
+      console.warn("Backend /graph/privacy/visibility failed:", e);
+    }
+  },
 };
+
