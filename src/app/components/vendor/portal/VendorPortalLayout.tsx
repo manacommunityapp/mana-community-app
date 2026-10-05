@@ -1,18 +1,22 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import {
-  LayoutDashboard, Briefcase, CalendarCheck, Clock, Wallet,
-  FileText, Star, UserCircle, ChevronRight, Store,
+  LayoutDashboard, Package, Boxes, Users, Briefcase, CalendarCheck, Clock, Wallet,
+  FileText, ShieldCheck, Star, UserCircle, ChevronRight, Store,
 } from "lucide-react";
 
 const portalNav = [
   { to: "/vendor-portal", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/vendor-portal/products", label: "Product Catalog", icon: Package },
+  { to: "/vendor-portal/inventory", label: "Inventory Ledger", icon: Boxes },
+  { to: "/vendor-portal/group-buying", label: "Group Buying", icon: Users },
   { to: "/vendor-portal/services", label: "My Services", icon: Briefcase },
-  { to: "/vendor-portal/bookings", label: "My Bookings", icon: CalendarCheck },
+  { to: "/vendor-portal/bookings", label: "Bookings", icon: CalendarCheck },
   { to: "/vendor-portal/availability", label: "Availability", icon: Clock },
   { to: "/vendor-portal/payments", label: "Payments", icon: Wallet },
+  { to: "/vendor-portal/verification", label: "Verification", icon: ShieldCheck },
   { to: "/vendor-portal/documents", label: "Documents", icon: FileText },
   { to: "/vendor-portal/ratings", label: "Ratings", icon: Star },
-  { to: "/vendor-portal/profile", label: "Profile", icon: UserCircle },
+  { to: "/vendor-portal/profile", label: "Business Profile", icon: UserCircle },
 ];
 
 export function VendorPortalLayout() {
@@ -35,7 +39,7 @@ export function VendorPortalLayout() {
               Vendor<span className="text-indigo-600">Portal</span>
             </h1>
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-              Business Management Hub
+              Commerce & Services Business Hub
             </p>
           </div>
         </div>
@@ -63,9 +67,6 @@ export function VendorPortalLayout() {
         <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar -mb-px">
           {portalNav.map((item) => {
             const Icon = item.icon;
-            const isActive = item.end
-              ? location.pathname === item.to
-              : location.pathname.startsWith(item.to) && location.pathname !== "/vendor-portal" || (item.end && location.pathname === item.to);
             return (
               <NavLink
                 key={item.to}

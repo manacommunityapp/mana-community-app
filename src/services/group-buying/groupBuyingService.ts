@@ -98,77 +98,283 @@ export interface VendorOffer {
   maximumQty?: number;
   deliveryDate?: string;
   terms?: string;
-  isBestValue?: boolean;
 }
 
 export interface CommunitySavings {
   totalSavedThisMonth: number;
   totalOrders: number;
   activeDeals: number;
-  avgSavingPerOrder: number;
-  totalKgsBought?: number;
-  totalSavedAllTime?: number;
+  topCategories: { category: string; saved: number }[];
+}
+
+export interface BuyAgainItem {
+  dealId: string;
+  title: string;
+  category: string;
+  lastPurchasedAt: string;
+  daysAgo: number;
+  lastPrice: number;
+  currentPrice?: number;
+  isAvailable: boolean;
+}
+
+export interface MonthlyBasket {
+  id: string;
+  title: string;
+  description: string;
+  items: string[];
+  regularPrice: number;
+  communityPrice: number;
+  targetFamilies: number;
+  enrolledFamilies: number;
+  nextDeliveryDate: string;
+  savings: number;
+}
+
+export interface FestivalCategory {
+  id: string;
+  festivalName: string;
+  tagline: string;
+  bannerImage: string;
+  deals: GroupDeal[];
 }
 
 const SAMPLE_DEALS: GroupDeal[] = [
   {
-    id: 'd1', title: 'Aashirvaad Atta 10 KG', category: 'Groceries', subCategory: 'Atta & Flour',
-    description: 'Premium whole wheat atta directly sourced from ITC. Fresh milling, no additives. Bulk deal for 100+ bags.',
-    vendor: 'ABC Wholesale Foods', vendorRating: 4.8, vendorVerified: true,
-    pricingModel: 'THRESHOLD', mrp: 680, standardPrice: 640, currentPrice: 585, currentTierPrice: 585, nextTierPrice: 560, nextTierUnitsNeeded: 27,
-    committedQty: 73, targetQty: 100, currentParticipants: 41, targetParticipants: 60, moqLabel: '100 bags',
-    dealStatus: 'OPEN', daysLeft: 3, dealEndsAt: '2026-10-08T18:00:00Z', pickupPoint: 'Clubhouse Desk', pickupDate: '2026-10-10',
-    isTrending: true, isAlmostUnlocked: true,
-    priceTiers: [
-      { minQty: 1, maxQty: 19, price: 640, label: '1–19 units', isCurrentTier: false, isNextTier: false },
-      { minQty: 20, maxQty: 49, price: 610, label: '20+ units', isCurrentTier: false, isNextTier: false },
-      { minQty: 50, maxQty: 99, price: 585, label: '50+ units', isCurrentTier: true, isNextTier: false },
-      { minQty: 100, maxQty: null, price: 560, label: '100+ units', isCurrentTier: false, isNextTier: true, unitsToUnlock: 27 },
-    ],
-  },
-  {
-    id: 'd2', title: 'Ratnagiri Alphonso Mango Box (5 KG)', category: 'Fresh Produce', subCategory: 'Fruits',
-    description: 'Ratnagiri GI-certified Alphonso mangoes. Straight from the orchard, handpicked & graded.',
-    vendor: 'FreshMart Direct', vendorRating: 4.6, vendorVerified: true,
-    pricingModel: 'THRESHOLD', mrp: 1300, standardPrice: 1200, currentPrice: 1050, currentTierPrice: 1050, nextTierPrice: 999, nextTierUnitsNeeded: 3,
-    committedQty: 47, targetQty: 50, currentParticipants: 32, moqLabel: '50 boxes',
-    dealStatus: 'OPEN', daysLeft: 1, dealEndsAt: '2026-10-06T23:59:00Z', pickupPoint: 'Tower A Lobby', pickupDate: '2026-10-07',
+    id: 'd1',
+    title: 'Aashirvaad Shudh Chakki Atta 10 KG',
+    category: 'Grocery',
+    subCategory: 'Atta & Flour',
+    description: '100% pure whole wheat flour processed with traditional chakki process. Premium bulk society procurement.',
+    imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500',
+    vendor: 'ABC Wholesale Foods',
+    vendorId: 'v1',
+    vendorRating: 4.8,
+    vendorVerified: true,
+    pricingModel: 'THRESHOLD',
+    mrp: 680,
+    standardPrice: 640,
+    currentPrice: 585,
+    currentTierPrice: 585,
+    nextTierPrice: 560,
+    nextTierUnitsNeeded: 18,
+    committedQty: 73,
+    targetQty: 100,
+    currentParticipants: 41,
+    targetParticipants: 60,
+    moqLabel: '100 bags',
+    dealStatus: 'OPEN',
+    daysLeft: 3,
+    dealEndsAt: '2026-10-08T18:00:00Z',
+    pickupPoint: 'Clubhouse Desk',
+    pickupDate: '2026-10-10',
+    isTrending: true,
     isAlmostUnlocked: true,
     priceTiers: [
-      { minQty: 1, maxQty: 24, price: 1150, label: '1–24 boxes' },
-      { minQty: 25, maxQty: 49, price: 1050, label: '25–49 boxes', isCurrentTier: true },
-      { minQty: 50, maxQty: null, price: 999, label: '50+ boxes', isNextTier: true, unitsToUnlock: 3 },
+      { id: 't1', minQty: 1, maxQty: 24, price: 640, label: '1–24 bags', isCurrentTier: false, isNextTier: false },
+      { id: 't2', minQty: 25, maxQty: 49, price: 610, label: '25–49 bags', isCurrentTier: false, isNextTier: false },
+      { id: 't3', minQty: 50, maxQty: 99, price: 585, label: '50–99 bags', isCurrentTier: true, isNextTier: false },
+      { id: 't4', minQty: 100, maxQty: null, price: 560, label: '100+ bags', isCurrentTier: false, isNextTier: true, unitsToUnlock: 18 },
     ],
   },
   {
-    id: 'd3', title: 'Fortune Sunflower Oil 5L', category: 'Groceries', subCategory: 'Oils & Ghee',
-    description: 'Fortune refined sunflower oil in 5L can. Zero cholesterol, vitamin E enriched.',
-    vendor: 'Sri Traders', vendorRating: 4.9, vendorVerified: true,
-    pricingModel: 'GUARANTEED', mrp: 750, standardPrice: 720, currentPrice: 649, currentTierPrice: 649,
-    committedQty: 58, targetQty: 80, currentParticipants: 38, moqLabel: '80 cans',
-    dealStatus: 'OPEN', daysLeft: 5, dealEndsAt: '2026-10-10T18:00:00Z', pickupPoint: 'Clubhouse Desk', pickupDate: '2026-10-12',
+    id: 'd2',
+    title: 'Ratnagiri GI Alphonso Mango Box (5 KG)',
+    category: 'Fresh Produce',
+    subCategory: 'Fruits & Seasonal',
+    description: 'Ratnagiri GI-certified Alphonso mangoes straight from the orchard. Season ending soon.',
+    imageUrl: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=500',
+    vendor: 'Konkan Farms Direct',
+    vendorId: 'v2',
+    vendorRating: 4.9,
+    vendorVerified: true,
+    pricingModel: 'THRESHOLD',
+    mrp: 1300,
+    standardPrice: 1200,
+    currentPrice: 1050,
+    currentTierPrice: 1050,
+    nextTierPrice: 999,
+    nextTierUnitsNeeded: 3,
+    committedQty: 47,
+    targetQty: 50,
+    currentParticipants: 32,
+    targetParticipants: 35,
+    moqLabel: '50 boxes',
+    dealStatus: 'OPEN',
+    daysLeft: 1,
+    dealEndsAt: '2026-10-06T23:59:00Z',
+    pickupPoint: 'Tower A Lobby',
+    pickupDate: '2026-10-07',
     isTrending: true,
-    priceTiers: [{ minQty: 1, maxQty: null, price: 649, label: 'Flat Community Price', isCurrentTier: true }],
+    isAlmostUnlocked: true,
+    priceTiers: [
+      { id: 't1', minQty: 1, maxQty: 24, price: 1150, label: '1–24 boxes', isCurrentTier: false, isNextTier: false },
+      { id: 't2', minQty: 25, maxQty: 49, price: 1050, label: '25–49 boxes', isCurrentTier: true, isNextTier: false },
+      { id: 't3', minQty: 50, maxQty: null, price: 999, label: '50+ boxes', isCurrentTier: false, isNextTier: true, unitsToUnlock: 3 },
+    ],
+  },
+  {
+    id: 'd3',
+    title: 'Fortune Sunlite Refined Sunflower Oil 5L',
+    category: 'Grocery',
+    subCategory: 'Edible Oils',
+    description: 'Fortune refined sunflower oil in 5L jar. Zero cholesterol, enriched with Vitamins A & D.',
+    imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500',
+    vendor: 'Sri Traders',
+    vendorId: 'v3',
+    vendorRating: 4.7,
+    vendorVerified: true,
+    pricingModel: 'GUARANTEED',
+    mrp: 750,
+    standardPrice: 720,
+    currentPrice: 649,
+    currentTierPrice: 649,
+    committedQty: 58,
+    targetQty: 80,
+    currentParticipants: 38,
+    moqLabel: '80 jars',
+    dealStatus: 'OPEN',
+    daysLeft: 5,
+    dealEndsAt: '2026-10-10T18:00:00Z',
+    pickupPoint: 'Clubhouse Entrance',
+    pickupDate: '2026-10-12',
+    isTrending: false,
+    isAlmostUnlocked: false,
+    priceTiers: [
+      { id: 't1', minQty: 1, maxQty: null, price: 649, label: 'Flat Community Price', isCurrentTier: true, isNextTier: false },
+    ],
+  },
+  {
+    id: 'd4',
+    title: 'Diwali Special Dry Fruits Royal Hamper (1 KG)',
+    category: 'Festival Buying',
+    subCategory: 'Diwali Specials',
+    description: 'Premium Almonds, Cashews, Pistachios & Kishmish in festive velvet gift box.',
+    imageUrl: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=500',
+    vendor: 'Royal Sweets & Dryfruits',
+    vendorId: 'v4',
+    vendorRating: 4.9,
+    vendorVerified: true,
+    pricingModel: 'THRESHOLD',
+    mrp: 1650,
+    standardPrice: 1450,
+    currentPrice: 1199,
+    currentTierPrice: 1199,
+    nextTierPrice: 1099,
+    nextTierUnitsNeeded: 12,
+    committedQty: 68,
+    targetQty: 80,
+    currentParticipants: 45,
+    moqLabel: '80 hampers',
+    dealStatus: 'OPEN',
+    daysLeft: 7,
+    dealEndsAt: '2026-10-12T18:00:00Z',
+    pickupPoint: 'Society Multi-Purpose Hall',
+    pickupDate: '2026-10-14',
+    isFestivalDeal: true,
+    isTrending: true,
+    priceTiers: [
+      { id: 't1', minQty: 1, maxQty: 39, price: 1350, label: '1–39 hampers', isCurrentTier: false, isNextTier: false },
+      { id: 't2', minQty: 40, maxQty: 79, price: 1199, label: '40–79 hampers', isCurrentTier: true, isNextTier: false },
+      { id: 't3', minQty: 80, maxQty: null, price: 1099, label: '80+ hampers', isCurrentTier: false, isNextTier: true, unitsToUnlock: 12 },
+    ],
   },
 ];
 
-const SAMPLE_DEMANDS: DemandItem[] = [
+const SAMPLE_BUY_AGAIN: BuyAgainItem[] = [
+  { dealId: 'd1', title: 'Aashirvaad Shudh Chakki Atta 10 KG', category: 'Grocery', lastPurchasedAt: '2026-09-11', daysAgo: 24, lastPrice: 590, currentPrice: 585, isAvailable: true },
+  { dealId: 'd3', title: 'Fortune Sunlite Refined Sunflower Oil 5L', category: 'Grocery', lastPurchasedAt: '2026-09-04', daysAgo: 31, lastPrice: 660, currentPrice: 649, isAvailable: true },
+  { dealId: 'd4', title: 'California Jumbo Almonds (1 KG)', category: 'Dry Fruits', lastPurchasedAt: '2026-08-21', daysAgo: 45, lastPrice: 820, currentPrice: 780, isAvailable: true },
+  { dealId: 'd5', title: 'Surf Excel Matic Liquid 4L Detergent', category: 'Household', lastPurchasedAt: '2026-08-05', daysAgo: 60, lastPrice: 620, currentPrice: undefined, isAvailable: false },
+];
+
+const SAMPLE_BASKETS: MonthlyBasket[] = [
   {
-    id: 'dem1', title: 'Basmati Rice Premium 5 KG', category: 'Groceries',
-    description: 'Long grain aged basmati rice for daily family consumption.',
-    interestedResidents: 86, expectedQty: 143, upvotes: 86, targetUpvotes: 100,
-    preferredPriceMin: 500, preferredPriceMax: 560, preferredBrand: 'India Gate / Daawat',
-    vendorOffers: [
-      { id: 'vo1', demandId: 'dem1', vendorId: 'v1', vendorName: 'ABC Wholesale Foods', vendorRating: 4.8, vendorVerified: true, offeredPrice: 580, minimumQty: 100, isBestValue: false },
-      { id: 'vo3', demandId: 'dem1', vendorId: 'v3', vendorName: 'Sri Traders', vendorRating: 4.9, vendorVerified: true, offeredPrice: 550, minimumQty: 150, isBestValue: true, terms: 'GI-tagged Dehraduni basmati' },
+    id: 'mb-1',
+    title: 'Mana Monthly Family Essential Basket',
+    description: 'Complete household monthly staple kit direct from wholesale millers and FMCG distributors.',
+    items: [
+      '5 KG Sona Masoori Rice',
+      '5 KG Aashirvaad Atta',
+      '2 KG Toor Dal (Unpolished)',
+      '2 Litre Fortune Sunflower Oil',
+      '1 KG Sugar (Sulphur Free)',
+      'Surf Excel Matic Liquid 2L',
+      'Vim Dishwash Liquid 750ml',
+    ],
+    regularPrice: 2850,
+    communityPrice: 2499,
+    targetFamilies: 100,
+    enrolledFamilies: 74,
+    nextDeliveryDate: '1st of Every Month',
+    savings: 351,
+  },
+  {
+    id: 'mb-2',
+    title: 'Farm Fresh Organic Veggie & Greens Basket (Weekly x 4)',
+    description: '4 deliveries of weekly curated chemical-free vegetables directly harvested from verified local hydroponic farms.',
+    items: [
+      '3 KG Potatoes & 2 KG Onions',
+      '2 KG Country Tomatoes',
+      '1 KG Seasonal Gourd / Bhindi',
+      '500g Paneer (Fresh Dairy)',
+      '4 Bunches Organic Palak & Methi',
+      '500g Green Peas & Carrots',
+    ],
+    regularPrice: 2100,
+    communityPrice: 1750,
+    targetFamilies: 50,
+    enrolledFamilies: 41,
+    nextDeliveryDate: 'Every Saturday Morning',
+    savings: 350,
+  },
+];
+
+const SAMPLE_FESTIVALS: FestivalCategory[] = [
+  {
+    id: 'fest-diwali',
+    festivalName: 'Diwali Grand Community Procurement',
+    tagline: 'Bulk sweets, dry fruit gift boxes, artisanal clay diyas and festive LED decor direct from master craftsmen.',
+    bannerImage: 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?w=800',
+    deals: [
+      SAMPLE_DEALS[3],
+      {
+        id: 'd5',
+        title: 'Handmade Terracotta Diya Box (Set of 21 Designer Diyas)',
+        category: 'Festival Buying',
+        subCategory: 'Decor',
+        description: 'Traditional hand-painted terracotta oil lamps crafted by rural artisans.',
+        imageUrl: 'https://images.unsplash.com/photo-1605647540924-852290f6b0d5?w=500',
+        vendor: 'Mitti Crafts Collective',
+        vendorId: 'v5',
+        vendorRating: 4.8,
+        vendorVerified: true,
+        pricingModel: 'GUARANTEED',
+        mrp: 450,
+        standardPrice: 380,
+        currentPrice: 299,
+        currentTierPrice: 299,
+        committedQty: 112,
+        targetQty: 150,
+        currentParticipants: 84,
+        moqLabel: '150 sets',
+        dealStatus: 'OPEN',
+        daysLeft: 6,
+        dealEndsAt: '2026-10-11T18:00:00Z',
+        pickupPoint: 'Clubhouse Reception',
+        isFestivalDeal: true,
+        priceTiers: [
+          { id: 't1', minQty: 1, maxQty: null, price: 299, label: 'Flat Community Rate', isCurrentTier: true, isNextTier: false },
+        ],
+      },
     ],
   },
   {
-    id: 'dem2', title: 'Organic Cold-Pressed Virgin Coconut Oil 1L', category: 'Groceries',
-    description: 'Pure wood cold-pressed coconut oil without chemical processing.',
-    interestedResidents: 54, expectedQty: 78, upvotes: 54, targetUpvotes: 75,
-    preferredPriceMin: 300, preferredPriceMax: 380,
-    vendorOffers: [],
+    id: 'fest-sankranti',
+    festivalName: 'Makar Sankranti & Pongal Harvest Specials',
+    tagline: 'Traditional Til-Gud, Chikki, Fresh Sugarcane, Puja Flowers and harvest jaggery pots.',
+    bannerImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800',
+    deals: [],
   },
 ];
 
@@ -176,75 +382,93 @@ export const groupBuyingService = {
   async getDeals(): Promise<GroupDeal[]> {
     try {
       const res = await apiClient.get<GroupDeal[]>('/group-buying/deals');
-      return res && res.length > 0 ? res : SAMPLE_DEALS;
+      return res;
     } catch {
       return SAMPLE_DEALS;
     }
   },
 
-  async joinDeal(dealId: string, quantity: number, userId?: string): Promise<GroupOrder> {
+  async getAlmostUnlockedDeals(): Promise<GroupDeal[]> {
     try {
-      return await apiClient.post<GroupOrder>(`/group-buying/deals/${dealId}/join`, { quantity });
+      const res = await apiClient.get<GroupDeal[]>('/group-buying/deals/almost-unlocked');
+      return res;
     } catch {
-      const deal = SAMPLE_DEALS.find(d => d.id === dealId) ?? SAMPLE_DEALS[0];
-      const unitPrice = deal.currentTierPrice || deal.currentPrice;
-      return {
-        id: `GB-2026-${Math.floor(10000 + Math.random() * 90000)}`,
-        dealId,
-        dealTitle: deal.title,
-        quantity,
-        unitPrice,
-        totalAmount: unitPrice * quantity,
-        savings: (deal.mrp - unitPrice) * quantity,
-        status: 'CONFIRMED',
-        orderedAt: new Date().toISOString(),
-        qrCode: `TKN-${dealId}-${Date.now()}`,
-        pickupPoint: deal.pickupPoint,
-      };
+      return SAMPLE_DEALS.filter(d => d.isAlmostUnlocked);
+    }
+  },
+
+  async getBuyAgainSuggestions(): Promise<BuyAgainItem[]> {
+    try {
+      const res = await apiClient.get<BuyAgainItem[]>('/group-buying/buy-again');
+      return res;
+    } catch {
+      return SAMPLE_BUY_AGAIN;
+    }
+  },
+
+  async getMonthlyBaskets(): Promise<MonthlyBasket[]> {
+    try {
+      const res = await apiClient.get<MonthlyBasket[]>('/group-buying/baskets');
+      return res;
+    } catch {
+      return SAMPLE_BASKETS;
+    }
+  },
+
+  async getFestivalCategories(): Promise<FestivalCategory[]> {
+    try {
+      const res = await apiClient.get<FestivalCategory[]>('/group-buying/festival');
+      return res;
+    } catch {
+      return SAMPLE_FESTIVALS;
     }
   },
 
   async getMyOrders(userId?: string): Promise<GroupOrder[]> {
     try {
       const res = await apiClient.get<GroupOrder[]>('/group-buying/my-orders');
-      return res && res.length > 0 ? res : [
-        { id: 'GB-2026-00101', dealId: 'd3', dealTitle: 'Fortune Sunflower Oil 5L', quantity: 2, unitPrice: 649, totalAmount: 1298, savings: 202, status: 'CONFIRMED', orderedAt: '2026-10-01', qrCode: 'TKN-D3-20261001-XQ9K2P', pickupPoint: 'Clubhouse Desk' },
-        { id: 'GB-2026-00089', dealId: 'd2', dealTitle: 'Ratnagiri Alphonso Mango Box (5 KG)', quantity: 1, unitPrice: 1050, totalAmount: 1050, savings: 250, status: 'PICKED_UP', orderedAt: '2026-09-25', qrCode: 'TKN-D2-20260925-LM4N8R', pickupPoint: 'Tower A Lobby' },
-      ];
+      return res;
     } catch {
       return [
-        { id: 'GB-2026-00101', dealId: 'd3', dealTitle: 'Fortune Sunflower Oil 5L', quantity: 2, unitPrice: 649, totalAmount: 1298, savings: 202, status: 'CONFIRMED', orderedAt: '2026-10-01', qrCode: 'TKN-D3-20261001-XQ9K2P', pickupPoint: 'Clubhouse Desk' },
+        {
+          id: 'GB-2026-00089',
+          dealId: 'd1',
+          dealTitle: 'Aashirvaad Shudh Chakki Atta 10 KG',
+          quantity: 2,
+          unitPrice: 585,
+          totalAmount: 1170,
+          savings: 190,
+          status: 'CONFIRMED',
+          orderedAt: '2026-10-04T12:00:00Z',
+          qrCode: 'TKN-d1-1728043200-8891',
+          pickupPoint: 'Clubhouse Desk',
+          pickupDate: '2026-10-10',
+        },
       ];
     }
   },
 
   async getDemandBoard(): Promise<DemandItem[]> {
     try {
-      const res = await apiClient.get<DemandItem[]>('/group-buying/demand');
-      return res && res.length > 0 ? res : SAMPLE_DEMANDS;
+      return await apiClient.get<DemandItem[]>('/group-buying/demand');
     } catch {
-      return SAMPLE_DEMANDS;
-    }
-  },
-
-  async upvoteDemand(id: string): Promise<void> {
-    try {
-      await apiClient.post(`/group-buying/demand/${id}/upvote`, {});
-    } catch {}
-  },
-
-  async createDemand(data: { title: string; category: string; description?: string; expectedQty?: number; preferredPriceMin?: number; preferredPriceMax?: number; preferredBrand?: string }): Promise<DemandItem> {
-    try {
-      return await apiClient.post<DemandItem>('/group-buying/demand', data);
-    } catch {
-      return {
-        id: 'dem-' + Date.now(),
-        ...data,
-        description: data.description || '',
-        upvotes: 1,
-        interestedResidents: 1,
-        createdAt: new Date().toISOString(),
-      };
+      return [
+        {
+          id: 'dem-1',
+          title: 'Direct Sourced Organic A2 Cow Ghee (5 Litre Tin)',
+          description: 'Desi Gir Cow Bilona Ghee made using traditional earthen pot churning. Looking for 30 families to get 25% bulk discount.',
+          category: 'Dairy & Ghee',
+          requestedBy: 'Pooja Hegde (B-302)',
+          interestedResidents: 18,
+          expectedQty: 24,
+          upvotes: 18,
+          targetUpvotes: 25,
+          preferredPriceMin: 3200,
+          preferredPriceMax: 3600,
+          preferredBrand: 'Gir Organic / Two Brothers',
+          status: 'GATHERING_DEMAND',
+        },
+      ];
     }
   },
 
@@ -253,21 +477,63 @@ export const groupBuyingService = {
       return await apiClient.get<CommunitySavings>('/group-buying/community-savings');
     } catch {
       return {
-        totalSavedThisMonth: 184520,
-        totalOrders: 1248,
-        activeDeals: 38,
-        avgSavingPerOrder: 147,
-        totalKgsBought: 2450,
-        totalSavedAllTime: 820000,
+        totalSavedThisMonth: 148500,
+        totalOrders: 312,
+        activeDeals: 8,
+        topCategories: [
+          { category: 'Grocery', saved: 68400 },
+          { category: 'Fresh Produce', saved: 42300 },
+          { category: 'Festival Specials', saved: 37800 },
+        ],
       };
     }
   },
 
-  async verifyPickupPass(qrToken: string): Promise<{ success: boolean; message: string; order?: GroupOrder }> {
+  async joinDeal(dealId: string, quantity: number, userId?: string): Promise<GroupOrder> {
     try {
-      return await apiClient.post('/group-buying/orders/verify-pickup', { qrToken });
+      return await apiClient.post<GroupOrder>(`/group-buying/deals/${dealId}/checkout`, {
+        quantity,
+        userId,
+      });
     } catch {
-      return { success: true, message: 'Pass verified successfully!' };
+      const deal = SAMPLE_DEALS.find(d => d.id === dealId) ?? SAMPLE_DEALS[0];
+      return {
+        id: 'GB-2026-' + Math.floor(10000 + Math.random() * 90000),
+        dealId,
+        dealTitle: deal.title,
+        quantity,
+        unitPrice: deal.currentTierPrice,
+        totalAmount: deal.currentTierPrice * quantity,
+        savings: (deal.mrp - deal.currentTierPrice) * quantity,
+        status: 'CONFIRMED',
+        qrCode: 'TKN-' + dealId + '-' + Date.now() + '-9901',
+        pickupPoint: deal.pickupPoint,
+        pickupDate: deal.pickupDate,
+      };
+    }
+  },
+
+  async createDemand(data: Partial<DemandItem>): Promise<DemandItem> {
+    try {
+      return await apiClient.post<DemandItem>('/group-buying/demand', data);
+    } catch {
+      return {
+        id: 'dem-' + Date.now(),
+        title: data.title || 'New Demand',
+        description: data.description || '',
+        category: data.category || 'General',
+        upvotes: 1,
+        targetUpvotes: 25,
+        status: 'GATHERING_DEMAND',
+      };
+    }
+  },
+
+  async upvoteDemand(id: string): Promise<void> {
+    try {
+      await apiClient.post(`/group-buying/demand/${id}/upvote`, {});
+    } catch {
+      // Mock upvote
     }
   },
 };
