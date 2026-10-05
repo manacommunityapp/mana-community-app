@@ -17,8 +17,8 @@ export const UniversalPickupPassDialog: React.FC<UniversalPickupPassDialogProps>
 }) => {
   if (!isOpen) return null;
 
-  const pin = handoverPass?.verificationPin || '8421';
-  const location = handoverPass?.pickupLocation || 'Clubhouse Gate 2 Handover Hub';
+  const pin = handoverPass?.handoverOtp || '8421';
+  const location = handoverPass?.pickupPoint || 'Clubhouse Gate 2 Handover Hub';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -48,7 +48,7 @@ export const UniversalPickupPassDialog: React.FC<UniversalPickupPassDialogProps>
         <div className="w-full flex flex-col items-center mb-5">
           <span className="text-xs text-slate-500 font-medium mb-2">Or share 4-Digit Pickup PIN</span>
           <div className="flex gap-2">
-            {pin.split('').map((d, i) => (
+            {pin.split('').map((d: string, i: number) => (
               <div
                 key={i}
                 className="w-11 h-12 rounded-lg bg-slate-100 border border-slate-300 flex items-center justify-center font-extrabold text-xl text-indigo-600 shadow-inner"

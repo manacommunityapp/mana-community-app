@@ -1,160 +1,134 @@
-export type CommerceChannel = 'MARKETPLACE' | 'GROUP_BUY' | 'MANA_DEALS' | 'FOOD_OS';
+export type CommerceChannel = 'MARKETPLACE' | 'GROUP_BUYING' | 'FOOD' | 'DEALS' | 'VENDOR';
 
-export type CommerceOrderStatus = 
-  | 'PENDING_PAYMENT' 
-  | 'CONFIRMED' 
-  | 'PROCESSING' 
-  | 'READY_FOR_PICKUP' 
-  | 'OUT_FOR_DELIVERY' 
-  | 'COMPLETED' 
-  | 'CANCELLED' 
-  | 'DISPUTED' 
-  | 'REFUNDED';
+export type CommerceOrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'CONFIRMED'
+  | 'PREPARING'
+  | 'READY_FOR_PICKUP'
+  | 'OUT_FOR_DELIVERY'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUNDED'
+  | 'DISPUTED';
 
-export type DeliveryMethod = 'COMMUNITY_GATE_PICKUP' | 'DOORSTEP_DELIVERY' | 'VENDOR_STORE_PICKUP';
-
-export interface CommerceOrderItemDto {
-  id?: string;
-  sourceProductId: string;
-  sourceVariantId?: string;
-  productName: string;
-  variantName?: string;
-  sku?: string;
+export interface CommerceOrderItem {
+  id?: number;
+  sku: string;
+  title: string;
   unitPrice: number;
   quantity: number;
-  totalPrice: number;
-  imageUrl?: string;
-  selectedOptionsJson?: string;
-}
-
-export interface CommerceHandoverPassDto {
-  id?: string;
-  orderNumber?: string;
-  qrPayload: string;
-  verificationPin: string;
-  passType: string;
-  pickupLocation: string;
-  pickupSlot?: string;
-  isVerified: boolean;
-  verifiedAt?: string;
-  verifiedBy?: string;
-}
-
-export interface CommercePaymentDto {
-  id?: string;
-  paymentMethod: string;
-  paymentStatus: 'PENDING' | 'HELD_IN_ESCROW' | 'RELEASED' | 'REFUNDED' | 'FAILED';
-  transactionReference?: string;
-  amount: number;
-  escrowReleaseStatus?: string;
-  escrowReleasedAt?: string;
-}
-
-export interface CommerceOrderDto {
-  id: string;
-  orderNumber: string;
-  channel: CommerceChannel;
-  status: CommerceOrderStatus;
-  userId: string;
-  buyerName: string;
-  buyerPhone?: string;
-  buyerApartment?: string;
-  vendorId?: string;
-  vendorName?: string;
-  sellerUserId?: string;
-  itemsTotal: number;
-  communityDiscount: number;
-  deliveryFee: number;
-  taxes: number;
-  grandTotal: number;
-  deliveryMethod: DeliveryMethod;
-  deliveryAddress?: string;
-  scheduledDeliverySlot?: string;
-  groupBuyDealId?: string;
-  items: CommerceOrderItemDto[];
-  handoverPass?: CommerceHandoverPassDto;
-  payment?: CommercePaymentDto;
-  createdAt: string;
-  updatedAt?: string;
+  totalPrice?: number;
+  thumbnailUrl?: string;
 }
 
 export interface CommerceCheckoutRequest {
   channel: CommerceChannel;
-  vendorId?: string;
-  vendorName?: string;
-  sellerUserId?: string;
-  deliveryMethod: DeliveryMethod;
+  sellerId: number;
+  sellerType: string;
+  sellerName?: string;
+  fulfillmentType: 'DELIVERY' | 'PICKUP';
   deliveryAddress?: string;
-  scheduledDeliverySlot?: string;
-  groupBuyDealId?: string;
-  paymentMethod: string;
-  items: {
-    sourceProductId: string;
-    sourceVariantId?: string;
-    productName: string;
-    variantName?: string;
-    sku?: string;
-    unitPrice: number;
-    quantity: number;
-    imageUrl?: string;
-    selectedOptionsJson?: string;
-  }[];
+  deliverySlot?: string;
+  paymentMethod?: string;
+  items: CommerceOrderItem[];
+}
+
+export interface CommerceOrder {
+  id: number;
+  orderNumber: string;
+  channel: CommerceChannel;
+  buyerId: number;
+  sellerId: number;
+  sellerType: string;
+  sellerName?: string;
+  status: CommerceOrderStatus;
+  fulfillmentType: string;
+  deliveryAddress?: string;
+  deliverySlot?: string;
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number;
+  discountAmount: number;
+  totalAmount: number;
+  handoverOtp?: string;
+  handoverQrCode?: string;
+  items: CommerceOrderItem[];
+  createdAt: string;
 }
 
 export interface HandoverVerificationRequest {
-  qrPayload?: string;
-  orderNumber?: string;
-  verificationPin?: string;
+  orderNumber: string;
+  enteredOtp: string;
 }
 
 export interface HandoverVerificationResponse {
-  verified: boolean;
+  success: boolean;
   orderNumber: string;
-  buyerName: string;
-  buyerApartment?: string;
-  itemCount: number;
-  grandTotal: number;
+  status: string;
+  verifiedAt?: string;
   message: string;
 }
 
-export interface CommerceReviewDto {
-  id?: string;
-  orderId: string;
-  channel: CommerceChannel;
-  sourceProductId?: string;
-  vendorId?: string;
+export interface CommerceReview {
+  id?: number;
+  orderId: number;
   rating: number;
-  reviewTitle?: string;
-  comment?: string;
-  reviewMediaJson?: string;
+  comment: string;
   isVerifiedPurchase?: boolean;
   createdAt?: string;
 }
 
-export interface CommerceDisputeDto {
-  id?: string;
-  orderId: string;
-  orderNumber: string;
+export interface CommerceDispute {
+  id?: number;
+  disputeNumber?: string;
+  orderId: number;
   reason: string;
-  details?: string;
-  evidenceMediaJson?: string;
-  status: 'OPEN' | 'UNDER_REVIEW' | 'REFUNDED' | 'REJECTED' | 'RESOLVED';
-  resolutionNotes?: string;
-  refundAmount?: number;
+  evidencePhotosJson?: string;
+  status?: string;
   createdAt?: string;
 }
 
-export interface CommerceSettlementDto {
-  id?: string;
-  vendorId: string;
-  orderId: string;
-  orderNumber: string;
+export interface CommerceSettlement {
+  id: number;
+  settlementNumber: string;
+  orderId: number;
+  sellerId: number;
   grossAmount: number;
   platformFee: number;
-  netPayout: number;
-  payoutStatus: 'PENDING' | 'PROCESSED' | 'FAILED' | 'ON_HOLD';
-  payoutReference?: string;
-  payoutBatchId?: string;
+  netPayoutAmount: number;
+  status: string;
   settledAt?: string;
-  createdAt?: string;
+}
+
+export interface CommerceProduct {
+  id: number;
+  sku: string;
+  title: string;
+  description?: string;
+  channel: CommerceChannel;
+  category: string;
+  basePrice: number;
+  discountPrice?: number;
+  sellerId: number;
+  sellerType: string;
+  sellerName?: string;
+  thumbnailUrl?: string;
+  isActive: boolean;
+}
+
+export interface CommerceHandoverPassDto {
+  id?: number;
+  orderNumber: string;
+  channel: string;
+  handoverOtp: string;
+  qrToken?: string;
+  pickupPoint?: string;
+  pickupSlot?: string;
+  buyerName?: string;
+  buyerFlat?: string;
+  itemSummary?: string;
+  totalQuantity?: number;
+  totalAmount?: number;
+  status: string;
+  expiresAt?: string;
 }
