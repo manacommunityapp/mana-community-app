@@ -1,0 +1,81 @@
+/**
+ * Playo CSS Theme System
+ * Extracted from https://playo.co/
+ */
+:root {
+  --playo-primary: #00b562;
+  --playo-primary-dark: #00914e;
+  --playo-primary-light: #e6f8f0;
+  --playo-surface: #f1f3f2;
+  --playo-card: #ffffff;
+  --playo-text-main: #3b4540;
+  --playo-text-muted: #758a80;
+  --playo-border: #e3e8e6;
+  --playo-shadow-card: 0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --playo-shadow-pill: 0 1px 2px #d6d6db, 0 1px 3px #f2f2f4;
+}
+
+.playo-app {
+  background-color: var(--playo-surface);
+  color: var(--playo-text-main);
+  font-family: "Figtree", system-ui, -apple-system, sans-serif;
+}
+
+.playo-card {
+  background: var(--playo-card);
+  border: 1px solid var(--playo-border);
+  border-radius: 1.25rem;
+  box-shadow: var(--playo-shadow-card);
+}
+
+.playo-btn-primary {
+  background-color: var(--playo-primary);
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 0 0 var(--playo-primary-dark);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.playo-btn-primary:hover {
+  background-color: #00a358;
+  transform: translateY(-1px);
+}
+
+.playo-pill {
+  background-color: #ffffff;
+  border: 1px solid var(--playo-border);
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  box-shadow: var(--playo-shadow-pill);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--playo-text-main);
+}
+
+.playo-sport-aspect {
+  aspect-ratio: 185 / 246;
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: var(--playo-shadow-card);
+}
+
+.playo-sport-aspect img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playo-sport-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 1.125rem;
+}

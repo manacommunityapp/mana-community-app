@@ -101,6 +101,43 @@ describe("HomeServiceApi - Booking & Concurrency Safety", () => {
     expect(cancelled.status).toBe("CANCELLED_BY_RESIDENT");
     expect(cancelled.cancellationReason).toBe("Relocated");
   });
+
+  it("should complete booking using resident 4-digit OTP and track payment", async () => {
+    const booking = await homeServiceApi.createBooking({
+      workerId: "worker-anitha",
+      categoryId: "cat-cleaning",
+      bookingType: "ONE_TIME",
+      pricingModel: "PER_DAY",
+      startDate: "2026-10-02",
+      recurringDays: ["FRIDAY"],
+      startTime: "14:00",
+      endTime: "15:00",
+      price: 300,
+      flatNumber: "C-104",
+      tower: "C",
+      slaHours: 24,
+    });
+
+    expect(booking.completionOtp).toBeDefined();
+    expect(booking.completionOtp?.length).toBe(4);
+    expect(booking.paymentStatus).toBe("PENDING");
+    expect(booking.slaDueAt).toBeDefined();
+
+    // Wrong OTP throws error
+    await expect(homeServiceApi.completeBookingWithOtp(booking.id, "0000")).rejects.toThrow(/invalid completion otp/i);
+
+    // Correct OTP completes booking
+    const completed = await homeServiceApi.completeBookingWithOtp(booking.id, booking.completionOtp!);
+    expect(completed.status).toBe("COMPLETED");
+    expect(completed.completedAt).toBeDefined();
+    expect(completed.slaBreached).toBe(false);
+
+    // Pay booking
+    const paid = await homeServiceApi.payBooking(booking.id, "UPI-REF-998811");
+    expect(paid.paymentStatus).toBe("PAID");
+    expect(paid.paymentTransactionId).toBe("UPI-REF-998811");
+    expect(paid.paidAt).toBeDefined();
+  });
 });
 
 describe("HomeServiceApi - Attendance & Monthly Payment Calculation", () => {

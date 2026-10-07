@@ -691,6 +691,7 @@ export const homeServiceApi = {
     flatNumber: string;
     tower: string;
     notes?: string;
+    slaHours?: number;
   }): Promise<HomeServiceBooking> {
     const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
     const worker = workers.find((w) => w.id === request.workerId);
@@ -712,6 +713,10 @@ export const homeServiceApi = {
 
     const categories = getStorage(STORAGE_KEY_CATEGORIES, DEFAULT_CATEGORIES);
     const category = categories.find((c) => c.id === request.categoryId);
+
+    const slaHours = request.slaHours || 24;
+    const slaDueAt = new Date(Date.now() + slaHours * 3600000).toISOString();
+    const completionOtp = String(Math.floor(1000 + Math.random() * 9000));
 
     const newBooking: HomeServiceBooking = {
       id: `booking-${Date.now()}`,
@@ -738,6 +743,11 @@ export const homeServiceApi = {
       price: request.price,
       status: "REQUESTED",
       notes: request.notes,
+      slaHours,
+      slaDueAt,
+      slaBreached: false,
+      completionOtp,
+      paymentStatus: "PENDING",
       createdAt: new Date().toISOString().split("T")[0],
       updatedAt: new Date().toISOString().split("T")[0],
     };
@@ -747,6 +757,41 @@ export const homeServiceApi = {
 
     // Also update worker flat assignment list if confirmed
     return newBooking;
+  },
+
+  async completeBookingWithOtp(bookingId: string, otp: string): Promise<HomeServiceBooking> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking) throw new Error("Booking not found");
+
+    if (booking.completionOtp && booking.completionOtp.trim() !== otp.trim()) {
+      throw new Error("Invalid completion OTP. Please request the 4-digit OTP from resident.");
+    }
+
+    booking.status = "COMPLETED";
+    booking.completedAt = new Date().toISOString();
+    booking.updatedAt = new Date().toISOString().split("T")[0];
+
+    if (booking.slaDueAt && new Date() > new Date(booking.slaDueAt)) {
+      booking.slaBreached = true;
+    }
+
+    setStorage(STORAGE_KEY_BOOKINGS, bookings);
+    return booking;
+  },
+
+  async payBooking(bookingId: string, transactionId?: string): Promise<HomeServiceBooking> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking) throw new Error("Booking not found");
+
+    booking.paymentStatus = "PAID";
+    booking.paymentTransactionId = transactionId || `TXN-${Date.now()}`;
+    booking.paidAt = new Date().toISOString();
+    booking.updatedAt = new Date().toISOString().split("T")[0];
+
+    setStorage(STORAGE_KEY_BOOKINGS, bookings);
+    return booking;
   },
 
   async updateBookingStatus(

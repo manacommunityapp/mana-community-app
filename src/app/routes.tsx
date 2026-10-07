@@ -271,7 +271,21 @@ import {
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
 } from "../constants/permissions";
 
+import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
+
 export const router = createBrowserRouter([
+  {
+    path: "/onboarding",
+    Component: ResidentAuthExperience,
+  },
+  {
+    path: "/auth/resident-onboarding",
+    Component: ResidentAuthExperience,
+  },
+  {
+    path: "/resident-auth",
+    Component: ResidentAuthExperience,
+  },
   {
     path: "/login",
     Component: Login,
@@ -751,28 +765,28 @@ export const router = createBrowserRouter([
       // ── CPOS (Community Property Operating System) Routes ─────────
       
       // ── Access & Biometric Turnstiles ───────────────────────────
-      { path: "access/turnstiles", element: <BiometricTurnstileMonitor /> },
+      { path: "access/turnstiles", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><BiometricTurnstileMonitor /></PermissionGuard> },
       // ── Offline Sync & Queuing ──────────────────────────────────
-      { path: "sync", element: <OfflineSyncManager /> },
+      { path: "sync", element: <PermissionGuard><OfflineSyncManager /></PermissionGuard> },
       // ── IoT Sub-Metering & Telemetry ────────────────────────────
-      { path: "iot/meters", element: <SmartMeterDashboard /> },
+      { path: "iot/meters", element: <PermissionGuard requiredModule="COMMUNITY_MGMT"><SmartMeterDashboard /></PermissionGuard> },
       // ── Notifications Preference Center ─────────────────────────
-      { path: "settings/notifications", element: <NotificationPreferenceCenter /> },
+      { path: "settings/notifications", element: <PermissionGuard><NotificationPreferenceCenter /></PermissionGuard> },
       // ── Smart Parking & ANPR Live Gate ──────────────────────────
-      { path: "parking/anpr", element: <AnprGateLiveMonitor /> },
-      { path: "parking/ev-charging", element: <EvChargingManagement /> },
-      { path: "cpos", element: <CPOSDashboardPage /> },
-      { path: "cpos/properties", element: <CPOSPropertyListPage /> },
-      { path: "cpos/properties/new", element: <CPOSPropertyCreatePage /> },
-      { path: "cpos/properties/:propertyCode", element: <CPOSPropertyDetailPage /> },
-      { path: "cpos/ownership", element: <CPOSOwnershipPage /> },
-      { path: "cpos/occupancy", element: <CPOSOccupancyPage /> },
-      { path: "cpos/residents", element: <CPOSResidentsPage /> },
-      { path: "cpos/finance", element: <CPOSFinanceDashboard /> },
-      { path: "cpos/ai", element: <CPOSAIAdvisorPage /> },
-      { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
-      { path: "cpos/documents", element: <CPOSDocumentVault /> },
-      { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
+      { path: "parking/anpr", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><AnprGateLiveMonitor /></PermissionGuard> },
+      { path: "parking/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
+      { path: "cpos", element: <PermissionGuard requiredModule="CPOS"><CPOSDashboardPage /></PermissionGuard> },
+      { path: "cpos/properties", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyListPage /></PermissionGuard> },
+      { path: "cpos/properties/new", element: <PermissionGuard requiredModule="CPOS" adminOnly><CPOSPropertyCreatePage /></PermissionGuard> },
+      { path: "cpos/properties/:propertyCode", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyDetailPage /></PermissionGuard> },
+      { path: "cpos/ownership", element: <PermissionGuard requiredModule="CPOS"><CPOSOwnershipPage /></PermissionGuard> },
+      { path: "cpos/occupancy", element: <PermissionGuard requiredModule="CPOS"><CPOSOccupancyPage /></PermissionGuard> },
+      { path: "cpos/residents", element: <PermissionGuard requiredModule="CPOS"><CPOSResidentsPage /></PermissionGuard> },
+      { path: "cpos/finance", element: <PermissionGuard requiredModule="CPOS"><CPOSFinanceDashboard /></PermissionGuard> },
+      { path: "cpos/ai", element: <PermissionGuard requiredModule="CPOS"><CPOSAIAdvisorPage /></PermissionGuard> },
+      { path: "cpos/analytics", element: <PermissionGuard requiredModule="CPOS"><CPOSAnalyticsDashboard /></PermissionGuard> },
+      { path: "cpos/documents", element: <PermissionGuard requiredModule="CPOS"><CPOSDocumentVault /></PermissionGuard> },
+      { path: "cpos/crm", element: <PermissionGuard requiredModule="CPOS"><CPOSCRMPipelinePage /></PermissionGuard> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
       { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
@@ -782,47 +796,47 @@ export const router = createBrowserRouter([
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
       { path: "safety", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><SafetyCommandCenter /></PermissionGuard> },
-      { path: "pets", element: <PetRegistryDashboard /> },
+      { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
       {
         path: "academy",
-        element: <AcademyLayout />,
+        element: <PermissionGuard requiredModule="ACADEMY"><AcademyLayout /></PermissionGuard>,
         children: [
           { index: true, element: <AcademyDashboard /> },
           { path: "my-learning", element: <MyLearningView /> },
           { path: "teaching", element: <InstructorHubView /> },
-          { path: "admin", element: <AcademyAdminHub /> },
+          { path: "admin", element: <PermissionGuard adminOnly requiredModule="ACADEMY"><AcademyAdminHub /></PermissionGuard> },
         ],
       },
       // ── Mana Deals & Community Commerce Network ──────────────
       {
         path: "deals",
-        element: <OffersLayout />,
+        element: <PermissionGuard requiredModule="COMMUNITY_OFFERS"><OffersLayout /></PermissionGuard>,
         children: [
           { index: true, element: <OffersDashboard /> },
           { path: "market-days", element: <MarketEventsView /> },
           { path: "partners", element: <BusinessDirectoryView /> },
           { path: "demands", element: <CommunityDemandView /> },
           { path: "my-claims", element: <MyClaimsView /> },
-          { path: "admin", element: <CommerceAdminHub /> },
+          { path: "admin", element: <PermissionGuard adminOnly requiredModule="COMMUNITY_OFFERS"><CommerceAdminHub /></PermissionGuard> },
         ],
       },
       {
         path: "offers",
-        element: <OffersLayout />,
+        element: <PermissionGuard requiredModule="COMMUNITY_OFFERS"><OffersLayout /></PermissionGuard>,
         children: [
           { index: true, element: <OffersDashboard /> },
           { path: "market-days", element: <MarketEventsView /> },
           { path: "partners", element: <BusinessDirectoryView /> },
           { path: "demands", element: <CommunityDemandView /> },
           { path: "my-claims", element: <MyClaimsView /> },
-          { path: "admin", element: <CommerceAdminHub /> },
+          { path: "admin", element: <PermissionGuard adminOnly requiredModule="COMMUNITY_OFFERS"><CommerceAdminHub /></PermissionGuard> },
         ],
       },
       // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
       {
         path: "governance",
-        element: <GovernanceLayout />,
+        element: <PermissionGuard requiredModule="GOVERNANCE"><GovernanceLayout /></PermissionGuard>,
         children: [
           { index: true, element: <GovernanceDashboard /> },
           { path: "dashboard", element: <GovernanceDashboard /> },

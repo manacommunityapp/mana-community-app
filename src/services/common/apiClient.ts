@@ -373,10 +373,21 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     if (csrf) headers[CSRF_HEADER] = csrf;
   }
 
+  // Normalize path to prevent double /api prefix if path begins with /api
+  const normalizedPath = path.startsWith('/api/')
+    ? path.substring(4)
+    : path === '/api'
+    ? ''
+    : path.startsWith('api/')
+    ? '/' + path.substring(4)
+    : path.startsWith('/')
+    ? path
+    : '/' + path;
+
   const start = performance.now();
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await fetch(`${BASE_URL}${normalizedPath}`, {
       method: init.method,
       headers,
       body: init.body,

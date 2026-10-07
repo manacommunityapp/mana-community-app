@@ -82,6 +82,9 @@ export interface Trip {
     phone: string;
     firstAidCertified: boolean;
   };
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyNotes?: string;
   includes: string[];
   excludes: string[];
   cancellationPolicy: CancellationPolicy;
@@ -364,18 +367,18 @@ export const tripService = {
   },
 
   createTrip(
-    payload: Omit<Trip, "id" | "bookedSeats" | "waitlistCount" | "status" | "reviews">,
-    hostUser: { id: string; fullName: string; flatNo?: string; phone?: string }
+    payload: Omit<Trip, "id" | "bookedSeats" | "waitlistCount" | "status" | "reviews" | "hostId" | "host" | "hostFlatNumber" | "hostPhone"> & Partial<Pick<Trip, "hostId" | "host" | "hostFlatNumber" | "hostPhone">>,
+    hostUser?: { id: string; fullName: string; flatNo?: string; phone?: string }
   ): Trip {
     const newTrip: Trip = {
       ...payload,
       id: `trip-${Date.now().toString().slice(-4)}`,
       bookedSeats: 0,
       waitlistCount: 0,
-      hostId: hostUser.id,
-      host: hostUser.fullName,
-      hostFlatNumber: hostUser.flatNo || "Flat A-101",
-      hostPhone: hostUser.phone || "+91 98450 00000",
+      hostId: payload.hostId || hostUser?.id || "user-host",
+      host: payload.host || hostUser?.fullName || "Community Resident",
+      hostFlatNumber: payload.hostFlatNumber || hostUser?.flatNo || "Flat A-101",
+      hostPhone: payload.hostPhone || hostUser?.phone || "+91 98450 00000",
       status: "UPCOMING",
       reviews: [],
     };

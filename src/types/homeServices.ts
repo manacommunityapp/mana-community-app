@@ -195,6 +195,14 @@ export interface HomeServiceBooking {
   rejectionReason?: string;
   cancellationReason?: string;
   notes?: string;
+  slaHours?: number;
+  slaDueAt?: string;
+  slaBreached?: boolean;
+  completionOtp?: string;
+  completedAt?: string;
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  paymentTransactionId?: string;
+  paidAt?: string;
   createdAt: string;
   updatedAt: string;
 }
