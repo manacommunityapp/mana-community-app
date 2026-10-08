@@ -23,6 +23,7 @@ import {
   vendorRatingService,
   vendorFavoriteService,
 } from "../../../../services/vendor/vendorService";
+import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorResponse,
@@ -366,7 +367,7 @@ export function VendorProfilePublic() {
                     <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                       {review.customer.profilePicUrl ? (
                         <img
-                          src={review.customer.profilePicUrl}
+                          src={resolveImageUrl(review.customer.profilePicUrl)}
                           alt={review.customer.fullName}
                           className="w-full h-full object-cover"
                         />

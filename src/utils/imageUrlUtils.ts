@@ -131,7 +131,10 @@ export function resolveImageUrl(url?: string | null, fallback: string = ""): str
       if (!hasSignature || isExpired || isOurBucket) {
         try {
           const parsed = new URL(trimmed);
-          const s3Key = parsed.pathname.replace(/^\/+/, "");
+          let s3Key = parsed.pathname.replace(/^\/+/, "");
+          if (s3Key.startsWith("manacommunityhub/")) {
+            s3Key = s3Key.substring("manacommunityhub/".length);
+          }
           if (s3Key) {
             return `/api/files/${s3Key}`;
           }
