@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Bed,
   Phone,
+  Wallet,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../ui/card";
@@ -46,6 +47,7 @@ import { TripBookingDialog } from "./TripBookingDialog";
 import { HostRosterModal } from "./HostRosterModal";
 import { TripReviewModal } from "./TripReviewModal";
 import { TripCancellationModal } from "./TripCancellationModal";
+import { TripSplitModal } from "./TripSplitModal";
 
 const CATEGORY_ICONS: Record<TripCategory, React.ComponentType<{ className?: string }>> = {
   TREKKING: Mountain,
@@ -72,6 +74,7 @@ export function ExploreTrips() {
   const [reviewTrip, setReviewTrip] = useState<Trip | null>(null);
   const [cancellingBooking, setCancellingBooking] = useState<TripBooking | null>(null);
   const [qrBoardingPass, setQrBoardingPass] = useState<TripBooking | null>(null);
+  const [splitTrip, setSplitTrip] = useState<Trip | null>(null);
 
   const currentUser = {
     id: user?.userId || "user-resident-1",
@@ -282,6 +285,16 @@ export function ExploreTrips() {
                       View Details
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      className="font-semibold text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50 px-2.5"
+                      title="Trip Split & Expense Tracker"
+                      onClick={() => setSplitTrip(trip)}
+                    >
+                      <Wallet className="w-3.5 h-3.5 mr-1" />
+                      Split
+                    </Button>
+                    <Button
                       size="sm"
                       className={`flex-1 font-bold text-xs ${
                         seatsLeft <= 0 ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"
@@ -375,6 +388,19 @@ export function ExploreTrips() {
                     >
                       <QrCode className="w-3.5 h-3.5" />
                       Digital Boarding Pass
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full font-semibold text-xs gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={() => {
+                        const tripObj = trips.find((t) => t.id === b.tripId) || tripService.getTripById(b.tripId);
+                        if (tripObj) setSplitTrip(tripObj);
+                      }}
+                    >
+                      <Wallet className="w-3.5 h-3.5" />
+                      Trip Split &amp; Expenses
                     </Button>
 
                     <div className="flex gap-2 w-full">
@@ -479,7 +505,7 @@ export function ExploreTrips() {
                       </CardContent>
                     </div>
 
-                    <CardFooter className="pt-2 border-t bg-slate-50/50">
+                    <CardFooter className="pt-2 border-t bg-slate-50/50 flex flex-col gap-2">
                       <Button
                         size="sm"
                         className="w-full bg-indigo-600 hover:bg-indigo-700 font-bold text-xs gap-1.5"
@@ -487,6 +513,15 @@ export function ExploreTrips() {
                       >
                         <Users className="w-3.5 h-3.5" />
                         Open Passenger Roster &amp; QR Scanner
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-bold text-xs gap-1.5"
+                        onClick={() => setSplitTrip(trip)}
+                      >
+                        <Wallet className="w-3.5 h-3.5" />
+                        Trip Split &amp; Expenses
                       </Button>
                     </CardFooter>
                   </Card>
@@ -600,6 +635,18 @@ export function ExploreTrips() {
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setSelectedTripDetails(null)}>Close</Button>
                   <Button
+                    variant="outline"
+                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 font-semibold gap-1.5"
+                    onClick={() => {
+                      const t = selectedTripDetails;
+                      setSelectedTripDetails(null);
+                      setSplitTrip(t);
+                    }}
+                  >
+                    <Wallet className="w-4 h-4" />
+                    Trip Split &amp; Expenses
+                  </Button>
+                  <Button
                     className="bg-indigo-600 hover:bg-indigo-700 font-bold"
                     onClick={() => {
                       const t = selectedTripDetails;
@@ -675,6 +722,16 @@ export function ExploreTrips() {
         onClose={() => setCancellingBooking(null)}
         onCancellationComplete={loadData}
       />
+
+      {splitTrip && (
+        <TripSplitModal
+          isOpen={!!splitTrip}
+          onClose={() => setSplitTrip(null)}
+          trip={splitTrip}
+          currentUserId={currentUser.id}
+          isOrganizer={splitTrip.hostId === currentUser.id || splitTrip.host === currentUser.fullName}
+        />
+      )}
     </div>
   );
 }
