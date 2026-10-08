@@ -120,21 +120,24 @@ export function resolveImageUrl(url?: string | null, fallback: string = ""): str
       return trimmed.slice(apiIndex);
     }
     
-    // If it's a direct AWS S3 URL WITHOUT pre-signed query signature (which causes 403 on private buckets),
+    // If it's an AWS S3 URL for our bucket or has expired/missing pre-signed signature (which causes 403 on private buckets),
     // proxy it through the backend files controller: /api/files/<key>
-    if (
-      (trimmed.includes(".s3.") || trimmed.includes(".s3-") || trimmed.includes(".s3.amazonaws.com")) &&
-      !trimmed.includes("X-Amz-Signature") &&
-      !trimmed.includes("X-Amz-Date")
-    ) {
-      try {
-        const parsed = new URL(trimmed);
-        const s3Key = parsed.pathname.replace(/^\/+/, "");
-        if (s3Key) {
-          return `/api/files/${s3Key}`;
+    const isS3Url = trimmed.includes(".s3.") || trimmed.includes(".s3-") || trimmed.includes(".s3.amazonaws.com");
+    if (isS3Url) {
+      const hasSignature = trimmed.includes("X-Amz-Signature") || trimmed.includes("X-Amz-Date");
+      const isExpired = hasSignature && isPresignedUrlExpired(trimmed);
+      const isOurBucket = trimmed.includes("manacommunityhub");
+
+      if (!hasSignature || isExpired || isOurBucket) {
+        try {
+          const parsed = new URL(trimmed);
+          const s3Key = parsed.pathname.replace(/^\/+/, "");
+          if (s3Key) {
+            return `/api/files/${s3Key}`;
+          }
+        } catch {
+          // Keep as-is if URL parsing fails
         }
-      } catch {
-        // Keep as-is if URL parsing fails
       }
     }
     return trimmed;
