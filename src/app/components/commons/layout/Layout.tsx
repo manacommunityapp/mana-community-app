@@ -16,7 +16,7 @@ import { ChatProvider } from "../../../../contexts/ChatContext";
 import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
-import { resolveUserAvatar } from "../../../../utils/imageUrlUtils";
+import { resolveUserAvatar, resolveImageUrl } from "../../../../utils/imageUrlUtils";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 
