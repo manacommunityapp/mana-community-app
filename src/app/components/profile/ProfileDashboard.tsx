@@ -1083,11 +1083,14 @@ export function ProfileDashboard() {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const currentSrc = e.currentTarget.src;
-                      if (currentSrc && currentSrc.includes("?")) {
-                        e.currentTarget.src = currentSrc.split("?")[0];
-                      } else {
-                        setImageError(true);
+                      if (currentSrc && !currentSrc.includes("/api/files/")) {
+                        const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
+                        if (s3Match) {
+                          e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
+                          return;
+                        }
                       }
+                      setImageError(true);
                     }}
                   />
                 ) : (

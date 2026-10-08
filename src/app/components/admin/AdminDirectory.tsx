@@ -13,6 +13,7 @@ import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 import type {
   CommunityLeaderResponse,
   CommunityLeaderRequest,
@@ -944,7 +945,7 @@ export function AdminDirectory() {
                       <div className="flex items-center gap-2.5 min-w-0">
                         {l.profilePicUrl ? (
                           <img
-                            src={l.profilePicUrl}
+                            src={resolveImageUrl(l.profilePicUrl)}
                             alt={l.fullName}
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
                             onError={(e) => {
@@ -1070,7 +1071,7 @@ export function AdminDirectory() {
                             <div className="flex items-center gap-2.5">
                               {l.profilePicUrl ? (
                                 <img
-                                  src={l.profilePicUrl}
+                                  src={resolveImageUrl(l.profilePicUrl)}
                                   alt={l.fullName}
                                   className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
                                   onError={(e) => {

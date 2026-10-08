@@ -11,6 +11,7 @@ import { whoToCallService } from "../../../services/community/whoToCallService";
 import type { CommunityLeaderResponse, CommunityWhoToCallResponse, CommunityLeaderHistoryResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
 import { showError } from "../../../utils/ToastUtils";
+import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 
 // ── Role styling ────────────────────────────────────────────────────────────
 
@@ -305,7 +306,7 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
       <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
         {leader.profilePicUrl || (leader as any).profilePic ? (
           <img
-            src={leader.profilePicUrl || (leader as any).profilePic}
+            src={resolveImageUrl(leader.profilePicUrl || (leader as any).profilePic)}
             alt={leader.fullName}
             className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg object-cover ring-1.5 ${style.avatarRing} shadow-2xs shrink-0`}
             onError={(e) => {

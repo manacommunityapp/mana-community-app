@@ -113,11 +113,14 @@ function UserProfileMenu({
             className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
             onError={(e) => {
               const currentSrc = e.currentTarget.src;
-              if (currentSrc && currentSrc.includes("?")) {
-                e.currentTarget.src = currentSrc.split("?")[0];
-              } else {
-                setImgError(true);
+              if (currentSrc && !currentSrc.includes("/api/files/")) {
+                const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
+                if (s3Match) {
+                  e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
+                  return;
+                }
               }
+              setImgError(true);
             }}
           />
         ) : (
@@ -148,11 +151,14 @@ function UserProfileMenu({
                 className="h-8 w-8 rounded-lg object-cover ring-1 ring-border/80 shadow-2xs shrink-0"
                 onError={(e) => {
                   const currentSrc = e.currentTarget.src;
-                  if (currentSrc && currentSrc.includes("?")) {
-                    e.currentTarget.src = currentSrc.split("?")[0];
-                  } else {
-                    setImgError(true);
+                  if (currentSrc && !currentSrc.includes("/api/files/")) {
+                    const s3Match = currentSrc.match(/users\/\d+\/gallery\/.+/);
+                    if (s3Match) {
+                      e.currentTarget.src = `/api/files/${s3Match[0].split("?")[0]}`;
+                      return;
+                    }
                   }
+                  setImgError(true);
                 }}
               />
             ) : (
@@ -312,7 +318,8 @@ export function Layout() {
     if (user && !user.profilePicUrl && !user.profilePic) {
       profileService.getProfile()
         .then((p) => {
-          const resolvedPic = p?.profilePicUrl || (p as any)?.profilePic;
+          const rawPic = p?.profilePicUrl || (p as any)?.profilePic;
+          const resolvedPic = resolveImageUrl(rawPic);
           if (resolvedPic) {
             updateUser({ profilePicUrl: resolvedPic });
           }
