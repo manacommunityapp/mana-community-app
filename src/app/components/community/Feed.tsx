@@ -79,6 +79,7 @@ import { AlertTicker } from "./AlertTicker";
 import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
+import { ProfileImageModal } from "../commons/ProfileImageModal";
 
 type FeedMediaAttachment = {
   mediaUrl: string;
@@ -2053,6 +2054,7 @@ const PostCard = React.memo(function PostCard({
   const currentReaction = getReactionIcon(post.currentUserReaction);
   const totalReactions = post.reactionCounts ? Object.values(post.reactionCounts as Record<string, number>).reduce((a: number, b: number) => a + b, 0) : post.likesCount;
   const communityRole = getCommunityRole(post.authorRole, post.authorId, leaderMap);
+  const [showAuthorPhotoModal, setShowAuthorPhotoModal] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || "");
@@ -2172,7 +2174,14 @@ const PostCard = React.memo(function PostCard({
             const initials = (typeof post.authorAvatar === "string" && !post.authorAvatar.startsWith("http") && post.authorAvatar) || getInitials(post.authorName);
 
             return (
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden shrink-0">
+              <div
+                className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 hover:scale-105 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAuthorPhotoModal(true);
+                }}
+                title="Click to view full photo"
+              >
                 {authorPic ? (
                   <img
                     src={authorPic}
@@ -2720,6 +2729,24 @@ const PostCard = React.memo(function PostCard({
           </div>
         </div>
       )}
+
+      {/* Enlarged Post Author Photo Modal */}
+      <ProfileImageModal
+        isOpen={showAuthorPhotoModal}
+        onClose={() => setShowAuthorPhotoModal(false)}
+        imageUrl={
+          post.authorProfilePic ||
+          (post as any).profilePicUrl ||
+          (post as any).authorProfilePicUrl ||
+          (post as any).profilePic ||
+          (typeof post.authorAvatar === "string" && (post.authorAvatar.startsWith("http") || post.authorAvatar.startsWith("data:") || post.authorAvatar.startsWith("/")) ? post.authorAvatar : undefined)
+        }
+        name={post.authorName}
+        subtitle={[
+          post.authorRole || communityRole,
+          post.official ? "Official Community Post" : "",
+        ].filter(Boolean).join(" · ") || "Community Resident"}
+      />
     </div>
   );
 });
@@ -2745,6 +2772,7 @@ function CommentItem({
   const replies = comment.replies || allComments.filter((c: CommentResponse) => c.parentId === comment.id);
   const [showReplies, setShowReplies] = useState(depth < 2);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [showCommentAuthorPhotoModal, setShowCommentAuthorPhotoModal] = useState(false);
 
   // Determine current user's reaction on this comment
   const userReaction = comment.userCommentReaction as string | undefined;
@@ -2780,7 +2808,14 @@ function CommentItem({
           const initials = (typeof comment.authorAvatar === "string" && !comment.authorAvatar.startsWith("http") && comment.authorAvatar) || getInitials(comment.authorName);
 
           return (
-            <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-[10px] text-slate-600 font-bold overflow-hidden">
+            <div
+              className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-[10px] text-slate-600 font-bold overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/40 hover:scale-105 transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCommentAuthorPhotoModal(true);
+              }}
+              title="Click to view full photo"
+            >
               {commentPic ? (
                 <img
                   src={commentPic}
@@ -2913,6 +2948,21 @@ function CommentItem({
           )}
         </>
       )}
+
+      {/* Enlarged Comment Author Photo Modal */}
+      <ProfileImageModal
+        isOpen={showCommentAuthorPhotoModal}
+        onClose={() => setShowCommentAuthorPhotoModal(false)}
+        imageUrl={
+          comment.authorProfilePic ||
+          (comment as any).profilePicUrl ||
+          (comment as any).authorProfilePicUrl ||
+          (comment as any).profilePic ||
+          (typeof comment.authorAvatar === "string" && (comment.authorAvatar.startsWith("http") || comment.authorAvatar.startsWith("data:") || comment.authorAvatar.startsWith("/")) ? comment.authorAvatar : undefined)
+        }
+        name={comment.authorName}
+        subtitle={commentCommunityRole || "Community Member"}
+      />
     </div>
   );
 }

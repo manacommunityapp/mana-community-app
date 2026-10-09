@@ -14,6 +14,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { resolveImageUrl } from "../../../utils/imageUrlUtils";
+import { ProfileImageModal } from "../commons/ProfileImageModal";
 import type {
   CommunityLeaderResponse,
   CommunityLeaderRequest,
@@ -99,6 +100,7 @@ export function AdminDirectory() {
   const [leaderForm, setLeaderForm] = useState(emptyLeaderForm);
   const [leaderSaving, setLeaderSaving] = useState(false);
   const [deletingLeaderId, setDeletingLeaderId] = useState<number | null>(null);
+  const [previewLeader, setPreviewLeader] = useState<CommunityLeaderResponse | null>(null);
 
   // ── Single Leader History Modal State ──
   const [selectedLeaderHistory, setSelectedLeaderHistory] = useState<CommunityLeaderResponse | null>(null);
@@ -942,12 +944,16 @@ export function AdminDirectory() {
                     className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs flex flex-col justify-between gap-2.5"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                        onClick={() => setPreviewLeader(l)}
+                        title="Click to view full photo"
+                      >
                         {l.profilePicUrl ? (
                           <img
                             src={resolveImageUrl(l.profilePicUrl)}
                             alt={l.fullName}
-                            className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                            className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all"
                             onError={(e) => {
                               (e.currentTarget as HTMLElement).style.display = "none";
                               const sibling = e.currentTarget.nextElementSibling as HTMLElement;
@@ -956,7 +962,7 @@ export function AdminDirectory() {
                           />
                         ) : null}
                         <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 ${
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all ${
                             l.profilePicUrl ? "hidden" : "flex"
                           }`}
                         >
@@ -1068,12 +1074,16 @@ export function AdminDirectory() {
                         <tr key={l.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="px-4 py-2.5 font-mono text-slate-400 font-bold">#{l.displayOrder}</td>
                           <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-2.5">
+                            <div
+                              className="flex items-center gap-2.5 cursor-pointer group"
+                              onClick={() => setPreviewLeader(l)}
+                              title="Click to view full photo"
+                            >
                               {l.profilePicUrl ? (
                                 <img
                                   src={resolveImageUrl(l.profilePicUrl)}
                                   alt={l.fullName}
-                                  className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                                  className="w-8 h-8 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all"
                                   onError={(e) => {
                                     (e.currentTarget as HTMLElement).style.display = "none";
                                     const sibling = e.currentTarget.nextElementSibling as HTMLElement;
@@ -1082,7 +1092,7 @@ export function AdminDirectory() {
                                 />
                               ) : null}
                               <div
-                                className={`w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 ${
+                                className={`w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-700 text-white flex items-center justify-center font-black text-xs shadow-2xs shrink-0 group-hover:ring-2 group-hover:ring-indigo-400 group-hover:scale-105 transition-all ${
                                   l.profilePicUrl ? "hidden" : "flex"
                                 }`}
                               >
@@ -2489,6 +2499,20 @@ export function AdminDirectory() {
           </div>
         </div>
       )}
+
+      {/* Enlarged Leader Photo Preview Modal */}
+      <ProfileImageModal
+        isOpen={!!previewLeader}
+        onClose={() => setPreviewLeader(null)}
+        imageUrl={previewLeader?.profilePicUrl}
+        name={previewLeader?.fullName}
+        subtitle={[
+          previewLeader?.designation,
+          previewLeader?.committee,
+          previewLeader?.block && `Block ${previewLeader.block}`,
+          previewLeader?.flatNo && `Flat ${previewLeader.flatNo}`,
+        ].filter(Boolean).join(" · ")}
+      />
     </div>
   );
 }

@@ -76,6 +76,7 @@ import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
 import { DatePicker } from "../ui/date-picker";
 import type { UserProfileResponse, UserActivityItem } from "../../../types/api";
 import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
+import { ProfileImageModal } from "../commons/ProfileImageModal";
 import { PrivacySettingsTab } from "../privacy/PrivacySettingsTab";
 import { canAccessModule } from "../../../utils/permissionUtils";
 import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
@@ -212,6 +213,7 @@ export function ProfileDashboard() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1075,7 +1077,15 @@ export function ProfileDashboard() {
           <div className="flex items-center gap-3 sm:gap-4 pb-2.5 sm:pb-3.5">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-2 sm:border-3 border-card shadow-sm sm:shadow-md ring-2 sm:ring-3 ring-primary/20 bg-muted flex items-center justify-center relative">
+              <div
+                className={`w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-xl sm:rounded-2xl overflow-hidden border-2 sm:border-3 border-card shadow-sm sm:shadow-md ring-2 sm:ring-3 ring-primary/20 bg-muted flex items-center justify-center relative ${userAvatar && !imageError ? "cursor-pointer hover:ring-primary/50 hover:scale-[1.02] transition-all" : ""}`}
+                onClick={() => {
+                  if (userAvatar && !imageError) {
+                    setShowImageModal(true);
+                  }
+                }}
+                title={userAvatar && !imageError ? "Click to view full photo" : undefined}
+              >
                 {userAvatar && !imageError ? (
                   <img
                     src={userAvatar}
@@ -3430,6 +3440,15 @@ export function ProfileDashboard() {
           )}
         </div>
       </div>
+
+      {/* Enlarged Profile Photo Modal */}
+      <ProfileImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={userAvatar}
+        name={profile?.fullName || user?.fullName}
+        subtitle={unitDisplay || "Community Resident"}
+      />
     </div>
   );
 }
