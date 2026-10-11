@@ -213,6 +213,9 @@ import { WorkerPackagesView } from "./components/home-services/WorkerPackagesVie
 import { HomeServiceReviews } from "./components/home-services/HomeServiceReviews";
 import { HomeServiceReports } from "./components/home-services/HomeServiceReports";
 import { HomeServiceAdminDashboard } from "./components/home-services/HomeServiceAdminDashboard";
+import { HomeServicePayments } from "./components/home-services/HomeServicePayments";
+import { HomeServiceLeaves } from "./components/home-services/HomeServiceLeaves";
+import { HomeServiceSchedule } from "./components/home-services/HomeServiceSchedule";
 
 // Community Ecosystem New Modules
 import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
@@ -554,17 +557,20 @@ export const router = createBrowserRouter([
       },
       {
         path: "home-services",
-        Component: HomeServicesLayout,
+        element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><HomeServicesLayout /></PermissionGuard>,
         children: [
           { index: true, Component: HomeServicesDashboard },
           { path: "find-help", Component: FindHomeHelp },
           { path: "my-help", Component: MyHomeHelp },
           { path: "bookings", Component: MyHomeServiceBookings },
           { path: "requirements", Component: HomeServiceRequirements },
+          { path: "schedule", Component: HomeServiceSchedule },
+          { path: "payments", Component: HomeServicePayments },
+          { path: "leaves", Component: HomeServiceLeaves },
           { path: "packages", Component: WorkerPackagesView },
           { path: "reviews", Component: HomeServiceReviews },
           { path: "reports", Component: HomeServiceReports },
-          { path: "admin", Component: HomeServiceAdminDashboard },
+          { path: "admin", element: <PermissionGuard permission={MANAGE_WORKER} requiredModule="HOME_SERVICES"><HomeServiceAdminDashboard /></PermissionGuard> },
         ],
       },
       {

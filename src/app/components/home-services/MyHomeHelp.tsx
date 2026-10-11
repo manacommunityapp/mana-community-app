@@ -22,8 +22,6 @@ import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 import { ServiceAttendanceModal } from "./ServiceAttendanceModal";
 import { HomeServiceChatModal } from "./HomeServiceChatModal";
 import { WorkerGatePassModal } from "./WorkerGatePassModal";
-import { HomeServiceReviews } from "./HomeServiceReviews";
-
 export function MyHomeHelp() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<HomeServiceBooking[]>([]);
@@ -31,7 +29,6 @@ export function MyHomeHelp() {
   const [selectedBookingForAttendance, setSelectedBookingForAttendance] = useState<HomeServiceBooking | null>(null);
   const [selectedBookingForChat, setSelectedBookingForChat] = useState<HomeServiceBooking | null>(null);
   const [selectedWorkerForGatePass, setSelectedWorkerForGatePass] = useState<string | null>(null);
-  const [selectedBookingForReview, setSelectedBookingForReview] = useState<HomeServiceBooking | null>(null);
 
   useEffect(() => {
     loadBookings();

@@ -76,7 +76,7 @@ export function ServiceAttendanceModal({ booking, onClose }: ServiceAttendanceMo
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 via-primary/5 to-violet-500/10 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
               <span className="text-[10px] font-extrabold uppercase text-slate-400 block">
-                Billing Summary (September 2026)
+                Billing Summary ({new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })})
               </span>
               <div className="flex items-center gap-3 mt-1 font-bold">
                 <span className="text-emerald-600 dark:text-emerald-400">

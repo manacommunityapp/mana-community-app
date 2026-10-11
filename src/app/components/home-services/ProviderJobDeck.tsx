@@ -72,7 +72,12 @@ export function ProviderJobDeck({
   const completedCount = jobs.filter((j) => j.status === 'COMPLETED').length;
   const inProgressCount = jobs.filter((j) => j.status === 'IN_PROGRESS').length;
   const pendingCount = jobs.filter((j) => j.status === 'SCHEDULED' || j.status === 'GATE_CHECKED_IN').length;
-  const totalEarnings = completedCount * 120 + inProgressCount * 60;
+  const totalEarnings = jobs.reduce((sum, j) => {
+    const rate = (j as any).price || 120;
+    if (j.status === 'COMPLETED') return sum + rate;
+    if (j.status === 'IN_PROGRESS') return sum + Math.round(rate * 0.5);
+    return sum;
+  }, 0);
 
   const filteredJobs = jobs.filter((j) => {
     if (activeTab === 'PENDING') return j.status === 'SCHEDULED' || j.status === 'GATE_CHECKED_IN';

@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, ShieldAlert, CheckCircle2, Clock, Plus, X } from "lucide-react";
-import type { HomeServiceReport } from "../../../types/homeServices";
+import type { HomeServiceReport, HomeServiceWorker } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 
 export function HomeServiceReports() {
   const [reports, setReports] = useState<HomeServiceReport[]>([]);
+  const [workers, setWorkers] = useState<HomeServiceWorker[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [reason, setReason] = useState("Unsafe Behaviour");
+  const [reportedAgainst, setReportedAgainst] = useState("");
   const [reportedAgainstName, setReportedAgainstName] = useState("");
   const [description, setDescription] = useState("");
 
@@ -15,14 +17,18 @@ export function HomeServiceReports() {
   }, []);
 
   const loadReports = async () => {
-    const data = await homeServiceApi.getReports();
+    const [data, workerData] = await Promise.all([
+      homeServiceApi.getReports(),
+      homeServiceApi.getWorkers(),
+    ]);
     setReports(data);
+    setWorkers(workerData);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await homeServiceApi.createReport({
-      reportedAgainst: "worker-custom",
+      reportedAgainst: reportedAgainst || "worker-custom",
       reportedAgainstName,
       reason,
       description,
@@ -127,14 +133,31 @@ export function HomeServiceReports() {
 
               <div>
                 <label className="font-bold text-slate-500 block mb-1">Reported Worker / Person</label>
-                <input
-                  type="text"
-                  required
-                  value={reportedAgainstName}
-                  onChange={(e) => setReportedAgainstName(e.target.value)}
-                  placeholder="e.g. Worker Name or Vendor"
+                <select
+                  value={reportedAgainst}
+                  onChange={(e) => {
+                    setReportedAgainst(e.target.value);
+                    const w = workers.find((w) => w.id === e.target.value);
+                    if (w) setReportedAgainstName(w.displayName);
+                  }}
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold outline-none"
-                />
+                >
+                  <option value="">Select a worker...</option>
+                  {workers.map((w) => (
+                    <option key={w.id} value={w.id}>{w.displayName} ({w.skills[0]?.categoryName})</option>
+                  ))}
+                  <option value="worker-custom">Other (specify below)</option>
+                </select>
+                {reportedAgainst === "worker-custom" && (
+                  <input
+                    type="text"
+                    required
+                    value={reportedAgainstName}
+                    onChange={(e) => setReportedAgainstName(e.target.value)}
+                    placeholder="e.g. External Vendor Name"
+                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold outline-none mt-2"
+                  />
+                )}
               </div>
 
               <div>
