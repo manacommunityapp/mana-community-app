@@ -1,4 +1,4 @@
-import { Star, ShieldCheck, MapPin, CheckCircle, Clock, Calendar, ArrowRight } from "lucide-react";
+import { Star, ShieldCheck, MapPin, CheckCircle, Clock, Calendar, ArrowRight, Phone, Fingerprint, Shield } from "lucide-react";
 import type { HomeServiceWorker } from "../../../types/homeServices";
 
 interface WorkerCardProps {
@@ -65,6 +65,16 @@ export function WorkerCard({ worker, onSelect, onRequestBooking }: WorkerCardPro
               ✓ Mobile Verified
             </span>
           )}
+          {worker.policeVerified && (
+            <span className="px-2 py-0.5 rounded-md bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300 border border-red-200 dark:border-red-800">
+              ✓ Police Verified
+            </span>
+          )}
+          {worker.aadhaarVerified && (
+            <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+              ✓ Aadhaar Verified
+            </span>
+          )}
         </div>
 
         {/* Bio Snippet */}
@@ -127,6 +137,15 @@ export function WorkerCard({ worker, onSelect, onRequestBooking }: WorkerCardPro
         </div>
 
         <div className="flex items-center gap-1.5">
+          {worker.phone && (
+            <a
+              href={`tel:${worker.phone}`}
+              className="p-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all cursor-pointer"
+              title={`Call ${worker.displayName}`}
+            >
+              <Phone className="w-3.5 h-3.5" />
+            </a>
+          )}
           <button
             onClick={() => onSelect(worker)}
             className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
