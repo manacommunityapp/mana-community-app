@@ -216,7 +216,26 @@ import { HomeServiceAdminDashboard } from "./components/home-services/HomeServic
 
 // Community Ecosystem New Modules
 import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
+import { GroupBuyingHub } from "./components/group-buying/GroupBuyingHub";
 import { GroupBuyingCatalog } from "./components/group-buying/GroupBuyingCatalog";
+import { DealsListing } from "./components/group-buying/DealsListing";
+import { DealDetail } from "./components/group-buying/DealDetail";
+import { DealCheckout } from "./components/group-buying/DealCheckout";
+import { AlmostUnlocked } from "./components/group-buying/AlmostUnlocked";
+import { FestivalDeals } from "./components/group-buying/FestivalDeals";
+import { MonthlyBaskets } from "./components/group-buying/MonthlyBaskets";
+import { BuyAgain } from "./components/group-buying/BuyAgain";
+import { BuyingGroups } from "./components/group-buying/BuyingGroups";
+import { CommunitySavingsDashboard } from "./components/group-buying/CommunitySavingsDashboard";
+import { AIDemandSearch } from "./components/group-buying/AIDemandSearch";
+import { MyOrders } from "./components/group-buying/MyOrders";
+import { DemandBoard } from "./components/group-buying/DemandBoard";
+import { DemandDetail } from "./components/group-buying/DemandDetail";
+import { VendorProfilePage } from "./components/group-buying/VendorProfilePage";
+import { PickupPassPage } from "./components/group-buying/PickupPassPage";
+import { PickupScanner } from "./components/group-buying/PickupScanner";
+import { OrderReviewPage } from "./components/group-buying/OrderReviewPage";
+import { OrderDisputePage } from "./components/group-buying/OrderDisputePage";
 import { ExploreTrips } from "./components/trips/ExploreTrips";
 import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashboard";
 import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
@@ -808,7 +827,26 @@ export const router = createBrowserRouter([
       { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
-      { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
+      { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },
+      { path: "group-buying/deals", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealsListing /></PermissionGuard> },
+      { path: "group-buying/deal/:dealId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealDetail /></PermissionGuard> },
+      { path: "group-buying/checkout/:dealId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealCheckout /></PermissionGuard> },
+      { path: "group-buying/almost-unlocked", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><AlmostUnlocked /></PermissionGuard> },
+      { path: "group-buying/festival-deals", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><FestivalDeals /></PermissionGuard> },
+      { path: "group-buying/monthly-baskets", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><MonthlyBaskets /></PermissionGuard> },
+      { path: "group-buying/buy-again", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><BuyAgain /></PermissionGuard> },
+      { path: "group-buying/buying-groups", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><BuyingGroups /></PermissionGuard> },
+      { path: "group-buying/savings", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><CommunitySavingsDashboard /></PermissionGuard> },
+      { path: "group-buying/ai-search", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><AIDemandSearch /></PermissionGuard> },
+      { path: "group-buying/my-orders", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><MyOrders /></PermissionGuard> },
+      { path: "group-buying/demand-board", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandBoard /></PermissionGuard> },
+      { path: "group-buying/demand/:demandId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandDetail /></PermissionGuard> },
+      { path: "group-buying/vendor/:vendorId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><VendorProfilePage /></PermissionGuard> },
+      { path: "group-buying/pickup-pass/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><PickupPassPage /></PermissionGuard> },
+      { path: "group-buying/pickup-scanner", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><PickupScanner /></PermissionGuard> },
+      { path: "group-buying/review/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderReviewPage /></PermissionGuard> },
+      { path: "group-buying/dispute/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderDisputePage /></PermissionGuard> },
+      { path: "group-buying/catalog", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
       { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
