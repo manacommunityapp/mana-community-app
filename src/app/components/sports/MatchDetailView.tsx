@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Trophy, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Loader2, Trophy, ChevronDown, ChevronUp, Camera, Star, Share2, Check } from "lucide-react";
 import { tournamentService, type MatchDetailData, type InningsDetailData } from "../../../services/sports/tournamentService";
+import { SportsMatchPhotoGallery } from "./SportsMatchPhotoGallery";
+import { SportsMatchRatings } from "./SportsMatchRatings";
 
 interface MatchDetailViewProps {
   matchId: number;
@@ -117,10 +119,46 @@ function ScorecardTable({ innings, index }: { innings: InningsDetailData; index:
   );
 }
 
+type DetailTab = "scorecard" | "photos" | "ratings";
+
+function formatScorecardText(d: MatchDetailData): string {
+  const lines: string[] = [];
+  lines.push(`🏏 ${d.teamA.name} vs ${d.teamB.name}`);
+  lines.push(`${d.roundName} · Match #${d.matchNumber}`);
+  if (d.scoreTeamA) lines.push(`${d.teamA.name}: ${d.scoreTeamA}`);
+  if (d.scoreTeamB) lines.push(`${d.teamB.name}: ${d.scoreTeamB}`);
+  if (d.winnerName) lines.push(`🏆 ${d.winnerName} won${d.winMargin ? ` by ${d.winMargin}` : ""}`);
+  if (d.tossWinnerName) lines.push(`Toss: ${d.tossWinnerName} — ${d.tossDecision}`);
+
+  if (d.innings && d.innings.length > 0) {
+    for (const inn of d.innings) {
+      lines.push("");
+      lines.push(`--- ${inn.battingTeamName} ${inn.totalRuns}/${inn.totalWickets} (${inn.totalOvers} ov) ---`);
+      if (inn.batting.length > 0) {
+        for (const b of inn.batting) {
+          const dismissal = b.dismissalType || "not out";
+          lines.push(`  ${b.playerName} ${b.runsScored}(${b.ballsFaced}) [${dismissal}]`);
+        }
+      }
+      if (inn.bowling.length > 0) {
+        lines.push("  Bowling:");
+        for (const bw of inn.bowling) {
+          lines.push(`  ${bw.playerName} ${bw.oversBowled}-${bw.maidens}-${bw.runsConceded}-${bw.wicketsTaken}`);
+        }
+      }
+    }
+  }
+
+  if (d.manOfMatch) lines.push(`\n⭐ Man of Match: ${d.manOfMatch.name} (${d.manOfMatch.teamName})`);
+  return lines.join("\n");
+}
+
 export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
   const [detail, setDetail] = useState<MatchDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>("scorecard");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -192,6 +230,62 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
               {detail.matchSummary && (
                 <p className="text-[10px] sm:text-xs text-slate-500 mt-1">{detail.matchSummary}</p>
               )}
+            </div>
+
+            {/* Tab Switcher */}
+            <div className="flex gap-1 p-1 bg-slate-50 rounded-lg">
+              {([
+                { key: "scorecard" as DetailTab, label: "Scorecard", icon: Trophy },
+                { key: "photos" as DetailTab, label: "Photos", icon: Camera },
+                { key: "ratings" as DetailTab, label: "Ratings", icon: Star },
+              ]).map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-semibold transition-all ${
+                    activeTab === tab.key
+                      ? "bg-white shadow-sm text-slate-800"
+                      : "text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  <tab.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Photos Tab */}
+            {activeTab === "photos" && (
+              <SportsMatchPhotoGallery matchId={matchId} inline />
+            )}
+
+            {/* Ratings Tab */}
+            {activeTab === "ratings" && (
+              <SportsMatchRatings matchId={matchId} inline />
+            )}
+
+            {/* Scorecard Tab */}
+            {activeTab === "scorecard" && <>
+            {/* Share Scorecard */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  const text = formatScorecardText(detail);
+                  navigator.clipboard.writeText(text).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold border transition-all"
+                style={{
+                  background: copied ? "rgba(16,185,129,0.08)" : "rgba(99,102,241,0.06)",
+                  borderColor: copied ? "rgba(16,185,129,0.2)" : "rgba(99,102,241,0.15)",
+                  color: copied ? "#10b981" : "#6366f1",
+                }}
+              >
+                {copied ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                {copied ? "Copied!" : "Share Scorecard"}
+              </button>
             </div>
 
             {/* Match Info Grid */}
@@ -281,6 +375,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                 No scorecard data recorded for this match yet.
               </div>
             )}
+            </>}
           </div>
         )}
       </div>

@@ -24,6 +24,8 @@ import {
   Layers,
   Check,
   Send,
+  Wallet,
+  IndianRupee,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ServiceCategory, HomeServiceWorker, HomeServiceBooking, ServiceAttendance } from "../../../types/homeServices";
@@ -514,6 +516,77 @@ export function HomeServicesDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── MONTHLY PAYROLL SUMMARY ── */}
+      {activeHelpBookings.length > 0 && (() => {
+        const monthlyBookings = activeHelpBookings.filter(
+          (b) => b.pricingModel === "FIXED_MONTHLY" || b.bookingType === "MONTHLY" || b.bookingType === "DAILY"
+        );
+        const totalMonthly = monthlyBookings.reduce((sum, b) => sum + b.price, 0);
+        const currentMonth = new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+
+        return (
+          <div className="bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-fuchsia-500/10 border border-violet-500/20 rounded-3xl p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center font-black">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                    Monthly Payroll Summary
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Aggregate domestic staff costs for {currentMonth}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Total Monthly</span>
+                <span className="text-xl font-black text-violet-600 dark:text-violet-400 flex items-center gap-0.5 justify-end">
+                  <IndianRupee className="w-4 h-4" />
+                  {totalMonthly.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {monthlyBookings.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-black text-sm flex items-center justify-center shrink-0">
+                      {b.workerName?.[0] || "W"}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
+                        {b.workerName}
+                      </h4>
+                      <p className="text-[10px] font-semibold text-primary">
+                        {b.categoryName}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      ₹{b.price.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-bold block">/month</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {monthlyBookings.length < activeHelpBookings.length && (
+              <p className="text-[10px] text-slate-400 mt-3 text-center">
+                {activeHelpBookings.length - monthlyBookings.length} additional service(s) billed per-visit or per-day
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── POST A REQUIREMENT BANNER ── */}
       <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-rose-500/15 border border-amber-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -8,12 +8,14 @@ import {
   ArrowRight,
   ShieldCheck,
   MessageCircle,
+  Star,
+  Send,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { HomeServiceBooking, BookingStatus } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 import { ServiceAttendanceModal } from "./ServiceAttendanceModal";
 import { HomeServiceChatModal } from "./HomeServiceChatModal";
-import { HomeServiceReviews } from "./HomeServiceReviews";
 
 export function MyHomeServiceBookings() {
   const [bookings, setBookings] = useState<HomeServiceBooking[]>([]);
@@ -21,6 +23,9 @@ export function MyHomeServiceBookings() {
   const [selectedBookingForAttendance, setSelectedBookingForAttendance] = useState<HomeServiceBooking | null>(null);
   const [selectedBookingForChat, setSelectedBookingForChat] = useState<HomeServiceBooking | null>(null);
   const [selectedBookingForReview, setSelectedBookingForReview] = useState<HomeServiceBooking | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     loadBookings();
@@ -199,6 +204,83 @@ export function MyHomeServiceBookings() {
           booking={selectedBookingForChat}
           onClose={() => setSelectedBookingForChat(null)}
         />
+      )}
+
+      {/* Review Modal */}
+      {selectedBookingForReview && (
+        <div className="fixed inset-0 z-60 bg-slate-900/70 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 max-w-sm w-full shadow-2xl space-y-4 text-slate-900 dark:text-white animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <h4 className="font-extrabold text-base">Rate &amp; Review</h4>
+              <button onClick={() => { setSelectedBookingForReview(null); setReviewText(""); }} className="text-slate-400 p-1 cursor-pointer">
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              How was your service experience with{" "}
+              <span className="font-bold text-slate-800 dark:text-white">
+                {selectedBookingForReview.workerName}
+              </span>
+              ?
+            </p>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSubmittingReview(true);
+              try {
+                await homeServiceApi.createReview({
+                  workerId: selectedBookingForReview.workerId,
+                  bookingId: selectedBookingForReview.id,
+                  rating: reviewRating,
+                  comment: reviewText,
+                });
+                toast.success("Thank you! Your review has been submitted.");
+                setSelectedBookingForReview(null);
+                setReviewText("");
+                loadBookings();
+              } catch (err: any) {
+                toast.error("Failed to submit review: " + err.message);
+              } finally {
+                setSubmittingReview(false);
+              }
+            }} className="space-y-4">
+              <div className="flex items-center justify-center gap-2 py-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setReviewRating(s)}
+                    className="p-1 cursor-pointer transform hover:scale-125 transition-transform"
+                  >
+                    <Star
+                      className={`w-7 h-7 ${
+                        s <= reviewRating
+                          ? "text-amber-400 fill-amber-400"
+                          : "text-slate-300 dark:text-slate-700"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Share feedback on quality, punctuality..."
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 outline-none resize-none h-20"
+              />
+
+              <button
+                type="submit"
+                disabled={submittingReview}
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold shadow hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Submit Rating &amp; Review
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

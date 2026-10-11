@@ -10,6 +10,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { ServiceCategory, HomeServiceWorker } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 import { WorkerCard } from "./WorkerCard";
@@ -214,7 +215,7 @@ export function FindHomeHelp() {
           onClose={() => setActiveWorkerForBooking(null)}
           onSuccess={() => {
             setActiveWorkerForBooking(null);
-            alert("Booking request sent successfully to worker!");
+            toast.success("Booking request sent successfully to worker!");
           }}
         />
       )}
