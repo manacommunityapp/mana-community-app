@@ -225,6 +225,17 @@ import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboar
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
 import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
 
+// New cross-module parity components
+import { PersonalFinanceDashboard } from "./components/personal-finance/PersonalFinanceDashboard";
+import { HealthDashboard } from "./components/health/HealthDashboard";
+import { CommuteDashboard } from "./components/commute/CommuteDashboard";
+import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
+import { AutomationDashboard } from "./components/automation/AutomationDashboard";
+import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
+import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
+import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
+import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+
 // Mana Academy
 import { AcademyLayout } from "./components/academy/AcademyLayout";
 import { AcademyDashboard } from "./components/academy/AcademyDashboard";
@@ -588,10 +599,6 @@ export const router = createBrowserRouter([
           { path: ":id/edit", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
         ],
       },
-      { 
-        path: "inventory", 
-        element: <InventoryDashboard /> 
-      },
       {
         path: "community",
         children: [
@@ -833,18 +840,16 @@ export const router = createBrowserRouter([
           { path: "admin", element: <CommerceAdminHub /> },
         ],
       },
-      {
-        path: "offers",
-        element: <OffersLayout />,
-        children: [
-          { index: true, element: <OffersDashboard /> },
-          { path: "market-days", element: <MarketEventsView /> },
-          { path: "partners", element: <BusinessDirectoryView /> },
-          { path: "demands", element: <CommunityDemandView /> },
-          { path: "my-claims", element: <MyClaimsView /> },
-          { path: "admin", element: <CommerceAdminHub /> },
-        ],
-      },
+      // ── New Modules (Web-Mobile Parity) ──────────────
+      { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "health", element: <HealthDashboard /> },
+      { path: "commute", element: <CommuteDashboard /> },
+      { path: "projects", element: <ProjectsDashboard /> },
+      { path: "automation", element: <AutomationDashboard /> },
+      { path: "intelligence", element: <IntelligenceDashboard /> },
+      { path: "ai-chat", element: <AiChatDashboard /> },
+      { path: "calendar", element: <CalendarDashboard /> },
+      { path: "commerce", element: <CommerceDashboard /> },
       // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
       {
         path: "governance",

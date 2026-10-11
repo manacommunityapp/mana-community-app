@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Wallet, HeartPulse, Car, FolderKanban, Brain, Bot, Calendar, ShoppingCart } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -383,6 +383,15 @@ export function Layout() {
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
     "Professional Network": "JOBS",
+    "Personal Finance": "PERSONAL_FINANCE",
+    "Health Hub": "HEALTH",
+    "Community Rides": "COMMUTE",
+    "Projects": "PROJECTS",
+    "Automation": "AUTOMATION",
+    "Intelligence": "INTELLIGENCE",
+    "AI Chat": "AI_CHAT",
+    "Calendar": "CALENDAR",
+    "Commerce": "COMMERCE",
   };
 
   const toggleSidebar = () => {
@@ -424,6 +433,15 @@ export function Layout() {
     { to: "/polls", icon: Vote, label: "Polls" },
     { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
     { to: "/events", icon: CalendarDays, label: "Events" },
+    { to: "/personal-finance", icon: Wallet, label: "Personal Finance" },
+    { to: "/health", icon: HeartPulse, label: "Health Hub" },
+    { to: "/commute", icon: Car, label: "Community Rides" },
+    { to: "/projects", icon: FolderKanban, label: "Projects" },
+    { to: "/automation", icon: Zap, label: "Automation" },
+    { to: "/intelligence", icon: Brain, label: "Intelligence" },
+    { to: "/ai-chat", icon: Bot, label: "AI Chat" },
+    { to: "/calendar", icon: Calendar, label: "Calendar" },
+    { to: "/commerce", icon: ShoppingCart, label: "Commerce" },
   ];
 
   const adminLinks = [
@@ -461,6 +479,15 @@ export function Layout() {
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
+    if (link.label === "Personal Finance") return true;
+    if (link.label === "Health Hub") return true;
+    if (link.label === "Community Rides") return true;
+    if (link.label === "Projects") return true;
+    if (link.label === "Automation") return isAnyAdmin;
+    if (link.label === "Intelligence") return true;
+    if (link.label === "AI Chat") return true;
+    if (link.label === "Calendar") return true;
+    if (link.label === "Commerce") return true;
     return false;
   });
 
