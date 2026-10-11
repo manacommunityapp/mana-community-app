@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, useParams, useNavigate } from "react-router";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -98,7 +98,6 @@ import {
 // Sports pages
 import { SportsLayout }       from "./components/sports/SportsLayout";
 import { SportsDashboard }    from "./components/sports/SportsDashboard";
-import { SportsRegistration } from "./components/sports/SportsRegistration";
 import { SportsSchedule }     from "./components/sports/SportsSchedule";
 import { SportsAuction }      from "./components/sports/SportsAuction";
 import { SportsAdmin }        from "./components/sports/admin/SportsAdmin";
@@ -106,6 +105,17 @@ import { SportsRegister }     from "./components/sports/SportsRegister";
 import { SportsMultiRegister }from "./components/sports/SportsMultiRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
+import { SportsTournamentBrowse } from "./components/sports/SportsTournamentBrowse";
+import { SportsMyTeams }      from "./components/sports/SportsMyTeams";
+import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
+import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
+import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
+
+function TeamRegisterPage() {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
+  return <SportsTeamRegistration eventId={Number(eventId)} onClose={() => navigate(-1)} />;
+}
 import {
   MatchDetailPage,
   MatchLivePage,
@@ -317,9 +327,29 @@ export const router = createBrowserRouter([
             path: "my-sports", 
             element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
           },
-          { 
-            path: "register", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
+          {
+            path: "tournaments",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTournamentBrowse /></PermissionGuard>
+          },
+          {
+            path: "my-teams",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMyTeams /></PermissionGuard>
+          },
+          {
+            path: "badges",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
+          },
+          {
+            path: "my-auctions",
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG]} requiredModule="SPORTS"><SportsMyAuctions /></PermissionGuard>
+          },
+          {
+            path: "team-register/:eventId",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><TeamRegisterPage /></PermissionGuard>
+          },
+          {
+            path: "register",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard>
           },
           {
             path: "register/:eventUuid",

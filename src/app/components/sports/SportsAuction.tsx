@@ -40,6 +40,7 @@ import { SportsCricHeroesProfileCard } from "./SportsCricHeroesProfileCard";
 import { SportsPlayerComparisonModal } from "./SportsPlayerComparisonModal";
 import { SportsTeamBalanceRadar } from "./SportsTeamBalanceRadar";
 import { SportsPlayerProfileCard } from "./SportsPlayerProfileCard";
+import { SportsAuctionDiscovery } from "./SportsAuctionDiscovery";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -827,6 +828,15 @@ export function SportsAuction() {
               );
             })()}
 
+            <div className="flex gap-2 mb-3 sm:mb-4">
+              <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-auctions')}>
+                My Auctions &amp; Bids
+              </button>
+              <button className="btn btn-outline text-xs py-1.5 px-3 min-h-0" onClick={() => routerNavigate('/sports/my-teams')}>
+                My Teams
+              </button>
+            </div>
+
             <div className="grid3 mb-3 sm:mb-4">
               {auctionEvents.length > 0 ? auctionEvents.map(ev => {
                 // Find if an auction config exists for this event
@@ -888,6 +898,14 @@ export function SportsAuction() {
                   <div className="text-[11px] sm:text-xs mt-1">No auction sports events configured for your community yet.</div>
                 </div>
               )}
+            </div>
+
+            {/* Auction Discovery — browse all auctions with status tabs */}
+            <div className="card p-3.5 sm:p-5 mt-3 sm:mt-4">
+              <SportsAuctionDiscovery onSelectAuction={(configId) => {
+                setSelectedConfigId(configId);
+                nav('live');
+              }} />
             </div>
           </div>
         )}
@@ -2205,14 +2223,20 @@ export function SportsAuction() {
           </div>
         )}
 
-        {/* OTHER SPORTS (Placeholders) */}
+        {/* Other Sports — redirect to config */}
         {['badminton', 'football', 'volleyball'].includes(activeTab) && (
           <div className="page active">
             <div className="page-hdr">
-              <div><div className="page-title capitalize">{activeTab}</div><div className="page-sub">Configure auction rules</div></div>
+              <div><div className="page-title capitalize">{activeTab}</div><div className="page-sub">Auction for {activeTab}</div></div>
               {canEditAuctionConfig && <button className="btn btn-outline min-h-[44px] sm:min-h-0" onClick={() => nav('config')}>Setup Auction ↗</button>}
             </div>
-            <div className="card"><div className="text-center py-6 sm:py-[30px] text-[var(--muted)]">No auction configured for {activeTab} yet.</div></div>
+            <div className="card">
+              <div className="text-center py-6 sm:py-[30px] text-[var(--muted)]">
+                <div style={{ fontSize: 32, marginBottom: 8 }}>{activeTab === 'badminton' ? '🏸' : activeTab === 'football' ? '⚽' : '🏐'}</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No auction configured for {activeTab} yet</div>
+                {canEditAuctionConfig && <div style={{ fontSize: 12 }}>Use "Setup Auction" above to create one</div>}
+              </div>
+            </div>
           </div>
         )}
 

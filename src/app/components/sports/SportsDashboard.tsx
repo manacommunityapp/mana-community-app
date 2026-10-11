@@ -980,6 +980,55 @@ export function SportsDashboard() {
         )}
       </div>
 
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 sm:gap-2.5">
+        {[
+          { label: "Tournaments", emoji: "🏆", to: "/sports/tournaments", color: "#f59e0b" },
+          { label: "Live Scores", emoji: "📡", to: "/sports/schedule", color: "#ef4444" },
+          { label: "My Teams", emoji: "🛡️", to: "/sports/my-teams", color: "#6366f1" },
+          { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
+          { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
+          { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
+          { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
+          { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
+        ].map(action => (
+          <Link
+            key={action.label}
+            to={action.to}
+            className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] text-center no-underline"
+          >
+            <span className="text-lg sm:text-2xl">{action.emoji}</span>
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-600 leading-tight">{action.label}</span>
+          </Link>
+        ))}
+      </div>
+
+      {/* Community Challenges */}
+      <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            <span className="text-xs sm:text-sm font-bold text-amber-900">Community Challenges</span>
+          </div>
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            { title: "Most Matches Played", desc: "Play the most matches this season", icon: "🏅" },
+            { title: "Century Maker", desc: "Score 100+ runs in a single match", icon: "💯" },
+            { title: "Hat-Trick Hero", desc: "Take 3 wickets in consecutive balls", icon: "🎩" },
+          ].map(ch => (
+            <div key={ch.title} className="bg-white/80 rounded-lg p-2.5 border border-amber-100/60 opacity-75">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm">{ch.icon}</span>
+                <span className="text-[11px] font-bold text-slate-800">{ch.title}</span>
+              </div>
+              <div className="text-[10px] text-slate-500">{ch.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5">
         <div className="lg:col-span-2 space-y-3">

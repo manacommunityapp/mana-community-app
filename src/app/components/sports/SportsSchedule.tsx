@@ -428,6 +428,7 @@ export function SportsSchedule() {
   const [fixtureScore2, setFixtureScore2] = useState("");
   const [fixtureSearchQuery, setFixtureSearchQuery] = useState("");
   const [fixtureSportFilter, setFixtureSportFilter] = useState("All");
+  const [fixtureDateFilter, setFixtureDateFilter] = useState<string | null>(null);
 
   const [confirmGoLiveFixture, setConfirmGoLiveFixture] = useState<any | null>(null);
   const [showScoreModal, setShowScoreModal] = useState(false);
@@ -617,6 +618,16 @@ export function SportsSchedule() {
     setShowFixtureForm(false);
   };
 
+  const fixtureDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const f of fixturesList) {
+      if (f.date) {
+        try { dates.add(format(new Date(f.date), "yyyy-MM-dd")); } catch {}
+      }
+    }
+    return Array.from(dates).sort();
+  }, [fixturesList]);
+
   const filteredFixtures = useMemo(() => {
     return fixturesList.filter(f => {
       const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
@@ -626,9 +637,13 @@ export function SportsSchedule() {
       const matchesTournament = selectedTournamentId === null || f.name.includes(
         tournamentConfigs.find(c => c.id === selectedTournamentId)?.tournamentName || ""
       );
-      return matchesSearch && matchesSport && matchesStatus && matchesTournament;
+      let matchesDate = true;
+      if (fixtureDateFilter) {
+        try { matchesDate = format(new Date(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
+      }
+      return matchesSearch && matchesSport && matchesStatus && matchesTournament && matchesDate;
     });
-  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter, fixtureStatusFilter, selectedTournamentId, tournamentConfigs]);
+  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter, fixtureStatusFilter, selectedTournamentId, tournamentConfigs, fixtureDateFilter]);
 
   const sortedFixtures = useMemo(() => {
     const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
@@ -1483,6 +1498,40 @@ export function SportsSchedule() {
               );
             })}
           </div>
+
+          {/* Date Strip Navigation */}
+          {fixtureDates.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
+              <button
+                onClick={() => setFixtureDateFilter(null)}
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  fixtureDateFilter === null
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+                }`}
+              >
+                All Dates
+              </button>
+              {fixtureDates.map(d => {
+                const dt = new Date(d + "T00:00:00");
+                const isActive = fixtureDateFilter === d;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setFixtureDateFilter(isActive ? null : d)}
+                    className={`flex flex-col items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer min-w-[48px] ${
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+                    }`}
+                  >
+                    <span className="text-[9px] uppercase opacity-70">{format(dt, "EEE")}</span>
+                    <span className="font-bold">{format(dt, "d MMM")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Search and Actions Bar */}
           <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">

@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users } from "lucide-react";
+import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,
@@ -19,8 +20,11 @@ import {
 const sportsNav = [
   { to: "/sports", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/sports/my-sports", label: "My Sports", icon: Medal },
+  { to: "/sports/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/sports/schedule", label: "Schedule", icon: CalendarDays },
+  { to: "/sports/my-teams", label: "My Teams", icon: Shield },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
+  { to: "/sports/badges", label: "Badges", icon: Award },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -40,7 +44,13 @@ export function SportsLayout() {
         return hasPermission(VIEW_SPORTS_MAIN);
       case "My Sports":
         return hasPermission(VIEW_EVENT_REGISTRATIONS);
+      case "Tournaments":
+        return hasPermission(VIEW_SPORTS_MAIN);
       case "Schedule":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "My Teams":
+        return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
+      case "Badges":
         return hasPermission(VIEW_SPORTS_MAIN);
       case "Auction":
         return hasAnyPermission(
@@ -88,8 +98,9 @@ export function SportsLayout() {
           )}
         </div>
 
-        {/* Right: Page Header */}
+        {/* Right: Page Header + Notification Bell */}
         <div className="flex items-center gap-2.5">
+          <SportsNotificationBell />
           <div
             className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
