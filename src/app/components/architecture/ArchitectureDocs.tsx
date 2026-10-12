@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
-  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail,
+  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail, CreditCard,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/admin/schemaService";
 import { apiCatalogService, type ApiGroup } from "../../../services/admin/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
 import { EmailTemplatesTab } from "../admin/EmailTemplatesTab";
 
-export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring" | "email";
+export type ArchTab = "overview" | "database" | "apis" | "payments" | "websocket" | "folders" | "security" | "monitoring" | "email";
 
 const FALLBACK_TABLES: DbTableSchema[] = [
   { name: "community",                     columns: ["id","name","type","invite_code","city","state","area","subtype","created_at"] },
@@ -50,6 +50,17 @@ const FALLBACK_TABLES: DbTableSchema[] = [
   { name: "chat_message",                columns: ["id","conversation_id","sender_id","type","content","created_at"] },
   { name: "audit_log",                    columns: ["id","user_id","action","module","resource_type","resource_id","old_value","new_value","ip_address","correlation_id","created_at"] },
   { name: "user_sessions",               columns: ["id","user_id","device","browser","ip_address","login_time","logout_time","status"] },
+  // ── Mana Pay Shared Payment Infrastructure & Rewards Tables ──
+  { name: "payment_order",               columns: ["id","order_ref","domain_source","reference_type","reference_id","payer_user_id","community_id","amount","currency","status","idempotency_key","description","created_at"] },
+  { name: "payment_attempt",             columns: ["id","payment_order_id","attempt_sequence","provider","provider_order_id","payment_method","status","error_code","attempted_at"] },
+  { name: "payment_transaction",         columns: ["id","payment_order_id","payment_attempt_id","provider","gateway_payment_id","gateway_signature","signature_verified","amount_captured","fee_deducted","captured_at"] },
+  { name: "payment_refund",              columns: ["id","payment_transaction_id","refund_ref","gateway_refund_id","amount","reason","status","processed_at"] },
+  { name: "payment_webhook_event",        columns: ["id","provider","event_id","event_type","payload_json","processed","processed_at","received_at"] },
+  { name: "payment_reconciliation",       columns: ["id","batch_ref","gateway_order_id","gateway_payment_id","gateway_amount","internal_amount","status","discrepancy_reason","reconciled_at"] },
+  { name: "payment_receipt",             columns: ["id","payment_transaction_id","receipt_number","taxable_amount","cgst","sgst","igst","total_amount","pdf_storage_url","issued_at"] },
+  { name: "payment_mandate",             columns: ["id","mandate_ref","payer_user_id","provider","account_ref_mask","bank_name","max_amount_cap","frequency","status","pre_debit_hours","auth_method","authorized_at","expires_at"] },
+  { name: "reward_account",              columns: ["id","user_id","community_id","current_points","lifetime_earned","lifetime_redeemed","tier","updated_at"] },
+  { name: "reward_ledger_entry",         columns: ["id","reward_account_id","entry_type","points","payment_transaction_id","reference_type","reference_id","narration","created_at"] },
 ];
 
 const WS_DESIGN = `/* ── WebSocket Architecture ────────────────────────────
@@ -389,8 +400,200 @@ function HLArchitecture() {
   );
 }
 
+function ManaPayArchitectureView() {
+  const domains = [
+    {
+      domain: "Mana Pay Core",
+      color: "border-indigo-200 bg-indigo-50/70 text-indigo-900",
+      badge: "Shared Infrastructure",
+      capabilities: [
+        "Universal Checkout Modal (UPI Intent, QR, Card, NetBanking, Rewards)",
+        "Provider Adapter Layer (Razorpay, Cashfree, UPI AutoPay, e-NACH)",
+        "Signature & Webhook Ingestion with HMAC-SHA256 non-repudiation",
+        "Automated Multi-Rail Reconciliation Engine & Settlement Batches",
+        "Idempotency Key Enforcement across all payment orders",
+      ],
+    },
+    {
+      domain: "Community Finance",
+      color: "border-emerald-200 bg-emerald-50/70 text-emerald-900",
+      badge: "Business Domain",
+      capabilities: [
+        "Monthly Maintenance Billing & Sinking Fund dues",
+        "Admin Recurring Invoices & Configurable Late Fees / Grace Periods",
+        "Vendor Advance / Payout settlement tracking",
+        "Automated PDF Invoices, Itemized Charges & GST Receipts",
+      ],
+    },
+    {
+      domain: "My Money",
+      color: "border-sky-200 bg-sky-50/70 text-sky-900",
+      badge: "Business Domain",
+      capabilities: [
+        "Personal Accounts, Income & Recurring Expense Tracking",
+        "CRED & PhonePe inspired Bill Due-Date & Calendar Reminders",
+        "NPCI e-Mandate & UPI AutoPay Registration with 48h Pre-Debit Notices",
+        "Advance Resident Wallet & Auto Top-up mandates",
+      ],
+    },
+    {
+      domain: "Mana Trips & Marketplace",
+      color: "border-amber-200 bg-amber-50/70 text-amber-900",
+      badge: "Business Domain",
+      capabilities: [
+        "Group Excursion & Trip expense splitting & settlement",
+        "Classifieds / Marketplace orders & seller escrow payout",
+        "Event Passes & Cultural Festival ticket sales",
+        "Facility & Clubhouse booking deposits with refund orchestration",
+      ],
+    },
+  ];
+
+  const tables = [
+    { name: "payment_order", desc: "Canonical parent order tracking amount, domain, reference, idempotency key, and status." },
+    { name: "payment_attempt", desc: "Per-rail gateway checkout attempt log (UPI, Card, NetBanking) with error codes." },
+    { name: "payment_transaction", desc: "Verified captured transactions with provider payment ID and HMAC signature." },
+    { name: "payment_refund", desc: "Tracks full/partial refund lifecycle without altering transaction ledger." },
+    { name: "payment_webhook_event", desc: "Deduplicated idempotent webhook payload storage." },
+    { name: "payment_reconciliation", desc: "Multi-rail discrepancy engine matching gateway settlements vs internal records." },
+    { name: "payment_receipt", desc: "Official GST tax breakdown (CGST, SGST, IGST) and signed PDF URLs." },
+    { name: "payment_mandate", desc: "NPCI e-Mandate & UPI AutoPay registry with frequency, caps, and pre-debit rules." },
+    { name: "reward_account", desc: "Loyalty point balance per resident with tier status (Silver, Gold, Platinum)." },
+    { name: "reward_ledger_entry", desc: "Append-only immutable audit trail for points earned, redeemed, or expired." },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Topology Header */}
+      <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl border border-indigo-500/20 p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold">
+            <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
+            Financial Architecture
+          </div>
+          <h3 className="text-xl font-bold">Shared Payment Infrastructure vs Domain Segregation</h3>
+          <p className="text-sm text-indigo-200/80 max-w-3xl leading-relaxed">
+            Mana Pay isolates payment processing, provider adapters (Razorpay / Cashfree / NPCI), signature verification, and reconciliation into a single high-availability shared core. Individual business domains (Community Finance, My Money, Trips, Marketplace) interact strictly via immutable canonical orders and webhooks.
+          </p>
+        </div>
+      </div>
+
+      {/* Domain Topology Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {domains.map((d) => (
+          <div key={d.domain} className={`rounded-2xl border p-5 bg-white shadow-sm space-y-3`}>
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h4 className="text-sm font-bold text-gray-900">{d.domain}</h4>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.color}`}>
+                {d.badge}
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {d.capabilities.map((c, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">✓</span>
+                  <span>{c}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* Relational Payment Schema */}
+      <div className="bg-white rounded-2xl border p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div>
+            <h4 className="text-sm font-bold text-gray-900">Canonical Payment Data Model (10 Tables)</h4>
+            <p className="text-xs text-gray-500">Fully compliant with RBI e-mandate guidelines, GST invoicing, and financial reconciliation.</p>
+          </div>
+          <span className="text-xs font-mono font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
+            ACID Ledger Compliant
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {tables.map((t) => (
+            <div key={t.name} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-1">
+              <code className="text-xs font-mono font-bold text-indigo-700">{t.name}</code>
+              <p className="text-xs text-gray-600 leading-relaxed">{t.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Scope Boundaries & Regulatory Guardrails: What NOT to build initially */}
+      <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-rose-950">V1 Scope Boundaries & Regulatory Guardrails</h4>
+            <p className="text-xs text-rose-800">
+              High-complexity, heavily regulated features strictly excluded from the initial release to ensure legal compliance, security, and low operational overhead.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          {[
+            {
+              title: "Proprietary UPI / Switch Network",
+              desc: "Do not build a direct UPI switch, IMPS host, or custom bank-transfer rail. Delegate to licensed Payment Aggregators (Razorpay, Cashfree, NPCI-approved UPI AutoPay).",
+              risk: "Huge compliance cost & NPCI TPAP certification overhead",
+            },
+            {
+              title: "Stored-Value PPI Wallet",
+              desc: "Do not operate an escrow or stored-value resident wallet without RBI Prepaid Payment Instrument (PPI) authorization. Resident advance balances are ledger offsets only.",
+              risk: "RBI PPI Licensing & Capital requirements",
+            },
+            {
+              title: "Lending, Credit Cards or BNPL",
+              desc: "Do not issue credit cards, overdrafts, or credit lines. Mana is an orchestration and community management platform, not an NBFC or credit institution.",
+              risk: "RBI Digital Lending Guidelines & capital reserve mandates",
+            },
+            {
+              title: "Unapproved Pooled Bank Accounts",
+              desc: "Never hold community or vendor funds in an unauthorized intermediary account. All transactions settle directly from resident to RWA/Vendor accounts via PA nodal accounts.",
+              risk: "Money laundering & regulatory nodal account violations",
+            },
+            {
+              title: "Unregulated Investments or Insurance",
+              desc: "Avoid offering micro-investments, community chit funds, or insurance policies without licensed SEBI/IRDAI regulated partners.",
+              risk: "SEBI & IRDAI compliance restrictions",
+            },
+            {
+              title: "Unconsented Bank Aggregation",
+              desc: "Avoid automated bank statement scraping or auto-linking without user consent and an official RBI Account Aggregator (AA) framework partner.",
+              risk: "Data privacy & DPDP Act compliance",
+            },
+            {
+              title: "Cash-Exchangeable Reward Points",
+              desc: "Reward points must strictly serve as community engagement offsets/discounts, never directly redeemable or convertible to INR cash payouts.",
+              risk: "Income Tax (TDS u/s 194R), gaming regulations & accounting complexities",
+            },
+          ].map((item, idx) => (
+            <div key={idx} className="bg-white rounded-xl border border-rose-100 p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">✕</span>
+                <span className="text-xs font-bold text-gray-900">{item.title}</span>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed">{item.desc}</p>
+              <div className="text-[10px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded inline-block">
+                Reason: {item.risk}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const tabDefs: { id: ArchTab; label: string; icon: React.ElementType }[] = [
   { id: "overview",   label: "Architecture",  icon: Layers },
+  { id: "payments",   label: "Mana Pay & Finance", icon: CreditCard },
   { id: "database",   label: "ER Diagram",    icon: Database },
   { id: "apis",       label: "REST APIs",     icon: Globe },
   { id: "websocket",  label: "WebSocket",     icon: Activity },
@@ -405,6 +608,7 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
   return (
     <div>
       {tab === "overview"   && <HLArchitecture />}
+      {tab === "payments"   && <ManaPayArchitectureView />}
       {tab === "database"   && <ERDiagram />}
       {tab === "apis"       && <LiveApiAccordion />}
       {tab === "websocket"  && <CodeBlock code={WS_DESIGN} lang="websocket-design" />}

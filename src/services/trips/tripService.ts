@@ -355,6 +355,12 @@ function saveStoredBookings(bookings: TripBooking[]) {
   } catch {}
 }
 
+let idCounter = 0;
+function generateUniqueId(prefix: string): string {
+  idCounter += 1;
+  return `${prefix}-${Date.now()}-${idCounter}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
 export const tripService = {
   getTrips(category?: string): Trip[] {
     const trips = getStoredTrips();
@@ -372,7 +378,7 @@ export const tripService = {
   ): Trip {
     const newTrip: Trip = {
       ...payload,
-      id: `trip-${Date.now().toString().slice(-4)}`,
+      id: generateUniqueId("trip"),
       bookedSeats: 0,
       waitlistCount: 0,
       hostId: payload.hostId || hostUser?.id || "user-host",
@@ -422,7 +428,7 @@ export const tripService = {
     saveStoredTrips(trips);
 
     const booking: TripBooking = {
-      id: `bk-${Date.now().toString().slice(-6)}`,
+      id: generateUniqueId("bk"),
       tripId,
       tripTitle: trip.title,
       destination: trip.destination,

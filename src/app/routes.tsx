@@ -62,6 +62,8 @@ import { InvoicesDashboard } from "./components/finance/InvoicesDashboard";
 import { BudgetDashboard } from "./components/finance/BudgetDashboard";
 import { FinancialReports } from "./components/finance/FinancialReports";
 import { LedgerFinance } from "./components/finance/LedgerFinance";
+import { MyMoneyDashboard } from "./components/finance/personal/MyMoneyDashboard";
+import { ManaSplitHub } from "./components/split/ManaSplitHub";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -69,6 +71,7 @@ import { AdminVenues } from "./components/admin/AdminVenues";
 import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { LogsDashboard } from "./components/admin/LogsDashboard";
+import { PlatformOperationsConsole } from "./components/admin/PlatformOperationsConsole";
 import { AuditTrail } from "./components/admin/AuditTrail";
 import { EmailTemplateBuilder } from "./components/admin/EmailTemplateBuilder";
 import { EmailTemplatesTab } from "./components/admin/EmailTemplatesTab";
@@ -145,6 +148,7 @@ import { MyPayments } from "./components/vendor/portal/MyPayments";
 import { MyDocuments } from "./components/vendor/portal/MyDocuments";
 import { MyRatings } from "./components/vendor/portal/MyRatings";
 import { VendorProfile } from "./components/vendor/portal/VendorProfile";
+import { VendorMerchantPayments } from "./components/vendor/portal/VendorMerchantPayments";
 import { VendorProductCatalog } from "./components/vendor/portal/VendorProductCatalog";
 import { VendorInventoryLedger } from "./components/vendor/portal/VendorInventoryLedger";
 import { VendorGroupBuying } from "./components/vendor/portal/VendorGroupBuying";
@@ -216,8 +220,12 @@ import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashb
 import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
 import { MaintenanceDues } from "./components/finance/MaintenanceDues";
 import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
+import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
 import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
+import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
 import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
+import { HealthPortal } from "../pages/health/HealthPortal";
+import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // Mana Academy
 import { AcademyLayout } from "./components/academy/AcademyLayout";
@@ -547,7 +555,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "helpdesk",
-        element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><Helpdesk /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard>
       },
       {
         path: "polls",
@@ -653,6 +661,7 @@ export const router = createBrowserRouter([
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
           { path: "payments", Component: MyPayments },
+          { path: "merchant-payments", Component: VendorMerchantPayments },
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
           { path: "profile", Component: VendorProfile },
@@ -762,6 +771,14 @@ export const router = createBrowserRouter([
         path: "architecture/logs",
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
+      {
+        path: "architecture/operations",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PlatformOperationsConsole /></PermissionGuard>
+      },
+      {
+        path: "admin/operations",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PlatformOperationsConsole /></PermissionGuard>
+      },
       // ── CPOS (Community Property Operating System) Routes ─────────
       
       // ── Access & Biometric Turnstiles ───────────────────────────
@@ -795,8 +812,18 @@ export const router = createBrowserRouter([
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
       { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
       { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
+      { path: "finance/bills", element: <BillsAndAutopayDashboard /> },
+      { path: "bills", element: <BillsAndAutopayDashboard /> },
+      { path: "pay", element: <ManaPayHub /> },
+      { path: "payments", element: <ManaPayHub /> },
+      { path: "my-money", element: <MyMoneyDashboard /> },
+      { path: "split", element: <ManaSplitHub /> },
+      { path: "split/:groupId", element: <ManaSplitHub /> },
       { path: "safety", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><SafetyCommandCenter /></PermissionGuard> },
+      { path: "safety/trust", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
+      { path: "admin/trust-safety", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]} requiredModule="ADMIN_HUB"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
+      { path: "health", element: <HealthPortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
       {
         path: "academy",

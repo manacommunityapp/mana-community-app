@@ -18,6 +18,7 @@ import {
   XCircle,
   TrendingUp,
   Activity,
+  Server,
   AlertCircle,
   RefreshCw,
   ArrowRight,
@@ -58,6 +59,7 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { AdminAccessManagement } from "./AdminAccessManagement";
 import { SmartDashboard } from "../commons/SmartDashboard";
 import { LogsDashboard } from "./LogsDashboard";
+import { PlatformOperationsConsole } from "./PlatformOperationsConsole";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
 import { EmailTemplatesTab } from "./EmailTemplatesTab";
@@ -100,6 +102,7 @@ const TAB_ITEMS = [
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
+  { id: "operations", label: "Platform Ops", icon: Server },
   { id: "privacy", label: "Privacy & Retention", icon: Shield },
 ] as const;
 
@@ -929,6 +932,7 @@ export function AdminHub() {
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
+        {activeTab === "operations" && <PlatformOperationsConsole />}
         {activeTab === "privacy" && <PrivacyAdminHub />}
       </div>
     </div>

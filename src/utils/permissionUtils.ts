@@ -47,6 +47,7 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
   { pathPrefix: "/visitor-passes", module: "VISITORS", methods: ["GET"], anyPermissions: [VIEW_VISITORS] },
 
   // Resource Booking
+  { pathPrefix: "/resource-booking", module: "BOOKINGS", methods: ["GET"], anyPermissions: [VIEW_RESOURCE_BOOKING, VIEW_AMENITIES] },
   { pathPrefix: "/bookings", module: "BOOKINGS", methods: ["GET"], anyPermissions: [VIEW_RESOURCE_BOOKING, VIEW_AMENITIES] },
   { pathPrefix: "/resources", module: "BOOKINGS", methods: ["GET"], anyPermissions: [VIEW_RESOURCE_BOOKING, VIEW_AMENITIES] },
 

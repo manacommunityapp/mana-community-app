@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car, PieChart, CalendarClock } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -102,7 +102,7 @@ function UserProfileMenu({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex items-center gap-1.5 sm:gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-lg border border-border/80 bg-card hover:bg-muted/60 hover:border-primary/30 transition-all shadow-xs cursor-pointer active:scale-95 group select-none"
+        className="flex items-center gap-1.5 sm:gap-2 pl-1 pr-1.5 sm:pr-2.5 py-1 rounded-xl border border-[#EBEFF2] bg-white hover:bg-[#F9FAFC] hover:border-[#A7F3D0] transition-all shadow-xs cursor-pointer active:scale-95 group select-none"
         title="Profile & Account Menu"
         aria-expanded={open}
       >
@@ -110,7 +110,7 @@ function UserProfileMenu({
           <img
             src={userAvatar}
             alt={user?.fullName ?? "Profile"}
-            className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
+            className="h-6.5 w-6.5 rounded-lg object-cover ring-1 ring-[#EBEFF2] group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0"
             onError={(e) => {
               const currentSrc = e.currentTarget.src;
               if (currentSrc && !currentSrc.includes("/api/files/")) {
@@ -124,31 +124,31 @@ function UserProfileMenu({
             }}
           />
         ) : (
-          <div className="h-6 w-6 sm:h-6.5 sm:w-6.5 rounded-md flex items-center justify-center text-primary-foreground text-[10px] font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
+          <div className="h-6.5 w-6.5 rounded-lg flex items-center justify-center text-white text-[10px] font-black bg-[#00D09C] shadow-xs group-hover:ring-2 group-hover:ring-[#00D09C]/30 transition-all shrink-0">
             {initials}
           </div>
         )}
-        <span className="hidden sm:block text-xs font-bold text-foreground max-w-[85px] truncate">
+        <span className="hidden sm:block text-xs font-semibold text-[#44475B] max-w-[85px] truncate">
           {firstName}
         </span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 text-muted-foreground transition-transform duration-200 shrink-0",
-            open && "rotate-180 text-foreground"
+            "h-3 w-3 text-[#7C7E8C] transition-transform duration-200 shrink-0",
+            open && "rotate-180 text-[#00D09C]"
           )}
         />
       </button>
 
       {/* Merged Dropdown Menu */}
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-60 sm:w-64 max-w-[calc(100vw-1.5rem)] bg-card/95 backdrop-blur-md border border-border/80 rounded-xl shadow-xl shadow-black/10 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
-          {/* User Info Header */}
-          <div className="p-2.5 bg-gradient-to-b from-muted/50 to-muted/20 border-b border-border/60 flex items-center gap-2.5">
+        <div className="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white border border-[#EBEFF2] rounded-2xl shadow-xl shadow-slate-900/10 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+          {/* User Info Header with Groww Emerald Badge */}
+          <div className="p-3 bg-gradient-to-b from-[#F9FAFC] to-white border-b border-[#EBEFF2] flex items-center gap-3">
             {userAvatar ? (
               <img
                 src={userAvatar}
                 alt={user?.fullName ?? "Profile"}
-                className="h-8 w-8 rounded-lg object-cover ring-1 ring-border/80 shadow-2xs shrink-0"
+                className="h-9 w-9 rounded-xl object-cover ring-1 ring-[#EBEFF2] shadow-2xs shrink-0"
                 onError={(e) => {
                   const currentSrc = e.currentTarget.src;
                   if (currentSrc && !currentSrc.includes("/api/files/")) {
@@ -162,19 +162,19 @@ function UserProfileMenu({
                 }}
               />
             ) : (
-              <div className="h-8 w-8 rounded-lg flex items-center justify-center text-primary-foreground text-xs font-black bg-primary shadow-2xs shrink-0">
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black bg-[#00D09C] shadow-2xs shrink-0">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-foreground truncate leading-tight">{user?.fullName ?? "Community Member"}</p>
-              <p className="text-[10px] text-muted-foreground truncate leading-tight font-mono mt-0.5">{user?.email || "user@community.org"}</p>
+              <p className="text-xs font-bold text-[#44475B] truncate leading-tight">{user?.fullName ?? "Community Member"}</p>
+              <p className="text-[10px] text-[#7C7E8C] truncate leading-tight font-mono mt-0.5">{user?.email || "user@community.org"}</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide uppercase bg-primary/10 text-primary border border-primary/20 leading-none">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wide uppercase bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0] leading-none">
                   {roleLabel}
                 </span>
                 {(user?.flatNo || user?.block) && (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-muted/80 text-muted-foreground border border-border/60 leading-none truncate">
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-[#F1F4F7] text-[#7C7E8C] border border-[#EBEFF2] leading-none truncate">
                     Flat {user?.block ? `${user.block}-` : ""}{user?.flatNo}
                   </span>
                 )}
@@ -183,22 +183,22 @@ function UserProfileMenu({
           </div>
 
           {/* Quick Actions Links */}
-          <div className="p-1 space-y-0.5 text-xs">
+          <div className="p-1.5 space-y-0.5 text-xs">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 navigate("/profile");
               }}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-[#44475B] hover:text-[#008767] hover:bg-[#E6FAF5]/60 transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 rounded-md bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-6.5 w-6.5 rounded-lg bg-[#EEF2FF] text-[#5367FF] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <UserCircle className="h-3.5 w-3.5" />
                 </div>
                 <span className="truncate">My Profile &amp; Settings</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="h-3 w-3 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             <button
@@ -207,15 +207,15 @@ function UserProfileMenu({
                 setOpen(false);
                 navigate("/events");
               }}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-[#44475B] hover:text-[#008767] hover:bg-[#E6FAF5]/60 transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 rounded-md bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-6.5 w-6.5 rounded-lg bg-[#FFFBEB] text-[#FFB800] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <CalendarDays className="h-3.5 w-3.5" />
                 </div>
-                <span className="truncate">Events &amp; My Passes</span>
+                <span className="truncate">Events &amp; Passes</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="h-3 w-3 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             <button
@@ -224,15 +224,15 @@ function UserProfileMenu({
                 setOpen(false);
                 navigate("/sports");
               }}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-[#44475B] hover:text-[#008767] hover:bg-[#E6FAF5]/60 transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 rounded-md bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-6.5 w-6.5 rounded-lg bg-[#E6FAF5] text-[#008767] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <Trophy className="h-3.5 w-3.5" />
                 </div>
                 <span className="truncate">Sports &amp; Tournaments</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="h-3 w-3 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
 
             {isAnyAdmin && (
@@ -242,15 +242,15 @@ function UserProfileMenu({
                   setOpen(false);
                   navigate("/admin");
                 }}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-[#44475B] hover:text-[#008767] hover:bg-[#E6FAF5]/60 transition-all cursor-pointer group text-left"
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-6 w-6 rounded-md bg-violet-500/10 text-violet-500 flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-6.5 w-6.5 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </div>
                   <span className="truncate">Admin Hub</span>
                 </div>
-                <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+                <ChevronRight className="h-3 w-3 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
               </button>
             )}
 
@@ -260,35 +260,35 @@ function UserProfileMenu({
                 setOpen(false);
                 setShowPrivacyModal(true);
               }}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-foreground/90 hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer group text-left"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-[#44475B] hover:text-[#008767] hover:bg-[#E6FAF5]/60 transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 rounded-md bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-6.5 w-6.5 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                   <Lock className="h-3.5 w-3.5" />
                 </div>
                 <span className="truncate">Privacy &amp; Data Policy</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-muted-foreground/30 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="h-3 w-3 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
           </div>
 
           {/* Logout Action Footer */}
-          <div className="p-1 border-t border-border/60 bg-muted/20">
+          <div className="p-1.5 border-t border-[#EBEFF2] bg-[#F9FAFC]">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 onLogout();
               }}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-destructive hover:bg-destructive/10 transition-all cursor-pointer text-left group"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold text-[#DC2626] hover:bg-[#FEEFEF] transition-all cursor-pointer text-left group"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-6 w-6 rounded-md bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-6.5 w-6.5 rounded-lg bg-[#FEEFEF] text-[#DC2626] flex items-center justify-center shrink-0">
                   <LogOut className="h-3.5 w-3.5" />
                 </div>
                 <span className="truncate">Sign Out</span>
               </div>
-              <ChevronRight className="h-3 w-3 text-destructive/40 group-hover:text-destructive group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ChevronRight className="h-3 w-3 text-[#DC2626]/40 group-hover:text-[#DC2626] group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
           </div>
         </div>
@@ -371,6 +371,7 @@ export function Layout() {
     "Community Feed": "COMMUNITY_FEED",
     "Mana Deals": "COMMUNITY_OFFERS",
     "Mana Academy": "ACADEMY",
+    "Mana Health": "HEALTH",
     "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
     "Group Buying": "GROUP_BUYING",
@@ -408,29 +409,72 @@ export function Layout() {
     setIsMobileSidebarOpen(false);
   };
 
-  const navLinks = [
-    { to: "/", icon: Users, label: "Community Feed" },
-    { to: "/safety", icon: ShieldCheck, label: "Safety & Security" },
-    { to: "/deals", icon: Tag, label: "Mana Deals" },
-    { to: "/academy", icon: GraduationCap, label: "Mana Academy" },
-    { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS" },
-    { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
-    { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
-    { to: "/trips", icon: Compass, label: "Community Trips" },
-    { to: "/discover", icon: Sparkles, label: "Community Discover" },
-    { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
-    { to: "/pets", icon: Heart, label: "Pet Registry" },
-    { to: "/cpn", icon: Sparkles, label: "Professional Network" },
-    { to: "/sports", icon: Trophy, label: "Sports" },
-    { to: "/marketplace", icon: Store, label: "Marketplace" },
-    { to: "/visitors", icon: Shield, label: "Visitors" },
-    { to: "/notices", icon: Megaphone, label: "Notices" },
-    { to: "/bookings", icon: Building2, label: "Bookings" },
-    { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
-    { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
-    { to: "/polls", icon: Vote, label: "Polls" },
-    { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
-    { to: "/events", icon: CalendarDays, label: "Events" },
+  interface NavItem {
+    to: string;
+    icon: any;
+    label: string;
+    badge?: string;
+  }
+
+  interface NavSection {
+    id: string;
+    title: string;
+    items: NavItem[];
+  }
+
+  const navSections: NavSection[] = [
+    {
+      id: "core",
+      title: "Core & Safety",
+      items: [
+        { to: "/", icon: Users, label: "Community Feed" },
+        { to: "/safety", icon: ShieldCheck, label: "Safety & Security" },
+        { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS", badge: "24/7" },
+      ],
+    },
+    {
+      id: "living",
+      title: "Living & Facilities",
+      items: [
+        { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI" },
+        { to: "/bookings", icon: Building2, label: "Bookings" },
+        { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
+        { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
+        { to: "/finance/bills", icon: CalendarClock, label: "Bills & Autopay", badge: "CRED" },
+        { to: "/my-money", icon: Wallet, label: "My Money" },
+        { to: "/parking", icon: Car, label: "Parking & Vehicles" },
+        { to: "/notices", icon: Megaphone, label: "Notices" },
+        { to: "/visitors", icon: Shield, label: "Visitors" },
+      ],
+    },
+    {
+      id: "social",
+      title: "Community & Lifestyle",
+      items: [
+        { to: "/discover", icon: Sparkles, label: "Community Discover" },
+        { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New" },
+        { to: "/sports", icon: Trophy, label: "Sports" },
+        { to: "/events", icon: CalendarDays, label: "Events" },
+        { to: "/trips", icon: Compass, label: "Community Trips" },
+        { to: "/split", icon: PieChart, label: "Mana Split", badge: "New" },
+        { to: "/pets", icon: Heart, label: "Pet Registry" },
+        { to: "/polls", icon: Vote, label: "Polls" },
+      ],
+    },
+    {
+      id: "commerce",
+      title: "Commerce & Network",
+      items: [
+        { to: "/deals", icon: Tag, label: "Mana Deals" },
+        { to: "/academy", icon: GraduationCap, label: "Mana Academy" },
+        { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
+        { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
+        { to: "/marketplace", icon: Store, label: "Marketplace" },
+        { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
+        { to: "/cpn", icon: Sparkles, label: "Professional Network" },
+        { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
+      ],
+    },
   ];
 
   const adminLinks = [
@@ -438,42 +482,50 @@ export function Layout() {
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 
-  const filteredNavLinks = navLinks.filter((link) => {
-    // Only super admin has access to everything without permissions
+  const isLinkVisible = (label: string) => {
     if (isSuperAdmin) return true;
     if (loadingPermissions) return true;
 
-    const moduleKey = labelToModule[link.label];
+    const moduleKey = labelToModule[label];
     if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
 
-    if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
-    if (link.label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
-    if (link.label === "Mana Deals") return true; // Accessible to all authenticated community members
-    if (link.label === "Mana Academy") return true; // Accessible to all authenticated community members
-    if (link.label === "Governance & Decisions") return true; // Accessible to all authenticated community members
-    if (link.label === "Pet Registry") return true; // Accessible to all authenticated community members
-    if (link.label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
-    if (link.label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
-    if (link.label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
-    if (link.label === "Community Trips") return permissions.includes(VIEW_TRIPS);
-    if (link.label === "Community Discover") return permissions.includes(VIEW_DISCOVER);
-    if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
-    if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
-    if (link.label === "Visitors") return permissions.includes(VIEW_VISITORS);
-    if (link.label === "Notices") return permissions.includes(VIEW_NOTICES);
-    if (link.label === "Bookings") return permissions.includes(VIEW_AMENITIES);
-    if (link.label === "Helpdesk" || link.label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
-    if (link.label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
-    if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
-    if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
-    if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
-    if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
+    if (label === "Community Feed") return permissions.includes(VIEW_FEED);
+    if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
+    if (label === "Mana Deals") return true;
+    if (label === "Mana Academy") return true;
+    if (label === "Mana Health") return true;
+    if (label === "Governance & Decisions") return true;
+    if (label === "Pet Registry") return true;
+    if (label === "Mana Pay") return true;
+    if (label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
+    if (label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
+    if (label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
+    if (label === "Community Trips") return permissions.includes(VIEW_TRIPS);
+    if (label === "Community Discover") return permissions.includes(VIEW_DISCOVER);
+    if (label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
+    if (label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
+    if (label === "Visitors") return permissions.includes(VIEW_VISITORS);
+    if (label === "Notices") return permissions.includes(VIEW_NOTICES);
+    if (label === "Bookings") return permissions.includes(VIEW_AMENITIES);
+    if (label === "Helpdesk" || label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
+    if (label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
+    if (label === "Polls") return permissions.includes(VIEW_POLLS);
+    if (label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
+    if (label === "Professional Network") return permissions.includes(VIEW_JOBS);
+    if (label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
     return false;
-  });
+  };
+
+  const filteredSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => isLinkVisible(item.label)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   const filteredAdminLinks = adminLinks.filter((link) => {
     if (isSuperAdmin) return true;
-    if (loadingPermissions) return isAdmin; // default while loading
+    if (loadingPermissions) return isAdmin;
     return permissions.includes(VIEW_ADMIN);
   });
 
@@ -518,22 +570,27 @@ export function Layout() {
             {/* Header: App Logo & Collapse Action */}
             <div
               className={cn(
-                "h-12 flex items-center border-b border-sidebar-border shrink-0 transition-all",
-                isSidebarCollapsed ? "justify-between px-3 lg:justify-center lg:px-2" : "justify-between px-3"
+                "h-14 flex items-center border-b border-white/10 shrink-0 transition-all",
+                isSidebarCollapsed ? "justify-between px-3 lg:justify-center lg:px-2" : "justify-between px-3.5"
               )}
             >
               <Link
                 to="/"
                 onClick={handleNavClick}
-                className="flex items-center gap-2.5 hover:opacity-90 transition-opacity min-w-0"
+                className="flex items-center gap-2.5 hover:opacity-95 transition-opacity min-w-0 group"
                 title="Mana Community"
               >
-                <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
-                  <Zap className="h-4 w-4 text-white animate-pulse" />
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#00D09C] shadow-md shadow-[#00D09C]/25 group-hover:scale-105 transition-transform">
+                  <Zap className="h-4.5 w-4.5 text-white" />
                 </div>
-                <span className={cn("font-black text-white tracking-tight text-sm truncate", isSidebarCollapsed && "lg:hidden")}>
-                  Mana Community
-                </span>
+                <div className={cn("min-w-0 flex flex-col", isSidebarCollapsed && "lg:hidden")}>
+                  <span className="font-extrabold text-white tracking-tight text-sm truncate leading-tight">
+                    Mana Community
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+                    Super App
+                  </span>
+                </div>
               </Link>
 
               {/* Mobile Close X button */}
@@ -551,7 +608,9 @@ export function Layout() {
             <div
               className={cn(
                 "my-2 shrink-0 transition-all",
-                isSidebarCollapsed ? "mx-2.5 rounded-xl p-1.5 border border-sidebar-border bg-sidebar-accent/30 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center" : "mx-2.5 rounded-xl p-2 border border-sidebar-border bg-sidebar-accent/30"
+                isSidebarCollapsed
+                  ? "mx-2 rounded-xl p-1 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center"
+                  : "mx-3 rounded-2xl p-2.5 border border-white/10 bg-slate-800/50 backdrop-blur-xs"
               )}
             >
               {/* On Desktop Collapsed: Avatar only */}
@@ -564,42 +623,42 @@ export function Layout() {
                   <img
                     src={userAvatar}
                     alt={displayName}
-                    className="h-8 w-8 rounded-lg object-cover border border-sidebar-border shadow-2xs group-hover:scale-105 transition-transform"
+                    className="h-8.5 w-8.5 rounded-xl object-cover ring-1 ring-white/20 shadow-2xs group-hover:scale-105 transition-transform"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary shadow-2xs group-hover:scale-105 transition-transform">
+                  <div className="h-8.5 w-8.5 rounded-xl flex items-center justify-center text-white text-xs font-black bg-[#00D09C] shadow-2xs group-hover:scale-105 transition-transform">
                     {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
                   </div>
                 )}
               </div>
 
               {/* On Desktop Expanded & Mobile Drawer: Full user info card */}
-              <div className={cn("flex items-center gap-2", isSidebarCollapsed && "lg:hidden")}>
+              <div className={cn("flex items-center gap-2.5", isSidebarCollapsed && "lg:hidden")}>
                 {userAvatar ? (
                   <img
                     src={userAvatar}
                     alt={displayName}
-                    className="h-8 w-8 rounded-lg object-cover flex-shrink-0 border border-sidebar-border shadow-2xs"
+                    className="h-9 w-9 rounded-xl object-cover flex-shrink-0 ring-1 ring-white/20 shadow-2xs"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary shadow-2xs">
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-[#00D09C] shadow-2xs">
                     {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
                   </div>
                 )}
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-xs font-bold text-white/95 truncate leading-tight">{displayName}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/20 text-primary-200 border border-primary/30 uppercase tracking-wide leading-none">
+                  <p className="text-xs font-bold text-white truncate leading-tight">{displayName}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-[#00D09C]/20 text-[#A7F3D0] border border-[#00D09C]/30 uppercase tracking-wide leading-none">
                       {roleLabel}
                     </span>
                     {(user?.flatNo || user?.block) && (
-                      <span className="text-[9px] text-white/50 font-medium truncate leading-none">
+                      <span className="text-[9px] text-slate-400 font-medium truncate leading-none">
                         Flat {user?.block ? `${user.block}-` : ""}{user?.flatNo}
                       </span>
                     )}
@@ -615,47 +674,74 @@ export function Layout() {
                 isSidebarCollapsed ? "px-3 lg:px-2" : "px-3"
               )}
             >
-              {/* Nav Section Label / Divider */}
-              <div className={cn("my-2 h-px bg-white/10 mx-1", !isSidebarCollapsed && "hidden", "hidden lg:block")} />
-              <div className={cn("px-2 mb-2 mt-2", isSidebarCollapsed && "lg:hidden")}>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/30">
-                  Navigation
-                </span>
-              </div>
-
-              {filteredNavLinks.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  end={link.to === "/"}
-                  title={isSidebarCollapsed ? link.label : undefined}
-                  onClick={handleNavClick}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center rounded-lg text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isSidebarCollapsed ? "px-2.5 py-2 lg:justify-center lg:h-9 lg:w-9 lg:mx-auto lg:px-0" : "px-2.5 py-2",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/10"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <link.icon
-                        className={cn(
-                          "h-4 w-4 flex-shrink-0 transition-all",
-                          isSidebarCollapsed ? "mr-2.5 lg:m-0" : "mr-2.5",
-                          isActive ? "text-white" : "text-white/40 group-hover:text-white/80"
-                        )}
-                      />
-                      <span className={cn("truncate", isSidebarCollapsed && "lg:hidden")}>{link.label}</span>
-                      {isActive && (
-                        <div className={cn("ml-auto h-1.5 w-1.5 rounded-full bg-white", isSidebarCollapsed && "lg:hidden")} />
-                      )}
-                    </>
+              {filteredSections.map((section, sIdx) => (
+                <div key={section.id} className="space-y-0.5">
+                  {/* Category Section Header / Divider */}
+                  <div className={cn(sIdx > 0 && "pt-3 pb-1", isSidebarCollapsed && "lg:hidden")}>
+                    <div className="flex items-center justify-between px-2.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {section.title}
+                      </span>
+                    </div>
+                  </div>
+                  {sIdx > 0 && isSidebarCollapsed && (
+                    <div className="hidden lg:block my-2 h-px bg-white/10 mx-1" />
                   )}
-                </NavLink>
+
+                  {section.items.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      end={link.to === "/"}
+                      title={isSidebarCollapsed ? link.label : undefined}
+                      onClick={handleNavClick}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
+                          isSidebarCollapsed
+                            ? "px-2.5 py-2 lg:justify-center lg:h-9 lg:w-9 lg:mx-auto lg:px-0"
+                            : "px-2.5 py-1.5",
+                          isActive
+                            ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <link.icon
+                            className={cn(
+                              "h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-105",
+                              isSidebarCollapsed ? "mr-2.5 lg:m-0" : "mr-2.5",
+                              isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200"
+                            )}
+                          />
+                          <span className={cn("truncate flex-1 text-left", isSidebarCollapsed && "lg:hidden")}>
+                            {link.label}
+                          </span>
+                          {link.badge && (
+                            <span
+                              className={cn(
+                                "ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold tracking-tight uppercase leading-none",
+                                isSidebarCollapsed && "lg:hidden",
+                                isActive
+                                  ? "bg-[#00D09C] text-white"
+                                  : link.badge === "24/7"
+                                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                  : "bg-[#00D09C]/20 text-[#A7F3D0] border border-[#00D09C]/30"
+                              )}
+                            >
+                              {link.badge}
+                            </span>
+                          )}
+                          {isActive && !link.badge && (
+                            <div className={cn("ml-auto h-1.5 w-1.5 rounded-full bg-[#00D09C]", isSidebarCollapsed && "lg:hidden")} />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </div>
               ))}
 
               {/* Community Management Collapsible Group */}
@@ -701,16 +787,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Package className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Package className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Inventory
                               </>
                             )}
@@ -723,16 +809,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Store className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Store className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Inventory Management
                               </>
                             )}
@@ -745,16 +831,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Procurement
                               </>
                             )}
@@ -767,16 +853,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Maintenance
                               </>
                             )}
@@ -789,16 +875,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Asset Audit
                               </>
                             )}
@@ -811,16 +897,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Resource Booking
                               </>
                             )}
@@ -845,7 +931,7 @@ export function Layout() {
                       title="Finance Management"
                       className={cn(
                         "hidden lg:flex h-9 w-9 items-center justify-center mx-auto rounded-lg transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
-                        location.pathname.startsWith("/finance") && "text-white bg-primary/40 border border-primary/30"
+                        location.pathname.startsWith("/finance") && "text-[#008767] bg-[#E6FAF5] border border-[#A7F3D0]"
                       )}
                     >
                       <Landmark className="h-4.5 w-4.5" />
@@ -875,16 +961,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Receipt className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Receipt className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Expenses
                               </>
                             )}
@@ -897,16 +983,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <FileText className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <FileText className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Invoices & Payments
                               </>
                             )}
@@ -919,16 +1005,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <Landmark className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <Landmark className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Budget Allocation
                               </>
                             )}
@@ -941,16 +1027,16 @@ export function Layout() {
                             onClick={handleNavClick}
                             className={({ isActive }) =>
                               cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                "flex items-center px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
                                 isActive
-                                  ? "text-white bg-primary border-primary/25 shadow-sm"
-                                  : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                  ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                                  : "text-slate-300 hover:text-white hover:bg-white/10"
                               )
                             }
                           >
                             {({ isActive }) => (
                               <>
-                                <BarChart3 className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                <BarChart3 className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200")} />
                                 Financial Reports
                               </>
                             )}
@@ -966,11 +1052,11 @@ export function Layout() {
               {filteredAdminLinks.length > 0 && (
                 <>
                   <div className={cn("my-2 h-px bg-white/10 mx-1", !isSidebarCollapsed && "hidden", "hidden lg:block")} />
-                  <div className={cn("py-3 px-3", isSidebarCollapsed && "lg:hidden")}>
+                  <div className={cn("py-2 px-3", isSidebarCollapsed && "lg:hidden")}>
                     <div className="h-px bg-white/10" />
                   </div>
-                  <div className={cn("px-2 mb-2", isSidebarCollapsed && "lg:hidden")}>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+                  <div className={cn("px-2.5 mb-1.5", isSidebarCollapsed && "lg:hidden")}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Admin Settings
                     </span>
                   </div>
@@ -982,11 +1068,11 @@ export function Layout() {
                       onClick={handleNavClick}
                       className={({ isActive }) =>
                         cn(
-                          "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isSidebarCollapsed ? "px-3 py-2.5 lg:justify-center lg:h-10 lg:w-10 lg:mx-auto lg:px-0" : "px-3 py-2.5",
+                          "flex items-center rounded-xl text-xs font-semibold transition-all duration-150 group border border-transparent",
+                          isSidebarCollapsed ? "px-2.5 py-2 lg:justify-center lg:h-9 lg:w-9 lg:mx-auto lg:px-0" : "px-2.5 py-1.5",
                           isActive
-                            ? "text-white bg-primary border-primary/25 shadow-sm"
-                            : "text-white/50 hover:text-white/85 hover:bg-white/10"
+                            ? "text-[#008767] bg-[#E6FAF5] border-[#A7F3D0]/60 shadow-xs font-bold"
+                            : "text-slate-300 hover:text-white hover:bg-white/10"
                         )
                       }
                     >
@@ -994,14 +1080,14 @@ export function Layout() {
                         <>
                           <link.icon
                             className={cn(
-                              "h-4.5 w-4.5 flex-shrink-0 transition-all",
-                              isSidebarCollapsed ? "mr-3 lg:m-0" : "mr-3",
-                              isActive ? "text-white" : "text-white/40 group-hover:text-white/80"
+                              "h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-105",
+                              isSidebarCollapsed ? "mr-2.5 lg:m-0" : "mr-2.5",
+                              isActive ? "text-[#00D09C]" : "text-slate-400 group-hover:text-slate-200"
                             )}
                           />
-                          <span className={cn("truncate", isSidebarCollapsed && "lg:hidden")}>{link.label}</span>
+                          <span className={cn("truncate flex-1 text-left", isSidebarCollapsed && "lg:hidden")}>{link.label}</span>
                           {isActive && (
-                            <div className={cn("ml-auto h-1.5 w-1.5 rounded-full bg-white", isSidebarCollapsed && "lg:hidden")} />
+                            <div className={cn("ml-auto h-1.5 w-1.5 rounded-full bg-[#00D09C]", isSidebarCollapsed && "lg:hidden")} />
                           )}
                         </>
                       )}
@@ -1014,22 +1100,22 @@ export function Layout() {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="bg-card border-b border-border h-12 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F9FAFC]">
+          <header className="bg-white border-b border-[#EBEFF2] h-13 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-xs">
             <div className="flex items-center gap-2 sm:gap-3">
               {/* Desktop Menu Toggle Button */}
               <button
                 type="button"
                 onClick={toggleSidebar}
                 title={isSidebarCollapsed ? "Expand Sidebar Menu" : "Collapse to Icons"}
-                className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center active:scale-95"
+                className="hidden lg:flex p-2 text-[#7C7E8C] hover:text-[#44475B] hover:bg-[#F1F4F7] rounded-xl transition-all border border-[#EBEFF2] hover:border-[#DFE4E8] shrink-0 cursor-pointer shadow-2xs items-center justify-center active:scale-95"
               >
                 <Menu className="h-4.5 w-4.5" />
               </button>
 
               <Link
                 to="/"
-                className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
+                className="font-extrabold text-sm sm:text-base text-[#44475B] lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
               >
                 Mana Community
               </Link>
@@ -1040,12 +1126,12 @@ export function Layout() {
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent("mana:open-search"))}
-                className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/90 hover:border-slate-300 text-xs text-slate-500 hover:text-slate-700 transition-all cursor-pointer shadow-2xs group"
+                className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-[#F9FAFC] hover:bg-[#F1F4F7] border border-[#EBEFF2] hover:border-[#A7F3D0] text-xs text-[#7C7E8C] hover:text-[#44475B] transition-all cursor-pointer shadow-2xs group"
                 title="Search features, modules, pages (Ctrl+K / ⌘K)"
               >
-                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors shrink-0" />
+                <Search className="w-3.5 h-3.5 text-[#9CA3AF] group-hover:text-[#00D09C] transition-colors shrink-0" />
                 <span className="flex-1 text-left truncate font-medium">Search features, events, bookings, directory...</span>
-                <kbd className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
+                <kbd className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#7C7E8C] bg-white border border-[#EBEFF2] px-1.5 py-0.5 rounded-md shadow-2xs">
                   ⌘K
                 </kbd>
               </button>

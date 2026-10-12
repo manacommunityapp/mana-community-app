@@ -28,6 +28,9 @@ import {
   type PassengerInfo,
   type TripBooking,
 } from "../../../services/trips/tripService";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { manaPayService } from "../../../services/payments/manaPayService";
+import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../../types/manaPay";
 
 interface TripBookingDialogProps {
   trip: Trip | null;
@@ -65,6 +68,7 @@ export function TripBookingDialog({
   const [paymentMethod, setPaymentMethod] = useState<"UPI" | "CARD" | "NETBANKING">("UPI");
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<TripBooking | null>(null);
+  const [showManaPayModal, setShowManaPayModal] = useState(false);
 
   if (!trip) return null;
 
@@ -99,31 +103,31 @@ export function TripBookingDialog({
   };
 
   const handlePayAndConfirm = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      try {
-        const booking = tripService.bookTrip(
-          trip.id,
-          {
-            passengers,
-            selectedRoomType,
-            selectedPickupPoint: selectedPickup,
-            paymentMethod,
-          },
-          currentUser
-        );
-        setConfirmedBooking(booking);
-        onBookingComplete(booking);
-      } catch (err: any) {
-        alert(err.message || "Failed to book trip");
-      } finally {
-        setIsProcessing(false);
-      }
-    }, 1000);
+    setShowManaPayModal(true);
+  };
+
+  const handleManaPaySuccess = (record: ManaPaymentRecord) => {
+    try {
+      const booking = tripService.bookTrip(
+        trip.id,
+        {
+          passengers,
+          selectedRoomType,
+          selectedPickupPoint: selectedPickup,
+          paymentMethod: record.paymentRail as any,
+        },
+        currentUser
+      );
+      setConfirmedBooking(booking);
+      onBookingComplete(booking);
+    } catch (err: any) {
+      alert(err.message || "Failed to book trip");
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -364,5 +368,39 @@ export function TripBookingDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    {showManaPayModal && (
+      <ManaPayCheckoutModal
+        isOpen={showManaPayModal}
+        onClose={() => setShowManaPayModal(false)}
+        order={{
+          idempotencyKey: manaPayService.generateIdempotencyKey(
+            "TRIP_BOOKING",
+            `${trip.id}-${currentUser.id || "guest"}-${passengers.length}`,
+            totalPayable
+          ),
+          domain: "TRIP_BOOKING",
+          orderReferenceId: `TRIP-${trip.id}-${Date.now().toString().slice(-4)}`,
+          title: `Trip Registration: ${trip.title}`,
+          description: `${passengers.length} Passenger(s) · ${selectedRoomType} · Pickup: ${selectedPickup}`,
+          totalAmount: totalPayable,
+          payer: {
+            name: currentUser.fullName || "Primary Traveler",
+            phone: currentUser.phone,
+            unit: currentUser.flatNo ? `Flat ${currentUser.flatNo}` : undefined,
+          },
+          items: [
+            {
+              title: `${trip.title} (x${passengers.length} seats)`,
+              quantity: passengers.length,
+              unitPrice: trip.pricePerPerson,
+              amount: totalPayable,
+            },
+          ],
+        }}
+        onPaymentSuccess={handleManaPaySuccess}
+      />
+    )}
+  </>
   );
 }

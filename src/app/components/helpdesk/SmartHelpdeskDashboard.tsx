@@ -485,6 +485,15 @@ export function SmartHelpdeskDashboard() {
                 )}
               </div>
             )}
+
+            {/* Photo / Visual Damage Attachment */}
+            <div className="space-y-1">
+              <label className="font-bold text-slate-700">Attach Damage Photo (Optional)</label>
+              <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-3 text-center bg-slate-50/50 hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-2 text-slate-500">
+                <span className="text-base">📷</span>
+                <span className="text-[11px] font-semibold">Tap to attach photo of leakage, broken fixture, or meter reading</span>
+              </div>
+            </div>
           </div>
 
           <DialogFooter>

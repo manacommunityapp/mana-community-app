@@ -29,6 +29,28 @@
   --mana-danger: #dc2626;
   --mana-info: #06b6d4;
   --mana-warning: #f59e0b;
+
+  /* ─── Groww Clean Slate Design Tokens ───────────────────────────────── */
+  --groww-brand: #00D09C;
+  --groww-brand-dark: #008767;
+  --groww-brand-light: #E6FAF5;
+  --groww-brand-border: #A7F3D0;
+  --groww-loss: #EB5B5B;
+  --groww-loss-dark: #DC2626;
+  --groww-loss-light: #FEEFEF;
+  --groww-loss-border: #FECACA;
+  --groww-surface: #FFFFFF;
+  --groww-surface-subtle: #F9FAFC;
+  --groww-surface-muted: #F1F4F7;
+  --groww-border: #EBEFF2;
+  --groww-border-medium: #DFE4E8;
+  --groww-text-primary: #44475B;
+  --groww-text-secondary: #7C7E8C;
+  --groww-text-muted: #9CA3AF;
+  --groww-indigo: #5367FF;
+  --groww-indigo-light: #EEF2FF;
+  --groww-amber: #FFB800;
+  --groww-amber-light: #FFFBEB;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -354,7 +376,51 @@ canvas {
 .stagger-8 { animation-delay: 400ms; }
 
 .bg-sidebar {
-  background: linear-gradient(rgb(30, 27, 75) 0%, rgb(22, 20, 74) 60%, rgb(18, 16, 61) 100%) !important;
+  background: #0f172a !important; /* Refined Slate-900 / Groww Dark */
+}
+
+/* Groww Clean Slate Design System Utilities */
+.groww-card {
+  background-color: var(--groww-surface);
+  border: 1px solid var(--groww-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+.groww-card-subtle {
+  background-color: var(--groww-surface-subtle);
+  border: 1px solid var(--groww-border);
+  border-radius: 0.75rem;
+}
+
+.groww-badge-mint {
+  background-color: var(--groww-brand-light);
+  color: var(--groww-brand-dark);
+  border: 1px solid var(--groww-brand-border);
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.groww-badge-subtle {
+  background-color: var(--groww-surface-muted);
+  color: var(--groww-text-secondary);
+  border: 1px solid var(--groww-border);
+  font-weight: 500;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.groww-nav-pill {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.groww-nav-pill:hover {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ─── Standard Mobile-First Typography Helpers ───────────────────────────── */

@@ -234,6 +234,23 @@ export const communityGraphService = {
     return this.getProfiles({ skill, tower });
   },
 
+  /** Send connection request to a neighbor */
+  async connectWithNeighbor(targetUserId: string, message?: string): Promise<void> {
+    try {
+      await apiClient.post(`/graph/relationships`, {
+        targetId: targetUserId,
+        relationshipType: 'CONNECTED_TO',
+        notes: message,
+      });
+    } catch {
+      try {
+        await apiClient.post(`/community-graph/connect/${targetUserId}`, { message });
+      } catch (e) {
+        console.warn("connectWithNeighbor fallback handled:", e);
+      }
+    }
+  },
+
   /** Server-enforced privacy visibility update */
   async updateVisibilityApi(settings: { visibility: "PUBLIC" | "NEIGHBORS" | "PRIVATE"; shareProfession?: boolean; shareSkills?: boolean; shareInterests?: boolean }): Promise<void> {
     try {

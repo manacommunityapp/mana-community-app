@@ -193,28 +193,56 @@ export function SportsAuction() {
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
+    let isMounted = true;
+
     // Check if any auction config exists for this community (no sportId filter)
     auctionService.checkConfigExists().then(result => {
-      setConfigExistsForCommunity(result.configExists);
-    }).catch(() => setConfigExistsForCommunity(false));
+      if (isMounted) setConfigExistsForCommunity(result.configExists);
+    }).catch(() => {
+      if (isMounted) setConfigExistsForCommunity(false);
+    });
 
     // Fetch all community configs
     auctionService.getAllCommunityConfigs().then(configs => {
-      setAvailableConfigs(configs);
-      if (configs.length > 0 && !selectedConfigId) {
-        const completed = configs.filter(c => c.status === 'COMPLETED');
+      if (!isMounted) return;
+      const configList = Array.isArray(configs) ? configs : [];
+      setAvailableConfigs(configList);
+      if (configList.length > 0 && !selectedConfigId) {
+        const completed = configList.filter(c => c.status === 'COMPLETED');
         if (completed.length > 0) {
           setSelectedConfigId(completed[0].id);
         } else {
-          setSelectedConfigId(configs[0].id);
+          setSelectedConfigId(configList[0].id);
         }
+      } else {
+        // No configs available or already selected — stop initial loading spinner
+        setLoading(false);
       }
-    }).catch(err => console.error("Failed to fetch configs", err));
+    }).catch(err => {
+      console.error("Failed to fetch configs", err);
+      if (isMounted) {
+        setAvailableConfigs([]);
+        setLoading(false);
+      }
+    });
+
+    // Safety fallback: ensure loading spinner is never stuck indefinitely
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 3500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   // Fetch from backend when selectedConfigId changes
   useEffect(() => {
-    if (!selectedConfigId) return;
+    if (!selectedConfigId) {
+      setLoading(false);
+      return;
+    }
     const configIdToFetch = selectedConfigId;
 
     Promise.all([
@@ -226,7 +254,7 @@ export function SportsAuction() {
     ]).then(([config, p, t, stats, regCount]) => {
       if (config) {
         setAuctionStatus(config.status);
-        setSport(config.sportName.toLowerCase());
+        setSport(config.sportName?.toLowerCase() || 'cricket');
         setSelectedEventId(config.eventId || null);
         setBasePrice(config.basePrice);
         setBidIncrementDefault(config.bidIncrementDefault);

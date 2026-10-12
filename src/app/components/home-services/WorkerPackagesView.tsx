@@ -17,11 +17,33 @@ export function WorkerPackagesView() {
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-            Predefined Service Packages
+            Predefined Service Packages &amp; Household Payroll
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Transparent, all-inclusive bundles for recurring home cleaning, cooking and maintenance
+            Transparent bundles for recurring home cleaning, cooking, and monthly domestic payroll tracking
           </p>
+        </div>
+      </div>
+
+      {/* Household Payroll Summary Card (Parity with Mobile) */}
+      <div className="rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white p-5 sm:p-6 shadow-md border border-indigo-700/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 block mb-1">
+              Household Retainers &amp; Staff Payroll
+            </span>
+            <div className="text-2xl sm:text-3xl font-black text-white">
+              ₹5,198<span className="text-xs sm:text-sm font-semibold text-indigo-300"> /month total payroll</span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1">
+              Active staff: Maid (₹3,500/mo), Daily Car Wash (₹899/mo), Daily Steam Ironing (₹799/mo)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+              ● All October Retainers Up-to-Date
+            </span>
+          </div>
         </div>
       </div>
 
