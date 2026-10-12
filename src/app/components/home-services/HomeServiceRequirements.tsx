@@ -10,6 +10,8 @@ import {
   X,
   Plus,
 } from "lucide-react";
+import { toast } from "sonner";
+import { useNavigate } from "react-router";
 import type { HomeServiceRequirement, RequirementResponse, ServiceCategory, DayOfWeek } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 
@@ -23,6 +25,7 @@ const ALL_DAYS: { id: DayOfWeek; label: string }[] = [
 ];
 
 export function HomeServiceRequirements() {
+  const navigate = useNavigate();
   const [requirements, setRequirements] = useState<HomeServiceRequirement[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [selectedReqResponses, setSelectedReqResponses] = useState<{
@@ -323,9 +326,27 @@ export function HomeServiceRequirements() {
 
                     <div className="flex justify-end pt-1">
                       <button
-                        onClick={() => {
-                          alert(`Accepted ${resp.workerName}'s quote! Booking created.`);
-                          setSelectedReqResponses(null);
+                        onClick={async () => {
+                          try {
+                            await homeServiceApi.createBookingFromQuote({
+                              workerId: resp.workerId,
+                              workerName: resp.workerName,
+                              requirementId: selectedReqResponses!.req.id,
+                              categoryId: selectedReqResponses!.req.categoryId,
+                              categoryName: selectedReqResponses!.req.categoryName,
+                              price: resp.proposedPrice,
+                              frequency: selectedReqResponses!.req.frequency,
+                              startDate: selectedReqResponses!.req.startDate,
+                              preferredStartTime: selectedReqResponses!.req.preferredStartTime,
+                              preferredEndTime: selectedReqResponses!.req.preferredEndTime,
+                              tower: selectedReqResponses!.req.tower,
+                            });
+                            toast.success(`Accepted ${resp.workerName}'s quote! Booking created.`);
+                            setSelectedReqResponses(null);
+                            loadData();
+                          } catch (err: any) {
+                            toast.error("Failed to create booking: " + err.message);
+                          }
                         }}
                         className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold shadow-xs hover:opacity-95 cursor-pointer"
                       >

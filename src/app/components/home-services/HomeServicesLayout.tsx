@@ -13,6 +13,9 @@ import {
   ChevronRight,
   Clock,
   HeartHandshake,
+  DollarSign,
+  CalendarOff,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -32,6 +35,9 @@ export function HomeServicesLayout() {
     { id: "my-help", label: "My Home Help", path: "/home-services/my-help", exact: false, icon: HeartHandshake },
     { id: "bookings", label: "My Bookings", path: "/home-services/bookings", exact: false, icon: CalendarDays },
     { id: "requirements", label: "Requirements", path: "/home-services/requirements", exact: false, icon: FilePlus },
+    { id: "schedule", label: "Schedule", path: "/home-services/schedule", exact: false, icon: Calendar },
+    { id: "payments", label: "Payments", path: "/home-services/payments", exact: false, icon: DollarSign },
+    { id: "leaves", label: "Leaves", path: "/home-services/leaves", exact: false, icon: CalendarOff },
     { id: "packages", label: "Packages", path: "/home-services/packages", exact: false, icon: Package },
     { id: "reviews", label: "Reviews", path: "/home-services/reviews", exact: false, icon: Star },
     { id: "reports", label: "Help & Reports", path: "/home-services/reports", exact: false, icon: AlertTriangle },

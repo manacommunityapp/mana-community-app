@@ -63,12 +63,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Lakshmi Devi",
     phoneMasked: "98******10",
+    phone: "9876543210",
     experienceYears: 6,
     languages: ["Telugu", "Hindi", "English"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: true,
+    gatePresenceStatus: "IN_SOCIETY",
+    gateLastSeen: "2026-10-11T08:15:00",
     rating: 4.8,
     reviewCount: 42,
     status: "ACTIVE",
@@ -108,12 +113,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Suresh Kumar",
     phoneMasked: "97******44",
+    phone: "9734567844",
     experienceYears: 8,
     languages: ["Hindi", "Telugu", "Tamil"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: true,
+    gatePresenceStatus: "IN_SOCIETY",
+    gateLastSeen: "2026-10-11T07:45:00",
     rating: 4.9,
     reviewCount: 56,
     status: "ACTIVE",
@@ -147,12 +157,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Anitha Reddy",
     phoneMasked: "94******88",
+    phone: "9456789088",
     experienceYears: 4,
     languages: ["Telugu", "Kannada"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: false,
+    gatePresenceStatus: "OUT",
+    gateLastSeen: "2026-10-11T06:30:00",
     rating: 4.7,
     reviewCount: 29,
     status: "ACTIVE",
@@ -188,12 +203,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "EXTERNAL",
     displayName: "Rajesh Sharma",
     phoneMasked: "98******21",
+    phone: "9876543221",
     experienceYears: 10,
     languages: ["Hindi", "English", "Telugu"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: true,
+    gatePresenceStatus: "IN_SOCIETY",
+    gateLastSeen: "2026-10-11T09:00:00",
     rating: 4.9,
     reviewCount: 68,
     status: "ACTIVE",
@@ -226,12 +246,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Ramesh Babu",
     phoneMasked: "99******76",
+    phone: "9956789076",
     experienceYears: 12,
     languages: ["Telugu", "Hindi", "English"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: true,
+    gatePresenceStatus: "IN_SOCIETY",
+    gateLastSeen: "2026-10-11T08:00:00",
     rating: 4.8,
     reviewCount: 34,
     status: "ACTIVE",
@@ -264,12 +289,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Sujatha Nair",
     phoneMasked: "93******55",
+    phone: "9345678955",
     experienceYears: 7,
     languages: ["Malayalam", "Tamil", "English", "Hindi"],
     verificationStatus: "VERIFIED",
     mobileVerified: true,
     communityVerified: true,
     securityVerified: true,
+    policeVerified: true,
+    aadhaarVerified: true,
+    gatePresenceStatus: "UNKNOWN",
+    gateLastSeen: "2026-10-10T17:30:00",
     rating: 4.95,
     reviewCount: 38,
     status: "ACTIVE",
@@ -301,12 +331,17 @@ const DEFAULT_WORKERS: HomeServiceWorker[] = [
     workerType: "COMMUNITY_WORKER",
     displayName: "Manoj Rathod",
     phoneMasked: "91******62",
+    phone: "9156789062",
     experienceYears: 2,
     languages: ["Hindi", "Marathi"],
     verificationStatus: "PENDING",
     mobileVerified: true,
     communityVerified: false,
     securityVerified: false,
+    policeVerified: false,
+    aadhaarVerified: false,
+    gatePresenceStatus: "OUT",
+    gateLastSeen: "2026-10-11T06:00:00",
     rating: 4.5,
     reviewCount: 3,
     status: "ACTIVE",
@@ -511,6 +546,52 @@ const DEFAULT_REPORTS: HomeServiceReport[] = [
     createdAt: "2026-09-10",
     resolvedAt: "2026-09-11",
   }
+];
+
+const DEFAULT_GATE_PASSES: GatePassRecord[] = [
+  {
+    id: "gp-lakshmi",
+    workerId: "worker-lakshmi",
+    workerName: "Lakshmi Devi",
+    qrTokenHash: "qr-tok-lakshmi-2026",
+    validFrom: "2026-01-01",
+    validTo: "2027-01-01",
+    status: "ACTIVE",
+    lastEntryAt: "2026-10-11T07:55:00Z",
+    lastExitAt: "2026-10-11T10:15:00Z",
+    history: [
+      { type: "ENTRY", timestamp: "2026-10-11T07:55:00Z", gateNumber: "Gate 1", verifiedBy: "Security - Raju" },
+      { type: "EXIT", timestamp: "2026-10-11T10:15:00Z", gateNumber: "Gate 1", verifiedBy: "Security - Raju" },
+    ],
+  },
+  {
+    id: "gp-suresh",
+    workerId: "worker-suresh",
+    workerName: "Suresh Kumar",
+    qrTokenHash: "qr-tok-suresh-2026",
+    validFrom: "2026-03-01",
+    validTo: "2027-03-01",
+    status: "ACTIVE",
+    lastEntryAt: "2026-10-11T11:00:00Z",
+    history: [
+      { type: "ENTRY", timestamp: "2026-10-11T11:00:00Z", gateNumber: "Gate 2", verifiedBy: "Security - Mohan" },
+    ],
+  },
+  {
+    id: "gp-anitha",
+    workerId: "worker-anitha",
+    workerName: "Anitha Reddy",
+    qrTokenHash: "qr-tok-anitha-2026",
+    validFrom: "2026-06-01",
+    validTo: "2027-06-01",
+    status: "ACTIVE",
+    lastEntryAt: "2026-10-10T08:10:00Z",
+    lastExitAt: "2026-10-10T12:30:00Z",
+    history: [
+      { type: "ENTRY", timestamp: "2026-10-10T08:10:00Z", gateNumber: "Gate 1", verifiedBy: "Security - Raju" },
+      { type: "EXIT", timestamp: "2026-10-10T12:30:00Z", gateNumber: "Gate 1", verifiedBy: "Security - Mohan" },
+    ],
+  },
 ];
 
 // ── STORAGE HELPERS ─────────────────────────────────────────────────────────
@@ -1298,6 +1379,224 @@ export const homeServiceApi = {
         { type: "EXIT", timestamp: "2026-09-22 10:15 AM", gateNumber: "Gate 2 (North Exit)", verifiedBy: "Security Guard Suresh" },
       ]
     };
+  },
+
+  // Create Booking from accepted quote
+  async createBookingFromQuote(data: {
+    workerId: string;
+    workerName: string;
+    requirementId: string;
+    categoryId: string;
+    categoryName: string;
+    price: number;
+    frequency: string;
+    startDate: string;
+    preferredStartTime: string;
+    preferredEndTime: string;
+    tower: string;
+  }): Promise<void> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+    const newBooking = {
+      id: "bk-quote-" + Date.now(),
+      communityId: "comm-mana-1",
+      flatId: "flat-" + data.tower.toLowerCase() + "-204",
+      tower: data.tower,
+      flatNumber: data.tower + "-204",
+      residentUserId: "user-current",
+      residentName: "Current Resident",
+      workerId: data.workerId,
+      workerName: data.workerName,
+      categoryId: data.categoryId,
+      categoryName: data.categoryName,
+      bookingType: data.frequency as any,
+      pricingModel: "FIXED_MONTHLY" as const,
+      startDate: data.startDate,
+      recurringDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as any[],
+      startTime: data.preferredStartTime,
+      endTime: data.preferredEndTime,
+      price: data.price,
+      status: "CONFIRMED" as const,
+      notes: `Accepted from requirement ${data.requirementId}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    bookings.push(newBooking);
+    setStorage(STORAGE_KEY_BOOKINGS, bookings);
+  },
+
+  // Get all gate pass records for scanner
+  async getGatePassesForScanner(): Promise<GatePassRecord[]> {
+    return getStorage(STORAGE_KEY_GATEPASS, DEFAULT_GATE_PASSES);
+  },
+
+  // Log gate entry/exit
+  async logGateEvent(workerId: string, event: "ENTRY" | "EXIT"): Promise<void> {
+    const passes = getStorage(STORAGE_KEY_GATEPASS, DEFAULT_GATE_PASSES);
+    const pass = passes.find((p: GatePassRecord) => p.workerId === workerId);
+    if (pass) {
+      const now = new Date().toISOString();
+      if (event === "ENTRY") {
+        pass.lastEntryAt = now;
+      } else {
+        pass.lastExitAt = now;
+      }
+      setStorage(STORAGE_KEY_GATEPASS, passes);
+    }
+    // Also update worker gate presence
+    const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
+    const worker = workers.find((w: HomeServiceWorker) => w.id === workerId);
+    if (worker) {
+      worker.gatePresenceStatus = event === "ENTRY" ? "IN_SOCIETY" : "OUT";
+      worker.gateLastSeen = new Date().toISOString();
+      setStorage(STORAGE_KEY_WORKERS, workers);
+    }
+  },
+
+  // Get payments for a user
+  async getPayments(): Promise<any[]> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS) as any[];
+    const active = bookings.filter((b: any) => b.status === "CONFIRMED" || b.status === "SCHEDULED" || b.status === "COMPLETED");
+    return active.map((b: any) => ({
+      id: "pay-" + b.id,
+      bookingId: b.id,
+      workerName: b.workerName,
+      categoryName: b.categoryName,
+      billingMonth: new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" }),
+      amount: b.price,
+      status: b.status === "COMPLETED" ? "PAID" : "PENDING",
+      paidOn: b.status === "COMPLETED" ? b.updatedAt : null,
+      paymentMethod: b.status === "COMPLETED" ? "UPI" : null,
+    }));
+  },
+
+  // Get worker leaves
+  async getWorkerLeaves(workerId?: string): Promise<any[]> {
+    const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS) as HomeServiceWorker[];
+    const leaves: any[] = [];
+    for (const w of workers) {
+      if (workerId && w.id !== workerId) continue;
+      if (w.leaves) {
+        leaves.push(...w.leaves.map((l) => ({ ...l, workerName: w.displayName })));
+      }
+    }
+    if (leaves.length === 0) {
+      return [
+        { id: "lv-1", workerId: "worker-lakshmi", workerName: "Lakshmi Devi", leaveDate: "2026-10-15", reason: "Festival (Dussehra)", status: "APPROVED", appliedOn: "2026-10-08" },
+        { id: "lv-2", workerId: "worker-suresh", workerName: "Suresh Kumar", leaveDate: "2026-10-20", reason: "Family function", status: "PENDING", appliedOn: "2026-10-10" },
+        { id: "lv-3", workerId: "worker-lakshmi", workerName: "Lakshmi Devi", leaveDate: "2026-10-25", reason: "Diwali holiday", status: "APPROVED", appliedOn: "2026-10-08" },
+        { id: "lv-4", workerId: "worker-anitha", workerName: "Anitha Reddy", leaveDate: "2026-10-12", reason: "Medical checkup", status: "APPROVED", appliedOn: "2026-10-09" },
+      ];
+    }
+    return leaves;
+  },
+
+  // Get upcoming schedule
+  async getUpcomingSchedule(): Promise<any[]> {
+    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS) as any[];
+    const active = bookings.filter((b: any) => b.status === "CONFIRMED" || b.status === "SCHEDULED");
+    const today = new Date();
+    const schedule: any[] = [];
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + d);
+      const dayName = date.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
+      for (const b of active) {
+        if (b.recurringDays?.includes(dayName) || d === 0) {
+          schedule.push({
+            id: `sch-${b.id}-${d}`,
+            bookingId: b.id,
+            serviceDate: date.toISOString().split("T")[0],
+            dayLabel: date.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" }),
+            workerName: b.workerName,
+            categoryName: b.categoryName,
+            startTime: b.startTime,
+            endTime: b.endTime,
+            flatNumber: b.flatNumber,
+            status: d === 0 ? "TODAY" : "UPCOMING",
+          });
+        }
+      }
+    }
+    return schedule;
+  },
+
+  // Register new worker (admin)
+  async registerWorker(data: {
+    displayName: string;
+    phone: string;
+    workerType: string;
+    languages: string[];
+    primarySkillCategoryId: string;
+    experienceYears: number;
+    bio: string;
+  }): Promise<void> {
+    const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
+    const categories = getStorage(STORAGE_KEY_CATEGORIES, DEFAULT_CATEGORIES);
+    const cat = categories.find((c: any) => c.id === data.primarySkillCategoryId);
+    const newWorker: HomeServiceWorker = {
+      id: "worker-" + Date.now(),
+      communityId: "comm-mana-1",
+      workerType: data.workerType as any,
+      displayName: data.displayName,
+      phoneMasked: data.phone.slice(0, 2) + "******" + data.phone.slice(-2),
+      phone: data.phone,
+      experienceYears: data.experienceYears,
+      languages: data.languages,
+      verificationStatus: "PENDING",
+      mobileVerified: true,
+      communityVerified: false,
+      securityVerified: false,
+      policeVerified: false,
+      aadhaarVerified: false,
+      rating: 0,
+      reviewCount: 0,
+      status: "ACTIVE",
+      servingSince: new Date().toISOString().split("T")[0],
+      bio: data.bio,
+      gatePresenceStatus: "UNKNOWN",
+      skills: [{
+        id: "sk-" + Date.now(),
+        workerId: "worker-" + Date.now(),
+        categoryId: data.primarySkillCategoryId,
+        categoryName: cat?.name || "General",
+        categoryCode: cat?.code || "OTHER",
+        experienceYears: data.experienceYears,
+        isPrimary: true,
+        active: true,
+      }],
+      availability: [],
+      flatAssignments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    workers.push(newWorker);
+    setStorage(STORAGE_KEY_WORKERS, workers);
+  },
+
+  // Export data as CSV string
+  async exportData(type: "bookings" | "workers" | "attendance"): Promise<string> {
+    if (type === "workers") {
+      const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS) as HomeServiceWorker[];
+      const header = "Name,Phone,Type,Experience,Rating,Reviews,Status,Verification,Police,Aadhaar,Serving Since\n";
+      const rows = workers.map((w) =>
+        `"${w.displayName}","${w.phoneMasked}","${w.workerType}",${w.experienceYears},${w.rating},${w.reviewCount},"${w.status}","${w.verificationStatus}",${w.policeVerified},${w.aadhaarVerified},"${w.servingSince}"`
+      ).join("\n");
+      return header + rows;
+    }
+    if (type === "bookings") {
+      const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS) as any[];
+      const header = "ID,Worker,Category,Flat,Status,Price,Start Date,Pricing Model\n";
+      const rows = bookings.map((b: any) =>
+        `"${b.id}","${b.workerName}","${b.categoryName}","${b.flatNumber}","${b.status}",${b.price},"${b.startDate}","${b.pricingModel}"`
+      ).join("\n");
+      return header + rows;
+    }
+    const attendance = getStorage(STORAGE_KEY_ATTENDANCE, DEFAULT_ATTENDANCE) as any[];
+    const header = "ID,Worker,Date,Status,Rating\n";
+    const rows = attendance.map((a: any) =>
+      `"${a.id}","${a.workerName}","${a.serviceDate}","${a.status}",${a.rating || ""}`
+    ).join("\n");
+    return header + rows;
   },
 
   // Admin Analytics

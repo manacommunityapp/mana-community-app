@@ -1,5 +1,12 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert, ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car, PieChart, CalendarClock } from "lucide-react";
+import {
+  Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck,
+  Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft,
+  Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone,
+  Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
+  ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
+  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart
+} from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -391,6 +398,15 @@ export function Layout() {
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
     "Professional Network": "JOBS",
+    "Personal Finance": "PERSONAL_FINANCE",
+    "Health Hub": "HEALTH",
+    "Community Rides": "COMMUTE",
+    "Projects": "PROJECTS",
+    "Automation": "AUTOMATION",
+    "Intelligence": "INTELLIGENCE",
+    "AI Chat": "AI_CHAT",
+    "Calendar": "CALENDAR",
+    "Commerce": "COMMERCE",
   };
 
   const toggleSidebar = () => {
@@ -408,7 +424,6 @@ export function Layout() {
   const handleNavClick = () => {
     setIsMobileSidebarOpen(false);
   };
-
   interface NavItem {
     to: string;
     icon: any;
@@ -430,6 +445,7 @@ export function Layout() {
         { to: "/", icon: Users, label: "Community Feed" },
         { to: "/safety", icon: ShieldCheck, label: "Safety & Security" },
         { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS", badge: "24/7" },
+        { to: "/commute", icon: Car, label: "Community Rides" },
       ],
     },
     {
@@ -513,6 +529,7 @@ export function Layout() {
     if (label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
+    if (label === "Community Rides") return true;
     return false;
   };
 
