@@ -155,6 +155,26 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
+// Commerce pages
+import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
+import { CommerceVendorDirectory } from "./components/commerce/vendors/CommerceVendorDirectory";
+import CommerceProductCatalog from "./components/commerce/products/CommerceProductCatalog";
+import MyCommerceProfile from "./components/commerce/customer/MyCommerceProfile";
+import LoyaltyWallet from "./components/commerce/customer/LoyaltyWallet";
+import MyOrders from "./components/commerce/orders/MyOrders";
+import VendorOrderManagement from "./components/commerce/orders/VendorOrderManagement";
+import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
+import CommerceAnalyticsDashboard from "./components/commerce/vendors/CommerceAnalyticsDashboard";
+import FlashSaleManagement from "./components/commerce/vendors/FlashSaleManagement";
+import VendorRatingsDashboard from "./components/commerce/vendors/VendorRatingsDashboard";
+import DisputeManagement from "./components/commerce/vendors/DisputeManagement";
+import CommissionRulesManager from "./components/commerce/vendors/CommissionRulesManager";
+import SubscriptionManagement from "./components/commerce/customer/SubscriptionManagement";
+import ReturnExchangeManagement from "./components/commerce/orders/ReturnExchangeManagement";
+import WalletDashboard from "./components/commerce/customer/WalletDashboard";
+import BulkOrderManagement from "./components/commerce/orders/BulkOrderManagement";
+import CouponManagement from "./components/commerce/vendors/CouponManagement";
+
 // Food & Lifestyle OS pages
 import { FoodLayout } from "./components/food/FoodLayout";
 import { FoodDashboard } from "./components/food/FoodDashboard";
@@ -269,6 +289,7 @@ import {
   VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
   VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
+  VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -628,6 +649,30 @@ export const router = createBrowserRouter([
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
           { path: "payments", element: <PermissionGuard permission={MANAGE_VENDOR_PAYMENTS}><PaymentsManagement /></PermissionGuard> },
           { path: "analytics", element: <PermissionGuard permission={VIEW_VENDOR_ANALYTICS}><VendorAnalytics /></PermissionGuard> },
+          {
+            path: "commerce-vendors",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_VENDORS} requiredModule="COMMERCE">
+                <CommerceVendorDirectory />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-catalog",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <CommerceProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-orders",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorOrderManagement />
+              </PermissionGuard>
+            ),
+          },
         ],
       },
       {
@@ -642,6 +687,126 @@ export const router = createBrowserRouter([
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
           { path: "profile", Component: VendorProfile },
+          {
+            path: "commerce-profile",
+            element: (
+              <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="COMMERCE">
+                <VendorCommerceProfile />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-products",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <CommerceProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "my-commerce-profile",
+            element: (
+              <PermissionGuard requiredModule="COMMERCE">
+                <MyCommerceProfile />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "loyalty-wallet",
+            element: (
+              <PermissionGuard requiredModule="COMMERCE">
+                <LoyaltyWallet />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "my-orders",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <MyOrders />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "order-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorOrderManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "settlement-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <SettlementManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-analytics",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <CommerceAnalyticsDashboard />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "flash-sales",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <FlashSaleManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "vendor-ratings",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorRatingsDashboard />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "dispute-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <DisputeManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commission-rules",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <CommissionRulesManager />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "subscriptions",
+            element: <SubscriptionManagement />,
+          },
+          {
+            path: "returns",
+            element: <ReturnExchangeManagement />,
+          },
+          {
+            path: "wallet",
+            element: <WalletDashboard />,
+          },
+          {
+            path: "bulk-orders",
+            element: <BulkOrderManagement />,
+          },
+          {
+            path: "coupon-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <CouponManagement />
+              </PermissionGuard>
+            ),
+          },
         ],
       },
       {

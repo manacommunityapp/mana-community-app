@@ -473,6 +473,25 @@ export const CREATE_HOME_SERVICE_REPORT    = "Create Home Service Report";
 export const VIEW_HOME_SERVICE_HISTORY     = "View Home Service History";
 export const EXPORT_HOME_SERVICE_DATA      = "Export Home Service Data";
 
+// ──── COMMERCE ────
+export const VIEW_COMMERCE_VENDORS       = "View Commerce Vendors";
+export const MANAGE_COMMERCE_VENDORS     = "Manage Commerce Vendors";
+export const VERIFY_COMMERCE_VENDOR      = "Verify Commerce Vendor";
+export const SETUP_COMMERCE_PROFILE      = "Setup Commerce Profile";
+export const VIEW_COMMERCE_PRODUCTS      = "View Commerce Products";
+export const MANAGE_COMMERCE_PRODUCTS    = "Manage Commerce Products";
+export const PUBLISH_COMMERCE_PRODUCT    = "Publish Commerce Product";
+export const VIEW_COMMERCE_ORDERS        = "View Commerce Orders";
+export const MANAGE_COMMERCE_ORDERS      = "Manage Commerce Orders";
+export const PROCESS_COMMERCE_ORDER      = "Process Commerce Order";
+export const VIEW_COMMERCE_INVENTORY     = "View Commerce Inventory";
+export const MANAGE_COMMERCE_INVENTORY   = "Manage Commerce Inventory";
+export const VIEW_COMMERCE_PAYMENTS      = "View Commerce Payments";
+export const MANAGE_COMMERCE_PAYMENTS    = "Manage Commerce Payments";
+export const VIEW_COMMERCE_SETTLEMENTS   = "View Commerce Settlements";
+export const MANAGE_COMMERCE_SETTLEMENTS = "Manage Commerce Settlements";
+export const VIEW_COMMERCE_ANALYTICS     = "View Commerce Analytics";
+
 /**
  * Permission categories grouped for the Role Management UI.
  * Used by AdminRoleManagement component.
