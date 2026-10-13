@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   commerceCustomerService,
-  CommerceCustomerProfileResponse,
-  CommerceCustomerAddressRequest,
-  CommerceCustomerProfileUpdateRequest,
-  AddressLabel,
-} from "@/services/commerce/commerceCustomerService";
+  type CommerceCustomerProfileResponse,
+  type CommerceCustomerAddressResponse,
+  type CommerceCustomerAddressRequest,
+  type CommerceCustomerProfileUpdateRequest,
+  type AddressLabel,
+} from "../../../../services/commerce/commerceCustomerService";
 
 const LABEL_ICONS: Record<AddressLabel, string> = {
   HOME: "🏠",
@@ -70,7 +71,7 @@ export default function MyCommerceProfile() {
   };
 
   const openEditAddress = (id: number) => {
-    const addr = profile?.addresses.find((a) => a.id === id);
+    const addr = profile?.addresses.find((a: CommerceCustomerAddressResponse) => a.id === id);
     if (!addr) return;
     addressForm.reset({
       label: addr.label,
@@ -347,7 +348,7 @@ export default function MyCommerceProfile() {
           </p>
         ) : (
           <div className="space-y-3">
-            {profile.addresses.map((addr) => (
+            {profile.addresses.map((addr: CommerceCustomerAddressResponse) => (
               <div
                 key={addr.id}
                 className={`rounded-lg border p-3 relative ${

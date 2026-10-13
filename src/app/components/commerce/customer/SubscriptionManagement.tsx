@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   commerceSubscriptionService,
-  SubscriptionDto,
-  SubscriptionRequest,
+  type SubscriptionDto,
+  type SubscriptionRequest,
 } from "../../../../services/commerce/commerceSubscriptionService";
 
 const FREQUENCIES = ["DAILY", "WEEKLY", "FORTNIGHTLY", "MONTHLY"];
