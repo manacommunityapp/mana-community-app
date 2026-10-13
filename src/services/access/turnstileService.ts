@@ -63,9 +63,26 @@ export interface AccessLogPage {
   size: number;
 }
 
+export interface EnrollBiometricRequest {
+  userId: number;
+  communityId: number;
+  personType: BiometricPersonType;
+  personName: string;
+  unitNumber?: string;
+  faceEmbeddingHash: string;
+  faceFeatureVersion?: string;
+  timeWindowStart?: string;
+  timeWindowEnd?: string;
+  allowedDays?: string;
+}
+
 export const turnstileService = {
   async getTurnstiles(communityId: number): Promise<BiometricTurnstileDto[]> {
     return apiClient.get<BiometricTurnstileDto[]>(`/v1/access/turnstiles/community/${communityId}`);
+  },
+
+  async enrollUser(req: EnrollBiometricRequest): Promise<void> {
+    return apiClient.post<void>("/v1/access/turnstiles/enroll", req);
   },
 
   async verifyFace(req: VerifyFaceRequest): Promise<VerifyFaceResult> {

@@ -13,7 +13,8 @@ import {
   CheckCircle,
   Clock,
   Sparkles,
-  Users
+  Users,
+  UserPlus
 } from "lucide-react";
 import {
   turnstileService,
@@ -22,17 +23,21 @@ import {
   type VerifyFaceResult,
   type AccessDecision
 } from "../../../services/access/turnstileService";
+import { BiometricEnrollModal } from "./BiometricEnrollModal";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface Props {
   communityId?: number;
 }
 
 export const BiometricTurnstileMonitor: React.FC<Props> = ({ communityId = 1 }) => {
+  const { user } = useAuth();
   const [turnstiles, setTurnstiles] = useState<BiometricTurnstileDto[]>([]);
   const [logs, setLogs] = useState<BiometricAccessLogDto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedTurnstile, setSelectedTurnstile] = useState<string>("TS-GATE-NORTH-01");
   const [lastMatch, setLastMatch] = useState<VerifyFaceResult | null>(null);
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
 
   // Simulation state
   const [simPersonName, setSimPersonName] = useState<string>("Sunita Devi (Maid)");
@@ -199,6 +204,13 @@ export const BiometricTurnstileMonitor: React.FC<Props> = ({ communityId = 1 }) 
 
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowEnrollModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-colors shadow-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            Enrol Person
+          </button>
+          <button
             onClick={loadData}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm transition-colors"
@@ -360,6 +372,16 @@ export const BiometricTurnstileMonitor: React.FC<Props> = ({ communityId = 1 }) 
           )}
         </div>
       </div>
+
+      {/* DPDP-compliant biometric enrolment modal */}
+      {showEnrollModal && user && (
+        <BiometricEnrollModal
+          communityId={communityId}
+          currentUserId={Number(user.userId)}
+          onClose={() => setShowEnrollModal(false)}
+          onSuccess={loadData}
+        />
+      )}
 
       {/* Access History Log Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
