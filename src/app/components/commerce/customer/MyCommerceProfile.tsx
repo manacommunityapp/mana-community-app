@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   commerceCustomerService,
-  CommerceCustomerProfileResponse,
-  CommerceCustomerAddressRequest,
-  CommerceCustomerProfileUpdateRequest,
-  AddressLabel,
-} from "@/services/commerce/commerceCustomerService";
+  type CommerceCustomerProfileResponse,
+  type CommerceCustomerAddressRequest,
+  type CommerceCustomerProfileUpdateRequest,
+  type AddressLabel,
+} from "../../../../services/commerce/commerceCustomerService";
 
 const LABEL_ICONS: Record<AddressLabel, string> = {
   HOME: "🏠",

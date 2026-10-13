@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceLoyaltyService,
-  CommerceLoyaltyDto,
-} from "@/services/commerce/commerceLoyaltyService";
+  type CommerceLoyaltyDto,
+} from "../../../../services/commerce/commerceLoyaltyService";
 
 const TIER_COLOR: Record<string, string> = {
   BRONZE: "text-orange-600 bg-orange-50 border-orange-200",

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceOrderService,
-  CommerceOrderDto,
-  CommerceOrderStatus,
-} from "@/services/commerce/commerceOrderService";
+  type CommerceOrderDto,
+  type CommerceOrderStatus,
+} from "../../../../services/commerce/commerceOrderService";
 import CheckoutPayment from "./CheckoutPayment";
 import CommerceInvoice from "./CommerceInvoice";
 

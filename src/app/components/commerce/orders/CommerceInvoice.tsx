@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceOrderService,
-  CommerceInvoiceDto,
-} from "@/services/commerce/commerceOrderService";
+  type CommerceInvoiceDto,
+} from "../../../../services/commerce/commerceOrderService";
 
 interface Props {
   orderNumber: string;

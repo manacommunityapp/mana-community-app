@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { commerceWalletService, WalletDto } from "../../../../services/commerce/commerceWalletService";
+import { commerceWalletService, type WalletDto } from "../../../../services/commerce/commerceWalletService";
 
 const TXN_ICONS: Record<string, string> = {
   TOPUP: "↑", PAYMENT: "↓", REFUND: "↑", CASHBACK: "★", ADJUSTMENT: "⟳",

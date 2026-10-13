@@ -23,6 +23,7 @@ export interface GroupDeal {
   subCategory?: string;
   description: string;
   imageUrl?: string;
+  imagePlaceholderColor?: string;
   vendor: string;
   vendorId?: string;
   vendorRating: number;
@@ -42,12 +43,14 @@ export interface GroupDeal {
   dealStatus: DealStatus;
   daysLeft: number;
   dealEndsAt: string;
+  endDate?: string;
   pickupPoint: string;
   pickupDate?: string;
   isTrending?: boolean;
   isAlmostUnlocked?: boolean;
   isFestivalDeal?: boolean;
   priceTiers: PriceTier[];
+  tiers?: PriceTier[];
 }
 
 export interface GroupOrder {
@@ -57,6 +60,7 @@ export interface GroupOrder {
   title?: string;
   quantity: number;
   unitPrice: number;
+  pricePerUnit?: number;
   totalAmount: number;
   savings?: number;
   status: OrderStatus;
@@ -65,6 +69,9 @@ export interface GroupOrder {
   qrCode: string;
   pickupPoint?: string;
   pickupDate?: string;
+  fulfillment?: string;
+  vendorName?: string;
+  reviewed?: boolean;
 }
 
 export interface DemandItem {
@@ -92,18 +99,26 @@ export interface VendorOffer {
   vendorId: string;
   vendorName: string;
   vendorRating: number;
+  rating?: number;
   vendorVerified: boolean;
   offeredPrice: number;
+  price?: number;
   minimumQty: number;
+  moq?: number;
   maximumQty?: number;
   deliveryDate?: string;
+  deliveryDays?: number;
   terms?: string;
+  score?: number;
 }
 
 export interface CommunitySavings {
   totalSavedThisMonth: number;
+  totalSaved?: number;
   totalOrders: number;
+  ordersCompleted?: number;
   activeDeals: number;
+  avgSavingsPercent?: number;
   topCategories: { category: string; saved: number }[];
 }
 
@@ -121,14 +136,21 @@ export interface BuyAgainItem {
 export interface MonthlyBasket {
   id: string;
   title: string;
+  name?: string;
   description: string;
   items: string[];
   regularPrice: number;
   communityPrice: number;
+  totalPrice?: number;
   targetFamilies: number;
   enrolledFamilies: number;
+  subscribers?: number;
   nextDeliveryDate: string;
+  nextDelivery?: string;
   savings: number;
+  frequency?: string;
+  vendor?: string;
+  vendorRating?: number;
 }
 
 export interface FestivalCategory {
@@ -137,6 +159,38 @@ export interface FestivalCategory {
   tagline: string;
   bannerImage: string;
   deals: GroupDeal[];
+}
+
+export type FestivalCampaign = FestivalCategory;
+
+export interface OrderDispute {
+  id: string;
+  orderId: string;
+  reason: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface PickupPass {
+  orderId: string;
+  qrCode: string;
+  token: string;
+  dealTitle: string;
+  quantity: number;
+  pickupPoint: string;
+  pickupDate: string;
+  expiresAt: string;
+}
+
+export interface VendorProfile {
+  id: string;
+  name: string;
+  rating: number;
+  verified: boolean;
+  totalDeals: number;
+  description?: string;
+  categories?: string[];
 }
 
 const SAMPLE_DEALS: GroupDeal[] = [
@@ -534,6 +588,117 @@ export const groupBuyingService = {
       await apiClient.post(`/group-buying/demand/${id}/upvote`, {});
     } catch {
       // Mock upvote
+    }
+  },
+
+  async getTrendingDeals(): Promise<GroupDeal[]> {
+    try {
+      return await apiClient.get<GroupDeal[]>('/group-buying/deals/trending');
+    } catch {
+      return SAMPLE_DEALS.filter(d => d.isTrending);
+    }
+  },
+
+  async getEndingSoonDeals(): Promise<GroupDeal[]> {
+    try {
+      return await apiClient.get<GroupDeal[]>('/group-buying/deals/ending-soon');
+    } catch {
+      return SAMPLE_DEALS.filter(d => d.daysLeft <= 2);
+    }
+  },
+
+  async getFestivalCampaigns(): Promise<FestivalCampaign[]> {
+    try {
+      return await apiClient.get<FestivalCampaign[]>('/group-buying/festival');
+    } catch {
+      return SAMPLE_FESTIVALS;
+    }
+  },
+
+  async raiseDispute(orderId: string, data: { reason: string; description: string }): Promise<OrderDispute> {
+    try {
+      return await apiClient.post<OrderDispute>(`/group-buying/orders/${orderId}/dispute`, data);
+    } catch {
+      return {
+        id: 'disp-' + Date.now(),
+        orderId,
+        reason: data.reason,
+        description: data.description,
+        status: 'SUBMITTED',
+        createdAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  async submitReview(dealId: string, data: { rating: number; comment: string }): Promise<void> {
+    try {
+      await apiClient.post(`/group-buying/deals/${dealId}/review`, data);
+    } catch {
+      // Mock review submission
+    }
+  },
+
+  async getPickupPass(orderId: string): Promise<PickupPass> {
+    try {
+      return await apiClient.get<PickupPass>(`/group-buying/orders/${orderId}/pickup-pass`);
+    } catch {
+      return {
+        orderId,
+        qrCode: 'TKN-' + orderId + '-' + Date.now(),
+        token: 'TKN-' + orderId,
+        dealTitle: 'Community Deal',
+        quantity: 1,
+        pickupPoint: 'Clubhouse Desk',
+        pickupDate: new Date().toISOString().split('T')[0],
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+    }
+  },
+
+  async verifyPickupToken(token: string): Promise<{ valid: boolean; orderId?: string }> {
+    try {
+      return await apiClient.post<{ valid: boolean; orderId?: string }>('/group-buying/pickup/verify', { token });
+    } catch {
+      return { valid: false };
+    }
+  },
+
+  async confirmHandover(orderId: string): Promise<void> {
+    try {
+      await apiClient.post(`/group-buying/orders/${orderId}/handover`, {});
+    } catch {
+      // Mock handover confirmation
+    }
+  },
+
+  async getVendorProfile(vendorId: string): Promise<VendorProfile> {
+    try {
+      return await apiClient.get<VendorProfile>(`/group-buying/vendors/${vendorId}`);
+    } catch {
+      return {
+        id: vendorId,
+        name: 'Community Vendor',
+        rating: 4.5,
+        verified: true,
+        totalDeals: 12,
+      };
+    }
+  },
+
+  async acceptVendorOffer(demandId: string, offerId: string): Promise<GroupOrder> {
+    try {
+      return await apiClient.post<GroupOrder>(`/group-buying/demand/${demandId}/offers/${offerId}/accept`, {});
+    } catch {
+      return {
+        id: 'GB-' + Date.now(),
+        dealId: demandId,
+        dealTitle: 'Community Demand Order',
+        quantity: 1,
+        unitPrice: 0,
+        totalAmount: 0,
+        status: 'CONFIRMED',
+        qrCode: 'TKN-' + demandId + '-' + Date.now(),
+      };
     }
   },
 };

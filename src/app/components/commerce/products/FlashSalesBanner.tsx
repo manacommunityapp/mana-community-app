@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceFlashSaleService,
-  CommerceFlashSaleDto,
-} from "@/services/commerce/commerceFlashSaleService";
+  type CommerceFlashSaleDto,
+} from "../../../../services/commerce/commerceFlashSaleService";
 
 function Countdown({ endsAt }: { endsAt: string }) {
   const [remaining, setRemaining] = useState("");

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   commerceBulkOrderService,
-  BulkOrderDto,
-  BulkOrderRequest,
+  type BulkOrderDto,
+  type BulkOrderRequest,
 } from "../../../../services/commerce/commerceBulkOrderService";
 
 const STATUS_COLORS: Record<string, string> = {

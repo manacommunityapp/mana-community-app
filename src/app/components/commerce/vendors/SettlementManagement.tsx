@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceSettlementService,
-  CommerceSettlementDto,
-} from "@/services/commerce/commerceSettlementService";
+  type CommerceSettlementDto,
+} from "../../../../services/commerce/commerceSettlementService";
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-700",
