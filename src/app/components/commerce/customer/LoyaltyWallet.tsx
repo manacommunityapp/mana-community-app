@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   commerceLoyaltyService,
-  CommerceLoyaltyDto,
-} from "@/services/commerce/commerceLoyaltyService";
+  type CommerceLoyaltyDto,
+  type LoyaltyTxnDto,
+} from "../../../../services/commerce/commerceLoyaltyService";
 
 const TIER_COLOR: Record<string, string> = {
   BRONZE: "text-orange-600 bg-orange-50 border-orange-200",
@@ -138,7 +139,7 @@ export default function LoyaltyWallet() {
               </tr>
             </thead>
             <tbody>
-              {data.recentTransactions.map((t) => <TxnRow key={t.id} txn={t} />)}
+              {data.recentTransactions.map((t: LoyaltyTxnDto) => <TxnRow key={t.id} txn={t} />)}
             </tbody>
           </table>
         </div>
