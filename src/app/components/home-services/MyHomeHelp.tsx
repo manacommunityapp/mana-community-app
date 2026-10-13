@@ -14,25 +14,29 @@ import {
   AlertTriangle,
   QrCode,
   UserCheck,
+  Phone,
+  MapPin,
 } from "lucide-react";
 import type { HomeServiceBooking, HomeServiceWorker } from "../../../types/homeServices";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 import { ServiceAttendanceModal } from "./ServiceAttendanceModal";
 import { HomeServiceChatModal } from "./HomeServiceChatModal";
 import { WorkerGatePassModal } from "./WorkerGatePassModal";
-import { HomeServiceReviews } from "./HomeServiceReviews";
-
 export function MyHomeHelp() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<HomeServiceBooking[]>([]);
+  const [workers, setWorkers] = useState<HomeServiceWorker[]>([]);
   const [selectedBookingForAttendance, setSelectedBookingForAttendance] = useState<HomeServiceBooking | null>(null);
   const [selectedBookingForChat, setSelectedBookingForChat] = useState<HomeServiceBooking | null>(null);
   const [selectedWorkerForGatePass, setSelectedWorkerForGatePass] = useState<string | null>(null);
-  const [selectedBookingForReview, setSelectedBookingForReview] = useState<HomeServiceBooking | null>(null);
 
   useEffect(() => {
     loadBookings();
+    homeServiceApi.getWorkers().then(setWorkers);
   }, []);
+
+  const getWorkerForBooking = (b: HomeServiceBooking) =>
+    workers.find((w) => w.id === b.workerId);
 
   const loadBookings = async () => {
     const data = await homeServiceApi.getBookings("user-current");
@@ -107,7 +111,45 @@ export function MyHomeHelp() {
                       <p className="text-xs font-semibold text-primary mt-0.5">
                         {b.categoryName} • Flat {b.flatNumber}
                       </p>
+                      {(() => {
+                        const w = getWorkerForBooking(b);
+                        if (!w?.gatePresenceStatus) return null;
+                        const isIn = w.gatePresenceStatus === "IN_SOCIETY";
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                              isIn
+                                ? "bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800"
+                                : "bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                            }`}
+                          >
+                            <MapPin className="w-2.5 h-2.5" />
+                            {isIn ? "In Society" : "Out"}
+                            {w.gateLastSeen && (
+                              <span className="font-semibold normal-case ml-0.5">
+                                • {new Date(w.gateLastSeen).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {(() => {
+                      const w = getWorkerForBooking(b);
+                      if (!w?.phone) return null;
+                      return (
+                        <a
+                          href={`tel:${w.phone}`}
+                          className="p-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all cursor-pointer"
+                          title={`Call ${b.workerName}`}
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </a>
+                      );
+                    })()}
                   </div>
 
                   <div className="text-right shrink-0">

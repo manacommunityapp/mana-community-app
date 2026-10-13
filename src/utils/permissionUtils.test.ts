@@ -140,6 +140,18 @@ describe("permissionUtils", () => {
       expect(res.allowed).toBe(true);
     });
 
+    it("allows member with BOOKINGS module and VIEW_AMENITIES or VIEW_RESOURCE_BOOKING to access /resource-booking", () => {
+      const bookingUser: StoredUser = {
+        userId: "6",
+        role: "MEMBER",
+        roles: ["MEMBER"],
+        permissions: ["View Resource Booking"],
+        enabledModules: ["BOOKINGS"],
+      };
+      expect(canAccessEndpoint("/resource-booking/resources", "GET", bookingUser).allowed).toBe(true);
+      expect(canAccessEndpoint("/resource-booking/categories", "GET", bookingUser).allowed).toBe(true);
+    });
+
     it("allows super admin to call any endpoint", () => {
       expect(canAccessEndpoint("/notices", "GET", superAdminUser).allowed).toBe(true);
       expect(canAccessEndpoint("/notices", "POST", superAdminUser).allowed).toBe(true);

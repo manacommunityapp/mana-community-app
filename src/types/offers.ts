@@ -223,6 +223,135 @@ export interface CommerceAnalytics {
   totalRedemptions: number;
   redemptionRate: number;
   totalEstimatedSavings: number;
+  totalCommissionsEarned?: number;
+  totalSettledPayouts?: number;
+  totalPendingPayouts?: number;
   categoryDistribution: Record<string, number>;
   dealTypeDistribution: Record<string, number>;
 }
+
+export type CouponDiscountType = 'PERCENTAGE' | 'FLAT_AMOUNT' | 'FREE_SERVICE';
+export type CouponStatus = 'ACTIVE' | 'EXPIRED' | 'EXHAUSTED' | 'DISABLED';
+export type SettlementStatus = 'PENDING' | 'PROCESSING' | 'SETTLED' | 'FAILED' | 'CANCELLED';
+export type CommissionStatus = 'PENDING_SETTLEMENT' | 'SETTLED' | 'CANCELLED';
+
+export interface CommunityCoupon {
+  id: string;
+  code: string;
+  title: string;
+  description?: string;
+  businessId?: string;
+  businessName?: string;
+  communityId?: string;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  minOrderAmount?: number;
+  maxDiscountAmount?: number;
+  validFrom?: string;
+  validUntil?: string;
+  usageLimitTotal?: number;
+  usageLimitPerUser?: number;
+  totalUsedCount?: number;
+  status: CouponStatus;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  couponId?: string;
+  code: string;
+  message: string;
+  discountType?: CouponDiscountType;
+  discountValue?: number;
+  originalAmount: number;
+  calculatedDiscount: number;
+  finalPayableAmount: number;
+  minOrderAmount?: number;
+  maxDiscountAmount?: number;
+}
+
+export interface QrVerificationResult {
+  valid: boolean;
+  claimId?: string;
+  redemptionCode?: string;
+  counterPin?: string;
+  status?: ClaimStatus;
+  offerId?: string;
+  offerTitle?: string;
+  businessId?: string;
+  businessName?: string;
+  residentUserId?: string;
+  residentName?: string;
+  unitNumber?: string;
+  dealType?: DealType;
+  regularPrice?: number;
+  communityPrice?: number;
+  savingsSummary?: string;
+  validUntil?: string;
+  alreadyRedeemed: boolean;
+  isExpired: boolean;
+  message: string;
+}
+
+export interface CommissionRecord {
+  id: string;
+  businessId: string;
+  businessName: string;
+  offerId: string;
+  offerTitle: string;
+  claimId: string;
+  redemptionCode: string;
+  residentUserId: string;
+  billAmount: number;
+  discountAmount: number;
+  commissionRatePct: number;
+  commissionAmount: number;
+  netMerchantAmount: number;
+  status: CommissionStatus;
+  settlementBatchId?: string;
+  createdAt: string;
+}
+
+export interface SettlementBatch {
+  id: string;
+  settlementNumber: string;
+  businessId: string;
+  businessName: string;
+  periodStart: string;
+  periodEnd: string;
+  totalRedemptions: number;
+  grossSalesAmount: number;
+  totalCommissionAmount: number;
+  netPayoutAmount: number;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankAccountHolder?: string;
+  status: SettlementStatus;
+  payoutReference?: string;
+  settledAt?: string;
+  settledByUserId?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface CampaignAnalytics {
+  offerId: string;
+  offerTitle: string;
+  businessId: string;
+  businessName: string;
+  categoryName?: string;
+  viewCount: number;
+  claimedCount: number;
+  redeemedCount: number;
+  availableClaims: number;
+  claimRatePct: number;
+  redemptionRatePct: number;
+  totalGmvDiscounted: number;
+  totalSalesGmv: number;
+  platformCommissionEarned: number;
+  validFrom?: string;
+  validUntil?: string;
+  active: boolean;
+}
+

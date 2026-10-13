@@ -1,4 +1,4 @@
-import apiClient from "@/services/apiClient";
+import { apiClient } from "../common/apiClient";
 
 export type CustomerStatus = "ACTIVE" | "INACTIVE" | "BLACKLISTED";
 export type AddressLabel = "HOME" | "WORK" | "OTHER";
@@ -59,35 +59,29 @@ export interface CommerceCustomerAddressRequest {
 
 export const commerceCustomerService = {
   getMyProfile(): Promise<CommerceCustomerProfileResponse> {
-    return apiClient.get("/v1/commerce/customer/me").then((r) => r.data);
+    return apiClient.get<CommerceCustomerProfileResponse>("/v1/commerce/customer/me");
   },
 
   updateMyProfile(
     data: CommerceCustomerProfileUpdateRequest
   ): Promise<CommerceCustomerProfileResponse> {
-    return apiClient.put("/v1/commerce/customer/me", data).then((r) => r.data);
+    return apiClient.put<CommerceCustomerProfileResponse>("/v1/commerce/customer/me", data);
   },
 
   addAddress(
     data: CommerceCustomerAddressRequest
   ): Promise<CommerceCustomerAddressResponse> {
-    return apiClient
-      .post("/v1/commerce/customer/me/addresses", data)
-      .then((r) => r.data);
+    return apiClient.post<CommerceCustomerAddressResponse>("/v1/commerce/customer/me/addresses", data);
   },
 
   updateAddress(
     id: number,
     data: CommerceCustomerAddressRequest
   ): Promise<CommerceCustomerAddressResponse> {
-    return apiClient
-      .put(`/v1/commerce/customer/me/addresses/${id}`, data)
-      .then((r) => r.data);
+    return apiClient.put<CommerceCustomerAddressResponse>(`/v1/commerce/customer/me/addresses/${id}`, data);
   },
 
   deleteAddress(id: number): Promise<void> {
-    return apiClient
-      .delete(`/v1/commerce/customer/me/addresses/${id}`)
-      .then(() => {});
+    return apiClient.delete<void>(`/v1/commerce/customer/me/addresses/${id}`);
   },
 };

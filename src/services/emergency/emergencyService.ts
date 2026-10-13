@@ -4,7 +4,17 @@ export type EmergencyCategory =
   | "MEDICAL" | "FIRE" | "LIFT" | "SECURITY" | "GAS_LEAK"
   | "FLOOD" | "POWER" | "CHILD_SAFETY" | "NATURAL_DISASTER" | "OTHER";
 
-export type EmergencyStatus = "TRIGGERED" | "ASSIGNED" | "RESPONDING" | "RESOLVED" | "CLOSED";
+export type EmergencyStatus =
+  | "TRIGGERED"
+  | "ACKNOWLEDGED"
+  | "ASSIGNED"
+  | "RESPONDING"
+  | "ON_SCENE"
+  | "UNDER_ACTION"
+  | "RESOLVED"
+  | "CLOSED"
+  | "ESCALATED";
+
 export type EmergencySeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 export interface IncidentUpdate {
@@ -28,10 +38,19 @@ export interface EmergencyIncident {
   reportedBy: string;
   reportedByPhone: string;
   reportedAt: string;
+  acknowledgedAt?: string;
+  assignedAt?: string;
   assignedResponder?: string;
   responderPhone?: string;
   responderRole?: string;
   etaMinutes?: number;
+  enRouteAt?: string;
+  onSceneAt?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  escalatedAt?: string;
+  escalationLevel?: string;
+  slaBreached?: boolean;
   updates: IncidentUpdate[];
 }
 
@@ -169,6 +188,135 @@ export const emergencyService = {
     };
     saveIncidents(incidents);
     return incidents[idx];
+  },
+
+  autoDispatch(id: string, responderName?: string, responderRole?: string): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "ASSIGNED",
+      assignedAt: now,
+      assignedResponder: responderName || "Guard Ramesh (Gate 1)",
+      responderRole: responderRole || "Security Guard",
+      responderPhone: "+91 98450 11223",
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: `Assigned responder: ${responderName || "Guard Ramesh"}`, author: "Control Room", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  acknowledgeIncident(id: string, acknowledgedBy = "Control Room Operator"): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "ACKNOWLEDGED",
+      acknowledgedAt: now,
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: `Acknowledged by ${acknowledgedBy}`, author: acknowledgedBy, timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  setResponderEta(id: string, etaMinutes: number): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "RESPONDING",
+      etaMinutes,
+      enRouteAt: now,
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: `Responder en route, ETA ${etaMinutes} mins`, author: incidents[idx].assignedResponder || "Responder", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  markOnScene(id: string): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "ON_SCENE",
+      onSceneAt: now,
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: "Responder arrived on scene", author: incidents[idx].assignedResponder || "Responder", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  markUnderAction(id: string, notes = "Active intervention in progress"): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "UNDER_ACTION",
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: notes, author: incidents[idx].assignedResponder || "Responder", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  resolveIncident(id: string, notes = "Emergency resolved successfully"): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "RESOLVED",
+      resolvedAt: now,
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: notes, author: "Control Room", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  escalateIncident(id: string, level: string, reason: string): EmergencyIncident | null {
+    const incidents = loadIncidents();
+    const idx = incidents.findIndex(i => i.id === id);
+    if (idx === -1) return null;
+    const now = new Date().toISOString();
+    incidents[idx] = {
+      ...incidents[idx],
+      status: "ESCALATED",
+      escalatedAt: now,
+      escalationLevel: level,
+      slaBreached: true,
+      updates: [...incidents[idx].updates, { id: `u-${Date.now()}`, note: `Escalated to ${level}: ${reason}`, author: "SLA Watchdog", timestamp: now }],
+    };
+    saveIncidents(incidents);
+    return incidents[idx];
+  },
+
+  getAuditReport(id: string) {
+    const incidents = loadIncidents();
+    const inc = incidents.find(i => i.id === id);
+    if (!inc) return null;
+    const created = new Date(inc.reportedAt).getTime();
+    const ackTime = inc.acknowledgedAt ? Math.round((new Date(inc.acknowledgedAt).getTime() - created) / 1000) : null;
+    const onSceneTime = inc.onSceneAt ? Math.round((new Date(inc.onSceneAt).getTime() - created) / 1000) : null;
+    const totalTime = inc.resolvedAt ? Math.round((new Date(inc.resolvedAt).getTime() - created) / 1000) : null;
+
+    return {
+      incident: inc,
+      timeToAcknowledgeSeconds: ackTime,
+      timeToOnSceneSeconds: onSceneTime,
+      totalResolutionTimeSeconds: totalTime,
+      slaAdherence: !inc.slaBreached,
+      timeline: inc.updates,
+    };
   },
 
   // --- Backend Safety & SOS API Integration ---

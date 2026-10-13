@@ -122,6 +122,8 @@ export interface WorkerLeave {
   status: 'APPROVED' | 'PENDING';
 }
 
+export type GatePresenceStatus = 'IN_SOCIETY' | 'OUT' | 'UNKNOWN';
+
 export interface HomeServiceWorker {
   id: string;
   communityId: string;
@@ -129,18 +131,23 @@ export interface HomeServiceWorker {
   workerType: WorkerType;
   displayName: string;
   phoneMasked?: string;
+  phone?: string;
   experienceYears: number;
   languages: string[];
   verificationStatus: VerificationStatus;
   mobileVerified: boolean;
   communityVerified: boolean;
   securityVerified: boolean;
+  policeVerified: boolean;
+  aadhaarVerified: boolean;
   rating: number;
   reviewCount: number;
   status: WorkerStatus;
   servingSince: string;
   bio?: string;
   avatarUrl?: string;
+  gatePresenceStatus?: GatePresenceStatus;
+  gateLastSeen?: string;
   skills: WorkerSkill[];
   availability: WorkerAvailability[];
   flatAssignments: WorkerFlatAssignment[];
@@ -195,6 +202,14 @@ export interface HomeServiceBooking {
   rejectionReason?: string;
   cancellationReason?: string;
   notes?: string;
+  slaHours?: number;
+  slaDueAt?: string;
+  slaBreached?: boolean;
+  completionOtp?: string;
+  completedAt?: string;
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+  paymentTransactionId?: string;
+  paidAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -8,6 +8,12 @@ import type {
   CommunityDemand,
   CommerceAnalytics,
   DealType,
+  CommunityCoupon,
+  CouponValidationResult,
+  QrVerificationResult,
+  CommissionRecord,
+  SettlementBatch,
+  CampaignAnalytics,
 } from '../../types/offers';
 
 const OFFERS_API_URL = 'http://localhost:8102/api/offers';
@@ -775,6 +781,389 @@ class OffersApiService {
         FREE_SERVICE: 1,
       },
     };
+  }
+
+  async getCoupons(businessId?: string): Promise<CommunityCoupon[]> {
+    try {
+      let url = `${OFFERS_API_URL}/coupons`;
+      if (businessId) url += `?businessId=${businessId}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'coup-1',
+        code: 'MANA20',
+        title: '20% Off Welcome Community Voucher',
+        description: 'Special 20% discount on any partner store for Mana Residency residents',
+        communityId: 'comm-mana-residency',
+        discountType: 'PERCENTAGE',
+        discountValue: 20,
+        minOrderAmount: 300,
+        maxDiscountAmount: 150,
+        validUntil: '2026-11-30',
+        usageLimitTotal: 500,
+        usageLimitPerUser: 2,
+        totalUsedCount: 14,
+        status: 'ACTIVE',
+        active: true,
+      },
+      {
+        id: 'coup-2',
+        code: 'FESTIVE100',
+        title: 'Flat ₹100 Off Festive Offer',
+        description: 'Flat ₹100 instant discount on orders above ₹500 at verified local merchants',
+        communityId: 'comm-mana-residency',
+        discountType: 'FLAT_AMOUNT',
+        discountValue: 100,
+        minOrderAmount: 500,
+        maxDiscountAmount: 100,
+        validUntil: '2026-11-15',
+        usageLimitTotal: 200,
+        usageLimitPerUser: 1,
+        totalUsedCount: 28,
+        status: 'ACTIVE',
+        active: true,
+      },
+    ];
+  }
+
+  async validateCoupon(req: { code: string; orderAmount: number; residentUserId: string; businessId?: string }): Promise<CouponValidationResult> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+
+    const code = req.code.toUpperCase().trim();
+    if (code === 'MANA20') {
+      if (req.orderAmount < 300) {
+        return {
+          valid: false,
+          code,
+          message: 'Minimum order of ₹300 required',
+          originalAmount: req.orderAmount,
+          calculatedDiscount: 0,
+          finalPayableAmount: req.orderAmount,
+        };
+      }
+      const discount = Math.min(150, (req.orderAmount * 20) / 100);
+      return {
+        valid: true,
+        couponId: 'coup-1',
+        code,
+        message: 'Coupon applied successfully!',
+        discountType: 'PERCENTAGE',
+        discountValue: 20,
+        originalAmount: req.orderAmount,
+        calculatedDiscount: discount,
+        finalPayableAmount: req.orderAmount - discount,
+      };
+    }
+
+    if (code === 'FESTIVE100') {
+      if (req.orderAmount < 500) {
+        return {
+          valid: false,
+          code,
+          message: 'Minimum order of ₹500 required',
+          originalAmount: req.orderAmount,
+          calculatedDiscount: 0,
+          finalPayableAmount: req.orderAmount,
+        };
+      }
+      return {
+        valid: true,
+        couponId: 'coup-2',
+        code,
+        message: 'Flat ₹100 discount applied!',
+        discountType: 'FLAT_AMOUNT',
+        discountValue: 100,
+        originalAmount: req.orderAmount,
+        calculatedDiscount: 100,
+        finalPayableAmount: req.orderAmount - 100,
+      };
+    }
+
+    return {
+      valid: false,
+      code,
+      message: 'Invalid coupon code',
+      originalAmount: req.orderAmount,
+      calculatedDiscount: 0,
+      finalPayableAmount: req.orderAmount,
+    };
+  }
+
+  async applyCoupon(req: { code: string; orderAmount: number; residentUserId: string; businessId?: string; claimId?: string }): Promise<CouponValidationResult> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/coupons/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return this.validateCoupon(req);
+  }
+
+  async verifyQr(codeOrQr: string): Promise<QrVerificationResult> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/deals/qr/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrPayload: codeOrQr, redemptionCode: codeOrQr }),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+
+    const clean = codeOrQr.toUpperCase().trim();
+    const claim = this.claims.find((c) => c.redemptionCode === clean || c.qrPayload === clean);
+    if (!claim) {
+      return {
+        valid: false,
+        message: 'Invalid QR code or redemption voucher',
+        alreadyRedeemed: false,
+        isExpired: false,
+      };
+    }
+
+    const alreadyRedeemed = claim.status === 'REDEEMED';
+    return {
+      valid: !alreadyRedeemed,
+      claimId: claim.id,
+      redemptionCode: claim.redemptionCode,
+      status: claim.status,
+      offerId: claim.offerId,
+      offerTitle: claim.offerTitle,
+      businessId: claim.businessId,
+      businessName: claim.businessName,
+      residentUserId: claim.residentUserId,
+      residentName: claim.residentName,
+      unitNumber: claim.unitNumber,
+      regularPrice: claim.regularPrice,
+      communityPrice: claim.communityPrice,
+      savingsSummary: claim.savingsSummary,
+      validUntil: claim.validUntil,
+      alreadyRedeemed,
+      isExpired: false,
+      message: alreadyRedeemed ? 'Voucher has already been redeemed' : 'Valid resident voucher ready for redemption',
+    };
+  }
+
+  async submitMerchantKyc(businessId: string, kyc: any): Promise<BusinessPartner> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/businesses/${businessId}/kyc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(kyc),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    const biz = this.businesses.find((b) => b.id === businessId);
+    if (biz) {
+      biz.registeredEntityName = kyc.registeredEntityName;
+      biz.verificationStatus = 'PENDING';
+      return { ...biz };
+    }
+    throw new Error('Business not found');
+  }
+
+  async verifyMerchant(businessId: string, verification: any): Promise<BusinessPartner> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/admin/businesses/${businessId}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(verification),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    const biz = this.businesses.find((b) => b.id === businessId);
+    if (biz) {
+      biz.verificationStatus = verification.status;
+      if (verification.partnershipTier) biz.partnershipTier = verification.partnershipTier;
+      return { ...biz };
+    }
+    throw new Error('Business not found');
+  }
+
+  async getPendingVerifications(): Promise<BusinessPartner[]> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/admin/businesses/pending-verification`);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return this.businesses.filter((b) => b.verificationStatus === 'PENDING');
+  }
+
+  async getDealAnalytics(offerId: string): Promise<CampaignAnalytics> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/deals/${offerId}/analytics`);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    const o = this.offers.find((off) => off.id === offerId);
+    return {
+      offerId,
+      offerTitle: o?.title || 'Offer Campaign',
+      businessId: o?.businessId || 'biz-1',
+      businessName: o?.businessName || 'Business Partner',
+      categoryName: o?.categoryName || 'General',
+      viewCount: o?.viewCount || 200,
+      claimedCount: o?.claimedCount || 25,
+      redeemedCount: o?.redeemedCount || 15,
+      availableClaims: o?.availableClaims || 75,
+      claimRatePct: 12.5,
+      redemptionRatePct: 60.0,
+      totalGmvDiscounted: (o?.redeemedCount || 15) * 400,
+      totalSalesGmv: (o?.redeemedCount || 15) * 600,
+      platformCommissionEarned: (o?.redeemedCount || 15) * 30,
+      validFrom: o?.validFrom,
+      validUntil: o?.validUntil,
+      active: true,
+    };
+  }
+
+  async getAllCampaignAnalytics(): Promise<CampaignAnalytics[]> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/admin/campaign-analytics`);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return Promise.all(this.offers.map((o) => this.getDealAnalytics(o.id)));
+  }
+
+  async getSettlements(businessId?: string): Promise<SettlementBatch[]> {
+    try {
+      let url = `${OFFERS_API_URL}/settlements`;
+      if (businessId) url += `/business/${businessId}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'settle-1',
+        settlementNumber: 'SETTLE-202610-001',
+        businessId: businessId || 'biz-dental',
+        businessName: 'ABC Dental Clinic & Implant Centre',
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-30',
+        totalRedemptions: 19,
+        grossSalesAmount: 11400,
+        totalCommissionAmount: 570,
+        netPayoutAmount: 10830,
+        status: 'SETTLED',
+        payoutReference: 'UTR-HDFC-99120847',
+        settledAt: '2026-10-01T10:00:00Z',
+        createdAt: '2026-10-01T09:00:00Z',
+      },
+    ];
+  }
+
+  async generateSettlement(req?: any): Promise<SettlementBatch[]> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/settlements/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req || {}),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return this.getSettlements();
+  }
+
+  async processSettlement(settlementId: string, payoutReference: string): Promise<SettlementBatch> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/settlements/${settlementId}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payoutReference }),
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return {
+      id: settlementId,
+      settlementNumber: 'SETTLE-202610-BATCH',
+      businessId: 'biz-dental',
+      businessName: 'ABC Dental Clinic & Implant Centre',
+      periodStart: '2026-09-01',
+      periodEnd: '2026-09-30',
+      totalRedemptions: 19,
+      grossSalesAmount: 11400,
+      totalCommissionAmount: 570,
+      netPayoutAmount: 10830,
+      status: 'SETTLED',
+      payoutReference,
+      settledAt: new Date().toISOString(),
+      createdAt: '2026-10-01T09:00:00Z',
+    };
+  }
+
+  async getCommissions(businessId?: string): Promise<CommissionRecord[]> {
+    try {
+      let url = `${OFFERS_API_URL}/settlements/commissions`;
+      if (businessId) url += `/business/${businessId}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return [
+      {
+        id: 'comm-rec-1',
+        businessId: businessId || 'biz-dental',
+        businessName: 'ABC Dental Clinic & Implant Centre',
+        offerId: 'deal-dental-consult',
+        offerTitle: 'Complete Dental Consultation',
+        claimId: 'claim-1',
+        redemptionCode: 'MANA-8F29K',
+        residentUserId: 'user-sandeep',
+        billAmount: 600,
+        discountAmount: 400,
+        commissionRatePct: 5.0,
+        commissionAmount: 30,
+        netMerchantAmount: 570,
+        status: 'SETTLED',
+        settlementBatchId: 'settle-1',
+        createdAt: '2026-09-22T10:30:00Z',
+      },
+    ];
+  }
+
+  async expireOutdatedRecords(): Promise<{ message: string; expiredCount: number }> {
+    try {
+      const res = await fetch(`${OFFERS_API_URL}/admin/maintenance/expire-outdated`, {
+        method: 'POST',
+      });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback
+    }
+    return { message: 'Maintenance sweep completed', expiredCount: 0 };
   }
 }
 

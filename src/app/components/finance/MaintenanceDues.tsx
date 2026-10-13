@@ -1,11 +1,16 @@
 // MaintenanceDues.tsx - Resident Maintenance Bill, Advance Wallet & Pay Now Flow
 import React, { useState } from "react";
+import { Link } from "react-router";
 import {
   CreditCard, Wallet, CheckCircle2, Clock, AlertTriangle,
-  Download, ChevronRight, ShieldCheck, ArrowDownRight, Layers, FileText, X
+  Download, ChevronRight, ShieldCheck, ArrowDownRight, Layers, FileText, X, Zap
 } from "lucide-react";
 import { communityFinanceService } from "../../../services/finance/communityFinanceService";
 import type { MaintenanceBill, CommunityReceipt, PaymentMode } from "../../../services/finance/communityFinanceService";
+import { personalFinanceService } from "../../../services/finance/personalFinanceService";
+import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
+import { manaPayService } from "../../../services/payments/manaPayService";
+import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../../types/manaPay";
 
 export function MaintenanceDues() {
   const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill("302"));
@@ -14,6 +19,7 @@ export function MaintenanceDues() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
+  const [recordedInMyMoney, setRecordedInMyMoney] = useState(false);
 
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("UPI");
   const [useAdvanceWallet, setUseAdvanceWallet] = useState(false);
@@ -58,12 +64,27 @@ export function MaintenanceDues() {
           </p>
         </div>
 
-        {/* Advance Wallet Box */}
-        <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60"><Wallet className="w-5 h-5" /></div>
-          <div>
-            <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Advance Wallet Balance</div>
-            <div className="text-lg font-black text-purple-900 dark:text-white">₹{wallet.balanceAmount.toLocaleString("en-IN")}</div>
+        {/* Advance Wallet & Autopay Box */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/finance/bills"
+            className="p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 flex items-center gap-3 hover:border-emerald-400 transition-all"
+          >
+            <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60"><Zap className="w-5 h-5" /></div>
+            <div>
+              <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                Autopay Mandate <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+              <div className="text-xs font-black text-emerald-950 dark:text-white">Active (UMN-MANA-992147)</div>
+            </div>
+          </Link>
+
+          <div className="p-3.5 rounded-xl border border-purple-200 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/60"><Wallet className="w-5 h-5" /></div>
+            <div>
+              <div className="text-[11px] font-bold text-purple-700 dark:text-purple-300">Advance Wallet Balance</div>
+              <div className="text-lg font-black text-purple-900 dark:text-white">₹{wallet.balanceAmount.toLocaleString("en-IN")}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -170,53 +191,43 @@ export function MaintenanceDues() {
         </div>
       </div>
 
-      {/* ── Payment Modal ────────────────────────────────────────────────────── */}
+      {/* ── Mana Pay Unified Checkout Modal ─────────────────────────────────── */}
       {showPayModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Pay Maintenance Dues</h3>
-              <button onClick={() => setShowPayModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl flex items-center justify-between">
-              <div>
-                <div className="text-xs text-indigo-700 dark:text-indigo-300">Amount Due</div>
-                <div className="text-xl font-black text-indigo-900 dark:text-white">₹{bill.dueAmount.toLocaleString("en-IN")}</div>
-              </div>
-              <span className="text-xs text-indigo-600 font-mono">Invoice #{bill.billNumber}</span>
-            </div>
-
-            {/* Payment Method Selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Payment Mode</label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["UPI", "NET_BANKING", "CARD", "WALLET"] as PaymentMode[]).map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setPaymentMode(m)}
-                    className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
-                      paymentMode === m
-                        ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={handlePay}
-              disabled={isProcessing}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-md mt-4"
-            >
-              {isProcessing ? "Verifying & Allocating..." : `Confirm Payment of ₹${bill.dueAmount.toLocaleString("en-IN")}`}
-            </button>
-          </div>
-        </div>
+        <ManaPayCheckoutModal
+          isOpen={showPayModal}
+          onClose={() => setShowPayModal(false)}
+          residentWalletBalance={wallet.balanceAmount}
+          order={{
+            idempotencyKey: manaPayService.generateIdempotencyKey(
+              "MAINTENANCE_BILL",
+              bill.billNumber,
+              bill.dueAmount
+            ),
+            domain: "MAINTENANCE_BILL",
+            orderReferenceId: bill.billNumber,
+            title: `Maintenance Dues - ${bill.month}/${bill.year}`,
+            description: `Monthly maintenance invoice #${bill.billNumber} for Flat ${bill.flatNumber} (${bill.tower})`,
+            totalAmount: bill.dueAmount,
+            payer: {
+              name: "Sandeep Sharma",
+              unit: `Flat ${bill.flatNumber}`,
+              tower: bill.tower,
+            },
+            items: bill.charges.map((c) => ({
+              title: c.item,
+              amount: c.amount,
+            })),
+          }}
+          onPaymentSuccess={(record: ManaPaymentRecord) => {
+            const res = communityFinanceService.recordPayment(bill.id, bill.dueAmount, "UPI");
+            if (res) {
+              setBill({ ...res.bill });
+              setSelectedReceipt(res.receipt);
+              setPaymentSuccess(true);
+              setShowReceiptModal(true);
+            }
+          }}
+        />
       )}
 
       {/* ── Official Receipt Modal ───────────────────────────────────────────── */}
@@ -253,9 +264,51 @@ export function MaintenanceDues() {
               </div>
             </div>
 
+            {/* Isolation Boundary: Opt-in to record in Personal Finance */}
+            <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-indigo-600" />
+                    Record in My Money (Personal Finance)?
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Community finance maintains this official society receipt. To record it as a personal expense in your private ledger, opt-in below.
+                  </p>
+                </div>
+                {recordedInMyMoney ? (
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Recorded
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const accounts = personalFinanceService.getAccounts();
+                      const accId = accounts.length > 0 ? accounts[0].id : "acc-1";
+                      personalFinanceService.createTransaction({
+                        type: "EXPENSE",
+                        amount: selectedReceipt.amountPaid,
+                        accountId: accId,
+                        categoryId: "cat-1",
+                        description: `Society Maintenance: ${selectedReceipt.receiptNumber}`,
+                        notes: `Paid for Flat ${selectedReceipt.flatNumber} (${selectedReceipt.tower}) - Tx: ${selectedReceipt.transactionRef}`,
+                      });
+                      setRecordedInMyMoney(true);
+                    }}
+                    className="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl shadow-sm transition"
+                  >
+                    + Record in My Money
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="pt-2 flex justify-end">
               <button
-                onClick={() => setShowReceiptModal(false)}
+                onClick={() => {
+                  setShowReceiptModal(false);
+                  setRecordedInMyMoney(false);
+                }}
                 className="px-5 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl"
               >
                 Done

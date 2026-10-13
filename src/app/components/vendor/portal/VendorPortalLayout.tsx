@@ -13,6 +13,7 @@ const portalNav = [
   { to: "/vendor-portal/bookings", label: "Bookings", icon: CalendarCheck },
   { to: "/vendor-portal/availability", label: "Availability", icon: Clock },
   { to: "/vendor-portal/payments", label: "Payments", icon: Wallet },
+  { to: "/vendor-portal/merchant-payments", label: "Merchant Payments", icon: Store },
   { to: "/vendor-portal/verification", label: "Verification", icon: ShieldCheck },
   { to: "/vendor-portal/documents", label: "Documents", icon: FileText },
   { to: "/vendor-portal/ratings", label: "Ratings", icon: Star },

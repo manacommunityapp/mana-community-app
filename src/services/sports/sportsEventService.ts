@@ -244,4 +244,16 @@ export const sportsEventService = {
       : `/sports/registrations/${registrationId}/nominate-partner`;
     return apiClient.put<EventRegistration>(url);
   },
+
+  /** POST /api/sports/register-team — register a team with multiple members */
+  async registerTeam(data: {
+    eventId: number;
+    categoryId: number;
+    teamName: string;
+    logoEmoji?: string;
+    memberUserIds: number[];
+    captainUserId?: number;
+  }): Promise<EventRegistration[]> {
+    return apiClient.post<EventRegistration[]>("/sports/register-team", data);
+  },
 };

@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import type { AcademyInstructor, AcademyProgram } from "../../../types/academy";
 import { academyApi } from "../../../services/academy/academyApi";
+import { resolveImageUrl } from "../../../utils/imageUrlUtils";
 
 export function AcademyAdminHub() {
   const [instructors, setInstructors] = useState<AcademyInstructor[]>([]);
@@ -112,7 +113,7 @@ export function AcademyAdminHub() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src={instr.profilePicUrl}
+                      src={resolveImageUrl(instr.profilePicUrl)}
                       alt={instr.fullName}
                       className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-500 shrink-0"
                     />

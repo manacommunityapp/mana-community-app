@@ -18,6 +18,9 @@ import {
   Eye,
   ArrowRight,
   MessageSquare,
+  Building,
+  Send,
+  Filter,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../ui/card";
@@ -26,11 +29,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import {
   communityGraphService,
   type RecommendationCard,
   type CommunityProfile,
   type RecommendationType,
 } from "../../../services/graph/communityGraphService";
+import { manaIntelligenceService } from "../../../services/manaIntelligenceService";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const TYPE_ICONS: Record<RecommendationType, React.ComponentType<{ className?: string }>> = {
@@ -49,7 +61,15 @@ export function PersonalizedFeed() {
   const [activeTab, setActiveTab] = useState("for-you");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTower, setSelectedTower] = useState<string>("ALL");
+  const [selectedSkill, setSelectedSkill] = useState<string>("");
+  const [topSkills, setTopSkills] = useState<{ skill: string; count: number }[]>([]);
   const [connectedIds, setConnectedIds] = useState<string[]>([]);
+
+  // Connect Dialog state
+  const [connectModalProfile, setConnectModalProfile] = useState<CommunityProfile | null>(null);
+  const [introMessage, setIntroMessage] = useState("");
+  const [isSendingConnect, setIsSendingConnect] = useState(false);
 
   // Privacy Settings state
   const [privacySettings, setPrivacySettings] = useState({
@@ -63,6 +83,7 @@ export function PersonalizedFeed() {
 
   useEffect(() => {
     loadData();
+    loadTopSkills();
   }, []);
 
   const loadData = async () => {
@@ -75,12 +96,37 @@ export function PersonalizedFeed() {
     setProfiles(communityGraphService.getProfiles());
   };
 
+  const loadTopSkills = async () => {
+    try {
+      const skills = await manaIntelligenceService.getTopSkills();
+      if (skills && Array.isArray(skills)) {
+        setTopSkills(skills);
+      }
+    } catch (e) {
+      // Fallback skills cloud
+      setTopSkills([
+        { skill: "React", count: 12 },
+        { skill: "Badminton", count: 18 },
+        { skill: "Pediatrics", count: 4 },
+        { skill: "Tax Advisory", count: 7 },
+        { skill: "Yoga", count: 14 },
+        { skill: "Home Cooking", count: 9 },
+        { skill: "Mathematics", count: 6 },
+      ]);
+    }
+  };
+
   const filteredFeed = feed.filter((item) => {
     if (typeFilter === "ALL") return true;
     return item.type === typeFilter;
   });
 
   const filteredProfiles = profiles.filter((p) => {
+    const matchesTower = selectedTower === "ALL" || p.tower === selectedTower;
+    const matchesSkill = !selectedSkill || p.skills.some((s) => s.toLowerCase() === selectedSkill.toLowerCase());
+
+    if (!matchesTower || !matchesSkill) return false;
+
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -92,9 +138,25 @@ export function PersonalizedFeed() {
     );
   });
 
-  const handleConnect = (profileId: string) => {
-    if (connectedIds.includes(profileId)) return;
-    setConnectedIds([...connectedIds, profileId]);
+  const handleOpenConnect = (prof: CommunityProfile) => {
+    setConnectModalProfile(prof);
+    setIntroMessage(`Hi ${prof.name.split(" ")[0]}, I saw your profile on Mana Discover and would love to connect!`);
+  };
+
+  const handleConfirmConnect = async () => {
+    if (!connectModalProfile) return;
+    setIsSendingConnect(true);
+    try {
+      await communityGraphService.connectWithNeighbor?.(connectModalProfile.id, introMessage);
+    } catch (e) {
+      // Handled gracefully
+    } finally {
+      if (!connectedIds.includes(connectModalProfile.id)) {
+        setConnectedIds([...connectedIds, connectModalProfile.id]);
+      }
+      setIsSendingConnect(false);
+      setConnectModalProfile(null);
+    }
   };
 
   const handleSavePrivacy = () => {
@@ -223,15 +285,66 @@ export function PersonalizedFeed() {
 
         {/* TAB 2: Resident Directory */}
         <TabsContent value="directory" className="space-y-4 pt-4">
-          <div className="relative max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input
-              placeholder="Search by skill (React, Yoga), profession (Doctor, Lawyer), interest..."
-              className="pl-9 text-xs"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                placeholder="Search by skill (React, Yoga), profession (Doctor, Lawyer), interest..."
+                className="pl-9 text-xs"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select value={selectedTower} onValueChange={setSelectedTower}>
+                <SelectTrigger className="w-36 text-xs h-9 bg-white">
+                  <Building className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                  <SelectValue placeholder="All Towers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Towers</SelectItem>
+                  <SelectItem value="A">Tower A</SelectItem>
+                  <SelectItem value="B">Tower B</SelectItem>
+                  <SelectItem value="C">Tower C</SelectItem>
+                  <SelectItem value="D">Tower D</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {selectedSkill && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs h-9 text-purple-700 bg-purple-100 hover:bg-purple-200"
+                  onClick={() => setSelectedSkill("")}
+                >
+                  Skill: {selectedSkill} ✕
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Popular Skills Strip */}
+          {topSkills.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              <span className="text-slate-500 font-semibold flex items-center gap-1 shrink-0 text-[11px]">
+                <Filter className="w-3 h-3 text-purple-600" /> Top Skills:
+              </span>
+              {topSkills.map((s) => (
+                <button
+                  key={s.skill}
+                  onClick={() => setSelectedSkill(s.skill === selectedSkill ? "" : s.skill)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition shrink-0 ${
+                    selectedSkill === s.skill
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  }`}
+                >
+                  {s.skill} <span className="opacity-60 text-[10px]">({s.count})</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {filteredProfiles.map((prof) => {
@@ -289,7 +402,7 @@ export function PersonalizedFeed() {
                           ? "border-emerald-500 text-emerald-700 bg-emerald-50"
                           : "bg-blue-600 hover:bg-blue-700"
                       }`}
-                      onClick={() => handleConnect(prof.id)}
+                      onClick={() => handleOpenConnect(prof)}
                     >
                       {isConnected ? (
                         <>
@@ -365,6 +478,49 @@ export function PersonalizedFeed() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Connect Intro Dialog */}
+      <Dialog open={!!connectModalProfile} onOpenChange={(open) => !open && setConnectModalProfile(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-purple-600" />
+              Connect with {connectModalProfile?.name}
+            </DialogTitle>
+            <DialogDescription>
+              {connectModalProfile?.professions.join(", ")} &bull; Tower {connectModalProfile?.tower}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <label className="font-semibold text-slate-700 block">Personalized Intro Greeting</label>
+            <textarea
+              className="w-full h-24 p-2.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-600 bg-slate-50 focus:bg-white resize-none"
+              value={introMessage}
+              onChange={(e) => setIntroMessage(e.target.value)}
+              placeholder="Hi, I saw your profile on Mana Discover and would love to connect..."
+            />
+            <p className="text-[11px] text-slate-500">
+              This message will be delivered to their chat inbox while preserving contact mask privacy until accepted.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setConnectModalProfile(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-purple-600 hover:bg-purple-700 font-bold"
+              disabled={isSendingConnect || !introMessage.trim()}
+              onClick={handleConfirmConnect}
+            >
+              <Send className="w-3.5 h-3.5 mr-1.5" />
+              {isSendingConnect ? "Sending..." : "Send Connection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

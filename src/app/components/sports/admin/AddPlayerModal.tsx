@@ -27,6 +27,7 @@ import {
 import type { PlayerCategory } from "../../../../types/api";
 import { familyService } from "../../../../services/common/familyService";
 import type { FamilyMemberSlim } from "../../../../services/common/familyService";
+import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
 
 const calculateAge = (dobString?: string): number | null => {
   if (!dobString) return null;
@@ -373,7 +374,7 @@ export function AddPlayerModal({
                               <div className="relative h-9 w-9 rounded-full overflow-hidden border border-[#2a3a5c] group-hover:border-[#f97316]/50 transition-colors flex-shrink-0 bg-[#141c2e] flex items-center justify-center shadow-xs">
                                 {friend.avatarUrl || friend.profilePicUrl ? (
                                   <img
-                                    src={friend.avatarUrl || friend.profilePicUrl}
+                                    src={resolveImageUrl(friend.avatarUrl || friend.profilePicUrl)}
                                     className="w-full h-full object-cover"
                                     alt={friend.fullName}
                                     onError={(e) => {

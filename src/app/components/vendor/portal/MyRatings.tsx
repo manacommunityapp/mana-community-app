@@ -6,6 +6,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { vendorRatingService } from "../../../../services/vendor/vendorService";
 import type { VendorRatingResponse } from "../../../../types/api";
+import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
 
 const STAR_LABELS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];
 
@@ -180,7 +181,7 @@ export function MyRatings() {
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-50 to-violet-50 flex items-center justify-center shrink-0">
                     {rating.customer.profilePicUrl ? (
                       <img
-                        src={rating.customer.profilePicUrl}
+                        src={resolveImageUrl(rating.customer.profilePicUrl)}
                         alt=""
                         className="w-10 h-10 rounded-full object-cover"
                       />

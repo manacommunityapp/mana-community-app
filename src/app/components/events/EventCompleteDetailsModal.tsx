@@ -16,7 +16,10 @@ import {
   Sparkles,
   Shield,
   AlertCircle,
+  Stethoscope,
+  Heart,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService } from "../../../services/events/eventService";
 import { eventSponsorService } from "../../../services/events/eventSponsorService";
@@ -41,6 +44,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   isAdmin = false,
 }) => {
   useEscapeKey(onClose, isOpen);
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<"overview" | "poojas" | "meals" | "cultural" | "sponsors">("overview");
   const [subPoojas, setSubPoojas] = useState<any[]>([]);
@@ -55,6 +59,14 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   const rawId = event?.id != null ? String(event.id) : "";
   const eventTitle = event?.title || event?.name || "Community Event";
   const eventCategory = event?.category || event?.type || "Event";
+  const isHealthEvent =
+    event?.type === "health" ||
+    event?.category === "health" ||
+    String(eventTitle).toLowerCase().includes("health") ||
+    String(eventTitle).toLowerCase().includes("vaccin") ||
+    String(eventTitle).toLowerCase().includes("screening") ||
+    String(eventTitle).toLowerCase().includes("blood pressure") ||
+    String(eventTitle).toLowerCase().includes("diabetes");
   const eventVenueName    = event?.venueName  || event?.venue    || event?.location  || "";
   const eventVenueAddress = event?.venueAddress || event?.address || "";
   const eventCity         = event?.city || "";
@@ -385,6 +397,38 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
             </div>
           </div>
         </div>
+
+        {/* ─── HEALTH CAMP PRIVACY & SLOT RESERVATION BANNER ─── */}
+        {isHealthEvent && (
+          <div className="mx-4 mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-teal-500/5 border border-teal-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <Stethoscope className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-foreground">
+                  <span>Community Health Camp &amp; Screening Drive</span>
+                  <span className="text-[10px] bg-teal-500/20 text-teal-800 dark:text-teal-300 px-2 py-0.5 rounded-md font-extrabold uppercase">
+                    Mana Health Vault Protected
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  Reserve 30-min arrival slots for you and family members. Public attendance is tracked here, while all clinical vitals, lab results, and diagnoses are kept strictly private inside your Health Vault.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                navigate("/health");
+              }}
+              className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-md transition"
+            >
+              <Heart className="w-3.5 h-3.5" /> Book Clinical Slot
+            </button>
+          </div>
+        )}
 
         {/* ─── TAB NAVIGATION BAR ─── */}
         <div className="flex items-center gap-1.5 px-4 pt-3 border-b border-border overflow-x-auto scrollbar-none">
@@ -776,6 +820,19 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
           </button>
 
           <div className="flex items-center gap-2">
+            {isHealthEvent && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  navigate("/health");
+                }}
+                className="px-4 py-2 bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-800 hover:to-emerald-800 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-teal-700/20 cursor-pointer active:scale-95 transition-all"
+              >
+                <Stethoscope className="w-3.5 h-3.5" /> Book Clinical Slot (Mana Health)
+              </button>
+            )}
+
             {onBookActivity && (
               <button
                 type="button"

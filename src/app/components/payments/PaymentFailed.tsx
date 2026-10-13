@@ -53,7 +53,7 @@ const PaymentFailed: React.FC<PaymentFailedProps> = ({
           <RazorpayCheckout
             amount={retryRequest.amount}
             referenceType={retryRequest.referenceType}
-            referenceId={retryRequest.referenceId}
+            referenceId={typeof retryRequest.referenceId === 'number' ? retryRequest.referenceId : Number(retryRequest.referenceId) || 0}
             description={retryRequest.description}
             label="Retry Payment"
             onSuccess={onRetrySuccess}

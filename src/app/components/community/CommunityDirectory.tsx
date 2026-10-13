@@ -11,6 +11,8 @@ import { whoToCallService } from "../../../services/community/whoToCallService";
 import type { CommunityLeaderResponse, CommunityWhoToCallResponse, CommunityLeaderHistoryResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
 import { showError } from "../../../utils/ToastUtils";
+import { resolveImageUrl } from "../../../utils/imageUrlUtils";
+import { ProfileImageModal } from "../commons/ProfileImageModal";
 
 // ── Role styling ────────────────────────────────────────────────────────────
 
@@ -287,6 +289,7 @@ type DirectoryTab = "leadership" | "committees" | "contact";
 // ── Enhanced Leader Card ────────────────────────────────────────────────────
 
 function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderResponse; isModal?: boolean }) {
+  const [showImageModal, setShowImageModal] = useState(false);
   const style = getRoleStyle(leader.designation);
   const { openFloatingChatWithUser } = useChat();
 
@@ -305,15 +308,27 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
       <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
         {leader.profilePicUrl || (leader as any).profilePic ? (
           <img
-            src={leader.profilePicUrl || (leader as any).profilePic}
+            src={resolveImageUrl(leader.profilePicUrl || (leader as any).profilePic)}
             alt={leader.fullName}
-            className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg object-cover ring-1.5 ${style.avatarRing} shadow-2xs shrink-0`}
+            className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg object-cover ring-1.5 ${style.avatarRing} shadow-2xs shrink-0 cursor-pointer hover:ring-2 hover:scale-105 transition-all`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(true);
+            }}
+            title="Click to view full photo"
             onError={(e) => {
               (e.currentTarget as HTMLElement).style.display = "none";
             }}
           />
         ) : (
-          <div className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg flex items-center justify-center font-bold text-xs ring-1.5 ${style.avatarRing} shadow-2xs shrink-0 ${style.bg} ${style.color}`}>
+          <div
+            className={`h-7.5 w-7.5 sm:h-8.5 sm:w-8.5 rounded-lg flex items-center justify-center font-bold text-xs ring-1.5 ${style.avatarRing} shadow-2xs shrink-0 ${style.bg} ${style.color} cursor-pointer hover:ring-2 hover:scale-105 transition-all`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(true);
+            }}
+            title="Click to view photo"
+          >
             {getInitials(leader.fullName)}
           </div>
         )}
@@ -381,6 +396,19 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
           )}
         </div>
       )}
+
+      {/* Enlarged Leader Photo Modal */}
+      <ProfileImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={leader.profilePicUrl || (leader as any).profilePic}
+        name={leader.fullName}
+        subtitle={[
+          leader.designation,
+          leader.committee,
+          unitDetails,
+        ].filter(Boolean).join(" · ")}
+      />
     </div>
   );
 }
