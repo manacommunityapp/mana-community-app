@@ -43,6 +43,7 @@ import type { CommunityResponse, BlockConfigResponse } from "../../../../types/a
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 import { PrivacyPolicyModal, PRIVACY_NOTICE_VERSION } from "../privacy/PrivacyPolicyModal";
+import { HCaptchaWidget } from "../HCaptchaWidget";
 
 type Step = 1 | 2 | 3;
 
@@ -524,6 +525,7 @@ export function Signup() {
   const [otpCode, setOtpCode] = useState<string>("");
   const [isSendingSignupOtp, setIsSendingSignupOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState<string>("");
   const flatSearchContainerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const signupOtpInputRef = useRef<HTMLInputElement>(null);
@@ -918,6 +920,8 @@ export function Signup() {
         // DPDP Act 2023 s.6 — pass explicit consent flag and notice version
         consentToPrivacyNotice: data.terms === true,
         consentNoticeVersion: PRIVACY_NOTICE_VERSION,
+        // Bot protection — hCaptcha token (verified server-side when app.captcha.enabled=true)
+        captchaToken: captchaToken || undefined,
       } as any);
 
       toast.success("Account created! Welcome to the community.");
@@ -1618,6 +1622,20 @@ export function Signup() {
                           Notice version: <code className="font-mono">{PRIVACY_NOTICE_VERSION}</code>
                         </p>
                       </div>
+                    </div>
+
+                    {/* CAPTCHA — bot protection (DPDP / security gap #3) */}
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <HCaptchaWidget
+                        onToken={setCaptchaToken}
+                        onExpire={() => setCaptchaToken("")}
+                        onError={() => setCaptchaToken("")}
+                      />
+                      {!captchaToken && (
+                        <p className="text-[10px] text-amber-600 font-medium">
+                          Please complete the security check above before registering.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
