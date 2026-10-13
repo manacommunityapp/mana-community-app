@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceOrderService,
-  CommerceOrderDto,
-  CommerceOrderStatus,
-} from "@/services/commerce/commerceOrderService";
+  type CommerceOrderDto,
+  type CommerceOrderStatus,
+} from "../../../../services/commerce/commerceOrderService";
 
 const STATUS_TABS: { value: CommerceOrderStatus | ""; label: string }[] = [
   { value: "", label: "All" },

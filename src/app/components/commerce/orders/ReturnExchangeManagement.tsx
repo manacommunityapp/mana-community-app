@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   commerceReturnService,
-  ReturnDto,
-  ReturnRequest,
+  type ReturnDto,
+  type ReturnRequest,
 } from "../../../../services/commerce/commerceReturnService";
 
 const STATUS_COLORS: Record<string, string> = {

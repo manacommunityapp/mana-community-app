@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import {
   vendorProductService,
-  CreateProductRequest,
-  CommerceProductCategoryResponse,
-  ProductType,
-} from "@/services/commerce/vendorProductService";
+  type CreateProductRequest,
+  type CommerceProductCategoryResponse,
+  type ProductType,
+} from "../../../../services/commerce/vendorProductService";
 
 const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
   { value: "PHYSICAL_PRODUCT", label: "Physical Product" },
@@ -407,7 +407,7 @@ export default function CommerceProductForm({ onSuccess, onCancel }: Props) {
                       type="number"
                       step="0.01"
                       {...register(
-                        `variants.${idx}.${key as keyof CreateProductRequest["variants"][number]}`,
+                        `variants.${idx}.${key as string}`,
                         {
                           setValueAs: (v) =>
                             v !== "" ? Number(v) : undefined,

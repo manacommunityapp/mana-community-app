@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { commercePaymentService } from "@/services/commerce/commercePaymentService";
-import type { CommerceOrderDto } from "@/services/commerce/commerceOrderService";
-import { useAuth } from "@/contexts/AuthContext";
+import { commercePaymentService } from "../../../../services/commerce/commercePaymentService";
+import type { CommerceOrderDto } from "../../../../services/commerce/commerceOrderService";
+import { useAuth } from "../../../../contexts/AuthContext";
 import type {
   RazorpaySuccessPayload,
   RazorpayCheckoutOptions,
-} from "@/types/payment";
+} from "../../../../types/payment";
 
 const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
 

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   vendorProductService,
-  VendorProductDto,
-  ProductType,
-} from "@/services/commerce/vendorProductService";
+  type VendorProductDto,
+  type ProductType,
+} from "../../../../services/commerce/vendorProductService";
 import CommerceProductForm from "./CommerceProductForm";
 
 const TYPE_LABELS: Record<ProductType, string> = {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   commerceCommissionService,
-  CommissionRuleDto,
-  CommissionRuleRequest,
+  type CommissionRuleDto,
+  type CommissionRuleRequest,
 } from "../../../../services/commerce/commerceCommissionService";
 
 const CHANNELS = ["", "ONLINE", "OFFLINE", "WHATSAPP", "APP"];

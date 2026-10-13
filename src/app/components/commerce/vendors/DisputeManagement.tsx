@@ -1,33 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../commons/ui/table";
-import { Badge } from "../../commons/ui/badge";
-import { Button } from "../../commons/ui/button";
-import { Input } from "../../commons/ui/input";
-import { Textarea } from "../../commons/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../commons/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "../../commons/ui/dialog";
-import { Label } from "../../commons/ui/label";
-import { useToast } from "../../commons/ui/use-toast";
 import { apiClient } from "../../../../services/common/apiClient";
 
 interface DisputeDto {
@@ -84,8 +55,12 @@ export default function DisputeManagement() {
   const [resolution, setResolution] = useState("ACKNOWLEDGED");
   const [adminNote, setAdminNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const fetchDisputes = useCallback(async () => {
     setLoading(true);
@@ -96,11 +71,11 @@ export default function DisputeManagement() {
       setDisputes(res.content);
       setTotalPages(res.totalPages);
     } catch {
-      toast({ title: "Failed to load disputes", variant: "destructive" });
+      showToast("Failed to load disputes", "error");
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, toast]);
+  }, [page, statusFilter]);
 
   useEffect(() => { fetchDisputes(); }, [fetchDisputes]);
 
@@ -119,11 +94,11 @@ export default function DisputeManagement() {
         resolution,
         adminNote,
       });
-      toast({ title: "Dispute resolved successfully" });
+      showToast("Dispute resolved successfully");
       setResolveDialogOpen(false);
       fetchDisputes();
     } catch {
-      toast({ title: "Failed to resolve dispute", variant: "destructive" });
+      showToast("Failed to resolve dispute", "error");
     } finally {
       setSubmitting(false);
     }
@@ -131,175 +106,200 @@ export default function DisputeManagement() {
 
   return (
     <div className="p-6 space-y-6">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${toast.type === "error" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dispute Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Review and resolve buyer disputes for your community
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate(-1)}>Back</Button>
+        <button
+          onClick={() => window.history.back()}
+          className="px-3 py-1.5 rounded border border-gray-300 text-sm font-medium hover:bg-gray-50"
+        >
+          Back
+        </button>
       </div>
 
       {/* Filters */}
       <div className="flex gap-3 items-center">
-        <Label className="text-sm font-medium">Status:</Label>
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="SUBMITTED">Submitted</SelectItem>
-            <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
-            <SelectItem value="RESOLVED">Resolved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-            <SelectItem value="CLOSED">Closed</SelectItem>
-          </SelectContent>
-        </Select>
+        <label className="text-sm font-medium">Status:</label>
+        <select
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+          className="border border-gray-300 rounded px-2 py-1.5 text-sm w-44"
+        >
+          <option value="all">All</option>
+          <option value="SUBMITTED">Submitted</option>
+          <option value="UNDER_REVIEW">Under Review</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="CLOSED">Closed</option>
+        </select>
       </div>
 
       {/* Table */}
       <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Dispute #</TableHead>
-              <TableHead>Order #</TableHead>
-              <TableHead>Buyer</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead className="text-right">Claim (₹)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Raised On</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Dispute #</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Order #</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Buyer</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Reason</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-600">Claim (₹)</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Raised On</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  Loading…
-                </TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-gray-400">Loading…</td>
+              </tr>
             ) : disputes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No disputes found
-                </TableCell>
-              </TableRow>
+              <tr>
+                <td colSpan={8} className="text-center py-8 text-gray-400">No disputes found</td>
+              </tr>
             ) : (
               disputes.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-mono text-xs">{d.disputeCode}</TableCell>
-                  <TableCell className="font-mono text-xs">{d.orderNumber}</TableCell>
-                  <TableCell>{d.userName}</TableCell>
-                  <TableCell className="max-w-[160px] truncate" title={d.reason}>{d.reason}</TableCell>
-                  <TableCell className="text-right">
+                <tr key={d.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs">{d.disputeCode}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{d.orderNumber}</td>
+                  <td className="px-4 py-3">{d.userName}</td>
+                  <td className="px-4 py-3 max-w-[160px] truncate" title={d.reason}>{d.reason}</td>
+                  <td className="px-4 py-3 text-right">
                     {d.claimAmount > 0 ? `₹${Number(d.claimAmount).toLocaleString("en-IN")}` : "—"}
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[d.status] ?? "bg-gray-100 text-gray-800"}`}>
                       {d.status}
                     </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-400">
                     {d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-IN") : "—"}
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="px-4 py-3">
                     {d.status !== "RESOLVED" && d.status !== "CLOSED" ? (
-                      <Button size="sm" variant="outline" onClick={() => openResolveDialog(d)}>
+                      <button
+                        onClick={() => openResolveDialog(d)}
+                        className="px-2 py-1 rounded border border-gray-300 text-xs font-medium hover:bg-gray-50"
+                      >
                         Resolve
-                      </Button>
+                      </button>
                     ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {d.resolution ?? "Resolved"}
-                      </span>
+                      <span className="text-xs text-gray-400">{d.resolution ?? "Resolved"}</span>
                     )}
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+          <button
+            disabled={page === 0}
+            onClick={() => setPage(p => p - 1)}
+            className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
             Previous
-          </Button>
-          <span className="text-sm self-center text-muted-foreground">
+          </button>
+          <span className="text-sm self-center text-gray-400">
             Page {page + 1} of {totalPages}
           </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+          <button
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage(p => p + 1)}
+            className="px-3 py-1.5 rounded border border-gray-300 text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
             Next
-          </Button>
+          </button>
         </div>
       )}
 
       {/* Resolve Dialog */}
-      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Resolve Dispute</DialogTitle>
-          </DialogHeader>
-          {selectedDispute && (
-            <div className="space-y-4 py-2">
-              <div className="bg-muted/40 rounded-md p-3 space-y-1 text-sm">
-                <div><span className="font-medium">Dispute:</span> {selectedDispute.disputeCode}</div>
-                <div><span className="font-medium">Order:</span> {selectedDispute.orderNumber}</div>
-                <div><span className="font-medium">Buyer:</span> {selectedDispute.userName}</div>
-                <div><span className="font-medium">Reason:</span> {selectedDispute.reason}</div>
-                {selectedDispute.description && (
-                  <div><span className="font-medium">Details:</span> {selectedDispute.description}</div>
-                )}
-                {selectedDispute.claimAmount > 0 && (
-                  <div><span className="font-medium">Claim:</span> ₹{Number(selectedDispute.claimAmount).toLocaleString("en-IN")}</div>
-                )}
-              </div>
+      {resolveDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setResolveDialogOpen(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Resolve Dispute</h2>
+            {selectedDispute && (
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-md p-3 space-y-1 text-sm">
+                  <div><span className="font-medium">Dispute:</span> {selectedDispute.disputeCode}</div>
+                  <div><span className="font-medium">Order:</span> {selectedDispute.orderNumber}</div>
+                  <div><span className="font-medium">Buyer:</span> {selectedDispute.userName}</div>
+                  <div><span className="font-medium">Reason:</span> {selectedDispute.reason}</div>
+                  {selectedDispute.description && (
+                    <div><span className="font-medium">Details:</span> {selectedDispute.description}</div>
+                  )}
+                  {selectedDispute.claimAmount > 0 && (
+                    <div><span className="font-medium">Claim:</span> ₹{Number(selectedDispute.claimAmount).toLocaleString("en-IN")}</div>
+                  )}
+                </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="resolution">Resolution Action</Label>
-                <Select value={resolution} onValueChange={setResolution}>
-                  <SelectTrigger id="resolution">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
+                <div className="space-y-1">
+                  <label htmlFor="resolution" className="text-sm font-medium">Resolution Action</label>
+                  <select
+                    id="resolution"
+                    value={resolution}
+                    onChange={(e) => setResolution(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm"
+                  >
                     {RESOLUTION_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
-                  </SelectContent>
-                </Select>
-                {resolution === "REFUND" && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    A full refund will be triggered automatically for this order.
-                  </p>
-                )}
-              </div>
+                  </select>
+                  {resolution === "REFUND" && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      A full refund will be triggered automatically for this order.
+                    </p>
+                  )}
+                </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="adminNote">Admin Note (internal)</Label>
-                <Textarea
-                  id="adminNote"
-                  value={adminNote}
-                  onChange={(e) => setAdminNote(e.target.value)}
-                  placeholder="Notes for internal reference…"
-                  rows={3}
-                />
+                <div className="space-y-1">
+                  <label htmlFor="adminNote" className="text-sm font-medium">Admin Note (internal)</label>
+                  <textarea
+                    id="adminNote"
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    placeholder="Notes for internal reference…"
+                    rows={3}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm resize-none"
+                  />
+                </div>
               </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setResolveDialogOpen(false)}
+                disabled={submitting}
+                className="px-4 py-2 rounded border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResolve}
+                disabled={submitting}
+                className="px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitting ? "Resolving…" : "Confirm Resolution"}
+              </button>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveDialogOpen(false)} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button onClick={handleResolve} disabled={submitting}>
-              {submitting ? "Resolving…" : "Confirm Resolution"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

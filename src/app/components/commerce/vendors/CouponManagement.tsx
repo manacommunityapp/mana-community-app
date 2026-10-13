@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   commerceCouponService,
-  CouponDto,
-  CouponRequest,
+  type CouponDto,
+  type CouponRequest,
 } from "../../../../services/commerce/commerceCouponService";
 
 const TYPE_LABELS: Record<string, string> = { PERCENT: "%", FLAT: "₹", FREE_DELIVERY: "🚚" };

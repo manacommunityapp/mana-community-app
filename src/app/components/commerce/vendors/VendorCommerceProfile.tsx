@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import {
   vendorCommerceProfileService,
-  VmsVendorCommerceProfileResponse,
-  VmsVendorCommerceProfileRequest,
+  type VmsVendorCommerceProfileResponse,
+  type VmsVendorCommerceProfileRequest,
 } from "../../../../services/commerce/vendorCommerceProfileService";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {

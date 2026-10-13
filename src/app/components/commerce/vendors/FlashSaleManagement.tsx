@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   commerceFlashSaleService,
-  CommerceFlashSaleDto,
-  FlashSaleRequest,
-} from "@/services/commerce/commerceFlashSaleService";
+  type CommerceFlashSaleDto,
+  type FlashSaleRequest,
+} from "../../../../services/commerce/commerceFlashSaleService";
 
 const STATUS_COLOR: Record<string, string> = {
   SCHEDULED: "bg-blue-100 text-blue-700",

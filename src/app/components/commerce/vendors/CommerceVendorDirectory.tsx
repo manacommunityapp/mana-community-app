@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import {
   vendorCommerceProfileService,
-  VmsVendorCommerceProfileResponse,
-  PagedResponse,
+  type VmsVendorCommerceProfileResponse,
+  type PagedResponse,
 } from "../../../../services/commerce/vendorCommerceProfileService";
 
 const STATUS_OPTIONS = [
