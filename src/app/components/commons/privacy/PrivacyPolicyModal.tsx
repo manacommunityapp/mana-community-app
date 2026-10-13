@@ -13,12 +13,19 @@ import {
   HeartHandshake,
   X,
   Sparkles,
+  Mail,
+  Phone,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 interface PrivacyPolicyModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+/** Current notice version — must be passed as consentNoticeVersion at registration. */
+export const PRIVACY_NOTICE_VERSION = "2026-10-13-v1";
 
 export const PRIVACY_POINTS = [
   {
@@ -30,19 +37,19 @@ export const PRIVACY_POINTS = [
   {
     icon: Database,
     title: "Secure Storage",
-    description: "Community data is securely stored in our AWS-hosted PostgreSQL database.",
+    description: "Community data is securely stored in our AWS-hosted PostgreSQL database with encryption at rest.",
     accent: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
   },
   {
     icon: UserCheck,
     title: "Access Control",
-    description: "Personal information is accessible only to authorized users and administrators based on their roles and permissions.",
+    description: "Personal information is accessible only to authorised users and administrators based on their roles and permissions.",
     accent: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
   },
   {
     icon: Ban,
     title: "No Commercial Sharing",
-    description: "We do not sell, rent, or commercially share your personal information.",
+    description: "We do not sell, rent, or commercially share your personal information with any third party for their own marketing.",
     accent: "text-rose-500 bg-rose-500/10 border-rose-500/20",
   },
   {
@@ -54,44 +61,199 @@ export const PRIVACY_POINTS = [
   {
     icon: CalendarCheck,
     title: "Purpose-Limited Use",
-    description: "Your information is used only for legitimate community purposes such as resident management, events, Pooja/Seva registrations, cultural activities, communication, attendance, and community administration.",
+    description: "Your information is used only for legitimate community purposes: resident management, events, Pooja/Seva registrations, communication, and community administration.",
     accent: "text-purple-500 bg-purple-500/10 border-purple-500/20",
   },
   {
     icon: ArrowRightLeft,
     title: "Secure Data Transfer",
-    description: "Information collected through approved registration processes such as Google Forms or Excel is transferred to the My Community system for community-management purposes, with unnecessary duplicate copies not retained beyond operational requirements.",
+    description: "All data is transferred over HTTPS/TLS. Information from approved onboarding processes is imported securely; unnecessary duplicates are not retained.",
     accent: "text-cyan-500 bg-cyan-500/10 border-cyan-500/20",
   },
   {
     icon: Clock,
     title: "Data Retention",
-    description: "Personal information is retained only for as long as it is reasonably required. When it is no longer needed, it may be deleted, anonymized, or securely disposed of.",
+    description: "Account data: retained while the account is active + 2 years after deletion. Financial records: 7 years (statutory). Access logs: 1 year. Biometric templates: deleted on dis-enrolment.",
     accent: "text-orange-500 bg-orange-500/10 border-orange-500/20",
   },
   {
     icon: Trash2,
-    title: "Deletion Requests",
-    description: "Where applicable, members can request correction or deletion of their personal information/account, subject to legitimate record-retention, financial, security, audit, or legal requirements.",
+    title: "Deletion & Erasure",
+    description: "You may request correction or deletion of your personal information via the Privacy Centre, subject to lawful retention obligations.",
     accent: "text-red-500 bg-red-500/10 border-red-500/20",
   },
 ];
 
+const DATA_COLLECTED = [
+  { category: "Identity", items: "Full name, gender, date of birth", purpose: "Resident identity & community directory" },
+  { category: "Contact", items: "Email address, phone number", purpose: "Authentication, notifications, emergency alerts" },
+  { category: "Residence", items: "Block, flat number, occupancy type", purpose: "Resident management & gate access" },
+  { category: "Financial", items: "Payment reference IDs via Razorpay (no card data stored)", purpose: "Maintenance dues, event fees, amenity booking" },
+  { category: "Usage", items: "App activity logs, feature interactions", purpose: "Platform performance & security (analytics, with consent)" },
+  { category: "Device", items: "Push notification token (FCM/APNs)", purpose: "Push notification delivery (with consent)" },
+  { category: "Biometric*", items: "Fingerprint / face hash (not raw image)", purpose: "Turnstile gate access (with explicit separate consent)" },
+];
+
+const THIRD_PARTIES = [
+  { name: "Razorpay", purpose: "Payment processing", privacyUrl: "https://razorpay.com/privacy/" },
+  { name: "Brevo (formerly Sendinblue)", purpose: "Transactional email delivery", privacyUrl: "https://www.brevo.com/legal/privacypolicy/" },
+  { name: "Firebase / Google (FCM)", purpose: "Push notifications", privacyUrl: "https://policies.google.com/privacy" },
+  { name: "AWS (Amazon Web Services)", purpose: "Cloud hosting, S3 media storage, RDS PostgreSQL", privacyUrl: "https://aws.amazon.com/privacy/" },
+  { name: "Anthropic Claude API", purpose: "AI assistant features (opt-in only; no PII sent without consent)", privacyUrl: "https://www.anthropic.com/privacy" },
+];
+
 export function PrivacyContent() {
   return (
-    <div className="space-y-6 text-foreground">
+    <div className="space-y-7 text-foreground">
+      {/* Legal Notice Banner */}
+      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+          <strong>[LEGAL REVIEW REQUIRED]</strong> This Privacy Notice is a working draft pending
+          legal review for compliance with the <strong>DPDP Act 2023</strong> and applicable Rules.
+          Items marked with * or [LEGAL REVIEW] require legal sign-off before publication.
+          Notice version: <code className="font-mono">{PRIVACY_NOTICE_VERSION}</code>
+        </p>
+      </div>
+
       {/* Intro Header */}
       <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-indigo-500/10 to-purple-500/10 border border-primary/20">
         <div className="flex items-center gap-2 mb-2 text-primary font-bold text-xs uppercase tracking-wider">
           <Sparkles className="w-4 h-4" />
-          <span>Privacy & Security Pledge</span>
+          <span>Privacy Notice — DPDP Act 2023 Compliant</span>
         </div>
         <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed font-medium">
           At <strong className="text-foreground font-extrabold">My Community Hub</strong>, your privacy is important to us.
-          We are committed to keeping your community information{" "}
-          <strong className="text-primary font-bold">private, secure, and limited to what is necessary</strong> to provide
-          our services.
+          This notice explains what personal data we collect, why, for how long, and your rights
+          under the <strong className="text-primary">Digital Personal Data Protection Act 2023 (India)</strong>.
         </p>
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Data Fiduciary: Mana Community Pvt. Ltd. &nbsp;|&nbsp; Effective: October 2026 &nbsp;|&nbsp;
+          Version: {PRIVACY_NOTICE_VERSION}
+        </p>
+      </div>
+
+      {/* Data We Collect */}
+      <div>
+        <h4 className="text-sm sm:text-base font-extrabold text-foreground mb-3 flex items-center gap-2">
+          <Database className="w-4 h-4 text-primary" />
+          What Personal Data We Collect
+        </h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px] border-collapse">
+            <thead>
+              <tr className="bg-muted/50">
+                <th className="text-left px-3 py-2 font-bold text-foreground border border-border rounded-tl-lg">Category</th>
+                <th className="text-left px-3 py-2 font-bold text-foreground border border-border">Data Items</th>
+                <th className="text-left px-3 py-2 font-bold text-foreground border border-border rounded-tr-lg">Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DATA_COLLECTED.map((row, i) => (
+                <tr key={i} className="border-b border-border hover:bg-muted/30 transition-colors">
+                  <td className="px-3 py-2 font-semibold text-foreground border-x border-border">{row.category}</td>
+                  <td className="px-3 py-2 text-muted-foreground border-x border-border">{row.items}</td>
+                  <td className="px-3 py-2 text-muted-foreground border-x border-border">{row.purpose}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-1.5">
+          * Biometric data is processed only with your explicit, separate consent and is never shared with third parties.
+        </p>
+      </div>
+
+      {/* Legal Basis */}
+      <div className="p-4 rounded-xl bg-card border border-border space-y-2">
+        <h4 className="text-xs font-extrabold text-foreground flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-500" />
+          Legal Basis for Processing (DPDP Act 2023, s.4–7)
+        </h4>
+        <ul className="space-y-1 text-[11px] text-muted-foreground list-disc list-inside">
+          <li><strong className="text-foreground">Consent (s.6):</strong> Registration, marketing communications, analytics, biometric enrolment.</li>
+          <li><strong className="text-foreground">Legitimate Uses (s.7):</strong> Emergency safety, court orders, public-authority obligations.</li>
+          <li><strong className="text-foreground">Contractual necessity:</strong> Account creation and community management services.</li>
+          <li><strong className="text-foreground">Legal obligation:</strong> Financial record retention (7 years), statutory compliance.</li>
+        </ul>
+      </div>
+
+      {/* Retention */}
+      <div>
+        <h4 className="text-sm font-extrabold text-foreground mb-3 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-orange-500" />
+          Data Retention Periods
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {[
+            { type: "Account & profile data", period: "Active + 2 years after deletion" },
+            { type: "Financial / payment records", period: "7 years (Companies Act / GST)" },
+            { type: "Access & audit logs", period: "12 months" },
+            { type: "Chat & feed messages", period: "As long as you are a member" },
+            { type: "Biometric templates", period: "Deleted on dis-enrolment or account closure" },
+            { type: "Consent records", period: "7 years (immutable audit trail)" },
+          ].map((r, i) => (
+            <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+              <Clock className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] font-semibold text-foreground">{r.type}</p>
+                <p className="text-[10px] text-muted-foreground">{r.period}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Third Parties */}
+      <div>
+        <h4 className="text-sm font-extrabold text-foreground mb-3 flex items-center gap-2">
+          <ArrowRightLeft className="w-4 h-4 text-cyan-500" />
+          Third-Party Service Providers
+        </h4>
+        <p className="text-[11px] text-muted-foreground mb-2">
+          We share data only as necessary with the following processors. We do not sell your data.
+        </p>
+        <div className="space-y-1.5">
+          {THIRD_PARTIES.map((tp, i) => (
+            <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-card border border-border/80 text-[11px]">
+              <div>
+                <span className="font-semibold text-foreground">{tp.name}</span>
+                <span className="text-muted-foreground ml-2">— {tp.purpose}</span>
+              </div>
+              <a
+                href={tp.privacyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline shrink-0 ml-2"
+              >
+                Privacy Policy ↗
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Your Rights */}
+      <div>
+        <h4 className="text-sm font-extrabold text-foreground mb-3 flex items-center gap-2">
+          <UserCheck className="w-4 h-4 text-primary" />
+          Your Rights Under DPDP Act 2023 (s.11–14)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {[
+            { right: "Right to Information (s.11)", desc: "Know what data we hold about you. Use 'My Personal Data' in Privacy Centre." },
+            { right: "Right to Correction (s.12)", desc: "Correct inaccurate or incomplete data. Submit via Data Rights form in Privacy Centre." },
+            { right: "Right to Erasure (s.12)", desc: "Request deletion of your account and data (subject to lawful retention). Use Deletion Request in Privacy Centre." },
+            { right: "Right to Grievance Redressal (s.13)", desc: "Lodge a complaint with our Grievance Officer within 30 days." },
+            { right: "Right to Nominate (s.14)", desc: "Nominate a person to exercise rights on your behalf in the event of death or incapacity. [LEGAL REVIEW REQUIRED]" },
+            { right: "Right to Withdraw Consent (s.6)", desc: "Withdraw consent at any time via the Consent tab in Privacy Centre. Withdrawal does not affect prior processing." },
+          ].map((r, i) => (
+            <div key={i} className="p-3 rounded-xl bg-card border border-border/80 text-[11px]">
+              <p className="font-bold text-foreground mb-0.5">{r.right}</p>
+              <p className="text-muted-foreground leading-relaxed">{r.desc}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* How We Protect Your Data */}
@@ -123,7 +285,38 @@ export function PrivacyContent() {
         </div>
       </div>
 
-      {/* Our Commitment */}
+      {/* Grievance Officer */}
+      <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-3">
+        <h4 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+          <Mail className="w-4 h-4 text-primary" />
+          Grievance Officer Contact (DPDP Act 2023, s.13)
+        </h4>
+        <div className="text-[11px] text-muted-foreground space-y-1">
+          <p><strong className="text-foreground">Name:</strong> Data Protection Officer, Mana Community Pvt. Ltd.</p>
+          <p><strong className="text-foreground">Email:</strong>{" "}
+            <a href="mailto:dpo@manacommunity.app" className="text-primary hover:underline">dpo@manacommunity.app</a>
+          </p>
+          <p><strong className="text-foreground">Address:</strong> [LEGAL REVIEW REQUIRED: Insert registered office address]</p>
+          <p><strong className="text-foreground">Response Time:</strong> Within 30 days of receipt</p>
+        </div>
+        <div className="pt-2 border-t border-border/60">
+          <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            [LEGAL REVIEW REQUIRED] DPO details, registered address, and response timelines must be verified by legal counsel before publication.
+          </p>
+        </div>
+      </div>
+
+      {/* Updates */}
+      <div className="p-4 rounded-xl bg-muted/30 border border-border/60 flex items-start gap-2">
+        <RefreshCw className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">Updates to this Notice:</strong> We will notify you of material changes by email and via an in-app banner before the changes take effect.
+          The current version is <code className="font-mono text-primary">{PRIVACY_NOTICE_VERSION}</code>.
+        </p>
+      </div>
+
+      {/* Commitment */}
       <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-3 shadow-xs">
         <h4 className="text-sm sm:text-base font-extrabold text-foreground flex items-center gap-2">
           <HeartHandshake className="w-4 h-4 text-emerald-500" />
@@ -131,7 +324,7 @@ export function PrivacyContent() {
         </h4>
         <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
           We believe your community information belongs to the community. Our goal is to ensure that personal information is{" "}
-          <strong className="text-foreground">collected responsibly, used only for legitimate purposes, protected from unauthorized access, and removed when it is no longer required</strong>.
+          <strong className="text-foreground">collected responsibly, used only for legitimate purposes, protected from unauthorised access, and removed when it is no longer required</strong>.
         </p>
         <div className="pt-2 border-t border-border/60">
           <p className="text-xs sm:text-sm font-bold text-primary flex items-center gap-2">
@@ -183,10 +376,10 @@ export function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyModalProps)
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black text-foreground tracking-tight flex items-center gap-1.5">
-                <span>🔒</span> Your Privacy Matters to Us
+                Privacy Notice
               </h3>
               <p className="text-[11px] sm:text-xs text-muted-foreground font-medium">
-                My Community Hub Data & Privacy Policy
+                My Community Hub · DPDP Act 2023 Compliant · v{PRIVACY_NOTICE_VERSION}
               </p>
             </div>
           </div>
@@ -209,7 +402,7 @@ export function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyModalProps)
         <div className="px-5 sm:px-6 py-3 border-t border-border bg-card/70 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Encrypted & Protected</span>
+            <span>DPDP Act 2023 Compliant</span>
           </div>
           <button
             type="button"

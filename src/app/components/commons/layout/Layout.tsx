@@ -1113,6 +1113,36 @@ export function Layout() {
                 </>
               )}
             </nav>
+
+            {/* Sidebar Footer — Grievance & Legal Links (DPDP Act 2023 s.13) */}
+            <div className={cn("mt-auto px-3 py-3 border-t border-white/10 shrink-0", isSidebarCollapsed && "lg:hidden")}>
+              <div className="flex flex-col gap-1">
+                <Link
+                  to="/account/privacy-settings"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <Shield className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Privacy Centre</span>
+                </Link>
+                <Link
+                  to="/terms"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <FileText className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Terms of Use</span>
+                </Link>
+                <a
+                  href="mailto:dpo@manacommunity.app"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <HeartHandshake className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Grievance Officer</span>
+                </a>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-1.5 px-2">DPDP Act 2023 Compliant</p>
+            </div>
           </div>
         </aside>
 
