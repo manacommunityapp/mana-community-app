@@ -333,12 +333,12 @@ export function HomeServiceRequirements() {
                               workerName: resp.workerName,
                               requirementId: selectedReqResponses!.req.id,
                               categoryId: selectedReqResponses!.req.categoryId,
-                              categoryName: selectedReqResponses!.req.categoryName,
+                              categoryName: selectedReqResponses!.req.categoryName || "General Service",
                               price: resp.proposedPrice,
                               frequency: selectedReqResponses!.req.frequency,
                               startDate: selectedReqResponses!.req.startDate,
-                              preferredStartTime: selectedReqResponses!.req.preferredStartTime,
-                              preferredEndTime: selectedReqResponses!.req.preferredEndTime,
+                              preferredStartTime: selectedReqResponses!.req.preferredStartTime || "09:00",
+                              preferredEndTime: selectedReqResponses!.req.preferredEndTime || "10:00",
                               tower: selectedReqResponses!.req.tower,
                             });
                             toast.success(`Accepted ${resp.workerName}'s quote! Booking created.`);

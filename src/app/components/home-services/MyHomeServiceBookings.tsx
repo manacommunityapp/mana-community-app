@@ -229,9 +229,13 @@ export function MyHomeServiceBookings() {
               setSubmittingReview(true);
               try {
                 await homeServiceApi.createReview({
-                  workerId: selectedBookingForReview.workerId,
+                  revieweeId: selectedBookingForReview.workerId,
                   bookingId: selectedBookingForReview.id,
                   rating: reviewRating,
+                  workQuality: reviewRating,
+                  punctuality: reviewRating,
+                  behaviour: reviewRating,
+                  reliability: reviewRating,
                   comment: reviewText,
                 });
                 toast.success("Thank you! Your review has been submitted.");

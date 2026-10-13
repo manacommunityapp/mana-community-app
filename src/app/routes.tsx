@@ -259,7 +259,7 @@ import { BuyAgain } from "./components/group-buying/BuyAgain";
 import { BuyingGroups } from "./components/group-buying/BuyingGroups";
 import { CommunitySavingsDashboard } from "./components/group-buying/CommunitySavingsDashboard";
 import { AIDemandSearch } from "./components/group-buying/AIDemandSearch";
-import { MyOrders } from "./components/group-buying/MyOrders";
+import { MyOrders as GroupBuyingMyOrders } from "./components/group-buying/MyOrders";
 import { DemandBoard } from "./components/group-buying/DemandBoard";
 import { DemandDetail } from "./components/group-buying/DemandDetail";
 import { VendorProfilePage } from "./components/group-buying/VendorProfilePage";
@@ -1044,7 +1044,7 @@ export const router = createBrowserRouter([
       { path: "group-buying/buying-groups", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><BuyingGroups /></PermissionGuard> },
       { path: "group-buying/savings", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><CommunitySavingsDashboard /></PermissionGuard> },
       { path: "group-buying/ai-search", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><AIDemandSearch /></PermissionGuard> },
-      { path: "group-buying/my-orders", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><MyOrders /></PermissionGuard> },
+      { path: "group-buying/my-orders", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingMyOrders /></PermissionGuard> },
       { path: "group-buying/demand-board", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandBoard /></PermissionGuard> },
       { path: "group-buying/demand/:demandId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandDetail /></PermissionGuard> },
       { path: "group-buying/vendor/:vendorId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><VendorProfilePage /></PermissionGuard> },

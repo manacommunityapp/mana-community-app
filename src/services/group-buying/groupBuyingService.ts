@@ -15,29 +15,44 @@ export interface GroupDeal {
   id: string;
   title: string;
   category: string;
+  subCategory?: string;
   description: string;
-  imagePlaceholderColor: string;
+  imageUrl?: string;
+  imagePlaceholderColor?: string;
   currentParticipants: number;
   targetParticipants: number;
   tiers: PriceTier[];
   vendor: string;
   vendorId: string;
   vendorRating: number;
+  vendorVerified?: boolean;
   endDate: string;
+  dealEndsAt?: string;
   status: DealStatus;
-  deliveryDate: string;
+  deliveryDate?: string;
   pickupPoints: string[];
+  pickupPoint?: string;
   tags?: string[];
   isFestival?: boolean;
   festivalName?: string;
+  isAlmostUnlocked?: boolean;
+  isTrending?: boolean;
   savings?: number;
   mrp?: number;
+  currentTierPrice?: number;
+  nextTierPrice?: number;
+  nextTierUnitsNeeded?: number;
+  committedQty?: number;
+  targetQty?: number;
+  daysLeft?: number;
 }
 
 export interface GroupOrder {
   id: string;
+  orderNumber?: string;
   dealId: string;
   dealTitle: string;
+  title?: string;
   quantity: number;
   pricePerUnit: number;
   totalAmount: number;
@@ -59,9 +74,15 @@ export interface DemandItem {
   category: string;
   requestedBy: string;
   upvotes: number;
+  targetUpvotes?: number;
+  hasUpvoted?: boolean;
   createdAt: string;
   vendorOffers?: VendorOffer[];
   status?: "OPEN" | "MATCHED" | "CONVERTED";
+  expectedQty?: number;
+  preferredPriceMin?: number;
+  preferredPriceMax?: number;
+  preferredBrand?: string;
 }
 
 export interface VendorOffer {
@@ -94,14 +115,21 @@ export interface VendorProfile {
 export interface MonthlyBasket {
   id: string;
   name: string;
+  title?: string;
   description: string;
   items: { name: string; qty: string; price: number }[];
   totalPrice: number;
+  regularPrice?: number;
+  communityPrice?: number;
   subscribers: number;
+  targetFamilies?: number;
+  enrolledFamilies?: number;
   frequency: "WEEKLY" | "MONTHLY";
   nextDelivery: string;
+  nextDeliveryDate?: string;
   vendor: string;
   vendorRating: number;
+  savings?: number;
 }
 
 export interface FestivalCampaign {
@@ -112,6 +140,27 @@ export interface FestivalCampaign {
   startDate: string;
   endDate: string;
   deals: GroupDeal[];
+}
+
+export interface FestivalCategory {
+  id: string;
+  festivalName: string;
+  tagline: string;
+  bannerImage?: string;
+  deals: GroupDeal[];
+}
+
+export interface BuyAgainItem {
+  dealId: string;
+  title: string;
+  category: string;
+  lastPurchasedAt?: string;
+  lastOrderDate?: string;
+  vendor?: string;
+  daysAgo?: number;
+  lastPrice: number;
+  currentPrice?: number;
+  isAvailable?: boolean;
 }
 
 export interface BuyingGroup {
@@ -127,12 +176,15 @@ export interface BuyingGroup {
 
 export interface CommunitySavings {
   totalSaved: number;
+  totalSavedThisMonth?: number;
   ordersCompleted: number;
+  totalOrders?: number;
   activeDeals: number;
   avgSavingsPercent: number;
   milestones: { label: string; target: number; current: number }[];
   towerLeaderboard: { tower: string; savings: number; orders: number }[];
   monthlyTrend: { month: string; savings: number }[];
+  topCategories?: { category: string; saved: number }[];
 }
 
 export interface OrderReview {
@@ -479,7 +531,22 @@ export const groupBuyingService = {
   },
 
   getDeals(category?: string, search?: string): GroupDeal[] {
-    let deals = SAMPLE_DEALS;
+    let deals = SAMPLE_DEALS.map(d => {
+      const currentPrice = getCurrentTierPrice(d);
+      const nextTier = d.tiers.find(t => t.minQty > d.currentParticipants);
+      return {
+        ...d,
+        currentTierPrice: currentPrice,
+        nextTierPrice: nextTier?.pricePerUnit,
+        nextTierUnitsNeeded: nextTier ? Math.max(0, nextTier.minQty - d.currentParticipants) : 0,
+        committedQty: d.currentParticipants,
+        targetQty: d.targetParticipants,
+        daysLeft: Math.max(1, Math.round((new Date(d.endDate).getTime() - Date.now()) / 86400000)),
+        isAlmostUnlocked: nextTier ? (nextTier.minQty - d.currentParticipants <= 5) : false,
+        pickupPoint: d.pickupPoints[0] || 'Clubhouse',
+        mrp: d.mrp || Math.round(currentPrice * 1.3),
+      };
+    });
     if (category && category !== "All") deals = deals.filter(d => d.category === category);
     if (search) {
       const q = search.toLowerCase();
@@ -511,7 +578,7 @@ export const groupBuyingService = {
       .slice(0, 4);
   },
 
-  joinDeal(dealId: string, quantity: number, userId: string, fulfillment: FulfillmentType = "PICKUP", paymentMethod: PaymentMethod = "UPI", pickupPoint?: string): GroupOrder {
+  joinDeal(dealId: string, quantity: number, userId?: string, fulfillment: FulfillmentType = "PICKUP", paymentMethod: PaymentMethod = "UPI", pickupPoint?: string): GroupOrder {
     const deal = SAMPLE_DEALS.find(d => d.id === dealId);
     if (!deal) throw new Error("Deal not found");
     const price = getCurrentTierPrice(deal);
@@ -519,7 +586,7 @@ export const groupBuyingService = {
       id: `ord-${Date.now()}`, dealId, dealTitle: deal.title, quantity,
       pricePerUnit: price, totalAmount: price * quantity, status: "CONFIRMED",
       orderedAt: new Date().toISOString(),
-      qrCode: `QR-${dealId.toUpperCase()}-${userId.slice(0, 6).toUpperCase()}-${Date.now()}`,
+      qrCode: `QR-${dealId.toUpperCase()}-${(userId || 'GUEST').slice(0, 6).toUpperCase()}-${Date.now()}`,
       fulfillment, paymentMethod,
       pickupPoint: pickupPoint || deal.pickupPoints[0],
       vendorName: deal.vendor,
@@ -529,7 +596,7 @@ export const groupBuyingService = {
     return order;
   },
 
-  getMyOrders(_userId: string): GroupOrder[] {
+  getMyOrders(_userId?: string): GroupOrder[] {
     return loadOrders();
   },
 
@@ -567,8 +634,51 @@ export const groupBuyingService = {
     return VENDOR_PROFILES.find(v => v.id === id);
   },
 
+  createDemand(demand: Partial<DemandItem>): DemandItem {
+    const item: DemandItem = {
+      id: `d-${Date.now()}`,
+      title: demand.title || '',
+      description: demand.description || '',
+      category: demand.category || 'Groceries',
+      requestedBy: demand.requestedBy || 'Resident',
+      upvotes: 1,
+      targetUpvotes: 25,
+      hasUpvoted: false,
+      createdAt: new Date().toISOString(),
+      expectedQty: demand.expectedQty || 1,
+      preferredPriceMin: demand.preferredPriceMin,
+      preferredPriceMax: demand.preferredPriceMax,
+      status: 'OPEN',
+    };
+    DEMAND_ITEMS.unshift(item);
+    return item;
+  },
+
+  getFestivalCategories(): FestivalCategory[] {
+    return FESTIVAL_CAMPAIGNS.map(c => ({
+      id: c.id,
+      festivalName: c.festivalName,
+      tagline: c.tagline,
+      bannerImage: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500",
+      deals: c.deals,
+    }));
+  },
+
+  getFeaturedDeals(): GroupDeal[] {
+    return SAMPLE_DEALS.slice(0, 3);
+  },
+
   getMonthlyBaskets(): MonthlyBasket[] {
-    return MONTHLY_BASKETS;
+    return MONTHLY_BASKETS.map(b => ({
+      ...b,
+      title: b.name,
+      regularPrice: Math.round(b.totalPrice * 1.25),
+      communityPrice: b.totalPrice,
+      targetFamilies: 50,
+      enrolledFamilies: b.subscribers,
+      nextDeliveryDate: b.nextDelivery,
+      savings: Math.round(b.totalPrice * 0.25),
+    }));
   },
 
   getFestivalCampaigns(): FestivalCampaign[] {
@@ -584,7 +694,16 @@ export const groupBuyingService = {
   },
 
   getCommunitySavings(): CommunitySavings {
-    return COMMUNITY_SAVINGS;
+    return {
+      ...COMMUNITY_SAVINGS,
+      totalSavedThisMonth: COMMUNITY_SAVINGS.totalSaved,
+      totalOrders: COMMUNITY_SAVINGS.ordersCompleted,
+      topCategories: [
+        { category: 'Groceries', saved: 68400 },
+        { category: 'Fresh Produce', saved: 42300 },
+        { category: 'Festival Specials', saved: 37800 },
+      ],
+    };
   },
 
   getPickupPass(orderId: string): PickupPass | undefined {

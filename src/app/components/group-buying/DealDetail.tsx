@@ -109,7 +109,7 @@ export function DealDetail() {
         <div style={{ background: "var(--card)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.1)", padding: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}><Clock size={12} /> Timeline</div>
           <div style={{ fontSize: 12, color: "var(--text)", marginBottom: 4 }}>Ends in <strong>{daysLeft} days</strong></div>
-          <div style={{ fontSize: 12, color: "var(--text)" }}>Delivery by <strong>{new Date(deal.deliveryDate).toLocaleDateString()}</strong></div>
+          <div style={{ fontSize: 12, color: "var(--text)" }}>Delivery by <strong>{deal.deliveryDate ? new Date(deal.deliveryDate).toLocaleDateString() : 'TBD'}</strong></div>
         </div>
         <div style={{ background: "var(--card)", borderRadius: 12, border: "1px solid rgba(148,163,184,0.1)", padding: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} /> Pickup Points</div>

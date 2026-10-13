@@ -179,7 +179,7 @@ export function SportsMatchPhotoGallery({ matchId, onClose, inline = false }: Sp
                   <Heart size={16} fill={fullscreen.isLiked ? "#ef4444" : "none"} stroke={fullscreen.isLiked ? "#ef4444" : "#fff"} />
                   {fullscreen.likeCount}
                 </button>
-                {user?.id === fullscreen.uploadedById && (
+                {String(user?.userId) === String(fullscreen.uploadedById) && (
                   <button onClick={() => handleDelete(fullscreen.id)} style={{
                     background: "none", border: "none", cursor: "pointer", color: "#ef4444",
                     display: "flex", alignItems: "center", gap: 4, fontSize: 12,

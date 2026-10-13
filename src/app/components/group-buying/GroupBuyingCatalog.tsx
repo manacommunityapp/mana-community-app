@@ -168,11 +168,11 @@ export function GroupBuyingCatalog() {
             </div>
             <div className="grid grid-cols-3 gap-3 rounded-xl bg-white/10 p-4 backdrop-blur-md text-center">
               <div>
-                <p className="text-2xl font-black">₹{(savings.totalSavedThisMonth / 1000).toFixed(0)}K</p>
+                <p className="text-2xl font-black">₹{(((savings.totalSavedThisMonth ?? savings.totalSaved ?? 0)) / 1000).toFixed(0)}K</p>
                 <p className="text-xs text-purple-200">Saved This Month</p>
               </div>
               <div className="border-x border-white/20 px-3">
-                <p className="text-2xl font-black">{savings.totalOrders}</p>
+                <p className="text-2xl font-black">{savings.totalOrders ?? savings.ordersCompleted ?? 0}</p>
                 <p className="text-xs text-purple-200">Orders Placed</p>
               </div>
               <div>
@@ -247,8 +247,12 @@ export function GroupBuyingCatalog() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredDeals.map(deal => {
-              const progressPct = Math.min(100, Math.round((deal.committedQty / deal.targetQty) * 100));
-              const discountPct = Math.round(((deal.mrp - deal.currentTierPrice) / deal.mrp) * 100);
+              const committed = deal.committedQty ?? deal.currentParticipants ?? 0;
+              const target = deal.targetQty ?? deal.targetParticipants ?? 1;
+              const currentPrice = deal.currentTierPrice ?? (deal.tiers?.[0]?.pricePerUnit ?? 0);
+              const mrpVal = deal.mrp ?? Math.round(currentPrice * 1.3);
+              const progressPct = Math.min(100, Math.round((committed / target) * 100));
+              const discountPct = mrpVal > 0 ? Math.round(((mrpVal - currentPrice) / mrpVal) * 100) : 0;
 
               return (
                 <Card key={deal.id} className="flex flex-col justify-between border-slate-200 shadow-xs hover:shadow-md transition rounded-2xl overflow-hidden">
@@ -337,8 +341,11 @@ export function GroupBuyingCatalog() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
             {almostUnlockedDeals.map(deal => {
-              const needed = deal.nextTierUnitsNeeded ?? (deal.targetQty - deal.committedQty);
-              const nextPrice = deal.nextTierPrice ?? deal.currentTierPrice;
+              const committed = deal.committedQty ?? deal.currentParticipants ?? 0;
+              const target = deal.targetQty ?? deal.targetParticipants ?? 1;
+              const currentPrice = deal.currentTierPrice ?? (deal.tiers?.[0]?.pricePerUnit ?? 0);
+              const needed = deal.nextTierUnitsNeeded ?? Math.max(0, target - committed);
+              const nextPrice = deal.nextTierPrice ?? currentPrice;
 
               return (
                 <div
@@ -350,7 +357,7 @@ export function GroupBuyingCatalog() {
                       <span className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full">
                         🔥 {needed} units to unlock ₹{nextPrice}
                       </span>
-                      <span className="text-xs font-semibold text-slate-400">Ends in {deal.daysLeft}d</span>
+                      <span className="text-xs font-semibold text-slate-400">Ends in {deal.daysLeft ?? 3}d</span>
                     </div>
 
                     <div>
@@ -362,7 +369,7 @@ export function GroupBuyingCatalog() {
                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between">
                       <div>
                         <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Current Tier</div>
-                        <div className="text-lg font-bold text-slate-700">₹{deal.currentTierPrice}</div>
+                        <div className="text-lg font-bold text-slate-700">₹{currentPrice}</div>
                       </div>
                       <div className="text-center px-4">
                         <ArrowRight className="w-5 h-5 text-amber-500 mx-auto" />
@@ -377,13 +384,13 @@ export function GroupBuyingCatalog() {
                     {/* Progress Bar */}
                     <div>
                       <div className="flex justify-between text-xs font-bold mb-1">
-                        <span className="text-slate-700">{deal.committedQty} of {deal.targetQty} units ordered</span>
+                        <span className="text-slate-700">{committed} of {target} units ordered</span>
                         <span className="text-amber-600 font-extrabold">{needed} more needed</span>
                       </div>
                       <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all"
-                          style={{ width: Math.min(100, Math.round((deal.committedQty / deal.targetQty) * 100)) + '%' }}
+                          style={{ width: Math.min(100, Math.round((committed / target) * 100)) + '%' }}
                         />
                       </div>
                     </div>
@@ -525,7 +532,7 @@ export function GroupBuyingCatalog() {
                       {basket.items.map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2">
                           <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span>{item}</span>
+                          <span>{typeof item === 'string' ? item : `${(item as any).name || ''} ${(item as any).qty ? `(${(item as any).qty})` : ''}`}</span>
                         </div>
                       ))}
                     </div>
@@ -534,13 +541,13 @@ export function GroupBuyingCatalog() {
                   {/* Progress towards target families */}
                   <div>
                     <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-700">{basket.enrolledFamilies} Families Subscribed</span>
-                      <span className="text-indigo-600">{basket.targetFamilies} Families Goal</span>
+                      <span className="text-slate-700">{basket.enrolledFamilies ?? basket.subscribers ?? 0} Families Subscribed</span>
+                      <span className="text-indigo-600">{basket.targetFamilies ?? 50} Families Goal</span>
                     </div>
                     <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-indigo-600 rounded-full"
-                        style={{ width: ((basket.enrolledFamilies / basket.targetFamilies) * 100) + '%' }}
+                        style={{ width: `${Math.min(100, Math.round(((basket.enrolledFamilies ?? basket.subscribers ?? 0) / (basket.targetFamilies ?? 50)) * 100))}%` }}
                       />
                     </div>
                   </div>
@@ -586,7 +593,7 @@ export function GroupBuyingCatalog() {
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {fest.deals.map(deal => (
+                  {fest.deals.map((deal: GroupDeal) => (
                     <Card key={deal.id} className="border-slate-200 shadow-xs hover:shadow-md transition rounded-2xl overflow-hidden flex flex-col justify-between">
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
@@ -739,7 +746,7 @@ export function GroupBuyingCatalog() {
 
                 <div className="flex justify-between items-center pt-3 border-t border-slate-100 font-bold">
                   <span>Total Amount Payable:</span>
-                  <span className="text-lg text-purple-900">₹{selectedDeal.currentTierPrice * orderQuantity}</span>
+                  <span className="text-lg text-purple-900">₹{(selectedDeal.currentTierPrice ?? (selectedDeal.tiers?.[0]?.pricePerUnit ?? 0)) * orderQuantity}</span>
                 </div>
 
                 <DialogFooter className="pt-2">

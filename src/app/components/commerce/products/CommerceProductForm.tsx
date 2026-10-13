@@ -407,7 +407,7 @@ export default function CommerceProductForm({ onSuccess, onCancel }: Props) {
                       type="number"
                       step="0.01"
                       {...register(
-                        `variants.${idx}.${key as string}`,
+                        `variants.${idx}.${key}` as any,
                         {
                           setValueAs: (v) =>
                             v !== "" ? Number(v) : undefined,
