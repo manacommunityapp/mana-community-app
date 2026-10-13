@@ -118,33 +118,52 @@ export function VendorInventoryLedger() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {batches.map((batch) => (
-                <tr key={batch.id} className="hover:bg-slate-50/60 transition-colors font-medium text-slate-700">
-                  <td className="p-3.5 pl-4 font-mono font-bold text-slate-900">{batch.batchNumber}</td>
-                  <td className="p-3.5">
-                    <div className="font-bold text-slate-900">{batch.productName}</div>
-                    <div className="text-[10px] text-slate-400">{batch.variantName}</div>
-                  </td>
-                  <td className="p-3.5 text-slate-500">{batch.mfgDate}</td>
-                  <td className="p-3.5">
-                    <span className={batch.status === 'EXPIRING_SOON' ? 'text-rose-600 font-bold flex items-center gap-1' : 'text-slate-600'}>
-                      {batch.expiryDate}
-                      {batch.status === 'EXPIRING_SOON' && <AlertTriangle className="w-3 h-3 text-rose-500 inline" />}
-                    </span>
-                  </td>
-                  <td className="p-3.5 text-center font-bold text-slate-500">{batch.initialQuantity}</td>
-                  <td className="p-3.5 text-center font-black text-indigo-600">{batch.remainingQuantity}</td>
-                  <td className="p-3.5 font-bold">₹{batch.unitCost}</td>
-                  <td className="p-3.5 text-right pr-4">
-                    <span className={"inline-block text-[10px] font-bold px-2 py-0.5 rounded-md " +
-                      (batch.status === 'ACTIVE'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-rose-50 text-rose-700 border border-rose-200')}>
-                      {batch.status}
-                    </span>
+              {batches.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                    <Boxes className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    No inventory batches currently logged.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                batches.map((batch) => {
+                  const isExpiring = batch.status === 'EXPIRING_SOON' || (batch.expiryDate && new Date(batch.expiryDate).getTime() - Date.now() < 7 * 24 * 3600 * 1000);
+                  return (
+                    <tr key={batch.id} className="hover:bg-slate-50/60 transition-colors font-medium text-slate-700">
+                      <td className="p-3.5 pl-4 font-mono font-bold text-slate-900 flex items-center gap-2">
+                        {batch.batchNumber}
+                        {isExpiring && (
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            FEFO
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900">{batch.productName}</div>
+                        <div className="text-[10px] text-slate-400">{batch.variantName}</div>
+                      </td>
+                      <td className="p-3.5 text-slate-500">{batch.mfgDate}</td>
+                      <td className="p-3.5">
+                        <span className={isExpiring ? 'text-rose-600 font-bold flex items-center gap-1' : 'text-slate-600'}>
+                          {batch.expiryDate}
+                          {isExpiring && <AlertTriangle className="w-3 h-3 text-rose-500 inline" />}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-center font-bold text-slate-500">{batch.initialQuantity}</td>
+                      <td className="p-3.5 text-center font-black text-indigo-600">{batch.remainingQuantity}</td>
+                      <td className="p-3.5 font-bold">₹{batch.unitCost}</td>
+                      <td className="p-3.5 text-right pr-4">
+                        <span className={"inline-block text-[10px] font-bold px-2 py-0.5 rounded-md " +
+                          (batch.status === 'ACTIVE' && !isExpiring
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200')}>
+                          {isExpiring ? 'EXPIRING SOON' : batch.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

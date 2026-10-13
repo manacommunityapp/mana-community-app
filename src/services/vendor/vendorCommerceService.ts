@@ -134,59 +134,75 @@ export const vendorCommerceService = {
   async getProducts(): Promise<VendorProductDto[]> {
     try {
       return await apiClient.get<VendorProductDto[]>('/vendor/commerce/products');
-    } catch {
-      return SAMPLE_PRODUCTS;
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[vendorCommerceService] Server unavailable, providing sample products in dev mode.");
+        return SAMPLE_PRODUCTS;
+      }
+      throw err;
     }
   },
 
   async createProduct(data: CreateProductRequest): Promise<VendorProductDto> {
     try {
       return await apiClient.post<VendorProductDto>('/vendor/commerce/products', data);
-    } catch {
-      const newProd: VendorProductDto = {
-        id: 'vp-' + Date.now(),
-        vendorId: 'v1',
-        ...data,
-        status: 'ACTIVE',
-        variants: data.variants.map((v, i) => ({
-          ...v,
-          id: 'vpv-' + Date.now() + '-' + i,
-          availableStock: 100,
-          reservedStock: 0,
-          committedStock: 0,
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[vendorCommerceService] Server unavailable, simulating product creation in dev mode.");
+        const newProd: VendorProductDto = {
+          id: 'vp-' + Date.now(),
+          vendorId: 'v1',
+          ...data,
           status: 'ACTIVE',
-        })),
-        createdAt: new Date().toISOString(),
-      };
-      SAMPLE_PRODUCTS.push(newProd);
-      return newProd;
+          variants: data.variants.map((v, i) => ({
+            ...v,
+            id: 'vpv-' + Date.now() + '-' + i,
+            availableStock: 100,
+            reservedStock: 0,
+            committedStock: 0,
+            status: 'ACTIVE',
+          })),
+          createdAt: new Date().toISOString(),
+        };
+        SAMPLE_PRODUCTS.push(newProd);
+        return newProd;
+      }
+      throw err;
     }
   },
 
   async getBatches(): Promise<InventoryBatchDto[]> {
     try {
       return await apiClient.get<InventoryBatchDto[]>('/vendor/commerce/inventory/batches');
-    } catch {
-      return SAMPLE_BATCHES;
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[vendorCommerceService] Server unavailable, providing sample batches in dev mode.");
+        return SAMPLE_BATCHES;
+      }
+      throw err;
     }
   },
 
   async getStats(): Promise<VendorCommerceStats> {
     try {
       return await apiClient.get<VendorCommerceStats>('/vendor/commerce/stats');
-    } catch {
-      return {
-        totalProducts: SAMPLE_PRODUCTS.length,
-        activeProducts: SAMPLE_PRODUCTS.filter(p => p.status === 'ACTIVE').length,
-        totalVariants: SAMPLE_PRODUCTS.reduce((acc, p) => acc + p.variants.length, 0),
-        totalAvailableStock: 655,
-        totalReservedStock: 135,
-        totalCommittedStock: 265,
-        lowStockCount: 1,
-        expiringBatchesCount: 1,
-        activeGroupDealsCount: 4,
-        monthlyCommerceRevenue: 284500,
-      };
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[vendorCommerceService] Server unavailable, providing sample stats in dev mode.");
+        return {
+          totalProducts: SAMPLE_PRODUCTS.length,
+          activeProducts: SAMPLE_PRODUCTS.filter(p => p.status === 'ACTIVE').length,
+          totalVariants: SAMPLE_PRODUCTS.reduce((acc, p) => acc + p.variants.length, 0),
+          totalAvailableStock: 655,
+          totalReservedStock: 135,
+          totalCommittedStock: 265,
+          lowStockCount: 1,
+          expiringBatchesCount: 1,
+          activeGroupDealsCount: 4,
+          monthlyCommerceRevenue: 284500,
+        };
+      }
+      throw err;
     }
   },
 };

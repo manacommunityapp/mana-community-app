@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
+import { stockService } from "../../../../services/inventory/stockService";
 
-interface OrderRow { id: string; date: string; vendor: string; amount: number; due: string; createdBy: string; status: string }
+interface OrderRow {
+  doc: FinanceDocument;
+  id: string;
+  date: string;
+  vendor: string;
+  amount: number;
+  due: string;
+  createdBy: string;
+  status: string;
+}
 
 /* Purchase Orders — list page (Expenses group). Converted from
    purchase_orders.html into the shared .ledger-app theme; loads
@@ -12,26 +22,30 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const [periodFilter, setPeriodFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [advOpen, setAdvOpen] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
 
+  const loadOrders = async () => {
+    try {
+      const docs = await ledgerFinanceService.getDocuments("PURCHASE_ORDER");
+      setAllOrders(docs.map((d) => ({
+        doc: d,
+        id: d.code || `#${d.id}`,
+        date: d.docDate || "",
+        vendor: d.customerName || "—",
+        amount: d.grandTotal ?? 0,
+        due: d.dueDate || "",
+        createdBy: "—",
+        status: d.status || "Open",
+      })));
+    } catch {
+      toast.error("Failed to load purchase orders.");
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const docs = await ledgerFinanceService.getDocuments("PURCHASE_ORDER");
-        setAllOrders(docs.map((d) => ({
-          id: d.code || `#${d.id}`,
-          date: d.docDate || "",
-          vendor: d.customerName || "—",
-          amount: d.grandTotal ?? 0,
-          due: d.dueDate || "",
-          createdBy: "—",
-          status: d.status || "Open",
-        })));
-      } catch {
-        toast.error("Failed to load purchase orders.");
-      }
-    })();
+    loadOrders();
   }, []);
 
   const metrics = useMemo(() => {
@@ -56,6 +70,66 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const onCardClick = (filter: "all" | "open" | "purchased" | "month") => {
     setStatusFilter(filter === "open" || filter === "purchased" ? filter : "");
     if (filter === "month") setPeriodFilter("month");
+  };
+
+  const handleReceiveGoods = async (row: OrderRow) => {
+    if (processingId) return;
+    setProcessingId(row.id);
+    try {
+      // 1. Fetch picking types and locations
+      const [stats, locations, prods] = await Promise.all([
+        stockService.getPickingTypeStats(),
+        stockService.getLocations(),
+        stockService.getProducts()
+      ]);
+
+      const incomingType = stats.find(s => s.code === "INCOMING") || stats[0];
+      const vendorLoc = locations.find(l => l.usage === "VENDOR") || locations[0];
+      const internalLoc = locations.find(l => l.usage === "INTERNAL" && l.completeName.includes("Stock")) || locations.find(l => l.usage === "INTERNAL") || locations[0];
+
+      if (!incomingType || !vendorLoc || !internalLoc) {
+        toast.error("Warehouse locations or picking types not configured.");
+        return;
+      }
+
+      // Map PO items to picking move lines
+      const moveLines = (row.doc.items || []).map((item) => {
+        const foundProd = prods.find(p => p.name.toLowerCase() === (item.item || "").toLowerCase());
+        return {
+          productId: foundProd?.id || 1,
+          productQty: item.qty || 1
+        };
+      });
+
+      if (moveLines.length === 0) {
+        moveLines.push({ productId: 1, productQty: 1 });
+      }
+
+      // 2. Create incoming warehouse picking
+      await stockService.createPicking({
+        pickingTypeId: incomingType.id,
+        locationId: vendorLoc.id,
+        locationDestId: internalLoc.id,
+        origin: `PO: ${row.id}`,
+        scheduledDate: new Date().toISOString(),
+        moveLines
+      });
+
+      // 3. Update PO status in finance to "Purchased"
+      if (row.doc.id) {
+        await ledgerFinanceService.updateDocument(row.doc.id, {
+          ...row.doc,
+          status: "Purchased"
+        });
+      }
+
+      toast.success(`Incoming warehouse receipt created for ${row.id}. Status updated to Purchased!`);
+      loadOrders();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create incoming goods receipt.");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   return (
@@ -183,8 +257,24 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
                     <td className="amount">₹{o.amount.toFixed(2)}</td>
                     <td>{o.due}</td>
                     <td>{o.createdBy}</td>
-                    <td>{o.status}</td>
-                    <td></td>
+                    <td>
+                      <span className={`tag ${o.status.toLowerCase() === "purchased" ? "tag-green" : "tag-yellow"}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                    <td>
+                      {o.status.toLowerCase() === "open" && (
+                        <button
+                          type="button"
+                          onClick={() => handleReceiveGoods(o)}
+                          disabled={processingId === o.id}
+                          className="btn btn-sm btn-primary"
+                          style={{ fontSize: 11, padding: "3px 8px" }}
+                        >
+                          {processingId === o.id ? "Receiving..." : "Receive Goods"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

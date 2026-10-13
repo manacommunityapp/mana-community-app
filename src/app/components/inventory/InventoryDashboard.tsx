@@ -82,6 +82,32 @@ export function InventoryDashboard() {
         <p className="text-[#6b7094] text-xs mt-1">Manage physical community assets, warehouse operations, and double-entry stock transactions.</p>
       </div>
 
+      {/* Primary Sub-Navigation Tabs */}
+      <div className="flex border-b border-slate-200 mb-6 gap-3">
+        <button
+          onClick={() => setSubView("stock-ledger")}
+          className={`pb-3 px-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 cursor-pointer ${
+            subView === "stock-ledger"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Double-Entry Stock Ledger & Operations
+        </button>
+        <button
+          onClick={() => setSubView("assets")}
+          className={`pb-3 px-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 cursor-pointer ${
+            subView === "assets"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Community Assets & Checkouts
+        </button>
+      </div>
+
       {/* Sub views */}
       {subView === "stock-ledger" && (
         <DoubleEntryInventory />

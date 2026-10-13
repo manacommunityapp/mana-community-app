@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import type { PickingTypeStats, Location, Picking, Product } from "../../../services/inventory/stockService";
 
 interface InventoryOverviewDashboardProps {
@@ -105,12 +106,12 @@ export function InventoryOverviewDashboard({
 
   const handleCreatePickingSubmit = async () => {
     if (!createForm.partner.trim()) {
-      alert("Please fill in the partner / company name.");
+      toast.error("Please fill in the partner / company name.");
       return;
     }
     const cleanLines = createForm.lines.filter(l => l.productId > 0 && l.demand > 0);
     if (cleanLines.length === 0) {
-      alert("Please select at least one valid product line.");
+      toast.error("Please select at least one valid product line.");
       return;
     }
 
@@ -146,17 +147,21 @@ export function InventoryOverviewDashboard({
 
   const handleCreateProductSubmit = async () => {
     if (!productForm.name.trim()) {
-      alert("Please fill in the product name.");
+      toast.error("Please fill in the product name.");
       return;
     }
 
     try {
+      const timestamp = Date.now().toString().slice(-6);
+      const prefix = productForm.category.split("/")[0].trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4) || "PRD";
+      const generatedCode = `${prefix}-${timestamp}`;
       const saved = await onCreateProduct({
         name: productForm.name.trim(),
         type: productForm.type,
         listPrice: productForm.salesPrice,
         standardPrice: productForm.cost,
-        barcode: String(Math.floor(100000 + Math.random() * 900000)),
+        defaultCode: generatedCode,
+        barcode: `890${timestamp}${Math.floor(100 + Math.random() * 900)}`,
         tracking: "NONE"
       });
 
