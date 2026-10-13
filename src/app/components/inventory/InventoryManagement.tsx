@@ -31,6 +31,7 @@ import {
   type RetailOrderType,
   type RetailOrderStatus,
 } from "../../../services/inventory/retailInventoryService";
+import { stockService, type StockLevelReport } from "../../../services/inventory/stockService";
 
 export function InventoryManagement() {
   /* ============================= DATA STATE ============================= */
@@ -39,22 +40,32 @@ export function InventoryManagement() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<RetailOrder[]>([]);
   const [salesOrders, setSalesOrders] = useState<RetailOrder[]>([]);
+  const [stockQuantMap, setStockQuantMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [prods, sups, custs, pos, sos] = await Promise.all([
+      const [prods, sups, custs, pos, sos, quants] = await Promise.all([
         retailInventoryService.getProducts(),
         retailInventoryService.getSuppliers(),
         retailInventoryService.getCustomers(),
         retailInventoryService.getOrders("PURCHASE"),
         retailInventoryService.getOrders("SALES"),
+        stockService.getStockLevelReport().catch(() => [] as StockLevelReport[]),
       ]);
       setProducts(prods);
       setSuppliers(sups);
       setCustomers(custs);
       setPurchaseOrders(pos);
       setSalesOrders(sos);
+
+      // Build authoritative stock map by product name (lowercase)
+      const qMap: Record<string, number> = {};
+      quants.forEach(q => {
+        const key = q.productName.trim().toLowerCase();
+        qMap[key] = (qMap[key] || 0) + (q.available || q.onHand || 0);
+      });
+      setStockQuantMap(qMap);
     } catch (err) {
       toast.error("Failed to load inventory data.");
     } finally {
@@ -85,7 +96,13 @@ export function InventoryManagement() {
   ];
 
   /* ============================= HELPER METHODS ============================= */
-  const inventoryOf = (p: RetailProduct) => p.unitsOrdered - p.unitsSold;
+  const inventoryOf = (p: RetailProduct) => {
+    const key = (p.name || "").trim().toLowerCase();
+    if (stockQuantMap[key] !== undefined) {
+      return stockQuantMap[key];
+    }
+    return Math.max(0, p.unitsOrdered - p.unitsSold);
+  };
 
   const stockState = (p: RetailProduct) => {
     const inv = inventoryOf(p);

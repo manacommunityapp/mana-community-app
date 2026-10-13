@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { ScanBarcode, QrCode } from "lucide-react";
 import type { PickingTypeStats, Location, Picking, Product } from "../../../services/inventory/stockService";
 
 interface InventoryOverviewDashboardProps {
@@ -651,13 +652,40 @@ export function InventoryOverviewDashboard({
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span className="form-label" style={{ fontSize: "12px", fontWeight: 700, color: "oklch(40% 0.01 90)" }}>Products</span>
-                  <a 
-                    href="#" 
-                    onClick={(e) => { e.preventDefault(); addLineToForm(); }}
-                    style={{ fontSize: "12.5px", fontWeight: 700, color: "oklch(55% 0.13 264)", textDecoration: "none" }}
-                  >
-                    + Add product
-                  </a>
+                  <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = prompt("Scan or enter barcode / SKU:");
+                        if (!code || !code.trim()) return;
+                        const trimmed = code.trim().toLowerCase();
+                        const found = products.find(p => 
+                          (p.barcode && p.barcode.toLowerCase() === trimmed) ||
+                          (p.defaultCode && p.defaultCode.toLowerCase() === trimmed)
+                        );
+                        if (!found) {
+                          toast.error(`No product found matching barcode/SKU: ${code}`);
+                          return;
+                        }
+                        setCreateForm(prev => ({
+                          ...prev,
+                          lines: [...prev.lines, { productId: found.id || 0, productName: found.name, demand: 1 }]
+                        }));
+                        toast.success(`Added ${found.name} via barcode scan!`);
+                      }}
+                      style={{ background: "none", border: "none", padding: 0, fontSize: "12.5px", fontWeight: 700, color: "oklch(45% 0.15 264)", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <ScanBarcode style={{ width: "13px", height: "13px" }} />
+                      Scan Barcode
+                    </button>
+                    <a 
+                      href="#" 
+                      onClick={(e) => { e.preventDefault(); addLineToForm(); }}
+                      style={{ fontSize: "12.5px", fontWeight: 700, color: "oklch(55% 0.13 264)", textDecoration: "none" }}
+                    >
+                      + Add product
+                    </a>
+                  </div>
                 </div>
 
                 {createForm.lines.map((line, idx) => (
