@@ -217,9 +217,9 @@ export function SafetyCommandCenter() {
                 </span>
                 <span className="text-xs text-[#7C7E8C] font-mono">Port 8096 Live Stream</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#44475B] flex items-center gap-2">
+              <h4 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#44475B] flex items-center gap-2">
                 Safety &amp; Security Command Center
-              </h1>
+              </h4>
               <p className="text-sm text-[#7C7E8C] mt-1 max-w-3xl">
                 Integrated gate intelligence, visitor digital passports, vehicle ANPR/RFID tracking, parcel lockers &amp; hardware automation.
               </p>

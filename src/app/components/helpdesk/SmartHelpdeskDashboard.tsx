@@ -179,7 +179,7 @@ export function SmartHelpdeskDashboard() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Wrench className="w-8 h-8 text-indigo-400" />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mana Smart Helpdesk & Asset Care</h1>
+            <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Mana Smart Helpdesk & Asset Care</h4>
           </div>
           <p className="text-slate-300 text-sm sm:text-base max-w-2xl">
             AI-assisted incident routing, SLA tracking, predictive asset maintenance, and resident satisfaction ratings.

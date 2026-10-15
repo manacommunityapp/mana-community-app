@@ -168,7 +168,7 @@ export function NoticeBoard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Community</span>
-          <h1 className="text-3xl font-black text-[#0d0d2b] mt-1">Notice Board</h1>
+          <h4 className="text-2xl font-black text-[#0d0d2b] mt-1">Notice Board</h4>
           <p className="text-[#6b7094] text-sm mt-1">Announcements and updates from your community.</p>
         </div>
         {canCreate && (

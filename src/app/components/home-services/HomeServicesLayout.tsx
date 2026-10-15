@@ -62,9 +62,9 @@ export function HomeServicesLayout() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                <h4 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
                   Home Services
-                </h1>
+                </h4>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   Community Verified
                 </span>

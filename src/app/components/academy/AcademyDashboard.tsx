@@ -87,9 +87,9 @@ export function AcademyDashboard() {
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             Learn • Teach • Grow
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
+          <h4 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
             Learn From Your Community. Teach What You Love.
-          </h1>
+          </h4>
           <p className="text-xs sm:text-sm text-white/80 mt-2 font-medium leading-relaxed">
             Hands-on coding bootcamps, sunrise yoga, chess coaching, kids robotics, and career masterclasses conducted right inside your community.
           </p>

@@ -251,7 +251,7 @@ export function BillsAndAutopayDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-[#44475B] tracking-tight">Mana Bills & Autopay</h1>
+                <h4 className="text-xl font-bold text-[#44475B] tracking-tight">Mana Bills & Autopay</h4>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00D09C] animate-pulse" />
                   CRED & PhonePe Mode

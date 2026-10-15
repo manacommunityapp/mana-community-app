@@ -56,9 +56,9 @@ export function MaintenanceDues() {
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
             Resident Financial Portal
           </span>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+          <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">
             My Maintenance Dues & Invoices
-          </h1>
+          </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Unit: <strong>Flat 302 · Tower A</strong> (1,200 sq.ft) · Account Ref: <span className="font-mono">BA-0001302A</span>
           </p>

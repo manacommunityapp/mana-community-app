@@ -74,7 +74,7 @@ export function CPNHub() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-white font-black text-xl leading-none">Mana Professional Network</h1>
+              <h4 className="text-white font-black text-lg sm:text-xl leading-none">Mana Professional Network</h4>
               <p className="text-indigo-200 text-xs mt-1 font-semibold">Verified Hyperlocal Talent, Mentorship & Careers</p>
             </div>
           </div>

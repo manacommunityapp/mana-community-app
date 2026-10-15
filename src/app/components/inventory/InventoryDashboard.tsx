@@ -6,11 +6,16 @@ import type { Asset } from "../../../services/inventory/assetService";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { DoubleEntryInventory } from "./DoubleEntryInventory";
+import { useAuth } from "../../../contexts/AuthContext";
 import { toast, Toaster } from "sonner";
 
 export function InventoryDashboard() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const subView = (searchParams.get("tab") as "stock-ledger" | "assets" | "upload" | "approve") || "stock-ledger";
+
+  const userName = user?.fullName || (user as any)?.name || (user?.email ? user.email.split("@")[0] : "Admin");
+  const userLocation = (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unit || "Management Office";
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -48,7 +53,7 @@ export function InventoryDashboard() {
     e.preventDefault();
     if (!selectedAsset) return;
     const finalDuration = duration === "Custom" ? customDuration || "Custom Time" : duration;
-    const updated = await assetService.checkoutAsset(selectedAsset.id, "Admin Staff", "Management Office", finalDuration);
+    const updated = await assetService.checkoutAsset(selectedAsset.id, userName, userLocation, finalDuration);
     if (updated) {
       toast.success(`${updated.name} checked out successfully!`);
       setSelectedAsset(null);

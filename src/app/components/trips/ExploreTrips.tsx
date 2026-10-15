@@ -124,7 +124,7 @@ export function ExploreTrips() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Compass className="w-8 h-8 text-blue-200 animate-spin-slow" />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mana Community Trips OS</h1>
+            <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Mana Community Trips OS</h4>
           </div>
           <p className="text-blue-100 text-sm sm:text-base max-w-2xl">
             Curated weekend getaways, passenger rosters, transport logistics, and digital boarding passes hosted by verified neighbors.

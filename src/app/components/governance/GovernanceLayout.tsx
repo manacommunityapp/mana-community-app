@@ -33,7 +33,7 @@ export function GovernanceLayout() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight">Mana Governance</h1>
+                <h4 className="text-xl sm:text-2xl font-black tracking-tight">Mana Governance</h4>
                 <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-black rounded-full">
                   Verified Democratic Operating System
                 </span>

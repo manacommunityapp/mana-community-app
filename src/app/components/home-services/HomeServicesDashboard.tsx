@@ -104,9 +104,9 @@ export function HomeServicesDashboard() {
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             Hyperlocal Community OS
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
+          <h4 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
             Find Verified Home Help &amp; Daily Subscriptions
-          </h1>
+          </h4>
           <p className="text-xs sm:text-sm text-white/80 mt-2 font-medium leading-relaxed">
             Recurring doorstep car cleaning, steam ironing pickup, verified domestic helpers &amp; on-demand experts serving your tower.
           </p>

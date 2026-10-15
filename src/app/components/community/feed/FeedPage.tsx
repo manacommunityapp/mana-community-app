@@ -24,10 +24,10 @@ export function FeedPage() {
         {/* Top Branding & Refresh */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
               <span>Community Feed</span>
               <Sparkles className="w-4 h-4 text-emerald-600" />
-            </h1>
+            </h4>
             <p className="text-xs text-slate-500 font-medium">
               Real-time updates, notices and resident conversations
             </p>

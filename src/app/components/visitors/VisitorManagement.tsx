@@ -208,10 +208,10 @@ export function VisitorManagement() {
           <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
             Visitor Management Suite
           </span>
-          <h1 className="text-3xl font-black text-slate-900 mt-2 tracking-tight flex items-center gap-2">
-            <Shield className="w-8 h-8 text-indigo-600" />
+          <h4 className="text-2xl font-black text-slate-900 mt-2 tracking-tight flex items-center gap-2">
+            <Shield className="w-7 h-7 text-indigo-600" />
             Community Gatekeeping
-          </h1>
+          </h4>
           <p className="text-slate-500 text-sm mt-1 font-semibold">
             Track visitors, issue entry codes, scan credentials, and grant walk-in approvals.
           </p>

@@ -261,9 +261,9 @@ export const MyMoneyDashboard: React.FC = () => {
                 <span className="p-2 rounded-xl bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0]">
                   <Wallet className="w-5 h-5" />
                 </span>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                <h4 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
                   My Money & Finance
-                </h1>
+                </h4>
                 <Badge className="bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0] hover:bg-[#E6FAF5] font-semibold text-xs">
                   Zero-Knowledge Privacy
                 </Badge>

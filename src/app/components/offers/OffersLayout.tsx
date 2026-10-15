@@ -41,9 +41,9 @@ export function OffersLayout({ children }: OffersLayoutProps) {
               <Sparkles className="w-3.5 h-3.5" />
               <span>Mana Deals &amp; Commerce Network</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight flex items-center gap-2">
+            <h4 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
               <span>Community Deals &amp; Market Day</span>
-            </h1>
+            </h4>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl font-normal">
               Exclusive resident-only pricing, physical clubhouse shopping festivals, pop-up stores, and trusted local partner discovery.
             </p>

@@ -44,7 +44,7 @@ export function DataRightsForm() {
   const [description, setDescription] = useState("");
   const [correctionDetails, setCorrectionDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState<{ id: number; dueBy: string } | null>(null);
+  const [submitted, setSubmitted] = useState<{ id: string | number; dueBy: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,12 +56,12 @@ export function DataRightsForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await apiClient.post("/api/privacy/data-rights", {
+      const res = await apiClient.post<{ id?: string; dueBy?: string; data?: { id?: string; dueBy?: string } }>("/api/privacy/data-rights", {
         rightType,
         description,
         correctionDetails: rightType === "CORRECTION" ? correctionDetails : undefined,
       });
-      setSubmitted({ id: res.data.id, dueBy: res.data.dueBy });
+      setSubmitted({ id: res?.id || res?.data?.id || "REQ-SUBMITTED", dueBy: res?.dueBy || res?.data?.dueBy || "30 days" });
     } catch (err: any) {
       setError(err?.response?.data?.error || "Failed to submit request. Please try again.");
     } finally {

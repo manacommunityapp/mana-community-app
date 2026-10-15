@@ -36,9 +36,9 @@ export function VendorPortalLayout() {
             <Store className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight">
+            <h4 className="text-lg font-black tracking-tight">
               Vendor<span className="text-indigo-600">Portal</span>
-            </h1>
+            </h4>
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
               Commerce & Services Business Hub
             </p>

@@ -50,7 +50,7 @@ export function AutomationDashboard() {
           <Zap size={22} style={{ color: "#f59e0b" }} />
         </div>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana Automation</h1>
+          <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana Automation</h4>
           <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Event-driven rules for your community</p>
         </div>
       </div>

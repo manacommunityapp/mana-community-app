@@ -406,12 +406,12 @@ export function ParkingManagement() {
               <ParkingCircle className="w-6 h-6" />
             </span>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h4 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                 Smart Parking OS
                 <Badge className="bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0] text-xs">
                   ANPR & EV Integrated
                 </Badge>
-              </h1>
+              </h4>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                 {slots.length} total slots · {availableSlots.length} available · {vehicles.length} resident vehicles · ANPR Gate Barrier live
               </p>

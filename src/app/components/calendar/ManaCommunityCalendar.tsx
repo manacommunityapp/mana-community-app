@@ -97,7 +97,7 @@ export const ManaCommunityCalendar: React.FC = () => {
               <CalendarIcon className="w-3.5 h-3.5 text-cyan-400" />
               Mana Calendar • Unified 11-Domain Timeline
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold">Centralized Community Schedule</h1>
+            <h4 className="text-xl md:text-2xl font-bold">Centralized Community Schedule</h4>
             <p className="text-slate-300 text-sm mt-1 max-w-2xl">
               One unified timeline for Events, Pooja, Sports, Academy, Trips, Governance, Group Buy Pickups, Bookings, Payments, Maintenance, and Markets.
             </p>

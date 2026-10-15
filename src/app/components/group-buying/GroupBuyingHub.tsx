@@ -73,7 +73,7 @@ export function GroupBuyingHub() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
           <ShoppingBag size={28} style={{ color: "#a7f3d0" }} />
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Mana Group Buying</h1>
+            <h4 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Mana Group Buying</h4>
             <p style={{ fontSize: 12, margin: 0, opacity: 0.85 }}>Unlock bulk discounts with your community</p>
           </div>
         </div>
