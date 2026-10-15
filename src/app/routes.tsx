@@ -283,6 +283,13 @@ import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 // New cross-module parity components
 import { PersonalFinanceDashboard } from "./components/personal-finance/PersonalFinanceDashboard";
 import { HealthDashboard } from "./components/health/HealthDashboard";
+import WellnessDashboard from "./components/wellness/WellnessDashboard";
+import FoodJournal from "./components/wellness/FoodJournal";
+import MealLogger from "./components/wellness/MealLogger";
+import WaterTracker from "./components/wellness/WaterTracker";
+import WellnessChallenges from "./components/wellness/WellnessChallenges";
+import WellnessProviders from "./components/wellness/WellnessProviders";
+import WellnessProfilePage from "./components/wellness/WellnessProfile";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
 import { AutomationDashboard } from "./components/automation/AutomationDashboard";
@@ -1102,6 +1109,18 @@ export const router = createBrowserRouter([
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
       { path: "health", element: <HealthDashboard /> },
+      {
+        path: "wellness",
+        children: [
+          { index: true, element: <WellnessDashboard /> },
+          { path: "food-journal", element: <FoodJournal /> },
+          { path: "log-meal", element: <MealLogger /> },
+          { path: "water", element: <WaterTracker /> },
+          { path: "challenges", element: <WellnessChallenges /> },
+          { path: "providers", element: <WellnessProviders /> },
+          { path: "profile", element: <WellnessProfilePage /> },
+        ],
+      },
       { path: "commute", element: <CommuteDashboard /> },
       { path: "projects", element: <ProjectsDashboard /> },
       { path: "automation", element: <AutomationDashboard /> },

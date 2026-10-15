@@ -379,6 +379,7 @@ export function Layout() {
     "Mana Deals": "COMMUNITY_OFFERS",
     "Mana Academy": "ACADEMY",
     "Mana Health": "HEALTH",
+    "Health Buddy": "WELLNESS",
     "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
     "Group Buying": "GROUP_BUYING",
@@ -469,6 +470,7 @@ export function Layout() {
       items: [
         { to: "/discover", icon: Sparkles, label: "Community Discover" },
         { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New" },
+        { to: "/wellness", icon: HeartPulse, label: "Health Buddy", badge: "New" },
         { to: "/sports", icon: Trophy, label: "Sports" },
         { to: "/events", icon: CalendarDays, label: "Events" },
         { to: "/trips", icon: Compass, label: "Community Trips" },
@@ -510,6 +512,7 @@ export function Layout() {
     if (label === "Mana Deals") return true;
     if (label === "Mana Academy") return true;
     if (label === "Mana Health") return true;
+    if (label === "Health Buddy") return true;
     if (label === "Governance & Decisions") return true;
     if (label === "Pet Registry") return true;
     if (label === "Mana Pay") return true;
