@@ -1834,44 +1834,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const mainContent = (
     <div className={`${isModal ? "p-3 sm:p-6 space-y-3 sm:space-y-4" : "max-w-5xl mx-auto pb-24 sm:pb-10 space-y-3 sm:space-y-4"}`}>
-      {/* ── Top Bar ────────────────────────────────────────────── */}
-      {isModal ? (
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
-              <Trophy className="w-5 h-5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                  {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
-                  {eventDate ? ` - ${eventDate}` : ""}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowEventInfoModal(true)}
-                  aria-label="View Complete Event Information"
-                  title="View Complete Event Information"
-                  className="p-1 rounded-full text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition cursor-pointer shrink-0 active:scale-95"
-                >
-                  <Info className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-500 truncate">
-                {event?.categoryName || event?.name || venueName || "Tournament Registration"}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer shrink-0"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      ) : (
+      {/* ── Top Bar (Page Mode) ────────────────────────────────── */}
+      {!isModal && (
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -2352,7 +2316,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             />
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Profile Incomplete Banner */}
             {formData.regType === "self" && missingProfileFields.length > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -3177,37 +3141,39 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
 
-            {/* Submit Actions — desktop inline, mobile sticky bottom */}
-            <div className="hidden sm:flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="flex-1 py-3 bg-card border border-border rounded-xl text-sm text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
-              >
-                ← {isModal ? "Cancel" : "Go Back"}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className={`flex-[2] py-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
-                  isAlreadyRegistered
-                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-                }`}
-              >
-                {submitting ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
-                ) : isAlreadyRegistered ? (
-                  <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
-                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-                  <>Provide Gender &amp; DOB to Register</>
-                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-lg">→</span></>
-                ) : (
-                  <>Submit Registration <span className="text-lg">→</span></>
-                )}
-              </button>
-            </div>
+            {/* Submit Actions — desktop inline for page mode */}
+            {!isModal && (
+              <div className="hidden sm:flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 py-3 bg-card border border-border rounded-xl text-sm text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
+                >
+                  ← Go Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                  className={`flex-[2] py-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
+                    isAlreadyRegistered
+                      ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                  }`}
+                >
+                  {submitting ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
+                  ) : isAlreadyRegistered ? (
+                    <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                  ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                    <>Provide Gender &amp; DOB to Register</>
+                  ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                    <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-lg">→</span></>
+                  ) : (
+                    <>Submit Registration <span className="text-lg">→</span></>
+                  )}
+                </button>
+              </div>
+            )}
           </form>
         </div>
 
@@ -3220,13 +3186,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
 
             <div className="relative p-4 md:p-5">
-              <button
-                onClick={handleClose}
-                className="mb-3 flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors group cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                {isModal ? "Cancel" : "Back"}
-              </button>
+              {!isModal && (
+                <button
+                  onClick={handleClose}
+                  className="mb-3 flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors group cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                  Back
+                </button>
+              )}
 
               <div className="flex items-start gap-3">
                 <div className="shrink-0 w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
@@ -3346,40 +3314,42 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         </div>
       </div>
 
-      {/* Mobile Sticky Submit Bar */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-3 py-2.5 safe-area-bottom">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 min-h-[44px] px-3.5 bg-card border border-border rounded-xl text-[13px] text-muted-foreground font-semibold active:scale-95 transition-all cursor-pointer"
-          >
-            ← Back
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
-            disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-            className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
-              isAlreadyRegistered
-                ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-            }`}
-          >
-            {submitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-            ) : isAlreadyRegistered ? (
-              <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
-            ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-              <>Add Gender & DOB</>
-            ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-              <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
-            ) : (
-              <>Submit Registration →</>
-            )}
-          </button>
+      {/* Mobile Sticky Submit Bar (Page Mode) */}
+      {!isModal && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-3 py-2.5 safe-area-bottom">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex-shrink-0 min-h-[44px] px-3.5 bg-card border border-border rounded-xl text-[13px] text-muted-foreground font-semibold active:scale-95 transition-all cursor-pointer"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+              className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
+                isAlreadyRegistered
+                  ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                  : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+              }`}
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+              ) : isAlreadyRegistered ? (
+                <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
+              ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                <>Add Gender & DOB</>
+              ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
+              ) : (
+                <>Submit Registration →</>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -3426,13 +3396,117 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           onClick={handleClose}
         >
           <div 
-            className="relative w-full max-w-4xl max-h-[92vh] sm:max-h-[88vh] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            className="relative w-full max-w-5xl h-[92vh] sm:h-[88vh] max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Pull handle for mobile */}
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
+            {/* Pinned Modal Header */}
+            <div className="shrink-0 px-4 sm:px-6 py-3 sm:py-3.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Trophy className="w-5 h-5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                      {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
+                      {eventDate ? ` - ${eventDate}` : ""}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowEventInfoModal(true)}
+                      aria-label="View Complete Event Information"
+                      title="View Complete Event Information"
+                      className="p-1 rounded-full text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {event?.categoryName || event?.name || venueName || "Tournament Registration"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               {mainContent}
+            </div>
+
+            {/* Pinned Modal Footer */}
+            <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="min-h-[42px] px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
+              >
+                Cancel
+              </button>
+
+              {/* Status / Selected formats summary on sm+ */}
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 min-w-0">
+                {formData.playerName && (
+                  <span className="truncate font-medium">
+                    Participant: <strong className="text-slate-900 dark:text-slate-100">{formData.playerName}</strong>
+                  </span>
+                )}
+                {selectedFormats.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold border border-indigo-100 dark:border-indigo-900/50">
+                    {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
+                  </span>
+                )}
+                {formData.categoryIds.length > 0 && (
+                  <span className="text-[11px] text-slate-500">
+                    ({formData.categoryIds.length} {formData.categoryIds.length === 1 ? "category" : "categories"} selected)
+                  </span>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                  if (form && typeof form.requestSubmit === "function") {
+                    try {
+                      form.requestSubmit();
+                      return;
+                    } catch {
+                      // fallback
+                    }
+                  }
+                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+                }}
+                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className={`flex-1 sm:flex-initial min-h-[42px] px-4 sm:px-6 py-2 sm:py-2.5 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm shrink-0 ${
+                  isAlreadyRegistered
+                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                }`}
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                ) : isAlreadyRegistered ? (
+                  <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                  <>Provide Gender &amp; DOB to Register</>
+                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-base sm:text-lg">→</span></>
+                ) : (
+                  <>Submit Registration <span className="text-base sm:text-lg">→</span></>
+                )}
+              </button>
             </div>
           </div>
         </div>

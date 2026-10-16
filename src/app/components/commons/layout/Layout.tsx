@@ -636,7 +636,10 @@ export function Layout() {
               {/* On Desktop Collapsed: Avatar only */}
               <div
                 title={`${displayName} • ${roleLabel}`}
-                className={cn("cursor-pointer group flex items-center justify-center", !isSidebarCollapsed && "hidden", "hidden lg:flex")}
+                className={cn(
+                  "cursor-pointer group items-center justify-center",
+                  isSidebarCollapsed ? "hidden lg:flex" : "hidden"
+                )}
                 onClick={() => setIsSidebarCollapsed(false)}
               >
                 {userAvatar ? (
@@ -1071,7 +1074,7 @@ export function Layout() {
               {/* Admin Links */}
               {filteredAdminLinks.length > 0 && (
                 <>
-                  <div className={cn("my-2 h-px bg-white/10 mx-1", !isSidebarCollapsed && "hidden", "hidden lg:block")} />
+                  <div className={cn("my-2 h-px bg-white/10 mx-1", isSidebarCollapsed ? "hidden lg:block" : "hidden")} />
                   <div className={cn("py-2 px-3", isSidebarCollapsed && "lg:hidden")}>
                     <div className="h-px bg-white/10" />
                   </div>
