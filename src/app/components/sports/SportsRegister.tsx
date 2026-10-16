@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown, MapPin, Building2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
@@ -1869,162 +1869,156 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       {/* ── Event Info Modal ────────────────────────────── */}
       {showEventInfoModal && (
         <div 
-          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-fade-in"
           onClick={() => setShowEventInfoModal(false)}
         >
           <div 
-            className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white/20 animate-scale-up max-h-[90vh] flex flex-col"
+            className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900 animate-scale-up max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-95" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
-
-            <div className="relative p-4 sm:p-5 overflow-y-auto max-h-[85vh]">
-              <div className="flex items-center justify-between mb-3.5">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-4 border-b border-indigo-100/60 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2.5">
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                  className="w-7 h-7 rounded-lg bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="shrink-0 w-11 h-11 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-inner">
-                  <Trophy className="w-5 h-5 text-orange-400" />
+                <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2.5 py-0.5 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider border border-orange-500/30">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base font-bold text-white tracking-tight leading-snug">
+                  <h4 className="text-sm sm:text-base font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
-                  </h2>
-                  <p className="text-[11px] text-white/70 mt-1 leading-relaxed">
+                  </h4>
+                  <p className="text-[11px] text-[#6b7094] dark:text-slate-400 mt-0.5 leading-relaxed">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2.5">
-                {eventDate && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📅</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
-                      <p className="font-semibold">{eventDate}</p>
-                    </div>
+            <div className="p-4 overflow-y-auto max-h-[70vh] space-y-2.5">
+              {eventDate && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{eventDate}</p>
                   </div>
-                )}
-                {venueName && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📍</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
-                      <p className="font-semibold">{venueName}</p>
-                    </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{venueName}</p>
                   </div>
-                )}
-                {event?.community?.name && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">🏠</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
-                      <p className="font-semibold">{event.community.name}</p>
-                    </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{event.community.name}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* All Sport Categories & Age Details */}
-                {siblingEvents.length > 0 && (
-                  <div className="pt-2 border-t border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
-                        <Trophy className="w-3.5 h-3.5 text-orange-400" />
-                        <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                      </p>
-                    </div>
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <p className="text-[11px] uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {siblingEvents.map(sib => {
-                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
-                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
-                        let ageLabel = "All Ages";
-                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
-                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
-                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
 
-                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
-                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
-                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
 
-                        return (
-                          <div
-                            key={sib.id}
-                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
-                              isCurrent
-                                ? "bg-white/15 border-white/30 text-white shadow-xs"
-                                : "bg-white/5 border-white/10 text-white/85"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-white text-xs truncate">
-                                {sib.categoryName || sib.name}
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`p-2.5 rounded-lg text-xs space-y-1 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0">
+                                Current
                               </span>
-                              {isCurrent && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
-                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
-                              {sib.venueName && <span>📍 {sib.venueName}</span>}
-                              {sib.eventDateStart && (
-                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
-                              )}
-                              {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="mt-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEventInfoModal(false)}
-                  className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-all text-center cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#6b7094] dark:text-slate-400 pt-0.5">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowEventInfoModal(false)}
+                className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg border border-slate-200 dark:border-slate-700 transition text-center cursor-pointer shadow-2xs"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -2254,19 +2248,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
         <div className="lg:col-span-7 space-y-4">
           {/* Step Indicator */}
-          <div className="hidden sm:block bg-card border border-border rounded-xl p-3 shadow-sm">
+          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
             <div className="flex items-center gap-2">
               {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
-                  <div className={`h-1.5 rounded-full transition-all duration-500 ${
+                  <div className={`h-1 rounded-full transition-all duration-300 ${
                     i < currentStep
-                      ? "bg-gradient-to-r from-primary to-indigo-400"
+                      ? "bg-gradient-to-r from-indigo-500 to-violet-600"
                       : i === currentStep
-                        ? "bg-primary/40"
-                        : "bg-border"
+                        ? "bg-indigo-300 dark:bg-indigo-700"
+                        : "bg-slate-100 dark:bg-slate-800"
                   }`} />
-                  <p className={`text-[10px] mt-1.5 text-center font-medium transition-colors ${
-                    i < currentStep ? "text-primary" : i === currentStep ? "text-muted-foreground" : "text-muted-foreground/40"
+                  <p className={`text-[10px] mt-1 text-center font-semibold tracking-wider uppercase transition-colors ${
+                    i < currentStep ? "text-indigo-600 dark:text-indigo-400" : i === currentStep ? "text-slate-800 dark:text-slate-200" : "text-[#6b7094] dark:text-slate-500"
                   }`}>
                     {label}
                   </p>
@@ -2277,7 +2271,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
           {/* Registration Type Selector (Shown only when multiple options exist, e.g. for admin) */}
           {isAnyAdmin && (
-            <div className="bg-card border border-border rounded-xl p-1 flex gap-1 shadow-sm">
+            <div className="bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 rounded-xl p-1 flex gap-1 shadow-2xs">
               {[
                 { key: "self" as const, label: "Register for Self", icon: "👤" },
                 { key: "other" as const, label: "Community Person", icon: "🏘️" },
@@ -2294,13 +2288,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     flatNumber: tab.key === "other" ? "" : userFlat,
                     age: tab.key === "self" && userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : prev.age,
                   }))}
-                  className={`flex-1 py-2 px-2 text-[13px] sm:text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 min-h-[38px] ${
+                  className={`flex-1 py-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 min-h-[34px] cursor-pointer ${
                     formData.regType === tab.key
-                      ? "bg-gradient-to-r from-primary to-indigo-500 text-white shadow-md shadow-primary/25"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs"
+                      : "text-[#6b7094] dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  <span className="text-base">{tab.icon}</span>
+                  <span className="text-sm">{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
@@ -2344,45 +2338,43 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
             {/* 1. Player Identity */}
-            <div className="bg-card border border-border rounded-xl md:rounded-2xl p-2.5 sm:p-4 md:p-6 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 hidden sm:block" />
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2 sm:gap-2.5 mb-0 md:mb-3 flex-wrap">
-                  <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                      <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-4 shadow-2xs">
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <UserCheck className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
-                    {formData.playerName && (
-                      <span className="text-[11px] sm:text-xs font-semibold text-foreground/80 bg-muted px-2 sm:px-2.5 py-0.5 rounded-full border border-border">
-                        {formData.playerName}
-                      </span>
-                    )}
+                    <h3 className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                      Player Identity
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {formData.age > 0 && (
-                      <span className="text-[11px] sm:text-xs font-bold text-primary bg-primary/10 px-2 sm:px-2.5 py-0.5 rounded-full border border-primary/20">
+                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                         Age: {formData.age} Yrs
                       </span>
                     )}
                     {isAlreadyRegistered && (
-                      <span className="text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 sm:px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                        ✓ Already Registered
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        ✓ Registered
                       </span>
                     )}
                   </div>
                 </div>
 
                 {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
-                  <div className="mt-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
+                  <div className="mb-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <p className="text-[11px] text-amber-800 dark:text-amber-200 font-medium">
                         Missing {(!formData.gender && !formData.dateOfBirth) ? "Gender & Date of Birth" : !formData.gender ? "Gender" : "Date of Birth"} for {formData.playerName}.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => openUpdateDetailsModal("family_edit", formData.familyMemberId)}
-                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                      className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
                     >
                       <span>Update Member</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -2390,10 +2382,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 )}
 
-                <div className="hidden md:grid grid-cols-2 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                   {/* Player Name */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 truncate">
+                  <div className="space-y-1 col-span-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
                       Player Name
                     </label>
                     <input
@@ -2403,42 +2395,42 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       onChange={handleInputChange}
                       readOnly={formData.regType === "self"}
                       placeholder={formData.regType === "self" ? "" : "Enter full name"}
-                      className={`w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                      className={`w-full bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
                         formData.regType === "self"
-                          ? "text-muted-foreground cursor-not-allowed opacity-70"
-                          : "text-foreground"
+                          ? "text-slate-500 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-800/40 cursor-not-allowed"
+                          : "text-slate-800 dark:text-slate-100"
                       }`}
                     />
                   </div>
 
                   {/* Gender */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
+                  <div className="space-y-1 col-span-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                       <span className="flex items-center gap-1.5 truncate">
-                        <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-                        Gender <span className="text-destructive font-bold">*</span>
+                        <UserCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                        Gender <span className="text-rose-500 font-bold">*</span>
                       </span>
                       {formData.regType === "self" && (
                         <button
                           type="button"
                           onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+                          className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                         >
                           <span>{!userGender ? "⚠️ Add" : "Edit"}</span>
-                          <ArrowUpRight className="w-3 h-3" />
+                          <ArrowUpRight className="w-2.5 h-2.5" />
                         </button>
                       )}
                     </label>
                     {formData.regType === "self" ? (
-                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
-                        userGender ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                      <div className={`w-full border rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] flex items-center justify-between ${
+                        userGender ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
                       }`}>
                         <span className="font-medium truncate">{userGender ? userGender.toUpperCase() : "Missing"}</span>
                         {!userGender && (
                           <button
                             type="button"
                             onClick={() => openUpdateDetailsModal("self")}
-                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            className="text-[10px] font-bold text-amber-600 hover:underline cursor-pointer ml-1"
                           >
                             Add
                           </button>
@@ -2450,7 +2442,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         value={formData.gender}
                         onChange={handleInputChange}
                         required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                       >
                         <option value="">Select Gender</option>
                         <option value="MALE">Male</option>
@@ -2461,15 +2453,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
 
                   {/* Primary Role */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate block">
+                  <div className="space-y-1 col-span-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
                       Primary Role
                     </label>
                     <select
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                     >
                       <option value="">Select Role</option>
                       {availableRoles.map((r: string) => (
@@ -2479,26 +2471,26 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
 
                   {/* Date of Birth (Mandatory) */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
+                  <div className="space-y-1 col-span-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                       <span className="flex items-center gap-1.5 truncate">
-                        <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span>DOB <span className="text-destructive font-bold">*</span></span>
+                        <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                        <span>DOB <span className="text-rose-500 font-bold">*</span></span>
                       </span>
                       {formData.regType === "self" && (
                         <button
                           type="button"
                           onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+                          className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                         >
                           <span>{!userDob ? "⚠️ Add" : "Edit"}</span>
-                          <ArrowUpRight className="w-3 h-3" />
+                          <ArrowUpRight className="w-2.5 h-2.5" />
                         </button>
                       )}
                     </label>
                     {formData.regType === "self" ? (
-                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
-                        userDob ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                      <div className={`w-full border rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] flex items-center justify-between ${
+                        userDob ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
                       }`}>
                         <span className="font-medium truncate">
                           {userDob ? format(new Date(userDob), "dd MMM yyyy") : "Missing"}
@@ -2507,7 +2499,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           <button
                             type="button"
                             onClick={() => openUpdateDetailsModal("self")}
-                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            className="text-[10px] font-bold text-amber-600 hover:underline cursor-pointer ml-1"
                           >
                             Add
                           </button>
@@ -2525,9 +2517,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
 
                   {/* Flat Number */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1 animate-in fade-in slide-in-from-top-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
-                      <span>Block & Flat <span className="text-destructive font-bold">*</span></span>
+                  <div className="space-y-1 col-span-1 animate-in fade-in slide-in-from-top-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                      <span>Block & Flat <span className="text-rose-500 font-bold">*</span></span>
                       {!userFlat && (
                         <button
                           type="button"
@@ -2535,7 +2527,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
                         >
                           <span>⚠️ Add</span>
-                          <ArrowUpRight className="w-3 h-3" />
+                          <ArrowUpRight className="w-2.5 h-2.5" />
                         </button>
                       )}
                     </label>
@@ -2546,12 +2538,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       onChange={handleInputChange}
                       readOnly={formData.regType === "self" || formData.regType === "family"}
                       placeholder={userFlat || "Missing in Profile"}
-                      className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 ${
+                      className={`w-full border rounded-lg px-2.5 py-1.5 text-xs sm:text-[13px] transition-all duration-200 ${
                         formData.regType !== "other"
                           ? userFlat
-                            ? "bg-muted/50 border-border text-muted-foreground cursor-not-allowed opacity-70"
+                            ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
                             : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                          : "bg-muted/50 border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                       }`}
                     />
                   </div>
@@ -2561,78 +2553,79 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 2. Participant Type (Format) */}
             {availableFormats.length === 1 ? (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-3.5 shadow-sm flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
-                <div className="flex items-center gap-2 sm:gap-2.5">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Trophy className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Participant Type:</h3>
+                  <span className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                    Participant Type
+                  </span>
                 </div>
-                <span className={`px-2.5 sm:px-3 py-1 rounded-lg text-[11px] sm:text-sm font-bold capitalize border ${
+                <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold capitalize border ${
                   registeredFormats.includes(availableFormats[0].toUpperCase())
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
-                    : "bg-primary/10 text-primary border-primary/20"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
+                    : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50"
                 }`}>
                   {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
             ) : availableFormats.length > 1 ? (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 hidden sm:block" />
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-2 sm:gap-2.5 mb-2.5 sm:mb-3.5 flex-wrap">
-                    <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                      </div>
-                      <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Participant Type</h3>
-                      <span className="hidden sm:inline text-xs text-muted-foreground font-normal">
-                        — Choose one or more formats
-                      </span>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-4 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-2.5 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
                     </div>
-                    {formData.matchTypes.length > 1 && (
-                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                        {formData.matchTypes.length} Formats Selected
-                      </span>
-                    )}
+                    <h3 className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                      Participant Type
+                    </h3>
+                    <span className="hidden sm:inline text-[11px] text-[#6b7094] dark:text-slate-400 font-normal">
+                      — Choose format(s)
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {availableFormats.map((fmt) => {
-                      const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
-                      const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
-                      const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => toggleFormat(fmt)}
-                          className={`group relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg border-2 text-[13px] sm:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none min-h-[36px] sm:min-h-0 ${
+                  {formData.matchTypes.length > 1 && (
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      {formData.matchTypes.length} Formats Selected
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {availableFormats.map((fmt) => {
+                    const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+                    const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
+                    const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => toggleFormat(fmt)}
+                        className={`group px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                          isSelected
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs"
+                            : isFmtRegistered
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300"
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
+                          isSelected ? "bg-white/20 text-white" : "border border-slate-300 dark:border-slate-600 group-hover:border-indigo-400"
+                        }`}>
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        <span>{formatLabel}</span>
+                        {isFmtRegistered && (
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
                             isSelected
-                              ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-sm shadow-primary/20"
-                              : isFmtRegistered
-                                ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/70"
-                                : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-xs"
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                            isSelected ? "bg-white/20 border-white text-white" : "border-muted-foreground/40 group-hover:border-primary"
+                              ? "bg-white/20 text-white"
+                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
                           }`}>
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                          </div>
-                          <span>{formatLabel}</span>
-                          {isFmtRegistered && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
-                              isSelected
-                                ? "bg-white/25 text-white border border-white/30"
-                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
-                            }`}>
-                              Registered
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                            Registered
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
@@ -2660,36 +2653,34 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
             {isTeamSport(event?.sport?.name || event?.name || "") && (
-              <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-2.5 sm:p-4 shadow-sm space-y-2.5 sm:space-y-3">
-                <div className="flex items-start justify-between gap-2 sm:gap-3">
-                  <div className="flex items-start gap-2 sm:gap-2.5">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+              <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                          Team Captain Nomination
-                        </h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300">
-                          Optional
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSnackbarInfo({
-                              open: true,
-                              title: "Team Captain Nomination",
-                              message: "Are you interested in leading a team and participating in the player auction/draft?",
-                            });
-                          }}
-                          title="Team Captain Information"
-                          aria-label="Captain nomination information"
-                          className="p-1 rounded-full text-slate-400 hover:text-amber-600 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition cursor-pointer active:scale-95"
-                        >
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs sm:text-[13px] font-bold text-slate-800 dark:text-slate-100">
+                        Team Captain Nomination
+                      </h4>
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                        Optional
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSnackbarInfo({
+                            open: true,
+                            title: "Team Captain Nomination",
+                            message: "Are you interested in leading a team and participating in the player auction/draft?",
+                          });
+                        }}
+                        title="Team Captain Information"
+                        aria-label="Captain nomination information"
+                        className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -2697,33 +2688,33 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.captainNomination ? "translate-x-5" : "translate-x-0"
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.captainNomination ? "translate-x-4" : "translate-x-0"
                       }`}
                     />
                   </button>
                 </div>
 
                 {formData.captainNomination && (
-                  <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
-                    <label className="block text-[11px] font-bold text-foreground">
-                      Proposed Team Name <span className="text-muted-foreground font-normal">(Optional)</span>
+                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Royal Strikers, Sector 12 Blasters"
+                      placeholder="e.g. Royal Strikers"
                       value={formData.proposedTeamName || ""}
                       onChange={(e) => setFormData(prev => ({ ...prev, proposedTeamName: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                     <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1">
                       <Info className="w-3 h-3 shrink-0" />
-                      Organizers will review captain nominations and finalize teams before the auction.
+                      Organizers review captain nominations and finalize teams before the auction.
                     </p>
                   </div>
                 )}
@@ -2753,22 +2744,24 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* Sport Categories in Tournament */}
             {siblingEvents.length > 1 && (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-sm space-y-2 sm:space-y-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-4 shadow-2xs space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                      <Trophy className="w-3.5 h-3.5 text-violet-600" />
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Select Category</h3>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <h3 className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                        Select Category
+                      </h3>
+                      <p className="text-[10px] text-[#6b7094] dark:text-slate-400 mt-0.5">
                         {siblingEvents.length} categories available for {event?.sport?.name}
                       </p>
                     </div>
                   </div>
                   {formData.age > 0 && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      Participant Age: {formData.age} Yrs
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                      Age: {formData.age} Yrs
                     </span>
                   )}
                 </div>
@@ -2792,14 +2785,14 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     return (
                       <div
                         key={sib.id}
-                        className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
+                        className={`rounded-lg border transition-all p-2.5 ${
                           isCurrentEvent && !isBlocked
-                            ? "border-primary bg-primary/5 shadow-sm"
+                            ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
                             : isRegistered
-                              ? "border-emerald-200 bg-emerald-50/30"
+                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
                               : isBlocked
-                                ? "border-rose-200 dark:border-rose-900/40 bg-rose-50/30 dark:bg-rose-950/20 opacity-75 cursor-not-allowed"
-                                : "border-border hover:border-primary/30 hover:bg-muted/30 cursor-pointer"
+                                ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
                         }`}
                         onClick={() => {
                           if ((isCurrentEvent && !isBlocked) || isRegistered) return;
@@ -2822,41 +2815,41 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                              isCurrentEvent && !isBlocked ? "bg-primary" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${
+                              isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
                             }`} />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-[13px] sm:text-sm font-semibold ${isCurrentEvent && !isBlocked ? "text-primary font-bold" : "text-foreground"}`}>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-xs sm:text-[13px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
                                   {sib.categoryName || sib.name}
                                 </span>
                                 {minAge != null && maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}–{maxAge} Yrs
                                   </span>
                                 ) : minAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}+ Yrs
                                   </span>
                                 ) : maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     Under {maxAge} Yrs
                                   </span>
                                 ) : null}
                                 {elig.requiredGender && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
                                     {elig.requiredGender}
                                   </span>
                                 )}
                                 {sib.maxParticipants && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-medium border border-primary/20">
-                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max spots
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
                                   </span>
                                 )}
                               </div>
                               {sib.venueName && (
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-muted-foreground">{sib.venueName}</span>
+                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
                                 </div>
                               )}
                             </div>
@@ -2864,7 +2857,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                           <div className="shrink-0 flex items-center gap-1.5">
                             {isCurrentEvent && !isBlocked ? (
-                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary shrink-0 border border-primary/20">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                 Selected {isAlreadyRegistered ? "(Registered)" : ""}
                               </span>
                             ) : isRegistered ? (
@@ -2982,25 +2975,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
 
             {/* 4. Career Statistics */}
-            <div className="hidden sm:block bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <span className="text-sm">📊</span>
+            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-4 shadow-2xs">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-xs">📊</span>
                 </div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Career Statistics</h3>
+                <h3 className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Career Statistics</h3>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
                 {(sportConfig?.stats || []).map(stat => (
-                  <div key={stat.name} className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{stat.label}</label>
+                  <div key={stat.name} className="space-y-1">
+                    <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400">{stat.label}</label>
                     <input
                       name={stat.name}
                       type="number"
                       step={stat.step ?? 1}
                       value={formData[stat.name]}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                     />
                   </div>
                 ))}
@@ -3009,19 +3002,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 5. Email Verification (optional) */}
             {OTP_REQUIRED && (
-              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <ShieldCheck className="w-4 h-4 text-blue-500" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-4 shadow-2xs">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                   </div>
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Verify Email</h3>
+                  <h4 className="text-xs sm:text-[13px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Verify Email</h4>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" /> Email Address
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2.5 md:items-end">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
                         type="email"
@@ -3029,7 +3022,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         onChange={(e) => handleEmailChange(e.target.value)}
                         readOnly={emailVerified}
                         placeholder="you@example.com"
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-60"
+                        className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1.5 h-8 sm:h-8.5 text-xs sm:text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:opacity-60"
                       />
                     </div>
                     {!emailVerified && (
@@ -3037,37 +3030,37 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         type="button"
                         onClick={sendOtp}
                         disabled={!emailValid || otpSending}
-                        className="h-[46px] px-5 bg-muted border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-muted/80 disabled:opacity-50 transition-all whitespace-nowrap"
+                        className="h-8 sm:h-8.5 px-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50 transition-all whitespace-nowrap cursor-pointer"
                       >
-                        {otpSending ? <Loader2 className="w-4 h-4 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
+                        {otpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
                       </button>
                     )}
                   </div>
 
                   {emailVerified ? (
-                    <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 rounded-xl">
-                      <CheckCircle2 className="w-4 h-4" /> Email verified successfully
+                    <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 rounded-lg border border-emerald-200/60">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Email verified successfully
                     </div>
                   ) : otpSent && (
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end animate-in fade-in slide-in-from-top-1">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Enter Code</label>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2.5 md:items-end animate-in fade-in slide-in-from-top-1">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value)}
                           placeholder="6-digit code"
-                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                          className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1.5 h-8 sm:h-8.5 text-xs sm:text-[13px] text-foreground tracking-[0.25em] focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={verifyOtp}
                         disabled={otpVerifying || !otpCode.trim()}
-                        className="h-[46px] px-6 bg-primary hover:bg-primary/90 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-sm shadow-primary/20"
+                        className="h-8 sm:h-8.5 px-4 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-2xs cursor-pointer"
                       >
-                        {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
+                        {otpVerifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Verify"}
                       </button>
                     </div>
                   )}
@@ -3178,137 +3171,133 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         </div>
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
-        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-6">
-          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-white/10">
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-90" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
-
-            <div className="relative p-4 md:p-5">
+        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
+          <div className="rounded-xl overflow-hidden shadow-2xs border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            {/* Header with subtle gradient banner */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-3.5 sm:p-4 border-b border-indigo-100/60 dark:border-slate-800">
               {!isModal && (
                 <button
                   onClick={handleClose}
-                  className="mb-3 flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors group cursor-pointer"
+                  className="mb-2.5 flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors group cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                  Back
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  <span>Back</span>
                 </button>
               )}
 
               <div className="flex items-start gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-orange-400" />
+                <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
+                  <h4 className="text-sm font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate">
                     {event?.name ?? "Complete Registration"}
-                  </h2>
-                  <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                  </h4>
+                  <p className="text-[11px] text-[#6b7094] dark:text-slate-400 mt-0.5 leading-relaxed">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
-                {eventDate && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📅</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
-                      <p className="font-semibold">{eventDate}</p>
-                    </div>
+            <div className="p-3.5 sm:p-4 space-y-2.5">
+              {eventDate && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{eventDate}</p>
                   </div>
-                )}
-                {venueName && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📍</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
-                      <p className="font-semibold">{venueName}</p>
-                    </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{venueName}</p>
                   </div>
-                )}
-                {event?.community?.name && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">🏠</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
-                      <p className="font-semibold">{event.community.name}</p>
-                    </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-2.5 rounded-lg">
+                  <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">{event.community.name}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* All Sport Categories & Age Details */}
-                {siblingEvents.length > 0 && (
-                  <div className="pt-2 border-t border-white/10 space-y-2">
-                    <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-orange-400" />
-                      <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                    </p>
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <p className="text-[11px] uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {siblingEvents.map(sib => {
-                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
-                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
-                        let ageLabel = "All Ages";
-                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
-                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
-                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
 
-                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
-                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
-                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
 
-                        return (
-                          <div
-                            key={sib.id}
-                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
-                              isCurrent
-                                ? "bg-white/15 border-white/30 text-white shadow-xs"
-                                : "bg-white/5 border-white/10 text-white/85"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-white text-xs truncate">
-                                {sib.categoryName || sib.name}
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`p-2.5 rounded-lg text-xs space-y-1 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0">
+                                Current
                               </span>
-                              {isCurrent && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
-                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
-                              {sib.venueName && <span>📍 {sib.venueName}</span>}
-                              {sib.eventDateStart && (
-                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
-                              )}
-                              {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#6b7094] dark:text-slate-400 pt-0.5">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3410,10 +3399,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                    <h4 className="text-sm sm:text-base font-bold text-[#0d0d2b] dark:text-white truncate">
                       {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
                       {eventDate ? ` - ${eventDate}` : ""}
-                    </h3>
+                    </h4>
                     <button
                       type="button"
                       onClick={() => setShowEventInfoModal(true)}
@@ -3424,7 +3413,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <Info className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-500 truncate">
+                  <p className="text-[11px] text-[#6b7094] dark:text-slate-400 truncate">
                     {event?.categoryName || event?.name || venueName || "Tournament Registration"}
                   </p>
                 </div>
