@@ -92,6 +92,35 @@ export function InstaHelp() {
     if (activeTab === "bookings") loadMyBookings();
   }, [activeTab, loadMyBookings]);
 
+  // Poll for status changes while a booking is live (matched or active)
+  useEffect(() => {
+    if (!booking || (step !== "matched" && step !== "active")) return;
+    // Stop polling once the booking is in a terminal state
+    if (booking.status === "COMPLETED" || booking.status === "CANCELLED") return;
+
+    const id = setInterval(async () => {
+      try {
+        const bookings = await apiClient.get<BookingResponse[]>("/v1/insta-help/bookings/my");
+        const updated = Array.isArray(bookings)
+          ? bookings.find((b) => b.bookingRef === booking.bookingRef)
+          : null;
+        if (!updated || updated.status === booking.status) return;
+
+        setBooking(updated);
+        if (updated.status === "IN_PROGRESS" && step === "matched") setStep("active");
+        if (updated.status === "COMPLETED") setStep("active");
+        if (updated.status === "CANCELLED") {
+          toast.info("Your booking was cancelled");
+          resetFlow();
+        }
+      } catch {
+        // silent — don't surface background poll errors
+      }
+    }, 5000);
+
+    return () => clearInterval(id);
+  }, [booking, step, resetFlow]);
+
   const handleBook = async () => {
     if (!selectedService || !selectedSubtask || !selectedDuration) {
       toast.error("Please complete all selections");
@@ -106,7 +135,6 @@ export function InstaHelp() {
         duration: selectedDuration,
         notes: notes || undefined,
       });
-      await new Promise((r) => setTimeout(r, 3000));
       setBooking(data);
       setStep("matched");
     } catch (err) {
@@ -149,7 +177,7 @@ export function InstaHelp() {
     }
   };
 
-  const resetFlow = () => {
+  const resetFlow = useCallback(() => {
     setStep("select");
     setSelectedService(null);
     setSelectedSubtask(null);
@@ -158,7 +186,7 @@ export function InstaHelp() {
     setBooking(null);
     setRatingValue(0);
     setRatingSubmitted(false);
-  };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -226,6 +254,7 @@ export function InstaHelp() {
               onRate={handleRate}
               onRatingChange={setRatingValue}
               onReset={resetFlow}
+              isPolling={booking.status !== "COMPLETED" && booking.status !== "CANCELLED"}
             />
           )}
         </div>
@@ -452,13 +481,14 @@ function MatchedCard({
 }
 
 function ActiveStep({
-  booking, actionLoading, ratingValue, ratingSubmitted,
+  booking, actionLoading, ratingValue, ratingSubmitted, isPolling,
   onComplete, onRate, onRatingChange, onReset,
 }: {
   booking: BookingResponse;
   actionLoading: boolean;
   ratingValue: number;
   ratingSubmitted: boolean;
+  isPolling: boolean;
   onComplete: () => void;
   onRate: () => void;
   onRatingChange: (r: number) => void;
@@ -470,9 +500,17 @@ function ActiveStep({
     <div className="rounded-2xl border border-green-200 dark:border-green-800 bg-white dark:bg-[#1E1E36] p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-slate-900 dark:text-white">Session {isCompleted ? "Completed" : "In Progress"}</h3>
-        <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", STATUS_STYLES[booking.status] || STATUS_STYLES.IN_PROGRESS)}>
-          {booking.status?.replace("_", " ")}
-        </span>
+        <div className="flex items-center gap-2">
+          {isPolling && (
+            <span className="flex items-center gap-1 text-[11px] text-slate-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+              Live
+            </span>
+          )}
+          <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full", STATUS_STYLES[booking.status] || STATUS_STYLES.IN_PROGRESS)}>
+            {booking.status?.replace("_", " ")}
+          </span>
+        </div>
       </div>
 
       {booking.helperName && (
