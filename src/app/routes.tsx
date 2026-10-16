@@ -231,6 +231,7 @@ import { ServiceBrowse } from "./components/services/ServiceBrowse";
 import { MyRequests } from "./components/services/MyRequests";
 import { ProviderDashboard } from "./components/services/ProviderDashboard";
 import { AdminServices } from "./components/services/AdminServices";
+import { InstaHelp } from "./components/services/InstaHelp";
 // Home Services (Community Help) pages
 import { HomeServicesLayout } from "./components/home-services/HomeServicesLayout";
 import { HomeServicesDashboard } from "./components/home-services/HomeServicesDashboard";
@@ -607,6 +608,7 @@ export const router = createBrowserRouter([
             path: "requests/:id",
             element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
           },
+          { path: "insta-help", Component: InstaHelp },
           { path: "provider", Component: ProviderDashboard },
           {
             path: "admin",
