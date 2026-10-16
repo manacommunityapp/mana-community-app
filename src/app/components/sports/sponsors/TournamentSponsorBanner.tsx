@@ -1,6 +1,7 @@
 import React from 'react';
 import { Crown, ExternalLink, ChevronRight } from 'lucide-react';
 import type { TournamentSponsor } from './TournamentSponsorTypes';
+import { sanitizeHref } from '../../../../utils/sanitize';
 
 interface TournamentSponsorBannerProps {
   sponsors: TournamentSponsor[];
@@ -71,7 +72,7 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
           )}
           {presentingSponsor.url && (
             <a
-              href={presentingSponsor.url}
+              href={sanitizeHref(presentingSponsor.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold transition-all shadow-2xs hover:scale-105 active:scale-95"
@@ -158,7 +159,7 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
 
           {presentingSponsor.url && (
             <a
-              href={presentingSponsor.url}
+              href={sanitizeHref(presentingSponsor.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-black transition-all shadow-md hover:scale-105 active:scale-95 cursor-pointer"

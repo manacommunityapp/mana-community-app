@@ -6,6 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { VenueTimingModal } from './VenueTimingModal';
 import { showSuccess, showWarning, showError, showInfo } from '../../../utils/ToastUtils';
 import { confirmAction } from '../../../utils/AlertUtils';
+import { escapeHtml } from '../../../utils/sanitize';
 
 
 
@@ -1258,13 +1259,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       const matchRows = allMatches.map((m, idx) => `
         <tr>
           <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">${idx + 1}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.stage}${m.groupName ? ' — ' + m.groupName : ''}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.homeName}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.stage)}${m.groupName ? ' — ' + escapeHtml(m.groupName) : ''}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${escapeHtml(m.homeName)}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:12px;">vs</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${m.awayName}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchDate || '—'}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${m.matchTime || '—'}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${resolveVenueName(m.venueId) || '—'}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;">${escapeHtml(m.awayName)}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.matchDate || '—')}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(m.matchTime || '—')}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(resolveVenueName(m.venueId) || '—')}</td>
         </tr>
       `).join('');
 
@@ -1272,7 +1273,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>${eventName} — Schedule</title>
+          <title>${escapeHtml(eventName)} — Schedule</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 30px; color: #1e293b; }
             h1 { font-size: 20px; margin-bottom: 4px; }
@@ -1287,8 +1288,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </style>
         </head>
         <body>
-          <h1>${eventName}</h1>
-          <div class="subtitle">${format.replace(/_/g, ' ')} · ${allMatches.length} Matches · Generated ${new Date().toLocaleDateString()}</div>
+          <h1>${escapeHtml(eventName)}</h1>
+          <div class="subtitle">${escapeHtml(format.replace(/_/g, ' '))} · ${allMatches.length} Matches · Generated ${escapeHtml(new Date().toLocaleDateString())}</div>
           <div class="summary">
             <div class="stat"><div class="stat-value">${allMatches.length}</div><div class="stat-label">Matches</div></div>
             <div class="stat"><div class="stat-value">${participants}</div><div class="stat-label">Teams</div></div>

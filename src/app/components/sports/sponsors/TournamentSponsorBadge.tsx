@@ -1,6 +1,7 @@
 import React from 'react';
 import { Crown, Sparkles, Award, ExternalLink } from 'lucide-react';
 import type { TournamentSponsor } from './TournamentSponsorTypes';
+import { sanitizeHref } from '../../../../utils/sanitize';
 
 interface TournamentSponsorBadgeProps {
   sponsor: TournamentSponsor;
@@ -63,7 +64,7 @@ export const TournamentSponsorBadge: React.FC<TournamentSponsorBadgeProps> = ({
   if (sponsor.url) {
     return (
       <a
-        href={sponsor.url}
+        href={sanitizeHref(sponsor.url)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block hover:scale-[1.02] active:scale-95 transition-transform"

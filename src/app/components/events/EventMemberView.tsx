@@ -61,6 +61,7 @@ import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { resolveEventImage, resolveUserAvatar, resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
+import { escapeHtml } from "../../../utils/sanitize";
 
 interface FamilyMember {
   id: string;
@@ -1982,7 +1983,7 @@ export function EventMemberView() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>E-Pass Ticket - ${pass.regId}</title>
+  <title>E-Pass Ticket - ${escapeHtml(pass.regId)}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
@@ -2023,29 +2024,29 @@ export function EventMemberView() {
       <div class="info-grid">
         <div class="info-box">
           <div class="label">Pass Category</div>
-          <div class="value highlight">${pass.passType}</div>
+          <div class="value highlight">${escapeHtml(pass.passType)}</div>
         </div>
         <div class="info-box">
           <div class="label">Event / Program</div>
-          <div class="value">${pass.title}</div>
+          <div class="value">${escapeHtml(pass.title)}</div>
         </div>
         <div class="info-box">
           <div class="label">Devotee / Attendee</div>
-          <div class="value">${pass.participantName}</div>
+          <div class="value">${escapeHtml(pass.participantName)}</div>
         </div>
         <div class="info-box">
           <div class="label">Date & Time</div>
-          <div class="value">${pass.date} • ${pass.time}</div>
+          <div class="value">${escapeHtml(pass.date)} • ${escapeHtml(pass.time)}</div>
         </div>
         <div class="info-box full">
           <div class="label">Assigned Venue & Entry Gate</div>
-          <div class="value">${pass.venue}</div>
+          <div class="value">${escapeHtml(pass.venue)}</div>
         </div>
       </div>
 
       <div class="qr-container">
-        <img src="${pass.qrCodeUrl}" class="qr-code" alt="Gate Verification QR Code" />
-        <div class="reg-code">${pass.regId}</div>
+        <img src="${escapeHtml(pass.qrCodeUrl)}" class="qr-code" alt="Gate Verification QR Code" />
+        <div class="reg-code">${escapeHtml(pass.regId)}</div>
         <div class="instructions">Present QR Code at Security Scanner Desk for instant entry & prasadam verification</div>
       </div>
     </div>

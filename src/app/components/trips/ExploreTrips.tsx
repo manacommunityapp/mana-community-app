@@ -566,6 +566,17 @@ export function ExploreTrips() {
                     {selectedTripDetails.transportDetails?.driverName && (
                       <p className="text-slate-700"><strong>Driver:</strong> {selectedTripDetails.transportDetails.driverName} ({selectedTripDetails.transportDetails.driverPhone})</p>
                     )}
+                    {(selectedTripDetails.flightOriginIata || selectedTripDetails.flightDestIata) && (
+                      <p className="text-slate-700">
+                        <strong>Route:</strong> {selectedTripDetails.flightOriginIata} → {selectedTripDetails.flightDestIata}
+                      </p>
+                    )}
+                    {selectedTripDetails.groupPnr && (
+                      <p className="text-sky-700 font-medium">
+                        ✈ Group PNR: {selectedTripDetails.groupPnr}
+                        {selectedTripDetails.farePerPerson ? ` · ₹${selectedTripDetails.farePerPerson.toLocaleString('en-IN')}/seat locked` : ''}
+                      </p>
+                    )}
                   </div>
 
                   <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1">

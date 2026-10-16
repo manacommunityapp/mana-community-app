@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import type { TournamentSponsor } from './TournamentSponsorTypes';
+import { sanitizeHref } from '../../../../utils/sanitize';
 
 interface TournamentSponsorShowcaseProps {
   sponsors: TournamentSponsor[];
@@ -123,7 +124,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
 
                 {sponsor.url && (
                   <a
-                    href={sponsor.url}
+                    href={sanitizeHref(sponsor.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shrink-0 shadow-2xs transition-transform group-hover:scale-110"
@@ -167,7 +168,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
 
                 {sponsor.url && (
                   <a
-                    href={sponsor.url}
+                    href={sanitizeHref(sponsor.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-md bg-white dark:bg-slate-700 text-slate-500 hover:text-indigo-600 border border-slate-200 dark:border-slate-600 shrink-0 transition-colors"

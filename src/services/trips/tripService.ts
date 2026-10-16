@@ -72,6 +72,11 @@ export interface Trip {
     driverName?: string;
     driverPhone?: string;
   };
+  // Flight-specific fields (present when transport === 'FLIGHT' | 'GROUP_FLIGHT')
+  flightOriginIata?: string;
+  flightDestIata?: string;
+  groupPnr?: string;        // locked group PNR from airline desk
+  farePerPerson?: number;   // locked fare per seat (GROUP_FLIGHT only)
   accommodationDetails?: {
     hotelName: string;
     hotelAddress: string;
