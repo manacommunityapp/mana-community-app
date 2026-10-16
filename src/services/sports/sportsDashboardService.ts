@@ -1,4 +1,5 @@
 import { apiClient } from "../common/apiClient";
+import type { Sponsor } from "../../types/api";
 
 // ── Lean dashboard payload (mirrors SportsDashboardResponse on the backend) ──
 
@@ -71,6 +72,7 @@ export interface DashboardTournamentCard {
   communityId: number | null;
   communityName: string | null;
   events: DashboardEventCard[];
+  sponsors?: Sponsor[];
 }
 
 export interface SportsDashboardResponse {

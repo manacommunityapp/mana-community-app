@@ -405,6 +405,7 @@ export interface SportsTournament {
   contactTitle?: string;
   contacts?: EventContact[];
   sportsEvents?: SportsEvent[];
+  sponsors?: Sponsor[];
 }
 
 export type SportsTournamentRequest = SportsEventRequest;
