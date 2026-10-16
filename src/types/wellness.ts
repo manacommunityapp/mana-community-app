@@ -153,6 +153,20 @@ export interface AiMealAnalysisResponse {
   totalFiber: number;
   confidence: number;
   suggestions?: string;
+  junkFoodScore?: number;
+  isJunkFood?: boolean;
+}
+
+export type AccountabilityAlertType = 'CALORIE_OVERAGE' | 'MISSED_DAY' | 'JUNK_FOOD' | 'BUDDY_CHANGES';
+
+export interface AccountabilityAlertDto {
+  id: number;
+  alertType: AccountabilityAlertType;
+  partnerUserId?: number;
+  triggeredAt: string;
+  message: string;
+  isRead: boolean;
+  dataJson?: string;
 }
 
 export interface FoodCatalogItem {
