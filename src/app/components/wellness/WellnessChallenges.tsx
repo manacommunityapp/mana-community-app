@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Trophy, Users, Calendar, Award } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { WellnessChallengeDto, ChallengeStatus } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { WellnessChallengeDto, ChallengeStatus } from '../../../types/wellness';
 
 export default function WellnessChallenges() {
   const [tab, setTab] = useState<ChallengeStatus>('ACTIVE');
@@ -51,7 +51,7 @@ export default function WellnessChallenges() {
         <Trophy className="h-5 w-5 text-amber-500" /> Community Challenges
       </h1>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ChallengeStatus)}>
+      <Tabs value={tab} onValueChange={(v: string) => setTab(v as ChallengeStatus)}>
         <TabsList>
           <TabsTrigger value="ACTIVE">Active</TabsTrigger>
           <TabsTrigger value="UPCOMING">Upcoming</TabsTrigger>

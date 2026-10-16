@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Droplets, Plus } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { WaterLogDto } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Progress } from '../ui/progress';
+import { Button } from '../ui/button';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { WaterLogDto } from '../../../types/wellness';
 
 const QUICK_ADD = [
   { label: '1 Glass', ml: 250, emoji: '🥛' },
@@ -28,7 +28,7 @@ export default function WaterTracker() {
     try {
       const data = await wellnessService.getWaterLogs(today);
       setLogs(data);
-      setTotalMl(data.reduce((sum, l) => sum + l.amountMl, 0));
+      setTotalMl(data.reduce((sum: number, l: WaterLogDto) => sum + l.amountMl, 0));
     } catch (e) {
       console.error(e);
     } finally {

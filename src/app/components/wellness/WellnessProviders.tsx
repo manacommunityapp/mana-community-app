@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Dumbbell, Star, MapPin, Video, Phone } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { WellnessProviderDto, WellnessProviderType } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { WellnessProviderDto, WellnessProviderType } from '../../../types/wellness';
 
 const PROVIDER_TABS: { value: WellnessProviderType | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'All' },
@@ -41,7 +41,7 @@ export default function WellnessProviders() {
         <Dumbbell className="h-5 w-5 text-purple-500" /> Wellness Providers
       </h1>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as WellnessProviderType | 'ALL')}>
+      <Tabs value={tab} onValueChange={(v: string) => setTab(v as WellnessProviderType | 'ALL')}>
         <TabsList className="flex-wrap">
           {PROVIDER_TABS.map((t) => (
             <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>

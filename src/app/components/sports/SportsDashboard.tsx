@@ -404,16 +404,21 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
+type DashboardTournamentWithEvents = Omit<DashboardTournamentCard, "sponsors"> & {
+  mappedEvents: OpenRegistration[];
+  sponsors?: TournamentSponsor[];
+};
+
 export function SportsDashboard() {
   const { user, hasPermission, hasAnyPermission, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
-  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[]; sponsors?: TournamentSponsor[] })[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<DashboardTournamentWithEvents[]>([]);
   const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
-  const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[]; sponsors?: TournamentSponsor[] })[]>([]);
+  const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentWithEvents[]>([]);
   const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);

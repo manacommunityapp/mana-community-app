@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Apple, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { DailyNutritionSummaryDto } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Progress } from '../ui/progress';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { DailyNutritionSummaryDto, MealLogDto, MealItemDto } from '../../../types/wellness';
 
 export default function FoodJournal() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -100,7 +100,7 @@ export default function FoodJournal() {
           {/* Meals */}
           <div className="space-y-3">
             {summary?.meals && summary.meals.length > 0 ? (
-              summary.meals.map((meal) => (
+              summary.meals.map((meal: MealLogDto) => (
                 <Card key={meal.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
@@ -122,7 +122,7 @@ export default function FoodJournal() {
                   <CardContent>
                     {meal.items && meal.items.length > 0 && (
                       <div className="space-y-1">
-                        {meal.items.map((item, idx) => (
+                        {meal.items.map((item: MealItemDto, idx: number) => (
                           <div key={idx} className="flex justify-between text-sm py-1 border-b last:border-0 border-border/50">
                             <span className="text-muted-foreground">
                               {item.foodName}

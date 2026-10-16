@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { MealItemDto, MealType } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Textarea } from '../ui/textarea';
+import { Badge } from '../ui/badge';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { MealItemDto, MealType } from '../../../types/wellness';
 
 const MEAL_TYPES: { value: MealType; label: string; emoji: string }[] = [
   { value: 'BREAKFAST', label: 'Breakfast', emoji: '🌅' },
@@ -157,7 +157,7 @@ export default function MealLogger() {
           <Textarea
             placeholder="e.g. 2 idli with sambar, 1 cup chai"
             value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTextInput(e.target.value)}
             rows={3}
           />
           <Button onClick={handleAnalyze} disabled={analyzing || !textInput.trim()} className="gap-1">

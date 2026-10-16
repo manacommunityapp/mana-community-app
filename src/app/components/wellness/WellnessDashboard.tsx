@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
   TrendingUp, Plus, Salad, Dumbbell, Heart
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { DailyNutritionSummaryDto, WellnessChallengeDto } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Progress } from '../ui/progress';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { DailyNutritionSummaryDto, WellnessChallengeDto, MealLogDto } from '../../../types/wellness';
 
 export default function WellnessDashboard() {
   const [summary, setSummary] = useState<DailyNutritionSummaryDto | null>(null);
@@ -134,7 +134,7 @@ export default function WellnessDashboard() {
         <CardContent>
           {summary && summary.meals.length > 0 ? (
             <div className="space-y-3">
-              {summary.meals.map((meal) => (
+              {summary.meals.map((meal: MealLogDto) => (
                 <div key={meal.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">

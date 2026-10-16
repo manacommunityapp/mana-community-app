@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { User, Save } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { wellnessService } from '@/services/wellness/wellnessService';
-import type { WellnessProfileDto, GoalType, ActivityLevel, CoachingStyle, SharingPreference } from '@/types/wellness';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { wellnessService } from '../../../services/wellness/wellnessService';
+import type { WellnessProfileDto, GoalType, ActivityLevel, CoachingStyle, SharingPreference } from '../../../types/wellness';
 
 export default function WellnessProfile() {
   const [profile, setProfile] = useState<WellnessProfileDto>({});
@@ -38,7 +38,7 @@ export default function WellnessProfile() {
     }
   };
 
-  const update = (field: keyof WellnessProfileDto, value: string | number) => {
+  const update = (field: keyof WellnessProfileDto, value: any) => {
     setProfile({ ...profile, [field]: value });
   };
 
@@ -65,24 +65,24 @@ export default function WellnessProfile() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Height (cm)</Label>
-              <Input type="number" value={profile.heightCm ?? ''} onChange={(e) => update('heightCm', parseFloat(e.target.value))} />
+              <Input type="number" value={profile.heightCm ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('heightCm', parseFloat(e.target.value))} />
             </div>
             <div>
               <Label>Weight (kg)</Label>
-              <Input type="number" value={profile.weightKg ?? ''} onChange={(e) => update('weightKg', parseFloat(e.target.value))} />
+              <Input type="number" value={profile.weightKg ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('weightKg', parseFloat(e.target.value))} />
             </div>
             <div>
               <Label>Target Weight (kg)</Label>
-              <Input type="number" value={profile.targetWeightKg ?? ''} onChange={(e) => update('targetWeightKg', parseFloat(e.target.value))} />
+              <Input type="number" value={profile.targetWeightKg ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('targetWeightKg', parseFloat(e.target.value))} />
             </div>
             <div>
               <Label>Age</Label>
-              <Input type="number" value={profile.age ?? ''} onChange={(e) => update('age', parseInt(e.target.value))} />
+              <Input type="number" value={profile.age ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('age', parseInt(e.target.value))} />
             </div>
           </div>
           <div>
             <Label>Gender</Label>
-            <Select value={profile.gender ?? ''} onValueChange={(v) => update('gender', v)}>
+            <Select value={profile.gender ?? ''} onValueChange={(v: string) => update('gender', v)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Male">Male</SelectItem>
@@ -102,7 +102,7 @@ export default function WellnessProfile() {
         <CardContent className="space-y-4">
           <div>
             <Label>Goal</Label>
-            <Select value={profile.goalType ?? ''} onValueChange={(v) => update('goalType', v)}>
+            <Select value={profile.goalType ?? ''} onValueChange={(v: string) => update('goalType', v as GoalType)}>
               <SelectTrigger><SelectValue placeholder="Select goal" /></SelectTrigger>
               <SelectContent>
                 {(['WEIGHT_LOSS', 'WEIGHT_GAIN', 'MAINTAIN', 'MUSCLE_GAIN', 'GENERAL_WELLNESS'] as GoalType[]).map((g) => (
@@ -113,7 +113,7 @@ export default function WellnessProfile() {
           </div>
           <div>
             <Label>Activity Level</Label>
-            <Select value={profile.activityLevel ?? ''} onValueChange={(v) => update('activityLevel', v)}>
+            <Select value={profile.activityLevel ?? ''} onValueChange={(v: string) => update('activityLevel', v as ActivityLevel)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 {(['SEDENTARY', 'LIGHTLY_ACTIVE', 'MODERATELY_ACTIVE', 'VERY_ACTIVE', 'EXTRA_ACTIVE'] as ActivityLevel[]).map((a) => (
@@ -124,7 +124,7 @@ export default function WellnessProfile() {
           </div>
           <div>
             <Label>Coaching Style</Label>
-            <Select value={profile.coachingStyle ?? ''} onValueChange={(v) => update('coachingStyle', v)}>
+            <Select value={profile.coachingStyle ?? ''} onValueChange={(v: string) => update('coachingStyle', v as CoachingStyle)}>
               <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 {(['GENTLE', 'MOTIVATIONAL', 'STRICT', 'DATA_FOCUSED'] as CoachingStyle[]).map((c) => (
@@ -145,23 +145,23 @@ export default function WellnessProfile() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Calories (kcal)</Label>
-              <Input type="number" value={profile.dailyCalorieTarget ?? ''} onChange={(e) => update('dailyCalorieTarget', parseInt(e.target.value))} />
+              <Input type="number" value={profile.dailyCalorieTarget ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('dailyCalorieTarget', parseInt(e.target.value))} />
             </div>
             <div>
               <Label>Protein (g)</Label>
-              <Input type="number" value={profile.dailyProteinTarget ?? ''} onChange={(e) => update('dailyProteinTarget', parseInt(e.target.value))} />
+              <Input type="number" value={profile.dailyProteinTarget ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('dailyProteinTarget', parseInt(e.target.value))} />
             </div>
             <div>
               <Label>Carbs (g)</Label>
-              <Input type="number" value={profile.dailyCarbsTarget ?? ''} onChange={(e) => update('dailyCarbsTarget', parseInt(e.target.value))} />
+              <Input type="number" value={profile.dailyCarbsTarget ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('dailyCarbsTarget', parseInt(e.target.value))} />
             </div>
             <div>
               <Label>Fat (g)</Label>
-              <Input type="number" value={profile.dailyFatTarget ?? ''} onChange={(e) => update('dailyFatTarget', parseInt(e.target.value))} />
+              <Input type="number" value={profile.dailyFatTarget ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('dailyFatTarget', parseInt(e.target.value))} />
             </div>
             <div>
               <Label>Water (ml)</Label>
-              <Input type="number" value={profile.dailyWaterTargetMl ?? ''} onChange={(e) => update('dailyWaterTargetMl', parseInt(e.target.value))} />
+              <Input type="number" value={profile.dailyWaterTargetMl ?? ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => update('dailyWaterTargetMl', parseInt(e.target.value))} />
             </div>
           </div>
         </CardContent>
@@ -175,7 +175,7 @@ export default function WellnessProfile() {
         <CardContent>
           <div>
             <Label>Data Sharing</Label>
-            <Select value={profile.sharingPreference ?? 'PRIVATE'} onValueChange={(v) => update('sharingPreference', v)}>
+            <Select value={profile.sharingPreference ?? 'PRIVATE'} onValueChange={(v: string) => update('sharingPreference', v as SharingPreference)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(['PRIVATE', 'FRIENDS_ONLY', 'PUBLIC'] as SharingPreference[]).map((s) => (
