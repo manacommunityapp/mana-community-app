@@ -30,7 +30,7 @@ import {
   TournamentSponsorBanner,
   TournamentSponsorShowcase,
   TournamentSponsorBadge,
-  DEFAULT_TOURNAMENT_SPONSORS,
+  mapDbSponsorToTournamentSponsor,
   type TournamentSponsor,
 } from "./sponsors";
 
@@ -405,15 +405,15 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function SportsDashboard() {
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
-  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[]; sponsors?: TournamentSponsor[] })[]>([]);
   const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
-  const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[]; sponsors?: TournamentSponsor[] })[]>([]);
   const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
@@ -442,8 +442,9 @@ export function SportsDashboard() {
   const [upcomingFamilyFilter, setUpcomingFamilyFilter] = useState<string>("ALL");
   // Stats Card Modal State ("registrations" | "live_events" | null)
   const [activeStatsModal, setActiveStatsModal] = useState<"registrations" | "live_events" | null>(null);
-  // Tournament Sponsors State
-  const [sponsors] = useState<TournamentSponsor[]>(DEFAULT_TOURNAMENT_SPONSORS);
+  // Tournament Sponsors State (dynamic from database)
+  const [sponsors, setSponsors] = useState<TournamentSponsor[]>([]);
+  const [featuredTournamentName, setFeaturedTournamentName] = useState<string>("");
 
   useEffect(() => {
     const loadFamily = async () => {
@@ -638,17 +639,39 @@ export function SportsDashboard() {
     setError(null);
     try {
       // Trigger parallel granular fetch requests
-      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData] = await Promise.all([
+      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData] = await Promise.all([
         sportsDashboardService.getStats(),
         sportsDashboardService.getUpcomingEvents(),
         sportsDashboardService.getOpenTournaments(),
         sportsDashboardService.getClosedTournaments(),
         sportsDashboardService.getMyRegistrations(),
-        sportsDashboardService.getNotifications()
+        sportsDashboardService.getNotifications(),
+        sportsService.getCommunityTournaments(user?.communityId).catch(() => [] as any[])
       ]);
 
       const fmtRange = (start: string | null, end: string | null) =>
         start && end ? `${format(new Date(start), "MMM d")} - ${format(new Date(end), "MMM d")}` : "TBD";
+
+      // Build tournament sponsors lookup from database response
+      const tournamentSponsorsMap = new Map<number, TournamentSponsor[]>();
+      if (communityTournamentsData && Array.isArray(communityTournamentsData)) {
+        communityTournamentsData.forEach((t: any) => {
+          if (t?.id && Array.isArray(t?.sponsors) && t.sponsors.length > 0) {
+            const mapped = t.sponsors.map((s: any) => mapDbSponsorToTournamentSponsor(s, t.id));
+            tournamentSponsorsMap.set(t.id, mapped);
+          }
+        });
+      }
+
+      const getSponsorsForTournament = (t: DashboardTournamentCard): TournamentSponsor[] => {
+        if (tournamentSponsorsMap.has(t.id)) {
+          return tournamentSponsorsMap.get(t.id)!;
+        }
+        if (t.sponsors && t.sponsors.length > 0) {
+          return t.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, t.id));
+        }
+        return [];
+      };
 
       // Map my registrations
       const fetchedMyRegs = myRegsData.map(r => ({
@@ -698,16 +721,41 @@ export function SportsDashboard() {
         };
       };
 
-      // Grouped open tournaments
+      // Grouped open tournaments with real database sponsors
       if (openTournamentsData?.length) {
         setOpenTournaments(openTournamentsData.map(t => ({
           ...t,
           mappedEvents: t.events.map(mapEventCard),
+          sponsors: getSponsorsForTournament(t),
         })));
         setExpandedTournaments(new Set(openTournamentsData.map(t => t.id)));
       } else {
         setOpenTournaments([]);
       }
+
+      // Determine active tournament sponsors for the Hero banner & showcase
+      let activeSponsors: TournamentSponsor[] = [];
+      let activeTourneyName = "";
+
+      for (const t of openTournamentsData) {
+        const tSponsors = getSponsorsForTournament(t);
+        if (tSponsors.length > 0) {
+          activeSponsors = tSponsors;
+          activeTourneyName = t.name;
+          break;
+        }
+      }
+
+      if (activeSponsors.length === 0 && communityTournamentsData?.length) {
+        const tWithSponsors = (communityTournamentsData as any[]).find(t => t?.sponsors && t.sponsors.length > 0);
+        if (tWithSponsors && tWithSponsors.sponsors) {
+          activeSponsors = tWithSponsors.sponsors.map((s: any) => mapDbSponsorToTournamentSponsor(s, tWithSponsors.id));
+          activeTourneyName = tWithSponsors.name || "";
+        }
+      }
+
+      setSponsors(activeSponsors);
+      setFeaturedTournamentName(activeTourneyName);
 
       // Helper closed event mapping function
       const mapClosedEventCard = (e: any): OpenRegistration => {
@@ -735,6 +783,7 @@ export function SportsDashboard() {
         setClosedTournaments(closedTournamentsData.map(t => ({
           ...t,
           mappedEvents: t.events.map(mapClosedEventCard),
+          sponsors: getSponsorsForTournament(t),
         })));
         setExpandedClosedTournaments(new Set(closedTournamentsData.map(t => t.id)));
       } else {
@@ -989,69 +1038,75 @@ export function SportsDashboard() {
         )}
       </div>
 
-      {/* Hero Sponsor Banner */}
-      <TournamentSponsorBanner
-        sponsors={sponsors}
-        tournamentName="PHF Premier League Season 5"
-        variant="hero"
-        onExploreClick={() => {
-          const el = document.getElementById("sponsors-showcase");
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth" });
-          } else {
-            toast.info("Discover our esteemed partners & sponsors below!");
-          }
-        }}
-      />
+      {/* Hero Sponsor Banner - Only shown when real sponsors exist in database */}
+      {sponsors.length > 0 && (
+        <TournamentSponsorBanner
+          sponsors={sponsors}
+          tournamentName={featuredTournamentName || "Community Tournament"}
+          variant="hero"
+          onExploreClick={() => {
+            const el = document.getElementById("sponsors-showcase");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth" });
+            } else {
+              toast.info("Discover our esteemed partners & sponsors below!");
+            }
+          }}
+        />
+      )}
 
-      {/* Quick Actions Grid */}
-      <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 sm:gap-2.5">
-        {[
-          { label: "Tournaments", emoji: "🏆", to: "/sports/tournaments", color: "#f59e0b" },
-          { label: "Live Scores", emoji: "📡", to: "/sports/schedule", color: "#ef4444" },
-          { label: "My Teams", emoji: "🛡️", to: "/sports/my-teams", color: "#6366f1" },
-          { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
-          { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
-          { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
-          { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
-          { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
-        ].map(action => (
-          <Link
-            key={action.label}
-            to={action.to}
-            className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] text-center no-underline"
-          >
-            <span className="text-lg sm:text-2xl">{action.emoji}</span>
-            <span className="text-[10px] sm:text-xs font-semibold text-slate-600 leading-tight">{action.label}</span>
-          </Link>
-        ))}
-      </div>
-
-      {/* Community Challenges */}
-      <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🎯</span>
-            <span className="text-xs sm:text-sm font-bold text-amber-900">Community Challenges</span>
-          </div>
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      {/* Quick Actions Grid - Hidden temporarily */}
+      {false && (
+        <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 sm:gap-2.5">
           {[
-            { title: "Most Matches Played", desc: "Play the most matches this season", icon: "🏅" },
-            { title: "Century Maker", desc: "Score 100+ runs in a single match", icon: "💯" },
-            { title: "Hat-Trick Hero", desc: "Take 3 wickets in consecutive balls", icon: "🎩" },
-          ].map(ch => (
-            <div key={ch.title} className="bg-white/80 rounded-lg p-2.5 border border-amber-100/60 opacity-75">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-sm">{ch.icon}</span>
-                <span className="text-[11px] font-bold text-slate-800">{ch.title}</span>
-              </div>
-              <div className="text-[10px] text-slate-500">{ch.desc}</div>
-            </div>
+            { label: "Tournaments", emoji: "🏆", to: "/sports/tournaments", color: "#f59e0b" },
+            { label: "Live Scores", emoji: "📡", to: "/sports/schedule", color: "#ef4444" },
+            { label: "My Teams", emoji: "🛡️", to: "/sports/my-teams", color: "#6366f1" },
+            { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
+            { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
+            { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
+            { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
+            { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
+          ].map(action => (
+            <Link
+              key={action.label}
+              to={action.to}
+              className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] text-center no-underline"
+            >
+              <span className="text-lg sm:text-2xl">{action.emoji}</span>
+              <span className="text-[10px] sm:text-xs font-semibold text-slate-600 leading-tight">{action.label}</span>
+            </Link>
           ))}
         </div>
-      </div>
+      )}
+
+      {/* Community Challenges - Only shown to Super Admin as of now */}
+      {isSuperAdmin && (
+        <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎯</span>
+              <span className="text-xs sm:text-sm font-bold text-amber-900">Community Challenges</span>
+            </div>
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { title: "Most Matches Played", desc: "Play the most matches this season", icon: "🏅" },
+              { title: "Century Maker", desc: "Score 100+ runs in a single match", icon: "💯" },
+              { title: "Hat-Trick Hero", desc: "Take 3 wickets in consecutive balls", icon: "🎩" },
+            ].map(ch => (
+              <div key={ch.title} className="bg-white/80 rounded-lg p-2.5 border border-amber-100/60 opacity-75">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm">{ch.icon}</span>
+                  <span className="text-[11px] font-bold text-slate-800">{ch.title}</span>
+                </div>
+                <div className="text-[10px] text-slate-500">{ch.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5">
@@ -1248,8 +1303,8 @@ export function SportsDashboard() {
                                 {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
                               </span>
                             )}
-                            {sponsors.length > 0 && (
-                              <TournamentSponsorBadge sponsor={sponsors[0]} size="sm" />
+                            {t.sponsors && t.sponsors.length > 0 && (
+                              <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -1257,8 +1312,8 @@ export function SportsDashboard() {
                               Open
                             </span>
                             {isExpanded
-                              ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors shrink-0" />
-                              : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors shrink-0" />}
+                              ? <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />
+                              : <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />}
                           </div>
                         </div>
 
@@ -1444,8 +1499,8 @@ export function SportsDashboard() {
                                       </div>
                                     </div>
                                     {isSportExpanded
-                                      ? <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
-                                      : <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />}
+                                      ? <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />
+                                      : <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />}
                                   </div>
 
                                   {allEligibleRegistered ? (
@@ -1700,8 +1755,8 @@ export function SportsDashboard() {
                             Closed
                           </span>
                           {isExpanded
-                            ? <ChevronDown className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                            : <ChevronRight className="w-3.5 h-3.5 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                            ? <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />
+                            : <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />}
                         </div>
                       </button>
                       {isExpanded && (
@@ -1960,14 +2015,15 @@ export function SportsDashboard() {
           </div>
         </div>
 
-        {/* Tournament Sponsor Showcase Section */}
-        <div className="lg:col-span-3">
-          <TournamentSponsorShowcase
-            sponsors={sponsors}
-            tournamentName="PHF Premier League"
-            season="Season 5"
-          />
-        </div>
+        {/* Tournament Sponsor Showcase Section - Only shown when real sponsors exist */}
+        {sponsors.length > 0 && (
+          <div className="lg:col-span-3">
+            <TournamentSponsorShowcase
+              sponsors={sponsors}
+              tournamentName={featuredTournamentName || "Community Tournament"}
+            />
+          </div>
+        )}
         {/* Captain Nomination Modal */}
         {isNominateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">

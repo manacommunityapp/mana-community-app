@@ -19,7 +19,7 @@ import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory } from "../../../types/api";
-import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
+import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -1677,10 +1677,13 @@ export function SportsMultiRegister() {
       </div>
 
       {/* Tournament Sponsor Strip Banner */}
-      <TournamentSponsorBanner
-        sponsors={DEFAULT_TOURNAMENT_SPONSORS}
-        variant="strip"
-      />
+      {tournament?.sponsors && tournament.sponsors.length > 0 && (
+        <TournamentSponsorBanner
+          sponsors={tournament.sponsors.map((s: any) => mapDbSponsorToTournamentSponsor(s, tournament.id))}
+          tournamentName={tournament.name}
+          variant="strip"
+        />
+      )}
 
       {/* ── Main Layout: Participant Info (Col 4) & Sports Selection (Col 8) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-3 items-start">

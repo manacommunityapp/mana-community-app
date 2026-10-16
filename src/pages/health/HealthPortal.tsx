@@ -18,6 +18,7 @@ import type {
   HealthCampDto,
   MedicalRecordDto,
   HealthAppointmentDto,
+  CareJourneyDto,
   ConsultationMode
 } from "../../types/health";
 import { CommunityHealthCampsHub } from "../../app/components/health/CommunityHealthCampsHub";
@@ -30,7 +31,7 @@ import { PatientSecurityPrivacyModal } from "../../app/components/health/Patient
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai"
+    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy"
   >("doctors");
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
@@ -59,6 +60,33 @@ export const HealthPortal: React.FC = () => {
     bloodGroup: "O+",
     allergies: ""
   });
+
+  // State for Lab Home Collection booking modal
+  const [labBookingPkg, setLabBookingPkg] = useState<LabPackageDto | null>(null);
+  const [labBookingDate, setLabBookingDate] = useState("tomorrow");
+  const [labBookingSlot, setLabBookingSlot] = useState("morning");
+  const [labBookingSuccess, setLabBookingSuccess] = useState(false);
+
+  // State for Pharmacy / Medicine Delivery
+  const POPULAR_MEDICINES = [
+    { id: "med-1", name: "Paracetamol 500mg", price: 22, category: "OTC" },
+    { id: "med-2", name: "Cetirizine 10mg", price: 18, category: "OTC" },
+    { id: "med-3", name: "Omeprazole 20mg", price: 55, category: "OTC" },
+    { id: "med-4", name: "Azithromycin 500mg", price: 120, category: "Antibiotic" },
+    { id: "med-5", name: "Metformin 500mg", price: 45, category: "Chronic" },
+    { id: "med-6", name: "Amlodipine 5mg", price: 60, category: "Chronic" }
+  ];
+  const [pharmacyTab, setPharmacyTab] = useState<"otc" | "prescription">("otc");
+  const [pharmacyCart, setPharmacyCart] = useState<Record<string, number>>({});
+  const [pharmacyDeliverySlot, setPharmacyDeliverySlot] = useState("same-day");
+  const [pharmacyOrderSuccess, setPharmacyOrderSuccess] = useState(false);
+
+  // State for Video Consultation
+  const [videoAppt, setVideoAppt] = useState<HealthAppointmentDto | null>(null);
+  const [videoState, setVideoState] = useState<"CONNECTING" | "CONNECTED" | "ENDED">("CONNECTING");
+  const [videoMuted, setVideoMuted] = useState(false);
+  const [videoCamOff, setVideoCamOff] = useState(false);
+  const [videoElapsed, setVideoElapsed] = useState(0);
 
   // State for AI Triage / Symptom Guide
   const [symptomInput, setSymptomInput] = useState("");
@@ -201,7 +229,9 @@ export const HealthPortal: React.FC = () => {
           { id: "wellness", label: "🌿 Preventive & Wellness" },
           { id: "provider", label: "🏥 Provider Operations" },
           { id: "emergency", label: "🚨 Community Emergency" },
-          { id: "ai", label: "🤖 AI Symptom Guide" }
+          { id: "ai", label: "🤖 AI Symptom Guide" },
+          { id: "care-journey", label: "🗺️ Care Journey" },
+          { id: "pharmacy", label: "💊 Pharmacy" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -625,7 +655,10 @@ export const HealthPortal: React.FC = () => {
                   <span>🍵 Fasting: {pkg.fastingRequired ? "Required (10 hrs)" : "Not Required"}</span>
                 </div>
 
-                <button className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition text-sm">
+                <button
+                  onClick={() => { setLabBookingPkg(pkg); setLabBookingSuccess(false); }}
+                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition text-sm"
+                >
                   Schedule Home Collection Slot
                 </button>
               </div>
@@ -733,6 +766,449 @@ export const HealthPortal: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Tab: Care Journey Tracker */}
+      {activeTab === "care-journey" && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-indigo-800 to-purple-900 p-6 rounded-3xl text-white shadow-md">
+            <h2 className="text-2xl font-black">🗺️ My Care Journey</h2>
+            <p className="text-indigo-200 text-xs mt-1">Track every step from appointment booking through follow-up — all in one place.</p>
+          </div>
+
+          <div className="space-y-6">
+            {SEED_CARE_JOURNEYS.map((journey: CareJourneyDto) => {
+              const STAGES = [
+                { key: "APPOINTMENT_BOOKED", label: "Appointment Booked", icon: "📅" },
+                { key: "CONSULTATION_COMPLETED", label: "Consultation Done", icon: "👨‍⚕️" },
+                { key: "PRESCRIPTION_ISSUED", label: "Prescription Issued", icon: "💊" },
+                { key: "LAB_TEST_ORDERED", label: "Lab Test Ordered", icon: "🧪" },
+                { key: "RESULTS_READY", label: "Results Ready", icon: "📊" },
+                { key: "FOLLOW_UP_SCHEDULED", label: "Follow-up Scheduled", icon: "🔔" }
+              ];
+              const stageOrder = STAGES.map(s => s.key);
+              const currentIdx = stageOrder.indexOf(journey.currentStage);
+              return (
+                <div key={journey.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-5">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b pb-4">
+                    <div>
+                      <span className="text-xs bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-md">
+                        Patient: {journey.patientName}
+                      </span>
+                      <h3 className="text-lg font-extrabold text-gray-900 mt-1">
+                        {journey.doctorName} • <span className="text-indigo-700 font-semibold">{journey.doctorSpecialty}</span>
+                      </h3>
+                    </div>
+                    <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full">
+                      Current: {journey.currentStage.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                    {STAGES.map((step, idx) => {
+                      const done = idx <= currentIdx;
+                      return (
+                        <div
+                          key={step.key}
+                          className={`p-3 rounded-2xl border text-xs space-y-1 ${
+                            done ? "bg-indigo-50 border-indigo-300 text-indigo-900 font-semibold" : "bg-gray-50 border-gray-200 text-gray-400"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span>{step.icon}</span>
+                            {done
+                              ? <span className="text-[10px] bg-indigo-600 text-white px-1.5 rounded font-bold">✓</span>
+                              : <span className="text-[10px] text-gray-300">○</span>}
+                          </div>
+                          <p className="font-bold text-[11px] leading-tight mt-1">{step.label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {journey.prescriptionSummary && (
+                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 text-xs text-emerald-900">
+                      <p className="font-bold mb-1">💊 Prescription:</p>
+                      <p>{journey.prescriptionSummary}</p>
+                    </div>
+                  )}
+                  {journey.clinicianRecommendedFollowUp && (
+                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-xs text-amber-900 flex justify-between items-start gap-4">
+                      <div>
+                        <p className="font-bold mb-1">🩺 Follow-up: {journey.clinicianRecommendedFollowUp.dueDate}</p>
+                        <p>{journey.clinicianRecommendedFollowUp.instructions}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap ${
+                        journey.clinicianRecommendedFollowUp.status === "BOOKED"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-amber-200 text-amber-900"
+                      }`}>
+                        {journey.clinicianRecommendedFollowUp.status}
+                      </span>
+                    </div>
+                  )}
+
+                  {journey.mode === "VIDEO" && (
+                    <button
+                      onClick={() => {
+                        setVideoAppt(SEED_APPOINTMENTS.find(a => a.id === journey.appointmentId) || null);
+                        setVideoState("CONNECTING");
+                        setVideoElapsed(0);
+                      }}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl text-sm transition"
+                    >
+                      📹 Join Video Consultation
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Pharmacy / Medicine Delivery */}
+      {activeTab === "pharmacy" && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-purple-700 to-violet-800 p-6 rounded-3xl text-white shadow-md">
+            <h2 className="text-2xl font-black">💊 Medicine Delivery</h2>
+            <p className="text-purple-200 text-xs mt-1">Order OTC medicines or refill prescriptions — delivered to your flat door.</p>
+          </div>
+
+          {pharmacyOrderSuccess ? (
+            <div className="bg-emerald-50 border-2 border-emerald-400 p-8 rounded-3xl text-center space-y-3">
+              <div className="text-4xl">✅</div>
+              <h3 className="text-xl font-black text-emerald-900">Order Placed Successfully!</h3>
+              <p className="text-emerald-700 text-sm">Your medicines will be delivered as per the selected slot. Order details saved to Health Vault.</p>
+              <button
+                onClick={() => { setPharmacyOrderSuccess(false); setPharmacyCart({}); }}
+                className="bg-emerald-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm mt-2"
+              >
+                Place Another Order
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                {/* Sub-tabs */}
+                <div className="flex gap-2">
+                  {(["otc", "prescription"] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setPharmacyTab(t)}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                        pharmacyTab === t ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {t === "otc" ? "OTC / General" : "By Prescription"}
+                    </button>
+                  ))}
+                </div>
+
+                {pharmacyTab === "otc" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {POPULAR_MEDICINES.map(med => (
+                      <div key={med.id} className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900 text-sm">{med.name}</p>
+                          <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-medium">{med.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-gray-800">₹{med.price}</span>
+                          {pharmacyCart[med.id] ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setPharmacyCart(c => ({ ...c, [med.id]: Math.max(0, (c[med.id] || 0) - 1) }))}
+                                className="w-7 h-7 bg-gray-200 rounded-lg font-bold text-gray-700"
+                              >−</button>
+                              <span className="w-6 text-center font-bold text-sm">{pharmacyCart[med.id]}</span>
+                              <button
+                                onClick={() => setPharmacyCart(c => ({ ...c, [med.id]: (c[med.id] || 0) + 1 }))}
+                                className="w-7 h-7 bg-purple-600 text-white rounded-lg font-bold"
+                              >+</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setPharmacyCart(c => ({ ...c, [med.id]: 1 }))}
+                              className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {pharmacyTab === "prescription" && (
+                  <div className="space-y-3">
+                    {SEED_MEDICAL_RECORDS.filter(r => r.type === "PRESCRIPTION").map(rx => (
+                      <div key={rx.id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex justify-between items-center gap-4">
+                        <div>
+                          <p className="font-bold text-gray-900">{rx.title}</p>
+                          <p className="text-xs text-gray-500">{rx.date} • {rx.doctorOrLabName}</p>
+                        </div>
+                        <button
+                          onClick={() => alert("Upload prescription to auto-parse medicines")}
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-xl"
+                        >
+                          Order Medicines
+                        </button>
+                      </div>
+                    ))}
+                    {SEED_MEDICAL_RECORDS.filter(r => r.type === "PRESCRIPTION").length === 0 && (
+                      <p className="text-gray-500 text-sm text-center py-8">No prescriptions in your Health Vault yet.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Cart */}
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4 h-fit">
+                <h3 className="font-black text-gray-900">🛒 Cart</h3>
+                {Object.entries(pharmacyCart).filter(([, qty]) => qty > 0).length === 0 ? (
+                  <p className="text-gray-400 text-sm">No items added yet.</p>
+                ) : (
+                  <>
+                    {Object.entries(pharmacyCart).filter(([, qty]) => qty > 0).map(([id, qty]) => {
+                      const med = POPULAR_MEDICINES.find(m => m.id === id);
+                      if (!med) return null;
+                      return (
+                        <div key={id} className="flex justify-between items-center text-sm border-b pb-2">
+                          <span className="text-gray-700">{med.name} × {qty}</span>
+                          <span className="font-bold">₹{med.price * qty}</span>
+                        </div>
+                      );
+                    })}
+                    <div className="pt-2">
+                      <div className="flex justify-between font-black text-gray-900">
+                        <span>Total</span>
+                        <span>₹{Object.entries(pharmacyCart).reduce((sum, [id, qty]) => {
+                          const med = POPULAR_MEDICINES.find(m => m.id === id);
+                          return sum + (med ? med.price * qty : 0);
+                        }, 0)}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-bold text-gray-700">Delivery Slot:</label>
+                      <select
+                        value={pharmacyDeliverySlot}
+                        onChange={e => setPharmacyDeliverySlot(e.target.value)}
+                        className="w-full border rounded-xl p-2 text-sm"
+                      >
+                        <option value="express">Express (2h) — ₹49</option>
+                        <option value="same-day">Same Day — FREE</option>
+                        <option value="next-day">Next Day — FREE</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => setPharmacyOrderSuccess(true)}
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-sm transition"
+                    >
+                      Place Order
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lab Home Collection Booking Modal */}
+      {labBookingPkg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5">
+            {labBookingSuccess ? (
+              <div className="text-center space-y-3 py-4">
+                <div className="text-4xl">✅</div>
+                <h3 className="text-xl font-black text-teal-900">Slot Booked!</h3>
+                <p className="text-gray-600 text-sm">
+                  Phlebotomist <strong>Ravi Kumar</strong> will arrive at your flat at the selected time. Please keep the sample kit ready.
+                </p>
+                {labBookingPkg.fastingRequired && (
+                  <p className="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3 rounded-xl">
+                    ⚠️ Fasting required: Do not eat or drink (except water) for 10 hours before collection.
+                  </p>
+                )}
+                <button
+                  onClick={() => setLabBookingPkg(null)}
+                  className="bg-teal-600 text-white font-bold px-6 py-2.5 rounded-xl text-sm mt-2"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-black text-xl text-gray-900">📅 Book Home Collection</h3>
+                    <p className="text-sm text-teal-700 font-semibold mt-0.5">{labBookingPkg.name}</p>
+                  </div>
+                  <button onClick={() => setLabBookingPkg(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                </div>
+
+                {labBookingPkg.fastingRequired && (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 font-medium">
+                    ⚠️ Fasting Required: 10 hours before sample collection.
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Collection Date:</label>
+                    <div className="flex gap-2">
+                      {[
+                        { val: "tomorrow", label: "Tomorrow" },
+                        { val: "day-after", label: "Day After" },
+                        { val: "in-3-days", label: "In 3 Days" }
+                      ].map(opt => (
+                        <button
+                          key={opt.val}
+                          onClick={() => setLabBookingDate(opt.val)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
+                            labBookingDate === opt.val ? "bg-teal-600 text-white border-teal-600" : "bg-gray-50 text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">Time Slot:</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { val: "morning", label: "Morning 6–9 AM" },
+                        { val: "forenoon", label: "Forenoon 9–12 PM" },
+                        { val: "afternoon", label: "Afternoon 12–3 PM" }
+                      ].map(opt => (
+                        <button
+                          key={opt.val}
+                          onClick={() => setLabBookingSlot(opt.val)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                            labBookingSlot === opt.val ? "bg-teal-600 text-white border-teal-600" : "bg-gray-50 text-gray-700 border-gray-200"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-xl text-xs text-gray-600 border">
+                    <p className="font-bold text-gray-800">📍 Home Address</p>
+                    <p>Flat 404, Tower B, Mana Residency, Bangalore — 560103</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center border-t pt-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Package Price</p>
+                    <p className="text-2xl font-black text-teal-700">₹{labBookingPkg.price}</p>
+                  </div>
+                  <button
+                    onClick={() => setLabBookingSuccess(true)}
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 rounded-xl text-sm shadow transition"
+                  >
+                    Confirm Booking
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Video Consultation In-Page Room */}
+      {videoAppt && (
+        <div className="fixed inset-0 bg-gray-950 flex flex-col z-50">
+          {videoState === "ENDED" ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-white space-y-6 p-6">
+              <div className="text-5xl">✅</div>
+              <h2 className="text-2xl font-black">Consultation Complete</h2>
+              <p className="text-gray-300 text-sm text-center">Your consultation has ended. Notes and next steps will be updated in your Care Journey.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setVideoAppt(null); setActiveTab("care-journey"); }}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 rounded-xl"
+                >
+                  View Care Journey
+                </button>
+                <button
+                  onClick={() => { setVideoAppt(null); setActiveTab("pharmacy"); }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 py-3 rounded-xl"
+                >
+                  Order Medicines
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Status bar */}
+              <div className="flex justify-between items-center p-4 bg-black/40">
+                <span className="text-xs text-green-400 font-bold">🔒 End-to-End Encrypted</span>
+                <span className="text-xs text-white font-mono">
+                  {videoState === "CONNECTING" ? "Connecting..." : `${String(Math.floor(videoElapsed / 60)).padStart(2, "0")}:${String(videoElapsed % 60).padStart(2, "0")}`}
+                </span>
+              </div>
+
+              {/* Doctor area */}
+              <div className="flex-1 flex items-center justify-center relative bg-gray-900">
+                <div className="text-center space-y-3">
+                  <div className="w-28 h-28 rounded-full bg-teal-700 flex items-center justify-center text-4xl mx-auto border-4 border-teal-400 animate-pulse">
+                    👨‍⚕️
+                  </div>
+                  <p className="text-white font-black text-lg">{videoAppt.doctorName}</p>
+                  <p className="text-teal-300 text-sm">{videoAppt.doctorSpecialty}</p>
+                  {videoState === "CONNECTING" && (
+                    <p className="text-gray-400 text-xs animate-pulse">Waiting for doctor to join...</p>
+                  )}
+                  {videoState === "CONNECTED" && (
+                    <p className="text-green-400 text-xs">● Live consultation in progress</p>
+                  )}
+                </div>
+
+                {/* Self PIP */}
+                <div className="absolute top-4 right-4 w-20 h-28 bg-gray-700 rounded-2xl flex items-center justify-center text-2xl border-2 border-gray-600">
+                  {videoCamOff ? "🚫" : "🙂"}
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="p-6 bg-black/60 flex justify-center gap-4">
+                <button
+                  onClick={() => setVideoMuted(m => !m)}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg transition ${videoMuted ? "bg-red-600" : "bg-gray-700 hover:bg-gray-600"}`}
+                >
+                  {videoMuted ? "🔇" : "🎙️"}
+                </button>
+                <button
+                  onClick={() => setVideoCamOff(c => !c)}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg transition ${videoCamOff ? "bg-red-600" : "bg-gray-700 hover:bg-gray-600"}`}
+                >
+                  {videoCamOff ? "📷" : "📹"}
+                </button>
+                {videoState === "CONNECTING" && (
+                  <button
+                    onClick={() => setVideoState("CONNECTED")}
+                    className="w-14 h-14 rounded-full bg-green-600 hover:bg-green-700 flex items-center justify-center text-xl shadow-lg"
+                  >
+                    ✅
+                  </button>
+                )}
+                <button
+                  onClick={() => setVideoState("ENDED")}
+                  className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-xl shadow-lg"
+                >
+                  📵
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

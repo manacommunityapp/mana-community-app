@@ -46,8 +46,9 @@ export const sportsService = {
   },
 
   /** GET /api/tournaments/community?communityId= — all tournaments for a community (via TournamentController) */
-  async getCommunityTournaments(communityId: number): Promise<SportsTournament[]> {
-    return apiClient.get<SportsTournament[]>(`/tournaments/community?communityId=${communityId}`);
+  async getCommunityTournaments(communityId?: number): Promise<SportsTournament[]> {
+    const url = communityId ? `/tournaments/community?communityId=${communityId}` : `/tournaments/community`;
+    return apiClient.get<SportsTournament[]>(url);
   },
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */
   async getCommunityEvents(communityId: number, includeInactive = false): Promise<SportsEvent[]> {

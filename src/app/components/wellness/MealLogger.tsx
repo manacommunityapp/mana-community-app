@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Plus, X } from 'lucide-react';
+import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { wellnessService } from '@/services/wellness/wellnessService';
@@ -17,6 +15,23 @@ const MEAL_TYPES: { value: MealType; label: string; emoji: string }[] = [
   { value: 'SNACK', label: 'Snack', emoji: '🍪' },
 ];
 
+const JUNK_FOOD_KEYWORDS: Record<string, number> = {
+  pizza: 0.9, burger: 0.9, fries: 0.85, chips: 0.8, hotdog: 0.85,
+  donut: 0.9, nuggets: 0.85, soda: 0.75, cola: 0.75, candy: 0.85,
+  cookie: 0.65, cake: 0.65, "ice cream": 0.7, "deep fried": 0.8,
+  "vada pav": 0.8, "pav bhaji": 0.75, samosa: 0.75, kachori: 0.8,
+  jalebi: 0.85, "gulab jamun": 0.85, namkeen: 0.7,
+};
+
+function computeJunkFoodScore(text: string): { score: number; isJunk: boolean } {
+  const lower = text.toLowerCase();
+  let max = 0;
+  for (const [kw, score] of Object.entries(JUNK_FOOD_KEYWORDS)) {
+    if (lower.includes(kw) && score > max) max = score;
+  }
+  return { score: max, isJunk: max >= 0.6 };
+}
+
 export default function MealLogger() {
   const navigate = useNavigate();
   const [mealType, setMealType] = useState<MealType>('LUNCH');
@@ -24,18 +39,22 @@ export default function MealLogger() {
   const [items, setItems] = useState<MealItemDto[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [junkFoodScore, setJunkFoodScore] = useState(0);
+  const [isJunkFood, setIsJunkFood] = useState(false);
 
   const handleAnalyze = async () => {
     if (!textInput.trim()) return;
     setAnalyzing(true);
     try {
-      // Client-side estimation for common Indian foods
       const words = textInput.toLowerCase().split(/[,\n]+/).map(w => w.trim()).filter(Boolean);
       const analyzed: MealItemDto[] = words.map(food => {
         const base = estimateNutrition(food);
         return { foodName: base.name, quantity: 1, unit: 'serving', ...base };
       });
       setItems(analyzed);
+      const { score, isJunk } = computeJunkFoodScore(textInput);
+      setJunkFoodScore(score);
+      setIsJunkFood(isJunk);
     } catch (e) {
       console.error(e);
     } finally {
@@ -93,6 +112,14 @@ export default function MealLogger() {
         status: 'CONFIRMED',
         items,
       });
+      if (isJunkFood) {
+        const foodNames = items.map(i => i.foodName).join(', ');
+        await wellnessService.sendAlert(
+          'JUNK_FOOD',
+          `Junk food detected: ${foodNames} (score ${Math.round(junkFoodScore * 100)}%)`,
+          { junkFoodScore, items: foodNames },
+        ).catch(() => undefined);
+      }
       navigate('/wellness/food-journal');
     } catch (e) {
       console.error(e);
@@ -139,6 +166,20 @@ export default function MealLogger() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Junk Food Warning */}
+      {isJunkFood && (
+        <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-800 dark:bg-orange-950/40">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
+          <div className="text-sm">
+            <p className="font-semibold text-orange-700 dark:text-orange-400">Junk food detected</p>
+            <p className="text-orange-600 dark:text-orange-500">
+              This meal scores {Math.round(junkFoodScore * 100)}% on the junk food scale.
+              Your accountability buddy will be notified when you save.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Analyzed Items */}
       {items.length > 0 && (

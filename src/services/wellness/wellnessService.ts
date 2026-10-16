@@ -7,6 +7,7 @@ import type {
   WellnessChallengeDto,
   ChallengeParticipantDto,
   WellnessProviderDto,
+  AccountabilityAlertDto,
   FoodCatalogItem,
   ChallengeStatus,
   WellnessProviderType,
@@ -42,4 +43,14 @@ export const wellnessService = {
 
   // Providers
   getProviders: (type?: WellnessProviderType) => apiClient.get<WellnessProviderDto[]>(`${BASE}/providers${type ? `?type=${type}` : ''}`),
+
+  // Accountability Alerts
+  getAlerts: () => apiClient.get<AccountabilityAlertDto[]>(`${BASE}/alerts`),
+  markAlertRead: (id: number) => apiClient.put<void>(`${BASE}/alerts/${id}/read`, {}),
+  sendAlert: (alertType: string, message: string, data?: unknown) =>
+    apiClient.post<AccountabilityAlertDto>(`${BASE}/alerts`, { alertType, message, data }),
+
+  // Analyze meal (AI)
+  analyzeMeal: (req: { text?: string; photoBase64?: string; mealType: string }) =>
+    apiClient.post(`${BASE}/meals/analyze`, req),
 };
