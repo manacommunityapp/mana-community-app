@@ -29,10 +29,10 @@ const SUBTASKS: Record<string, string[]> = {
 };
 
 const DURATIONS = [
-  { id: "1H", label: "1 Hour", price: 149 },
-  { id: "2H", label: "2 Hours", price: 249 },
-  { id: "4H", label: "4 Hours", price: 449 },
-  { id: "FULL_DAY", label: "Full Day", price: 799 },
+  { id: "ONE_HOUR",   label: "1 Hour",   price: 149 },
+  { id: "TWO_HOURS",  label: "2 Hours",  price: 249 },
+  { id: "FOUR_HOURS", label: "4 Hours",  price: 449 },
+  { id: "FULL_DAY",   label: "Full Day", price: 799 },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -91,6 +91,17 @@ export function InstaHelp() {
   useEffect(() => {
     if (activeTab === "bookings") loadMyBookings();
   }, [activeTab, loadMyBookings]);
+
+  const resetFlow = useCallback(() => {
+    setStep("select");
+    setSelectedService(null);
+    setSelectedSubtask(null);
+    setSelectedDuration(null);
+    setNotes("");
+    setBooking(null);
+    setRatingValue(0);
+    setRatingSubmitted(false);
+  }, []);
 
   // Poll for status changes while a booking is live (matched or active)
   useEffect(() => {
@@ -176,17 +187,6 @@ export function InstaHelp() {
       setActionLoading(false);
     }
   };
-
-  const resetFlow = useCallback(() => {
-    setStep("select");
-    setSelectedService(null);
-    setSelectedSubtask(null);
-    setSelectedDuration(null);
-    setNotes("");
-    setBooking(null);
-    setRatingValue(0);
-    setRatingSubmitted(false);
-  }, []);
 
   return (
     <div className="space-y-4">
