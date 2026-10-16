@@ -515,11 +515,19 @@ export const eventService = {
     await apiClient.delete<void>(`/events/${numericId}`);
   },
 
-  async register(id: number | string): Promise<EventResponse> {
+  async register(id: number | string, data?: {
+    ticketType?: string;
+    quantity?: number;
+    name?: string;
+    email?: string;
+    phone?: string;
+    notes?: string;
+    agreed?: boolean;
+  }): Promise<EventResponse> {
     clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
-    return apiClient.post<EventResponse>(`/events/${numericId}/register`, {});
+    return apiClient.post<EventResponse>(`/events/${numericId}/register`, data ?? {});
   },
 
   async unregister(id: number | string): Promise<EventResponse> {
