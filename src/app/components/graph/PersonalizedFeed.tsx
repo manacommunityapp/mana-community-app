@@ -28,6 +28,7 @@ import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { isSafeRedirectUrl } from "../../../utils/sanitize";
 import {
   Dialog,
   DialogContent,
@@ -271,7 +272,9 @@ export function PersonalizedFeed() {
                     <Button
                       className="w-full bg-purple-600 hover:bg-purple-700 font-bold text-xs"
                       onClick={() => {
-                        window.location.href = item.actionPath;
+                        if (isSafeRedirectUrl(item.actionPath)) {
+                          window.location.href = item.actionPath;
+                        }
                       }}
                     >
                       {item.actionLabel} &rarr;

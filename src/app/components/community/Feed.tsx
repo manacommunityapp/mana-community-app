@@ -55,6 +55,7 @@ import { engagementService, groupService } from "../../../services/community/eng
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
+import { sanitizeHref } from "../../../utils/sanitize";
 import {
   captureVideoFrame,
   generateVideoThumbnailCandidates,
@@ -2556,7 +2557,7 @@ const PostCard = React.memo(function PostCard({
 
       {/* Link preview */}
       {post.linkUrl && post.linkTitle && (
-        <a href={post.linkUrl} target="_blank" rel="noopener noreferrer" className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all">
+        <a href={sanitizeHref(post.linkUrl)} target="_blank" rel="noopener noreferrer" className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all">
           {post.linkImage && <img src={post.linkImage} alt="" className="w-full h-32 object-cover" />}
           <div className="p-3">
             <h5 className="text-xs font-bold text-slate-800 line-clamp-1">{post.linkTitle}</h5>

@@ -16,6 +16,7 @@ import {
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_SAFETY, VIEW_NOTICES, VIEW_AMENITIES,
   VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY, VIEW_HOME_SERVICE,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
+  PAY_MAINTENANCE_DUES, VIEW_PARKING,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -374,8 +375,10 @@ export function Layout() {
   const enabledModules = user?.enabledModules;
   const loadingPermissions = !!user && !user.permissions;
 
-  const labelToModule: Record<string, string> = {
+  const labelToModule: Record<string, string | string[]> = {
     "Community Feed": "COMMUNITY_FEED",
+    "Safety & Security": ["VISITORS", "SAFETY"],
+    "Mana Pay": ["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"],
     "Mana Deals": "COMMUNITY_OFFERS",
     "Mana Academy": "ACADEMY",
     "Mana Health": "HEALTH",
@@ -395,6 +398,10 @@ export function Layout() {
     "Helpdesk": "HELPDESK",
     "Smart Helpdesk": "HELPDESK",
     "Maintenance Dues": "FINANCE_MGMT",
+    "Bills & Autopay": "FINANCE_MGMT",
+    "My Money": ["PERSONAL_FINANCE", "FINANCE_MGMT"],
+    "Parking & Vehicles": ["PARKING", "VISITORS"],
+    "Mana Split": ["FINANCE_MGMT", "MANA_SPLIT"],
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
@@ -500,22 +507,29 @@ export function Layout() {
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 
+  const isModuleEnabled = (moduleKeyOrKeys: string | string[]): boolean => {
+    if (isSuperAdmin && !user?.communityId) return true;
+    if (!enabledModules || enabledModules.length === 0) return false;
+    const keys = Array.isArray(moduleKeyOrKeys) ? moduleKeyOrKeys : [moduleKeyOrKeys];
+    return keys.some((k) => enabledModules.includes(k));
+  };
+
   const isLinkVisible = (label: string) => {
-    if (isSuperAdmin) return true;
     if (loadingPermissions) return true;
 
-    const moduleKey = labelToModule[label];
-    if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
+    // Check community module availability
+    const moduleConfig = labelToModule[label];
+    if (moduleConfig) {
+      if (!isModuleEnabled(moduleConfig)) {
+        return false;
+      }
+    }
 
     if (label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
-    if (label === "Mana Deals") return true;
-    if (label === "Mana Academy") return true;
-    if (label === "Mana Health") return true;
-    if (label === "Health Buddy") return true;
-    if (label === "Governance & Decisions") return true;
-    if (label === "Pet Registry") return true;
-    if (label === "Mana Pay") return true;
+    if (label === "Mana Pay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || permissions.includes(VIEW_ADMIN) || isAnyAdmin;
+    if (label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES) || isAnyAdmin;
+    if (label === "Bills & Autopay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || isAnyAdmin;
     if (label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
     if (label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
     if (label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
@@ -527,12 +541,20 @@ export function Layout() {
     if (label === "Notices") return permissions.includes(VIEW_NOTICES);
     if (label === "Bookings") return permissions.includes(VIEW_AMENITIES);
     if (label === "Helpdesk" || label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
-    if (label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
     if (label === "Polls") return permissions.includes(VIEW_POLLS);
     if (label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
+    if (label === "Parking & Vehicles") return permissions.includes(VIEW_PARKING) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
+    if (label === "Mana Deals") return true;
+    if (label === "Mana Academy") return true;
+    if (label === "Mana Health" || label === "Health Hub") return true;
+    if (label === "Health Buddy") return true;
+    if (label === "Governance & Decisions") return true;
+    if (label === "Pet Registry") return true;
     if (label === "Community Rides") return true;
+    if (label === "My Money") return true;
+    if (label === "Mana Split") return true;
     return false;
   };
 

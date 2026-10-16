@@ -16,6 +16,7 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import { VIEW_NOTICES, VIEW_EVENTS, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN } from "../../../../constants/permissions";
 import { canAccessModule } from "../../../../utils/permissionUtils";
 import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
+import { isSafeRedirectUrl } from "../../../../utils/sanitize";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -652,9 +653,9 @@ export function NotificationBell() {
     const targetUrl = resolveNotificationUrl(n);
     setOpen(false);
     if (targetUrl) {
-      if (targetUrl.startsWith("/")) {
+      if (targetUrl.startsWith("/") && !targetUrl.startsWith("//") && !targetUrl.startsWith("/\\")) {
         navigate(targetUrl);
-      } else {
+      } else if (isSafeRedirectUrl(targetUrl)) {
         window.location.href = targetUrl;
       }
     }

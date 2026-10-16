@@ -156,6 +156,27 @@ describe("permissionUtils", () => {
       expect(canAccessEndpoint("/notices", "GET", superAdminUser).allowed).toBe(true);
       expect(canAccessEndpoint("/notices", "POST", superAdminUser).allowed).toBe(true);
     });
+
+    it("evaluates canAccessModule correctly based on community enabledModules", () => {
+      const userWithoutFinance: StoredUser = {
+        userId: "10",
+        role: "MEMBER",
+        communityId: 1,
+        enabledModules: ["COMMUNITY_FEED", "EVENTS"],
+      };
+      const userWithFinance: StoredUser = {
+        userId: "11",
+        role: "MEMBER",
+        communityId: 1,
+        enabledModules: ["COMMUNITY_FEED", "FINANCE_MGMT", "VISITORS"],
+      };
+
+      expect(canAccessModule(userWithoutFinance, "FINANCE_MGMT")).toBe(false);
+      expect(canAccessModule(userWithoutFinance, "VISITORS")).toBe(false);
+
+      expect(canAccessModule(userWithFinance, "FINANCE_MGMT")).toBe(true);
+      expect(canAccessModule(userWithFinance, "VISITORS")).toBe(true);
+    });
   });
 });
 

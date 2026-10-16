@@ -18,6 +18,7 @@ import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { cn } from "../ui/utils";
+import { escapeHtml } from "../../../utils/sanitize";
 
 /* ─── Constants ─── */
 const categories = ["All", "Family", "Individual", "VIP", "Volunteer", "Committee", "Sponsor", "Media"];
@@ -209,12 +210,12 @@ function PrintPassesDialog({ registrants, onClose }: { registrants: RegRow[]; on
           </div>
           <div class="pass-body">
             <div class="pass-info">
-              <div class="pass-name">${r.name}</div>
-              <div class="pass-detail">${r.category !== "—" ? r.category : "Attendee"}</div>
-              ${r.email !== "—" ? `<div class="pass-detail">${r.email}</div>` : ""}
-              ${r.phone !== "—" ? `<div class="pass-detail">${r.phone}</div>` : ""}
+              <div class="pass-name">${escapeHtml(r.name)}</div>
+              <div class="pass-detail">${escapeHtml(r.category !== "—" ? r.category : "Attendee")}</div>
+              ${r.email !== "—" ? `<div class="pass-detail">${escapeHtml(r.email)}</div>` : ""}
+              ${r.phone !== "—" ? `<div class="pass-detail">${escapeHtml(r.phone)}</div>` : ""}
               <div class="pass-badge">✓ CONFIRMED</div>
-              <div class="pass-id">${r.id}</div>
+              <div class="pass-id">${escapeHtml(r.id)}</div>
             </div>
             <div class="pass-qr">QR</div>
           </div>

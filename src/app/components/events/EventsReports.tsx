@@ -19,6 +19,7 @@ import {
   Tooltip, PieChart, Pie, Cell, Legend, ResponsiveContainer
 } from "recharts";
 import { DatePicker } from "../ui/date-picker";
+import { escapeHtml } from "../../../utils/sanitize";
 
 // ── Category Config ────────────────────────────────────────────────────────────
 const CATEGORY_REPORT_CARDS = [
@@ -338,7 +339,7 @@ ${dataRows}
   function handlePrintRoster(title: string, rows: EventRegistrationReportRow[]) {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
     <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;color:#1e293b}
     h1{font-size:18px;margin:0 0 4px 0;color:#4338ca}p.meta{font-size:11px;color:#64748b;margin:0 0 16px 0}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
@@ -346,10 +347,10 @@ ${dataRows}
     .chip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:bold}
     .paid{background:#dcfce7;color:#15803d}.free{background:#f1f5f9;color:#475569}
     @media print{body{padding:10mm}}</style></head><body>
-    <h1>${title}</h1>
-    <p class="meta">Event: ${selectedEvent?.title||"Community Event"} | Date: ${new Date().toLocaleDateString()} | Total: ${rows.length}</p>
+    <h1>${escapeHtml(title)}</h1>
+    <p class="meta">Event: ${escapeHtml(selectedEvent?.title || "Community Event")} | Date: ${escapeHtml(new Date().toLocaleDateString())} | Total: ${rows.length}</p>
     <table><thead><tr><th>#</th><th>Reg Code</th><th>Category</th><th>Activity / Seva</th><th>Name</th><th>Phone</th><th>Gotram</th><th>Devotees</th><th>Date</th><th>Fee</th><th>Status</th></tr></thead>
-    <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.regCode||"—"}</strong></td><td>${r.category}</td><td>${r.activityTitle}</td><td>${r.participantName}</td><td>${r.phone||"—"}</td><td>${r.gotram||"—"}</td><td>${r.devoteeCount||1}</td><td>${r.eventDate||""}</td><td>₹${(r.bookingFee||0).toLocaleString("en-IN")}</td><td><span class="chip ${r.paymentStatus==="PAID"?"paid":"free"}">${r.status||"CONFIRMED"}</span></td></tr>`).join("")}
+    <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.regCode || "—")}</strong></td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.activityTitle)}</td><td>${escapeHtml(r.participantName)}</td><td>${escapeHtml(r.phone || "—")}</td><td>${escapeHtml(r.gotram || "—")}</td><td>${r.devoteeCount || 1}</td><td>${escapeHtml(r.eventDate || "")}</td><td>₹${(r.bookingFee || 0).toLocaleString("en-IN")}</td><td><span class="chip ${r.paymentStatus === "PAID" ? "paid" : "free"}">${escapeHtml(r.status || "CONFIRMED")}</span></td></tr>`).join("")}
     </tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   }
@@ -357,17 +358,17 @@ ${dataRows}
   function handlePrintAttendanceSheet(title: string, rows: EventRegistrationReportRow[]) {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${title} – Attendance</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)} – Attendance</title>
     <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;color:#1e293b}
     h1{font-size:18px;margin:0 0 4px 0;color:#4338ca}p.meta{font-size:11px;color:#64748b;margin:0 0 16px 0}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
     th{background:#f1f5f9;font-weight:700;color:#334155}.check{width:28px;text-align:center;font-size:16px}
     tr:nth-child(even){background:#f8fafc}
     @media print{body{padding:10mm}}</style></head><body>
-    <h1>${title} – Attendance Sheet</h1>
-    <p class="meta">Event: ${selectedEvent?.title||"Community Event"} | ${new Date().toLocaleDateString()} | Total: ${rows.length} | In: ${rows.filter(r=>r.checkedIn).length} | Out: ${rows.filter(r=>!r.checkedIn).length}</p>
+    <h1>${escapeHtml(title)} – Attendance Sheet</h1>
+    <p class="meta">Event: ${escapeHtml(selectedEvent?.title || "Community Event")} | ${escapeHtml(new Date().toLocaleDateString())} | Total: ${rows.length} | In: ${rows.filter(r=>r.checkedIn).length} | Out: ${rows.filter(r=>!r.checkedIn).length}</p>
     <table><thead><tr><th class="check">✓</th><th>#</th><th>Reg Code</th><th>Name</th><th>Activity / Seva</th><th>Phone</th><th>Gotram</th><th>Dev.</th><th>Date &amp; Time</th><th>Venue</th></tr></thead>
-    <tbody>${rows.map((r,i)=>`<tr><td class="check">${r.checkedIn?"✅":"☐"}</td><td>${i+1}</td><td><strong>${r.regCode||"—"}</strong></td><td>${r.participantName}</td><td>${r.activityTitle}</td><td>${r.phone||"—"}</td><td>${r.gotram||"—"}</td><td>${r.devoteeCount||1}</td><td>${r.eventDate||""} ${r.eventTime||""}</td><td>${r.venue||r.mandap||"—"}</td></tr>`).join("")}
+    <tbody>${rows.map((r,i)=>`<tr><td class="check">${r.checkedIn?"✅":"☐"}</td><td>${i+1}</td><td><strong>${escapeHtml(r.regCode || "—")}</strong></td><td>${escapeHtml(r.participantName)}</td><td>${escapeHtml(r.activityTitle)}</td><td>${escapeHtml(r.phone || "—")}</td><td>${escapeHtml(r.gotram || "—")}</td><td>${r.devoteeCount || 1}</td><td>${escapeHtml(r.eventDate || "")} ${escapeHtml(r.eventTime || "")}</td><td>${escapeHtml(r.venue || r.mandap || "—")}</td></tr>`).join("")}
     </tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   }
