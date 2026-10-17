@@ -103,10 +103,28 @@ export const HealthPortal: React.FC = () => {
     { id: "med-5", name: "Metformin 500mg", price: 45, category: "Chronic" },
     { id: "med-6", name: "Amlodipine 5mg", price: 60, category: "Chronic" }
   ];
-  const [pharmacyTab, setPharmacyTab] = useState<"otc" | "prescription">("otc");
+  const [pharmacyTab, setPharmacyTab] = useState<"otc" | "prescription" | "autorefill">("otc");
   const [pharmacyCart, setPharmacyCart] = useState<Record<string, number>>({});
   const [pharmacyDeliverySlot, setPharmacyDeliverySlot] = useState("same-day");
   const [pharmacyOrderSuccess, setPharmacyOrderSuccess] = useState(false);
+  const CHRONIC_MEDS_WEB = [
+    { name: "Metformin 500mg", price: 105 }, { name: "Amlodipine 5mg", price: 144 },
+    { name: "Atorvastatin 20mg", price: 245 }, { name: "Losartan 50mg", price: 182 },
+    { name: "Levothyroxine 50mcg", price: 95 }, { name: "Pantoprazole 40mg", price: 68 },
+  ];
+  const [refillSubs, setRefillSubs] = useState([
+    { id: "sub-1", name: "Metformin 500mg", freq: "Monthly", next: "15 Nov 2026", price: 105, active: true },
+    { id: "sub-2", name: "Amlodipine 5mg",  freq: "Monthly", next: "15 Nov 2026", price: 144, active: true },
+    { id: "sub-3", name: "Atorvastatin 20mg", freq: "Monthly", next: "20 Nov 2026", price: 245, active: false },
+  ]);
+  const HOSPITAL_BED_WEB: Record<string, Record<string, number>> = {
+    "Apollo Hospital":  { GENERAL: 14, SEMI_PRIVATE: 6, PRIVATE: 4, ICU: 3 },
+    "Fortis Healthcare":{ GENERAL: 8,  SEMI_PRIVATE: 4, PRIVATE: 2, ICU: 1 },
+    "Max Super Specialty": { GENERAL: 12, SEMI_PRIVATE: 5, PRIVATE: 3, ICU: 2 },
+    "AIIMS":            { GENERAL: 20, SEMI_PRIVATE: 0, PRIVATE: 0, ICU: 4 },
+    "Manipal Hospital": { GENERAL: 10, SEMI_PRIVATE: 4, PRIVATE: 3, ICU: 2 },
+    "Community General Hospital": { GENERAL: 6, SEMI_PRIVATE: 2, PRIVATE: 1, ICU: 0 },
+  };
 
   // State for Video Consultation
   const [videoAppt, setVideoAppt] = useState<HealthAppointmentDto | null>(null);
@@ -997,16 +1015,21 @@ export const HealthPortal: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-4">
                 {/* Sub-tabs */}
-                <div className="flex gap-2">
-                  {(["otc", "prescription"] as const).map(t => (
+                <div className="flex gap-2 flex-wrap">
+                  {([["otc", "OTC / General"], ["prescription", "By Prescription"], ["autorefill", "🔁 Auto-Refill"]] as const).map(([t, label]) => (
                     <button
                       key={t}
                       onClick={() => setPharmacyTab(t)}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition relative ${
                         pharmacyTab === t ? "bg-purple-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
-                      {t === "otc" ? "OTC / General" : "By Prescription"}
+                      {label}
+                      {t === "autorefill" && refillSubs.filter(s => s.active).length > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-teal-500 text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                          {refillSubs.filter(s => s.active).length}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1066,6 +1089,51 @@ export const HealthPortal: React.FC = () => {
                     {SEED_MEDICAL_RECORDS.filter(r => r.type === "PRESCRIPTION").length === 0 && (
                       <p className="text-gray-500 text-sm text-center py-8">No prescriptions in your Health Vault yet.</p>
                     )}
+                  </div>
+                )}
+
+                {pharmacyTab === "autorefill" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">Active Subscriptions</p>
+                        <p className="text-xs text-gray-500">{refillSubs.filter(s => s.active).length} active • {refillSubs.length} total</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const med = prompt("Medicine name (e.g. Losartan 50mg):");
+                          if (med?.trim()) {
+                            setRefillSubs(prev => [...prev, { id: `sub-${Date.now()}`, name: med.trim(), freq: "Monthly", next: "15 Dec 2026", price: 150, active: true }]);
+                          }
+                        }}
+                        className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition"
+                      >
+                        + Add Subscription
+                      </button>
+                    </div>
+                    {refillSubs.map(sub => (
+                      <div key={sub.id} className={`bg-white p-4 rounded-2xl border-2 shadow-sm flex items-center gap-4 ${sub.active ? "border-teal-200" : "border-gray-200 opacity-70"}`}>
+                        <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center shrink-0 text-lg">💊</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{sub.name}</p>
+                          <p className="text-xs text-gray-500">{sub.freq} • 30 tabs</p>
+                          <p className="text-xs text-teal-600 font-semibold">Next: {sub.next}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-gray-900">₹{sub.price}</p>
+                          <button
+                            onClick={() => setRefillSubs(prev => prev.map(s => s.id === sub.id ? { ...s, active: !s.active } : s))}
+                            className={`text-xs font-bold px-2.5 py-1 rounded-lg border mt-1 transition ${sub.active ? "border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100" : "border-teal-400 text-teal-700 bg-teal-50 hover:bg-teal-100"}`}
+                          >
+                            {sub.active ? "Pause" : "Resume"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 flex items-start gap-2 text-xs text-blue-700">
+                      <span className="text-base shrink-0">ℹ️</span>
+                      <span>Auto-dispatched to your address on schedule. Pause anytime. 5% cashback on all chronic medicine subscriptions.</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1261,9 +1329,19 @@ export const HealthPortal: React.FC = () => {
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-2">Hospital *</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {["Apollo Hospital", "Fortis Healthcare", "Max Super Specialty", "AIIMS", "Manipal Hospital", "Community General Hospital"].map(h => (
-                    <button key={h} onClick={() => setIpdHospital(h)} className={`p-2.5 rounded-xl text-xs font-semibold text-left transition border ${ipdHospital === h ? "bg-purple-50 border-purple-500 text-purple-800" : "bg-white border-gray-200 text-gray-700 hover:border-purple-300"}`}>🏥 {h}</button>
-                  ))}
+                  {["Apollo Hospital", "Fortis Healthcare", "Max Super Specialty", "AIIMS", "Manipal Hospital", "Community General Hospital"].map(h => {
+                    const beds = HOSPITAL_BED_WEB[h];
+                    const total = beds ? Object.values(beds).reduce((s, n) => s + n, 0) : 0;
+                    const bedColor = total > 10 ? "text-green-700 bg-green-50 border-green-300" : total > 4 ? "text-amber-700 bg-amber-50 border-amber-300" : "text-red-700 bg-red-50 border-red-300";
+                    return (
+                      <button key={h} onClick={() => setIpdHospital(h)} className={`p-2.5 rounded-xl text-xs font-semibold text-left transition border flex items-center justify-between gap-2 ${ipdHospital === h ? "bg-purple-50 border-purple-500 text-purple-800" : "bg-white border-gray-200 text-gray-700 hover:border-purple-300"}`}>
+                        <span>🏥 {h}</span>
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full border ${bedColor} shrink-0`}>
+                          {total > 0 ? `${total} beds` : "Full"}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1287,10 +1365,11 @@ export const HealthPortal: React.FC = () => {
                 <div>
                   <label className="text-xs font-bold text-gray-700 block mb-1">Ward Preference</label>
                   <select value={ipdWard} onChange={e => setIpdWard(e.target.value as any)} className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none">
-                    <option value="GENERAL">General Ward — ₹1,200/day</option>
-                    <option value="SEMI_PRIVATE">Semi-Private — ₹2,500/day</option>
-                    <option value="PRIVATE">Private Room — ₹4,500/day</option>
-                    <option value="ICU">ICU / Critical — ₹8,000+/day</option>
+                    {([["GENERAL", "General Ward", "₹1,200/day"], ["SEMI_PRIVATE", "Semi-Private", "₹2,500/day"], ["PRIVATE", "Private Room", "₹4,500/day"], ["ICU", "ICU / Critical", "₹8,000+/day"]] as const).map(([val, label, price]) => {
+                      const avail = ipdHospital ? (HOSPITAL_BED_WEB[ipdHospital]?.[val] ?? null) : null;
+                      const availLabel = avail === null ? "" : avail === 0 ? " • Full" : ` • ${avail} beds available`;
+                      return <option key={val} value={val}>{label} — {price}{availLabel}</option>;
+                    })}
                   </select>
                 </div>
               </div>

@@ -1,4 +1,32 @@
 export type ConsultationMode = "IN_PERSON" | "VIDEO" | "PHONE";
+
+export type RefillFrequency = "WEEKLY" | "MONTHLY" | "BI_MONTHLY";
+
+export interface PharmacyRefillSubscriptionDto {
+  id: string;
+  medicineName: string;
+  strip: string;
+  pricePerDispatch: number;
+  frequency: RefillFrequency;
+  nextDispatchDate: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export type AppointmentReminderOffset = "MIN_15" | "MIN_30" | "HOUR_1" | "HOUR_2" | "DAY_1";
+
+export interface AppointmentReminderDto {
+  id: string;
+  appointmentId: string;
+  offset: AppointmentReminderOffset;
+  scheduledAt: string;
+}
+
+export interface BedAvailabilityDto {
+  hospitalName: string;
+  wardAvailability: Record<"GENERAL" | "SEMI_PRIVATE" | "PRIVATE" | "ICU", number>;
+  lastUpdated: string;
+}
 export type AppointmentStatus = "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | "NO_SHOW";
 export type DoctorVerificationStatus = "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type FamilyRelationship = "SELF" | "SPOUSE" | "CHILD" | "PARENT" | "DEPENDENT";
