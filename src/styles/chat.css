@@ -142,14 +142,20 @@
 }
 
 /* ─── Modal & Dialog Stacking Hierarchy ─── */
-/* Ensure floating chat / bot launchers stay below any active modal dialogs / backdrops */
+/* Ensure floating chat / bot launchers stay below any active modal dialogs / backdrops, but not cookie banners */
 .floating-action-launcher {
-  z-index: 30 !important;
+  z-index: 40 !important;
 }
 
-body:has([role="dialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
-body:has([role="alertdialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
-body:has([aria-modal="true"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
+@media (max-width: 639px) {
+  .floating-action-launcher {
+    bottom: calc(5rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+body:has([role="dialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel):not(.consent-banner-dialog):not([aria-label="Cookie and tracking consent"])),
+body:has([role="alertdialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel):not(.consent-banner-dialog)),
+body:has([aria-modal="true"]:not(.floating-chat-panel):not(.floating-chatbot-panel):not(.consent-banner-dialog):not([aria-label="Cookie and tracking consent"])),
 body:has(.modal-backdrop),
 body:has(.swal2-container) {
   .floating-action-launcher {

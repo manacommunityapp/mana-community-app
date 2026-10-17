@@ -3185,39 +3185,47 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
 
-            {/* Submit Actions — desktop inline for page mode */}
-            {!isModal && (
-              <div className="hidden sm:flex gap-2.5 pt-1">
+            {/* Submit Actions — always visible inline at the bottom of the form on mobile, and desktop for page mode */}
+            <div className={`gap-2.5 pt-2 sm:pt-1 ${isModal ? "flex sm:hidden" : "flex"}`}>
+              {!isModal ? (
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="flex-1 py-2.5 bg-card border border-border rounded-xl text-xs sm:text-[13px] text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
+                  className="flex-1 py-2.5 px-3 bg-card border border-border rounded-xl text-xs sm:text-[13px] text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
                 >
                   ← Go Back
                 </button>
+              ) : (
                 <button
-                  type="submit"
-                  disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                  className={`flex-[2] py-2.5 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
-                    isAlreadyRegistered
-                      ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                      : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-                  }`}
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer"
                 >
-                  {submitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-                  ) : isAlreadyRegistered ? (
-                    <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
-                  ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-                    <>Provide Gender &amp; DOB to Register</>
-                  ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                    <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-base">→</span></>
-                  ) : (
-                    <>Submit Registration <span className="text-base">→</span></>
-                  )}
+                  Cancel
                 </button>
-              </div>
-            )}
+              )}
+              <button
+                type="submit"
+                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className={`flex-[2] py-2.5 px-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
+                  isAlreadyRegistered
+                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                }`}
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                ) : isAlreadyRegistered ? (
+                  <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                  <>Provide Gender &amp; DOB to Register</>
+                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-base">→</span></>
+                ) : (
+                  <>Submit Registration <span className="text-base">→</span></>
+                )}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -3436,7 +3444,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           onClick={handleClose}
         >
           <div 
-            className="relative w-full max-w-5xl h-[92vh] sm:h-[88vh] max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            className="relative w-full max-w-5xl h-[92vh] max-h-[92dvh] sm:h-[88vh] sm:max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Pull handle for mobile */}
@@ -3480,7 +3488,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             </div>
 
             {/* Scrollable Modal Body */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-3 sm:pb-0">
               {mainContent}
             </div>
 

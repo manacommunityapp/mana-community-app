@@ -48,6 +48,13 @@ import {
   type BillerCategory,
   type FetchedBill,
 } from "../../../../services/finance/billerService";
+import {
+  rechargeService,
+  OPERATORS,
+  type MobileOperator,
+  type RechargePlan,
+  type RechargeType,
+} from "../../../../services/finance/rechargeService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import { ManaPayUnifiedCheckoutModal } from "../../payments/ManaPayUnifiedCheckoutModal";
 import type { PaymentDomainSource } from "../../../../types/payment";
@@ -160,6 +167,65 @@ export function BillsAndAutopayDashboard() {
       setShowBbpsModal(false);
     }
   };
+
+  // ── Recharge State ────────────────────────────────────────────────────────
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [rechargeType, setRechargeType] = useState<RechargeType>("PREPAID");
+  const [rechargeMobile, setRechargeMobile] = useState("");
+  const [rechargeDetectedOp, setRechargeDetectedOp] = useState<MobileOperator | null>(null);
+  const [rechargeSelectedOp, setRechargeSelectedOp] = useState<MobileOperator | null>(null);
+  const [rechargePlans, setRechargePlans] = useState<RechargePlan[]>([]);
+  const [rechargePlanFilter, setRechargePlanFilter] = useState<"ALL" | "POPULAR" | "DATA" | "UNLIMITED" | "VALIDITY">("POPULAR");
+  const [rechargeSelectedPlan, setRechargeSelectedPlan] = useState<RechargePlan | null>(null);
+  const [rechargeStep, setRechargeStep] = useState<"NUMBER" | "PLANS" | "CONFIRM">("NUMBER");
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [isRecharging, setIsRecharging] = useState(false);
+
+  const handleMobileChange = (val: string) => {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    setRechargeMobile(digits);
+    const detected = rechargeService.detectOperator(digits);
+    setRechargeDetectedOp(detected);
+    if (detected && !rechargeSelectedOp) setRechargeSelectedOp(detected);
+  };
+
+  const handleLoadPlans = async () => {
+    if (!rechargeSelectedOp) return;
+    setIsLoadingPlans(true);
+    const plans = await rechargeService.getPlans(rechargeSelectedOp.id);
+    setRechargePlans(plans);
+    setRechargeSelectedPlan(null);
+    setRechargeStep("PLANS");
+    setIsLoadingPlans(false);
+  };
+
+  const handleConfirmRecharge = async () => {
+    if (!rechargeSelectedPlan || !rechargeSelectedOp) return;
+    setIsRecharging(true);
+    try {
+      await rechargeService.initiateRecharge(rechargeMobile, rechargeSelectedOp.id, rechargeSelectedPlan);
+      showSuccess(`Recharge of ₹${rechargeSelectedPlan.price} initiated for +91-${rechargeMobile}! Complete in your UPI app.`);
+      setShowRechargeModal(false);
+      setRechargeMobile("");
+      setRechargeSelectedOp(null);
+      setRechargeSelectedPlan(null);
+      setRechargeStep("NUMBER");
+    } catch {
+      showError("Could not initiate recharge. Please try again.");
+    } finally {
+      setIsRecharging(false);
+    }
+  };
+
+  const handleRechargeBack = () => {
+    if (rechargeStep === "CONFIRM") setRechargeStep("PLANS");
+    else if (rechargeStep === "PLANS") setRechargeStep("NUMBER");
+    else setShowRechargeModal(false);
+  };
+
+  const filteredRechargePlans = rechargePlanFilter === "ALL"
+    ? rechargePlans
+    : rechargePlans.filter(p => p.category === rechargePlanFilter);
 
   // Admin New Schedule Form
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
@@ -457,6 +523,35 @@ export function BillsAndAutopayDashboard() {
           >
             <Zap className="w-4 h-4" />
             Pay Utility Bill
+          </button>
+        </div>
+      </div>
+
+      {/* ── Mobile Recharge Entry Point ──────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#F0F9FF] to-[#E0F2FE] border border-[#BAE6FD] rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#0284C7]/10 border border-[#BAE6FD] flex items-center justify-center text-xl">
+              📱
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-[#44475B]">Mobile Recharge</h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0284C7]/10 text-[#0284C7] border border-[#BAE6FD]">
+                  Jio · Airtel · Vi · BSNL
+                </span>
+              </div>
+              <p className="text-xs text-[#7C7E8C] mt-0.5">
+                Prepaid recharge & postpaid bill payment · Instant UPI / PhonePe
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setShowRechargeModal(true); setRechargeStep("NUMBER"); }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
+          >
+            <Smartphone className="w-4 h-4" />
+            Recharge Now
           </button>
         </div>
       </div>
@@ -1266,6 +1361,210 @@ export function BillsAndAutopayDashboard() {
             setBbpsConsumerId("");
           }}
         />
+      )}
+
+      {/* ── MODAL: Mobile Recharge ───────────────────────────────────────────── */}
+      {showRechargeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EBEFF2] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EBEFF2]">
+              <div className="flex items-center gap-2.5">
+                {rechargeStep !== "NUMBER" && (
+                  <button onClick={handleRechargeBack} className="p-1.5 rounded-lg hover:bg-[#F9FAFC] text-[#7C7E8C] hover:text-[#44475B]">
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                  </button>
+                )}
+                <div className="w-9 h-9 rounded-xl bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-lg">📱</div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#44475B]">
+                    {rechargeStep === "NUMBER" && "Mobile Recharge"}
+                    {rechargeStep === "PLANS" && `${rechargeSelectedOp?.shortName} Plans`}
+                    {rechargeStep === "CONFIRM" && "Confirm Recharge"}
+                  </h3>
+                  <p className="text-[10px] text-[#7C7E8C]">Prepaid · Postpaid · Instant UPI</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRechargeModal(false)} className="text-[#7C7E8C] hover:text-[#44475B]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Step 1: Number + Operator */}
+              {rechargeStep === "NUMBER" && (
+                <div className="space-y-4">
+                  {/* Prepaid / Postpaid */}
+                  <div className="flex rounded-xl border border-[#EBEFF2] overflow-hidden">
+                    {(["PREPAID", "POSTPAID"] as RechargeType[]).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setRechargeType(t)}
+                        className={`flex-1 py-2.5 text-xs font-bold transition-all ${rechargeType === t ? "bg-[#44475B] text-white" : "text-[#7C7E8C] hover:bg-[#F9FAFC]"}`}
+                      >
+                        {t === "PREPAID" ? "Prepaid" : "Postpaid"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mobile Input */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#44475B] mb-1.5">Mobile Number</label>
+                    <div className="flex items-center border border-[#EBEFF2] rounded-xl overflow-hidden">
+                      <span className="px-3 py-2.5 bg-[#F9FAFC] border-r border-[#EBEFF2] text-xs font-semibold text-[#44475B]">🇮🇳 +91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={rechargeMobile}
+                        onChange={(e) => handleMobileChange(e.target.value)}
+                        maxLength={10}
+                        placeholder="Enter 10-digit number"
+                        className="flex-1 px-3 py-2.5 text-sm font-semibold text-[#44475B] tracking-widest focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    {rechargeDetectedOp && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E6FAF5] border border-[#A7F3D0] rounded-lg text-xs font-semibold text-[#008767]">
+                        {rechargeDetectedOp.icon} Detected: {rechargeDetectedOp.name}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Operator Grid */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#44475B] mb-2">Select Operator</label>
+                    <div className="flex flex-wrap gap-2">
+                      {OPERATORS.map((op) => (
+                        <button
+                          key={op.id}
+                          onClick={() => setRechargeSelectedOp(op)}
+                          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                            rechargeSelectedOp?.id === op.id
+                              ? "border-[#0284C7] bg-[#F0F9FF] text-[#0284C7]"
+                              : "border-[#EBEFF2] text-[#44475B] hover:border-[#BAE6FD]"
+                          }`}
+                        >
+                          <span className="text-base">{op.icon}</span>
+                          {op.shortName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleLoadPlans}
+                    disabled={rechargeMobile.length < 10 || !rechargeSelectedOp || isLoadingPlans}
+                    className="w-full py-2.5 bg-[#0284C7] hover:bg-[#0369A1] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoadingPlans ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading Plans…</> : <>Browse Plans <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2: Plan Selection */}
+              {rechargeStep === "PLANS" && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] flex items-center justify-between text-xs">
+                    <span className="text-[#7C7E8C]">+91 {rechargeMobile} · {rechargeSelectedOp?.name}</span>
+                    <button onClick={() => setRechargeStep("NUMBER")} className="text-[#0284C7] font-semibold">Change</button>
+                  </div>
+
+                  {/* Category filters */}
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {(["POPULAR", "DATA", "UNLIMITED", "VALIDITY", "ALL"] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setRechargePlanFilter(cat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                          rechargePlanFilter === cat ? "bg-[#44475B] text-white" : "bg-white border border-[#EBEFF2] text-[#7C7E8C]"
+                        }`}
+                      >
+                        {cat === "POPULAR" ? "🔥 Popular" : cat === "DATA" ? "📶 Data" : cat === "UNLIMITED" ? "♾️ Unlimited" : cat === "VALIDITY" ? "📅 Validity" : "All"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {filteredRechargePlans.map((plan) => (
+                      <button
+                        key={plan.id}
+                        onClick={() => { setRechargeSelectedPlan(plan); setRechargeStep("CONFIRM"); }}
+                        className={`w-full p-3.5 rounded-xl border text-left transition-all ${
+                          rechargeSelectedPlan?.id === plan.id
+                            ? "border-[#0284C7] bg-[#F0F9FF]"
+                            : "border-[#EBEFF2] bg-white hover:border-[#BAE6FD]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-black text-[#44475B]">₹{plan.price}</span>
+                              <span className="text-[10px] text-[#7C7E8C]">{plan.validity}</span>
+                              {plan.isBestSeller && <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded">🔥 Best Seller</span>}
+                              {plan.isRecommended && <span className="text-[10px] font-bold text-[#008767] bg-[#E6FAF5] px-1.5 py-0.5 rounded">⭐ Recommended</span>}
+                            </div>
+                            <p className="text-[11px] text-[#7C7E8C] mt-0.5">{plan.description}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-[11px] text-[#44475B] font-semibold">{plan.data}</div>
+                            <div className="text-[10px] text-[#7C7E8C]">{plan.calls}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Confirm */}
+              {rechargeStep === "CONFIRM" && rechargeSelectedPlan && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#F0F9FF] to-[#E0F2FE] border border-[#BAE6FD] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{rechargeSelectedOp?.icon}</span>
+                      <div>
+                        <p className="text-sm font-bold text-[#44475B]">{rechargeSelectedOp?.name}</p>
+                        <p className="text-xs text-[#7C7E8C]">+91 {rechargeMobile} · {rechargeType}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📶</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Data</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.data}</strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📞</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Calls</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.calls}</strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📅</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Validity</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.validity}</strong>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-[#BAE6FD] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-[#7C7E8C] uppercase tracking-wider">Total Payable</span>
+                        <p className="text-2xl font-black text-[#44475B]">₹{rechargeSelectedPlan.price}</p>
+                      </div>
+                      <button onClick={() => setRechargeStep("PLANS")} className="text-xs text-[#7C7E8C] hover:text-[#44475B] underline">Change Plan</button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleConfirmRecharge}
+                    disabled={isRecharging}
+                    className="w-full py-2.5 bg-[#0284C7] hover:bg-[#0369A1] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isRecharging ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</> : <><Smartphone className="w-4 h-4" /> Pay ₹{rechargeSelectedPlan.price} via Mana Pay</>}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── MODAL: Admin Add Recurring Schedule ─────────────────────────────── */}
