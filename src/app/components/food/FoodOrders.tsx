@@ -1,64 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ShoppingCart, Clock, CheckCircle, Truck, XCircle, ChefHat,
-  Package, Star, RotateCcw, ArrowRight, Ban, Loader2
+  Package, Star, RotateCcw, Ban, AlertCircle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Separator } from "../ui/separator";
 import { Skeleton } from "../ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import type { FoodOrder } from "../../../types/food";
-
-const mockOrders: Partial<FoodOrder>[] = [
-  {
-    id: 1, orderNumber: "ORD-1042", providerName: "Spice Garden", providerType: "RESTAURANT",
-    totalAmount: 520, tax: 40, deliveryFee: 30, subtotal: 450, discount: 0,
-    status: "PREPARING", placedAt: "2026-07-24T10:30:00Z", paymentStatus: "PAID",
-    estimatedDelivery: "2026-07-24T11:15:00Z",
-    items: [
-      { id: 1, itemId: 1, itemName: "Butter Chicken", quantity: 1, unitPrice: 320, totalPrice: 320, isVeg: false },
-      { id: 2, itemId: 2, itemName: "Garlic Naan", quantity: 2, unitPrice: 60, totalPrice: 120, isVeg: true },
-    ],
-  },
-  {
-    id: 2, orderNumber: "ORD-1041", providerName: "Green Bowl", providerType: "RESTAURANT",
-    totalAmount: 380, tax: 30, deliveryFee: 20, subtotal: 330, discount: 0,
-    status: "OUT_FOR_DELIVERY", placedAt: "2026-07-24T09:00:00Z", paymentStatus: "PAID",
-    estimatedDelivery: "2026-07-24T09:40:00Z",
-    items: [
-      { id: 3, itemId: 3, itemName: "Quinoa Buddha Bowl", quantity: 1, unitPrice: 330, totalPrice: 330, isVeg: true },
-    ],
-  },
-  {
-    id: 3, orderNumber: "ORD-1039", providerName: "Amma's Kitchen", providerType: "HOME_CHEF",
-    totalAmount: 280, tax: 20, deliveryFee: 0, subtotal: 260, discount: 0,
-    status: "DELIVERED", placedAt: "2026-07-23T12:00:00Z", deliveredAt: "2026-07-23T12:45:00Z", paymentStatus: "PAID",
-    items: [
-      { id: 4, itemId: 4, itemName: "South Indian Thali", quantity: 2, unitPrice: 130, totalPrice: 260, isVeg: true },
-    ],
-  },
-  {
-    id: 4, orderNumber: "ORD-1035", providerName: "Pizza Hub", providerType: "RESTAURANT",
-    totalAmount: 650, tax: 50, deliveryFee: 30, subtotal: 570, discount: 0,
-    status: "DELIVERED", placedAt: "2026-07-22T19:30:00Z", deliveredAt: "2026-07-22T20:10:00Z", paymentStatus: "PAID",
-    items: [
-      { id: 5, itemId: 5, itemName: "Margherita Pizza", quantity: 1, unitPrice: 350, totalPrice: 350, isVeg: true },
-      { id: 6, itemId: 6, itemName: "Pepperoni Pizza", quantity: 1, unitPrice: 420, totalPrice: 420, isVeg: false },
-    ],
-  },
-  {
-    id: 5, orderNumber: "ORD-1030", providerName: "Biryani Palace", providerType: "RESTAURANT",
-    totalAmount: 400, tax: 30, deliveryFee: 20, subtotal: 350, discount: 0,
-    status: "CANCELLED", placedAt: "2026-07-21T13:00:00Z", cancelledAt: "2026-07-21T13:10:00Z",
-    cancellationReason: "Changed my mind", paymentStatus: "REFUNDED",
-    items: [
-      { id: 7, itemId: 7, itemName: "Chicken Biryani", quantity: 1, unitPrice: 350, totalPrice: 350, isVeg: false },
-    ],
-  },
-];
+import { Input } from "../ui/input";
+import { foodOrderService } from "../../../services/food/foodOrderService";
+import type { FoodOrder, FoodOrderRating } from "../../../types/food";
 
 const statusSteps = ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -82,25 +36,45 @@ function formatDate(d: string) {
 }
 
 export function FoodOrders() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Partial<FoodOrder>[]>([]);
-  const [cancelDialog, setCancelDialog] = useState<Partial<FoodOrder> | null>(null);
-  const [rateDialog, setRateDialog] = useState<Partial<FoodOrder> | null>(null);
+  const queryClient = useQueryClient();
+  const [cancelDialog, setCancelDialog] = useState<FoodOrder | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [rateDialog, setRateDialog] = useState<FoodOrder | null>(null);
   const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setOrders(mockOrders);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["foodOrders"],
+    queryFn: () => foodOrderService.getMyOrders(),
+  });
+  const orders: FoodOrder[] = data?.content ?? [];
 
-  const activeOrders = orders.filter((o) => ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(o.status ?? ""));
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      foodOrderService.cancelOrder(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["foodOrders"] });
+      setCancelDialog(null);
+      setCancelReason("");
+    },
+  });
+
+  const rateMutation = useMutation({
+    mutationFn: ({ id, rating, text }: { id: number; rating: number; text: string }) =>
+      foodOrderService.rateOrder(id, { overallRating: rating, foodRating: rating, reviewText: text } as unknown as FoodOrderRating),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["foodOrders"] });
+      setRateDialog(null);
+      setSelectedRating(0);
+      setRatingComment("");
+    },
+  });
+
+  const activeOrders = orders.filter((o) => ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(o.status));
   const pastOrders = orders.filter((o) => o.status === "DELIVERED");
   const cancelledOrders = orders.filter((o) => o.status === "CANCELLED");
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64 rounded-lg" />
@@ -109,12 +83,24 @@ export function FoodOrders() {
     );
   }
 
-  function renderOrderCard(order: Partial<FoodOrder>) {
-    const status = statusConfig[order.status ?? "PLACED"];
+  if (isError) {
+    return (
+      <div className="text-center py-16 text-slate-400">
+        <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-40" />
+        <p className="font-medium">Could not load orders</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ["foodOrders"] })}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  function renderOrderCard(order: FoodOrder) {
+    const status = statusConfig[order.status] ?? statusConfig.PLACED;
     const StatusIcon = status.icon;
-    const currentStepIndex = statusSteps.indexOf(order.status ?? "PLACED");
-    const isActive = ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(order.status ?? "");
-    const canCancel = ["PLACED", "CONFIRMED"].includes(order.status ?? "");
+    const currentStepIndex = statusSteps.indexOf(order.status);
+    const isActive = ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(order.status);
+    const canCancel = ["PLACED", "CONFIRMED"].includes(order.status);
 
     return (
       <Card key={order.id} className="border-0 shadow-sm hover:shadow-md transition-all">
@@ -125,14 +111,14 @@ export function FoodOrders() {
                 <h4 className="font-bold text-sm">{order.providerName}</h4>
                 <Badge className={`text-[10px] border-0 ${status.bg}`}>
                   <StatusIcon className="w-3 h-3 mr-1" />
-                  {order.status?.replace(/_/g, " ")}
+                  {order.status.replace(/_/g, " ")}
                 </Badge>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {order.orderNumber} | {formatDate(order.placedAt ?? "")}
+                {order.orderNumber} | {formatDate(order.placedAt)}
               </p>
             </div>
-            <p className="text-lg font-bold">{formatPrice(order.totalAmount ?? 0)}</p>
+            <p className="text-lg font-bold">{formatPrice(order.totalAmount)}</p>
           </div>
 
           {/* Items */}
@@ -151,7 +137,7 @@ export function FoodOrders() {
           </div>
 
           {/* Status Timeline (active orders only) */}
-          {isActive && order.status !== "CANCELLED" && (
+          {isActive && (
             <div className="mb-4">
               <div className="flex items-center gap-1">
                 {statusSteps.map((step, i) => {
@@ -171,7 +157,9 @@ export function FoodOrders() {
               </div>
               <div className="flex justify-between mt-1">
                 {statusSteps.map((step) => (
-                  <span key={step} className="text-[9px] text-slate-400 text-center flex-1">{step.replace(/_/g, " ").split(" ").map(w => w[0] + w.slice(1).toLowerCase()).join(" ")}</span>
+                  <span key={step} className="text-[9px] text-slate-400 text-center flex-1">
+                    {step.replace(/_/g, " ").split(" ").map(w => w[0] + w.slice(1).toLowerCase()).join(" ")}
+                  </span>
                 ))}
               </div>
             </div>
@@ -180,12 +168,20 @@ export function FoodOrders() {
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
             {canCancel && (
-              <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800" onClick={() => setCancelDialog(order)}>
+              <Button
+                variant="outline" size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800"
+                onClick={() => { setCancelDialog(order); setCancelReason(""); }}
+              >
                 <Ban className="w-3 h-3 mr-1" /> Cancel
               </Button>
             )}
             {order.status === "DELIVERED" && !order.rating && (
-              <Button variant="outline" size="sm" className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400" onClick={() => { setRateDialog(order); setSelectedRating(0); }}>
+              <Button
+                variant="outline" size="sm"
+                className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400"
+                onClick={() => { setRateDialog(order); setSelectedRating(0); setRatingComment(""); }}
+              >
                 <Star className="w-3 h-3 mr-1" /> Rate Order
               </Button>
             )}
@@ -234,21 +230,30 @@ export function FoodOrders() {
       </Tabs>
 
       {/* Cancel Dialog */}
-      <Dialog open={!!cancelDialog} onOpenChange={() => setCancelDialog(null)}>
+      <Dialog open={!!cancelDialog} onOpenChange={(open) => { if (!open) { setCancelDialog(null); setCancelReason(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Order</DialogTitle>
-            <DialogDescription>Are you sure you want to cancel order {cancelDialog?.orderNumber}? This action cannot be undone.</DialogDescription>
+            <DialogDescription>Cancel order {cancelDialog?.orderNumber}? This cannot be undone.</DialogDescription>
           </DialogHeader>
+          <div className="py-2">
+            <Input placeholder="Reason (optional)" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialog(null)}>Keep Order</Button>
-            <Button variant="destructive" onClick={() => setCancelDialog(null)}>Cancel Order</Button>
+            <Button variant="outline" onClick={() => { setCancelDialog(null); setCancelReason(""); }}>Keep Order</Button>
+            <Button
+              variant="destructive"
+              disabled={cancelMutation.isPending}
+              onClick={() => cancelDialog && cancelMutation.mutate({ id: cancelDialog.id, reason: cancelReason })}
+            >
+              {cancelMutation.isPending ? "Cancelling…" : "Cancel Order"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Rate Dialog */}
-      <Dialog open={!!rateDialog} onOpenChange={() => setRateDialog(null)}>
+      <Dialog open={!!rateDialog} onOpenChange={(open) => { if (!open) { setRateDialog(null); setSelectedRating(0); setRatingComment(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Rate Your Order</DialogTitle>
@@ -261,9 +266,16 @@ export function FoodOrders() {
               </button>
             ))}
           </div>
+          <Input placeholder="Leave a review (optional)" value={ratingComment} onChange={(e) => setRatingComment(e.target.value)} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRateDialog(null)}>Skip</Button>
-            <Button className="bg-orange-600 hover:bg-orange-700 text-white" disabled={selectedRating === 0} onClick={() => setRateDialog(null)}>Submit Rating</Button>
+            <Button variant="outline" onClick={() => { setRateDialog(null); setSelectedRating(0); setRatingComment(""); }}>Skip</Button>
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={selectedRating === 0 || rateMutation.isPending}
+              onClick={() => rateDialog && rateMutation.mutate({ id: rateDialog.id, rating: selectedRating, text: ratingComment })}
+            >
+              {rateMutation.isPending ? "Submitting…" : "Submit Rating"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
