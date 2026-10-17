@@ -105,7 +105,7 @@ export function ConsentBanner({ onConsent }: ConsentBannerProps) {
       role="dialog"
       aria-live="polite"
       aria-label="Cookie and tracking consent"
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[99999] bg-background border border-border rounded-2xl shadow-2xl p-4 animate-in slide-in-from-bottom-4 duration-300"
+      className="consent-banner-dialog fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-[99999] bg-background border border-border rounded-2xl shadow-2xl p-4 animate-in slide-in-from-bottom-4 duration-300"
     >
       <div className="flex items-start gap-3 mb-3">
         <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">

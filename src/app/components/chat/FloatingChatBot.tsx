@@ -33,7 +33,7 @@ export function FloatingChatBot() {
   return (
     <div className="floating-chatbot-container">
       <div
-        className={`fixed bottom-6 right-4 sm:bottom-8 sm:right-6 z-30 font-sans floating-action-launcher transition-all duration-200 ${
+        className={`fixed bottom-20 right-4 sm:bottom-8 sm:right-6 z-40 font-sans floating-action-launcher transition-all duration-200 ${
           isModalActive ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"
         }`}
       >
@@ -116,15 +116,15 @@ export function FloatingChatBot() {
           <Link
             to="/sports"
             title="Open Sports Dashboard"
-            className="group relative flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 rounded-full shadow-xl border-2 border-white/90 bg-gradient-to-tr from-indigo-600 via-violet-600 to-amber-500 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer z-30"
+            className="group relative flex items-center justify-center h-12 w-12 sm:h-12 sm:w-12 rounded-full shadow-2xl border-2 border-white/95 bg-gradient-to-tr from-indigo-600 via-violet-600 to-amber-500 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer z-40"
             style={{
-              boxShadow: "0 6px 18px rgba(99, 102, 241, 0.45)",
+              boxShadow: "0 8px 24px rgba(99, 102, 241, 0.5)",
             }}
           >
-            <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-white drop-shadow group-hover:rotate-12 transition-transform duration-200" />
-            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+            <Trophy className="h-5.5 w-5.5 sm:h-6 sm:w-6 text-white drop-shadow group-hover:rotate-12 transition-transform duration-200" />
+            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 sm:h-3 sm:w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-amber-500 border border-white"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 sm:h-3 sm:w-3 bg-amber-500 border border-white"></span>
             </span>
           </Link>
         </div>
