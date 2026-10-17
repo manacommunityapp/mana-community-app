@@ -80,6 +80,9 @@ export interface DoctorDto {
   homeVisitAvailable?: boolean;
   openNow?: boolean;
   about?: string;
+  accreditations?: string[];
+  mapsUrl?: string;
+  department?: string;
 }
 
 export interface HealthReminderDto {

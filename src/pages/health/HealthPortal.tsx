@@ -31,7 +31,7 @@ import { PatientSecurityPrivacyModal } from "../../app/components/health/Patient
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy"
+    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd"
   >("doctors");
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
@@ -60,6 +60,33 @@ export const HealthPortal: React.FC = () => {
     bloodGroup: "O+",
     allergies: ""
   });
+
+  // Ambulance booking state
+  const [ambVehicleType, setAmbVehicleType] = useState<"BASIC" | "ADVANCED" | "ICU">("BASIC");
+  const [ambPatientName, setAmbPatientName] = useState("");
+  const [ambPickup, setAmbPickup] = useState("");
+  const [ambDest, setAmbDest] = useState("");
+  const [ambPhone, setAmbPhone] = useState("");
+  const [ambNote, setAmbNote] = useState("");
+  const [ambDispatched, setAmbDispatched] = useState(false);
+
+  // IPD state
+  const [ipdDept, setIpdDept] = useState("");
+  const [ipdHospital, setIpdHospital] = useState("");
+  const [ipdPatientName, setIpdPatientName] = useState("");
+  const [ipdReason, setIpdReason] = useState("");
+  const [ipdWard, setIpdWard] = useState<"GENERAL" | "SEMI_PRIVATE" | "PRIVATE" | "ICU">("GENERAL");
+  const [ipdDate, setIpdDate] = useState("");
+  const [ipdPhone, setIpdPhone] = useState("");
+  const [ipdSubmitted, setIpdSubmitted] = useState(false);
+
+  // Emergency Callback state
+  const [cbPhone, setCbPhone] = useState("");
+  const [cbDesc, setCbDesc] = useState("");
+  const [cbSubmitted, setCbSubmitted] = useState(false);
+
+  // Department filter for doctors
+  const [doctorDept, setDoctorDept] = useState("All");
 
   // State for Lab Home Collection booking modal
   const [labBookingPkg, setLabBookingPkg] = useState<LabPackageDto | null>(null);
@@ -196,8 +223,14 @@ export const HealthPortal: React.FC = () => {
             🏥 Provider Portal
           </button>
           <button
-            onClick={() => setActiveTab("emergency")}
+            onClick={() => setActiveTab("ambulance")}
             className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition animate-pulse flex items-center gap-2 text-sm"
+          >
+            🚑 Ambulance
+          </button>
+          <button
+            onClick={() => setActiveTab("emergency")}
+            className="bg-red-800 hover:bg-red-900 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition flex items-center gap-2 text-sm"
           >
             🚨 Medical SOS
           </button>
@@ -231,7 +264,9 @@ export const HealthPortal: React.FC = () => {
           { id: "emergency", label: "🚨 Community Emergency" },
           { id: "ai", label: "🤖 AI Symptom Guide" },
           { id: "care-journey", label: "🗺️ Care Journey" },
-          { id: "pharmacy", label: "💊 Pharmacy" }
+          { id: "pharmacy", label: "💊 Pharmacy" },
+          { id: "ambulance", label: "🚑 Ambulance" },
+          { id: "ipd", label: "🏥 IPD Admission" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -685,16 +720,75 @@ export const HealthPortal: React.FC = () => {
       {/* Tab 8: Community Emergency SOS */}
       {activeTab === "emergency" && (
         <div className="space-y-6">
-          <div className="bg-red-50 border-2 border-red-500 p-6 rounded-3xl space-y-2">
+          {/* When to Seek Emergency Care panel */}
+          <div className="bg-red-50 border-2 border-red-400 p-6 rounded-3xl space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xl animate-pulse">🚨</span>
-              <h3 className="text-red-900 font-extrabold text-xl">24x7 Community Medical Emergency Hotlines</h3>
+              <span className="text-2xl animate-pulse">⚠️</span>
+              <h3 className="text-red-900 font-extrabold text-xl">When to Seek Emergency Care</h3>
             </div>
-            <p className="text-red-700 text-sm">
-              Integrated with Mana Emergency SOS and Campus Gate Security. Calling triggers rapid dispatch of community first responders and security room gate pass clearances.
-            </p>
+            <p className="text-red-700 text-sm font-medium">Go to ER immediately or call 112 if you experience:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {["Chest pain or difficulty breathing", "Signs of stroke (face drooping, arm weakness, slurred speech)", "Major trauma, accident or fall injuries", "Severe allergic reaction / anaphylaxis", "Loss of consciousness, seizure or faint", "Severe bleeding or burns", "High fever with confusion or stiff neck", "Severe abdominal pain"].map((sign, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-red-800">
+                  <span className="text-red-500">●</span> {sign}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <a href="tel:112" className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition shadow">
+                📞 Call 112 — National Emergency
+              </a>
+              <button onClick={() => setActiveTab("ambulance")} className="flex items-center gap-2 bg-white border-2 border-red-400 text-red-700 font-bold py-2.5 px-5 rounded-xl text-sm hover:bg-red-50 transition">
+                🚑 Book Ambulance
+              </button>
+            </div>
           </div>
 
+          {/* Emergency Callback Request */}
+          <div className="bg-blue-50 border border-blue-200 p-6 rounded-3xl space-y-4">
+            <h3 className="text-blue-900 font-bold text-lg flex items-center gap-2">
+              📞 Request 24/7 Emergency Callback
+            </h3>
+            {cbSubmitted ? (
+              <div className="text-center py-4 space-y-2">
+                <div className="text-4xl">✅</div>
+                <p className="font-bold text-teal-800">Callback Requested!</p>
+                <p className="text-sm text-gray-600">Our health desk will call you within 5–10 minutes. Agent: Community Health Desk</p>
+                <button onClick={() => setCbSubmitted(false)} className="mt-2 bg-teal-600 text-white font-bold px-5 py-2 rounded-xl text-sm">Done</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="tel"
+                    placeholder="Your phone number *"
+                    value={cbPhone}
+                    onChange={e => setCbPhone(e.target.value)}
+                    className="border rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Emergency description"
+                    value={cbDesc}
+                    onChange={e => setCbDesc(e.target.value)}
+                    className="border rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() => cbPhone && setCbSubmitted(true)}
+                  disabled={!cbPhone}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition"
+                >
+                  Request Callback Now
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">🚨</span>
+            <h3 className="text-red-900 font-extrabold text-xl">24x7 Community Medical Emergency Hotlines</h3>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {SEED_EMERGENCY_CONTACTS.map(em => (
               <div key={em.id} className="p-5 bg-white border border-gray-200 rounded-2xl shadow-sm flex justify-between items-center">
@@ -704,12 +798,23 @@ export const HealthPortal: React.FC = () => {
                   <p className="text-xs text-gray-500">{em.address} • {em.distanceKm} km away</p>
                   {em.is24x7 && <span className="text-[11px] text-green-700 font-bold block mt-0.5">● Available 24x7</span>}
                 </div>
-                <a
-                  href={`tel:${em.phone}`}
-                  className="bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm hover:bg-red-700 transition shadow-sm"
-                >
-                  📞 Call Now
-                </a>
+                <div className="flex gap-2 items-center">
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(em.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="border border-teal-300 text-teal-700 font-bold py-2 px-3 rounded-xl text-xs hover:bg-teal-50 transition"
+                    title="Get Directions"
+                  >
+                    📍 Directions
+                  </a>
+                  <a
+                    href={`tel:${em.phone}`}
+                    className="bg-red-600 text-white font-bold py-2.5 px-4 rounded-xl text-sm hover:bg-red-700 transition shadow-sm"
+                  >
+                    📞 Call Now
+                  </a>
+                </div>
               </div>
             ))}
           </div>
@@ -1012,6 +1117,191 @@ export const HealthPortal: React.FC = () => {
                   </>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Ambulance Booking */}
+      {activeTab === "ambulance" && (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <div className="bg-red-50 border-2 border-red-400 p-6 rounded-3xl space-y-3">
+            <h3 className="text-red-900 font-extrabold text-xl flex items-center gap-2">🚑 When to Request Ambulance</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {["Chest pain or difficulty breathing", "Loss of consciousness or seizure", "Major trauma or accident injuries", "Signs of stroke or heart attack", "Severe bleeding or burns", "Severe allergic reaction"].map((sign, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-red-800">
+                  <span className="text-red-500">●</span> {sign}
+                </div>
+              ))}
+            </div>
+            <a href="tel:112" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition">
+              📞 Call 112 for Life-Threatening Emergencies
+            </a>
+          </div>
+
+          {ambDispatched ? (
+            <div className="bg-white border border-gray-200 rounded-3xl p-8 text-center space-y-4 shadow-sm">
+              <div className="text-5xl">✅</div>
+              <h3 className="text-xl font-black text-red-800">Ambulance Dispatched!</h3>
+              <p className="text-gray-600 text-sm">ETA: ~{ambVehicleType === "BASIC" ? "10" : ambVehicleType === "ADVANCED" ? "13" : "16"} minutes</p>
+              <div className="bg-gray-50 rounded-2xl p-4 text-sm text-left space-y-2">
+                <p><strong>Driver:</strong> Suresh Kumar</p>
+                <p><strong>Phone:</strong> <a href="tel:+919800012345" className="text-teal-700 font-bold">+91-9800012345</a></p>
+                <p><strong>Vehicle:</strong> WB-01-AB-1234</p>
+                <p><strong>Type:</strong> {ambVehicleType} Ambulance</p>
+              </div>
+              <div className="flex justify-center gap-2 text-xs">
+                {["REQUESTED", "DISPATCHED", "EN_ROUTE", "ARRIVED"].map((s, i) => (
+                  <div key={s} className="flex flex-col items-center gap-1">
+                    <div className={`w-3 h-3 rounded-full ${i <= 1 ? "bg-teal-500" : "bg-gray-300"}`} />
+                    <span className={i <= 1 ? "text-teal-700 font-bold" : "text-gray-400"}>{s.replace("_", " ")}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setAmbDispatched(false)} className="text-gray-500 text-sm underline">Book Another</button>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 space-y-5 shadow-sm">
+              <h3 className="font-black text-xl text-gray-900">Book Ambulance</h3>
+
+              <div className="grid grid-cols-3 gap-3">
+                {([
+                  { type: "BASIC" as const, label: "Basic", emoji: "🚐", desc: "First aid, O2, stretcher", eta: "8–12 min" },
+                  { type: "ADVANCED" as const, label: "Advanced", emoji: "🚑", desc: "Paramedic + cardiac monitor", eta: "10–15 min" },
+                  { type: "ICU" as const, label: "ICU Mobile", emoji: "🏥", desc: "Full ICU / ventilator", eta: "12–18 min" }
+                ]).map(v => (
+                  <button
+                    key={v.type}
+                    onClick={() => setAmbVehicleType(v.type)}
+                    className={`p-3 rounded-2xl border-2 text-left transition ${ambVehicleType === v.type ? "border-red-500 bg-red-50" : "border-gray-200 bg-white hover:border-red-300"}`}
+                  >
+                    <div className="text-2xl mb-1">{v.emoji}</div>
+                    <p className="font-bold text-sm">{v.label}</p>
+                    <p className="text-xs text-gray-500">{v.desc}</p>
+                    <p className={`text-xs font-bold mt-1 ${ambVehicleType === v.type ? "text-red-600" : "text-gray-400"}`}>ETA: {v.eta}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Patient Name *</label>
+                  <input type="text" value={ambPatientName} onChange={e => setAmbPatientName(e.target.value)} placeholder="Full name" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Contact Phone *</label>
+                  <input type="tel" value={ambPhone} onChange={e => setAmbPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Pickup Address *</label>
+                  <input type="text" value={ambPickup} onChange={e => setAmbPickup(e.target.value)} placeholder="Flat / Block / Area" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Destination Hospital (optional)</label>
+                  <input type="text" value={ambDest} onChange={e => setAmbDest(e.target.value)} placeholder="Hospital name" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Emergency Note</label>
+                  <textarea rows={2} value={ambNote} onChange={e => setAmbNote(e.target.value)} placeholder="Brief description of emergency..." className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-red-400 focus:outline-none resize-none" />
+                </div>
+              </div>
+
+              <button
+                onClick={() => { if (ambPatientName && ambPickup && ambPhone) setAmbDispatched(true); }}
+                disabled={!ambPatientName || !ambPickup || !ambPhone}
+                className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-black py-3.5 rounded-2xl text-base transition shadow-lg"
+              >
+                🚑 Dispatch Ambulance Now
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: IPD Hospital Admission */}
+      {activeTab === "ipd" && (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <div className="bg-purple-50 border border-purple-200 p-6 rounded-3xl">
+            <h3 className="text-purple-900 font-extrabold text-xl mb-1">🏥 IPD / Hospital Admission Booking</h3>
+            <p className="text-purple-700 text-sm">Book a planned hospital admission, select your ward preference, and get confirmation within 4 hours.</p>
+          </div>
+
+          {ipdSubmitted ? (
+            <div className="bg-white border border-gray-200 rounded-3xl p-8 text-center space-y-4 shadow-sm">
+              <div className="text-5xl">✅</div>
+              <h3 className="text-xl font-black text-teal-800">Admission Request Submitted!</h3>
+              <p className="text-gray-600 text-sm">The hospital coordinator will call you within 4 hours to confirm.</p>
+              <div className="bg-gray-50 rounded-2xl p-4 text-sm text-left space-y-2">
+                {[["Patient", ipdPatientName], ["Hospital", ipdHospital], ["Department", ipdDept], ["Ward", ipdWard], ["Reason", ipdReason || "—"]].map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <span className="text-gray-500 w-24 shrink-0">{k}:</span>
+                    <span className="font-semibold text-gray-900">{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4 text-sm text-left space-y-2">
+                <p className="font-bold text-teal-800 mb-1">Next Steps:</p>
+                {["Hospital coordinator will call within 4 hrs", "Carry ID proof and doctor's referral", "Pre-admission tests may be required", "Insurance pre-authorization if applicable"].map((s, i) => (
+                  <div key={i} className="flex gap-2"><span className="font-bold text-teal-600">{i + 1}.</span> {s}</div>
+                ))}
+              </div>
+              <button onClick={() => setIpdSubmitted(false)} className="text-gray-500 text-sm underline">Submit Another</button>
+            </div>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-3xl p-6 space-y-5 shadow-sm">
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-2">Department *</label>
+                <div className="flex flex-wrap gap-2">
+                  {["General Medicine", "Cardiology", "Orthopedics", "Neurology", "Gynecology", "Pediatrics", "Oncology", "Gastroenterology", "Urology", "ENT"].map(d => (
+                    <button key={d} onClick={() => setIpdDept(d)} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition border ${ipdDept === d ? "bg-purple-600 text-white border-purple-600" : "bg-white border-gray-200 text-gray-700 hover:border-purple-300"}`}>{d}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-2">Hospital *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {["Apollo Hospital", "Fortis Healthcare", "Max Super Specialty", "AIIMS", "Manipal Hospital", "Community General Hospital"].map(h => (
+                    <button key={h} onClick={() => setIpdHospital(h)} className={`p-2.5 rounded-xl text-xs font-semibold text-left transition border ${ipdHospital === h ? "bg-purple-50 border-purple-500 text-purple-800" : "bg-white border-gray-200 text-gray-700 hover:border-purple-300"}`}>🏥 {h}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Patient Name *</label>
+                  <input type="text" value={ipdPatientName} onChange={e => setIpdPatientName(e.target.value)} placeholder="Name as on ID" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Contact Phone *</label>
+                  <input type="tel" value={ipdPhone} onChange={e => setIpdPhone(e.target.value)} placeholder="+91 XXXXX XXXXX" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Reason for Admission</label>
+                  <input type="text" value={ipdReason} onChange={e => setIpdReason(e.target.value)} placeholder="e.g. knee replacement surgery, planned delivery" className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Expected Admission Date</label>
+                  <input type="date" value={ipdDate} onChange={e => setIpdDate(e.target.value)} className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">Ward Preference</label>
+                  <select value={ipdWard} onChange={e => setIpdWard(e.target.value as any)} className="w-full border rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none">
+                    <option value="GENERAL">General Ward — ₹1,200/day</option>
+                    <option value="SEMI_PRIVATE">Semi-Private — ₹2,500/day</option>
+                    <option value="PRIVATE">Private Room — ₹4,500/day</option>
+                    <option value="ICU">ICU / Critical — ₹8,000+/day</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={() => { if (ipdDept && ipdHospital && ipdPatientName && ipdPhone) setIpdSubmitted(true); }}
+                disabled={!ipdDept || !ipdHospital || !ipdPatientName || !ipdPhone}
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-black py-3.5 rounded-2xl text-base transition shadow"
+              >
+                Submit Admission Request
+              </button>
             </div>
           )}
         </div>
