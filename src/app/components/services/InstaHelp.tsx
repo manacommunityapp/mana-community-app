@@ -47,18 +47,39 @@ type Step = "select" | "details" | "matching" | "matched" | "active";
 type Tab = "book" | "bookings";
 
 interface BookingResponse {
+  id?: number;
   bookingRef: string;
   serviceType: string;
   subtask: string;
   duration: string;
+  priceAmount?: number;
+  notes?: string;
   status: string;
+  closureOtp?: string;
   helperName?: string;
   helperRating?: number;
   helperEtaMinutes?: number;
   helperDistanceLabel?: string;
-  closureOtp?: string;
+  residentRating?: number;
+  residentFeedback?: string;
   bookedAt: string;
-  notes?: string;
+  matchedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+}
+
+function safeDate(dateStr?: string): string {
+  if (!dateStr) return "—";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  } catch { return "—"; }
+}
+
+function durationLabel(id: string): string {
+  return DURATIONS.find((d) => d.id === id)?.label ?? id;
 }
 
 export function InstaHelp() {
@@ -450,6 +471,26 @@ function MatchedCard({
         </div>
       )}
 
+      {/* Booking summary row */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-2">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide">Duration</p>
+          <p className="text-xs font-bold text-slate-900 dark:text-white">{durationLabel(booking.duration)}</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-2">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide">Price</p>
+          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            {booking.priceAmount != null ? `₹${booking.priceAmount}` : "—"}
+          </p>
+        </div>
+        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-2">
+          <p className="text-[10px] text-slate-400 uppercase tracking-wide">ETA</p>
+          <p className="text-xs font-bold text-slate-900 dark:text-white">
+            {booking.helperEtaMinutes != null ? `${booking.helperEtaMinutes} min` : "—"}
+          </p>
+        </div>
+      </div>
+
       {/* OTP */}
       {booking.closureOtp && (
         <div className="text-center p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
@@ -588,30 +629,43 @@ function MyBookingsTab({
         </div>
       ) : (
         <div className="space-y-2">
-          {bookings.map((b) => (
-            <div
-              key={b.bookingRef}
-              className="flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E1E36]"
-            >
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-mono text-slate-500">{b.bookingRef}</span>
-                  <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-full", STATUS_STYLES[b.status] || "bg-slate-100 text-slate-600")}>
-                    {b.status}
-                  </span>
+          {bookings.map((b) => {
+            const svc = SERVICES.find((s) => s.id === b.serviceType);
+            return (
+              <div
+                key={b.bookingRef}
+                className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E1E36] space-y-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <span className="text-xs font-mono text-slate-500">{b.bookingRef}</span>
+                      <span className={cn("text-[11px] font-bold px-2 py-0.5 rounded-full", STATUS_STYLES[b.status] || "bg-slate-100 text-slate-600")}>
+                        {b.status.replace("_", " ")}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {svc?.emoji} {svc?.label ?? b.serviceType} — {b.subtask}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {durationLabel(b.duration)}
+                      {b.priceAmount != null && <> · <span className="font-semibold text-indigo-600 dark:text-indigo-400">₹{b.priceAmount}</span></>}
+                      {b.helperName && <> · Helper: {b.helperName}</>}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-slate-400 shrink-0">
+                    {safeDate(b.bookedAt)}
+                  </div>
                 </div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                  {SERVICES.find((s) => s.id === b.serviceType)?.emoji} {b.serviceType} — {b.subtask}
-                </p>
-                {b.helperName && (
-                  <p className="text-xs text-slate-500 mt-0.5">Helper: {b.helperName}</p>
+                {b.status === "COMPLETED" && b.completedAt && (
+                  <p className="text-[11px] text-slate-400">Completed: {safeDate(b.completedAt)}</p>
+                )}
+                {b.status === "CANCELLED" && b.cancelledAt && (
+                  <p className="text-[11px] text-red-400">Cancelled: {safeDate(b.cancelledAt)}</p>
                 )}
               </div>
-              <div className="text-right text-xs text-slate-400 shrink-0 ml-4">
-                {new Date(b.bookedAt).toLocaleDateString()}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
