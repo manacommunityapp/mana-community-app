@@ -283,6 +283,7 @@ import { InsurancePortal } from "../pages/insurance/InsurancePortal";
 import { GoldPortal } from "../pages/gold/GoldPortal";
 import { MutualFundsPortal } from "../pages/investments/MutualFundsPortal";
 import { SplitBillPortal } from "../pages/split/SplitBillPortal";
+import { MoviePortal } from "../pages/entertainment/MoviePortal";
 import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // New cross-module parity components
@@ -1092,6 +1093,7 @@ export const router = createBrowserRouter([
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
       { path: "split-bill", element: <SplitBillPortal /> },
+      { path: "movies", element: <MoviePortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
       {
         path: "academy",
