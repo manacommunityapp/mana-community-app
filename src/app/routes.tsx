@@ -279,6 +279,7 @@ import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
 import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
 import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
 import { HealthPortal } from "../pages/health/HealthPortal";
+import { InsurancePortal } from "../pages/insurance/InsurancePortal";
 import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // New cross-module parity components
@@ -1084,6 +1085,7 @@ export const router = createBrowserRouter([
       { path: "admin/trust-safety", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]} requiredModule="ADMIN_HUB"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
       { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
       { path: "health", element: <HealthPortal /> },
+      { path: "insurance", element: <InsurancePortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
       {
         path: "academy",

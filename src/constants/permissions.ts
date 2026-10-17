@@ -128,6 +128,10 @@ export const VIEW_EMERGENCY   = "View Emergency";
 export const TRIGGER_SOS      = "Trigger SOS";
 export const MANAGE_EMERGENCY = "Manage Emergency";
 
+// ──── INSURANCE HUB ────
+export const VIEW_INSURANCE   = "View Insurance";
+export const MANAGE_INSURANCE = "Manage Insurance";
+
 // ──── GROUP BUYING ────
 export const VIEW_GROUP_BUYING   = "View Group Buying";
 export const JOIN_GROUP_DEAL     = "Join Group Deal";
@@ -668,6 +672,11 @@ export const PERMISSION_CATEGORIES = [
     title: "MAINTENANCE BILLING & DUES Permission",
     permissions: [VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, MANAGE_BILLING],
   },
+  {
+    id: "insurance",
+    title: "MANA INSURANCE HUB Permission",
+    permissions: [VIEW_INSURANCE, MANAGE_INSURANCE],
+  },
 ] as const;
 
 // ──── ROLE NAME CONSTANTS ──────────────────────────────────────────────────
@@ -703,4 +712,5 @@ export const USER_PERMISSIONS: string[] = [
   VIEW_POLLS, VOTE_POLL,
   VIEW_JOBS,
   VIEW_AMENITIES,
+  VIEW_INSURANCE,
 ];
