@@ -297,6 +297,7 @@ import WellnessChallenges from "./components/wellness/WellnessChallenges";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
+import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
 import { AutomationDashboard } from "./components/automation/AutomationDashboard";
 import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
@@ -1134,6 +1135,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
+      { path: "mobility", element: <MobilityDashboard /> },
       { path: "projects", element: <ProjectsDashboard /> },
       { path: "automation", element: <AutomationDashboard /> },
       { path: "intelligence", element: <IntelligenceDashboard /> },
