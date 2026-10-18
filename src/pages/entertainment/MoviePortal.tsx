@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { RefreshCw, X } from "lucide-react";
-import { movieService, Movie, Showtime, SeatRow } from "../../services/entertainment/movieService";
+import { movieService, type Movie, type Showtime, type SeatRow } from "../../services/entertainment/movieService";
 
 const LANG_FILTERS = ["All", "Hindi", "Telugu", "Tamil", "English", "Malayalam"];
 const MAX_SEATS = 6;

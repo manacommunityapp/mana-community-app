@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, RefreshCw } from "lucide-react";
-import { splitBillService, SplitBill, SplitType } from "../../services/finance/splitBillService";
+import { splitBillService, type SplitBill, type SplitType } from "../../services/finance/splitBillService";
 import { showSuccess, showError } from "../../utils/ToastUtils";
 
 const CATEGORY_ICONS: Record<string, string> = { MAINTENANCE: "🏠", EVENT: "🎉", UTILITY: "⚡", FOOD: "🍽️", OTHER: "💸" };

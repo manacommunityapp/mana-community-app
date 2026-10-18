@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { InsuranceHeader } from "./InsuranceHeader";
 import { InsuranceOverviewTab } from "./InsuranceOverviewTab";
@@ -9,7 +9,8 @@ import { InsuranceClaimsTab } from "./InsuranceClaimsTab";
 import { InsuranceGroupTab } from "./InsuranceGroupTab";
 import { InsuranceConsentsTab } from "./InsuranceConsentsTab";
 import { AddPolicyModal, ClaimModal, GroupModal } from "./InsuranceModals";
-import { sortCatalogue, SortKey, INSURANCE_NOTICE_VERSION } from "../../constants/insurance";
+import { sortCatalogue, INSURANCE_NOTICE_VERSION } from "../../constants/insurance";
+import type { SortKey } from "../../constants/insurance";
 import { insuranceService } from "../../services/insuranceService";
 import type {
   CatalogueItem,

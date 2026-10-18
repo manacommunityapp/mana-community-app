@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import {
   FileText,
   ExternalLink,
@@ -10,8 +10,8 @@ import {
 import {
   CATEGORIES,
   categoryLabel,
-  SortKey,
 } from "../../constants/insurance";
+import type { SortKey } from "../../constants/insurance";
 import type { CatalogueItem, InsuranceCategory } from "../../types/insurance";
 
 interface InsuranceCatalogueTabProps {

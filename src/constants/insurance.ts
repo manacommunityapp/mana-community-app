@@ -1,4 +1,4 @@
-﻿import type { InsuranceCategory, CatalogueItem, PolicyView } from '../types/insurance';
+import type { InsuranceCategory, CatalogueItem, PolicyView } from '../types/insurance';
 
 export const INSURANCE_NOTICE_VERSION = 'v1';
 
@@ -85,6 +85,11 @@ export function isSafeHandoffUrl(url: string, allowedHost: string): boolean {
 }
 
 // ───────────────────────── comparison ─────────────────────────
+
+export const SortKey = {
+  NAME: 'NAME',
+  INSURER: 'INSURER',
+} as const;
 
 export type SortKey = 'NAME' | 'INSURER';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown, MapPin, Building2 } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown, MapPin, Building2, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
@@ -8,7 +8,7 @@ import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { otpService } from "../../../services/common/otpService";
-import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -18,7 +18,7 @@ import {
 import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
-import type { SportsEvent, PlayerCategory } from "../../../types/api";
+import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 
 export function detectSport(name: string): string {
@@ -859,6 +859,137 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [userFullName, userGender, userDob, userFlat]);
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+
+  // Admin On-Behalf Community Player Search States
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerSearchResults, setPlayerSearchResults] = useState<UserResponse[]>([]);
+  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [selectedResident, setSelectedResident] = useState<UserResponse | null>(null);
+  const [residentFamilyMembers, setResidentFamilyMembers] = useState<FamilyMemberSlim[]>([]);
+  const [loadingResidentFamily, setLoadingResidentFamily] = useState(false);
+  const [isManualPlayerEntry, setIsManualPlayerEntry] = useState(false);
+
+  // Debounced search for community users when in "Community Person" mode
+  useEffect(() => {
+    if (formData.regType !== "other" || !playerSearchQuery.trim()) {
+      setPlayerSearchResults([]);
+      setIsSearchingPlayers(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlayers(true);
+      try {
+        const results = await userService.searchUsersGlobal(playerSearchQuery.trim(), user?.communityId);
+        setPlayerSearchResults(results);
+      } catch (err) {
+        console.warn("Failed to search community players:", err);
+        setPlayerSearchResults([]);
+      } finally {
+        setIsSearchingPlayers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [playerSearchQuery, formData.regType, user?.communityId]);
+
+  const handleSelectResident = async (resident: UserResponse) => {
+    const rawBlock = resident.block || (resident as any).tower || (resident as any).wing || "";
+    const rawFlat = resident.flatNo || (resident as any).flatNumber || (resident as any).flat || "";
+    let formattedFlat = rawFlat;
+    if (rawBlock && rawFlat) {
+      if (rawFlat.toUpperCase().includes(rawBlock.toUpperCase())) {
+        formattedFlat = rawFlat;
+      } else {
+        formattedFlat = `Block ${rawBlock}, Flat ${rawFlat}`;
+      }
+    } else if (rawBlock) {
+      formattedFlat = `Block ${rawBlock}`;
+    }
+
+    const residentDob = resident.dateOfBirth || (resident as any).dob || "";
+    const calcAge = residentDob ? Math.max(0, new Date().getFullYear() - new Date(residentDob).getFullYear()) : 0;
+    const residentGender = resident.gender ? resident.gender.toUpperCase() : "";
+
+    setSelectedResident(resident);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setIsManualPlayerEntry(false);
+
+    if (resident.email) {
+      setEmail(resident.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: resident.fullName || (resident as any).name || "",
+      flatNumber: formattedFlat,
+      gender: residentGender,
+      dateOfBirth: residentDob,
+      age: calcAge,
+      familyMemberId: undefined,
+      relation: "SELF",
+    }));
+
+    setIsPlayerIdentityExpanded(true);
+
+    // Fetch family members of this selected resident
+    setLoadingResidentFamily(true);
+    try {
+      const fam = await familyService.getSlimFamilyMembers(resident.id);
+      setResidentFamilyMembers(fam || []);
+    } catch (err) {
+      console.warn("Could not load family members for resident:", err);
+      setResidentFamilyMembers([]);
+    } finally {
+      setLoadingResidentFamily(false);
+    }
+  };
+
+  const handleSelectResidentFamilyMember = (mem: FamilyMemberSlim) => {
+    let memberAge = mem.age;
+    if (!memberAge && mem.dob) {
+      try {
+        const birth = new Date(mem.dob);
+        if (!isNaN(birth.getTime())) {
+          memberAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      } catch {}
+    }
+
+    if (mem.email) {
+      setEmail(mem.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: mem.name,
+      familyMemberId: mem.id,
+      gender: mem.gender ? mem.gender.toUpperCase() : prev.gender,
+      dateOfBirth: mem.dob || prev.dateOfBirth,
+      age: memberAge ?? prev.age,
+      relation: (mem.relation || "CHILD").toUpperCase(),
+    }));
+
+    toast.info(`Selected family member: ${mem.name} (${mem.relation || "Member"})`);
+  };
+
+  const handleClearSelectedResident = () => {
+    setSelectedResident(null);
+    setResidentFamilyMembers([]);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setFormData(prev => ({
+      ...prev,
+      playerName: "",
+      flatNumber: "",
+      gender: "",
+      dateOfBirth: "",
+      age: 0,
+      familyMemberId: undefined,
+      relation: "",
+    }));
+  };
 
   // Unified Edit / Add Details Modal State (Self or Family Member)
   const [profileModalState, setProfileModalState] = useState<{
@@ -1750,7 +1881,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             email: email.trim() || undefined,
             relation: formData.relation,
             flatNumber: formData.flatNumber,
-            familyMemberId: formData.regType === "family" && formData.familyMemberId ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId) : undefined,
+            familyMemberId: formData.familyMemberId ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId) : undefined,
             partnerUserId: isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId) ? (formData.partnerInfo?.userId || formData.partnerUserId) : undefined,
             partnerFamilyMemberId: isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) : undefined,
             captainNomination: formData.captainNomination || undefined,
@@ -1770,7 +1901,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
 
       const formatCount = formatsToSubmit.length;
-      const targetName = formData.regType === "family" && formData.playerName ? ` for ${formData.playerName}` : "";
+      const targetName = (formData.regType === "family" || formData.regType === "other") && formData.playerName ? ` for ${formData.playerName}` : "";
       const formatLabels = formatsToSubmit.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ");
       toast.success(event.adminApprovalRequired === false
         ? `Registration confirmed${targetName} (${formatLabels})! Good luck.`
@@ -2287,17 +2418,41 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   key={tab.key}
                   type="button"
                   onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      regType: tab.key,
-                      playerName: tab.key === "self" ? (userFullName || user?.fullName || "") : "",
-                      gender: tab.key === "self" ? (userGender || "") : "",
-                      dateOfBirth: tab.key === "self" ? (userDob || "") : "",
-                      flatNumber: tab.key === "other" ? "" : userFlat,
-                      age: tab.key === "self" && userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : prev.age,
-                    }));
                     if (tab.key === "other") {
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "other",
+                        playerName: "",
+                        gender: "",
+                        dateOfBirth: "",
+                        flatNumber: "",
+                        age: 0,
+                        familyMemberId: undefined,
+                        relation: "",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
+                      setIsManualPlayerEntry(false);
                       setIsPlayerIdentityExpanded(true);
+                    } else {
+                      setEmail(user?.email || "");
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "self",
+                        playerName: userFullName || user?.fullName || "",
+                        gender: userGender || "",
+                        dateOfBirth: userDob || "",
+                        flatNumber: userFlat,
+                        age: userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : 25,
+                        familyMemberId: undefined,
+                        relation: "SELF",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
                     }
                   }}
                   className={`flex-1 py-1 sm:py-1.5 px-2 sm:px-2.5 text-[11px] sm:text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 min-h-[30px] sm:min-h-[32px] cursor-pointer ${
@@ -2431,6 +2586,219 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 )}
 
+                {/* Admin Community Person / Player Search Section */}
+                {formData.regType === "other" && (
+                  <div className="mb-3 p-2.5 sm:p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2.5 animate-in fade-in">
+                    <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-indigo-200">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <span>Search Community Resident / Player</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedResident && (
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" /> Selected
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsManualPlayerEntry(prev => !prev);
+                            if (!isManualPlayerEntry) {
+                              handleClearSelectedResident();
+                            }
+                          }}
+                          className="text-[10px] font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 underline cursor-pointer"
+                        >
+                          {isManualPlayerEntry ? "← Search Resident Directory" : "Manual / Guest Player"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isManualPlayerEntry ? (
+                      <div className="space-y-2">
+                        {/* Search Input */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={playerSearchQuery}
+                            onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                            placeholder="Type name, flat number, phone, or email to search..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs"
+                          />
+                          {playerSearchQuery ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPlayerSearchQuery("");
+                                setPlayerSearchResults([]);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          ) : isSearchingPlayers ? (
+                            <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          ) : null}
+                        </div>
+
+                        {/* Search Results Dropdown */}
+                        {playerSearchResults.length > 0 && (
+                          <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in">
+                            {playerSearchResults.slice(0, 10).map((resident) => {
+                              const flatDisplay = resident.flatNo || resident.block
+                                ? `${resident.block ? `Block ${resident.block}` : ""}${resident.block && resident.flatNo ? ", " : ""}${resident.flatNo || ""}`
+                                : "";
+                              const isSelected = selectedResident?.id === resident.id;
+                              return (
+                                <button
+                                  key={resident.id}
+                                  type="button"
+                                  onClick={() => handleSelectResident(resident)}
+                                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between gap-2 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer ${
+                                    isSelected ? "bg-indigo-50 dark:bg-indigo-950/60 font-semibold text-indigo-600 dark:text-indigo-400" : "text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-xs truncate">
+                                      {resident.fullName || (resident as any).name || "Resident"}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                      {[flatDisplay, resident.phone, resident.email].filter(Boolean).join(" • ")}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {flatDisplay && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        {flatDisplay}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                      Select →
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {playerSearchQuery.trim().length >= 2 && !isSearchingPlayers && playerSearchResults.length === 0 && (
+                          <div className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
+                            No community resident found matching "{playerSearchQuery}".
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsManualPlayerEntry(true);
+                                setFormData(prev => ({ ...prev, playerName: playerSearchQuery.trim() }));
+                              }}
+                              className="ml-1 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+                            >
+                              Enter details manually →
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Selected Resident Profile Strip */}
+                        {selectedResident && (
+                          <div className="p-2 sm:p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {((selectedResident.fullName || (selectedResident as any).name || "U")[0]).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {selectedResident.fullName || (selectedResident as any).name}
+                                    {formData.flatNumber ? ` (${formData.flatNumber})` : ""}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                    {[selectedResident.phone, selectedResident.email].filter(Boolean).join(" • ")}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleClearSelectedResident}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 transition cursor-pointer"
+                              >
+                                Change / Clear
+                              </button>
+                            </div>
+
+                            {/* Family Member Quick-Selection Chips */}
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                              <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                Register this player as:
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const rDob = selectedResident.dateOfBirth || (selectedResident as any).dob || "";
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      playerName: selectedResident.fullName || (selectedResident as any).name || "",
+                                      familyMemberId: undefined,
+                                      gender: selectedResident.gender ? selectedResident.gender.toUpperCase() : prev.gender,
+                                      dateOfBirth: rDob,
+                                      age: rDob ? Math.max(0, new Date().getFullYear() - new Date(rDob).getFullYear()) : prev.age,
+                                      relation: "SELF",
+                                    }));
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-[10px] font-semibold transition border cursor-pointer ${
+                                    !formData.familyMemberId
+                                      ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                  }`}
+                                >
+                                  👤 {selectedResident.fullName || "Resident"} (Self)
+                                </button>
+
+                                {loadingResidentFamily && (
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Loader2 className="w-3 h-3 animate-spin" /> Loading family...
+                                  </span>
+                                )}
+
+                                {!loadingResidentFamily && residentFamilyMembers.map((mem) => {
+                                  const isMemSelected = String(formData.familyMemberId) === String(mem.id);
+                                  return (
+                                    <button
+                                      key={mem.id}
+                                      type="button"
+                                      onClick={() => handleSelectResidentFamilyMember(mem)}
+                                      className={`px-2 py-1 rounded-md text-[10px] font-semibold transition border cursor-pointer ${
+                                        isMemSelected
+                                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                          : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                      }`}
+                                    >
+                                      {mem.relation ? `${mem.relation}: ` : ""}{mem.name} {mem.age ? `(${mem.age} Yrs)` : ""}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+                        <span>Manual Guest Entry: fill out the player details below.</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsManualPlayerEntry(false)}
+                          className="font-bold underline text-amber-900 dark:text-amber-100 hover:text-amber-700 cursor-pointer text-[10px]"
+                        >
+                          Use Directory Search
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {isPlayerIdentityExpanded && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in duration-200">
                     {/* Player Name */}
@@ -2444,7 +2812,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         value={formData.playerName}
                         onChange={handleInputChange}
                         readOnly={formData.regType === "self"}
-                        placeholder={formData.regType === "self" ? "" : "Enter full name"}
+                        placeholder={formData.regType === "self" ? "" : selectedResident ? "Player name" : "Search resident above or enter full name"}
                         className={`w-full bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
                           formData.regType === "self"
                             ? "text-slate-500 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-800/40 cursor-not-allowed"
@@ -2587,7 +2955,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
                         onChange={handleInputChange}
                         readOnly={formData.regType === "self" || formData.regType === "family"}
-                        placeholder={userFlat || "Missing in Profile"}
+                        placeholder={formData.regType === "other" ? (formData.flatNumber || "e.g. Block A, Flat 101") : (userFlat || "Missing in Profile")}
                         className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 ${
                           formData.regType !== "other"
                             ? userFlat

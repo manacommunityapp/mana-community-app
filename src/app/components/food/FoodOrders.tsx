@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
 import {
   ShoppingCart, Clock, CheckCircle, Truck, XCircle, ChefHat,
   Package, Star, RotateCcw, Ban, AlertCircle
@@ -36,39 +35,68 @@ function formatDate(d: string) {
 }
 
 export function FoodOrders() {
-  const queryClient = useQueryClient();
   const [cancelDialog, setCancelDialog] = useState<FoodOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [rateDialog, setRateDialog] = useState<FoodOrder | null>(null);
   const [selectedRating, setSelectedRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
+  const [orders, setOrders] = useState<FoodOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isRating, setIsRating] = useState(false);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["foodOrders"],
-    queryFn: () => foodOrderService.getMyOrders(),
-  });
-  const orders: FoodOrder[] = data?.content ?? [];
+  const fetchOrders = useCallback(async () => {
+    setIsLoading(true);
+    setIsError(false);
+    try {
+      const res = await foodOrderService.getMyOrders();
+      setOrders(res?.content ?? []);
+    } catch {
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const cancelMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
-      foodOrderService.cancelOrder(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["foodOrders"] });
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  const handleCancel = async () => {
+    if (!cancelDialog) return;
+    setIsCancelling(true);
+    try {
+      await foodOrderService.cancelOrder(cancelDialog.id, cancelReason);
       setCancelDialog(null);
       setCancelReason("");
-    },
-  });
+      fetchOrders();
+    } catch (err) {
+      console.error("Failed to cancel order:", err);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
-  const rateMutation = useMutation({
-    mutationFn: ({ id, rating, text }: { id: number; rating: number; text: string }) =>
-      foodOrderService.rateOrder(id, { overallRating: rating, foodRating: rating, reviewText: text } as unknown as FoodOrderRating),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["foodOrders"] });
+  const handleRate = async () => {
+    if (!rateDialog) return;
+    setIsRating(true);
+    try {
+      await foodOrderService.rateOrder(rateDialog.id, {
+        overallRating: selectedRating,
+        foodRating: selectedRating,
+        reviewText: ratingComment,
+      } as unknown as FoodOrderRating);
       setRateDialog(null);
       setSelectedRating(0);
       setRatingComment("");
-    },
-  });
+      fetchOrders();
+    } catch (err) {
+      console.error("Failed to rate order:", err);
+    } finally {
+      setIsRating(false);
+    }
+  };
 
   const activeOrders = orders.filter((o) => ["PLACED", "CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(o.status));
   const pastOrders = orders.filter((o) => o.status === "DELIVERED");
@@ -88,7 +116,7 @@ export function FoodOrders() {
       <div className="text-center py-16 text-slate-400">
         <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-40" />
         <p className="font-medium">Could not load orders</p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={() => queryClient.invalidateQueries({ queryKey: ["foodOrders"] })}>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => fetchOrders()}>
           Retry
         </Button>
       </div>
@@ -243,10 +271,10 @@ export function FoodOrders() {
             <Button variant="outline" onClick={() => { setCancelDialog(null); setCancelReason(""); }}>Keep Order</Button>
             <Button
               variant="destructive"
-              disabled={cancelMutation.isPending}
-              onClick={() => cancelDialog && cancelMutation.mutate({ id: cancelDialog.id, reason: cancelReason })}
+              disabled={isCancelling}
+              onClick={handleCancel}
             >
-              {cancelMutation.isPending ? "Cancelling…" : "Cancel Order"}
+              {isCancelling ? "Cancelling…" : "Cancel Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -271,10 +299,10 @@ export function FoodOrders() {
             <Button variant="outline" onClick={() => { setRateDialog(null); setSelectedRating(0); setRatingComment(""); }}>Skip</Button>
             <Button
               className="bg-orange-600 hover:bg-orange-700 text-white"
-              disabled={selectedRating === 0 || rateMutation.isPending}
-              onClick={() => rateDialog && rateMutation.mutate({ id: rateDialog.id, rating: selectedRating, text: ratingComment })}
+              disabled={selectedRating === 0 || isRating}
+              onClick={handleRate}
             >
-              {rateMutation.isPending ? "Submitting…" : "Submit Rating"}
+              {isRating ? "Submitting…" : "Submit Rating"}
             </Button>
           </DialogFooter>
         </DialogContent>

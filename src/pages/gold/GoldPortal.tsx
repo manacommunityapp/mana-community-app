@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { TrendingUp, TrendingDown, ShieldCheck, RefreshCw } from "lucide-react";
-import { goldService, GoldHolding, GoldTransaction } from "../../services/finance/goldService";
+import { goldService, type GoldHolding, type GoldTransaction } from "../../services/finance/goldService";
 import { showSuccess, showError } from "../../utils/ToastUtils";
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000];

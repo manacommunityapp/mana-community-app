@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, RefreshCw, X } from "lucide-react";
-import { mutualFundService, MutualFund, FundCategory, MFHolding, SipMandate } from "../../services/finance/mutualFundService";
+import { mutualFundService, type MutualFund, type FundCategory, type MFHolding, type SipMandate } from "../../services/finance/mutualFundService";
 import { showSuccess, showError } from "../../utils/ToastUtils";
 
 const CATEGORIES: { key: FundCategory | "ALL"; label: string }[] = [
