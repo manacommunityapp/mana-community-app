@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Star, ChefHat, ShoppingBag
 } from "lucide-react";
@@ -25,19 +24,30 @@ const EMPTY_FORM: HomeChefRequest = { kitchenName: "", description: "", speciali
 
 export function HomeChefMarketplace() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState("All");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [showRegister, setShowRegister] = useState(false);
   const [regForm, setRegForm] = useState<HomeChefRequest>(EMPTY_FORM);
+  const [allChefs, setAllChefs] = useState<HomeChef[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(false);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["homeChefs", searchQuery],
-    queryFn: () => foodHomeChefService.getHomeChefs(0, 50, undefined, searchQuery || undefined),
-  });
+  const fetchChefs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await foodHomeChefService.getHomeChefs(0, 50, undefined, searchQuery || undefined);
+      setAllChefs(data?.content ?? []);
+    } catch (err) {
+      console.error("Failed to fetch home chefs:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery]);
 
-  const allChefs: HomeChef[] = data?.content ?? [];
+  useEffect(() => {
+    fetchChefs();
+  }, [fetchChefs]);
 
   const chefs = allChefs.filter((c) => {
     if (cuisineFilter !== "All" && !c.cuisineTypes?.toLowerCase().includes(cuisineFilter.toLowerCase())) return false;
@@ -46,14 +56,20 @@ export function HomeChefMarketplace() {
     return true;
   });
 
-  const registerMutation = useMutation({
-    mutationFn: (data: HomeChefRequest) => foodHomeChefService.registerHomeChef(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["homeChefs"] });
+  const handleRegister = async () => {
+    if (!regForm.kitchenName.trim()) return;
+    setIsRegistering(true);
+    try {
+      await foodHomeChefService.registerHomeChef(regForm);
       setShowRegister(false);
       setRegForm(EMPTY_FORM);
-    },
-  });
+      fetchChefs();
+    } catch (err) {
+      console.error("Failed to register home chef:", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -111,10 +127,10 @@ export function HomeChefMarketplace() {
               <Button variant="outline" onClick={() => { setShowRegister(false); setRegForm(EMPTY_FORM); }}>Cancel</Button>
               <Button
                 className="bg-pink-600 hover:bg-pink-700 text-white"
-                disabled={!regForm.kitchenName.trim() || registerMutation.isPending}
-                onClick={() => registerMutation.mutate(regForm)}
+                disabled={!regForm.kitchenName.trim() || isRegistering}
+                onClick={handleRegister}
               >
-                {registerMutation.isPending ? "Submitting…" : "Submit Application"}
+                {isRegistering ? "Submitting…" : "Submit Application"}
               </Button>
             </DialogFooter>
           </DialogContent>

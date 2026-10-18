@@ -102,11 +102,14 @@ export function BillsAndAutopayDashboard() {
   const [showBbpsCheckout, setShowBbpsCheckout] = useState(false);
 
   const BBPS_CATEGORIES: { id: BillerCategory; icon: string; label: string; color: string; bg: string }[] = [
-    { id: "ELECTRICITY", icon: "⚡", label: "Electricity", color: "#D97706", bg: "#FFFBEB" },
-    { id: "GAS", icon: "🔥", label: "Gas", color: "#DC2626", bg: "#FEF2F2" },
-    { id: "WATER", icon: "💧", label: "Water", color: "#0284C7", bg: "#F0F9FF" },
-    { id: "BROADBAND", icon: "📡", label: "Broadband", color: "#7C3AED", bg: "#F5F3FF" },
-    { id: "DTH", icon: "📺", label: "DTH / Cable", color: "#0891B2", bg: "#ECFEFF" },
+    { id: "ELECTRICITY",   icon: "⚡",  label: "Electricity",   color: "#D97706", bg: "#FFFBEB" },
+    { id: "GAS",           icon: "🔥",  label: "Gas",           color: "#DC2626", bg: "#FEF2F2" },
+    { id: "WATER",         icon: "💧",  label: "Water",         color: "#0284C7", bg: "#F0F9FF" },
+    { id: "BROADBAND",     icon: "📡",  label: "Broadband",     color: "#7C3AED", bg: "#F5F3FF" },
+    { id: "DTH",           icon: "📺",  label: "DTH / Cable",   color: "#0891B2", bg: "#ECFEFF" },
+    { id: "FASTAG",        icon: "🚗",  label: "FASTag",        color: "#B45309", bg: "#FFFBEB" },
+    { id: "MUNICIPAL_TAX", icon: "🏛️", label: "Municipal Tax", color: "#5B21B6", bg: "#F5F3FF" },
+    { id: "CREDIT_CARD",   icon: "💳",  label: "Credit Card",   color: "#0369A1", bg: "#F0F9FF" },
   ];
 
   const handleOpenBbps = async () => {

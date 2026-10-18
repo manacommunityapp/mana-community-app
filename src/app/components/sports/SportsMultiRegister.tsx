@@ -992,7 +992,7 @@ export function SportsMultiRegister() {
             bannerImage: (rawTourney as any).bannerImage || targetTourney?.bannerImage || null,
             eventDateStart: rawTourney.eventDateStart || targetTourney?.eventDateStart || null,
             eventDateEnd: rawTourney.eventDateEnd || targetTourney?.eventDateEnd || null,
-            registrationStatus: rawTourney.registrationStatus || rawTourney.status || targetTourney?.registrationStatus || "REGISTRATION_OPEN",
+            registrationStatus: rawTourney.registrationStatus || (rawTourney as any).status || targetTourney?.registrationStatus || "REGISTRATION_OPEN",
             communityId: (rawTourney as any).communityId || targetTourney?.communityId || null,
             communityName: (rawTourney as any).community?.name || targetTourney?.communityName || null,
             events: childEvents && childEvents.length > 0
@@ -1022,7 +1022,7 @@ export function SportsMultiRegister() {
                   }))
                 : [{
                     id: rawTourney.id,
-                    uuid: rawTourney.uuid || null,
+                    uuid: (rawTourney as any).uuid || null,
                     name: rawTourney.name,
                     eventDateStart: rawTourney.eventDateStart || null,
                     eventDateEnd: rawTourney.eventDateEnd || null,
@@ -1030,7 +1030,7 @@ export function SportsMultiRegister() {
                     categoryName: (rawTourney as any).categoryName || (rawTourney as any).category?.name || null,
                     venueName: (rawTourney as any).venueName || (rawTourney as any).venue?.name || null,
                     maxParticipants: rawTourney.maxParticipants || null,
-                    registrationStatus: rawTourney.registrationStatus || rawTourney.status || null,
+                    registrationStatus: rawTourney.registrationStatus || (rawTourney as any).status || null,
                     auctionStatus: (rawTourney as any).auctionStatus || null,
                     teamSport: Boolean((rawTourney as any).teamSport),
                     format: (rawTourney as any).format || (rawTourney as any).formats || null,

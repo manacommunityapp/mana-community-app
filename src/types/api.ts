@@ -398,14 +398,30 @@ export interface SportsTournament {
   createdAt?: string;
   updatedAt?: string;
   communityId?: number;
+  communityName?: string;
+  description?: string;
+  maxParticipants?: number;
+  eventDateStart?: string;
+  eventDateEnd?: string;
+  registrationDateStart?: string;
+  registrationDateEnd?: string;
+  startTime?: string;
+  dueTime?: string;
+  bannerImage?: string;
   contactId?: number;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
   contactTitle?: string;
   contacts?: EventContact[];
+  otherContacts?: { title: string; name: string; detail: string; }[] | string;
+  allowAdminChat?: boolean;
+  registrationStatus?: string;
   sportsEvents?: SportsEvent[];
   sponsors?: Sponsor[];
+  rules?: string;
+  venueName?: string;
+  venue?: Venue;
 }
 
 export type SportsTournamentRequest = SportsEventRequest;
