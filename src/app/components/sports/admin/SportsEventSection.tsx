@@ -961,7 +961,7 @@ export function SportsEventSection({
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="truncate">{e.gender || "ALL"} • {e.minAge || 10}-{e.maxAge || 70} Yrs</span>
+                          <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
                         </div>
                       </div>
                     </div>

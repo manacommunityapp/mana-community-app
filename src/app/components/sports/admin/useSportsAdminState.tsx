@@ -1341,7 +1341,7 @@ export function useSportsAdminState() {
             id: Math.random().toString(),
             name: "",
             gender: "ALL",
-            playersBorn: "1900-01-01",
+            playersBorn: "",
             format: isTeam ? "TEAM" : "SINGLES",
             minPlayers: isTeam ? getDefaultMinPlayers(s.name) : undefined,
             maxPlayers: isTeam ? getDefaultMinPlayers(s.name) + 4 : undefined,
@@ -1382,7 +1382,7 @@ export function useSportsAdminState() {
             id: e.id.toString(),
             name: e.name || "",
             gender: e.gender || "ALL",
-            playersBorn: e.playersBorn || "1900-01-01",
+            playersBorn: e.playersBorn || "",
             format: Array.isArray(e.format) ? e.format.join(",") : (e.format || (isTeam ? "TEAM" : "SINGLES")),
             minPlayers: e.minPlayers || (isTeam ? getDefaultMinPlayers(e.sport?.name || "") : undefined),
             maxPlayers: e.maxPlayers || (isTeam ? getDefaultMinPlayers(e.sport?.name || "") + 4 : undefined),
@@ -1424,7 +1424,7 @@ export function useSportsAdminState() {
         id: Math.random().toString(),
         name: "",
         gender: "ALL",
-        playersBorn: "1900-01-01",
+        playersBorn: "",
         format: isTeam ? "TEAM" : "SINGLES",
         minPlayers: isTeam ? getDefaultMinPlayers(s.sportName) : undefined,
         maxPlayers: isTeam ? getDefaultMinPlayers(s.sportName) + 4 : undefined,
@@ -1647,8 +1647,24 @@ export function useSportsAdminState() {
   };
 
   const setTournamentContext = (id: number, name: string) => {
-    setActiveTournamentId(id);
-    setActiveTournamentName(name);
+    let resolvedId = Number(id);
+    let resolvedName = name;
+
+    // Guard: Verify if id is an actual tournament
+    const isTournament = activeTournaments.some(t => Number(t.id) === resolvedId);
+    if (!isTournament) {
+      // Check if id is an event belonging to a tournament
+      const parent = activeTournaments.find(t =>
+        t.sportsEvents?.some((se: any) => Number(se.id) === resolvedId)
+      );
+      if (parent) {
+        resolvedId = parent.id;
+        resolvedName = parent.name || name;
+      }
+    }
+
+    setActiveTournamentId(resolvedId);
+    setActiveTournamentName(resolvedName);
   };
 
   const handleEdit = (tournamentOrEvent: any) => {
@@ -1660,14 +1676,15 @@ export function useSportsAdminState() {
     const linkedEvents: any[] = tournamentOrEvent.sportsEvents
       ?? (tournamentOrEvent.event ? [tournamentOrEvent.event] : []);
     const primaryEvent = linkedEvents[0] ?? tournamentOrEvent.event ?? null;
-    setEditingTournamentId(tournamentOrEvent.id ?? null);
+    const tourneyId = tournamentOrEvent.id != null ? Number(tournamentOrEvent.id) : null;
+    setEditingTournamentId(tourneyId);
     setEditingLinkedEventIds(
       linkedEvents.map((e: any) => e?.id).filter((x: any) => x != null).map(Number)
     );
     const ev = {
       ...tournamentOrEvent,
       ...(primaryEvent || {}),
-      id: primaryEvent?.id ?? tournamentOrEvent.id,
+      id: tournamentOrEvent.id ?? primaryEvent?.id,
       name: tournamentOrEvent.name || primaryEvent?.name || "",
       registrationDateStart: tournamentOrEvent.registrationDateStart || primaryEvent?.registrationDateStart,
       registrationDateEnd: tournamentOrEvent.registrationDateEnd || primaryEvent?.registrationDateEnd,
@@ -1698,12 +1715,12 @@ export function useSportsAdminState() {
       id: ev.id ? String(ev.id) : Math.random().toString(),
       name: ev.name || "",
       gender: ev.gender || "ALL",
-      playersBorn: ev.playersBorn || "1900-01-01",
+      playersBorn: ev.playersBorn || "",
       format: Array.isArray(ev.format) ? ev.format.join(",") : (ev.format || (isTeam ? "TEAM" : "SINGLES")),
       minPlayers: ev.minPlayers,
       maxPlayers: ev.maxPlayers,
       tournamentType: ev.tournamentType || "",
-      eventId: ev.id,
+      eventId: primaryEvent?.id ?? ev.id,
     };
     setSelectedSportsWithEvents([{
       sportId: ev.sport?.id,
@@ -1758,8 +1775,12 @@ export function useSportsAdminState() {
       setTriggerStates(updatedDefaults);
       setCustomTriggers(custom);
     }
-    setEditingEventId(ev.id);
-    setSelectedEventIds(ev.id ? [ev.id] : []);
+    setEditingEventId(tourneyId ?? ev.id);
+    setSelectedEventIds(tourneyId ? [tourneyId] : (ev.id ? [ev.id] : []));
+    if (tourneyId) {
+      setActiveTournamentId(tourneyId);
+      setActiveTournamentName(tournamentOrEvent.name || ev.name || "");
+    }
     setActiveTab("create-tournament");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -2149,6 +2170,9 @@ export function useSportsAdminState() {
   };
 
   const resetSportForm = () => {
+    if (sportForms.some(f => f.editingSportId)) {
+      clearTournamentContext();
+    }
     setSportForms([]);
     setShowSportForm(false);
     setShowSportPicker(false);
@@ -2294,8 +2318,8 @@ export function useSportsAdminState() {
         events: f.events.map(ev => ev.id === eventId ? {
           ...ev,
           gender: category.gender || "ALL",
-          minAge: category.minAge != null ? String(category.minAge) : "10",
-          maxAge: category.maxAge != null ? String(category.maxAge) : "70",
+          minAge: category.minAge != null ? String(category.minAge) : "",
+          maxAge: category.maxAge != null ? String(category.maxAge) : "",
         } : ev),
       };
     }));
@@ -2304,9 +2328,41 @@ export function useSportsAdminState() {
   const handleSportEdit = (e: any) => {
     setShowSportPicker(false);
     setSportPickerSearch("");
-    if (e.tournament) {
-      setActiveTournamentId(e.tournament.id);
-      setActiveTournamentName(e.tournament.name || "");
+    let resolvedTourneyId = e.tournament?.id ?? e.tournamentId ?? e.sportsTournamentId ?? null;
+    let resolvedTourneyName = e.tournament?.name || e.tournamentName || "";
+
+    // Guard: An event ID can never be its own parent tournament ID
+    if (resolvedTourneyId != null && Number(resolvedTourneyId) === Number(e.id)) {
+      resolvedTourneyId = null;
+      resolvedTourneyName = "";
+    }
+
+    // Auto-resolve parent tournament from activeTournaments if missing or null
+    if (resolvedTourneyId == null && e.id) {
+      const parentTourney = activeTournaments.find((t: any) =>
+        t.sportsEvents?.some((se: any) => Number(se.id) === Number(e.id))
+      );
+      if (parentTourney) {
+        resolvedTourneyId = parentTourney.id;
+        resolvedTourneyName = parentTourney.name || "";
+      }
+    }
+
+    // If still null, check if activeTournamentId is already valid
+    if (resolvedTourneyId == null && activeTournamentId) {
+      const currentTourney = activeTournaments.find((t: any) => Number(t.id) === Number(activeTournamentId));
+      if (currentTourney) {
+        resolvedTourneyId = currentTourney.id;
+        resolvedTourneyName = currentTourney.name || activeTournamentName;
+      }
+    }
+
+    if (resolvedTourneyId != null) {
+      setActiveTournamentId(Number(resolvedTourneyId));
+      setActiveTournamentName(resolvedTourneyName);
+    } else {
+      setActiveTournamentId(null);
+      setActiveTournamentName("");
     }
     const resolvedFormats = Array.isArray(e.format)
       ? e.format
@@ -2326,21 +2382,23 @@ export function useSportsAdminState() {
       iconUrl: e.sport?.iconUrl || e.iconUrl || undefined,
       sportId: e.sport?.id,
       editingSportId: e.id,
+      tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
       events: [{
         id: evId,
         eventName: e.name.includes(" — ") ? e.name.split(" — ")[1] : e.name,
         startDate: e.eventDateStart || "",
         endDate: e.eventDateEnd || "",
         gender: e.gender || "ALL",
-        playersBorn: e.playersBorn || "1900-01-01",
+        playersBorn: e.playersBorn || "",
         format: Array.isArray(e.format) ? e.format.join(",") : (e.format || ""),
         formats: resolvedFormats,
         minPlayers: e.minPlayers != null ? String(e.minPlayers) : "",
         maxPlayers: e.maxPlayers != null ? String(e.maxPlayers) : "",
-        minAge: e.minAge != null ? String(e.minAge) : "10",
-        maxAge: e.maxAge != null ? String(e.maxAge) : "70",
+        minAge: e.minAge != null ? String(e.minAge) : "",
+        maxAge: e.maxAge != null ? String(e.maxAge) : "",
         tournamentType: e.tournamentType || "",
-        venueId: e.venue?.id ?? "",
+        tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
+        venueId: e.venue?.id ?? e.venueId ?? "",
         contactName: e.contactName || "",
         contactNumber: e.contactNumber || "",
         contactEmail: e.contactEmail || "",
@@ -2389,8 +2447,12 @@ export function useSportsAdminState() {
         let tourneyStartStr: string | undefined = undefined;
         let tourneyEndStr: string | undefined = undefined;
 
-        if (activeTournamentId) {
-          const currentTournament = activeTournaments.find((t: any) => t.id === activeTournamentId);
+        const effectiveTourneyId = (ev as any).tournamentId !== undefined
+          ? (ev as any).tournamentId
+          : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+        if (effectiveTourneyId) {
+          const currentTournament = activeTournaments.find((t: any) => t.id === Number(effectiveTourneyId));
           const tourneyObj = currentTournament?.event || currentTournament;
           tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
           tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
@@ -2453,19 +2515,54 @@ export function useSportsAdminState() {
       const isTeam = isTeamSport(form.name);
       for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
         const ev = form.events[eIdx];
+        let effectiveTourneyId = (ev as any).tournamentId !== undefined
+          ? (ev as any).tournamentId
+          : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+        // Guard 1: Never let tournamentId equal the event being edited
+        if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
+          const parent = activeTournaments.find(t =>
+            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+          );
+          effectiveTourneyId = parent ? parent.id : undefined;
+        }
+
+        // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
+        if (effectiveTourneyId != null) {
+          const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
+          if (!isTournament) {
+            const parent = activeTournaments.find(t =>
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+            );
+            if (parent) {
+              effectiveTourneyId = parent.id;
+            }
+          }
+        }
+
+        // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
+        if (!effectiveTourneyId && form.editingSportId) {
+          const parent = activeTournaments.find(t =>
+            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+          );
+          if (parent) {
+            effectiveTourneyId = parent.id;
+          }
+        }
+
         const payload: SportsEventRequest = {
           name: `${form.name} — ${ev.eventName}`,
           sportId: form.sportId,
-          communityId: Number(activeCommId) || 0,
+          communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
           eventDateStart: ev.startDate,
           eventDateEnd: ev.endDate,
           venueId: ev.venueId ? Number(ev.venueId) : undefined,
-          minAge: parseInt(ev.minAge) || 10,
-          maxAge: parseInt(ev.maxAge) || 70,
+          minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
+          maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
           minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
           maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
           gender: ev.gender || "ALL",
-          playersBorn: ev.playersBorn || "1900-01-01",
+          playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
           format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
           tournamentType: ev.tournamentType || "KNOCKOUT",
           categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
@@ -2478,7 +2575,7 @@ export function useSportsAdminState() {
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
           adminApprovalRequired: ev.adminApprovalRequired !== false,
           mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
-          tournamentId: activeTournamentId ?? undefined,
+          tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
         };
         try {
           if (form.editingSportId && eIdx === 0) {
@@ -2486,7 +2583,7 @@ export function useSportsAdminState() {
             toast.success(`Event "${payload.name}" updated successfully!`);
           } else {
             await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created${activeTournamentId ? ` under tournament` : ""}!`);
+            toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
           }
           successCount++;
         } catch (err) {
@@ -2497,7 +2594,11 @@ export function useSportsAdminState() {
       }
     }
     if (successCount > 0) refreshEvents();
-    if (failCount === 0) resetSportForm();
+    if (failCount === 0) {
+      const wasEditing = sportForms.some(f => f.editingSportId);
+      resetSportForm();
+      if (wasEditing) clearTournamentContext();
+    }
     setSportSubmitting(false);
   };
 

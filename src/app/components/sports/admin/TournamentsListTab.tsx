@@ -73,6 +73,11 @@ export function TournamentsListTab({
     setActiveTab("sports-event");
   } : undefined;
 
+  const onAddEventToTournament = (id: number, name: string) => {
+    setTournamentContext?.(id, name);
+    onGoToConfigureEvents?.();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -147,6 +152,7 @@ export function TournamentsListTab({
             onAnnounce={handleAnnounce}
             showActivate
             onEditEvent={onEditEvent}
+            onAddEventToTournament={onAddEventToTournament}
           />
 
           {/* Active Tournaments */}
@@ -179,6 +185,7 @@ export function TournamentsListTab({
               setImportStep(1);
             }}
             onEditEvent={onEditEvent}
+            onAddEventToTournament={onAddEventToTournament}
           />
 
           {/* Completed Tournaments */}
@@ -191,6 +198,7 @@ export function TournamentsListTab({
             onEdit={handleEdit}
             onDelete={handleDelete}
             onEditEvent={onEditEvent}
+            onAddEventToTournament={onAddEventToTournament}
           />
         </>
       )}
