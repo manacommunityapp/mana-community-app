@@ -178,7 +178,7 @@ const parseOtherContacts = (raw: any): { title: string; name: string; detail: st
 };
 
 export function useSportsAdminState() {
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin: authIsSuperAdmin } = useAuth();
   const isAdmin = hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_EVENT_REGISTRATIONS, DELETE_SPORTS_MAIN);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
   const [playerCategories, setPlayerCategories] = useState<PlayerCategory[]>([]);
@@ -242,7 +242,7 @@ export function useSportsAdminState() {
     overrideChannels: string[];
   }>>(DEFAULT_TRIGGER_STATES);
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isSuperAdmin = authIsSuperAdmin || user?.role === "SUPER_ADMIN" || (user?.roles || []).includes("SUPER_ADMIN");
   const activeCommId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
 
   const getTournamentStartDateTime = useCallback(() => {
@@ -2121,7 +2121,7 @@ export function useSportsAdminState() {
     if (!categoryMinAge || !categoryMaxAge) { toast.error("Age range is required"); return; }
     setCategorySubmitting(true);
     try {
-      const commId = categoryCommId ? Number(categoryCommId) : (user?.role === "SUPER_ADMIN" ? undefined : user?.communityId);
+      const commId = categoryCommId ? Number(categoryCommId) : (isSuperAdmin ? undefined : (user?.communityId ?? activeCommId));
       const payload = {
         name: categoryName, categoryType: categoryType, description: categoryDescription,
         minAge: parseInt(categoryMinAge), maxAge: parseInt(categoryMaxAge),

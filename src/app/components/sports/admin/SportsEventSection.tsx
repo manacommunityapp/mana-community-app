@@ -554,6 +554,15 @@ export function SportsEventSection({
                                   <div className="text-center py-4 text-xs text-slate-400 italic">No matching templates.</div>
                                 )}
                               </div>
+                              <div
+                                onClick={() => {
+                                  setOpenDropdownEventId(null);
+                                  setActiveTab("player-category");
+                                }}
+                                className="p-2.5 border-t border-slate-100 text-xs font-semibold text-indigo-600 hover:bg-indigo-50/70 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Manage / Create Player Categories ↗
+                              </div>
                             </PopoverContent>
                           </Popover>
                         </div>

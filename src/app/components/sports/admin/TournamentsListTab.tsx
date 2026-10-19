@@ -89,8 +89,9 @@ export function TournamentsListTab({
           {onOpenSportPicker && (
             <button
               type="button"
-              onClick={onOpenSportPicker}
-              className="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold rounded-lg border border-indigo-200 transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              disabled
+              title="Disabled for now"
+              className="px-3.5 py-2.5 bg-slate-100 text-slate-400 text-sm font-semibold rounded-lg border border-slate-200 transition-colors flex items-center gap-2 cursor-not-allowed opacity-60 shadow-none"
             >
               <Plus className="w-4 h-4" /> Select a Sport
             </button>
@@ -118,12 +119,9 @@ export function TournamentsListTab({
             {onOpenSportPicker && (
               <button
                 type="button"
-                onClick={onOpenSportPicker}
-                className="px-5 py-2.5 text-white text-sm font-semibold rounded-xl transition-all duration-150 flex items-center gap-2 cursor-pointer shadow-md hover:brightness-105"
-                style={{
-                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                  boxShadow: "0 4px 14px rgba(99,102,241,0.35)"
-                }}
+                disabled
+                title="Disabled for now"
+                className="px-5 py-2.5 bg-slate-100 text-slate-400 text-sm font-semibold rounded-xl border border-slate-200 flex items-center gap-2 cursor-not-allowed opacity-60 shadow-none"
               >
                 <Plus className="w-4 h-4" /> Select a Sport
               </button>
