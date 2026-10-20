@@ -55,11 +55,11 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
           ) : selectedVenueDetails ? (
             <div className="space-y-6">
               {/* Header Details */}
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">{selectedVenueDetails.name}</h3>
+                  <h3 className="text-base font-bold text-slate-800 m-0 mb-0">{selectedVenueDetails.name}</h3>
                   {selectedVenueDetails.area || selectedVenueDetails.city ? (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 m-0">
                       {[selectedVenueDetails.area, selectedVenueDetails.city].filter(Boolean).join(", ")}
                     </p>
                   ) : null}

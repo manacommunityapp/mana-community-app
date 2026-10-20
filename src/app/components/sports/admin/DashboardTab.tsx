@@ -155,8 +155,8 @@ export function DashboardTab({
         <div className="lg:col-span-2 space-y-6">
           {/* Pending Approvals Widget */}
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <div className="flex items-center justify-between border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 m-0 mb-0">
                 <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
                 Pending Registrations
               </h3>
@@ -214,7 +214,7 @@ export function DashboardTab({
 
           {/* Quick Navigation Cards */}
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
               Quick Navigation
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -257,7 +257,7 @@ export function DashboardTab({
         {/* Right Column: Active Tournaments / Sports List */}
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
               Active Tournaments
             </h3>
             <div className="space-y-3.5">

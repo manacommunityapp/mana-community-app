@@ -67,7 +67,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
       id="sponsors-showcase"
       className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-6 text-left ${className}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider">
@@ -75,10 +75,10 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
             </span>
             <span className="text-xs text-slate-400 font-medium">• {season}</span>
           </div>
-          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1">
+          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white m-0 mb-0">
             Tournament Sponsors & Partners
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
             The proud community and corporate brands powering our sporting stage and athletes.
           </p>
         </div>

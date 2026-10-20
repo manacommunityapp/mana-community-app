@@ -110,9 +110,9 @@ export function PlayerCategorySection({
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <div className="text-xs font-semibold text-indigo-600 uppercase tracking-widest border-b pb-2" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
+          <h3 className="text-xs font-semibold text-indigo-600 uppercase tracking-widest border-b m-0 mb-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
             {editingCategoryId ? "Edit Category" : "Create New Category"}
-          </div>
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-xs text-slate-500 font-semibold block mb-1.5">Category Name *</label>
@@ -206,7 +206,7 @@ export function PlayerCategorySection({
           boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
         }}
       >
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b pb-2" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b m-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Categories</span>
           <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-[10px] font-bold">{playerCategories.length}</span>
         </div>

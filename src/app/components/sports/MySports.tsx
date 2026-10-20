@@ -223,11 +223,11 @@ export function MySports() {
         sportsService.getPartnerInvitations("PENDING").catch(() => []),
         familyService.getFamilyMembers().catch(() => []),
       ]);
-      setRegistrations(regs || []);
-      setTeams(myTeams || []);
-      setMyMatches(events || []);
-      setPartnerInvitations(partnerInvites || []);
-      setFamilyMembers(famMembers || []);
+      setRegistrations(Array.isArray(regs) ? regs : (regs && Array.isArray((regs as any).data) ? (regs as any).data : (regs && Array.isArray((regs as any).content) ? (regs as any).content : [])));
+      setTeams(Array.isArray(myTeams) ? myTeams : (myTeams && Array.isArray((myTeams as any).data) ? (myTeams as any).data : []));
+      setMyMatches(Array.isArray(events) ? events : (events && Array.isArray((events as any).data) ? (events as any).data : (events && Array.isArray((events as any).content) ? (events as any).content : [])));
+      setPartnerInvitations(Array.isArray(partnerInvites) ? partnerInvites : []);
+      setFamilyMembers(Array.isArray(famMembers) ? famMembers : []);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -288,9 +288,12 @@ export function MySports() {
     setPartnerModalState(prev => ({ ...prev, saving: true }));
     try {
       const partnerUserId = partnerModalState.selectedPartner?.userId || null;
-      await sportsService.nominatePartner(regId, partnerUserId);
+      const partnerFamilyMemberId = partnerModalState.selectedPartner?.familyMemberId
+        ? Number(partnerModalState.selectedPartner.familyMemberId)
+        : null;
+      await sportsService.nominatePartner(regId, partnerUserId, partnerFamilyMemberId);
       toast.success(
-        partnerUserId
+        partnerUserId || partnerFamilyMemberId
           ? `Partner invitation sent to ${partnerModalState.selectedPartner?.name || "partner"}!`
           : "Registered in Open Pairing Pool. You'll be matched with a partner soon."
       );
@@ -299,8 +302,8 @@ export function MySports() {
           return {
             ...r,
             partnerUserId,
-            partnerName: partnerModalState.selectedPartner?.name || (partnerUserId ? "Nominated Partner" : null),
-            partnerStatus: partnerUserId ? "PENDING" : "LOOKING_FOR_PARTNER",
+            partnerName: partnerModalState.selectedPartner?.name || (partnerUserId || partnerFamilyMemberId ? "Nominated Partner" : null),
+            partnerStatus: partnerUserId || partnerFamilyMemberId ? "PENDING" : "LOOKING_FOR_PARTNER",
           };
         }
         return r;
@@ -364,24 +367,25 @@ export function MySports() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const myCommunity = communities.find(c => c.id === user?.communityId);
-  const sportNames = Array.from(new Set(registrations.map(r => r.sportName).filter(Boolean))) as string[];
+  const myCommunity = communities?.find ? communities.find(c => c.id === user?.communityId) : undefined;
+  const sportNames = Array.isArray(registrations) ? Array.from(new Set(registrations.map(r => r.sportName).filter(Boolean))) as string[] : [];
 
   // Performance calculations
-  const totalMatches = myMatches.length;
+  const totalMatches = myMatches?.length ?? 0;
 
-  const xpPoints = (registrations.length * 150) + (teams.length * 200) + (myMatches.length * 100) + 100;
+  const xpPoints = ((registrations?.length ?? 0) * 150) + ((teams?.length ?? 0) * 200) + ((myMatches?.length ?? 0) * 100) + 100;
   const playerLevel = Math.floor(xpPoints / 400) + 1;
   const levelProgress = Math.min(100, Math.round(((xpPoints % 400) / 400) * 100));
 
   const achievements = ACHIEVEMENT_DEFS.map(a => ({
     ...a,
-    unlocked: a.check(registrations.length, teams.length, myMatches.length, true),
+    unlocked: a.check(registrations?.length ?? 0, teams?.length ?? 0, myMatches?.length ?? 0, true),
   }));
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   // Filtered Tournaments
   const filteredTournaments = useMemo(() => {
+    if (!Array.isArray(registrations)) return [];
     return registrations.filter(r => {
       const nameMatch = (r.eventName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
                          (r.sportName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
@@ -393,7 +397,7 @@ export function MySports() {
   }, [registrations, tournamentSearch, tournamentSportFilter, tournamentStatusFilter]);
 
   // Next Upcoming Match
-  const nextMatch = myMatches.length > 0 ? myMatches[0] : null;
+  const nextMatch = (myMatches?.length ?? 0) > 0 ? myMatches[0] : null;
 
   return (
     <div className="auction-hub-wrapper animate-fade-in-up stagger-1">
@@ -421,9 +425,9 @@ export function MySports() {
                 <Icon className="nav-icon" size={16} />
                 <span className="nav-text flex items-center justify-between flex-1">
                   {tab.label}
-                  {tab.id === "tournaments" && partnerInvitations.length > 0 && (
+                  {tab.id === "tournaments" && (partnerInvitations?.length ?? 0) > 0 && (
                     <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded-full animate-pulse">
-                      {partnerInvitations.length}
+                      {partnerInvitations?.length ?? 0}
                     </span>
                   )}
                   {tab.id === "settings" && (
@@ -501,9 +505,9 @@ export function MySports() {
               <div className="flex flex-wrap items-center gap-3 sm:gap-8 justify-between md:justify-end flex-1">
                 <div className="flex items-center gap-3 sm:gap-6">
                   {[
-                    { label: "Teams", value: teams.length.toString(), color: "#6366f1" },
-                    { label: "Registrations", value: registrations.length.toString(), color: "#10b981" },
-                    { label: "Matches", value: myMatches.length.toString(), color: "#f59e0b" },
+                    { label: "Teams", value: (teams?.length ?? 0).toString(), color: "#6366f1" },
+                    { label: "Registrations", value: (registrations?.length ?? 0).toString(), color: "#10b981" },
+                    { label: "Matches", value: (myMatches?.length ?? 0).toString(), color: "#f59e0b" },
                     { label: "Athlete Level", value: `Lvl ${playerLevel}`, color: "#8b5cf6" },
                   ].map((s) => (
                     <div key={s.label} className="text-left md:text-center">
@@ -620,19 +624,19 @@ export function MySports() {
                       {/* Pending Doubles Partner Invitations */}
                       {partnerInvitations.length > 0 && (
                         <div className="bg-amber-50/90 border border-amber-300 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-amber-200 pb-2">
+                          <div className="flex items-center justify-between border-b border-amber-200">
                             <div className="flex items-center gap-2">
                               <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-xs">
                                 <Users className="w-3.5 h-3.5" />
                               </div>
                               <div>
-                                <h3 className="text-xs sm:text-sm font-extrabold text-amber-950 flex items-center gap-1.5">
+                                <h3 className="text-xs sm:text-sm font-extrabold text-amber-950 flex items-center gap-1.5 m-0 mb-0">
                                   Pending Doubles Partner Invitations
                                   <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[9px] font-black rounded-full">
                                     {partnerInvitations.length} new
                                   </span>
                                 </h3>
-                                <p className="text-[10px] sm:text-[11px] text-amber-800">
+                                <p className="text-[10px] sm:text-[11px] text-amber-800 m-0">
                                   You have been nominated as a doubles partner for the following event(s):
                                 </p>
                               </div>
@@ -736,8 +740,8 @@ export function MySports() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {/* Upcoming Matches Preview */}
                         <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm space-y-2 sm:space-y-3">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <div className="flex items-center justify-between border-b border-slate-100">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 m-0 mb-0">
                               <Clock className="w-3.5 h-3.5 text-indigo-500" />
                               Match Timeline
                             </h3>
@@ -772,8 +776,8 @@ export function MySports() {
 
                         {/* Active Registrations Preview */}
                         <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm space-y-2 sm:space-y-3">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <div className="flex items-center justify-between border-b border-slate-100">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 m-0 mb-0">
                               <Trophy className="w-3.5 h-3.5 text-amber-500" />
                               Tournaments
                             </h3>
@@ -1061,13 +1065,13 @@ export function MySports() {
                         <div className="space-y-4">
                           {/* Community Info Card */}
                           <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 sm:pb-3 gap-2">
+                            <div className="flex items-center justify-between border-b border-slate-100 gap-2">
                               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                                 <div className="p-2 sm:p-3 bg-indigo-50 text-indigo-600 rounded-xl sm:rounded-2xl shrink-0">
                                   <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </div>
                                 <div className="min-w-0">
-                                  <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 truncate">{myCommunity.name}</h3>
+                                  <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 truncate m-0 mb-0">{myCommunity.name}</h3>
                                   <span className="text-[9px] sm:text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 inline-block">
                                     {myCommunity.type} Community
                                   </span>
@@ -1102,8 +1106,8 @@ export function MySports() {
 
                           {/* Community Sports Facilities / Venues */}
                           <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-3">
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-2.5">
-                              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <div className="flex items-center justify-between border-b border-slate-100">
+                              <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 m-0 mb-0">
                                 <Compass className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
                                 <span className="hidden sm:inline">Community Sports Facilities & Venues ({venues.length})</span>
                                 <span className="sm:hidden">Venues ({venues.length})</span>
@@ -1173,12 +1177,12 @@ export function MySports() {
                                 key={team.id}
                                 className="p-3 sm:p-5 bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm hover:border-indigo-200 transition space-y-3 sm:space-y-3.5"
                               >
-                                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 sm:pb-3 gap-2">
+                                <div className="flex items-center justify-between border-b border-slate-100 gap-2">
                                   <div className="min-w-0">
-                                    <h4 className="text-[13px] sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 truncate">
+                                    <h3 className="text-[13px] sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 truncate m-0 mb-0">
                                       {team.emoji || "🛡️"} {team.teamName}
-                                    </h4>
-                                    <span className="text-[11px] sm:text-[10px] text-slate-400 font-semibold block mt-0.5 truncate">
+                                    </h3>
+                                    <span className="text-[11px] sm:text-[10px] text-slate-400 font-semibold block m-0 truncate">
                                       Owner: {team.ownerName || "Community Franchise"}
                                     </span>
                                   </div>
@@ -1244,8 +1248,8 @@ export function MySports() {
                         </div>
                       ) : (
                         <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
-                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          <div className="flex items-center justify-between border-b border-slate-100">
+                            <h3 className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">
                               My Match Timeline ({myMatches.length})
                             </h3>
                             <Link
@@ -1305,12 +1309,12 @@ export function MySports() {
                   {activeTab === "settings" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
                       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm space-y-4 sm:space-y-5">
-                        <div className="border-b border-slate-100 pb-2.5 sm:pb-3">
-                          <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        <div className="border-b border-slate-100">
+                          <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 flex items-center gap-2 m-0 mb-0">
                             <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
                             <span>Player Settings & Preferences</span>
                           </h3>
-                          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 m-0">
                             Set your playing tier, preferred roles, and jersey preferences.
                           </p>
                         </div>
@@ -1580,16 +1584,16 @@ export function MySports() {
         {partnerModalState.open && partnerModalState.registration && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-100 max-w-lg w-full p-3.5 sm:p-5 space-y-3 sm:space-y-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto safe-area-bottom">
-              <div className="flex items-start justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2.5 sm:pb-3">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 border-b border-slate-100">
                 <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                   <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
                     <HeartHandshake className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900 truncate">
+                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900 truncate m-0 mb-0">
                       {partnerModalState.registration.partnerUserId ? "Change Partner" : "Nominate Partner"}
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                    <p className="text-[11px] sm:text-xs text-slate-500 truncate m-0">
                       {partnerModalState.registration.eventName}
                       {partnerModalState.registration.categoryName ? ` · ${partnerModalState.registration.categoryName}` : ""}
                     </p>
@@ -1613,8 +1617,9 @@ export function MySports() {
                   }));
                 }}
                 matchType={partnerModalState.registration.matchType || "DOUBLES"}
-                currentGender={(user as any)?.gender}
+                currentGender={(partnerModalState.registration as any)?.gender || (user as any)?.gender}
                 currentUserId={user?.userId || (user as any)?.id}
+                currentFamilyMemberId={(partnerModalState.registration as any)?.familyMemberId}
                 communityId={user?.communityId}
                 familyMembers={familyMembers}
                 disabled={partnerModalState.saving}
@@ -1649,16 +1654,16 @@ export function MySports() {
         {captainModalState.open && captainModalState.registration && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-3.5 sm:p-5 space-y-3 sm:space-y-4 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto safe-area-bottom">
-              <div className="flex items-start justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2.5 sm:pb-3">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 border-b border-slate-100">
                 <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                   <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
                     <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900">
+                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900 m-0 mb-0">
                       Captain Nomination
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                    <p className="text-[11px] sm:text-xs text-slate-500 truncate m-0">
                       {captainModalState.registration.eventName}
                       {captainModalState.registration.categoryName ? ` · ${captainModalState.registration.categoryName}` : ""}
                     </p>

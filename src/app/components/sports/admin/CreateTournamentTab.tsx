@@ -138,7 +138,7 @@ export function CreateTournamentTab({
 
       <div className="max-w-5xl mx-auto">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Tournament Details</div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 m-0 mb-0">Tournament Details</h3>
 
           {editingEventId && onAddEvents && (
             <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 text-left">
@@ -249,7 +249,7 @@ export function CreateTournamentTab({
 
           {/* Tournament Level & Branding */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Level & Branding</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Level & Branding</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-xs text-slate-500 font-semibold block mb-2">Tournament Type</label>
@@ -301,7 +301,7 @@ export function CreateTournamentTab({
 
           {/* Contact Information */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Contact Information</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
               <div>
                 <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Name *</label>
@@ -370,7 +370,7 @@ export function CreateTournamentTab({
 
           {/* Sponsors */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Sponsors</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Sponsors</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
@@ -430,7 +430,7 @@ export function CreateTournamentTab({
 
           {/* Chat Configuration */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Chat Configuration</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Chat Configuration</h3>
             <div className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 opacity-65 cursor-not-allowed">
               <div>
                 <span className="text-xs font-semibold text-slate-800 block">Chat With Administrator</span>
@@ -447,17 +447,17 @@ export function CreateTournamentTab({
 
           {/* Notification Settings */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4">Notification Settings</div>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-4 m-0">Notification Settings</h3>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left shadow-sm">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap m-0 mb-0">
                   📡 Automated Notification Scheduler
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full font-bold">
                     {totalEnabledCount} Active Triggers
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-xl">
+                <p className="text-xs text-slate-500 m-0 leading-relaxed max-w-xl">
                   Configure multi-channel automated triggers (Email, Push, WhatsApp, SMS) relative to tournament kick-off. Customize delivery channels, custom templates, and analyze audience reach metrics.
                 </p>
                 <div className="flex gap-4 mt-3 flex-wrap text-[10px] font-mono text-slate-400">

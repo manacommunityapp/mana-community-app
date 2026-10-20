@@ -238,11 +238,16 @@ export const sportsEventService = {
   },
 
   /** PUT /api/sports/registrations/{id}/nominate-partner — nominate or update partner */
-  async nominatePartner(registrationId: number, partnerUserId?: number | null): Promise<EventRegistration> {
-    const url = partnerUserId != null
-      ? `/sports/registrations/${registrationId}/nominate-partner?partnerUserId=${partnerUserId}`
-      : `/sports/registrations/${registrationId}/nominate-partner`;
-    return apiClient.put<EventRegistration>(url);
+  async nominatePartner(
+    registrationId: number,
+    partnerUserId?: number | null,
+    partnerFamilyMemberId?: number | null
+  ): Promise<EventRegistration> {
+    const params = new URLSearchParams();
+    if (partnerUserId != null) params.set("partnerUserId", String(partnerUserId));
+    if (partnerFamilyMemberId != null) params.set("partnerFamilyMemberId", String(partnerFamilyMemberId));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/nominate-partner${qs}`);
   },
 
   /** POST /api/sports/register-team — register a team with multiple members */

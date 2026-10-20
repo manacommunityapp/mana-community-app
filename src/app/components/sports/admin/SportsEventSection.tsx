@@ -896,8 +896,8 @@ export function SportsEventSection({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Scheduled Community Events ({activeEvents.length})</h3>
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">Scheduled Community Events ({activeEvents.length})</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {activeEvents.map(e => {

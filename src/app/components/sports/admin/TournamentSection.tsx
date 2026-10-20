@@ -85,7 +85,7 @@ export function TournamentSection({
 
   const renderRegistrationPanel = (ev: any) => (
     <div className="mt-2 bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 mb-2">
         <div className="flex items-center gap-2">
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
@@ -364,10 +364,10 @@ export function TournamentSection({
             return (
               <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200">
                   <div className="min-w-0 flex-1 text-left">
-                    <div className="text-sm font-bold text-slate-800">{item.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <h3 className="text-sm font-bold text-slate-800 m-0 mb-0">{item.name}</h3>
+                    <div className="text-[10px] text-slate-500 m-0">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
                         : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}

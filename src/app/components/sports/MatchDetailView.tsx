@@ -177,7 +177,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
       >
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
-          <h2 className="text-[13px] sm:text-lg font-bold text-slate-800">Match Details</h2>
+          <h3 className="text-[13px] sm:text-lg font-bold text-slate-800 m-0 mb-0">Match Details</h3>
           <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-slate-100 rounded-lg transition">
             <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
           </button>

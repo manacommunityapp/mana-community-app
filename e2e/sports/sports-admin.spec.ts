@@ -94,7 +94,7 @@ test.describe("Sports Admin Hub", () => {
   });
 
   test("switches to Notifications tab", async ({ page }) => {
-    const notifBtn = page.getByRole("button", { name: /Notification/i });
+    const notifBtn = page.locator(".nav-item").filter({ hasText: /Notification/i }).first();
     if (await notifBtn.isVisible()) {
       await notifBtn.click();
       await page.waitForTimeout(400);
@@ -105,15 +105,15 @@ test.describe("Sports Admin Hub", () => {
   // ── Teams tab interactions ───────────────────────────────────────────────────
 
   test("Teams tab shows team list and approve/reject buttons", async ({ page }) => {
-    const teamsBtn = page.getByRole("button", { name: /^Teams$/i });
+    const teamsBtn = page.locator(".nav-item").filter({ hasText: /^Teams$/i }).first();
     if (await teamsBtn.isVisible()) {
       await teamsBtn.click();
       await page.waitForTimeout(400);
       // Pending team from mock should be visible
-      await expect(page.getByText("Team Beta")).toBeVisible();
+      await expect(page.getByText("Team Beta").first()).toBeVisible();
       // Approve / Reject actions should be present
-      const approveBtn = page.getByRole("button", { name: /approve/i });
-      const rejectBtn = page.getByRole("button", { name: /reject|decline/i });
+      const approveBtn = page.getByRole("button", { name: /approve/i }).first();
+      const rejectBtn = page.getByRole("button", { name: /reject|decline/i }).first();
       const hasApprove = await approveBtn.isVisible({ timeout: 2000 }).catch(() => false);
       const hasReject = await rejectBtn.isVisible({ timeout: 2000 }).catch(() => false);
       expect(hasApprove || hasReject).toBe(true);
@@ -158,7 +158,7 @@ test.describe("Sports Admin Hub", () => {
   // ── Player categories section ────────────────────────────────────────────────
 
   test("Player Categories section shows categories from mock", async ({ page }) => {
-    const catBtn = page.getByRole("button", { name: /Player Categor/i });
+    const catBtn = page.locator(".nav-item").filter({ hasText: /Player Categor/i }).first();
     if (await catBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await catBtn.click();
       await page.waitForTimeout(400);
