@@ -365,6 +365,14 @@ export interface EventRegistration {
   proposedTeamName?: string;
   seed?: number | null;
   registeredAt?: string;
+  phone?: string;
+  registrationSource?: "MANA_APP" | "GOOGLE_FORMS" | "ADMIN_IMPORT" | "OFFLINE";
+  externalResponseId?: string;
+  externalFormId?: number;
+  isExternalGuest?: boolean;
+  matchFormat?: string;
+  partnerName?: string;
+  partnerPhone?: string;
 }
 
 export interface SportsPlayerRanking {

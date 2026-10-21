@@ -1,0 +1,125 @@
+{
+  "name": "Mana Expense Receipt OCR & Parser",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "receipt-parse",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Receipt Upload Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-receipt-parser-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst imageUrl = item.imageUrl || '';\nconst base64Data = item.base64Data || '';\nconst mimeType = item.mimeType || 'image/jpeg';\n\nconst prompt = `Extract all details from this society expense receipt or invoice.\nReturn ONLY a JSON object with this exact structure:\n{\n  \"merchantName\": string,\n  \"invoiceNumber\": string,\n  \"date\": \"YYYY-MM-DD\",\n  \"currency\": \"INR\" | \"USD\",\n  \"subtotal\": number,\n  \"taxAmount\": number,\n  \"totalAmount\": number,\n  \"category\": \"Maintenance & Repairs\" | \"Utilities & Electricity\" | \"Security Services\" | \"Housekeeping & Cleaning\" | \"Gardening & Landscaping\" | \"Events & Celebrations\" | \"Office Supplies & Misc\",\n  \"confidenceScore\": number (0.0 to 1.0),\n  \"lineItems\": [\n    { \"description\": string, \"quantity\": number, \"amount\": number }\n  ]\n}`;\n\nlet parts = [{ text: prompt }];\nif (base64Data) {\n  parts.push({\n    inline_data: {\n      mime_type: mimeType,\n      data: base64Data.replace(/^data:image\\/\\w+;base64,/, '')\n    }\n  });\n}\n\nreturn [{\n  json: {\n    expenseId: item.expenseId || item.id,\n    parts\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Multimodal Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": {{ JSON.stringify($json.parts) }}\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Multimodal OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedReceipt = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedReceipt = JSON.parse(rawText);\n} catch (err) {\n  parsedReceipt = {\n    merchantName: \"Unknown Vendor\",\n    totalAmount: 0,\n    category: \"Office Supplies & Misc\",\n    confidenceScore: 0.1\n  };\n}\n\nconst expenseId = $('Prepare Multimodal Prompt').first().json.expenseId;\n\nreturn [{\n  json: {\n    status: \"success\",\n    expenseId: expenseId,\n    extractedAt: new Date().toISOString(),\n    data: parsedReceipt\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Receipt Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Return Receipt JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Receipt Upload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Multimodal Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Multimodal Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Multimodal OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Multimodal OCR": {
+      "main": [
+        [
+          {
+            "node": "Format Receipt Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Receipt Data": {
+      "main": [
+        [
+          {
+            "node": "Return Receipt JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

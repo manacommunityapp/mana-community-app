@@ -67,6 +67,15 @@ export async function injectAuth(page: Page): Promise<void> {
       // Pre-accept cookie consent so the banner doesn't cover the UI
       localStorage.setItem("mana_privacy_preferences_fallback", JSON.stringify({ analytics: false, essential: true }));
       localStorage.setItem("mana_cookie_consent", JSON.stringify({ analytics: false, essential: true }));
+      localStorage.setItem(
+        "mana_consent_banner_v1",
+        JSON.stringify({
+          analytics: true,
+          marketing: true,
+          version: "2026-10-13-v1",
+          timestamp: new Date().toISOString(),
+        })
+      );
     },
     { token: MOCK_TOKEN, user: MOCK_USER_WITH_PROFILE }
   );
@@ -989,6 +998,17 @@ export async function injectAuthWithProfile(page: Page): Promise<void> {
       localStorage.setItem("mana_token", token);
       localStorage.setItem("mana_refresh_token", token + "_refresh");
       localStorage.setItem("mana_user", JSON.stringify(user));
+      localStorage.setItem("mana_privacy_preferences_fallback", JSON.stringify({ analytics: false, essential: true }));
+      localStorage.setItem("mana_cookie_consent", JSON.stringify({ analytics: false, essential: true }));
+      localStorage.setItem(
+        "mana_consent_banner_v1",
+        JSON.stringify({
+          analytics: true,
+          marketing: true,
+          version: "2026-10-13-v1",
+          timestamp: new Date().toISOString(),
+        })
+      );
     },
     { token: MOCK_TOKEN, user: MOCK_USER_WITH_PROFILE }
   );
