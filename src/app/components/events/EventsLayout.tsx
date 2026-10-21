@@ -73,7 +73,7 @@ function EventsLayoutInner() {
 
   return (
     <div className="flex flex-col gap-1 sm:gap-2 h-full min-h-0">
-      <div className="shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5 sm:pb-2 min-w-0">
+      <div className="shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 min-w-0">
         <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] shrink-0" style={{ color: "#6b7094" }}>
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
             Home
@@ -95,8 +95,8 @@ function EventsLayoutInner() {
           <DataModeToggle />
           <CreateEventButton />
           <div className="text-right min-w-0 hidden xs:block sm:block">
-            <h2 className="text-[11px] sm:text-sm font-bold leading-tight truncate" style={{ color: "#0d0d2b" }}>Event Management</h2>
-            <p className="text-[10px] hidden sm:block" style={{ color: "#6b7094" }}>Planning, Registration, Finance & more</p>
+            <h3 className="text-[11px] sm:text-sm font-bold leading-tight truncate m-0 mb-0" style={{ color: "#0d0d2b" }}>Event Management</h3>
+            <p className="text-[10px] hidden sm:block m-0" style={{ color: "#6b7094" }}>Planning, Registration, Finance & more</p>
           </div>
           <div
             className="h-5 w-5 sm:h-7 sm:w-7 rounded sm:rounded-lg flex items-center justify-center flex-shrink-0 order-last"

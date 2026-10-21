@@ -416,7 +416,7 @@ export function InventoryManagement() {
       <Toaster position="top-center" richColors />
 
       {/* Breadcrumb + page header */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
         {/* Left: Breadcrumbs */}
         <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
@@ -431,8 +431,8 @@ export function InventoryManagement() {
         {/* Right: Page Header */}
         <div className="flex items-center gap-3 sm:text-right sm:justify-end">
           <div className="text-left sm:text-right">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Inventory Management</h2>
-            <p className="text-xs" style={{ color: "#6b7094" }}>Facility &amp; Stock Hub</p>
+            <h3 className="text-xl font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Inventory Management</h3>
+            <p className="text-xs m-0" style={{ color: "#6b7094" }}>Facility &amp; Stock Hub</p>
           </div>
           <div
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"

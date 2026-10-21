@@ -15,14 +15,14 @@ export const LEDGER_CSS = `
 .ledger-app{display:flex; flex-direction:column; height:100%;}
 .ledger-app .app{display:flex; flex-direction:column; gap:16px; min-height:0;}
 /* ---------- Breadcrumb + page header (Home › Expense) ---------- */
-.ledger-app .page-head{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:1px solid #eef2f7; padding-bottom:12px;}
+.ledger-app .page-head{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-bottom:1px solid #eef2f7; padding-bottom:0;}
 .ledger-app .crumbs{display:flex; align-items:center; gap:8px; font-family:'Plus Jakarta Sans',sans-serif; font-size:12px; color:var(--muted);}
 .ledger-app .crumbs .sep{color:#cbd5e1;}
 .ledger-app .crumbs .cur{color:var(--income); font-weight:600;}
 .ledger-app .page-title{display:flex; align-items:center; gap:12px;}
 .ledger-app .pt-text{text-align:right;}
-.ledger-app .pt-text h2{font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:20px; line-height:1.15; margin:0; color:var(--ink); letter-spacing:-0.01em;}
-.ledger-app .pt-text p{font-size:12px; color:var(--muted); margin:3px 0 0;}
+.ledger-app .pt-text h2, .ledger-app .pt-text h3{font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:20px; line-height:1.15; margin:0; color:var(--ink); letter-spacing:-0.01em;}
+.ledger-app .pt-text p{font-size:12px; color:var(--muted); margin:0;}
 .ledger-app .pt-icon{width:38px; height:38px; border-radius:12px; background:var(--grad-indigo); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 12px rgba(99,102,241,0.30);}
 /* ---------- Horizontal pill nav (sports/inventory bar) ---------- */
 .ledger-app .navbar{background:#fff; border:1px solid var(--border-soft); border-radius:12px; padding:6px; box-shadow:0 2px 12px rgba(99,102,241,0.06);}

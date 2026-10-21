@@ -177,15 +177,15 @@ export function AddPlayerModal({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
         <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 text-left">
-          <div className="flex items-center gap-3 border-b border-[#2a3a5c] pb-3">
+          <div className="flex items-center gap-3 border-b border-[#2a3a5c]">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${failCount === 0 ? "bg-[#10b981]/20 border border-[#10b981]/30" : "bg-[#f97316]/20 border border-[#f97316]/30"}`}>
               {failCount === 0
                 ? <CheckCircle2 className="w-4 h-4 text-[#10b981]" />
                 : <AlertCircle className="w-4 h-4 text-[#f97316]" />}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#f1f5f9] leading-5">Registration Results</h3>
-              <p className="text-xs text-[#94a3b8] leading-4">
+              <h3 className="text-sm font-bold text-[#f1f5f9] leading-5 m-0 mb-0">Registration Results</h3>
+              <p className="text-xs text-[#94a3b8] leading-4 m-0">
                 {successCount} added successfully{failCount > 0 ? `, ${failCount} failed` : ""}
               </p>
             </div>
@@ -249,8 +249,8 @@ export function AddPlayerModal({
               <Plus className="w-4 h-4 text-[#f97316]" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-[#f1f5f9] leading-5 tracking-tight">Add Tournament Participants</h3>
-              <p className="text-xs text-[#94a3b8] leading-4 hidden sm:block">Select community residents or family members to register</p>
+              <h3 className="text-sm sm:text-base font-bold text-[#f1f5f9] leading-5 tracking-tight m-0 mb-0">Add Tournament Participants</h3>
+              <p className="text-xs text-[#94a3b8] leading-4 hidden sm:block m-0">Select community residents or family members to register</p>
             </div>
           </div>
           <button
@@ -612,7 +612,7 @@ export function AddPlayerModal({
                       className="p-3.5 sm:p-4 rounded-2xl flex flex-col gap-3.5 border border-[#2a3a5c] bg-[#141c2e] hover:border-[#3b82f6]/40 transition-all shadow-xl text-left relative"
                     >
                       {/* Card Top Banner */}
-                      <div className="flex justify-between items-center pb-2.5 border-b border-[#2a3a5c]">
+                      <div className="flex justify-between items-center border-b border-[#2a3a5c]">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-5 h-5 rounded-md bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 text-[11px] font-bold flex items-center justify-center flex-shrink-0 leading-3">
                             #{idx + 1}

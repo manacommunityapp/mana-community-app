@@ -1,5 +1,6 @@
 import { Plus, Loader2, Users, Edit2, Trash2, Clock } from "lucide-react";
 import type { PlayerCategory, CommunityResponse } from "../../../../types/api";
+import { useAuth } from "../../../../contexts/AuthContext";
 
 interface PlayerCategorySectionProps {
   user: any;
@@ -58,6 +59,17 @@ export function PlayerCategorySection({
   handleCategoryDelete,
   setActiveTab,
 }: PlayerCategorySectionProps) {
+  const { user: authUser, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const effectiveUser = user || authUser;
+
+  const userRoles = [
+    ...(effectiveUser?.roles || []),
+    ...(effectiveUser?.role ? String(effectiveUser.role).split(",") : [])
+  ].map((r: any) => String(r?.name || r).trim().toUpperCase());
+
+  const isSuper = isSuperAdmin || userRoles.includes("SUPER_ADMIN") || userRoles.includes("SUPERADMIN") || userRoles.includes("SUPER_ADMINISTRATOR");
+  const canManageCategories = isSuper || isAdmin || isSportsAdmin || userRoles.some(r => ["ADMIN", "SPORTS_ADMIN", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR"].includes(r));
+
   return (
     <div className="space-y-4">
       {/* Title section */}
@@ -67,7 +79,7 @@ export function PlayerCategorySection({
           <p className="text-sm text-slate-500 mt-1">Manage player categories for events and tournaments</p>
         </div>
         <div className="flex items-center gap-3">
-          {["SUPER_ADMIN", "ADMIN", "SPORTS_ADMIN"].includes(user?.role || "") && (
+          {canManageCategories && (
             <button
               onClick={() => { resetCategoryForm(); setShowCategoryForm(!showCategoryForm); }}
               className="px-4 py-2.5 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer border-none shadow-sm"
@@ -98,9 +110,9 @@ export function PlayerCategorySection({
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <div className="text-xs font-semibold text-indigo-600 uppercase tracking-widest border-b pb-2" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
+          <h3 className="text-xs font-semibold text-indigo-600 uppercase tracking-widest border-b m-0 mb-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
             {editingCategoryId ? "Edit Category" : "Create New Category"}
-          </div>
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-xs text-slate-500 font-semibold block mb-1.5">Category Name *</label>
@@ -145,7 +157,7 @@ export function PlayerCategorySection({
               <label className="text-xs text-slate-500 font-semibold block mb-1.5">Max Age *</label>
               <input type="number" value={categoryMaxAge} onChange={e => setCategoryMaxAge(e.target.value)} placeholder="e.g. 45" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
             </div>
-            {user?.role === "SUPER_ADMIN" && (
+            {isSuper && (
               <div>
                 <label className="text-xs text-slate-500 font-semibold block mb-1.5">Community</label>
                 <div className="relative">
@@ -194,7 +206,7 @@ export function PlayerCategorySection({
           boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
         }}
       >
-        <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b pb-2" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b m-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Categories</span>
           <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-[10px] font-bold">{playerCategories.length}</span>
         </div>
@@ -219,7 +231,7 @@ export function PlayerCategorySection({
                 {c.type && (
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${c.type === "DEFAULT" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"}`}>{c.type}</span>
                 )}
-                {(user?.role === "SUPER_ADMIN" || (["ADMIN", "SPORTS_ADMIN"].includes(user?.role || "") && c.type !== "DEFAULT")) && (
+                {(isSuper || (canManageCategories && c.type !== "DEFAULT")) && (
                   <>
                     <button onClick={() => handleCategoryEdit(c)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
                       <Edit2 className="w-3 h-3" /> Edit

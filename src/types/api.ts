@@ -702,6 +702,7 @@ export interface SportFormEvent {
   auctionEnabled?: boolean;
   adminApprovalRequired?: boolean;
   mandatoryMixedDoubles?: boolean;
+  tournamentId?: number;
 }
 
 export interface SportFormEntry {
@@ -711,6 +712,7 @@ export interface SportFormEntry {
   iconUrl?: string;
   sportId: number;
   editingSportId: number | null;
+  tournamentId?: number;
   events: SportFormEvent[];
 }
 

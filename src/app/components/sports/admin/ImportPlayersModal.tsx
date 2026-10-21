@@ -35,8 +35,8 @@ export function ImportPlayersModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl w-full max-w-lg p-6 shadow-2xl space-y-6">
-        <div className="flex items-center justify-between border-b border-[#2a3a5c] pb-3">
-          <h3 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-[#2a3a5c]">
+          <h3 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">
             <ClipboardList className="w-5 h-5 text-[#10b981]" /> Import Participants
           </h3>
           <button

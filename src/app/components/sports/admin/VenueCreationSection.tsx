@@ -150,9 +150,9 @@ export function VenueCreationSection({
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <div className="text-sm font-bold uppercase tracking-wider border-b pb-2.5" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
+          <h3 className="text-sm font-bold uppercase tracking-wider border-b m-0 mb-0" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
             {editingVenueId ? "Edit Venue" : "Create New Venue"}
-          </div>
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>Venue Name *</label>
@@ -488,7 +488,7 @@ export function VenueCreationSection({
           boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
         }}
       >
-        <div className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between border-b pb-2.5" style={{ color: "#6b7094", borderColor: "rgba(99, 102, 241, 0.12)" }}>
+        <div className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between border-b m-0" style={{ color: "#6b7094", borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Venues</span>
           <span className="px-2.5 py-0.5 rounded text-[10px] font-bold"
             style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>

@@ -781,12 +781,12 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
       {/* Add / Edit Form Modal Card */}
       {showForm && (
         <div className="bg-white rounded-2xl border-2 border-indigo-500/20 shadow-md p-5 transition-all animate-in fade-in">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                 {editingId ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               </div>
-              <h3 className="text-sm font-bold text-slate-800">
+              <h3 className="text-sm font-bold text-slate-800 m-0 mb-0">
                 {editingId ? "Edit Player Ranking" : "Add Player Ranking"}
                 {selectedSport && <span className="text-indigo-600 font-medium"> — {selectedSport.name}</span>}
               </h3>

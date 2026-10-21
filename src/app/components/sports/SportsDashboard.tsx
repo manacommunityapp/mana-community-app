@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router";
 import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
-import { useAuth } from "../../../contexts/AuthContext";
 import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats } from "./SportsRegister";
+import { isTeamSport } from "./utils/sportsConstants";
 import {
   VIEW_SPORTS_MAIN,
   VIEW_EVENT_REGISTRATIONS,
@@ -69,7 +70,7 @@ function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon, 
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl p-2.5 sm:p-3 card-hover-lift flex items-center gap-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_8px_rgba(99,102,241,0.04)] transition-all duration-300 hover:border-indigo-500/30 ${
+      className={`rounded-xl p-2 sm:p-2.5 card-hover-lift flex items-center gap-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_8px_rgba(99,102,241,0.04)] transition-all duration-300 hover:border-indigo-500/30 ${
         onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.99]" : ""
       }`}
     >
@@ -77,13 +78,22 @@ function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon, 
         <Icon className="h-4 w-4" style={{ color }} />
       </div>
       <div className="flex-1 min-w-0 text-left">
-        <div className="flex items-center justify-between gap-1">
-          <div className="text-base sm:text-xl font-extrabold leading-none" style={{ color }}>{value}</div>
-          <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none" style={{ background: badgeBg, color: badgeText }}>
+        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-base sm:text-xl font-bold leading-none shrink-0" style={{ color }}>
+              {value}
+            </span>
+            <span className="text-[11px] sm:text-xs text-slate-500 font-medium truncate" title={label}>
+              {label}
+            </span>
+          </div>
+          <span
+            className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
+            style={{ background: badgeBg, color: badgeText }}
+          >
             {badge}
           </span>
         </div>
-        <div className="text-[11px] sm:text-xs text-[#6b7094] mt-0.5 font-medium truncate" title={label}>{label}</div>
       </div>
     </div>
   );
@@ -150,13 +160,13 @@ function EventRow({ event, onClick }: EventRowProps) {
       <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
         <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
         <div className="min-w-0 text-left flex-1">
-          <div className="text-[13px] sm:text-sm font-bold text-[#0d0d2b] flex items-center flex-wrap gap-1.5">
+          <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center flex-wrap gap-1.5">
             <span className="truncate">{event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}</span>
             {event.targetDate && event.targetDate.getTime() > Date.now() && (
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
             {event.venue && (
-              <span className="text-[11px] sm:text-xs text-[#6b7094] font-medium flex items-center gap-1">
+              <span className="text-[11px] sm:text-xs text-slate-500 font-medium flex items-center gap-1">
                 <span>·</span>
                 <span>{event.venue}</span>
               </span>
@@ -171,7 +181,7 @@ function EventRow({ event, onClick }: EventRowProps) {
       </div>
       <div className="text-right flex-shrink-0">
         <div className="text-[11px] sm:text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
-        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">{event.statusSub}</div>
+        <div className="text-[10px] text-slate-500 mt-0.5 font-medium">{event.statusSub}</div>
       </div>
     </div>
   );
@@ -214,11 +224,11 @@ function RegCard({
         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
       )}
       <div className="flex-1 min-w-0 text-left">
-        <div className="text-sm font-bold text-[#0d0d2b]">
-          {item.name} <span className="text-[#6b7094] font-medium">— {item.date}</span>
+        <div className="text-sm font-bold text-slate-900">
+          {item.name} <span className="text-slate-500 font-medium">— {item.date}</span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-          <span className="text-xs text-[#6b7094] font-medium">{item.category}</span>
+          <span className="text-xs text-slate-500 font-medium">{item.category}</span>
           {item.categoryName && (
             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
               {item.categoryName}
@@ -361,18 +371,18 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
 
   return (
     <div
-      className="rounded-xl p-3.5 sm:p-4"
+      className="rounded-xl p-2.5 sm:p-3"
       style={{
         background: "white",
         border: "1px solid rgba(99, 102, 241, 0.12)",
         boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
-      <div className="text-xs font-semibold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>
+      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-500">
         Next Match Timer
       </div>
       <div className="text-center">
-        <div className="text-xs mb-2.5 font-semibold text-slate-800 truncate px-1" title={nextMatch.title}>
+        <div className="text-xs mb-2 font-semibold text-slate-800 truncate px-1" title={nextMatch.title}>
           {nextMatch.title}
         </div>
         <div className="flex justify-center items-center gap-1.5 sm:gap-2">
@@ -385,7 +395,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
                 >
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wider" style={{ color: "#6b7094" }}>
+                <div className="text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wider text-slate-500">
                   {l}
                 </div>
               </div>
@@ -395,7 +405,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
             </div>
           ))}
         </div>
-        <div className="text-xs mt-2.5 font-medium truncate px-1" style={{ color: "#6b7094" }} title={nextMatch.subtitle}>
+        <div className="text-xs mt-2 font-medium truncate px-1 text-slate-500" title={nextMatch.subtitle}>
           {nextMatch.subtitle}
         </div>
       </div>
@@ -747,7 +757,7 @@ export function SportsDashboard() {
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
           registrationId: e.myRegistrationId ?? undefined,
-          isTeamSport: e.teamSport,
+          isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? undefined,
         };
@@ -818,7 +828,7 @@ export function SportsDashboard() {
           categoryName: e.categoryName ?? undefined,
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
-          isTeamSport: e.teamSport,
+          isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
         };
       };
 
@@ -1028,7 +1038,7 @@ export function SportsDashboard() {
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
 
       {error && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-red-200/80 dark:border-red-800/40 shadow-[0_15px_40px_rgba(220,38,38,0.15)] rounded-2xl p-4 flex items-center justify-between gap-3 text-left animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1054,13 +1064,18 @@ export function SportsDashboard() {
 
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-3.5 ${idx >= 2 ? "hidden sm:block" : ""}`}>
-              <div className="h-7 bg-slate-200/60 rounded w-1/3"></div>
-              <div className="h-3.5 bg-slate-200/60 rounded w-2/3 mt-2"></div>
-              <div className="h-3.5 bg-slate-200/60 rounded w-1/2 mt-2"></div>
+            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 ${idx >= 2 ? "hidden sm:flex" : ""}`}>
+              <div className="h-8 w-8 rounded-lg bg-slate-200/60 shrink-0"></div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5 flex-1">
+                  <div className="h-5 bg-slate-200/60 rounded w-6"></div>
+                  <div className="h-3.5 bg-slate-200/60 rounded w-24"></div>
+                </div>
+                <div className="h-4 bg-slate-200/60 rounded-full w-14 shrink-0"></div>
+              </div>
             </div>
           ))
         ) : (
@@ -1165,18 +1180,26 @@ export function SportsDashboard() {
       )}
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-3.5">
-        <div className="lg:col-span-2 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="lg:col-span-2 space-y-2.5">
           {/* Upcoming events */}
-          <div className="rounded-xl p-2.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-2.5 flex-wrap">
-              <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>
+          <div className={`rounded-xl bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all ${
+            filteredLiveEvents.length === 0 && !loading
+              ? "p-2 sm:px-3.5 sm:py-2"
+              : "p-2 sm:p-3"
+          }`}>
+            <div className={`flex items-center justify-between gap-2 flex-wrap ${
+              filteredLiveEvents.length === 0 && !loading
+                ? (familyMembersOnly.length > 0 ? "mb-1 sm:mb-1.5" : "")
+                : "mb-1.5 sm:mb-2"
+            }`}>
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
                 Your Upcoming Events
               </div>
               {/* Family Filter Dropdown */}
-              {familyMembersOnly.length > 0 && (
+              {familyMembersOnly.length > 0 ? (
                 <div className="flex items-center gap-1.5">
-                  <label className="text-[10px] text-slate-400 font-semibold uppercase hidden sm:inline-block">Filter:</label>
+                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:inline-block">Filter:</label>
                   <select
                     value={upcomingFamilyFilter}
                     onChange={(e) => setUpcomingFamilyFilter(e.target.value)}
@@ -1205,21 +1228,27 @@ export function SportsDashboard() {
                     )
                   )}
                 </div>
-              )}
+              ) : (filteredLiveEvents.length === 0 && !loading) ? (
+                <div className="text-[11px] sm:text-xs font-semibold text-slate-400">
+                  No upcoming events
+                </div>
+              ) : null}
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : filteredLiveEvents.length === 0 ? (
-              <div className="text-center py-5">
-                <div className="text-xs font-semibold" style={{ color: "#6b7094" }}>
-                  {upcomingFamilyFilter !== "ALL"
-                    ? `No upcoming events for ${selectedMemberDisplayName}`
-                    : "No upcoming events"}
+              familyMembersOnly.length > 0 ? (
+                <div className="text-center py-1 sm:py-1.5">
+                  <div className="text-xs font-semibold text-slate-500">
+                    {upcomingFamilyFilter !== "ALL"
+                      ? `No upcoming events for ${selectedMemberDisplayName}`
+                      : "No upcoming events"}
+                  </div>
                 </div>
-              </div>
+              ) : null
             ) : (
               <div className="max-h-[220px] sm:max-h-[240px] overflow-y-auto pr-1">
                 {filteredLiveEvents.map((ev, idx) => {
@@ -1248,7 +1277,7 @@ export function SportsDashboard() {
                           }}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px]" style={{ color: "#6b7094" }}>Captaincy Status:</span>
+                            <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
                             <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
                               {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
                             </span>
@@ -1298,15 +1327,15 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations — grouped by tournament with rich sports group view */}
-          <div id="open-registrations-section" className="rounded-2xl p-4 sm:p-5 bg-white border border-[#6366f1]/15 shadow-[0_4px_24px_rgba(99,102,241,0.06)]">
-            <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-100">
+          <div id="open-registrations-section" className="rounded-2xl p-2.5 sm:p-3.5 bg-white border border-[#6366f1]/15 shadow-[0_4px_24px_rgba(99,102,241,0.06)]">
+            <div className="flex items-center justify-between mb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-xs">
                   <Trophy className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <div className="relative flex items-center gap-1.5">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">Open for Registration</h3>
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
                     <div className="relative inline-flex items-center">
                       <button
                         type="button"
@@ -1392,14 +1421,21 @@ export function SportsDashboard() {
                   return getMemberRegsForEvent(ev)[0];
                 };
                 const getMemberRegisteredFormats = (ev: OpenRegistration) => {
-                  return getMemberRegsForEvent(ev).map(r => (r.matchType || "SINGLES").toUpperCase());
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  return getMemberRegsForEvent(ev).map(r => (r.matchType || (isEvTeam ? "TEAM" : "SINGLES")).toUpperCase());
                 };
                 const getUnregisteredFormats = (ev: OpenRegistration) => {
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  if (isEvTeam) {
+                    return isMemberRegisteredForEvent(ev) ? [] : ["TEAM"];
+                  }
                   const regFormats = getMemberRegisteredFormats(ev);
                   const allFormats = getEventFormats(ev as any);
                   return allFormats.filter(f => !regFormats.includes(f.toUpperCase()));
                 };
                 const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  if (isEvTeam) return isMemberRegisteredForEvent(ev);
                   const allFormats = getEventFormats(ev as any);
                   if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
                   return getUnregisteredFormats(ev).length === 0;
@@ -1432,19 +1468,20 @@ export function SportsDashboard() {
                   : t.mappedEvents;
 
                 const renderCategoryCard = (item: OpenRegistration) => {
+                  const sportName = (item.category?.split(" · ")[0]) || "Sport";
+                  const emoji = item.sportEmoji || getSportEmoji(sportName);
+                  const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
                   const memberReg = getMemberRegForEvent(item);
                   const isReg = Boolean(memberReg);
                   const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
                   const isBlocked = !elig.eligible;
-                  const eventFormats = getEventFormats(item as any);
+                  const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
                   const regFormats = getMemberRegisteredFormats(item);
                   const unregFormats = getUnregisteredFormats(item);
-                  const isFullyReg = isReg && unregFormats.length === 0;
-                  const isPartiallyReg = isReg && unregFormats.length > 0;
-                  const sportName = (item.category?.split(" · ")[0]) || "Sport";
-                  const emoji = item.sportEmoji || getSportEmoji(sportName);
+                  const isFullyReg = isReg && (isTeam || unregFormats.length === 0);
+                  const isPartiallyReg = !isTeam && isReg && unregFormats.length > 0;
 
-                  const formatBadge = item.isTeamSport
+                  const formatBadge = isTeam
                     ? "Team Squad"
                     : (item.categoryName || item.name || "").toLowerCase().includes("double")
                     ? "Doubles"
@@ -1461,7 +1498,7 @@ export function SportsDashboard() {
                   return (
                     <div
                       key={item.id}
-                      className={`p-3.5 rounded-xl border transition-all text-left flex flex-col justify-between gap-3 ${
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between gap-2 ${
                         isFullyReg
                           ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
                           : isBlocked
@@ -1499,7 +1536,7 @@ export function SportsDashboard() {
                         </div>
 
                         {/* Requirements / Criteria & Action row */}
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap mt-2.5">
+                        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap mt-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {elig.requiredGender ? (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
@@ -1588,9 +1625,9 @@ export function SportsDashboard() {
                 };
 
                 return (
-                  <div key={t.id} className="mb-4 last:mb-0 rounded-2xl border border-indigo-100/90 bg-white shadow-xs overflow-hidden transition-all text-left">
+                  <div key={t.id} className="mb-2.5 last:mb-0 rounded-2xl border border-indigo-100/90 bg-white shadow-xs overflow-hidden transition-all text-left">
                     {/* Tournament Header with Details */}
-                    <div className="p-3.5 sm:p-4 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
+                    <div className="p-2.5 sm:p-3 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0 flex-1">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -1599,7 +1636,7 @@ export function SportsDashboard() {
                           <div className="min-w-0 flex-1">
                             {/* Top Row: Tournament Name & Details Button */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-base font-bold text-slate-900 truncate">{t.name}</h4>
+                              <h3 className="text-base font-bold text-slate-900 truncate m-0 mb-0">{t.name}</h3>
 
                               <button
                                 type="button"
@@ -1627,7 +1664,7 @@ export function SportsDashboard() {
                             </div>
 
                             {/* Next Row: Tournament Meta Badges + Hide Groups Button */}
-                            <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs text-slate-500 font-medium">
+                            <div className="flex items-center gap-2.5 mt-1 flex-wrap text-xs text-slate-500 font-medium">
                               {t.eventDateStart && t.eventDateEnd && (
                                 <span className="inline-flex items-center gap-1">
                                   <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
@@ -1660,7 +1697,7 @@ export function SportsDashboard() {
 
                       {/* Family member registration selector */}
                       {isExpanded && (
-                        <div className="mt-3 pt-2.5 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="mt-2 pt-2 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-2 flex-nowrap shrink-0">
                               <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
@@ -1782,7 +1819,7 @@ export function SportsDashboard() {
 
                     {/* Sports Group View - Body */}
                     {isExpanded && (
-                      <div className="p-3.5 sm:p-4 bg-slate-50/30">
+                      <div className="p-2.5 sm:p-3 bg-slate-50/30">
                         {showEligibleOnly && (viewMode === "groups" ? sportEntries.length === 0 : gridEvents.length === 0) ? (
                           <div className="py-8 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
                             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2 text-lg">
@@ -1802,17 +1839,17 @@ export function SportsDashboard() {
                             </button>
                           </div>
                         ) : viewMode === "groups" ? (
-                          <div className="space-y-4">
+                          <div className="space-y-2.5">
                             {sportEntries.map(([sport, { emoji, events: sportEvents }]) => {
                               const eligibleCount = sportEvents.filter(e => checkCategoryEligibility(e, targetMember.age, targetMember.gender).eligible).length;
                               const regCount = sportEvents.filter(e => isMemberRegisteredForEvent(e)).length;
 
                               return (
-                                <div key={sport} className="p-3.5 rounded-xl border border-slate-200/80 bg-white">
-                                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+                                <div key={sport} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 bg-white">
+                                  <div className="flex items-center justify-between mb-2 border-b border-slate-100">
                                     <div className="flex items-center gap-2">
                                       <span className="text-xl">{emoji}</span>
-                                      <span className="text-sm font-bold text-slate-900">{sport}</span>
+                                      <h3 className="text-sm font-bold text-slate-900 m-0 mb-0">{sport}</h3>
                                       <span className="text-[11px] text-slate-500 font-medium">
                                         · {sportEvents.length} {sportEvents.length === 1 ? "group/category" : "groups/categories"}
                                       </span>
@@ -1844,7 +1881,7 @@ export function SportsDashboard() {
                                     </div>
                                   </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
                                     {sportEvents.map(renderCategoryCard)}
                                   </div>
                                 </div>
@@ -1852,7 +1889,7 @@ export function SportsDashboard() {
                             })}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
                             {gridEvents.map(renderCategoryCard)}
                           </div>
                         )}
@@ -1904,9 +1941,9 @@ export function SportsDashboard() {
 
           {/* Closed registrations */}
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
-            <div className="rounded-xl p-3.5 sm:p-4 mt-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
               <div className="flex items-center justify-between mb-2.5">
-                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Closed Registrations</div>
+                <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedTournaments.length > 0
                     ? `${closedTournaments.length} tournament${closedTournaments.length !== 1 ? "s" : ""}`
@@ -1925,14 +1962,14 @@ export function SportsDashboard() {
                           if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                           return next;
                         })}
-                        className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
                       >
                         <div className="h-8 w-8 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                           <Trophy className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
-                          <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
+                          <div className="text-sm font-bold text-slate-900 truncate">{t.name}</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
                             {t.eventDateStart && t.eventDateEnd
                               ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
                               : "Dates TBD"}
@@ -2033,15 +2070,15 @@ export function SportsDashboard() {
 
           {/* Unified Captain Nominations Section — team sports only */}
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
-            <div className="rounded-xl p-3.5 sm:p-4 mt-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Captain Nominations</div>
+            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
                 </span>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {/* Admin View: team events only */}
                 {canManageCaptainNominations ? (
                   teamClosedRegs.map(item => (
@@ -2111,10 +2148,10 @@ export function SportsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {/* Notifications */}
-          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-semibold uppercase tracking-widest mb-2.5 flex items-center gap-2" style={{ color: "#6b7094" }}>
+          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-2">
               <Bell className="w-3 h-3" /> Notifications
             </div>
             <div className="space-y-0">
@@ -2123,10 +2160,10 @@ export function SportsDashboard() {
                   <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-[10px] text-center py-3" style={{ color: "#6b7094" }}>No new notifications</p>
+                <p className="text-[10px] text-center py-3 text-slate-500">No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-2.5 py-2 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
+                  <div key={n.id} className={`flex items-start gap-2.5 py-1.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
                       {n.icon}
                     </div>
@@ -2134,7 +2171,7 @@ export function SportsDashboard() {
                       <div className="text-xs leading-relaxed text-slate-800">
                         {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
                       </div>
-                      <div className="text-[10px] mt-0.5" style={{ color: "#6b7094" }}>{n.time}</div>
+                      <div className="text-[10px] mt-0.5 text-slate-500">{n.time}</div>
                     </div>
                   </div>
                 ))
@@ -2146,17 +2183,17 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Season Stats */}
-          <div className="rounded-xl p-3.5 sm:p-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center gap-2 mb-2.5">
+          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-4 h-4 text-[#f97316]" />
-              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Season Stats</div>
+              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Season Stats</div>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {(() => {
                   const total = myRegistrations.length;
                   const confirmed = confirmedMyRegistrations.length;
@@ -2169,7 +2206,7 @@ export function SportsDashboard() {
                   ];
                   return seasonData.map(([k, v]) => (
                     <div key={k} className="flex justify-between items-center text-xs">
-                      <span style={{ color: "#6b7094" }}>{k}</span>
+                      <span className="text-slate-500">{k}</span>
                       <span className="font-semibold text-slate-800">{v}</span>
                     </div>
                   ));
@@ -2179,12 +2216,12 @@ export function SportsDashboard() {
           </div>
 
           {/* Franchises & Squads Quick Card */}
-          <div className="rounded-xl p-3.5 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-500/20 text-left relative overflow-hidden">
+          <div className="rounded-xl p-2.5 sm:p-3 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-500/20 text-left relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
               <Users className="w-16 h-16 text-indigo-400" />
             </div>
             <div className="relative z-10 space-y-1.5">
-              <span className="text-[9px] uppercase font-black tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
+              <span className="text-[9px] uppercase font-bold tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
                 Tournament Hub
               </span>
               <h4 className="text-sm font-bold text-white">Teams & Squad Rosters</h4>
@@ -2372,21 +2409,21 @@ export function SportsDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full p-4 sm:p-6 space-y-4 max-h-[88vh] overflow-hidden flex flex-col text-left">
               {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
                     <Trophy className="w-5 h-5 text-[#f97316]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 m-0 mb-0">
                         Your Registrations
                       </h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
                         {myRegistrations.length} Total
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5 m-0">
                       Sports tournaments & events you and your family are registered for
                     </p>
                   </div>
@@ -2513,21 +2550,21 @@ export function SportsDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full p-4 sm:p-6 space-y-4 max-h-[88vh] overflow-hidden flex flex-col text-left">
               {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
+              <div className="flex items-center justify-between border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
                     <Zap className="w-5 h-5 text-[#10b981]" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 m-0 mb-0">
                         Live & Running Events
                       </h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
                         {liveEvents.filter(e => e.status === "LIVE").length} Active
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5 m-0">
                       Live sports matches and upcoming event schedules
                     </p>
                   </div>
