@@ -70,6 +70,34 @@ export const scoreColor = (score: number): string => {
   return '#EF4444';
 };
 
+export interface ScoreBreakdown {
+  budgetMatch: number;
+  engagement: number;
+  stageProgress: number;
+  sourceQuality: number;
+  velocity: number;
+}
+
+export const SCORE_FACTORS: Array<{ key: keyof ScoreBreakdown; label: string; max: number }> = [
+  { key: 'budgetMatch',    label: 'Budget Range',      max: 25 },
+  { key: 'engagement',     label: 'Engagement',        max: 25 },
+  { key: 'stageProgress',  label: 'Stage Progress',    max: 25 },
+  { key: 'sourceQuality',  label: 'Source Quality',    max: 15 },
+  { key: 'velocity',       label: 'Response Velocity', max: 10 },
+];
+
+export const computeLeadScore = (lead: Lead): { score: number; breakdown: ScoreBreakdown } => {
+  const budgetMatch   = lead.budgetLakhs >= 200 ? 25 : lead.budgetLakhs >= 100 ? 20 : lead.budgetLakhs >= 60 ? 14 : 8;
+  const actCount      = lead.activities.filter(a => a.type !== 'NOTE').length;
+  const engagement    = Math.min(25, actCount * 6);
+  const stageIdx      = STAGES.indexOf(lead.stage);
+  const stageProgress = Math.round((stageIdx / (STAGES.length - 1)) * 25);
+  const sourceQuality = (lead.source === 'WALK_IN' || lead.source === 'REFERRAL') ? 15 : lead.source === 'BROKER' ? 12 : 8;
+  const velocity      = lead.daysInStage <= 2 ? 10 : lead.daysInStage <= 5 ? 7 : lead.daysInStage <= 10 ? 4 : 1;
+  const score         = Math.min(100, budgetMatch + engagement + stageProgress + sourceQuality + velocity);
+  return { score, breakdown: { budgetMatch, engagement, stageProgress, sourceQuality, velocity } };
+};
+
 export const INITIAL_LEADS: Lead[] = [
   {
     id: 'L001', name: 'Arun Prakash', phone: '+91 98111 22334', email: 'arun.prakash@email.com',

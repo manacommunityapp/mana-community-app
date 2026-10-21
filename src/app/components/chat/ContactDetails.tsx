@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
 import {
   User,
   BellOff,
@@ -8,16 +10,24 @@ import {
   ShieldCheck,
   Image,
   Film,
+  Link2,
+  X,
 } from "lucide-react";
 import type { Contact } from "./chatData";
 import { sharedMedia } from "./chatData";
+import { INITIAL_LEADS, STAGE_LABELS, stageColors, scoreColor } from "../cpos/crm/crmData";
 
 interface ContactDetailsProps {
   contact: Contact | null;
 }
 
 export function ContactDetails({ contact }: ContactDetailsProps) {
+  const navigate = useNavigate();
+  const [linkedLeadId, setLinkedLeadId] = useState<string | null>(null);
+
   if (!contact) return null;
+
+  const linkedLead = linkedLeadId ? (INITIAL_LEADS.find(l => l.id === linkedLeadId) ?? null) : null;
 
   return (
     <div className="flex flex-col h-full bg-card border-l border-border">
@@ -134,6 +144,83 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
               <span>Clear history</span>
             </div>
           </button>
+        </div>
+
+        {/* CRM Lead Link */}
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2 px-1 flex items-center gap-1.5">
+            <Link2 className="h-3 w-3" /> CRM Lead
+          </h4>
+
+          {!linkedLead ? (
+            <div className="space-y-1.5">
+              <select
+                defaultValue=""
+                onChange={e => e.target.value ? setLinkedLeadId(e.target.value) : undefined}
+                className="w-full text-xs rounded-xl px-3 py-2.5 focus:outline-none"
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.55)',
+                }}
+              >
+                <option value="">Link to a lead…</option>
+                {INITIAL_LEADS.map(l => (
+                  <option key={l.id} value={l.id} style={{ background: '#1A2540' }}>
+                    {l.name} · {STAGE_LABELS[l.stage]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground px-1">
+                Messages will appear in the lead's activity timeline.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="rounded-xl p-3 space-y-2.5"
+              style={{ background: 'rgba(79,106,245,0.07)', border: '1px solid rgba(79,106,245,0.2)' }}
+            >
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground truncate">{linkedLead.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{linkedLead.id} · {linkedLead.assignedTo}</p>
+                </div>
+                <button
+                  onClick={() => setLinkedLeadId(null)}
+                  className="shrink-0 h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:bg-muted/30"
+                  title="Unlink"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: `${stageColors[linkedLead.stage]}20`, color: stageColors[linkedLead.stage] }}
+                >
+                  {STAGE_LABELS[linkedLead.stage]}
+                </span>
+                <div className="flex-1 h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${linkedLead.score}%`, background: scoreColor(linkedLead.score) }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold" style={{ color: scoreColor(linkedLead.score) }}>
+                  {linkedLead.score}
+                </span>
+              </div>
+
+              <button
+                onClick={() => navigate(`/cpos/crm/leads/${linkedLead.id}`)}
+                className="w-full text-xs font-semibold py-2 rounded-lg text-white transition-all hover:opacity-85"
+                style={{ background: '#4F6AF5' }}
+              >
+                Open Lead Detail →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

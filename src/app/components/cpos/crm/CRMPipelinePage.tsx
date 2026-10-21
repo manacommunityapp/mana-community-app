@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Tooltip, IconButton,
+  LinearProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -9,8 +10,36 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  INITIAL_LEADS, LeadSource,
+  INITIAL_LEADS, LeadSource, computeLeadScore, SCORE_FACTORS,
 } from './crmData';
+
+const ScoreTooltip: React.FC<{ lead: Lead }> = ({ lead }) => {
+  const { score, breakdown } = computeLeadScore(lead);
+  return (
+    <Box sx={{ minWidth: 195 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1.5 }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: '#fff' }}>AI Score Breakdown</Typography>
+        <Typography sx={{ fontSize: '1rem', fontWeight: 900, color: scoreColor(score) }}>{score}</Typography>
+      </Box>
+      {SCORE_FACTORS.map(f => (
+        <Box key={f.key} sx={{ mb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
+            <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.55)' }}>{f.label}</Typography>
+            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: '#7B93FF' }}>
+              {breakdown[f.key]}/{f.max}
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={(breakdown[f.key] / f.max) * 100}
+            sx={{ height: 3, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.08)',
+              '& .MuiLinearProgress-bar': { bgcolor: scoreColor(score) } }}
+          />
+        </Box>
+      ))}
+    </Box>
+  );
+};
 
 const PROPERTY_TYPES = ['2 BHK', '3 BHK', 'Villa', 'Penthouse', 'Commercial'];
 const SOURCES: LeadSource[] = ['WALK_IN', 'BROKER', 'PORTAL', 'WHATSAPP', 'REFERRAL', 'WEBSITE'];
@@ -190,15 +219,20 @@ const CRMPipelinePage: React.FC = () => {
                       {lead.phone}
                     </Typography>
                   </Box>
-                  <Tooltip title={`AI Score: ${lead.score}`}>
+                  <Tooltip
+                    title={<ScoreTooltip lead={lead} />}
+                    arrow
+                    placement="top"
+                    componentsProps={{ tooltip: { sx: { bgcolor: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: '12px', p: 1.5, maxWidth: 220 } }, arrow: { sx: { color: '#1A2540' } } }}
+                  >
                     <Box sx={{
                       minWidth: 30, height: 30, borderRadius: '8px', display: 'flex',
                       alignItems: 'center', justifyContent: 'center',
-                      bgcolor: `${scoreColor(lead.score)}15`,
-                      border: `1px solid ${scoreColor(lead.score)}40`,
+                      bgcolor: `${scoreColor(computeLeadScore(lead).score)}15`,
+                      border: `1px solid ${scoreColor(computeLeadScore(lead).score)}40`,
                     }}>
-                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: scoreColor(lead.score) }}>
-                        {lead.score}
+                      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: scoreColor(computeLeadScore(lead).score) }}>
+                        {computeLeadScore(lead).score}
                       </Typography>
                     </Box>
                   </Tooltip>
