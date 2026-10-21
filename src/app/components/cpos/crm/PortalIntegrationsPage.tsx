@@ -350,6 +350,64 @@ Body:
           ))}
         </Box>
       </Paper>
+
+      {/* Web Lead Capture Form */}
+      {config && (
+        <Paper sx={{ p: 3, borderRadius: '20px' }}>
+          <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 0.5 }}>
+            🌐 Web Lead Capture Form
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'block', mb: 2 }}>
+            Embed this form on your marketing website — leads go straight into the CRM pipeline.
+          </Typography>
+          <Box sx={{ bgcolor: '#0D1526', borderRadius: '12px', p: 2, mb: 2 }}>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', display: 'block', mb: 1, fontFamily: 'monospace' }}>
+              HTML embed snippet — paste into your website:
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                color: '#7B93FF', fontSize: '0.72rem', fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-all', m: 0,
+                maxHeight: 220, overflowY: 'auto',
+              }}
+            >{`<form action="${window.location.origin.replace(':3000','').replace(':5173','')}/api/v1/cpos/crm/leads/inbound" method="POST" style="display:flex;flex-direction:column;gap:12px;max-width:400px">
+  <input type="hidden" name="source" value="WEBSITE" />
+  <input name="leadName" placeholder="Full Name *" required style="padding:10px;border-radius:6px;border:1px solid #ccc" />
+  <input name="phone" placeholder="Phone Number" style="padding:10px;border-radius:6px;border:1px solid #ccc" />
+  <input name="email" type="email" placeholder="Email Address" style="padding:10px;border-radius:6px;border:1px solid #ccc" />
+  <input name="budgetDisplay" placeholder="Budget (e.g. 80 Lakhs)" style="padding:10px;border-radius:6px;border:1px solid #ccc" />
+  <button type="submit" style="padding:12px;background:#4F6AF5;color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer">
+    Submit Enquiry
+  </button>
+</form>
+<script>
+  document.querySelector('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const r = await fetch(e.target.action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Portal-Key': '${config.apiKey}' },
+      body: JSON.stringify(Object.fromEntries(fd)),
+    });
+    if (r.ok) { e.target.innerHTML = '<p style="color:#10B981;font-weight:bold">✓ Thank you! We will reach out shortly.</p>'; }
+  });
+</script>`}</Box>
+          </Box>
+          <Button
+            variant="outlined" size="small" startIcon={<ContentCopyIcon />}
+            onClick={() => {
+              const snippet = `<!-- MANA CRM Web Form: API Key ${config.apiKey} -->`;
+              navigator.clipboard.writeText(snippet).then(() => {
+                setCopiedKey('webform');
+                setTimeout(() => setCopiedKey(null), 2000);
+              });
+            }}
+          >
+            {copiedKey === 'webform' ? '✓ Copied' : 'Copy API Key for form'}
+          </Button>
+        </Paper>
+      )}
     </Box>
   );
 };

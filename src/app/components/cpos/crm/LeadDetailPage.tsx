@@ -9,6 +9,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
+import SmsIcon from '@mui/icons-material/Sms';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AddIcon from '@mui/icons-material/Add';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -24,6 +25,7 @@ import { DocumentVaultSection } from './DocumentVaultSection';
 import { SendEmailDialog } from './SendEmailDialog';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 import LeadTagsSection from './LeadTagsSection';
+import SendSmsDialog from './SendSmsDialog';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
 
@@ -42,6 +44,7 @@ const LeadDetailPage: React.FC = () => {
   const [savingFollowUp, setSavingFollowUp] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [smsOpen, setSmsOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [agents, setAgents] = useState<string[]>([]);
   const [assigningTo, setAssigningTo] = useState('');
@@ -228,6 +231,12 @@ const LeadDetailPage: React.FC = () => {
               disabled={!lead.email}
               sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#4F6AF5', '&:hover': { bgcolor: '#3d56d4' } }}>
               Email
+            </Button>
+            <Button variant="contained" size="small" startIcon={<SmsIcon />}
+              onClick={() => setSmsOpen(true)}
+              disabled={!lead.phone}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#6366F1', '&:hover': { bgcolor: '#4f52d1' } }}>
+              SMS
             </Button>
             {isAdmin && (
               <Button variant="outlined" size="small" startIcon={<PersonIcon />}
@@ -528,6 +537,16 @@ const LeadDetailPage: React.FC = () => {
           const updated = await crmService.getLeadById(lead.id);
           setLead(updated);
         }}
+      />
+    )}
+
+    {lead && (
+      <SendSmsDialog
+        open={smsOpen}
+        leadId={lead.id}
+        leadName={lead.name}
+        phone={lead.phone ?? ''}
+        onClose={() => setSmsOpen(false)}
       />
     )}
 

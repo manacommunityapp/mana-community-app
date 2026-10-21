@@ -8,6 +8,9 @@ const CRM_TABS = [
   { label: 'Analytics',    path: '/cpos/crm/analytics' },
   { label: 'Leaderboard',  path: '/cpos/crm/leaderboard' },
   { label: 'Brokers',      path: '/cpos/crm/brokers' },
+  { label: 'Approvals',    path: '/cpos/crm/approvals' },
+  { label: 'Drip',         path: '/cpos/crm/drip' },
+  { label: 'Reports',      path: '/cpos/crm/reports' },
   { label: 'Integrations', path: '/cpos/crm/integrations' },
 ];
 

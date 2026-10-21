@@ -40,6 +40,9 @@ export interface CrmLeadDto {
   tags?: { id: number; name: string; color: string }[];
   createdAt: string;
   updatedAt: string;
+  approvalStatus?: string | null;
+  approvalReason?: string | null;
+  approvalComment?: string | null;
 }
 
 export interface CrmLeadRequest {
@@ -108,6 +111,11 @@ export interface ImportResultDto {
   errorMessages: string[];
 }
 
+export interface CallOutcomeDto { outcome: string; count: number; }
+export interface HourlyActivityDto { hour: number; count: number; }
+export interface StageForecastDto { stage: string; leads: number; probabilityPct: number; weightedRevenueLakhs: number; }
+export interface ForecastDto { weightedRevenueLakhs: number; totalPipelineLeads: number; byStage: StageForecastDto[]; }
+
 export interface CrmAnalyticsDto {
   totalLeads: number;
   overallConversionPct: number;
@@ -118,7 +126,13 @@ export interface CrmAnalyticsDto {
   stageVelocity: Record<string, number>;
   agentStats: AgentStatDto[];
   leaderboard?: LeaderboardEntryDto[];
+  callOutcomes?: CallOutcomeDto[];
+  hourlyActivity?: HourlyActivityDto[];
+  forecast?: ForecastDto;
 }
+
+export interface DripStepDto { id?: number; delayDays: number; subject: string; bodyHtml: string; }
+export interface DripSequenceDto { id?: number; name: string; triggerStage: string; active: boolean; steps: DripStepDto[]; }
 
 export interface BrokerDto {
   id: number;
@@ -445,5 +459,42 @@ export const crmService = {
     filterStage?: string; filterSource?: string;
   }): Promise<EmailCampaignDto> {
     return apiClient.post<EmailCampaignDto>('/v1/cpos/crm/email-campaigns', req);
+  },
+
+  // ── SMS ───────────────────────────────────────────────────────────────────
+
+  async sendLeadSms(leadId: number | string, message: string): Promise<void> {
+    return apiClient.post<void>(`/v1/cpos/crm/leads/${leadId}/sms`, { message });
+  },
+
+  // ── Approval Workflows ────────────────────────────────────────────────────
+
+  async getLeadsAwaitingApproval(): Promise<Lead[]> {
+    const dtos = await apiClient.get<CrmLeadDto[]>('/v1/cpos/crm/leads/pending-approval');
+    return dtos.map(mapLead);
+  },
+
+  async requestApproval(leadId: number | string, reason: string): Promise<Lead> {
+    const dto = await apiClient.post<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/request-approval`, { reason });
+    return mapLead(dto);
+  },
+
+  async approveOrRejectLead(leadId: number | string, approve: boolean, comment?: string): Promise<Lead> {
+    const dto = await apiClient.post<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/approve`, { approve, comment });
+    return mapLead(dto);
+  },
+
+  // ── Email Drip Sequences ──────────────────────────────────────────────────
+
+  async getDripSequences(): Promise<DripSequenceDto[]> {
+    return apiClient.get<DripSequenceDto[]>('/v1/cpos/crm/drip-sequences');
+  },
+
+  async createDripSequence(req: DripSequenceDto): Promise<DripSequenceDto> {
+    return apiClient.post<DripSequenceDto>('/v1/cpos/crm/drip-sequences', req);
+  },
+
+  async deleteDripSequence(seqId: number): Promise<void> {
+    return apiClient.delete<void>(`/v1/cpos/crm/drip-sequences/${seqId}`);
   },
 };

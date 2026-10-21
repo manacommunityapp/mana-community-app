@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Paper, Typography, Avatar, CircularProgress, Button, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { Box, Paper, Typography, Avatar, CircularProgress, Button, Menu, MenuItem, ListItemIcon, ListItemText, LinearProgress } from '@mui/material';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { CRMNav } from './CRMNav';
@@ -281,6 +281,96 @@ const CRMAnalyticsPage: React.FC = () => {
           </Box>
         )}
       </Paper>
+
+      {/* Call Outcome Analytics */}
+      {(a?.callOutcomes?.length ?? 0) > 0 && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <Paper sx={{ p: 3, borderRadius: '20px' }}>
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 0.5 }}>Call Outcomes</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'block', mb: 2 }}>
+              Connected vs. missed vs. busy breakdown
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {(a?.callOutcomes ?? []).map(co => {
+                const total = (a?.callOutcomes ?? []).reduce((s, c) => s + c.count, 0);
+                const pct = total > 0 ? Math.round(co.count * 100 / total) : 0;
+                const color = co.outcome === 'CONNECTED' ? '#10B981' : co.outcome === 'MISSED' ? '#EF4444' : '#F59E0B';
+                return (
+                  <Box key={co.outcome}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#fff', fontWeight: 600 }}>{co.outcome}</Typography>
+                      <Typography variant="body2" sx={{ color, fontWeight: 700 }}>{co.count} ({pct}%)</Typography>
+                    </Box>
+                    <LinearProgress variant="determinate" value={pct}
+                      sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.07)', '& .MuiLinearProgress-bar': { bgcolor: color } }} />
+                  </Box>
+                );
+              })}
+            </Box>
+          </Paper>
+
+          {/* Hourly Activity Heatmap */}
+          <Paper sx={{ p: 3, borderRadius: '20px' }}>
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 0.5 }}>Best Hours to Reach Leads</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'block', mb: 2 }}>
+              Activity volume by hour of day
+            </Typography>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={(a?.hourlyActivity ?? []).filter(h => h.count > 0 || h.hour % 3 === 0)}
+                margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis dataKey="hour" tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }}
+                  tickFormatter={h => `${h}h`} interval={3} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} />
+                <RechartsTooltip
+                  contentStyle={{ background: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: 8 }}
+                  formatter={(val: number) => [val, 'Activities']}
+                  labelFormatter={h => `${h}:00`}
+                />
+                <Bar dataKey="count" fill="#4F6AF5" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Sales Forecast */}
+      {a?.forecast && (
+        <Paper sx={{ p: 3, borderRadius: '20px' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box>
+              <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700 }}>Sales Forecast</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
+                Probability-weighted pipeline value by stage
+              </Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+              <Typography variant="h5" sx={{ color: '#10B981', fontWeight: 900 }}>
+                ₹{(a.forecast.weightedRevenueLakhs ?? 0).toLocaleString('en-IN')}L
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
+                expected from {a.forecast.totalPipelineLeads} pipeline leads
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 1.5 }}>
+            {(a.forecast.byStage ?? []).filter(s => s.leads > 0).map(s => {
+              const color = stageColors[s.stage as keyof typeof stageColors] ?? '#4F6AF5';
+              return (
+                <Box key={s.stage} sx={{ p: 2, borderRadius: '12px', bgcolor: '#0D1526', borderTop: `2px solid ${color}` }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.63rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                    {STAGE_LABELS[s.stage as keyof typeof STAGE_LABELS] ?? s.stage}
+                  </Typography>
+                  <Typography variant="h6" sx={{ color, fontWeight: 900, my: 0.5 }}>₹{s.weightedRevenueLakhs}L</Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.62rem' }}>
+                    {s.leads} leads · {s.probabilityPct}% prob
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        </Paper>
+      )}
     </Box>
   );
 };
