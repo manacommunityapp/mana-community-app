@@ -12,6 +12,7 @@ import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
   INITIAL_LEADS, LeadSource,
 } from '../crm/crmData';
+import { CRMNav } from '../crm/CRMNav';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
 
@@ -40,6 +41,7 @@ const LeadsPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <CRMNav />
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>

@@ -12,6 +12,7 @@ import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
   INITIAL_LEADS, LeadSource, computeLeadScore, SCORE_FACTORS,
 } from './crmData';
+import { CRMNav } from './CRMNav';
 
 const ScoreTooltip: React.FC<{ lead: Lead }> = ({ lead }) => {
   const { score, breakdown } = computeLeadScore(lead);
@@ -108,6 +109,7 @@ const CRMPipelinePage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      <CRMNav />
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>

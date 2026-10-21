@@ -223,6 +223,8 @@ import CPOSDocumentVault from "./components/cpos/documents/DocumentVault";
 import CPOSCRMPipelinePage from "./components/cpos/crm/CRMPipelinePage";
 import CPOSLeadsPage from "./components/cpos/sales/LeadsPage";
 import CPOSLeadDetailPage from "./components/cpos/crm/LeadDetailPage";
+import CPOSCRMAnalyticsPage from "./components/cpos/crm/CRMAnalyticsPage";
+import CPOSBrokerCommissionPage from "./components/cpos/crm/BrokerCommissionPage";
 
 // CPN (Community Professional Network) modules
 
@@ -1055,6 +1057,8 @@ export const router = createBrowserRouter([
       { path: "cpos/crm", element: <PermissionGuard requiredModule="CPOS"><CPOSCRMPipelinePage /></PermissionGuard> },
       { path: "cpos/crm/leads", element: <PermissionGuard requiredModule="CPOS"><CPOSLeadsPage /></PermissionGuard> },
       { path: "cpos/crm/leads/:leadId", element: <PermissionGuard requiredModule="CPOS"><CPOSLeadDetailPage /></PermissionGuard> },
+      { path: "cpos/crm/analytics", element: <PermissionGuard requiredModule="CPOS"><CPOSCRMAnalyticsPage /></PermissionGuard> },
+      { path: "cpos/crm/brokers", element: <PermissionGuard requiredModule="CPOS"><CPOSBrokerCommissionPage /></PermissionGuard> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
       { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },
