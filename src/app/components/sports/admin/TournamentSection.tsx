@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport } from "../utils/sportsConstants";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
+import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
 
 interface TournamentSectionProps {
   title: string;
@@ -46,6 +47,7 @@ export function TournamentSection({
   const [seedDrafts, setSeedDrafts] = useState<Record<number, string>>({});
   const [savingSeeds, setSavingSeeds] = useState<Record<number, boolean>>({});
   const [exportDropdownEventId, setExportDropdownEventId] = useState<number | null>(null);
+  const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
 
   async function handleSeedSave(regId: number) {
     const raw = seedDrafts[regId];
@@ -164,10 +166,30 @@ export function TournamentSection({
               >
                 <ClipboardList className="w-3.5 h-3.5" /> Import
               </button>
+              <button
+                onClick={() => setShowExternalFormsEventId(showExternalFormsEventId === ev.id ? null : ev.id)}
+                className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border ${
+                  showExternalFormsEventId === ev.id
+                    ? "bg-purple-600 text-white border-purple-600"
+                    : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                }`}
+                title="Google Forms & External Registration Integration"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> External Forms
+              </button>
             </>
           )}
         </div>
       </div>
+
+      {showExternalFormsEventId === ev.id && (
+        <div className="mb-4">
+          <ExternalFormsManager
+            event={ev}
+            onRefreshRegistrations={() => onViewPlayers && onViewPlayers(ev.id)}
+          />
+        </div>
+      )}
 
       {loadingRegs && (
         <div className="flex items-center justify-center py-6">
@@ -185,7 +207,19 @@ export function TournamentSection({
                   {idx + 1}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800 truncate">{reg.playerName || reg.user?.fullName || "—"}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-800 truncate">{reg.playerName || reg.user?.fullName || "—"}</span>
+                    {reg.registrationSource === "GOOGLE_FORMS" && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                        Google Form
+                      </span>
+                    )}
+                    {reg.isExternalGuest && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
+                        Guest
+                      </span>
+                    )}
+                  </div>
                   <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
                     {reg.category?.name && <span>{reg.category.name}</span>}
                     {reg.age && <span>Age: {reg.age}</span>}

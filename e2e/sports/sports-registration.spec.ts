@@ -97,11 +97,7 @@ test.describe("Sports Registration — Modal Opens (Single Event)", () => {
 
   test("registration page shows event details (sport, venue, dates)", async ({ page }) => {
     await page.goto(`/sports/register/${MOCK_REGISTRATION_EVENT.uuid}`);
-    await page.waitForTimeout(500);
-    const body = await page.locator("body").innerText();
-    expect(
-      body.includes("Cricket") || body.includes("Main Ground") || body.includes("2026")
-    ).toBe(true);
+    await expect(page.locator("body")).toContainText(/Cricket|Main Ground|2026/i);
   });
 });
 
