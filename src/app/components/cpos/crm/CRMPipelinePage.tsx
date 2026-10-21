@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Tooltip, IconButton,
-  LinearProgress,
+  LinearProgress, CircularProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  INITIAL_LEADS, LeadSource, computeLeadScore, SCORE_FACTORS,
+  LeadSource, computeLeadScore, SCORE_FACTORS,
 } from './crmData';
 import { CRMNav } from './CRMNav';
+import { crmService } from '../../../../services/cpos/crmService';
 
 const ScoreTooltip: React.FC<{ lead: Lead }> = ({ lead }) => {
   const { score, breakdown } = computeLeadScore(lead);
@@ -51,7 +51,8 @@ const initials = (name: string) =>
 
 const CRMPipelinePage: React.FC = () => {
   const navigate = useNavigate();
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<Stage | null>(null);
   const [addDialogStage, setAddDialogStage] = useState<Stage | null>(null);
@@ -61,6 +62,13 @@ const CRMPipelinePage: React.FC = () => {
     name: '', phone: '', email: '', budget: '', budgetLakhs: '',
     type: '3 BHK', source: 'PORTAL' as LeadSource, assignedTo: 'Ravi Sharma',
   });
+
+  useEffect(() => {
+    crmService.getLeads()
+      .then(setLeads)
+      .catch(() => setLeads([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const visibleLeads = filterSource === 'ALL'
     ? leads
@@ -73,39 +81,52 @@ const CRMPipelinePage: React.FC = () => {
 
   const totalPipeline = leads.reduce((sum, l) => sum + l.budgetLakhs, 0);
 
-  const handleDrop = (stage: Stage) => {
+  const handleDrop = async (stage: Stage) => {
     if (!draggingId) return;
-    setLeads(prev =>
-      prev.map(l => l.id === draggingId ? { ...l, stage, daysInStage: 0 } : l)
-    );
+    // optimistic update
+    setLeads(prev => prev.map(l => l.id === draggingId ? { ...l, stage, daysInStage: 0 } : l));
     setDraggingId(null);
     setDragOverStage(null);
+    try {
+      const updated = await crmService.updateStage(draggingId, stage);
+      setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+    } catch {
+      // revert on error
+      crmService.getLeads().then(setLeads).catch(() => {});
+    }
   };
 
-  const handleAddLead = () => {
+  const handleAddLead = async () => {
     if (!addDialogStage || !form.name || !form.phone) return;
-    const newLead: Lead = {
-      id: `L${Date.now()}`,
-      name: form.name,
-      phone: form.phone,
-      email: form.email,
-      budget: form.budget || `₹${form.budgetLakhs} L`,
-      budgetLakhs: Number(form.budgetLakhs) || 0,
-      type: form.type,
-      stage: addDialogStage,
-      source: form.source,
-      score: Math.floor(40 + Math.random() * 30),
-      daysInStage: 0,
-      daysTotal: 0,
-      assignedTo: form.assignedTo,
-      activities: [
-        { id: `A${Date.now()}`, type: 'NOTE', by: 'System', notes: 'Lead manually added.', date: 'Oct 21, 2026' },
-      ],
-    };
-    setLeads(prev => [...prev, newLead]);
+    try {
+      const newLead = await crmService.createLead({
+        leadName: form.name,
+        phone: form.phone,
+        email: form.email || undefined,
+        budgetLakhs: Number(form.budgetLakhs) || 0,
+        budgetDisplay: form.budget || undefined,
+        leadType: form.type,
+        source: form.source,
+        assignedTo: form.assignedTo,
+      });
+      setLeads(prev => [...prev, newLead]);
+    } catch {
+      // ignore
+    }
     setAddDialogStage(null);
     setForm({ name: '', phone: '', email: '', budget: '', budgetLakhs: '', type: '3 BHK', source: 'PORTAL', assignedTo: 'Ravi Sharma' });
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <CRMNav />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress sx={{ color: '#4F6AF5' }} />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -208,7 +229,6 @@ const CRMPipelinePage: React.FC = () => {
                   '&:active': { cursor: 'grabbing' },
                 }}
               >
-                {/* Card header: avatar + name + score */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
                   <Avatar sx={{ width: 36, height: 36, bgcolor: `${stageColors[stage]}25`, color: stageColors[stage], fontWeight: 700, fontSize: '0.75rem' }}>
                     {initials(lead.name)}
@@ -223,8 +243,7 @@ const CRMPipelinePage: React.FC = () => {
                   </Box>
                   <Tooltip
                     title={<ScoreTooltip lead={lead} />}
-                    arrow
-                    placement="top"
+                    arrow placement="top"
                     componentsProps={{ tooltip: { sx: { bgcolor: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: '12px', p: 1.5, maxWidth: 220 } }, arrow: { sx: { color: '#1A2540' } } }}
                   >
                     <Box sx={{
@@ -240,7 +259,6 @@ const CRMPipelinePage: React.FC = () => {
                   </Tooltip>
                 </Box>
 
-                {/* Budget + Type */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 700, fontSize: '0.85rem' }}>
                     {lead.budget}
@@ -249,7 +267,6 @@ const CRMPipelinePage: React.FC = () => {
                     sx={{ bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem', height: 20 }} />
                 </Box>
 
-                {/* Source + days + action */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Chip label={lead.source.replace('_', ' ')} size="small"
                     sx={{ bgcolor: `${sourceColors[lead.source]}15`, color: sourceColors[lead.source], fontSize: '0.6rem', fontWeight: 700, height: 18 }} />

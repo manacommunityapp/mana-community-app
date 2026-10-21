@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, Tabs, Tab, Divider,
-  LinearProgress, TextField, MenuItem, IconButton, Tooltip,
+  LinearProgress, TextField, MenuItem, IconButton, Tooltip, CircularProgress,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -11,8 +11,9 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AddIcon from '@mui/icons-material/Add';
 import {
   Lead, Activity, ActivityType, Stage, STAGES, STAGE_LABELS,
-  stageColors, sourceColors, scoreColor, activityIcons, INITIAL_LEADS,
+  stageColors, sourceColors, scoreColor, activityIcons,
 } from './crmData';
+import { crmService } from '../../../../services/cpos/crmService';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
 
@@ -20,11 +21,60 @@ const LeadDetailPage: React.FC = () => {
   const { leadId } = useParams<{ leadId: string }>();
   const navigate = useNavigate();
 
-  const baseLead = INITIAL_LEADS.find(l => l.id === leadId);
-  const [lead, setLead] = useState<Lead | null>(baseLead ?? null);
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0);
   const [logType, setLogType] = useState<ActivityType>('CALL');
   const [logNotes, setLogNotes] = useState('');
+
+  useEffect(() => {
+    if (!leadId) return;
+    crmService.getLeadById(leadId)
+      .then(setLead)
+      .catch(() => setLead(null))
+      .finally(() => setLoading(false));
+  }, [leadId]);
+
+  const handleStageChange = async (newStage: Stage) => {
+    if (!lead) return;
+    // optimistic
+    setLead(prev => prev ? { ...prev, stage: newStage, daysInStage: 0 } : prev);
+    try {
+      const updated = await crmService.updateStage(lead.id, newStage);
+      setLead(updated);
+    } catch {
+      // revert
+      crmService.getLeadById(lead.id).then(setLead).catch(() => {});
+    }
+  };
+
+  const handleLogActivity = async () => {
+    if (!logNotes.trim() || !lead) return;
+    try {
+      await crmService.addActivity(lead.id, logType, logNotes);
+      const updated = await crmService.getLeadById(lead.id);
+      setLead(updated);
+    } catch {
+      // add optimistically if API fails
+      const activity: Activity = {
+        id: `A${Date.now()}`,
+        type: logType,
+        by: lead.assignedTo,
+        notes: logNotes,
+        date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      };
+      setLead(prev => prev ? { ...prev, activities: [activity, ...prev.activities] } : prev);
+    }
+    setLogNotes('');
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress sx={{ color: '#4F6AF5' }} />
+      </Box>
+    );
+  }
 
   if (!lead) {
     return (
@@ -34,23 +84,6 @@ const LeadDetailPage: React.FC = () => {
       </Box>
     );
   }
-
-  const handleStageChange = (newStage: Stage) => {
-    setLead(prev => prev ? { ...prev, stage: newStage, daysInStage: 0 } : prev);
-  };
-
-  const handleLogActivity = () => {
-    if (!logNotes.trim()) return;
-    const activity: Activity = {
-      id: `A${Date.now()}`,
-      type: logType,
-      by: lead.assignedTo,
-      notes: logNotes,
-      date: 'Oct 21, 2026',
-    };
-    setLead(prev => prev ? { ...prev, activities: [activity, ...prev.activities] } : prev);
-    setLogNotes('');
-  };
 
   const nextStageIndex = STAGES.indexOf(lead.stage) + 1;
   const nextStage = nextStageIndex < STAGES.length ? STAGES[nextStageIndex] : null;

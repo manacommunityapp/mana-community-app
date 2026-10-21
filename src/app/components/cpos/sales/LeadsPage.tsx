@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, TextField, InputAdornment,
   Table, TableHead, TableRow, TableCell, TableBody, MenuItem, IconButton, Tooltip,
@@ -10,34 +10,40 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  INITIAL_LEADS, LeadSource,
+  LeadSource,
 } from '../crm/crmData';
 import { CRMNav } from '../crm/CRMNav';
+import { crmService } from '../../../../services/cpos/crmService';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
 
 const LeadsPage: React.FC = () => {
   const navigate = useNavigate();
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
 
+  useEffect(() => {
+    crmService.getLeads().then(setLeads).catch(() => setLeads([]));
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return INITIAL_LEADS.filter(l => {
+    return leads.filter(l => {
       const matchSearch = !q || l.name.toLowerCase().includes(q) || l.phone.includes(q) || l.email.toLowerCase().includes(q);
       const matchStage = stageFilter === 'ALL' || l.stage === stageFilter;
       const matchSource = sourceFilter === 'ALL' || l.source === sourceFilter;
       return matchSearch && matchStage && matchSource;
     });
-  }, [search, stageFilter, sourceFilter]);
+  }, [leads, search, stageFilter, sourceFilter]);
 
   const summary = useMemo(() => {
-    const total = INITIAL_LEADS.reduce((s, l) => s + l.budgetLakhs, 0);
-    const avg = Math.round(INITIAL_LEADS.reduce((s, l) => s + l.score, 0) / INITIAL_LEADS.length);
-    const hot = INITIAL_LEADS.filter(l => l.score >= 85).length;
+    const total = leads.reduce((s, l) => s + l.budgetLakhs, 0);
+    const avg = leads.length > 0 ? Math.round(leads.reduce((s, l) => s + l.score, 0) / leads.length) : 0;
+    const hot = leads.filter(l => l.score >= 85).length;
     return { total, avg, hot };
-  }, []);
+  }, [leads]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -47,7 +53,7 @@ const LeadsPage: React.FC = () => {
         <Box>
           <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800 }}>Buyer Leads & Enquiries</Typography>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-            {INITIAL_LEADS.length} total leads · ₹{summary.total} L pipeline · {summary.hot} hot leads
+            {leads.length} total leads · ₹{summary.total} L pipeline · {summary.hot} hot leads
           </Typography>
         </Box>
         <Button
@@ -62,8 +68,8 @@ const LeadsPage: React.FC = () => {
       {/* Summary tiles */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 2 }}>
         {STAGES.map(s => {
-          const count = INITIAL_LEADS.filter(l => l.stage === s).length;
-          const val = INITIAL_LEADS.filter(l => l.stage === s).reduce((sum, l) => sum + l.budgetLakhs, 0);
+          const count = leads.filter(l => l.stage === s).length;
+          const val = leads.filter(l => l.stage === s).reduce((sum, l) => sum + l.budgetLakhs, 0);
           return (
             <Paper key={s} sx={{ p: 2, borderRadius: '14px', borderTop: `3px solid ${stageColors[s]}`, cursor: 'pointer', '&:hover': { opacity: 0.85 } }}
               onClick={() => setStageFilter(stageFilter === s ? 'ALL' : s)}>
@@ -204,7 +210,7 @@ const LeadsPage: React.FC = () => {
         {filtered.length > 0 && (
           <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.72rem' }}>
-              Showing {filtered.length} of {INITIAL_LEADS.length} leads
+              Showing {filtered.length} of {leads.length} leads
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.72rem' }}>
               Pipeline value: ₹{filtered.reduce((s, l) => s + l.budgetLakhs, 0)} L
