@@ -20,15 +20,19 @@ import {
 import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from '../crm/CallLogDialog';
+import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
 
 const LeadsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin, agentName } = useCrmRole();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
+  const [agentFilter, setAgentFilter] = useState<string>('ALL');
+  const [agents, setAgents] = useState<string[]>([]);
   const [dueFilter, setDueFilter] = useState(false);
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [campaignTemplate, setCampaignTemplate] = useState('initial');
@@ -52,6 +56,10 @@ const LeadsPage: React.FC = () => {
     crmService.getLeads().then(setLeads).catch(() => setLeads([]));
   }, []);
 
+  useEffect(() => {
+    if (isAdmin) crmService.getAgents().then(setAgents).catch(() => {});
+  }, [isAdmin]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return leads.filter(l => {
@@ -59,9 +67,10 @@ const LeadsPage: React.FC = () => {
       const matchStage = stageFilter === 'ALL' || l.stage === stageFilter;
       const matchSource = sourceFilter === 'ALL' || l.source === sourceFilter;
       const matchDue = !dueFilter || isFollowUpDue(l) || isFollowUpUpcoming(l);
-      return matchSearch && matchStage && matchSource && matchDue;
+      const matchAgent = !isAdmin || agentFilter === 'ALL' || l.assignedTo === agentFilter;
+      return matchSearch && matchStage && matchSource && matchDue && matchAgent;
     });
-  }, [leads, search, stageFilter, sourceFilter]);
+  }, [leads, search, stageFilter, sourceFilter, dueFilter, agentFilter, isAdmin]);
 
   const summary = useMemo(() => {
     const total = leads.reduce((s, l) => s + l.budgetLakhs, 0);
@@ -77,9 +86,17 @@ const LeadsPage: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800 }}>Buyer Leads & Enquiries</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800 }}>Buyer Leads & Enquiries</Typography>
+            {!isAdmin && (
+              <Chip label="My Leads" size="small"
+                sx={{ bgcolor: 'rgba(79,106,245,0.15)', color: '#7B93FF', fontWeight: 700, fontSize: '0.68rem' }} />
+            )}
+          </Box>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-            {leads.length} total leads · ₹{summary.total} L pipeline · {summary.hot} hot leads
+            {!isAdmin
+              ? `Showing leads assigned to ${agentName || 'you'} · ₹${summary.total} L pipeline`
+              : `${leads.length} total leads · ₹${summary.total} L pipeline · ${summary.hot} hot leads`}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -157,6 +174,16 @@ const LeadsPage: React.FC = () => {
             <MenuItem key={s} value={s}>{s.replace('_', ' ')}</MenuItem>
           ))}
         </TextField>
+        {isAdmin && agents.length > 0 && (
+          <TextField
+            select size="small" value={agentFilter}
+            onChange={e => setAgentFilter(e.target.value)}
+            sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+          >
+            <MenuItem value="ALL">All Agents</MenuItem>
+            {agents.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+          </TextField>
+        )}
       </Box>
 
       {/* Table */}

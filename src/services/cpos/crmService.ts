@@ -113,6 +113,11 @@ export interface IntegrationConfigDto {
   totalInboundLeads: number;
 }
 
+export interface CrmMeDto {
+  role: 'ADMIN' | 'AGENT';
+  agentName: string;
+}
+
 // ── Mapper: API DTO → frontend Lead ───────────────────────────────────────
 
 export function mapLead(dto: CrmLeadDto): Lead {
@@ -236,5 +241,18 @@ export const crmService = {
 
   async logCall(leadId: number | string, req: LogCallRequest): Promise<CrmActivityDto> {
     return apiClient.post<CrmActivityDto>(`/v1/cpos/crm/leads/${leadId}/calls`, req);
+  },
+
+  async getMe(): Promise<CrmMeDto> {
+    return apiClient.get<CrmMeDto>('/v1/cpos/crm/me');
+  },
+
+  async getAgents(): Promise<string[]> {
+    return apiClient.get<string[]>('/v1/cpos/crm/agents');
+  },
+
+  async assignLead(leadId: number | string, agentName: string): Promise<Lead> {
+    const dto = await apiClient.put<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/assign`, { agentName });
+    return mapLead(dto);
   },
 };

@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, Tabs, Tab, Divider,
   LinearProgress, TextField, MenuItem, IconButton, Tooltip, CircularProgress,
+  Dialog, DialogTitle, DialogContent, DialogActions, Select, FormControl, InputLabel,
 } from '@mui/material';
+import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
@@ -18,12 +20,14 @@ import {
 } from './crmData';
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from './CallLogDialog';
+import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
 
 const LeadDetailPage: React.FC = () => {
   const { leadId } = useParams<{ leadId: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useCrmRole();
 
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,9 @@ const LeadDetailPage: React.FC = () => {
   const [followUpNote, setFollowUpNote] = useState('');
   const [savingFollowUp, setSavingFollowUp] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [agents, setAgents] = useState<string[]>([]);
+  const [assigningTo, setAssigningTo] = useState('');
 
   useEffect(() => {
     if (!leadId) return;
@@ -112,6 +119,19 @@ const LeadDetailPage: React.FC = () => {
     try {
       const updated = await crmService.getLeadById(lead.id);
       setLead(updated);
+    } catch { /* keep state */ }
+  };
+
+  useEffect(() => {
+    if (isAdmin) crmService.getAgents().then(setAgents).catch(() => {});
+  }, [isAdmin]);
+
+  const handleAssign = async () => {
+    if (!lead || !assigningTo) return;
+    try {
+      const updated = await crmService.assignLead(lead.id, assigningTo);
+      setLead(updated);
+      setAssignOpen(false);
     } catch { /* keep state */ }
   };
 
@@ -199,6 +219,13 @@ const LeadDetailPage: React.FC = () => {
               sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#25D366', '&:hover': { bgcolor: '#1eb854' } }}>
               WhatsApp
             </Button>
+            {isAdmin && (
+              <Button variant="outlined" size="small" startIcon={<PersonIcon />}
+                onClick={() => { setAssigningTo(lead.assignedTo ?? ''); setAssignOpen(true); }}
+                sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: '#8B5CF6', color: '#8B5CF6', '&:hover': { bgcolor: 'rgba(139,92,246,0.08)' } }}>
+                Assign
+              </Button>
+            )}
             {nextStage && (
               <Button variant="contained" size="small"
                 onClick={() => handleStageChange(nextStage)}
@@ -475,6 +502,36 @@ const LeadDetailPage: React.FC = () => {
         onSaved={handleCallLogged}
       />
     )}
+
+    <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="xs" fullWidth
+      PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } }}>
+      <DialogTitle sx={{ color: '#fff' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonIcon sx={{ color: '#8B5CF6' }} />
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Assign Lead</Typography>
+        </Box>
+      </DialogTitle>
+      <DialogContent>
+        <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+          <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Select Agent</InputLabel>
+          <Select
+            value={assigningTo}
+            onChange={e => setAssigningTo(e.target.value)}
+            label="Select Agent"
+            sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}
+          >
+            {agents.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+          </Select>
+        </FormControl>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+        <Button onClick={() => setAssignOpen(false)} size="small" sx={{ color: 'rgba(255,255,255,0.5)' }}>Cancel</Button>
+        <Button onClick={handleAssign} disabled={!assigningTo} variant="contained" size="small"
+          sx={{ bgcolor: '#8B5CF6', '&:hover': { bgcolor: '#7c3aed' }, borderRadius: 1.5, px: 3 }}>
+          Assign
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

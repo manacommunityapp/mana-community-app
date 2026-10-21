@@ -13,6 +13,7 @@ import {
 } from './crmData';
 import { CRMNav } from './CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
+import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ScoreTooltip: React.FC<{ lead: Lead }> = ({ lead }) => {
   const { score, breakdown } = computeLeadScore(lead);
@@ -57,6 +58,9 @@ const CRMPipelinePage: React.FC = () => {
   const [dragOverStage, setDragOverStage] = useState<Stage | null>(null);
   const [addDialogStage, setAddDialogStage] = useState<Stage | null>(null);
   const [filterSource, setFilterSource] = useState<string>('ALL');
+  const [filterAgent, setFilterAgent] = useState<string>('ALL');
+  const [agents, setAgents] = useState<string[]>([]);
+  const { isAdmin } = useCrmRole();
 
   const [form, setForm] = useState({
     name: '', phone: '', email: '', budget: '', budgetLakhs: '',
@@ -70,9 +74,14 @@ const CRMPipelinePage: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const visibleLeads = filterSource === 'ALL'
-    ? leads
-    : leads.filter(l => l.source === filterSource);
+  useEffect(() => {
+    if (isAdmin) crmService.getAgents().then(setAgents).catch(() => {});
+  }, [isAdmin]);
+
+  const visibleLeads = leads.filter(l =>
+    (filterSource === 'ALL' || l.source === filterSource) &&
+    (!isAdmin || filterAgent === 'ALL' || l.assignedTo === filterAgent)
+  );
 
   const leadsForStage = (stage: Stage) => visibleLeads.filter(l => l.stage === stage);
 
@@ -150,6 +159,17 @@ const CRMPipelinePage: React.FC = () => {
             <MenuItem value="ALL">All Sources</MenuItem>
             {SOURCES.map(s => <MenuItem key={s} value={s}>{s.replace('_', ' ')}</MenuItem>)}
           </TextField>
+          {isAdmin && agents.length > 0 && (
+            <TextField
+              select size="small"
+              value={filterAgent}
+              onChange={e => setFilterAgent(e.target.value)}
+              sx={{ minWidth: 150, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+            >
+              <MenuItem value="ALL">All Agents</MenuItem>
+              {agents.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+            </TextField>
+          )}
           <Button
             variant="contained" startIcon={<AddIcon />} size="small"
             onClick={() => setAddDialogStage('NEW')}
