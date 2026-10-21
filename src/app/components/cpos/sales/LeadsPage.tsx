@@ -20,6 +20,7 @@ import {
 import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from '../crm/CallLogDialog';
+import { CrmExportButton } from '../crm/CrmExportButton';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
@@ -100,6 +101,7 @@ const LeadsPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <CrmExportButton leads={filtered} filename="crm-leads" reportTitle="CRM Leads Report" />
           <Button variant="outlined" startIcon={<CampaignIcon />} size="small"
             onClick={() => { setSentIds(new Set()); setCampaignOpen(true); }}
             sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: '#25D366', color: '#25D366', '&:hover': { bgcolor: 'rgba(37,211,102,0.08)' } }}>

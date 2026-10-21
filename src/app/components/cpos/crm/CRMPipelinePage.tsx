@@ -13,6 +13,7 @@ import {
 } from './crmData';
 import { CRMNav } from './CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
+import { CrmExportButton } from './CrmExportButton';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ScoreTooltip: React.FC<{ lead: Lead }> = ({ lead }) => {
@@ -170,6 +171,7 @@ const CRMPipelinePage: React.FC = () => {
               {agents.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
             </TextField>
           )}
+          <CrmExportButton leads={visibleLeads} filename="crm-pipeline" reportTitle="CRM Pipeline Report" />
           <Button
             variant="contained" startIcon={<AddIcon />} size="small"
             onClick={() => setAddDialogStage('NEW')}

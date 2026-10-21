@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Paper, Typography, Avatar, CircularProgress } from '@mui/material';
+import { Box, Paper, Typography, Avatar, CircularProgress, Button, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import { CRMNav } from './CRMNav';
 import { STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor } from './crmData';
 import { crmService, CrmAnalyticsDto } from '../../../../services/cpos/crmService';
+import Papa from 'papaparse';
 
 const CRMAnalyticsPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<CrmAnalyticsDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportAnchor, setExportAnchor] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
     crmService.getAnalytics()
@@ -71,11 +75,56 @@ const CRMAnalyticsPage: React.FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <CRMNav />
 
-      <Box>
-        <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800 }}>CRM Funnel Analytics</Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-          Pipeline performance, conversion rates, and agent insights
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+        <Box>
+          <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800 }}>CRM Funnel Analytics</Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+            Pipeline performance, conversion rates, and agent insights
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined" size="small" startIcon={<FileDownloadIcon />}
+          disabled={!a || agentData.length === 0}
+          onClick={e => setExportAnchor(e.currentTarget)}
+          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '10px', borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', '&:hover': { borderColor: '#4F6AF5', color: '#7B93FF' } }}
+        >
+          Export
+        </Button>
+        <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}
+          PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' } }}>
+          <MenuItem onClick={() => {
+            setExportAnchor(null);
+            const rows = (a?.agentStats ?? []).map(s => ({
+              Agent: s.agent, 'Total Leads': s.totalLeads, Closed: s.closed,
+              'In Negotiation': s.inNegotiation, 'Avg Score': s.avgScore,
+              'Pipeline (L)': s.pipelineLakhs,
+            }));
+            const csv = Papa.unparse(rows);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = `crm-agent-stats-${Date.now()}.csv`; link.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <ListItemIcon><TableChartIcon sx={{ color: '#10B981', fontSize: 18 }} /></ListItemIcon>
+            <ListItemText primary="Agent Stats CSV" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+          </MenuItem>
+          <MenuItem onClick={() => {
+            setExportAnchor(null);
+            const rows = (a?.funnel ?? []).map(f => ({
+              Stage: f.stage, Count: f.count, 'Conversion %': f.pct,
+            }));
+            const csv = Papa.unparse(rows);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = `crm-funnel-${Date.now()}.csv`; link.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <ListItemIcon><TableChartIcon sx={{ color: '#4F6AF5', fontSize: 18 }} /></ListItemIcon>
+            <ListItemText primary="Funnel Data CSV" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+          </MenuItem>
+        </Menu>
       </Box>
 
       {/* KPI tiles */}
