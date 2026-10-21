@@ -20,6 +20,7 @@ import {
 } from './crmData';
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from './CallLogDialog';
+import { DocumentVaultSection } from './DocumentVaultSection';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
@@ -275,6 +276,7 @@ const LeadDetailPage: React.FC = () => {
             }}>
             <Tab label="Overview" />
             <Tab label={`Activity (${lead.activities.length})`} />
+            <Tab label="Documents" />
           </Tabs>
 
           {/* Tab 0: Overview */}
@@ -395,6 +397,11 @@ const LeadDetailPage: React.FC = () => {
                 ))}
               </Box>
             </Box>
+          )}
+
+          {/* Tab 2: Documents */}
+          {tab === 2 && (
+            <DocumentVaultSection leadId={lead.id} />
           )}
         </Box>
 

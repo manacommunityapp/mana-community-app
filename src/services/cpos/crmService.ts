@@ -118,6 +118,17 @@ export interface CrmMeDto {
   agentName: string;
 }
 
+export interface CrmDocumentDto {
+  id: number;
+  leadId: number;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  uploadedBy: string;
+  createdAt: string;
+}
+
 // ── Mapper: API DTO → frontend Lead ───────────────────────────────────────
 
 export function mapLead(dto: CrmLeadDto): Lead {
@@ -254,5 +265,19 @@ export const crmService = {
   async assignLead(leadId: number | string, agentName: string): Promise<Lead> {
     const dto = await apiClient.put<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/assign`, { agentName });
     return mapLead(dto);
+  },
+
+  async uploadDocument(leadId: number | string, file: File): Promise<CrmDocumentDto> {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post<CrmDocumentDto>(`/v1/cpos/crm/leads/${leadId}/documents`, form);
+  },
+
+  async getDocuments(leadId: number | string): Promise<CrmDocumentDto[]> {
+    return apiClient.get<CrmDocumentDto[]>(`/v1/cpos/crm/leads/${leadId}/documents`);
+  },
+
+  async deleteDocument(leadId: number | string, docId: number): Promise<void> {
+    return apiClient.delete<void>(`/v1/cpos/crm/leads/${leadId}/documents/${docId}`);
   },
 };
