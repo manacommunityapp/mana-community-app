@@ -3,10 +3,11 @@ import { Box, Button } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router';
 
 const CRM_TABS = [
-  { label: 'Pipeline',  path: '/cpos/crm' },
-  { label: 'Leads',     path: '/cpos/crm/leads' },
-  { label: 'Analytics', path: '/cpos/crm/analytics' },
-  { label: 'Brokers',   path: '/cpos/crm/brokers' },
+  { label: 'Pipeline',     path: '/cpos/crm' },
+  { label: 'Leads',        path: '/cpos/crm/leads' },
+  { label: 'Analytics',    path: '/cpos/crm/analytics' },
+  { label: 'Brokers',      path: '/cpos/crm/brokers' },
+  { label: 'Integrations', path: '/cpos/crm/integrations' },
 ];
 
 export const CRMNav: React.FC = () => {

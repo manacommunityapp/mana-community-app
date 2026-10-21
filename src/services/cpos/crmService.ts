@@ -96,6 +96,14 @@ export interface BrokerCommissionDto {
   createdAt: string;
 }
 
+export interface IntegrationConfigDto {
+  id: number;
+  apiKey: string;
+  agentPool: string[];
+  rrIndex: number;
+  totalInboundLeads: number;
+}
+
 // ── Mapper: API DTO → frontend Lead ───────────────────────────────────────
 
 export function mapLead(dto: CrmLeadDto): Lead {
@@ -205,5 +213,13 @@ export const crmService = {
   async getDueFollowUps(): Promise<Lead[]> {
     const dtos = await apiClient.get<CrmLeadDto[]>('/v1/cpos/crm/leads/due-followups');
     return dtos.map(mapLead);
+  },
+
+  async getIntegrationConfig(): Promise<IntegrationConfigDto> {
+    return apiClient.get<IntegrationConfigDto>('/v1/cpos/crm/integrations');
+  },
+
+  async updateAgentPool(agents: string[]): Promise<IntegrationConfigDto> {
+    return apiClient.put<IntegrationConfigDto>('/v1/cpos/crm/integrations/agents', { agents });
   },
 };
