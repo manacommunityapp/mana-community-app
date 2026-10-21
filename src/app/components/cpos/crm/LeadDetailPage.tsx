@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import {
   Lead, Activity, ActivityType, Stage, STAGES, STAGE_LABELS,
   stageColors, sourceColors, scoreColor, activityIcons,
+  isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
 } from './crmData';
 import { crmService } from '../../../../services/cpos/crmService';
 
@@ -26,6 +27,9 @@ const LeadDetailPage: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [logType, setLogType] = useState<ActivityType>('CALL');
   const [logNotes, setLogNotes] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [savingFollowUp, setSavingFollowUp] = useState(false);
 
   useEffect(() => {
     if (!leadId) return;
@@ -66,6 +70,29 @@ const LeadDetailPage: React.FC = () => {
       setLead(prev => prev ? { ...prev, activities: [activity, ...prev.activities] } : prev);
     }
     setLogNotes('');
+  };
+
+  const handleSetFollowUp = async () => {
+    if (!lead || !followUpDate) return;
+    setSavingFollowUp(true);
+    try {
+      const isoDate = new Date(followUpDate).toISOString().split('.')[0];
+      const updated = await crmService.setFollowUp(lead.id, isoDate, followUpNote);
+      setLead(updated);
+      setFollowUpDate('');
+      setFollowUpNote('');
+    } catch { /* keep current state */ }
+    finally { setSavingFollowUp(false); }
+  };
+
+  const handleClearFollowUp = async () => {
+    if (!lead) return;
+    setSavingFollowUp(true);
+    try {
+      const updated = await crmService.setFollowUp(lead.id, null, '');
+      setLead(updated);
+    } catch { /* keep current state */ }
+    finally { setSavingFollowUp(false); }
   };
 
   if (loading) {
@@ -280,8 +307,71 @@ const LeadDetailPage: React.FC = () => {
           )}
         </Box>
 
-        {/* Right sidebar: AI score card */}
-        <Box sx={{ width: 240, flexShrink: 0 }}>
+        {/* Right sidebar: follow-up + AI score */}
+        <Box sx={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+          {/* Follow-up reminder card */}
+          <Paper sx={{ p: 2.5, borderRadius: '16px', border: lead.followUpAt
+            ? (isFollowUpDue(lead) ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(245,158,11,0.3)')
+            : '1px solid rgba(255,255,255,0.06)' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <Typography sx={{ fontSize: 15 }}>🔔</Typography>
+              <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>Follow-up</Typography>
+              {lead.followUpAt && (
+                <Chip
+                  label={isFollowUpDue(lead) ? 'Overdue' : 'Upcoming'}
+                  size="small"
+                  sx={{
+                    ml: 'auto', fontSize: '0.65rem', fontWeight: 700, height: 18,
+                    bgcolor: isFollowUpDue(lead) ? 'rgba(239,68,68,.15)' : 'rgba(245,158,11,.15)',
+                    color: isFollowUpDue(lead) ? '#EF4444' : '#F59E0B',
+                  }}
+                />
+              )}
+            </Box>
+
+            {lead.followUpAt ? (
+              <Box>
+                <Typography variant="body2" sx={{ color: isFollowUpDue(lead) ? '#EF4444' : '#F59E0B', fontWeight: 800, mb: 0.5 }}>
+                  {formatFollowUpDate(lead.followUpAt)}
+                </Typography>
+                {lead.followUpNote && (
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', display: 'block', mb: 1.5, fontSize: '0.72rem' }}>
+                    {lead.followUpNote}
+                  </Typography>
+                )}
+                <Button size="small" variant="outlined" color="error" onClick={handleClearFollowUp}
+                  disabled={savingFollowUp}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', borderRadius: '8px', width: '100%' }}>
+                  Clear Reminder
+                </Button>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <TextField
+                  type="datetime-local"
+                  size="small"
+                  value={followUpDate}
+                  onChange={e => setFollowUpDate(e.target.value)}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: '0.78rem' } }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField
+                  size="small"
+                  placeholder="Reminder note…"
+                  value={followUpNote}
+                  onChange={e => setFollowUpNote(e.target.value)}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: '0.78rem' } }}
+                />
+                <Button size="small" variant="contained" onClick={handleSetFollowUp}
+                  disabled={!followUpDate || savingFollowUp}
+                  sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '10px', bgcolor: '#F59E0B', '&:hover': { bgcolor: '#d97706' } }}>
+                  Set Reminder
+                </Button>
+              </Box>
+            )}
+          </Paper>
+
           <Paper sx={{ p: 2.5, borderRadius: '16px', background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(79,106,245,0.05) 100%)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <SmartToyIcon sx={{ color: '#10B981', fontSize: 18 }} />
@@ -308,7 +398,7 @@ const LeadDetailPage: React.FC = () => {
               </Box>
             ))}
           </Paper>
-        </Box>
+        </Box>  {/* end right sidebar */}
       </Box>
     </Box>
   );

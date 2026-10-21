@@ -10,7 +10,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  LeadSource,
+  LeadSource, isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
 } from '../crm/crmData';
 import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
@@ -23,6 +23,7 @@ const LeadsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
+  const [dueFilter, setDueFilter] = useState(false);
 
   useEffect(() => {
     crmService.getLeads().then(setLeads).catch(() => setLeads([]));
@@ -34,7 +35,8 @@ const LeadsPage: React.FC = () => {
       const matchSearch = !q || l.name.toLowerCase().includes(q) || l.phone.includes(q) || l.email.toLowerCase().includes(q);
       const matchStage = stageFilter === 'ALL' || l.stage === stageFilter;
       const matchSource = sourceFilter === 'ALL' || l.source === sourceFilter;
-      return matchSearch && matchStage && matchSource;
+      const matchDue = !dueFilter || isFollowUpDue(l) || isFollowUpUpcoming(l);
+      return matchSearch && matchStage && matchSource && matchDue;
     });
   }, [leads, search, stageFilter, sourceFilter]);
 
@@ -42,7 +44,8 @@ const LeadsPage: React.FC = () => {
     const total = leads.reduce((s, l) => s + l.budgetLakhs, 0);
     const avg = leads.length > 0 ? Math.round(leads.reduce((s, l) => s + l.score, 0) / leads.length) : 0;
     const hot = leads.filter(l => l.score >= 85).length;
-    return { total, avg, hot };
+    const dueCount = leads.filter(l => isFollowUpDue(l) || isFollowUpUpcoming(l)).length;
+    return { total, avg, hot, dueCount };
   }, [leads]);
 
   return (
@@ -104,6 +107,16 @@ const LeadsPage: React.FC = () => {
               }} />
           ))}
         </Box>
+        <Chip
+          label={`🔔 Due Today${summary.dueCount > 0 ? ` (${summary.dueCount})` : ''}`}
+          size="small"
+          onClick={() => setDueFilter(d => !d)}
+          sx={{
+            fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer',
+            bgcolor: dueFilter ? '#EF4444' : 'rgba(255,255,255,0.06)',
+            color: dueFilter ? '#fff' : 'rgba(255,255,255,0.6)',
+          }}
+        />
         <TextField
           select size="small" value={sourceFilter}
           onChange={e => setSourceFilter(e.target.value)}
@@ -128,6 +141,7 @@ const LeadsPage: React.FC = () => {
                 <TableCell>Stage</TableCell>
                 <TableCell>Source</TableCell>
                 <TableCell>AI Score</TableCell>
+                <TableCell>Follow-up</TableCell>
                 <TableCell>Agent</TableCell>
                 <TableCell>Days</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -136,7 +150,7 @@ const LeadsPage: React.FC = () => {
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ color: 'rgba(255,255,255,0.3)', py: 4, border: 'none' }}>
+                  <TableCell colSpan={10} align="center" sx={{ color: 'rgba(255,255,255,0.3)', py: 4, border: 'none' }}>
                     No leads match your filters
                   </TableCell>
                 </TableRow>
@@ -185,6 +199,22 @@ const LeadsPage: React.FC = () => {
                         {lead.score}
                       </Typography>
                     </Box>
+                  </TableCell>
+                  <TableCell>
+                    {lead.followUpAt ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography sx={{ fontSize: '0.65rem' }}>🔔</Typography>
+                        <Typography variant="caption" sx={{
+                          color: isFollowUpDue(lead) ? '#EF4444' : isFollowUpUpcoming(lead) ? '#F59E0B' : 'rgba(255,255,255,0.4)',
+                          fontWeight: isFollowUpDue(lead) || isFollowUpUpcoming(lead) ? 700 : 400,
+                          fontSize: '0.68rem',
+                        }}>
+                          {formatFollowUpDate(lead.followUpAt)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.68rem' }}>—</Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem' }}>{lead.assignedTo}</Typography>

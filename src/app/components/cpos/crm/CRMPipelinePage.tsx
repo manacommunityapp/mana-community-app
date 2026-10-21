@@ -9,7 +9,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  LeadSource, computeLeadScore, SCORE_FACTORS,
+  LeadSource, computeLeadScore, SCORE_FACTORS, isFollowUpDue, isFollowUpUpcoming,
 } from './crmData';
 import { CRMNav } from './CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
@@ -258,6 +258,19 @@ const CRMPipelinePage: React.FC = () => {
                     </Box>
                   </Tooltip>
                 </Box>
+
+                {(isFollowUpDue(lead) || isFollowUpUpcoming(lead)) && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                    <Typography sx={{ fontSize: '0.65rem' }}>🔔</Typography>
+                    <Typography variant="caption" sx={{
+                      color: isFollowUpDue(lead) ? '#EF4444' : '#F59E0B',
+                      fontWeight: 700,
+                      fontSize: '0.65rem',
+                    }}>
+                      {isFollowUpDue(lead) ? 'Overdue' : 'Today'}
+                    </Typography>
+                  </Box>
+                )}
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 700, fontSize: '0.85rem' }}>

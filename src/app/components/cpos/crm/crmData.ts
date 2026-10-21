@@ -25,7 +25,33 @@ export interface Lead {
   daysTotal: number;
   assignedTo: string;
   activities: Activity[];
+  followUpAt?: string | null;
+  followUpNote?: string | null;
 }
+
+export const isFollowUpDue = (lead: Lead): boolean => {
+  if (!lead.followUpAt) return false;
+  return new Date(lead.followUpAt) <= new Date();
+};
+
+export const isFollowUpUpcoming = (lead: Lead): boolean => {
+  if (!lead.followUpAt) return false;
+  const t = new Date(lead.followUpAt).getTime() - Date.now();
+  return t > 0 && t <= 24 * 60 * 60 * 1000;
+};
+
+export const formatFollowUpDate = (followUpAt: string): string => {
+  const d = new Date(followUpAt);
+  const now = new Date();
+  const diffMs = d.getTime() - now.getTime();
+  const diffHrs = Math.round(diffMs / 3600000);
+  if (diffMs < 0) {
+    const agoHrs = Math.abs(diffHrs);
+    return agoHrs < 24 ? `${agoHrs}h overdue` : `${Math.ceil(Math.abs(diffMs) / 86400000)}d overdue`;
+  }
+  if (diffHrs < 24) return `in ${diffHrs}h`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
 
 export const STAGES: Stage[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'SITE_VISIT', 'NEGOTIATION', 'CLOSED'];
 

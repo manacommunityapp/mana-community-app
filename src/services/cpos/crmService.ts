@@ -25,6 +25,8 @@ export interface CrmLeadDto {
   daysInStage: number;
   daysTotal: number;
   aiScore: number;
+  followUpAt: string | null;
+  followUpNote: string | null;
   activities?: CrmActivityDto[];
   createdAt: string;
   updatedAt: string;
@@ -111,6 +113,8 @@ export function mapLead(dto: CrmLeadDto): Lead {
     daysInStage: dto.daysInStage,
     daysTotal: dto.daysTotal,
     assignedTo: dto.assignedTo ?? "",
+    followUpAt: dto.followUpAt ?? null,
+    followUpNote: dto.followUpNote ?? null,
     activities: (dto.activities ?? []).map(
       (a): Activity => ({
         id: String(a.id),
@@ -188,5 +192,18 @@ export const crmService = {
       `/v1/cpos/crm/commissions/${id}/approve`,
       {}
     );
+  },
+
+  async setFollowUp(id: number | string, followUpAt: string | null, note: string): Promise<Lead> {
+    const dto = await apiClient.put<CrmLeadDto>(`/v1/cpos/crm/leads/${id}/followup`, {
+      followUpAt,
+      note,
+    });
+    return mapLead(dto);
+  },
+
+  async getDueFollowUps(): Promise<Lead[]> {
+    const dtos = await apiClient.get<CrmLeadDto[]>('/v1/cpos/crm/leads/due-followups');
+    return dtos.map(mapLead);
   },
 };
