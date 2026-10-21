@@ -2,11 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box, Paper, Typography, Chip, Avatar, Button, TextField, InputAdornment,
   Table, TableHead, TableRow, TableCell, TableBody, MenuItem, IconButton, Tooltip,
-  LinearProgress,
+  LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import CallIcon from '@mui/icons-material/Call';
+import CampaignIcon from '@mui/icons-material/Campaign';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router';
 import {
   Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
@@ -24,6 +29,22 @@ const LeadsPage: React.FC = () => {
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [sourceFilter, setSourceFilter] = useState<string>('ALL');
   const [dueFilter, setDueFilter] = useState(false);
+  const [campaignOpen, setCampaignOpen] = useState(false);
+  const [campaignTemplate, setCampaignTemplate] = useState('initial');
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+
+  const TEMPLATES: Record<string, string> = {
+    initial: 'Hi {name}, this is regarding your property enquiry with MANA Community. How can I help you today?',
+    siteVisit: 'Hi {name}, we would love to invite you for a site visit at our project. When would be a good time for you?',
+    followUp: 'Hi {name}, just checking in on your property search. Did you get a chance to review the brochure we shared?',
+    priceUpdate: 'Hi {name}, we have an exciting price update for the unit you were interested in. Would love to share the details.',
+  };
+
+  const buildWaLink = (phone: string, name: string) => {
+    const clean = phone.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '');
+    const msg = encodeURIComponent(TEMPLATES[campaignTemplate].replace('{name}', name.split(' ')[0]));
+    return `https://wa.me/91${clean}?text=${msg}`;
+  };
 
   useEffect(() => {
     crmService.getLeads().then(setLeads).catch(() => setLeads([]));
@@ -59,13 +80,20 @@ const LeadsPage: React.FC = () => {
             {leads.length} total leads · ₹{summary.total} L pipeline · {summary.hot} hot leads
           </Typography>
         </Box>
-        <Button
-          variant="contained" startIcon={<AddIcon />} size="small"
-          onClick={() => navigate('/cpos/crm')}
-          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#4F6AF5', '&:hover': { bgcolor: '#3a55d4' } }}
-        >
-          Add Lead
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" startIcon={<CampaignIcon />} size="small"
+            onClick={() => { setSentIds(new Set()); setCampaignOpen(true); }}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: '#25D366', color: '#25D366', '&:hover': { bgcolor: 'rgba(37,211,102,0.08)' } }}>
+            WA Campaign
+          </Button>
+          <Button
+            variant="contained" startIcon={<AddIcon />} size="small"
+            onClick={() => navigate('/cpos/crm')}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#4F6AF5', '&:hover': { bgcolor: '#3a55d4' } }}
+          >
+            Add Lead
+          </Button>
+        </Box>
       </Box>
 
       {/* Summary tiles */}
@@ -225,12 +253,28 @@ const LeadsPage: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Open lead detail">
-                      <IconButton size="small" onClick={e => { e.stopPropagation(); navigate(`/cpos/crm/leads/${lead.id}`); }}
-                        sx={{ color: 'rgba(255,255,255,0.3)', '&:hover': { color: '#4F6AF5' } }}>
-                        <ArrowForwardIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25 }}>
+                      <Tooltip title={`Call ${lead.phone}`}>
+                        <IconButton size="small"
+                          onClick={e => { e.stopPropagation(); window.open(`tel:+91${lead.phone.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '')}`, '_self'); }}
+                          sx={{ color: '#10B981', opacity: 0.7, '&:hover': { opacity: 1, bgcolor: 'rgba(16,185,129,0.1)' } }}>
+                          <CallIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="WhatsApp">
+                        <IconButton size="small"
+                          onClick={e => { e.stopPropagation(); const c = lead.phone.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, ''); window.open(`https://wa.me/91${c}`, '_blank'); }}
+                          sx={{ color: '#25D366', opacity: 0.7, '&:hover': { opacity: 1, bgcolor: 'rgba(37,211,102,0.1)' } }}>
+                          <WhatsAppIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Open lead detail">
+                        <IconButton size="small" onClick={e => { e.stopPropagation(); navigate(`/cpos/crm/leads/${lead.id}`); }}
+                          sx={{ color: 'rgba(255,255,255,0.3)', '&:hover': { color: '#4F6AF5' } }}>
+                          <ArrowForwardIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
@@ -248,6 +292,83 @@ const LeadsPage: React.FC = () => {
           </Box>
         )}
       </Paper>
+      {/* WhatsApp Campaign Modal */}
+      <Dialog open={campaignOpen} onClose={() => setCampaignOpen(false)} maxWidth="md" fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)' } }}>
+        <DialogTitle sx={{ color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <WhatsAppIcon sx={{ color: '#25D366' }} />
+            WhatsApp Campaign
+          </Box>
+          <IconButton size="small" onClick={() => setCampaignOpen(false)} sx={{ color: 'rgba(255,255,255,0.4)' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: '8px !important' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Template picker */}
+            <TextField select label="Message Template" size="small" value={campaignTemplate}
+              onChange={e => setCampaignTemplate(e.target.value)}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
+              <MenuItem value="initial">Initial Enquiry Follow-up</MenuItem>
+              <MenuItem value="siteVisit">Site Visit Invitation</MenuItem>
+              <MenuItem value="followUp">Re-engagement / Check-in</MenuItem>
+              <MenuItem value="priceUpdate">Price Update Alert</MenuItem>
+            </TextField>
+            <Paper sx={{ p: 1.5, borderRadius: '10px', bgcolor: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.2)' }}>
+              <Typography variant="caption" sx={{ color: '#25D366', fontWeight: 700, fontSize: '0.7rem', display: 'block', mb: 0.5 }}>PREVIEW</Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', lineHeight: 1.6 }}>
+                {TEMPLATES[campaignTemplate].replace('{name}', 'Arun')}
+              </Typography>
+            </Paper>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                {filtered.length} lead{filtered.length !== 1 ? 's' : ''} · {sentIds.size} sent this session
+              </Typography>
+              <Button size="small" startIcon={<ContentCopyIcon />}
+                onClick={() => navigator.clipboard?.writeText(filtered.map(l => l.phone).join('\n')).catch(() => {})}
+                sx={{ textTransform: 'none', color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem' }}>
+                Copy all numbers
+              </Button>
+            </Box>
+
+            {/* Lead list */}
+            <Box sx={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {filtered.map(lead => (
+                <Box key={lead.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+                  borderRadius: '10px', bgcolor: sentIds.has(lead.id) ? 'rgba(37,211,102,0.08)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${sentIds.has(lead.id) ? 'rgba(37,211,102,0.2)' : 'rgba(255,255,255,0.05)'}` }}>
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: `${stageColors[lead.stage]}20`, color: stageColors[lead.stage], fontSize: '0.7rem', fontWeight: 700 }}>
+                    {lead.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ color: '#fff', fontWeight: 600, fontSize: '0.82rem' }}>{lead.name}</Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.68rem' }}>{lead.phone}</Typography>
+                  </Box>
+                  <Chip label={STAGE_LABELS[lead.stage]} size="small"
+                    sx={{ bgcolor: `${stageColors[lead.stage]}18`, color: stageColors[lead.stage], fontWeight: 700, fontSize: '0.65rem', height: 18 }} />
+                  {sentIds.has(lead.id) ? (
+                    <Chip label="Sent ✓" size="small" sx={{ bgcolor: 'rgba(37,211,102,0.15)', color: '#25D366', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+                  ) : (
+                    <Button size="small" variant="contained" startIcon={<WhatsAppIcon sx={{ fontSize: '13px !important' }} />}
+                      onClick={() => { window.open(buildWaLink(lead.phone, lead.name), '_blank'); setSentIds(prev => new Set([...prev, lead.id])); }}
+                      sx={{ minWidth: 80, fontSize: '0.7rem', px: 1.5, py: 0.5, borderRadius: '8px', textTransform: 'none', fontWeight: 700, bgcolor: '#25D366', '&:hover': { bgcolor: '#1eb854' } }}>
+                      Send
+                    </Button>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Typography variant="caption" sx={{ flex: 1, color: 'rgba(255,255,255,0.3)', fontSize: '0.68rem' }}>
+            Opens WhatsApp with pre-filled message. Sent status resets when you close.
+          </Typography>
+          <Button onClick={() => setCampaignOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'none' }}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

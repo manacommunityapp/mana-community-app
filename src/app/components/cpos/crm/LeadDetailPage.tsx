@@ -9,6 +9,8 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import AddIcon from '@mui/icons-material/Add';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import CallIcon from '@mui/icons-material/Call';
 import {
   Lead, Activity, ActivityType, Stage, STAGES, STAGE_LABELS,
   stageColors, sourceColors, scoreColor, activityIcons,
@@ -95,6 +97,30 @@ const LeadDetailPage: React.FC = () => {
     finally { setSavingFollowUp(false); }
   };
 
+  const cleanPhone = (p: string) => p.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '');
+
+  const handleQuickCall = async () => {
+    if (!lead) return;
+    window.open(`tel:+91${cleanPhone(lead.phone)}`, '_self');
+    try {
+      await crmService.addActivity(lead.id, 'CALL', 'Call initiated via CRM quick action');
+      const updated = await crmService.getLeadById(lead.id);
+      setLead(updated);
+    } catch { /* best-effort log */ }
+  };
+
+  const handleQuickWhatsApp = async () => {
+    if (!lead) return;
+    const phone = `91${cleanPhone(lead.phone)}`;
+    const text = encodeURIComponent(`Hi ${lead.name.split(' ')[0]}, this is regarding your property enquiry with MANA Community. How can I help you today?`);
+    window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+    try {
+      await crmService.addActivity(lead.id, 'WHATSAPP', 'WhatsApp message initiated via CRM quick action');
+      const updated = await crmService.getLeadById(lead.id);
+      setLead(updated);
+    } catch { /* best-effort log */ }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -157,6 +183,16 @@ const LeadDetailPage: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="contained" size="small" startIcon={<CallIcon />}
+              onClick={handleQuickCall}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#10B981', '&:hover': { bgcolor: '#0a9668' } }}>
+              Call
+            </Button>
+            <Button variant="contained" size="small" startIcon={<WhatsAppIcon />}
+              onClick={handleQuickWhatsApp}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#25D366', '&:hover': { bgcolor: '#1eb854' } }}>
+              WhatsApp
+            </Button>
             {nextStage && (
               <Button variant="contained" size="small"
                 onClick={() => handleStageChange(nextStage)}
