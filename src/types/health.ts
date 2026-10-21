@@ -1,5 +1,121 @@
 export type ConsultationMode = "IN_PERSON" | "VIDEO" | "PHONE";
 
+// ── Round 4 types ─────────────────────────────────────────────────────────────
+
+export type SurgeryStatus = "REQUESTED" | "BUDDY_ASSIGNED" | "PRE_OP_TESTS" | "ADMISSION_CONFIRMED" | "SURGERY_COMPLETED" | "POST_OP_CARE" | "DISCHARGED" | "CANCELLED";
+
+export interface SurgeryRequestDto {
+  id: string;
+  requestUuid: string;
+  patientId: string;
+  procedureName: string;
+  category: string;
+  preferredHospital: string;
+  status: SurgeryStatus;
+  careBuddyName: string;
+  careBuddyPhone: string;
+  estimatedCost: number;
+  emiTenure?: string;
+  requestedDate: string;
+}
+
+export type DentalPackageType = "BASIC_CHECKUP" | "SCALING_POLISHING" | "ROOT_CANAL" | "TEETH_WHITENING" | "CROWN" | "BRACES_CONSULT";
+
+export interface DentalFindingDto {
+  id: string;
+  patientId: string;
+  dentistName: string;
+  visitDate: string;
+  finding: string;
+  treatment: string;
+  nextVisitIn: string;
+  documentUrl?: string;
+}
+
+export interface AbhaProfileDto {
+  abhaNumber: string;
+  name: string;
+  dateOfBirth: string;
+  gender: string;
+  linkedHospitals: number;
+  linkedRecords: number;
+  verified: boolean;
+  createdAt: string;
+}
+
+export type AbhaConsentStatus = "PENDING" | "APPROVED" | "REVOKED" | "EXPIRED";
+
+export interface AbhaConsentRequestDto {
+  id: string;
+  consentUuid: string;
+  requesterName: string;
+  purpose: string;
+  status: AbhaConsentStatus;
+  requestedDate: string;
+  expiryDate: string;
+}
+
+export type SecondOpinionStatus = "REQUESTED" | "UNDER_REVIEW" | "COMPLETED" | "DECLINED";
+
+export interface SecondOpinionRequestDto {
+  id: string;
+  requestUuid: string;
+  patientId: string;
+  specialistName: string;
+  cancerType: string;
+  originalDiagnosis: string;
+  status: SecondOpinionStatus;
+  opinionSummary?: string;
+  requestedAt: string;
+  completedAt?: string;
+}
+
+export type DigitalPrescriptionStatus = "GENERATED" | "SENT_TO_PHARMACY" | "ARCHIVED";
+
+export interface DigitalPrescriptionDto {
+  id: string;
+  rxId: string;
+  appointmentUuid?: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  patientName: string;
+  clinicalNotes?: string;
+  medications: string[];
+  issuedDate: string;
+  status: DigitalPrescriptionStatus;
+  pdfUrl?: string;
+  generatedAt: string;
+}
+
+export type OncologyStage = "DIAGNOSIS" | "STAGING" | "SECOND_OPINION" | "TREATMENT_PLAN" | "TREATMENT" | "RESPONSE_EVAL" | "FOLLOWUP" | "REMISSION";
+
+export interface OncologyJourneyStepDto {
+  stage: OncologyStage;
+  label: string;
+  completed: boolean;
+  detail: string;
+  completedAt?: string;
+}
+
+export interface ChemoSessionDto {
+  cycleNumber: number;
+  scheduledDate: string;
+  drug: string;
+  status: string;
+}
+
+export interface OncologyJourneyDto {
+  id: string;
+  journeyUuid: string;
+  patientId: string;
+  cancerType: string;
+  currentStage: OncologyStage;
+  steps: OncologyJourneyStepDto[];
+  chemoSchedule: ChemoSessionDto[];
+  startedAt: string;
+  updatedAt: string;
+}
+
 export type RefillFrequency = "WEEKLY" | "MONTHLY" | "BI_MONTHLY";
 
 export interface PharmacyRefillSubscriptionDto {

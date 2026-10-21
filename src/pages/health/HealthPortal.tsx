@@ -31,7 +31,7 @@ import { PatientSecurityPrivacyModal } from "../../app/components/health/Patient
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd"
+    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery" | "dental" | "abha" | "cancer"
   >("doctors");
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
@@ -284,7 +284,11 @@ export const HealthPortal: React.FC = () => {
           { id: "care-journey", label: "🗺️ Care Journey" },
           { id: "pharmacy", label: "💊 Pharmacy" },
           { id: "ambulance", label: "🚑 Ambulance" },
-          { id: "ipd", label: "🏥 IPD Admission" }
+          { id: "ipd", label: "🏥 IPD Admission" },
+          { id: "surgery", label: "🔪 Surgery Care" },
+          { id: "dental", label: "🦷 Dental Care" },
+          { id: "abha", label: "🪪 ABHA Health ID" },
+          { id: "cancer", label: "🎗️ Cancer Care" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -1383,6 +1387,279 @@ export const HealthPortal: React.FC = () => {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Surgery Care ─────────────────────────────────────────────────────── */}
+      {activeTab === "surgery" && (
+        <div className="space-y-5">
+          {/* Care Buddy Banner */}
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-black">P</div>
+            <div className="flex-1">
+              <p className="font-black text-purple-900 text-sm">Care Buddy: Priya Sharma</p>
+              <p className="text-xs text-purple-700 mt-0.5">Dedicated coordinator · Available 24×7 · Free service</p>
+            </div>
+            <button onClick={() => alert("Care Buddy: +91 98765 43210")} className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Call</button>
+          </div>
+
+          {/* Procedure Grid */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Select Procedure</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { name: "Bypass Surgery (CABG)", cat: "Cardiac", range: "₹2L–₹5L", color: "bg-red-50 border-red-200 text-red-700" },
+                { name: "Knee Replacement (TKR)", cat: "Orthopedics", range: "₹1.2L–₹2.8L", color: "bg-purple-50 border-purple-200 text-purple-700" },
+                { name: "Cataract Surgery", cat: "Ophthalmology", range: "₹15K–₹60K", color: "bg-teal-50 border-teal-200 text-teal-700" },
+                { name: "Laparoscopic Surgery", cat: "General", range: "₹40K–₹1.2L", color: "bg-amber-50 border-amber-200 text-amber-700" },
+                { name: "Hysterectomy", cat: "Gynecology", range: "₹60K–₹1.5L", color: "bg-pink-50 border-pink-200 text-pink-700" },
+                { name: "Bariatric Surgery", cat: "Bariatric", range: "₹1.5L–₹3.5L", color: "bg-green-50 border-green-200 text-green-700" },
+              ].map((p, i) => (
+                <div key={i} className={`${p.color} border rounded-2xl p-3 cursor-pointer hover:shadow-md transition`}
+                  onClick={() => alert(`Surgery: ${p.name}\n\nEst. cost: ${p.range}\nCategory: ${p.cat}\n\nYour Care Buddy will contact you within 2 hours.`)}>
+                  <p className="font-black text-sm leading-tight">{p.name}</p>
+                  <p className="text-xs opacity-70 mt-1">{p.cat}</p>
+                  <p className="text-xs font-bold mt-2">{p.range}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Cashless Hospitals */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Cashless Empanelled Hospitals</h3>
+            {[
+              { name: "Apollo Hospital", rating: "4.9", cashless: true, nabl: true },
+              { name: "Yashoda Super Speciality", rating: "4.7", cashless: true, nabl: true },
+              { name: "Care Hospitals", rating: "4.6", cashless: true, nabl: false },
+            ].map((h, i) => (
+              <div key={i} className="flex items-center justify-between bg-white border border-gray-200 rounded-2xl p-3 mb-2">
+                <div>
+                  <p className="font-bold text-sm text-gray-900">{h.name}</p>
+                  <div className="flex gap-1.5 mt-1">
+                    {h.cashless && <span className="text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">Cashless</span>}
+                    {h.nabl && <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">NABH</span>}
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">⭐ {h.rating}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* EMI */}
+          <div className="bg-teal-50 border border-teal-200 rounded-2xl p-4">
+            <p className="font-black text-teal-900 text-sm">💳 EMI / No-Cost Finance</p>
+            <p className="text-xs text-teal-700 mt-1">0% interest via HDFC, ICICI, Bajaj Finance — 3, 6, 9, 12, 18, or 24 months</p>
+            <button className="mt-3 bg-teal-600 text-white text-xs font-bold px-4 py-2 rounded-xl" onClick={() => alert("EMI Calculator coming soon.")}>Check EMI Options</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Dental Care ──────────────────────────────────────────────────────── */}
+      {activeTab === "dental" && (
+        <div className="space-y-5">
+          {/* Dentist List */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Community Verified Dentists</h3>
+            {[
+              { name: "Dr. Ramesh Gupta", spec: "Prosthodontics & Implants", exp: 15, fee: 400, slot: "Today 5:00 PM" },
+              { name: "Dr. Sunita Agarwal", spec: "Orthodontics (Braces)", exp: 12, fee: 350, slot: "Tomorrow 10:00 AM" },
+              { name: "Dr. Kiran Reddy", spec: "Root Canal & Endodontics", exp: 10, fee: 300, slot: "Today 7:00 PM" },
+            ].map((d, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-2 flex items-center justify-between gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-black shrink-0">
+                  {d.name.split(" ")[1][0]}
+                </div>
+                <div className="flex-1">
+                  <p className="font-black text-sm text-gray-900">{d.name}</p>
+                  <p className="text-xs text-gray-500">{d.spec} · {d.exp} yrs</p>
+                  <p className="text-xs text-blue-600 font-semibold mt-1">🕐 {d.slot}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">₹{d.fee}</p>
+                  <button onClick={() => alert(`Booking with ${d.name}\nNext: ${d.slot}`)} className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Book</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Packages */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Dental Packages</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { name: "Basic Checkup", price: 299, original: 499, color: "bg-teal-50 border-teal-200" },
+                { name: "Scaling & Polish", price: 799, original: 1200, popular: true, color: "bg-indigo-50 border-indigo-200" },
+                { name: "Root Canal", price: 2999, original: 4500, color: "bg-amber-50 border-amber-200" },
+                { name: "Teeth Whitening", price: 1999, original: 3500, color: "bg-pink-50 border-pink-200" },
+                { name: "Dental Crown", price: 4999, original: 7000, color: "bg-purple-50 border-purple-200" },
+                { name: "Braces Consult", price: 0, original: 500, color: "bg-green-50 border-green-200" },
+              ].map((pkg, i) => (
+                <div key={i} className={`${pkg.color} border rounded-2xl p-3 cursor-pointer hover:shadow-md transition`}
+                  onClick={() => alert(`Package: ${pkg.name}\nPrice: ${pkg.price === 0 ? "FREE" : `₹${pkg.price}`}\n\nBook with any of our verified dentists.`)}>
+                  {(pkg as any).popular && <span className="text-xs bg-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full">Popular</span>}
+                  <p className="font-black text-sm mt-1">{pkg.name}</p>
+                  <p className="text-lg font-black text-gray-900 mt-1">{pkg.price === 0 ? "FREE" : `₹${pkg.price}`}</p>
+                  <p className="text-xs text-gray-400 line-through">₹{pkg.original}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dental Vault */}
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+            <p className="font-black text-blue-900 text-sm">🛡️ Dental Vault</p>
+            <p className="text-xs text-blue-700 mt-1">Your dental findings, treatments and follow-up reminders are stored securely.</p>
+            <div className="mt-3 space-y-2">
+              {[
+                { date: "12 Aug 2026", dentist: "Dr. Ramesh Gupta", finding: "Mild tartar buildup", treatment: "Scaling done" },
+                { date: "3 Mar 2026", dentist: "Dr. Sunita Agarwal", finding: "Crowding (lower arch)", treatment: "Braces consult advised" },
+              ].map((f, i) => (
+                <div key={i} className="bg-white rounded-xl p-3 text-xs space-y-1">
+                  <div className="flex justify-between"><span className="font-bold text-gray-700">{f.dentist}</span><span className="text-gray-400">{f.date}</span></div>
+                  <p className="text-gray-600">{f.finding} → {f.treatment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ABHA Health ID ───────────────────────────────────────────────────── */}
+      {activeTab === "abha" && (
+        <div className="space-y-5">
+          {/* ABHA Card */}
+          <div className="bg-gradient-to-r from-blue-800 to-purple-700 text-white rounded-3xl p-5 shadow-xl">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold tracking-widest text-blue-200 uppercase">ABHA Health ID</span>
+              <span className="text-xs bg-green-400/20 text-green-300 font-bold px-2 py-0.5 rounded-full">✓ Verified</span>
+            </div>
+            <p className="text-2xl font-black tracking-widest mb-1">23-4521-6789-0012</p>
+            <p className="text-sm text-blue-200 font-semibold">Raghunath Krishnamurthy</p>
+            <p className="text-xs text-blue-300 mt-0.5">DOB: 15/08/1985 · Male</p>
+            <div className="flex gap-4 mt-4 bg-white/10 rounded-2xl p-3 text-center">
+              <div className="flex-1"><p className="text-xl font-black">4</p><p className="text-xs text-blue-200">Hospitals</p></div>
+              <div className="w-px bg-white/20" />
+              <div className="flex-1"><p className="text-xl font-black">12</p><p className="text-xs text-blue-200">Records</p></div>
+              <div className="w-px bg-white/20" />
+              <div className="flex-1"><p className="text-xl font-black">Mar</p><p className="text-xs text-blue-200">2025</p></div>
+            </div>
+          </div>
+
+          {/* Linked Records */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Linked Records</h3>
+            {[
+              { type: "Prescription", title: "Antibiotic Course — Dr. Mehta", hospital: "Apollo Hospital", date: "12 Oct 2026" },
+              { type: "Lab Report", title: "HbA1c & Lipid Panel", hospital: "Star Lab", date: "3 Sep 2026" },
+              { type: "Discharge", title: "Appendectomy Discharge Summary", hospital: "Yashoda Hospital", date: "15 Aug 2026" },
+            ].map((r, i) => (
+              <div key={i} className="flex items-center gap-3 bg-white border border-gray-200 rounded-2xl p-3 mb-2">
+                <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-lg shrink-0">{r.type}</span>
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-gray-900">{r.title}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{r.hospital} · {r.date}</p>
+                </div>
+                <button onClick={() => alert(`Viewing: ${r.title}`)} className="text-blue-600 text-xs font-bold">View →</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Consent Manager */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Consent Manager</h3>
+            {[
+              { from: "Apollo Hospital", purpose: "View OPD Records", status: "Pending" },
+              { from: "Star Lab Diagnostics", purpose: "Share Lab Reports", status: "Approved" },
+            ].map((c, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-2 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="font-bold text-sm text-gray-900">{c.from}</p>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.status === "Pending" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>{c.status}</span>
+                </div>
+                <p className="text-xs text-gray-500">{c.purpose}</p>
+                {c.status === "Pending" && (
+                  <div className="flex gap-2">
+                    <button onClick={() => alert("Consent granted")} className="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-xl">Approve</button>
+                    <button onClick={() => alert("Consent denied")} className="flex-1 bg-red-100 text-red-600 text-xs font-bold py-2 rounded-xl">Deny</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancer Care ───────────────────────────────────────────────────────── */}
+      {activeTab === "cancer" && (
+        <div className="space-y-5">
+          {/* Second Opinion Banner */}
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
+            <p className="font-black text-purple-900 text-sm">💬 Get a Second Opinion</p>
+            <p className="text-xs text-purple-700 mt-1 mb-3">25% of cancer diagnoses benefit from a second expert review. It's your right — and often covered by insurance.</p>
+            <button onClick={() => alert("Second opinion request submitted.\n\nA specialist will review your diagnosis and contact you within 24–48 hours.")} className="bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl">Request Second Opinion</button>
+          </div>
+
+          {/* Oncologists */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Oncology Specialists</h3>
+            {[
+              { name: "Dr. Vikram Desai", spec: "Medical Oncology", hospital: "Apollo Cancer Centre", fee: 800, so: true },
+              { name: "Dr. Kavita Sharma", spec: "Surgical Oncology", hospital: "Yashoda Cancer Hospital", fee: 900, so: true },
+              { name: "Dr. Arun Nair", spec: "Radiation Oncology", hospital: "HCG Cancer Centre", fee: 750, so: false },
+            ].map((d, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-black shrink-0">
+                    {d.name.split(" ")[1][0]}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-black text-sm text-gray-900">{d.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{d.spec}</p>
+                    <p className="text-xs text-gray-400">{d.hospital}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-1">₹{d.fee}</p>
+                    <button onClick={() => alert(`Booking with ${d.name}`)} className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Book</button>
+                  </div>
+                </div>
+                {d.so && <span className="mt-2 inline-block text-xs bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">Second Opinion Available</span>}
+              </div>
+            ))}
+          </div>
+
+          {/* Oncology Care Journey */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Oncology Care Journey</h3>
+            <div className="space-y-2">
+              {[
+                { label: "Diagnosis Confirmed", done: true, detail: "Biopsy confirmed • 5 Sep 2026" },
+                { label: "Cancer Staging", done: true, detail: "Stage II — localised • 12 Sep 2026" },
+                { label: "Second Opinion", done: true, detail: "Dr. Vikram Desai confirmed • 18 Sep 2026" },
+                { label: "Treatment Plan Ready", done: true, detail: "4 cycles chemo + radiation • 22 Sep 2026" },
+                { label: "Treatment In Progress", done: false, detail: "Cycle 2 of 4 — Next: 30 Oct 2026" },
+                { label: "Response Evaluation", done: false, detail: "Mid-treatment CT scan" },
+                { label: "Follow-up & Remission", done: false, detail: "Ongoing surveillance" },
+              ].map((step, i) => (
+                <div key={i} className={`flex items-start gap-3 p-3 rounded-2xl border ${step.done ? "bg-purple-50 border-purple-200" : "bg-gray-50 border-gray-200 opacity-60"}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 mt-0.5 ${step.done ? "bg-purple-600 text-white" : "bg-gray-300 text-gray-600"}`}>
+                    {step.done ? "✓" : i + 1}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-gray-900">{step.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{step.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Support */}
+          <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white rounded-2xl p-4 text-center space-y-2">
+            <p className="font-black text-lg">You Are Not Alone</p>
+            <p className="text-xs text-purple-200">Our community, Care Buddy, and oncology team support you every step of the way.</p>
+            <p className="text-xs text-purple-200 font-semibold">National Cancer Helpline: 1800-180-4104 (Free · 24×7)</p>
+          </div>
         </div>
       )}
 
