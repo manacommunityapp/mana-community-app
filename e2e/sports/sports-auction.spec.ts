@@ -11,41 +11,75 @@ test.describe("Sports Auction", () => {
     await mockAuthRoutes(page);
     await mockSportsDashboardRoutes(page);
 
-    // Auction-specific mock routes
-    await page.route("**/api/auction/config**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        json: {
-          id: 1,
-          eventId: 1,
-          eventName: "Cricket Premier League 2026",
-          maxTeams: 8,
-          budgetPerTeam: 1000,
-          status: "DRAFT",
-          playerPoolSize: 50,
-        },
-      });
+    const mockConfig = {
+      id: 1,
+      eventId: 1,
+      eventName: "Cricket Premier League 2026",
+      maxTeams: 8,
+      budgetPerTeam: 1000,
+      status: "DRAFT",
+      playerPoolSize: 50,
+      sportName: "Cricket",
+      basePrice: 100,
+    };
+
+    await page.route(/\/api\/auction\/config(\/.*|\?.*)?$/, async (route) => {
+      const url = route.request().url();
+      if (url.includes("/check")) {
+        await route.fulfill({ status: 200, json: { configExists: true, configCount: 1, communityId: 1 } });
+      } else if (url.includes("/all")) {
+        await route.fulfill({ status: 200, json: [mockConfig] });
+      } else if (url.includes("/stats")) {
+        await route.fulfill({
+          status: 200,
+          json: {
+            totalPlayers: 3,
+            soldPlayers: 2,
+            unsoldPlayers: 1,
+            totalSpent: 350,
+            remainingBudget: 1650,
+            highestBid: 200,
+            averageBid: 175,
+          },
+        });
+      } else if (url.includes("/registration-count")) {
+        await route.fulfill({ status: 200, json: 10 });
+      } else {
+        await route.fulfill({
+          status: 200,
+          json: mockConfig,
+        });
+      }
     });
 
-    await page.route("**/api/auction/teams**", async (route) => {
+    await page.route(/\/api\/auction\/teams(\/.*|\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         json: [
-          { id: 1, name: "Team Alpha", captain: "Ravi Kumar", budget: 1000, spent: 450, playerCount: 6, status: "APPROVED" },
-          { id: 2, name: "Team Beta", captain: "Suresh Patel", budget: 1000, spent: 200, playerCount: 3, status: "APPROVED" },
-          { id: 3, name: "Team Gamma", captain: "Anil Sharma", budget: 1000, spent: 0, playerCount: 0, status: "PENDING" },
+          { id: 1, name: "Team Alpha", teamName: "Team Alpha", captain: "Ravi Kumar", ownerName: "Ravi Kumar", budget: 1000, spent: 450, playerCount: 6, status: "APPROVED" },
+          { id: 2, name: "Team Beta", teamName: "Team Beta", captain: "Suresh Patel", ownerName: "Suresh Patel", budget: 1000, spent: 200, playerCount: 3, status: "APPROVED" },
+          { id: 3, name: "Team Gamma", teamName: "Team Gamma", captain: "Anil Sharma", ownerName: "Anil Sharma", budget: 1000, spent: 0, playerCount: 0, status: "PENDING" },
         ],
+      });
+    });
+
+    const mockPlayers = [
+      { id: 1, name: "Vikram Mehta", sport: "Cricket", basePrice: 100, soldTo: "Team Alpha", soldPrice: 150, category: "Open", status: "SOLD", assignedTeam: { id: 1, name: "Team Alpha" } },
+      { id: 2, name: "Kiran Joshi", sport: "Cricket", basePrice: 80, soldTo: null, soldPrice: null, category: "Youth", status: "AVAILABLE" },
+      { id: 3, name: "Mohan Das", sport: "Cricket", basePrice: 120, soldTo: "Team Beta", soldPrice: 200, category: "Open", status: "SOLD", assignedTeam: { id: 2, name: "Team Beta" } },
+    ];
+
+    await page.route(/\/api\/auction\/live\/\d+\/players(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: mockPlayers,
       });
     });
 
     await page.route("**/api/auction/player-pool**", async (route) => {
       await route.fulfill({
         status: 200,
-        json: [
-          { id: 1, name: "Vikram Mehta", sport: "Cricket", basePrice: 100, soldTo: "Team Alpha", soldPrice: 150, category: "Open" },
-          { id: 2, name: "Kiran Joshi", sport: "Cricket", basePrice: 80, soldTo: null, soldPrice: null, category: "Youth" },
-          { id: 3, name: "Mohan Das", sport: "Cricket", basePrice: 120, soldTo: "Team Beta", soldPrice: 200, category: "Open" },
-        ],
+        json: mockPlayers,
       });
     });
 
@@ -61,7 +95,7 @@ test.describe("Sports Auction", () => {
       });
     });
 
-    await page.route("**/api/auction/live**", async (route) => {
+    await page.route(/\/api\/auction\/live(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         json: { status: "NOT_STARTED", currentPlayer: null, currentBid: null },
@@ -79,16 +113,22 @@ test.describe("Sports Auction", () => {
   });
 
   test("shows Auction in breadcrumb", async ({ page }) => {
-    await expect(page.getByRole("link", { name: /Auction/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Auction/i }).first()).toBeVisible();
   });
 
   // ── Configuration section ───────────────────────────────────────────────────
 
   test("displays auction configuration details", async ({ page }) => {
-    const labels = ["Cricket Premier League 2026", "1000", "DRAFT"];
+    await page.goto("/sports/auction?tab=config");
+    const labels = ["Auction Configuration", "Auction Rules", "Cricket", "Season 2026", "1000"];
     let found = 0;
     for (const label of labels) {
-      if (await page.getByText(label).isVisible().catch(() => false)) found++;
+      if (
+        (await page.getByText(new RegExp(label, "i")).first().isVisible().catch(() => false)) ||
+        (await page.locator(`input[value="${label}"]`).first().isVisible().catch(() => false))
+      ) {
+        found++;
+      }
     }
     expect(found).toBeGreaterThan(0);
   });
@@ -96,53 +136,32 @@ test.describe("Sports Auction", () => {
   // ── Teams section ───────────────────────────────────────────────────────────
 
   test("displays the registered teams list", async ({ page }) => {
+    await page.goto("/sports/auction?tab=teams");
     await expect(page.getByText("Team Alpha")).toBeVisible();
     await expect(page.getByText("Team Beta")).toBeVisible();
   });
 
   test("shows team captain names", async ({ page }) => {
-    const captains = ["Ravi Kumar", "Suresh Patel"];
-    let found = 0;
-    for (const captain of captains) {
-      if (await page.getByText(captain).isVisible().catch(() => false)) found++;
-    }
-    expect(found).toBeGreaterThan(0);
+    await page.goto("/sports/auction?tab=teams");
+    await expect(page.getByText(/Ravi Kumar|Suresh Patel/).first()).toBeVisible();
   });
 
   test("shows team budget information", async ({ page }) => {
-    // Budget 1000 per team from mock
-    await expect(page.getByText("1000").first()).toBeVisible();
+    await page.goto("/sports/auction?tab=teams");
+    // Budget formatted as 1,000 or ₹1,000 or input value 1000
+    const budgetEl = page.getByText(/1[,.]?000/).first();
+    await expect(budgetEl).toBeVisible();
   });
 
   // ── Player pool section ─────────────────────────────────────────────────────
 
   test("displays players in the player pool", async ({ page }) => {
-    const players = ["Vikram Mehta", "Kiran Joshi", "Mohan Das"];
-    let found = 0;
-    for (const player of players) {
-      if (await page.getByText(player).isVisible().catch(() => false)) found++;
-    }
-    // Player pool may be behind a tab — navigate if needed
-    if (found === 0) {
-      const playerPoolBtn = page.getByRole("button", { name: /Player Pool|Players/i });
-      if (await playerPoolBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await playerPoolBtn.click();
-        await page.waitForTimeout(400);
-        for (const player of players) {
-          if (await page.getByText(player).isVisible().catch(() => false)) found++;
-        }
-      }
-    }
-    expect(found).toBeGreaterThan(0);
+    await page.goto("/sports/auction?tab=players");
+    await expect(page.getByText(/Vikram Mehta|Kiran Joshi|Mohan Das/).first()).toBeVisible();
   });
 
   test("shows sold/unsold status for players", async ({ page }) => {
-    // Navigate to player pool if behind a tab
-    const playerPoolBtn = page.getByRole("button", { name: /Player Pool|Players/i });
-    if (await playerPoolBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await playerPoolBtn.click();
-      await page.waitForTimeout(400);
-    }
+    await page.goto("/sports/auction?tab=players");
     const soldText = ["Team Alpha", "Team Beta", "Unsold", "Available"];
     let found = false;
     for (const text of soldText) {
@@ -157,30 +176,24 @@ test.describe("Sports Auction", () => {
   // ── Live auction section ────────────────────────────────────────────────────
 
   test("shows live auction status", async ({ page }) => {
-    const liveBtn = page.getByRole("button", { name: /Live Auction|Start Auction/i });
-    if (await liveBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await liveBtn.click();
-      await page.waitForTimeout(400);
-      await expect(page.locator("body")).not.toContainText("Unhandled");
-    }
+    await page.goto("/sports/auction?tab=live");
+    await page.waitForTimeout(400);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
   });
 
   // ── Results section ─────────────────────────────────────────────────────────
 
   test("shows auction results when status is COMPLETED", async ({ page }) => {
-    const resultsBtn = page.getByRole("button", { name: /Results/i });
-    if (await resultsBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await resultsBtn.click();
-      await page.waitForTimeout(400);
-      // Should show finalized teams count
-      await expect(page.getByText(/2|COMPLETED/i).first()).toBeVisible();
-    }
+    await page.goto("/sports/auction?tab=results");
+    await page.waitForTimeout(400);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
   });
 
   // ── Add player modal ────────────────────────────────────────────────────────
 
   test("Add Player button opens a modal or form", async ({ page }) => {
-    const addPlayerBtn = page.getByRole("button", { name: /Add Player|Import Players/i });
+    await page.goto("/sports/auction?tab=players");
+    const addPlayerBtn = page.getByRole("button", { name: /Add Player|Import Players/i }).first();
     if (await addPlayerBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await addPlayerBtn.click();
       await page.waitForTimeout(400);

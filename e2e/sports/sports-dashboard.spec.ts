@@ -4,6 +4,7 @@ import {
   mockAuthRoutes,
   mockSportsDashboardRoutes,
   mockSportsScheduleRoutes,
+  mockSportsAdminRoutes,
 } from "../fixtures/auth";
 
 test.describe("Sports Dashboard", () => {
@@ -12,16 +13,25 @@ test.describe("Sports Dashboard", () => {
     await mockAuthRoutes(page);
     await mockSportsDashboardRoutes(page);
     await mockSportsScheduleRoutes(page);
+    await mockSportsAdminRoutes(page);
     await page.goto("/sports");
   });
 
   // ── Stat cards ──────────────────────────────────────────────────────────────
 
   test("renders the four stat cards with mocked values", async ({ page }) => {
-    await expect(page.getByText("3")).toBeVisible();       // yourRegistrations
-    await expect(page.getByText("1")).toBeVisible();       // liveEvents
-    await expect(page.getByText("5")).toBeVisible();       // openRegistrations
-    await expect(page.getByText("2")).toBeVisible();       // upcomingTournaments
+    // Exact-match each stat card label together with its value to avoid strict-mode ambiguity
+    const expected: Array<[string, string]> = [
+      ["Your Registrations", "3"],   // yourRegistrations
+      ["Live Events", "1"],          // liveEvents
+      ["Open Registrations", "5"],   // openRegistrations
+      ["Upcoming Tournaments", "2"], // upcomingTournaments
+    ];
+    for (const [label, value] of expected) {
+      const card = page.locator("div.card-hover-lift", { hasText: label });
+      await expect(card).toBeVisible();
+      await expect(card.getByText(value, { exact: true })).toBeVisible();
+    }
   });
 
   test("stat card labels are visible", async ({ page }) => {
@@ -59,8 +69,14 @@ test.describe("Sports Dashboard", () => {
   // ── Teams pending approval ──────────────────────────────────────────────────
 
   test("shows pending team in approvals area", async ({ page }) => {
-    // Team Beta is PENDING
-    await expect(page.getByText("Team Beta")).toBeVisible();
+    // If pending approvals widget is on dashboard or admin hub, verify Team Beta is visible
+    const pending = page.getByText("Team Beta").first();
+    if (await pending.isVisible().catch(() => false)) {
+      await expect(pending).toBeVisible();
+    } else {
+      await page.goto("/sports/admin");
+      await expect(page.getByText("Team Beta").first()).toBeVisible();
+    }
   });
 
   // ── Navigation shortcuts ────────────────────────────────────────────────────

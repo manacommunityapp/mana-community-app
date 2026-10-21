@@ -48,7 +48,7 @@ export function VendorAdminLayout() {
       >
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
           <Store className="h-5 w-5 text-primary" />
-          <h2 className="text-sm font-bold text-foreground">Vendor Management</h2>
+          <h3 className="text-sm font-bold text-foreground m-0 mb-0">Vendor Management</h3>
         </div>
 
         <nav className="flex flex-col gap-0.5 p-2">

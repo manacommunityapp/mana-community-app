@@ -33,32 +33,69 @@ export const MOCK_USER = {
   ],
 };
 
+// ── Mock user with complete profile (gender + DOB for registration) ──────────
+
+export const MOCK_USER_WITH_PROFILE = {
+  ...MOCK_USER,
+  fullName: "Arjun Sharma",
+  name: "Arjun Sharma",
+  gender: "MALE",
+  dateOfBirth: "1990-04-15",
+  dob: "1990-04-15",
+  flatNo: "101",
+  block: "A",
+  flat_no: "101",
+  unitNumber: "101",
+  permissions: [
+    ...MOCK_USER.permissions,
+    "View Sports Menu",
+    "Create/Edit Sports Menu",
+    "Delete Sports Menu",
+  ],
+};
+
 // ── Inject auth tokens into localStorage before page load ─────────────────────
 
 export async function injectAuth(page: Page): Promise<void> {
+  // Use the profile-complete user (with "View Sports Menu") so PermissionGuard
+  // passes and the dashboard doesn't bounce to /login.
   await page.addInitScript(
     ({ token, user }) => {
       localStorage.setItem("mana_token", token);
       localStorage.setItem("mana_refresh_token", token + "_refresh");
       localStorage.setItem("mana_user", JSON.stringify(user));
+      // Pre-accept cookie consent so the banner doesn't cover the UI
+      localStorage.setItem("mana_privacy_preferences_fallback", JSON.stringify({ analytics: false, essential: true }));
+      localStorage.setItem("mana_cookie_consent", JSON.stringify({ analytics: false, essential: true }));
     },
-    { token: MOCK_TOKEN, user: MOCK_USER }
+    { token: MOCK_TOKEN, user: MOCK_USER_WITH_PROFILE }
   );
 }
 
 // ── Mock common auth + profile API routes ────────────────────────────────────
 
 export async function mockAuthRoutes(page: Page): Promise<void> {
+  // Catch-all FIRST (lowest priority in Playwright's reverse-order matching) so
+  // any un-mocked API call never reaches the real backend, which would return
+  // 401 and log the test user out to the login page.
+  await page.route("**/api/**", async (route: Route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, json: [] });
+    } else {
+      await route.fulfill({ status: 200, json: { success: true } });
+    }
+  });
+
   await page.route("**/api/auth/**", async (route: Route) => {
-    await route.fulfill({ status: 200, json: { token: MOCK_TOKEN, user: MOCK_USER } });
+    await route.fulfill({ status: 200, json: { token: MOCK_TOKEN, user: MOCK_USER_WITH_PROFILE } });
   });
 
   await page.route("**/api/users/me", async (route: Route) => {
-    await route.fulfill({ status: 200, json: MOCK_USER });
+    await route.fulfill({ status: 200, json: MOCK_USER_WITH_PROFILE });
   });
 
   await page.route("**/api/users/profile", async (route: Route) => {
-    await route.fulfill({ status: 200, json: MOCK_USER });
+    await route.fulfill({ status: 200, json: MOCK_USER_WITH_PROFILE });
   });
 
   await page.route("**/api/community/modules**", async (route: Route) => {
@@ -69,9 +106,221 @@ export async function mockAuthRoutes(page: Page): Promise<void> {
   });
 
   await page.route("**/api/menu-permissions**", async (route: Route) => {
-    await route.fulfill({ status: 200, json: MOCK_USER.permissions });
+    await route.fulfill({ status: 200, json: MOCK_USER_WITH_PROFILE.permissions });
   });
 }
+
+// ── Mock open tournaments data (shared) ──────────────────────────────────────
+
+export const MOCK_OPEN_TOURNAMENTS = [
+  {
+    id: 1,
+    eventId: 1,
+    name: "Cricket Premier League 2026",
+    bannerImage: null,
+    eventDateStart: "2026-10-01",
+    eventDateEnd: "2026-10-15",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Le Community",
+    event: { id: 1, name: "Cricket Open · Men's Singles" },
+    events: [
+      {
+        id: 100,
+        uuid: "evt-uuid-cricket-open",
+        name: "Cricket Open · Men's Singles",
+        sportName: "Cricket",
+        categoryName: "Open",
+        eventDateStart: "2026-10-01",
+        eventDateEnd: "2026-10-10",
+        venueName: "Main Ground",
+        maxParticipants: 32,
+        registeredCount: 12,
+        registrationStatus: "REGISTRATION_OPEN",
+        auctionStatus: null,
+        teamSport: false,
+        myRegistrationId: null,
+        myRegistrationStatus: null,
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: "Badminton Cup 2026",
+    bannerImage: null,
+    eventDateStart: "2026-10-05",
+    eventDateEnd: "2026-10-12",
+    registrationStatus: "REGISTRATION_OPEN",
+    communityId: 1,
+    communityName: "Le Community",
+    events: [
+      {
+        id: 200,
+        uuid: "evt-uuid-badminton-men",
+        name: "Badminton Men (19+)",
+        sportName: "Badminton",
+        categoryName: "Open",
+        eventDateStart: "2026-10-05",
+        eventDateEnd: "2026-10-12",
+        venueName: "Indoor Hall",
+        maxParticipants: 24,
+        registeredCount: 8,
+        registrationStatus: "REGISTRATION_OPEN",
+        auctionStatus: null,
+        teamSport: false,
+        myRegistrationId: null,
+        myRegistrationStatus: null,
+      },
+    ],
+  },
+];
+
+// ── Mock admin overview data (shared) ────────────────────────────────────────
+
+const MOCK_ADMIN_OVERVIEW = {
+  tournaments: [
+    {
+      id: 1,
+      name: "Cricket Premier League 2026",
+      registrationStatus: "REGISTRATION_OPEN",
+      maxParticipants: 64,
+      eventDateStart: "2026-10-01",
+      eventDateEnd: "2026-10-15",
+      events: [
+        {
+          id: 100,
+          name: "Cricket Open · Men's Singles",
+          eventDateStart: "2026-10-01",
+          eventDateEnd: "2026-10-10",
+          format: ["SINGLES"],
+          tournamentType: "LEAGUE",
+          gender: null,
+          minAge: null,
+          maxAge: null,
+          maxParticipants: 32,
+          registrationStatus: "REGISTRATION_OPEN",
+          auctionStatus: null,
+          sport: { name: "Cricket", icon: "🏏", iconUrl: null },
+          tournamentId: 1,
+          venue: { name: "Main Ground", city: "Mumbai" },
+        },
+      ],
+    },
+    {
+      id: 2,
+      name: "Badminton Cup 2026",
+      registrationStatus: "REGISTRATION_OPEN",
+      maxParticipants: 48,
+      eventDateStart: "2026-10-05",
+      eventDateEnd: "2026-10-12",
+      events: [
+        {
+          id: 200,
+          name: "Badminton Men (19+)",
+          eventDateStart: "2026-10-05",
+          eventDateEnd: "2026-10-12",
+          format: ["SINGLES"],
+          tournamentType: "LEAGUE",
+          gender: null,
+          minAge: null,
+          maxAge: null,
+          maxParticipants: 24,
+          registrationStatus: "REGISTRATION_OPEN",
+          auctionStatus: null,
+          sport: { name: "Badminton", icon: "🏸", iconUrl: null },
+          tournamentId: 2,
+          venue: { name: "Indoor Hall", city: "Mumbai" },
+        },
+      ],
+    },
+  ],
+  events: [
+    {
+      id: 100,
+      name: "Cricket Open · Men's Singles",
+      eventDateStart: "2026-10-01",
+      eventDateEnd: "2026-10-10",
+      format: ["SINGLES"],
+      tournamentType: "LEAGUE",
+      gender: null,
+      minAge: null,
+      maxAge: null,
+      maxParticipants: 32,
+      registrationStatus: "REGISTRATION_OPEN",
+      auctionStatus: null,
+      sport: { name: "Cricket", icon: "🏏", iconUrl: null },
+      tournamentId: 1,
+    },
+    {
+      id: 200,
+      name: "Badminton Men (19+)",
+      eventDateStart: "2026-10-05",
+      eventDateEnd: "2026-10-12",
+      format: ["SINGLES"],
+      tournamentType: "LEAGUE",
+      gender: null,
+      minAge: null,
+      maxAge: null,
+      maxParticipants: 24,
+      registrationStatus: "REGISTRATION_OPEN",
+      auctionStatus: null,
+      sport: { name: "Badminton", icon: "🏸", iconUrl: null },
+      tournamentId: 2,
+    },
+  ],
+  pendingRegistrations: [
+    {
+      id: 2,
+      proposedTeamName: "Team Beta",
+      playerName: "Suresh Patel",
+      email: "suresh@test.com",
+      status: "PENDING",
+      registeredAt: "2026-09-28T10:00:00",
+      matchType: "SINGLES",
+      captainNomination: true,
+      captainConfirmation: false,
+      event: {
+        id: 100,
+        name: "Cricket Open · Men's Singles",
+        sport: { name: "Cricket", icon: "🏏", iconUrl: null },
+      },
+      user: { fullName: "Suresh Patel", email: "suresh@test.com" },
+    },
+  ],
+  confirmedRegistrations: [
+    {
+      id: 1,
+      proposedTeamName: "Team Alpha",
+      playerName: "Ravi Kumar",
+      email: "ravi@test.com",
+      status: "APPROVED",
+      registeredAt: "2026-09-25T10:00:00",
+      matchType: "SINGLES",
+      captainNomination: false,
+      captainConfirmation: true,
+      event: {
+        id: 100,
+        name: "Cricket Open · Men's Singles",
+        sport: { name: "Cricket", icon: "🏏", iconUrl: null },
+      },
+      user: { fullName: "Ravi Kumar", email: "ravi@test.com" },
+    },
+  ],
+};
+
+const MOCK_ADMIN_FORM_DATA = {
+  sports: [
+    { id: 1, name: "Cricket", icon: "🏏", iconUrl: null, formats: ["SINGLES", "TEAM"], communityId: 1 },
+    { id: 2, name: "Badminton", icon: "🏸", iconUrl: null, formats: ["SINGLES", "DOUBLES"], communityId: 1 },
+    { id: 3, name: "Football", icon: "⚽", iconUrl: null, formats: ["TEAM"], communityId: 1 },
+  ],
+  categories: [
+    { id: 1, name: "Open", type: null, categoryType: null, description: null, minAge: 18, maxAge: 99, gender: null },
+    { id: 2, name: "Youth (U-17)", type: null, categoryType: null, description: null, minAge: 14, maxAge: 17, gender: null },
+    { id: 3, name: "Senior (50+)", type: null, categoryType: null, description: null, minAge: 50, maxAge: 99, gender: null },
+  ],
+  communities: [{ id: 1, name: "Le Community", type: "APARTMENT" }],
+};
 
 // ── Mock sports dashboard API routes ─────────────────────────────────────────
 
@@ -88,31 +337,32 @@ export async function mockSportsDashboardRoutes(page: Page): Promise<void> {
     });
   });
 
+  // The actual endpoints used by sportsDashboardService
+  await page.route("**/api/sports/dashboard/open-tournaments**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_OPEN_TOURNAMENTS });
+  });
+
+  await page.route("**/api/sports/dashboard/closed-tournaments**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/my-registrations**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/upcoming**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/notifications**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  // Legacy / alternate endpoints kept for coverage
   await page.route("**/api/sports/tournaments**", async (route: Route) => {
     await route.fulfill({
       status: 200,
-      json: [
-        {
-          id: 1,
-          name: "Cricket Premier League 2026",
-          sport: "Cricket",
-          status: "ACTIVE",
-          startDate: "2026-09-20",
-          endDate: "2026-10-15",
-          teamsCount: 8,
-          registeredTeams: 6,
-        },
-        {
-          id: 2,
-          name: "Badminton Cup 2026",
-          sport: "Badminton",
-          status: "UPCOMING",
-          startDate: "2026-10-01",
-          endDate: "2026-10-10",
-          teamsCount: 16,
-          registeredTeams: 4,
-        },
-      ],
+      json: MOCK_OPEN_TOURNAMENTS,
     });
   });
 
@@ -139,7 +389,103 @@ export async function mockSportsDashboardRoutes(page: Page): Promise<void> {
 
 // ── Mock sports schedule API routes ──────────────────────────────────────────
 
+const MOCK_SCHEDULE_EVENT_LIST = [
+  {
+    id: 100,
+    name: "Cricket Open · Men's Singles",
+    sportName: "Cricket",
+    categoryName: "Open",
+    venueName: "Main Ground",
+    eventDateStart: "2026-10-01",
+    eventDateEnd: "2026-10-10",
+    registrationStatus: "REGISTRATION_OPEN",
+    myRegistrationId: null,
+    myRegistrationStatus: null,
+    communityId: 1,
+    tournamentId: 1,
+    tournamentName: "Cricket Premier League 2026",
+  },
+  {
+    id: 200,
+    name: "Badminton Men (19+)",
+    sportName: "Badminton",
+    categoryName: "Open",
+    venueName: "Indoor Hall",
+    eventDateStart: "2026-10-05",
+    eventDateEnd: "2026-10-12",
+    registrationStatus: "REGISTRATION_OPEN",
+    myRegistrationId: null,
+    myRegistrationStatus: null,
+    communityId: 1,
+    tournamentId: 2,
+    tournamentName: "Badminton Cup 2026",
+  },
+];
+
 export async function mockSportsScheduleRoutes(page: Page): Promise<void> {
+  // Endpoints used by sportsScheduleService
+  await page.route("**/api/sports/schedule/events/open**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_SCHEDULE_EVENT_LIST });
+  });
+
+  await page.route("**/api/sports/schedule/events/open-all**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_SCHEDULE_EVENT_LIST });
+  });
+
+  await page.route("**/api/sports/schedule/events/mine**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/schedule/registrations/mine**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  // Endpoint used by sportsService.getScheduleStats()
+  await page.route("**/api/sports/schedule/stats**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: { totalGames: 12, liveNow: 1, upcoming: 5, completed: 8 },
+    });
+  });
+
+  // Tournament configs and bracket matches used by SportsSchedule
+  await page.route(/\/api\/tournament\/configs(\?.*)?$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        {
+          id: 1,
+          tournamentName: "Cricket Premier League 2026",
+          eventName: "Cricket",
+          eventId: 100,
+          totalTeams: 8,
+          status: "IN_PROGRESS",
+          startDate: "2026-10-01",
+          endDate: "2026-10-15",
+        },
+      ],
+    });
+  });
+
+  await page.route(/\/api\/tournament\/\d+\/matches(\?.*)?$/, async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        {
+          matchId: 1,
+          roundName: "Final",
+          matchNumber: 1,
+          teamAName: "Cricket Premier League",
+          teamBName: "Badminton Cup",
+          scheduledAt: "2026-10-02T10:00:00",
+          venueName: "Main Ground",
+          status: "SCHEDULED",
+        },
+      ],
+    });
+  });
+
+  // Legacy endpoints kept for broad coverage
   await page.route("**/api/sports/events**", async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -201,12 +547,47 @@ export async function mockSportsScheduleRoutes(page: Page): Promise<void> {
       ],
     });
   });
+
+  // sportsService endpoints used by MySports
+  await page.route("**/api/tournaments/all**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_OPEN_TOURNAMENTS });
+  });
+
+  await page.route("**/api/sports/events/community**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
 }
 
 // ── Mock sports admin API routes ──────────────────────────────────────────────
 
 export async function mockSportsAdminRoutes(page: Page): Promise<void> {
   await mockSportsScheduleRoutes(page);
+
+  // Tournaments for community (used by useSportsAdminState.refreshTournaments)
+  await page.route("**/api/tournaments/community**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_OPEN_TOURNAMENTS });
+  });
+
+  // Admin overview and form-data (used by useSportsAdminState)
+  await page.route("**/api/sports/admin/overview**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_ADMIN_OVERVIEW });
+  });
+
+  await page.route("**/api/sports/admin/form-data**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_ADMIN_FORM_DATA });
+  });
+
+  // playerCategoryService calls /api/player-categories (without /sports)
+  await page.route("**/api/player-categories**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        { id: 1, name: "Open", ageMin: 18, ageMax: 99 },
+        { id: 2, name: "Youth", ageMin: 14, ageMax: 17 },
+        { id: 3, name: "Senior", ageMin: 50, ageMax: 99 },
+      ],
+    });
+  });
 
   await page.route("**/api/sports/player-categories**", async (route: Route) => {
     await route.fulfill({
@@ -229,6 +610,24 @@ export async function mockSportsAdminRoutes(page: Page): Promise<void> {
     });
   });
 
+  await page.route("**/api/sports/events/*/registrations**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        { id: 2, proposedTeamName: "Team Beta", teamName: "Team Beta", playerName: "Suresh Patel", status: "PENDING" },
+      ],
+    });
+  });
+
+  await page.route("**/api/sports/tournaments/*/registrations**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        { id: 2, proposedTeamName: "Team Beta", teamName: "Team Beta", playerName: "Suresh Patel", status: "PENDING" },
+      ],
+    });
+  });
+
   await page.route("**/api/sports/admin/pending-teams**", async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -236,6 +635,18 @@ export async function mockSportsAdminRoutes(page: Page): Promise<void> {
         { id: 2, name: "Team Beta", captain: "Suresh Patel", sport: "Cricket", playerCount: 9 },
       ],
     });
+  });
+
+  // Auction: check and all-configs endpoints need specific responses so the page doesn't crash
+  await page.route("**/api/auction/config/check**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: { configExists: false, configCount: 0, communityId: 1 },
+    });
+  });
+
+  await page.route("**/api/auction/config/all**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
   });
 
   await page.route("**/api/auction/**", async (route: Route) => {
@@ -246,6 +657,15 @@ export async function mockSportsAdminRoutes(page: Page): Promise<void> {
     }
   });
 
+  await page.route("**/api/auction/teams/nominated/**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        { id: 2, name: "Team Beta", teamName: "Team Beta", captain: "Suresh Patel", status: "PENDING", proposedTeamName: "Team Beta" },
+      ],
+    });
+  });
+
   await page.route("**/api/community/**", async (route: Route) => {
     await route.fulfill({
       status: 200,
@@ -253,7 +673,7 @@ export async function mockSportsAdminRoutes(page: Page): Promise<void> {
     });
   });
 
-  await page.route("**/api/users**", async (route: Route) => {
+  await page.route(/\/api\/users(\?.*)?$/, async (route: Route) => {
     await route.fulfill({
       status: 200,
       json: [
@@ -261,6 +681,11 @@ export async function mockSportsAdminRoutes(page: Page): Promise<void> {
         { id: 2, name: "Member User", email: "member@test.com" },
       ],
     });
+  });
+
+  // Tournament service used by analytics
+  await page.route("**/api/tournaments/configs**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
   });
 }
 
@@ -357,8 +782,6 @@ export async function mockProfileRoutes(page: Page): Promise<void> {
     await route.fulfill({ status: 200, json: { url: "https://example.com/avatar.jpg" } });
   });
 }
-
-// ── Mock analytics routes ─────────────────────────────────────────────────────
 
 // ── Mock sports registration API routes ──────────────────────────────────────
 
@@ -470,67 +893,6 @@ export const MOCK_BADMINTON_EVENT = {
   },
 };
 
-export const MOCK_OPEN_TOURNAMENTS = [
-  {
-    id: 1,
-    name: "Cricket Premier League 2026",
-    bannerImage: null,
-    eventDateStart: "2026-10-01",
-    eventDateEnd: "2026-10-15",
-    registrationStatus: "REGISTRATION_OPEN",
-    communityId: 1,
-    communityName: "Le Community",
-    events: [
-      {
-        id: 100,
-        uuid: "evt-uuid-cricket-open",
-        name: "Cricket Open · Men's Singles",
-        sportName: "Cricket",
-        categoryName: "Open",
-        eventDateStart: "2026-10-01",
-        eventDateEnd: "2026-10-10",
-        venueName: "Main Ground",
-        maxParticipants: 32,
-        registeredCount: 12,
-        registrationStatus: "REGISTRATION_OPEN",
-        auctionStatus: null,
-        teamSport: false,
-        myRegistrationId: null,
-        myRegistrationStatus: null,
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Badminton Cup 2026",
-    bannerImage: null,
-    eventDateStart: "2026-10-05",
-    eventDateEnd: "2026-10-12",
-    registrationStatus: "REGISTRATION_OPEN",
-    communityId: 1,
-    communityName: "Le Community",
-    events: [
-      {
-        id: 200,
-        uuid: "evt-uuid-badminton-men",
-        name: "Badminton Men (19+)",
-        sportName: "Badminton",
-        categoryName: "Open",
-        eventDateStart: "2026-10-05",
-        eventDateEnd: "2026-10-12",
-        venueName: "Indoor Hall",
-        maxParticipants: 24,
-        registeredCount: 8,
-        registrationStatus: "REGISTRATION_OPEN",
-        auctionStatus: null,
-        teamSport: false,
-        myRegistrationId: null,
-        myRegistrationStatus: null,
-      },
-    ],
-  },
-];
-
 export async function mockSportsRegistrationRoutes(page: Page): Promise<void> {
   // Override menu permissions to include "View Sports Menu" needed by the PermissionGuard
   await page.route("**/api/menu-permissions**", async (route: Route) => {
@@ -621,27 +983,6 @@ export async function mockSportsRegistrationRoutes(page: Page): Promise<void> {
   });
 }
 
-// ── Mock user with complete profile (gender + DOB for registration) ──────────
-
-export const MOCK_USER_WITH_PROFILE = {
-  ...MOCK_USER,
-  fullName: "Arjun Sharma",
-  name: "Arjun Sharma",
-  gender: "MALE",
-  dateOfBirth: "1990-04-15",
-  dob: "1990-04-15",
-  flatNo: "101",
-  block: "A",
-  flat_no: "101",
-  unitNumber: "101",
-  permissions: [
-    ...MOCK_USER.permissions,
-    "View Sports Menu",
-    "Create/Edit Sports Menu",
-    "Delete Sports Menu",
-  ],
-};
-
 export async function injectAuthWithProfile(page: Page): Promise<void> {
   await page.addInitScript(
     ({ token, user }) => {
@@ -653,26 +994,47 @@ export async function injectAuthWithProfile(page: Page): Promise<void> {
   );
 }
 
+// ── Mock analytics routes ─────────────────────────────────────────────────────
+// The analytics service (analyticsService.ts) does NOT call /api/analytics/**
+// Instead it aggregates data from: sportsDashboardService, sportsAdminService,
+// tournamentService and sportsService. So we just need those endpoints mocked
+// (which mockSportsDashboardRoutes + mockSportsAdminRoutes already provide).
+// This function adds any remaining endpoints the analytics page may call.
+
 export async function mockAnalyticsRoutes(page: Page): Promise<void> {
-  await page.route("**/api/analytics/**", async (route: Route) => {
+  // Admin overview – analyticsService calls sportsAdminService.getOverview()
+  await page.route("**/api/sports/admin/overview**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_ADMIN_OVERVIEW });
+  });
+
+  // tournamentService.getConfigs() → /api/tournaments/configs
+  await page.route("**/api/tournaments/configs**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  // sportsService.getScheduleStats() → /api/sports/schedule/stats
+  await page.route("**/api/sports/schedule/stats**", async (route: Route) => {
     await route.fulfill({
       status: 200,
-      json: {
-        totalEvents: 12,
-        totalParticipants: 340,
-        totalMatches: 58,
-        sportsBreakdown: [
-          { sport: "Cricket", count: 5, participants: 150 },
-          { sport: "Badminton", count: 4, participants: 80 },
-          { sport: "Football", count: 3, participants: 110 },
-        ],
-        monthlyTrend: [
-          { month: "Jul", events: 3, participants: 90 },
-          { month: "Aug", events: 5, participants: 140 },
-          { month: "Sep", events: 4, participants: 110 },
-        ],
-      },
+      json: { totalGames: 12, liveNow: 1, upcoming: 5, completed: 8 },
     });
+  });
+
+  // Dashboard endpoints used by analyticsService
+  await page.route("**/api/sports/dashboard/open-tournaments**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: MOCK_OPEN_TOURNAMENTS });
+  });
+
+  await page.route("**/api/sports/dashboard/closed-tournaments**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/my-registrations**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
+  });
+
+  await page.route("**/api/sports/dashboard/upcoming**", async (route: Route) => {
+    await route.fulfill({ status: 200, json: [] });
   });
 }
 

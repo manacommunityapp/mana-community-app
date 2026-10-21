@@ -37,13 +37,13 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
   return (
     <div className="space-y-6 animate-fade-in-up text-left">
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-3 mb-5 border-b border-slate-100">
           <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
             <Settings className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Tournament Configuration</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">View and manage settings for each tournament</p>
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">Tournament Configuration</h3>
+            <p className="text-[11px] text-slate-400 mt-0.5 m-0">View and manage settings for each tournament</p>
           </div>
         </div>
 

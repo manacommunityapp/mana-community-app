@@ -57,10 +57,10 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
               <span className="text-2xl leading-none">{configuringSport.sportIcon || "🏆"}</span>
             )}
             <div>
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 m-0 mb-0">
                 {configuringSport.sportName} Configuration
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              </h3>
+              <p className="text-xs text-slate-500 m-0">
                 Configure sport events and match categories
               </p>
             </div>
@@ -76,8 +76,8 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5e1 #f8fafc" }}>
-          <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-            <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider">
+          <div className="flex justify-between items-center border-b border-slate-200">
+            <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider m-0 mb-0">
               Event Configurations ({configuringSport.events.length})
             </h3>
             <button
@@ -95,7 +95,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
 
               return (
                 <div key={ev.id} className="p-5 border border-slate-200 bg-slate-50 rounded-xl space-y-4 relative text-left">
-                  <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                  <div className="flex justify-between items-center border-b border-slate-200">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Event #{index + 1}</span>
                     {configuringSport.events.length > 1 && (
                       <button

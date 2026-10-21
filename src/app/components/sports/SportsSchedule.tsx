@@ -1060,8 +1060,8 @@ export function SportsSchedule() {
             <div className="lg:col-span-2 space-y-3 sm:space-y-6">
               {/* Ongoing Matches Section */}
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
-                  <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center justify-between border-b border-slate-100">
+                  <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 m-0 mb-0">
                     <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500 animate-pulse"></span>
                     Live Matches
                   </h3>
@@ -1105,7 +1105,7 @@ export function SportsSchedule() {
 
               {/* Quick Navigation Cards */}
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 sm:pb-3">
+                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
                   Quick Navigation
                 </h3>
                 <div className="flex overflow-x-auto gap-2 sm:grid sm:grid-cols-3 sm:gap-4 pb-1 sm:pb-0 -mx-0.5 px-0.5 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide">
@@ -1148,7 +1148,7 @@ export function SportsSchedule() {
             {/* Right Column: Recent Results & Timeline */}
             <div className="space-y-3 sm:space-y-6">
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 sm:pb-3">
+                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
                   Recent Results
                 </h3>
                 <div className="space-y-2.5 sm:space-y-3.5">
@@ -1321,8 +1321,8 @@ export function SportsSchedule() {
           {/* Add / Edit Fixture Form (Inline Card) */}
           {isAdmin && showFixtureForm && (
             <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-bold text-slate-800">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
+              <div className="flex items-center justify-between border-b border-slate-100">
+                <h3 className="text-base font-bold text-slate-800 m-0 mb-0">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
                 <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
@@ -1759,8 +1759,8 @@ export function SportsSchedule() {
             return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
               <div className="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-[95vw] sm:max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-800">Update Match Score</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 mb-4">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800 m-0 mb-0">Update Match Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="text-slate-400 hover:text-slate-600"
@@ -1898,14 +1898,14 @@ export function SportsSchedule() {
               <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                 <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
                   {/* Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center justify-between border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
                         <Radio className="w-5 h-5 animate-pulse" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 leading-none">Confirm Go Live</h3>
-                        <p className="text-xs text-slate-400 mt-1">Check schedule & broadcast live match</p>
+                        <h3 className="text-base font-bold text-slate-900 leading-none m-0 mb-0">Confirm Go Live</h3>
+                        <p className="text-xs text-slate-400 mt-1 m-0">Check schedule & broadcast live match</p>
                       </div>
                     </div>
                     <button

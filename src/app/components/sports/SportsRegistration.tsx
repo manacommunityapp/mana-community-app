@@ -298,12 +298,12 @@ export function SportsRegistration() {
                   </div>
                 ) : (
                   <div className="max-w-2xl mx-auto bg-card border border-border rounded-2xl p-3 sm:p-6 shadow-xl relative hover:border-primary/20 transition-all duration-300">
-                    <div className="flex items-center gap-3 sm:gap-4 border-b border-border pb-3 sm:pb-4 mb-3 sm:mb-5">
+                    <div className="flex items-center gap-3 sm:gap-4 border-b border-border mb-3 sm:mb-5">
                       <div className="p-2.5 sm:p-3.5 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 text-primary">
                         <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                       <div className="text-left">
-                        <h3 className="text-base font-bold text-foreground uppercase tracking-wider">{myCommunity.name}</h3>
+                        <h3 className="text-base font-bold text-foreground uppercase tracking-wider m-0 mb-0">{myCommunity.name}</h3>
                         <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-widest mt-1 inline-block">
                           {myCommunity.type} COMMUNITY
                         </span>
@@ -356,12 +356,12 @@ export function SportsRegistration() {
 
                       return (
                         <div key={team.id} className="p-3 sm:p-5 bg-card border border-border rounded-xl flex flex-col gap-3 sm:gap-4 hover:border-primary/30 transition-all duration-300 animate-fade-in-up">
-                          <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
+                          <div className="flex items-center justify-between gap-3 border-b border-border/60">
                             <div>
-                              <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5 m-0 mb-0">
                                 {team.emoji || "🛡️"} {team.teamName}
-                              </h4>
-                              <span className="text-[10px] text-muted-foreground mt-0.5 block font-semibold">Owner: {team.ownerName || "—"}</span>
+                              </h3>
+                              <span className="text-[10px] text-muted-foreground m-0 block font-semibold">Owner: {team.ownerName || "—"}</span>
                             </div>
                             <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${team.captainConfirmation ? "bg-emerald-500/15 text-emerald-400" : "bg-primary/15 text-primary"}`}>
                               {team.captainConfirmation ? "CONFIRMED CAPTAIN" : "NOMINATED"}
@@ -397,7 +397,7 @@ export function SportsRegistration() {
                   </div>
                 ) : (
                   <div className="bg-card border border-border rounded-xl p-3 sm:p-5 max-w-3xl mx-auto shadow-lg">
-                    <div className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 sm:mb-5 border-b border-border/60 pb-2 text-left">My Match Timeline</div>
+                    <h3 className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 sm:mb-5 border-b border-border/60 text-left m-0">My Match Timeline</h3>
                     <div className="space-y-1">
                       {myMatches.map((m, i) => {
                         const statusColors: Record<string, string> = {

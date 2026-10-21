@@ -36,10 +36,10 @@ export function VendorPortalLayout() {
             <Store className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-lg font-black tracking-tight">
+            <h3 className="text-lg font-black tracking-tight m-0 mb-0">
               Vendor<span className="text-indigo-600">Portal</span>
-            </h4>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+            </h3>
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider m-0">
               Commerce & Services Business Hub
             </p>
           </div>

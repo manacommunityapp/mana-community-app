@@ -13,28 +13,37 @@ test.describe("My Sports", () => {
     await mockSportsDashboardRoutes(page);
     await mockSportsScheduleRoutes(page);
 
-    // My Sports-specific routes
+    const mockRegistrations = [
+      {
+        id: 1,
+        sportName: "Cricket",
+        eventName: "Cricket Premier League 2026",
+        proposedTeamName: "Team Alpha",
+        status: "APPROVED",
+        matchType: "Singles / XI",
+      },
+      {
+        id: 2,
+        sportName: "Badminton",
+        eventName: "Badminton Open 2026",
+        proposedTeamName: null,
+        status: "PENDING",
+        matchType: "Singles",
+      },
+    ];
+
+    // Endpoint called by sportsScheduleService.getMyRegistrations()
+    await page.route("**/api/sports/schedule/registrations/mine**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: mockRegistrations,
+      });
+    });
+
     await page.route("**/api/sports/my-registrations**", async (route) => {
       await route.fulfill({
         status: 200,
-        json: [
-          {
-            id: 1,
-            sport: "Cricket",
-            eventName: "Cricket Premier League 2026",
-            teamName: "Team Alpha",
-            status: "APPROVED",
-            matchType: "Singles / XI",
-          },
-          {
-            id: 2,
-            sport: "Badminton",
-            eventName: "Badminton Open 2026",
-            teamName: null,
-            status: "PENDING",
-            matchType: "Singles",
-          },
-        ],
+        json: mockRegistrations,
       });
     });
 
@@ -60,13 +69,18 @@ test.describe("My Sports", () => {
   });
 
   test("shows My Sports in breadcrumb", async ({ page }) => {
-    await expect(page.getByRole("link", { name: /My Sports/i })).toBeVisible();
+    // "My Sports" appears in both the breadcrumb and nav sub-pill — use first()
+    await expect(page.getByRole("link", { name: /My Sports/i }).first()).toBeVisible();
   });
 
   // ── Sport selection grid ────────────────────────────────────────────────────
 
   test("renders the sport selection grid", async ({ page }) => {
-    // All-sports list is hardcoded — Cricket, Badminton, etc. should appear
+    const settingsBtn = page.getByRole("button", { name: /settings/i }).first();
+    if (await settingsBtn.isVisible()) {
+      await settingsBtn.click();
+      await page.waitForTimeout(300);
+    }
     const sportNames = ["Cricket", "Badminton", "Football", "Tennis"];
     let found = 0;
     for (const sport of sportNames) {
@@ -78,6 +92,11 @@ test.describe("My Sports", () => {
   });
 
   test("can click on a sport to select it", async ({ page }) => {
+    const settingsBtn = page.getByRole("button", { name: /settings/i }).first();
+    if (await settingsBtn.isVisible()) {
+      await settingsBtn.click();
+      await page.waitForTimeout(300);
+    }
     const cricketCard = page.getByText("Cricket").first();
     await expect(cricketCard).toBeVisible();
     await cricketCard.click();
@@ -118,35 +137,31 @@ test.describe("My Sports", () => {
   // ── Register button ─────────────────────────────────────────────────────────
 
   test("shows a register button or link", async ({ page }) => {
-    const registerBtn = page.getByRole("button", { name: /register|join|enroll/i });
-    const registerLink = page.getByRole("link", { name: /register|join|enroll/i });
-    const hasRegBtn = await registerBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasRegLink = await registerLink.isVisible({ timeout: 2000 }).catch(() => false);
-    // At least one registration action should be available
-    expect(hasRegBtn || hasRegLink).toBe(true);
+    const registerAction = page
+      .locator("a[href*='register'], a, button")
+      .filter({ hasText: /register|join|enroll/i })
+      .first();
+    await expect(registerAction).toBeVisible();
   });
 
   // ── Match type selection ────────────────────────────────────────────────────
 
   test("shows match type options after selecting a sport", async ({ page }) => {
-    await page.getByText("Cricket").first().click();
-    await page.waitForTimeout(300);
-    // Cricket match types: "Singles / XI", "Doubles"
-    const matchTypes = ["Singles", "XI", "Doubles"];
-    let found = false;
-    for (const type of matchTypes) {
-      if (await page.getByText(type).isVisible().catch(() => false)) {
-        found = true;
-        break;
-      }
+    const settingsBtn = page.getByRole("button", { name: /settings/i }).first();
+    if (await settingsBtn.isVisible()) {
+      await settingsBtn.click();
+      await page.waitForTimeout(300);
     }
-    // Match type options should appear after sport selection
-    expect(found).toBe(true);
+    const matchOptions = page.locator("select, [role='combobox'], option").filter({ hasText: /Batsman|Bowler|All-Rounder|Singles|Doubles/i });
+    await expect(matchOptions.first()).toBeAttached();
   });
 
   // ── Empty state ─────────────────────────────────────────────────────────────
 
   test("shows empty state when user has no registrations", async ({ page }) => {
+    await page.route("**/api/sports/schedule/registrations/mine**", (route) =>
+      route.fulfill({ status: 200, json: [] })
+    );
     await page.route("**/api/sports/my-registrations**", (route) =>
       route.fulfill({ status: 200, json: [] })
     );

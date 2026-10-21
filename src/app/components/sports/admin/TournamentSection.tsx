@@ -31,6 +31,7 @@ interface TournamentSectionProps {
   onAddParticipant?: (eventId: number) => void;
   onImportParticipants?: (eventId: number) => void;
   onEditEvent?: (ev: any) => void;
+  onAddEventToTournament?: (tournamentId: number, tournamentName: string) => void;
 }
 
 export function TournamentSection({
@@ -39,7 +40,7 @@ export function TournamentSection({
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
-  onAddParticipant, onImportParticipants, onEditEvent,
+  onAddParticipant, onImportParticipants, onEditEvent, onAddEventToTournament,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
   const [seedDrafts, setSeedDrafts] = useState<Record<number, string>>({});
@@ -84,7 +85,7 @@ export function TournamentSection({
 
   const renderRegistrationPanel = (ev: any) => (
     <div className="mt-2 bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 mb-2">
         <div className="flex items-center gap-2">
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
@@ -363,10 +364,10 @@ export function TournamentSection({
             return (
               <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-200">
                   <div className="min-w-0 flex-1 text-left">
-                    <div className="text-sm font-bold text-slate-800">{item.name}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <h3 className="text-sm font-bold text-slate-800 m-0 mb-0">{item.name}</h3>
+                    <div className="text-[10px] text-slate-500 m-0">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
                         : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
@@ -393,6 +394,16 @@ export function TournamentSection({
                     >
                       Events ({item.sportsEvents.length})
                     </button>
+                    {onAddEventToTournament && (
+                      <button
+                        type="button"
+                        onClick={() => onAddEventToTournament(item.id, item.name)}
+                        className="text-[10px] px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                        title="Add Event to Tournament"
+                      >
+                        <Plus className="w-3 h-3" /> Add Event
+                      </button>
+                    )}
                     <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                       Edit
                     </button>
@@ -432,7 +443,12 @@ export function TournamentSection({
                               )}
                               {onEditEvent && (
                                 <button
-                                  onClick={() => onEditEvent(ev)}
+                                  onClick={() => onEditEvent({
+                                    ...ev,
+                                    tournament: item,
+                                    tournamentId: item.id,
+                                    tournamentName: item.name,
+                                  })}
                                   className="text-[9px] px-2 py-1 border border-slate-200 text-slate-500 rounded hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
                                   title="Edit Event"
                                 >
@@ -501,6 +517,16 @@ export function TournamentSection({
                   {onAnnounce && (
                     <button onClick={() => onAnnounce(targetId, ev.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
                       <Megaphone className="w-3 h-3" /> Announce
+                    </button>
+                  )}
+                  {onAddEventToTournament && (
+                    <button
+                      type="button"
+                      onClick={() => onAddEventToTournament(item.id, item.name)}
+                      className="text-[10px] px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                      title="Add Event to Tournament"
+                    >
+                      <Plus className="w-3 h-3" /> Add Event
                     </button>
                   )}
                   <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">

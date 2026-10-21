@@ -171,10 +171,10 @@ export function NotificationSetupModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a3a5c] flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2">
+            <h3 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">
               📡 Notification Setup
-            </h2>
-            <p className="text-xs text-[#64748b] mt-0.5">
+            </h3>
+            <p className="text-xs text-[#64748b] m-0">
               Configure multi-channel automated triggers relative to tournament kick-off
             </p>
           </div>
@@ -484,8 +484,8 @@ export function NotificationSetupModal({
             <div className="space-y-6">
 
               <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-5 space-y-5 shadow-xl">
-                <div className="flex justify-between items-center border-b border-[#2a3a5c]/50 pb-3">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] flex items-center gap-2">👁️ Mock Device Preview</h2>
+                <div className="flex justify-between items-center border-b border-[#2a3a5c]/50">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">👁️ Mock Device Preview</h3>
                   <select
                     className="bg-[#0c1220] border border-[#2a3a5c] rounded-lg p-1.5 text-[10px] font-bold text-[#f97316] outline-none cursor-pointer"
                     value={previewTrigger}

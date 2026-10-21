@@ -274,6 +274,11 @@ export function getEventFormats(event: SportsEvent | null): string[] {
   const combined = `${sName} ${tName} ${eName}`;
   const sKey = detectSport(combined);
 
+  const isTeam =
+    Boolean((event as any).isTeamSport || (event as any).teamSport || (event as any).eventType === "TEAM" || (event as any).matchType === "TEAM") ||
+    isTeamSport(sName || eName || combined) ||
+    ["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball", "rugby", "soccer"].includes(sKey);
+
   // 1. Check if event explicitly specifies formats
   const rawExplicit =
     event.format ||
@@ -289,6 +294,11 @@ export function getEventFormats(event: SportsEvent | null): string[] {
       return ["MIXED_DOUBLES"];
     }
     return parsedExplicit;
+  }
+
+  // If this is a team sport event, default to TEAM format
+  if (isTeam) {
+    return ["TEAM"];
   }
 
   // 2. Check event name keywords for specific format
@@ -330,6 +340,10 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     combined.includes("athletics")
   ) {
     return ["INDIVIDUAL", "RELAY"];
+  }
+
+  if (sKey === "chess" || combined.includes("chess")) {
+    return ["SINGLES"];
   }
 
   return ["SINGLES", "DOUBLES"];
@@ -2173,20 +2187,20 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center justify-between border-b border-border">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                   {profileModalState.mode === "self" ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Profile Details"
                       : profileModalState.mode === "family_edit"
                       ? "Update Family Member Details"
                       : "Add New Family Member"}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground m-0">
                     {profileModalState.mode === "self"
                       ? "Required for tournament eligibility & category verification"
                       : "Provide member details for age & category validation"}
@@ -2527,7 +2541,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <UserCheck className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                    <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
                       Player Identity
                     </h3>
                     {!isPlayerIdentityExpanded && formData.playerName && (
@@ -2996,7 +3010,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <Trophy className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                    <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
                       Participant Type
                     </h3>
                     <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
@@ -3064,6 +3078,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
                 currentGender={formData.gender}
                 currentUserId={user?.userId || (user as any)?.id}
+                currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
@@ -3170,7 +3185,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <Trophy className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                      <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
                         Select Category
                       </h3>
                       <p className="text-[9px] sm:text-[10px] text-[#6b7094] dark:text-slate-400 mt-0.5">
@@ -3399,7 +3414,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
                   <span className="text-xs">📊</span>
                 </div>
-                <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Career Statistics</h3>
+                <h3 className="text-[11px] sm:text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">

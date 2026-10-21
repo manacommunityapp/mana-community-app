@@ -527,6 +527,15 @@ function getAvailableEventFormats(
     return parsedExplicit;
   }
 
+  const isTeam =
+    Boolean((ev as any)?.isTeamSport || (ev as any)?.teamSport || (ev as any)?.eventType === "TEAM" || (ev as any)?.matchType === "TEAM") ||
+    isTeamSport(sName || eName || combined) ||
+    ["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball", "rugby", "soccer"].includes(sKey);
+
+  if (isTeam) {
+    return ["TEAM"];
+  }
+
   // 2. Formats from sports metadata
   const meta = metaList.find((m: any) => m.name && (
     m.name.toLowerCase() === sName ||
@@ -581,6 +590,10 @@ function getAvailableEventFormats(
     combined.includes("track")
   ) {
     return ["INDIVIDUAL", "RELAY"];
+  }
+
+  if (sKey === "chess" || combined.includes("chess")) {
+    return ["SINGLES"];
   }
 
   return ["SINGLES", "DOUBLES"];
@@ -1690,12 +1703,12 @@ export function SportsMultiRegister() {
         {/* ── Left Column: Participant Information (4 cols) ─────────── */}
         <div className="lg:col-span-4 space-y-2.5">
           <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
-            <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
-                <h4 className="text-[13px] sm:text-sm font-semibold text-slate-900 flex items-center gap-1.5 shrink-0">
+                <h3 className="text-[13px] sm:text-sm font-semibold text-slate-900 flex items-center gap-1.5 shrink-0 m-0 mb-0">
                   <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">1</span>
                   <span>Participant Details</span>
-                </h4>
+                </h3>
                 {playerName && (
                   <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 truncate max-w-[120px] sm:max-w-[160px]">
                     {playerName}
@@ -2186,10 +2199,10 @@ export function SportsMultiRegister() {
         {/* ── Right Column: Available Sports Selection (8 cols) ──────── */}
         <div className="lg:col-span-8 space-y-2.5">
           <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs shrink-0">2</span>
-                <h2 className="text-[13px] sm:text-sm font-semibold text-slate-900">Choose Sports</h2>
+                <h3 className="text-[13px] sm:text-sm font-semibold text-slate-900 m-0 mb-0">Choose Sports</h3>
                 <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                   {selectedSportsCount}/{totalSportsCount}
                 </span>
@@ -2475,6 +2488,7 @@ export function SportsMultiRegister() {
                                       }
                                       currentGender={gender}
                                       currentUserId={user?.userId || (user as any)?.id}
+                                      currentFamilyMemberId={regType === "family" ? familyMemberId : undefined}
                                       communityId={user?.communityId}
                                       familyMembers={savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
@@ -2808,7 +2822,7 @@ export function SportsMultiRegister() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-5 sm:p-6 border border-slate-100 relative my-8">
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <div className="flex items-center justify-between border-b border-slate-100 mb-4">
               <div className="flex items-center gap-2.5">
                 <div className={`p-2 rounded-xl ${
                   profileModalState.mode === "self"
@@ -2826,7 +2840,7 @@ export function SportsMultiRegister() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-slate-900 m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Details (Self)"
                       : profileModalState.mode === "family_edit"

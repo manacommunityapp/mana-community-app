@@ -78,20 +78,20 @@ export function SportsLayout() {
   return (
     <div className="flex flex-col gap-2 h-full min-h-0">
       {/* Breadcrumb + page header in a single horizontal row */}
-      <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100 pb-1.5">
+      <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100">
         {/* Left: Breadcrumbs */}
-        <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
             Home
           </NavLink>
           <ChevronRight className="h-3 w-3 text-slate-300" />
-          <NavLink to="/sports" className="hover:underline font-semibold transition-colors" style={{ color: "#4f46e5" }}>
+          <NavLink to="/sports" className="hover:underline font-semibold text-indigo-600 transition-colors">
             Sports
           </NavLink>
           {activeItem && activeItem.label !== "Dashboard" && (
             <>
               <ChevronRight className="h-3 w-3 text-slate-300" />
-              <NavLink to={activeItem.to} className="hover:underline font-bold transition-colors" style={{ color: "#4f46e5" }}>
+              <NavLink to={activeItem.to} className="hover:underline font-bold text-indigo-600 transition-colors">
                 {activeItem.label}
               </NavLink>
             </>
@@ -108,8 +108,8 @@ export function SportsLayout() {
             <Trophy className="h-4 w-4 text-white" />
           </div>
           <div className="text-left hidden sm:block">
-            <h2 className="text-base sm:text-lg font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
-            <p className="text-[11px]" style={{ color: "#6b7094" }}>
+            <h3 className="text-base sm:text-lg font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Sports</h3>
+            <p className="text-[11px] m-0" style={{ color: "#6b7094" }}>
               Leagues, teams, schedules &amp; player auctions
             </p>
           </div>
@@ -130,10 +130,10 @@ export function SportsLayout() {
             >
               {({ isActive }) => (
                 <div
-                  className={`w-full min-h-[32px] sm:min-h-[34px] flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-[8px] sm:rounded-[10px] text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                  className={`w-full min-h-[32px] sm:min-h-[34px] flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-[8px] sm:rounded-[10px] text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-[0_3px_10px_-3px_rgba(99,102,241,0.4)] font-semibold"
-                      : "text-slate-500 group-hover:text-indigo-600 group-hover:bg-indigo-50/80"
+                      ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-[0_3px_10px_-3px_rgba(99,102,241,0.4)] font-bold"
+                      : "text-slate-500 group-hover:text-indigo-600 group-hover:bg-indigo-50/80 font-semibold"
                   }`}
                 >
                   <Icon

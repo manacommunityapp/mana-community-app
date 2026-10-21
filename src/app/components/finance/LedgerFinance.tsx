@@ -117,8 +117,8 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
           </div>
           <div className="page-title">
             <div className="pt-text">
-              <h2>{section === "expense" ? "Expenses" : "Income & Invoices"}</h2>
-              <p>{section === "expense" ? "Bills, purchases & vendor payments" : "Invoices, receipts & customers"}</p>
+              <h3 className="m-0 mb-0">{section === "expense" ? "Expenses" : "Income & Invoices"}</h3>
+              <p className="m-0">{section === "expense" ? "Bills, purchases & vendor payments" : "Invoices, receipts & customers"}</p>
             </div>
             <div className="pt-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 8.5h6M9 12h6M9 15.5h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>

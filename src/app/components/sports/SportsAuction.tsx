@@ -66,7 +66,7 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
     id: summary.id,
     name: nameVal,
     teamName: nameVal,
-    ownerName: summary.ownerName || summary.ownerUser?.fullName || summary.ownerUser?.name || 'Not Assigned',
+    ownerName: summary.ownerName || summary.captain || summary.captainName || summary.ownerUser?.fullName || summary.ownerUser?.name || 'Not Assigned',
     color: summary.colorHex || summary.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
     colorHex: summary.colorHex || summary.color || FALLBACK_COLORS[idx % FALLBACK_COLORS.length],
     emoji: summary.emoji || FALLBACK_EMOJIS[idx % FALLBACK_EMOJIS.length],

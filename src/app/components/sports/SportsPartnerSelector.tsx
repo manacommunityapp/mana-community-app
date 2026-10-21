@@ -21,6 +21,7 @@ interface SportsPartnerSelectorProps {
   matchType?: string; // "DOUBLES" | "MIXED_DOUBLES" | string
   currentGender?: string;
   currentUserId?: number;
+  currentFamilyMemberId?: number | string;
   communityId?: number;
   familyMembers?: FamilyMember[];
   disabled?: boolean;
@@ -32,6 +33,7 @@ export function SportsPartnerSelector({
   matchType = "DOUBLES",
   currentGender,
   currentUserId,
+  currentFamilyMemberId,
   communityId,
   familyMembers = [],
   disabled = false,
@@ -48,6 +50,15 @@ export function SportsPartnerSelector({
   const isMixedDoubles = useMemo(() => {
     return (matchType || "").toUpperCase().includes("MIXED");
   }, [matchType]);
+
+  const availableFamilyMembers = useMemo(() => {
+    return familyMembers.filter(fm => {
+      if (currentFamilyMemberId && String(fm.id) === String(currentFamilyMemberId)) {
+        return false;
+      }
+      return true;
+    });
+  }, [familyMembers, currentFamilyMemberId]);
 
   const targetPartnerGender = useMemo(() => {
     if (!isMixedDoubles || !currentGender) return null;
@@ -138,23 +149,25 @@ export function SportsPartnerSelector({
   return (
     <div ref={containerRef} className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 sm:p-4 space-y-3 text-left">
       {/* Header with Title and Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
                 <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
-            </h4>
-            <p className="text-[11px] sm:text-[10px] text-slate-500">
+            </h3>
+            <p className="text-[11px] sm:text-[10px] text-slate-500 m-0">
               {isMixedDoubles
-                ? "Mixed Doubles requires one Male and one Female player."
+                ? targetPartnerGender
+                  ? `Mixed Doubles requires a ${targetPartnerGender.toLowerCase()} partner (1 Male + 1 Female).`
+                  : "Mixed Doubles requires one Male and one Female player."
                 : "Choose a teammate or request auto-pairing from the open pool."}
             </p>
           </div>
@@ -172,7 +185,7 @@ export function SportsPartnerSelector({
             >
               Neighbor
             </button>
-            {familyMembers.length > 0 && (
+            {availableFamilyMembers.length > 0 && (
               <button
                 type="button"
                 onClick={() => { setPartnerMode("family"); onChange(null); }}
@@ -285,18 +298,26 @@ export function SportsPartnerSelector({
                     searchResults.map((u) => {
                       const fullName = u.fullName || (u as any).name || "Resident";
                       const flatInfo = u.flatNo || u.block ? `${u.block ? `Block ${u.block}, ` : ""}Flat ${u.flatNo || ""}` : "";
-                      const isGenderMismatch = targetPartnerGender && u.gender && u.gender.toUpperCase() !== targetPartnerGender;
+                      const isGenderMismatch = !!(targetPartnerGender && u.gender && u.gender.toUpperCase() !== targetPartnerGender);
 
                       return (
                         <button
                           key={u.id}
                           type="button"
-                          onClick={() => handleSelectCommunityUser(u)}
-                          className="w-full p-2.5 min-h-[44px] sm:min-h-0 text-left hover:bg-indigo-50/50 flex items-center justify-between gap-2 transition cursor-pointer group"
+                          disabled={disabled || isGenderMismatch}
+                          onClick={() => !isGenderMismatch && handleSelectCommunityUser(u)}
+                          className={`w-full p-2.5 min-h-[44px] sm:min-h-0 text-left flex items-center justify-between gap-2 transition ${
+                            isGenderMismatch
+                              ? "opacity-60 cursor-not-allowed bg-slate-50/70"
+                              : "hover:bg-indigo-50/50 cursor-pointer group"
+                          }`}
+                          title={isGenderMismatch ? `Mixed Doubles requires a ${targetPartnerGender?.toLowerCase()} partner` : undefined}
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[13px] sm:text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition truncate">
+                              <span className={`text-[13px] sm:text-xs font-semibold truncate ${
+                                isGenderMismatch ? "text-slate-500" : "text-slate-900 group-hover:text-indigo-600"
+                              }`}>
                                 {fullName}
                               </span>
                               {u.gender && (
@@ -312,8 +333,8 @@ export function SportsPartnerSelector({
                             )}
                           </div>
                           {isGenderMismatch ? (
-                            <span className="text-[9px] text-amber-600 font-bold shrink-0 flex items-center gap-0.5">
-                              <AlertCircle className="w-3 h-3" /> Gender Mismatch
+                            <span className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-amber-600" /> Need {targetPartnerGender}
                             </span>
                           ) : (
                             <span className="text-[10px] text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
@@ -332,25 +353,48 @@ export function SportsPartnerSelector({
           {/* Mode 2: Family Members Picker */}
           {partnerMode === "family" && (
             <div className="space-y-1.5">
-              {familyMembers.length === 0 ? (
-                <p className="text-xs text-slate-500 italic">No family members registered yet.</p>
+              {availableFamilyMembers.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">
+                  {familyMembers.length > 0 ? "No other family members available." : "No family members registered yet."}
+                </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {familyMembers.map((fm) => (
-                    <button
-                      key={fm.id}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => handleSelectFamilyMember(fm)}
-                      className="p-2.5 sm:p-2 min-h-[44px] sm:min-h-0 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-lg text-left transition flex items-center justify-between gap-2 cursor-pointer shadow-2xs"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-[13px] sm:text-xs font-semibold text-slate-800 block truncate">{fm.name}</span>
-                        <span className="text-[10px] sm:text-[9px] text-slate-400 capitalize">{fm.relation} {fm.gender ? `• ${fm.gender}` : ""}</span>
-                      </div>
-                      <span className="text-[11px] sm:text-[10px] text-indigo-600 font-bold">Pick</span>
-                    </button>
-                  ))}
+                  {availableFamilyMembers.map((fm) => {
+                    const isGenderMismatch = !!(targetPartnerGender && fm.gender && fm.gender.toUpperCase() !== targetPartnerGender);
+
+                    return (
+                      <button
+                        key={fm.id}
+                        type="button"
+                        disabled={disabled || isGenderMismatch}
+                        onClick={() => !isGenderMismatch && handleSelectFamilyMember(fm)}
+                        className={`p-2.5 sm:p-2 min-h-[44px] sm:min-h-0 bg-white border rounded-lg text-left transition flex items-center justify-between gap-2 shadow-2xs ${
+                          isGenderMismatch
+                            ? "border-slate-200 opacity-60 cursor-not-allowed bg-slate-50/70"
+                            : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer"
+                        }`}
+                        title={isGenderMismatch ? `Mixed Doubles requires a ${targetPartnerGender?.toLowerCase()} partner` : undefined}
+                      >
+                        <div className="min-w-0">
+                          <span className={`text-[13px] sm:text-xs font-semibold block truncate ${
+                            isGenderMismatch ? "text-slate-500" : "text-slate-800"
+                          }`}>
+                            {fm.name}
+                          </span>
+                          <span className="text-[10px] sm:text-[9px] text-slate-400 capitalize">
+                            {fm.relation} {fm.gender ? `• ${fm.gender}` : ""}
+                          </span>
+                        </div>
+                        {isGenderMismatch ? (
+                          <span className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0">
+                            Need {targetPartnerGender}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] sm:text-[10px] text-indigo-600 font-bold">Pick</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

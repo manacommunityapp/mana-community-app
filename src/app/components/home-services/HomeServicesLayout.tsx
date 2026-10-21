@@ -62,14 +62,14 @@ export function HomeServicesLayout() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                <h3 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white m-0 mb-0">
                   Home Services
-                </h4>
+                </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                   Community Verified
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 m-0">
                 Find, book & manage trusted domestic help already serving your community
               </p>
             </div>

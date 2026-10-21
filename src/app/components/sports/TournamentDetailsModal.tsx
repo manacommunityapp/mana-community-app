@@ -274,9 +274,9 @@ export function TournamentDetailsModal({
               <Trophy className="h-6 w-6 text-amber-300" />
             </div>
             <div className="flex-1 min-w-0 pr-8">
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight truncate">
+              <h3 className="text-xl sm:text-2xl font-black text-white leading-tight truncate m-0 mb-0">
                 {tournament.name}
-              </h2>
+              </h3>
               <div className="flex items-center gap-3 sm:gap-4 mt-1.5 text-xs text-indigo-200 flex-wrap">
                 {startDate && (
                   <span className="inline-flex items-center gap-1">

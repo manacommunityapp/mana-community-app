@@ -554,6 +554,15 @@ export function SportsEventSection({
                                   <div className="text-center py-4 text-xs text-slate-400 italic">No matching templates.</div>
                                 )}
                               </div>
+                              <div
+                                onClick={() => {
+                                  setOpenDropdownEventId(null);
+                                  setActiveTab("player-category");
+                                }}
+                                className="p-2.5 border-t border-slate-100 text-xs font-semibold text-indigo-600 hover:bg-indigo-50/70 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                              >
+                                <Plus className="w-3.5 h-3.5" /> Manage / Create Player Categories ↗
+                              </div>
                             </PopoverContent>
                           </Popover>
                         </div>
@@ -887,8 +896,8 @@ export function SportsEventSection({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Scheduled Community Events ({activeEvents.length})</h3>
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">Scheduled Community Events ({activeEvents.length})</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {activeEvents.map(e => {
@@ -961,7 +970,7 @@ export function SportsEventSection({
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="truncate">{e.gender || "ALL"} • {e.minAge || 10}-{e.maxAge || 70} Yrs</span>
+                          <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
                         </div>
                       </div>
                     </div>
