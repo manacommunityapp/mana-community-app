@@ -8,6 +8,8 @@ export interface Activity {
   by: string;
   notes: string;
   date: string;
+  callOutcome?: string | null;
+  callDurationMin?: number | null;
 }
 
 export interface Lead {

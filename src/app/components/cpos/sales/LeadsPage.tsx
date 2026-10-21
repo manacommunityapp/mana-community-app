@@ -19,6 +19,7 @@ import {
 } from '../crm/crmData';
 import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
+import { CallLogDialog } from '../crm/CallLogDialog';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
 
@@ -32,6 +33,7 @@ const LeadsPage: React.FC = () => {
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [campaignTemplate, setCampaignTemplate] = useState('initial');
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+  const [callLogLead, setCallLogLead] = useState<Lead | null>(null);
 
   const TEMPLATES: Record<string, string> = {
     initial: 'Hi {name}, this is regarding your property enquiry with MANA Community. How can I help you today?',
@@ -256,7 +258,11 @@ const LeadsPage: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25 }}>
                       <Tooltip title={`Call ${lead.phone}`}>
                         <IconButton size="small"
-                          onClick={e => { e.stopPropagation(); window.open(`tel:+91${lead.phone.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '')}`, '_self'); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            window.open(`tel:+91${lead.phone.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '')}`, '_self');
+                            setCallLogLead(lead);
+                          }}
                           sx={{ color: '#10B981', opacity: 0.7, '&:hover': { opacity: 1, bgcolor: 'rgba(16,185,129,0.1)' } }}>
                           <CallIcon sx={{ fontSize: 16 }} />
                         </IconButton>
@@ -369,6 +375,19 @@ const LeadsPage: React.FC = () => {
           <Button onClick={() => setCampaignOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'none' }}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {callLogLead && (
+        <CallLogDialog
+          open={!!callLogLead}
+          leadId={callLogLead.id}
+          leadName={callLogLead.name}
+          onClose={() => setCallLogLead(null)}
+          onSaved={() => {
+            setCallLogLead(null);
+            crmService.getLeads().then(setLeads).catch(() => {});
+          }}
+        />
+      )}
     </Box>
   );
 };

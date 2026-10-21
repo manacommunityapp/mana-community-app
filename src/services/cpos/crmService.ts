@@ -8,7 +8,16 @@ export interface CrmActivityDto {
   activityType: string;
   note: string;
   createdBy: string;
+  callOutcome: string | null;
+  callDurationMin: number | null;
   createdAt: string;
+}
+
+export interface LogCallRequest {
+  outcome: string;
+  durationMin?: number | null;
+  notes?: string;
+  followUpAt?: string | null;
 }
 
 export interface CrmLeadDto {
@@ -134,6 +143,8 @@ export function mapLead(dto: CrmLeadDto): Lead {
           month: "short",
           year: "numeric",
         }),
+        callOutcome: a.callOutcome ?? null,
+        callDurationMin: a.callDurationMin ?? null,
       })
     ),
   };
@@ -221,5 +232,9 @@ export const crmService = {
 
   async updateAgentPool(agents: string[]): Promise<IntegrationConfigDto> {
     return apiClient.put<IntegrationConfigDto>('/v1/cpos/crm/integrations/agents', { agents });
+  },
+
+  async logCall(leadId: number | string, req: LogCallRequest): Promise<CrmActivityDto> {
+    return apiClient.post<CrmActivityDto>(`/v1/cpos/crm/leads/${leadId}/calls`, req);
   },
 };

@@ -17,6 +17,7 @@ import {
   isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
 } from './crmData';
 import { crmService } from '../../../../services/cpos/crmService';
+import { CallLogDialog } from './CallLogDialog';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
 
@@ -32,6 +33,7 @@ const LeadDetailPage: React.FC = () => {
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
   const [savingFollowUp, setSavingFollowUp] = useState(false);
+  const [callLogOpen, setCallLogOpen] = useState(false);
 
   useEffect(() => {
     if (!leadId) return;
@@ -99,14 +101,18 @@ const LeadDetailPage: React.FC = () => {
 
   const cleanPhone = (p: string) => p.replace(/[^0-9]/g, '').replace(/^0/, '').replace(/^91/, '');
 
-  const handleQuickCall = async () => {
+  const handleQuickCall = () => {
     if (!lead) return;
     window.open(`tel:+91${cleanPhone(lead.phone)}`, '_self');
+    setCallLogOpen(true);
+  };
+
+  const handleCallLogged = async () => {
+    if (!lead) return;
     try {
-      await crmService.addActivity(lead.id, 'CALL', 'Call initiated via CRM quick action');
       const updated = await crmService.getLeadById(lead.id);
       setLead(updated);
-    } catch { /* best-effort log */ }
+    } catch { /* keep state */ }
   };
 
   const handleQuickWhatsApp = async () => {
@@ -325,9 +331,31 @@ const LeadDetailPage: React.FC = () => {
                     </Box>
                     <Paper sx={{ p: 1.75, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: '#7B93FF', fontWeight: 700, fontSize: '0.72rem' }}>
-                          {activity.type.replace('_', ' ')} · {activity.by}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" sx={{ color: '#7B93FF', fontWeight: 700, fontSize: '0.72rem' }}>
+                            {activity.type.replace('_', ' ')} · {activity.by}
+                          </Typography>
+                          {activity.callOutcome && (
+                            <Chip
+                              label={activity.callOutcome}
+                              size="small"
+                              sx={{
+                                height: 16, fontSize: '0.6rem', fontWeight: 700,
+                                bgcolor: activity.callOutcome === 'CONNECTED' ? 'rgba(16,185,129,0.15)'
+                                  : activity.callOutcome === 'MISSED' ? 'rgba(239,68,68,0.15)'
+                                  : 'rgba(245,158,11,0.15)',
+                                color: activity.callOutcome === 'CONNECTED' ? '#10B981'
+                                  : activity.callOutcome === 'MISSED' ? '#EF4444'
+                                  : '#F59E0B',
+                              }}
+                            />
+                          )}
+                          {activity.callDurationMin != null && activity.callDurationMin > 0 && (
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.65rem' }}>
+                              {activity.callDurationMin} min
+                            </Typography>
+                          )}
+                        </Box>
                         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.68rem' }}>
                           {activity.date}
                         </Typography>
@@ -437,6 +465,16 @@ const LeadDetailPage: React.FC = () => {
         </Box>  {/* end right sidebar */}
       </Box>
     </Box>
+
+    {lead && (
+      <CallLogDialog
+        open={callLogOpen}
+        leadId={lead.id}
+        leadName={lead.name}
+        onClose={() => setCallLogOpen(false)}
+        onSaved={handleCallLogged}
+      />
+    )}
   );
 };
 
