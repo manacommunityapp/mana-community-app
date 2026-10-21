@@ -1,5 +1,5 @@
 import { apiClient } from "../common/apiClient";
-import type { Stage, LeadSource, ActivityType, Lead, Activity } from "../../app/components/cpos/crm/crmData";
+import type { Stage, LeadSource, ActivityType, Lead, Activity, LeadTag } from "../../app/components/cpos/crm/crmData";
 
 // ── Backend DTOs (mirror Java backend) ────────────────────────────────────
 
@@ -37,6 +37,7 @@ export interface CrmLeadDto {
   followUpAt: string | null;
   followUpNote: string | null;
   activities?: CrmActivityDto[];
+  tags?: { id: number; name: string; color: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -67,6 +68,46 @@ export interface AgentStatDto {
   pipelineLakhs: number;
 }
 
+export interface LeaderboardEntryDto {
+  rank: number;
+  agent: string;
+  closedLeads: number;
+  revenueLakhs: number;
+  totalLeads: number;
+  score: number;
+}
+
+export interface SalesTargetDto {
+  id: number;
+  agentName: string;
+  periodMonth: number;
+  periodYear: number;
+  targetLeadsClosed: number;
+  targetRevenueLakhs: number;
+  actualLeadsClosed: number;
+  actualRevenueLakhs: number;
+  closedPct: number;
+  revenuePct: number;
+}
+
+export interface EmailCampaignDto {
+  id: number;
+  subject: string;
+  bodyHtml: string;
+  filterStage: string | null;
+  filterSource: string | null;
+  sentCount: number;
+  createdBy: string;
+  sentAt: string;
+}
+
+export interface ImportResultDto {
+  created: number;
+  duplicates: number;
+  errors: number;
+  errorMessages: string[];
+}
+
 export interface CrmAnalyticsDto {
   totalLeads: number;
   overallConversionPct: number;
@@ -76,6 +117,7 @@ export interface CrmAnalyticsDto {
   sourceBreakdown: Record<string, number>;
   stageVelocity: Record<string, number>;
   agentStats: AgentStatDto[];
+  leaderboard?: LeaderboardEntryDto[];
 }
 
 export interface BrokerDto {
@@ -164,6 +206,7 @@ export function mapLead(dto: CrmLeadDto): Lead {
     assignedTo: dto.assignedTo ?? "",
     followUpAt: dto.followUpAt ?? null,
     followUpNote: dto.followUpNote ?? null,
+    tags: (dto.tags ?? []).map((t): LeadTag => ({ id: t.id, name: t.name, color: t.color })),
     activities: (dto.activities ?? []).map(
       (a): Activity => ({
         id: String(a.id),
@@ -315,5 +358,92 @@ export const crmService = {
 
   async deleteDocument(leadId: number | string, docId: number): Promise<void> {
     return apiClient.delete<void>(`/v1/cpos/crm/leads/${leadId}/documents/${docId}`);
+  },
+
+  // ── Tags ─────────────────────────────────────────────────────────────────
+
+  async getTags(): Promise<LeadTag[]> {
+    return apiClient.get<LeadTag[]>('/v1/cpos/crm/tags');
+  },
+
+  async createTag(name: string, color: string): Promise<LeadTag> {
+    return apiClient.post<LeadTag>('/v1/cpos/crm/tags', { name, color });
+  },
+
+  async deleteTag(tagId: number): Promise<void> {
+    return apiClient.delete<void>(`/v1/cpos/crm/tags/${tagId}`);
+  },
+
+  async addTagToLead(leadId: number | string, tagId: number): Promise<Lead> {
+    const dto = await apiClient.post<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/tags/${tagId}`, {});
+    return mapLead(dto);
+  },
+
+  async removeTagFromLead(leadId: number | string, tagId: number): Promise<Lead> {
+    const dto = await apiClient.delete<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/tags/${tagId}`);
+    return mapLead(dto);
+  },
+
+  // ── CSV Import ────────────────────────────────────────────────────────────
+
+  async checkDuplicate(phone?: string, email?: string): Promise<boolean> {
+    const params = new URLSearchParams();
+    if (phone) params.append('phone', phone);
+    if (email) params.append('email', email);
+    const r = await apiClient.get<{ duplicate: boolean }>(`/v1/cpos/crm/leads/check-duplicate?${params}`);
+    return r.duplicate;
+  },
+
+  async importLeads(file: File): Promise<ImportResultDto> {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post<ImportResultDto>('/v1/cpos/crm/leads/import', form);
+  },
+
+  // ── Sales Targets ─────────────────────────────────────────────────────────
+
+  async getSalesTargets(month?: number, year?: number): Promise<SalesTargetDto[]> {
+    const params = new URLSearchParams();
+    if (month) params.append('month', String(month));
+    if (year)  params.append('year',  String(year));
+    return apiClient.get<SalesTargetDto[]>(`/v1/cpos/crm/targets?${params}`);
+  },
+
+  async upsertSalesTarget(req: {
+    agentName: string; month?: number; year?: number;
+    targetLeadsClosed: number; targetRevenueLakhs: number;
+  }): Promise<SalesTargetDto> {
+    return apiClient.put<SalesTargetDto>('/v1/cpos/crm/targets', req);
+  },
+
+  // ── Leaderboard ────────────────────────────────────────────────────────────
+
+  async getLeaderboard(month?: number, year?: number): Promise<LeaderboardEntryDto[]> {
+    const params = new URLSearchParams();
+    if (month) params.append('month', String(month));
+    if (year)  params.append('year',  String(year));
+    return apiClient.get<LeaderboardEntryDto[]>(`/v1/cpos/crm/leaderboard?${params}`);
+  },
+
+  // ── Stale Leads ───────────────────────────────────────────────────────────
+
+  async getStaleLeads(staleDays?: number): Promise<Lead[]> {
+    const dtos = await apiClient.get<CrmLeadDto[]>(
+      `/v1/cpos/crm/leads/stale${staleDays ? `?staleDays=${staleDays}` : ''}`
+    );
+    return dtos.map(mapLead);
+  },
+
+  // ── Email Campaigns ───────────────────────────────────────────────────────
+
+  async getEmailCampaigns(): Promise<EmailCampaignDto[]> {
+    return apiClient.get<EmailCampaignDto[]>('/v1/cpos/crm/email-campaigns');
+  },
+
+  async sendBulkEmailCampaign(req: {
+    subject: string; bodyHtml: string;
+    filterStage?: string; filterSource?: string;
+  }): Promise<EmailCampaignDto> {
+    return apiClient.post<EmailCampaignDto>('/v1/cpos/crm/email-campaigns', req);
   },
 };

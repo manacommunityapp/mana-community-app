@@ -23,6 +23,7 @@ import { CallLogDialog } from './CallLogDialog';
 import { DocumentVaultSection } from './DocumentVaultSection';
 import { SendEmailDialog } from './SendEmailDialog';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
+import LeadTagsSection from './LeadTagsSection';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
 
@@ -325,6 +326,14 @@ const LeadDetailPage: React.FC = () => {
                   ))}
                 </Box>
               </Paper>
+
+              {/* Tags / Labels */}
+              <LeadTagsSection
+                leadId={lead.id}
+                tags={lead.tags ?? []}
+                onTagsChanged={tags => setLead(prev => prev ? { ...prev, tags } : prev)}
+                readonly={!isAdmin}
+              />
             </Box>
           )}
 

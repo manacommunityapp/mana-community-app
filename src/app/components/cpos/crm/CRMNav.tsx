@@ -6,6 +6,7 @@ const CRM_TABS = [
   { label: 'Pipeline',     path: '/cpos/crm' },
   { label: 'Leads',        path: '/cpos/crm/leads' },
   { label: 'Analytics',    path: '/cpos/crm/analytics' },
+  { label: 'Leaderboard',  path: '/cpos/crm/leaderboard' },
   { label: 'Brokers',      path: '/cpos/crm/brokers' },
   { label: 'Integrations', path: '/cpos/crm/integrations' },
 ];

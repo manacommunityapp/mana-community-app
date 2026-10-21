@@ -21,6 +21,8 @@ import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from '../crm/CallLogDialog';
 import { CrmExportButton } from '../crm/CrmExportButton';
+import CrmImportButton from '../crm/CrmImportButton';
+import BulkEmailCampaignDialog from '../crm/BulkEmailCampaignDialog';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ALL_STAGES = ['ALL', ...STAGES] as const;
@@ -39,6 +41,7 @@ const LeadsPage: React.FC = () => {
   const [campaignTemplate, setCampaignTemplate] = useState('initial');
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [callLogLead, setCallLogLead] = useState<Lead | null>(null);
+  const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
 
   const TEMPLATES: Record<string, string> = {
     initial: 'Hi {name}, this is regarding your property enquiry with MANA Community. How can I help you today?',
@@ -102,6 +105,14 @@ const LeadsPage: React.FC = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <CrmExportButton leads={filtered} filename="crm-leads" reportTitle="CRM Leads Report" />
+          {isAdmin && <CrmImportButton onImported={() => crmService.getLeads().then(setLeads).catch(() => {})} />}
+          {isAdmin && (
+            <Button variant="outlined" startIcon={<CampaignIcon />} size="small"
+              onClick={() => setBulkEmailOpen(true)}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: '#4F6AF5', color: '#4F6AF5', '&:hover': { bgcolor: 'rgba(79,106,245,0.08)' } }}>
+              Email Campaign
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<CampaignIcon />} size="small"
             onClick={() => { setSentIds(new Set()); setCampaignOpen(true); }}
             sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, borderColor: '#25D366', color: '#25D366', '&:hover': { bgcolor: 'rgba(37,211,102,0.08)' } }}>
@@ -417,6 +428,11 @@ const LeadsPage: React.FC = () => {
           }}
         />
       )}
+
+      <BulkEmailCampaignDialog
+        open={bulkEmailOpen}
+        onClose={() => setBulkEmailOpen(false)}
+      />
     </Box>
   );
 };

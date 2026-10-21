@@ -12,6 +12,12 @@ export interface Activity {
   callDurationMin?: number | null;
 }
 
+export interface LeadTag {
+  id: number;
+  name: string;
+  color: string;
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -29,6 +35,7 @@ export interface Lead {
   activities: Activity[];
   followUpAt?: string | null;
   followUpNote?: string | null;
+  tags?: LeadTag[];
 }
 
 export const isFollowUpDue = (lead: Lead): boolean => {

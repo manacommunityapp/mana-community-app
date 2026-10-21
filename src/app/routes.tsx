@@ -227,6 +227,7 @@ import CPOSCRMAnalyticsPage from "./components/cpos/crm/CRMAnalyticsPage";
 import CPOSBrokerCommissionPage from "./components/cpos/crm/BrokerCommissionPage";
 import CPOSPortalIntegrationsPage from "./components/cpos/crm/PortalIntegrationsPage";
 import { CrmEmailTemplatesPage as CPOSCrmEmailTemplatesPage } from "./components/cpos/crm/CrmEmailTemplatesPage";
+import CPOSCrmLeaderboardPage from "./components/cpos/crm/CrmLeaderboardPage";
 
 // CPN (Community Professional Network) modules
 
@@ -1063,6 +1064,7 @@ export const router = createBrowserRouter([
       { path: "cpos/crm/brokers", element: <PermissionGuard requiredModule="CPOS"><CPOSBrokerCommissionPage /></PermissionGuard> },
       { path: "cpos/crm/integrations", element: <PermissionGuard requiredModule="CPOS"><CPOSPortalIntegrationsPage /></PermissionGuard> },
       { path: "cpos/crm/email-templates", element: <PermissionGuard requiredModule="CPOS"><CPOSCrmEmailTemplatesPage /></PermissionGuard> },
+      { path: "cpos/crm/leaderboard", element: <PermissionGuard requiredModule="CPOS"><CPOSCrmLeaderboardPage /></PermissionGuard> },
       // ── New Community Ecosystem Modules ─────────────────────────
       { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
       { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },
