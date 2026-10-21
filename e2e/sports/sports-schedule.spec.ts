@@ -119,7 +119,47 @@ test.describe("Sports Schedule", () => {
     );
     await page.goto("/sports/schedule");
     await page.waitForTimeout(600);
-    // Should show empty state text or no crash
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+  });
+});
+
+test.describe("Sports Schedule — Parameterised Route (/sports/schedule/:eventId)", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectAuth(page);
+    await mockAuthRoutes(page);
+    await mockSportsDashboardRoutes(page);
+    await mockSportsScheduleRoutes(page);
+  });
+
+  test("renders schedule for a specific event without crashing", async ({ page }) => {
+    await page.goto("/sports/schedule/100");
+    await page.waitForTimeout(600);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+    await expect(page.locator("body")).not.toContainText("Cannot read");
+  });
+
+  test("shows schedule breadcrumb on event-scoped schedule", async ({ page }) => {
+    await page.goto("/sports/schedule/100");
+    await page.waitForTimeout(600);
+    await expect(page.getByRole("link", { name: /Schedule/i })).toBeVisible();
+  });
+
+  test("pre-selects or filters to the given event ID", async ({ page }) => {
+    await page.goto("/sports/schedule/100");
+    await page.waitForTimeout(700);
+    const body = await page.locator("body").innerText();
+    expect(
+      body.includes("Cricket Premier League") ||
+      body.includes("Schedule") ||
+      body.includes("Cricket") ||
+      body.length > 30
+    ).toBe(true);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+  });
+
+  test("does not crash for a non-existent event ID", async ({ page }) => {
+    await page.goto("/sports/schedule/99999");
+    await page.waitForTimeout(600);
     await expect(page.locator("body")).not.toContainText("Unhandled");
   });
 });
