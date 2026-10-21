@@ -21,6 +21,7 @@ import {
 import { crmService } from '../../../../services/cpos/crmService';
 import { CallLogDialog } from './CallLogDialog';
 import { DocumentVaultSection } from './DocumentVaultSection';
+import { SendEmailDialog } from './SendEmailDialog';
 import { useCrmRole } from '../../../../hooks/useCrmRole';
 
 const ACTIVITY_TYPES: ActivityType[] = ['CALL', 'SITE_VISIT', 'EMAIL', 'WHATSAPP', 'NOTE'];
@@ -39,6 +40,7 @@ const LeadDetailPage: React.FC = () => {
   const [followUpNote, setFollowUpNote] = useState('');
   const [savingFollowUp, setSavingFollowUp] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [agents, setAgents] = useState<string[]>([]);
   const [assigningTo, setAssigningTo] = useState('');
@@ -219,6 +221,12 @@ const LeadDetailPage: React.FC = () => {
               onClick={handleQuickWhatsApp}
               sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#25D366', '&:hover': { bgcolor: '#1eb854' } }}>
               WhatsApp
+            </Button>
+            <Button variant="contained" size="small" startIcon={<EmailIcon />}
+              onClick={() => setEmailOpen(true)}
+              disabled={!lead.email}
+              sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, bgcolor: '#4F6AF5', '&:hover': { bgcolor: '#3d56d4' } }}>
+              Email
             </Button>
             {isAdmin && (
               <Button variant="outlined" size="small" startIcon={<PersonIcon />}
@@ -499,6 +507,20 @@ const LeadDetailPage: React.FC = () => {
         </Box>  {/* end right sidebar */}
       </Box>
     </Box>
+
+    {lead && (
+      <SendEmailDialog
+        open={emailOpen}
+        leadId={lead.id}
+        leadName={lead.name}
+        leadEmail={lead.email}
+        onClose={() => setEmailOpen(false)}
+        onSent={async () => {
+          const updated = await crmService.getLeadById(lead.id);
+          setLead(updated);
+        }}
+      />
+    )}
 
     {lead && (
       <CallLogDialog

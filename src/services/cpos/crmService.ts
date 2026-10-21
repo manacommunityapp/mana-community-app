@@ -118,6 +118,22 @@ export interface CrmMeDto {
   agentName: string;
 }
 
+export interface CrmEmailTemplateDto {
+  id: number;
+  name: string;
+  subject: string;
+  body: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SendEmailRequest {
+  to?: string;
+  subject: string;
+  body: string;
+}
+
 export interface CrmDocumentDto {
   id: number;
   leadId: number;
@@ -265,6 +281,26 @@ export const crmService = {
   async assignLead(leadId: number | string, agentName: string): Promise<Lead> {
     const dto = await apiClient.put<CrmLeadDto>(`/v1/cpos/crm/leads/${leadId}/assign`, { agentName });
     return mapLead(dto);
+  },
+
+  async getEmailTemplates(): Promise<CrmEmailTemplateDto[]> {
+    return apiClient.get<CrmEmailTemplateDto[]>('/v1/cpos/crm/email-templates');
+  },
+
+  async createEmailTemplate(req: { name: string; subject: string; body: string }): Promise<CrmEmailTemplateDto> {
+    return apiClient.post<CrmEmailTemplateDto>('/v1/cpos/crm/email-templates', req);
+  },
+
+  async updateEmailTemplate(id: number, req: { name?: string; subject?: string; body?: string }): Promise<CrmEmailTemplateDto> {
+    return apiClient.put<CrmEmailTemplateDto>(`/v1/cpos/crm/email-templates/${id}`, req);
+  },
+
+  async deleteEmailTemplate(id: number): Promise<void> {
+    return apiClient.delete<void>(`/v1/cpos/crm/email-templates/${id}`);
+  },
+
+  async sendLeadEmail(leadId: number | string, req: SendEmailRequest): Promise<CrmActivityDto> {
+    return apiClient.post<CrmActivityDto>(`/v1/cpos/crm/leads/${leadId}/send-email`, req);
   },
 
   async uploadDocument(leadId: number | string, file: File): Promise<CrmDocumentDto> {
