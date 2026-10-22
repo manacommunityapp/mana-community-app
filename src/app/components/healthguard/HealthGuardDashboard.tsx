@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Ambulance, Shield } from 'lucide-react';
+import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Ambulance, Shield, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -31,6 +32,7 @@ const STATUS_ICON = {
 
 export function HealthGuardDashboard() {
   const navigate = useNavigate();
+  const { isAnyAdmin } = useAuth();
   const [profile, setProfile] = useState<HealthProfileDto | null>(null);
   const [contacts, setContacts] = useState<EmergencyContactDto[]>([]);
   const [activeIncident, setActiveIncident] = useState<EmergencyIncidentDto | null>(null);
@@ -238,6 +240,22 @@ export function HealthGuardDashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Admin panel link */}
+      {isAnyAdmin && (
+        <Card className="cursor-pointer hover:border-red-300 transition-colors border-red-200 bg-red-50/30 dark:bg-red-950/10" onClick={() => navigate('/healthguard/admin/incidents')}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-900 flex items-center justify-center border border-red-200">
+              <LayoutDashboard className="h-5 w-5 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-red-700 dark:text-red-400">Admin: Incident Dashboard</p>
+              <p className="text-xs text-muted-foreground">View all active SOS alerts and ambulance dispatch</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           </CardContent>
         </Card>
       )}
