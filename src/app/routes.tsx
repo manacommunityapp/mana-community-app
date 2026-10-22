@@ -305,6 +305,7 @@ import { SosScreen } from "./components/healthguard/SosScreen";
 import { HealthProfile } from "./components/healthguard/HealthProfile";
 import ResponderHub from "./components/healthguard/ResponderHub";
 import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
+import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -1155,6 +1156,7 @@ export const router = createBrowserRouter([
           { path: "profile", element: <HealthProfile /> },
           { path: "responder", element: <ResponderHub /> },
           { path: "ambulance", element: <AmbulanceBookingScreen /> },
+          { path: "admin/incidents", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminIncidentDashboard /></PermissionGuard> },
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
