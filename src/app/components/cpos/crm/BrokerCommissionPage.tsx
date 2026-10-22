@@ -6,7 +6,7 @@ import {
 import { useNavigate } from 'react-router';
 import { CRMNav } from './CRMNav';
 import { STAGE_LABELS, stageColors } from './crmData';
-import { crmService, BrokerDto, BrokerCommissionDto } from '../../../../services/cpos/crmService';
+import { crmService, type BrokerDto, type BrokerCommissionDto } from '../../../../services/cpos/crmService';
 
 const BROKER_COLORS = ['#4F6AF5', '#10B981', '#8B5CF6', '#F59E0B'];
 

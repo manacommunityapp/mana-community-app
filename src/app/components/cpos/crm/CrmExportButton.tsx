@@ -134,14 +134,14 @@ export function CrmExportButton({ leads, filename = 'crm-leads', reportTitle = '
       </Button>
 
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}
-        PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' } }}>
+        slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' } } }}>
         <MenuItem onClick={handleCsv}>
           <ListItemIcon><TableChartIcon sx={{ color: '#10B981', fontSize: 18 }} /></ListItemIcon>
-          <ListItemText primary="Download CSV" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+          <ListItemText primary="Download CSV" slotProps={{ primary: { variant: 'body2', sx: { color: '#fff' } } }} />
         </MenuItem>
         <MenuItem onClick={handlePdf}>
           <ListItemIcon><PictureAsPdfIcon sx={{ color: '#EF4444', fontSize: 18 }} /></ListItemIcon>
-          <ListItemText primary="Print / Save PDF" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+          <ListItemText primary="Print / Save PDF" slotProps={{ primary: { variant: 'body2', sx: { color: '#fff' } } }} />
         </MenuItem>
       </Menu>
     </>

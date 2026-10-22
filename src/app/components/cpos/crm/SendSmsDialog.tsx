@@ -52,7 +52,7 @@ export default function SendSmsDialog({ open, leadId, leadName, phone, onClose }
         {sent ? (
           <Box sx={{ textAlign: 'center', py: 2 }}>
             <Chip label="✓ SMS Sent" color="success" sx={{ fontSize: 15, px: 2, py: 3 }} />
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               Message sent to {phone}
             </Typography>
           </Box>
@@ -72,7 +72,7 @@ export default function SendSmsDialog({ open, leadId, leadName, phone, onClose }
               rows={4}
               value={message}
               onChange={e => setMessage(e.target.value)}
-              inputProps={{ maxLength: 320 }}
+              slotProps={{ htmlInput: { maxLength: 320 } }}
               helperText={`${message.length}/320 characters`}
               fullWidth
             />

@@ -69,7 +69,7 @@ export default function DripSequencesPage() {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <EmailIcon sx={{ color: '#4F6AF5' }} />
-          <Typography variant="h5" fontWeight={700}>Email Drip Sequences</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Email Drip Sequences</Typography>
         </Box>
         {isAdmin && (
           <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setDlgOpen(true)}>
@@ -90,7 +90,7 @@ export default function DripSequencesPage() {
         <Paper key={seq.id} sx={{ p: 3, borderRadius: '16px' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
             <Box>
-              <Typography variant="subtitle1" fontWeight={700}>{seq.name}</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{seq.name}</Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                 {seq.triggerStage && (
                   <Chip label={`Triggers on: ${STAGE_LABELS[seq.triggerStage as keyof typeof STAGE_LABELS] ?? seq.triggerStage}`}
@@ -112,7 +112,7 @@ export default function DripSequencesPage() {
             {seq.steps.map((step, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Chip label={`Day ${step.delayDays}`} size="small" sx={{ bgcolor: 'rgba(79,106,245,0.15)', color: '#7B93FF', minWidth: 56 }} />
-                <Typography variant="body2" fontWeight={600}>{step.subject}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>{step.subject}</Typography>
               </Box>
             ))}
           </Box>
@@ -134,12 +134,12 @@ export default function DripSequencesPage() {
             </FormControl>
           </Box>
 
-          <Typography variant="subtitle2" fontWeight={700}>Steps (sent after N days in stage)</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Steps (sent after N days in stage)</Typography>
           {steps.map((step, i) => (
             <Paper key={i} variant="outlined" sx={{ p: 2, borderRadius: '12px' }}>
               <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
                 <TextField label="Delay (days)" type="number" value={step.delayDays} size="small" sx={{ width: 120 }}
-                  inputProps={{ min: 0 }} onChange={e => updateStep(i, { delayDays: parseInt(e.target.value) || 0 })} />
+                  slotProps={{ htmlInput: { min: 0 } }} onChange={e => updateStep(i, { delayDays: parseInt(e.target.value) || 0 })} />
                 <TextField label="Subject" value={step.subject} size="small" fullWidth
                   onChange={e => updateStep(i, { subject: e.target.value })} />
                 {steps.length > 1 && (

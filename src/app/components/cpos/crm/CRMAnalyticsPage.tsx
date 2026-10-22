@@ -5,7 +5,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import { CRMNav } from './CRMNav';
 import { STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor } from './crmData';
-import { crmService, CrmAnalyticsDto } from '../../../../services/cpos/crmService';
+import { crmService, type CrmAnalyticsDto } from '../../../../services/cpos/crmService';
 import Papa from 'papaparse';
 
 const CRMAnalyticsPage: React.FC = () => {
@@ -91,7 +91,7 @@ const CRMAnalyticsPage: React.FC = () => {
           Export
         </Button>
         <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}
-          PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' } }}>
+          slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' } } }}>
           <MenuItem onClick={() => {
             setExportAnchor(null);
             const rows = (a?.agentStats ?? []).map(s => ({
@@ -107,7 +107,7 @@ const CRMAnalyticsPage: React.FC = () => {
             URL.revokeObjectURL(url);
           }}>
             <ListItemIcon><TableChartIcon sx={{ color: '#10B981', fontSize: 18 }} /></ListItemIcon>
-            <ListItemText primary="Agent Stats CSV" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+            <ListItemText primary="Agent Stats CSV" slotProps={{ primary: { variant: 'body2', sx: { color: '#fff' } } }} />
           </MenuItem>
           <MenuItem onClick={() => {
             setExportAnchor(null);
@@ -122,7 +122,7 @@ const CRMAnalyticsPage: React.FC = () => {
             URL.revokeObjectURL(url);
           }}>
             <ListItemIcon><TableChartIcon sx={{ color: '#4F6AF5', fontSize: 18 }} /></ListItemIcon>
-            <ListItemText primary="Funnel Data CSV" primaryTypographyProps={{ variant: 'body2', sx: { color: '#fff' } }} />
+            <ListItemText primary="Funnel Data CSV" slotProps={{ primary: { variant: 'body2', sx: { color: '#fff' } } }} />
           </MenuItem>
         </Menu>
       </Box>
@@ -201,7 +201,7 @@ const CRMAnalyticsPage: React.FC = () => {
                   <RechartsTooltip
                     contentStyle={{ background: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: 8 }}
                     itemStyle={{ color: '#fff' }}
-                    formatter={(val: number) => [`${val} leads`, '']}
+                    formatter={(val: any) => [`${val} leads`, '']}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -324,7 +324,7 @@ const CRMAnalyticsPage: React.FC = () => {
                 <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} />
                 <RechartsTooltip
                   contentStyle={{ background: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: 8 }}
-                  formatter={(val: number) => [val, 'Activities']}
+                  formatter={(val: any) => [val, 'Activities']}
                   labelFormatter={h => `${h}:00`}
                 />
                 <Bar dataKey="count" fill="#4F6AF5" radius={[3, 3, 0, 0]} />

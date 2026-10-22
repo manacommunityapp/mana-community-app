@@ -10,7 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LinkIcon from '@mui/icons-material/Link';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { CRMNav } from './CRMNav';
-import { crmService, IntegrationConfigDto } from '../../../../services/cpos/crmService';
+import { crmService, type IntegrationConfigDto } from '../../../../services/cpos/crmService';
 
 const PORTALS = [
   { key: '99ACRES',     name: '99acres',      color: '#EF4444', icon: '🏠', domain: '99acres.com' },
@@ -265,7 +265,7 @@ const PortalIntegrationsPage: React.FC = () => {
                   select size="small" label="Portal" value={testPortal}
                   onChange={e => setTestPortal(e.target.value)}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                  SelectProps={{ native: false }}
+                  slotProps={{ select: { native: false } }}
                 >
                   {PORTALS.map(p => (
                     <Box key={p.key} component="option" value={p.key} sx={{ display: 'block', px: 2, py: 1 }}>

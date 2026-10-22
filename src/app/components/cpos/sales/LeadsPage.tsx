@@ -14,8 +14,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import { useNavigate } from 'react-router';
 import {
-  Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  LeadSource, isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
+  type Lead, type Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
+  type LeadSource, isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
 } from '../crm/crmData';
 import { CRMNav } from '../crm/CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
@@ -340,7 +340,7 @@ const LeadsPage: React.FC = () => {
       </Paper>
       {/* WhatsApp Campaign Modal */}
       <Dialog open={campaignOpen} onClose={() => setCampaignOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)' } }}>
+        slotProps={{ paper: { sx: { borderRadius: '20px', bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)' } } }}>
         <DialogTitle sx={{ color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <WhatsAppIcon sx={{ color: '#25D366' }} />

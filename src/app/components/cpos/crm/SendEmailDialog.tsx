@@ -60,7 +60,7 @@ export function SendEmailDialog({ open, leadId, leadName, leadEmail, onClose, on
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
-      PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } }}>
+      slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } } }}>
       <DialogTitle sx={{ color: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
         <EmailIcon sx={{ color: '#4F6AF5', fontSize: 20 }} />
         Send Email to {leadName}

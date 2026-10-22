@@ -15,7 +15,7 @@ import AddIcon from '@mui/icons-material/Add';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import CallIcon from '@mui/icons-material/Call';
 import {
-  Lead, Activity, ActivityType, Stage, STAGES, STAGE_LABELS,
+  type Lead, type Activity, type ActivityType, type Stage, STAGES, STAGE_LABELS,
   stageColors, sourceColors, scoreColor, activityIcons,
   isFollowUpDue, isFollowUpUpcoming, formatFollowUpDate,
 } from './crmData';
@@ -175,7 +175,8 @@ const LeadDetailPage: React.FC = () => {
   const nextStage = nextStageIndex < STAGES.length ? STAGES[nextStageIndex] : null;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Back nav */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <IconButton size="small" onClick={() => navigate(-1)} sx={{ color: 'rgba(255,255,255,0.5)' }}>
@@ -561,7 +562,7 @@ const LeadDetailPage: React.FC = () => {
     )}
 
     <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="xs" fullWidth
-      PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } }}>
+      slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } } }}>
       <DialogTitle sx={{ color: '#fff' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <PersonIcon sx={{ color: '#8B5CF6' }} />
@@ -589,6 +590,7 @@ const LeadDetailPage: React.FC = () => {
         </Button>
       </DialogActions>
     </Dialog>
+    </>
   );
 };
 

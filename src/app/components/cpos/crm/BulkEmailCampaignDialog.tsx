@@ -73,7 +73,7 @@ export default function BulkEmailCampaignDialog({ open, onClose, onSent }: Props
               Subject: <strong>{result.subject}</strong>
             </Typography>
             {(result.filterStage || result.filterSource) && (
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                 Filter: {result.filterStage && `Stage = ${result.filterStage}`}
                 {result.filterStage && result.filterSource && ', '}
                 {result.filterSource && `Source = ${result.filterSource}`}
