@@ -1,6 +1,5 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fdService, FDProduct, ActiveFD } from "../../services/finance/fdService";
+import React, { useState, useEffect } from "react";
+import { fdService, type FDProduct, type ActiveFD } from "../../services/finance/fdService";
 
 const TYPE_COLOR: Record<string, string> = { BANK: "#1D4ED8", NBFC: "#7C3AED", POST_OFFICE: "#0F766E" };
 const TYPE_BG: Record<string, string> = { BANK: "#EFF6FF", NBFC: "#F5F3FF", POST_OFFICE: "#F0FDFA" };
@@ -132,8 +131,30 @@ function FDCard({ fd }: { fd: ActiveFD }) {
 export default function FDPortal() {
   const [tab, setTab] = useState<"explore" | "my-fds">("explore");
   const [bookProduct, setBookProduct] = useState<FDProduct | null>(null);
-  const { data: products = [], isLoading } = useQuery({ queryKey: ["fd-products"], queryFn: fdService.getProducts, staleTime: 600000 });
-  const { data: myFDs = [] } = useQuery({ queryKey: ["my-fds"], queryFn: fdService.getMyFDs, staleTime: 300000 });
+  const [products, setProducts] = useState<FDProduct[]>([]);
+  const [myFDs, setMyFDs] = useState<ActiveFD[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      fdService.getProducts(),
+      fdService.getMyFDs(),
+    ]).then(([productsData, fdsData]) => {
+      if (isMounted) {
+        setProducts(productsData);
+        setMyFDs(fdsData);
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const totalInvested = myFDs.reduce((s, f) => s + f.principal, 0);
   const totalMaturity = myFDs.reduce((s, f) => s + f.maturity_amount, 0);
 

@@ -46,10 +46,8 @@ test.describe("Sports Registration — Entry Point & Participant Selection", () 
 
   test("sports page loads without crashing", async ({ page }) => {
     await page.goto("/sports");
-    await page.waitForTimeout(1500);
     await expect(page.locator("body")).not.toContainText("Unhandled");
-    const body = await page.locator("body").innerText();
-    expect(body.includes("Sports")).toBe(true);
+    await expect(page.locator("body")).toContainText("Sports");
   });
 
   test("sports navigation bar is visible", async ({ page }) => {

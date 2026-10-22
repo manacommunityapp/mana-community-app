@@ -567,11 +567,19 @@ export function TournamentDetailsModal({
                                 {emoji}
                               </span>
                               <div className="min-w-0">
-                                <h5 className="text-sm font-bold text-slate-900 truncate">
-                                  {item.categoryName || item.name}
+                                <h5 className="text-sm font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
+                                  {item.name || item.categoryName}
                                 </h5>
-                                <div className="text-[11px] text-slate-500 font-medium truncate">
-                                  {sportName} {venueItem ? `· ${venueItem}` : ""}
+                                <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                                  <span>{sportName} {venueItem ? `· ${venueItem}` : ""}</span>
+                                  {item.categoryName && (
+                                    <span
+                                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                                      title={`Player Category: ${item.categoryName}`}
+                                    >
+                                      {item.categoryName}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>

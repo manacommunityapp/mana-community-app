@@ -1,6 +1,5 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { loanService, LoanOffer, ActiveLoan } from "../../services/finance/loanService";
+import React, { useState, useEffect } from "react";
+import { loanService, type LoanOffer, type ActiveLoan } from "../../services/finance/loanService";
 
 const TENURES = [3, 6, 12, 18, 24, 36, 48, 60, 84];
 
@@ -121,8 +120,30 @@ function LoanCard({ loan }: { loan: ActiveLoan }) {
 export default function LoanPortal() {
   const [tab, setTab] = useState<"offers" | "my-loans">("offers");
   const [applyOffer, setApplyOffer] = useState<LoanOffer | null>(null);
-  const { data: offers = [], isLoading } = useQuery({ queryKey: ["loan-offers"], queryFn: loanService.getOffers, staleTime: 600000 });
-  const { data: myLoans = [] } = useQuery({ queryKey: ["my-loans"], queryFn: loanService.getMyLoans, staleTime: 300000 });
+  const [offers, setOffers] = useState<LoanOffer[]>([]);
+  const [myLoans, setMyLoans] = useState<ActiveLoan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([
+      loanService.getOffers(),
+      loanService.getMyLoans(),
+    ]).then(([offersData, myLoansData]) => {
+      if (isMounted) {
+        setOffers(offersData);
+        setMyLoans(myLoansData);
+        setIsLoading(false);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
