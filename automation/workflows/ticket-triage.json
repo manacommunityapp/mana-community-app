@@ -1,0 +1,125 @@
+{
+  "name": "Mana Helpdesk Ticket AI Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ticket-triage",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Ticket Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-ticket-triage-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare the LLM Prompt with incoming ticket details\nconst item = $input.first().json.body || $input.first().json;\n\nconst title = item.title || 'Untitled Ticket';\nconst description = item.description || 'No description provided';\nconst category = item.category || 'General';\nconst location = item.location || 'Community Premises';\n\nconst prompt = `You are the AI Operations Director for Mana Community Society.\nAnalyze the following maintenance ticket and classify it accurately.\n\nTicket Information:\n- Title: ${title}\n- Description: ${description}\n- Reported Category: ${category}\n- Location: ${location}\n\nRespond ONLY with a valid JSON object matching this exact format:\n{\n  \"urgency\": \"CRITICAL\" | \"HIGH\" | \"MEDIUM\" | \"LOW\",\n  \"assignedDepartment\": \"Plumbing\" | \"Electrical\" | \"Elevator\" | \"Security\" | \"Civil & Painting\" | \"Housekeeping\" | \"Gardening\" | \"General\",\n  \"suggestedAction\": \"Short description of immediate corrective action\",\n  \"estimatedResolutionHours\": number,\n  \"safetyHazard\": boolean\n}`;\n\nreturn [{\n  json: {\n    ticketId: item.ticketId || item.id,\n    title,\n    description,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Format AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini 1.5 Flash (Free AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini AI response and construct triage payload\nconst geminiResponse = $input.first().json;\nlet parsedAiAnalysis = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedAiAnalysis = JSON.parse(rawText);\n} catch (err) {\n  parsedAiAnalysis = {\n    urgency: \"MEDIUM\",\n    assignedDepartment: \"General\",\n    suggestedAction: \"Manual inspection required\",\n    estimatedResolutionHours: 24,\n    safetyHazard: false\n  };\n}\n\nconst ticketId = $('Format AI Prompt').first().json.ticketId;\n\nreturn [{\n  json: {\n    status: \"success\",\n    ticketId: ticketId,\n    triagedAt: new Date().toISOString(),\n    analysis: parsedAiAnalysis\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Parse AI Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Mana Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Ticket Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini 1.5 Flash (Free AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 1.5 Flash (Free AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Triage": {
+      "main": [
+        [
+          {
+            "node": "Respond to Mana Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

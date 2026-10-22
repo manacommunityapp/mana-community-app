@@ -759,7 +759,7 @@ export function SportsDashboard() {
           registrationId: e.myRegistrationId ?? undefined,
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
           sportEmoji: getSportEmoji(e.sportName),
-          categoryName: e.categoryName ?? undefined,
+          categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
         };
       };
 
@@ -825,7 +825,7 @@ export function SportsDashboard() {
           dotColor: "#ef4444",
           action: "View" as const,
           sportEmoji: getSportEmoji(e.sportName),
-          categoryName: e.categoryName ?? undefined,
+          categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
@@ -1514,11 +1514,19 @@ export function SportsDashboard() {
                               {emoji}
                             </span>
                             <div className="min-w-0">
-                              <h5 className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={item.categoryName || item.name}>
-                                {item.categoryName || item.name}
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
+                                {item.name || item.categoryName}
                               </h5>
-                              <div className="text-[10px] text-slate-500 font-medium truncate">
-                                {sportName} {item.date ? `· ${item.date}` : ""}
+                              <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span>{sportName} {item.date ? `· ${item.date}` : ""}</span>
+                                {item.categoryName && (
+                                  <span
+                                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                                    title={`Player Category: ${item.categoryName}`}
+                                  >
+                                    {item.categoryName}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

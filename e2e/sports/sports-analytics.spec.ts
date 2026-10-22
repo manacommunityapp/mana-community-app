@@ -119,8 +119,7 @@ test.describe("Sports Analytics", () => {
     const refreshBtn = page.getByRole("button", { name: /refresh|reload/i });
     if (await refreshBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await refreshBtn.click();
-      await page.waitForTimeout(500);
-      expect(callCount).toBeGreaterThan(initialCount);
+      await expect.poll(() => callCount, { timeout: 5000 }).toBeGreaterThan(initialCount);
     }
   });
 });

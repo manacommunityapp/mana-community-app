@@ -110,6 +110,9 @@ export function BillsAndAutopayDashboard() {
     { id: "FASTAG",        icon: "🚗",  label: "FASTag",        color: "#B45309", bg: "#FFFBEB" },
     { id: "MUNICIPAL_TAX", icon: "🏛️", label: "Municipal Tax", color: "#5B21B6", bg: "#F5F3FF" },
     { id: "CREDIT_CARD",   icon: "💳",  label: "Credit Card",   color: "#0369A1", bg: "#F0F9FF" },
+    { id: "EDUCATION",     icon: "🎓",  label: "Education",     color: "#7C3AED", bg: "#EDE9FE" },
+    { id: "LPG",           icon: "🟢",  label: "LPG Cylinder",  color: "#16A34A", bg: "#F0FDF4" },
+    { id: "LANDLINE",      icon: "☎️",  label: "Landline",      color: "#0284C7", bg: "#E0F2FE" },
   ];
 
   const handleOpenBbps = async () => {
