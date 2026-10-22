@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus } from 'lucide-react';
+import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Ambulance, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -40,12 +40,15 @@ export function HealthGuardDashboard() {
 
   useEffect(() => {
     Promise.all([
-      healthGuardService.getProfile().then(r => setProfile(r.data)).catch(() => {}),
-      healthGuardService.getContacts().then(r => setContacts(r.data)).catch(() => {}),
-      healthGuardService.getActiveIncident().then(r => {
-        if (r.status !== 204) setActiveIncident(r.data);
+      healthGuardService.getProfile().then((r: any) => setProfile(r?.data || r)).catch(() => {}),
+      healthGuardService.getContacts().then((r: any) => setContacts(Array.isArray(r) ? r : r?.data || [])).catch(() => {}),
+      healthGuardService.getActiveIncident().then((r: any) => {
+        if (r && r.status !== 204) setActiveIncident(r?.data || r);
       }).catch(() => {}),
-      healthGuardService.getIncidentHistory().then(r => setRecentIncidents(r.data.slice(0, 5))).catch(() => {}),
+      healthGuardService.getIncidentHistory().then((r: any) => {
+        const list = Array.isArray(r) ? r : r?.data || [];
+        setRecentIncidents(list.slice(0, 5));
+      }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -238,6 +241,35 @@ export function HealthGuardDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Phase 2 — Community Services */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Card className="cursor-pointer hover:border-blue-300 transition-colors group" onClick={() => navigate('/healthguard/responder')}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center border border-blue-100 group-hover:bg-blue-100 transition-colors">
+              <Shield className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Community Responders</p>
+              <p className="text-xs text-muted-foreground">Register or manage your responder status</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:border-red-300 transition-colors group" onClick={() => navigate('/healthguard/ambulance')}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center border border-red-100 group-hover:bg-red-100 transition-colors">
+              <Ambulance className="h-5 w-5 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Ambulance Booking</p>
+              <p className="text-xs text-muted-foreground">Book or track emergency transport</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Emergency Numbers */}
       <Card className="border-red-100 bg-red-50/30 dark:bg-red-950/10 dark:border-red-900/30">
