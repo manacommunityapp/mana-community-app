@@ -24,4 +24,20 @@ export const healthGuardService = {
   cancelIncident: (id: number) => apiClient.put<EmergencyIncidentDto>(`${BASE}/incidents/${id}/cancel`, {}),
   escalateIncident: (id: number) => apiClient.put<EmergencyIncidentDto>(`${BASE}/incidents/${id}/escalate`, {}),
   acknowledgeIncident: (id: number) => apiClient.put<EmergencyIncidentDto>(`${BASE}/incidents/${id}/acknowledge`, {}),
+
+  // Phase 2 — Community Responders
+  getMyResponderProfile: () => apiClient.get(`${BASE}/responder/me`),
+  registerAsResponder: (dto: { skills: string; certifications: string; phoneNumber: string }) =>
+    apiClient.post(`${BASE}/responder/register`, dto),
+  updateResponderStatus: (status: string) => apiClient.put(`${BASE}/responder/status`, { status }),
+  getAvailableRespondersCount: () => apiClient.get<{ count: number }>(`${BASE}/responders/count`),
+
+  // Phase 2 — Ambulance Booking
+  bookAmbulance: (req: {
+    pickupAddress: string; destinationAddress: string;
+    patientName: string; patientPhone: string; emergencyDescription: string; incidentId?: number;
+  }) => apiClient.post(`${BASE}/ambulance`, req),
+  getActiveAmbulanceBooking: () => apiClient.get(`${BASE}/ambulance/active`),
+  getAmbulanceHistory: () => apiClient.get(`${BASE}/ambulance`),
+  cancelAmbulanceBooking: (id: number) => apiClient.put(`${BASE}/ambulance/${id}/cancel`, {}),
 };

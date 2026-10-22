@@ -303,6 +303,8 @@ import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
 import { IncidentTracker } from "./components/healthguard/IncidentTracker";
 import { SosScreen } from "./components/healthguard/SosScreen";
 import { HealthProfile } from "./components/healthguard/HealthProfile";
+import ResponderHub from "./components/healthguard/ResponderHub";
+import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -1151,6 +1153,8 @@ export const router = createBrowserRouter([
           { path: "incidents", element: <IncidentTracker /> },
           { path: "sos", element: <SosScreen /> },
           { path: "profile", element: <HealthProfile /> },
+          { path: "responder", element: <ResponderHub /> },
+          { path: "ambulance", element: <AmbulanceBookingScreen /> },
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
