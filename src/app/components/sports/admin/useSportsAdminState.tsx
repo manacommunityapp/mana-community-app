@@ -2415,13 +2415,14 @@ export function useSportsAdminState() {
 
   const handleSportDelete = async (id: number) => {
     const confirmed = await confirmAction(
-      "Cancel Event",
-      "Are you sure you want to delete/cancel this scheduled event?"
+      "Delete Sports Event",
+      "Are you sure you want to delete this sports event? This action cannot be undone."
     );
     if (!confirmed) return;
     try {
-      await sportsService.deleteTournament(id);
+      await sportsService.deleteEvent(id);
       toast.success("Event deleted successfully");
+      refreshTournaments();
       refreshEvents();
     } catch {
       toast.error("Failed to delete event");

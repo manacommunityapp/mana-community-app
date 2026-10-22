@@ -34,9 +34,11 @@ The [`workflows/`](file:///d:/Application/applications/mana%20community/mana-com
 
 | Workflow File | Trigger Type | AI Engine | Purpose |
 | :--- | :--- | :--- | :--- |
-| `ticket-triage.json` | Webhook (`POST /webhook/ticket-triage`) | Gemini 1.5 Flash | Automatically analyzes helpdesk complaints, scores urgency (CRITICAL/HIGH/MED/LOW), selects the department (Plumbing, Electrical, Elevator), and suggests resolution actions. |
+| `ticket-triage.json` | Webhook (`POST /webhook/ticket-triage`) | Gemini 3.5 Flash Lite | Automatically analyzes helpdesk complaints, scores urgency (CRITICAL/HIGH/MED/LOW), selects the department (Plumbing, Electrical, Elevator), and suggests resolution actions. |
 | `receipt-ocr-parser.json` | Webhook (`POST /webhook/receipt-parse`) | Gemini Multimodal | Parses uploaded vendor invoices/bills, extracts merchant name, date, invoice total, tax, and auto-categorizes for society treasurers. |
-| `community-weekly-digest.json` | Scheduled Cron (Every Sunday 6 PM) | Gemini 1.5 Flash | Reads active announcements, polls, and sports schedules to compose a weekly digest bulletin published to the notice board. |
+| `community-weekly-digest.json` | Scheduled Cron (Every Sunday 6 PM) | Gemini 3.5 Flash Lite | Reads active announcements, polls, and sports schedules to compose a weekly digest bulletin published to the notice board. |
+| `sports-match-ai-recap.json` | Webhook (`POST /webhook/sports-match-recap`) | Gemini 3.5 Flash Lite | Analyzes concluded cricket/football/badminton scorecards, generates news headlines, dramatic recaps, key turning moments, MVP, badge recommendations, and WhatsApp bulletins. |
+| `sports-fixture-ai-scheduler.json` | Webhook (`POST /webhook/sports-fixture-scheduler`) | Gemini 3.5 Flash Lite | Automatically generates optimal, conflict-free match schedules across available venues and time slots with rest balance. |
 
 ### How to Import a Workflow into n8n:
 1. Open `http://localhost:5678` in your browser.
@@ -83,6 +85,28 @@ curl -X POST http://localhost:5678/webhook/receipt-parse \
   -d '{
     "expenseId": 502,
     "imageUrl": "https://example.com/receipt-sample.jpg"
+  }'
+```
+
+### 3. Test Sports Match AI Recap & Badge Awards
+```bash
+curl -X POST http://localhost:5678/webhook/sports-match-recap \
+  -H "Content-Type: application/json" \
+  -d '{
+    "matchId": 204,
+    "sport": "CRICKET",
+    "tournamentName": "Mana Monsoon Trophy 2026",
+    "teamA": "Titans",
+    "teamB": "Strikers",
+    "result": "Titans won by 3 runs",
+    "scoreSummary": {
+      "titans": "148/4 in 15 overs",
+      "strikers": "145/7 in 15 overs"
+    },
+    "topPerformers": [
+      { "playerName": "Rohan Sharma", "stats": "68 runs (34 balls) and 2 wickets" },
+      { "playerName": "Vikram Patel", "stats": "52 runs (29 balls)" }
+    ]
   }'
 ```
 

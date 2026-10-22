@@ -140,6 +140,17 @@ describe("Sports Services API Test Suite", () => {
       expect(apiClient.get).toHaveBeenCalledWith("/sports/schedule/stats");
       expect(res).toEqual(mockStats);
     });
+
+    it("deletes sports event via deleteSportsEvent / deleteEvent", async () => {
+      (apiClient.delete as any).mockResolvedValueOnce(undefined);
+
+      await sportsService.deleteSportsEvent(105);
+      expect(apiClient.delete).toHaveBeenCalledWith("/sports/events/105");
+
+      (apiClient.delete as any).mockResolvedValueOnce(undefined);
+      await sportsService.deleteEvent(106);
+      expect(apiClient.delete).toHaveBeenCalledWith("/sports/events/106");
+    });
   });
 
   describe("3. auctionService", () => {

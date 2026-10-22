@@ -1,0 +1,125 @@
+{
+  "name": "Mana Sports Match AI Recap & Badge Awards",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sports-match-recap",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Match Completed Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-sports-match-recap-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst matchId = item.matchId || 1;\nconst sport = item.sport || 'CRICKET';\nconst tournamentName = item.tournamentName || 'Mana Community Championship';\nconst teamA = item.teamA || 'Team Alpha';\nconst teamB = item.teamB || 'Team Beta';\nconst scoreSummary = item.scoreSummary || {};\nconst topPerformers = item.topPerformers || [];\nconst matchResult = item.result || 'Match Completed';\n\nconst prompt = `You are the Official Sports Editor and Chief Analyst for the Mana Community Sports League.\nA match has just concluded. Analyze the scorecard and generate a thrilling, high-energy match summary and badge awards.\n\nMatch Details:\n- Sport: ${sport}\n- Tournament: ${tournamentName}\n- Teams: ${teamA} vs ${teamB}\n- Result: ${matchResult}\n- Scorecard / Stats:\n${JSON.stringify(scoreSummary, null, 2)}\n- Key Player Stats:\n${JSON.stringify(topPerformers, null, 2)}\n\nRespond ONLY with a valid JSON object matching this exact schema:\n{\n  \"headline\": \"Punchy, exciting news headline (e.g. Titans Edge Strikers in Final-Ball Thriller)\",\n  \"recap\": \"2-3 paragraph engaging narrative describing the match flow, momentum shifts, and dramatic finish\",\n  \"keyMoments\": [\n    \"Moment 1 with over/minute and player impact\",\n    \"Moment 2\",\n    \"Moment 3\"\n  ],\n  \"mvp\": {\n    \"playerName\": \"string\",\n    \"team\": \"string\",\n    \"rationale\": \"Why this player won Player of the Match\"\n  },\n  \"badgeRecommendations\": [\n    {\n      \"playerName\": \"string\",\n      \"badgeName\": \"CLUTCH_PERFORMER\" | \"CENTURY_MAKER\" | \"GOLDEN_BOOT\" | \"HAT_TRICK_HERO\" | \"UNSUNG_HERO\" | \"WALL_OF_DEFENSE\",\n      \"reason\": \"Specific match stat that justifies this badge\"\n    }\n  ],\n  \"socialBulletin\": \"Concise 3-bullet WhatsApp / Community Feed broadcast text with emojis ready to share\"\n}`;\n\nreturn [{\n  json: {\n    matchId,\n    sport,\n    tournamentName,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Format Sports Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "${GEMINI_API_KEY}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Sports Analyst (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedAnalysis = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedAnalysis = JSON.parse(rawText);\n} catch (err) {\n  parsedAnalysis = {\n    headline: \"Match Concluded with High Drama\",\n    recap: \"Both teams displayed exceptional sportsmanship in a tightly contested fixture.\",\n    keyMoments: [\"Decisive plays in closing stages settled the outcome\"],\n    mvp: { playerName: \"Outstanding Player\", team: \"Winning Team\", rationale: \"Consistent match-winning impact\" },\n    badgeRecommendations: [],\n    socialBulletin: \"🏆 Match completed! Check the leaderboard for updated standings.\"\n  };\n}\n\nconst matchMeta = $('Format Sports Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    matchId: matchMeta.matchId,\n    sport: matchMeta.sport,\n    tournamentName: matchMeta.tournamentName,\n    generatedAt: new Date().toISOString(),\n    data: parsedAnalysis\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Parse Sports Commentary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Return Match Recap JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Match Completed Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Sports Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Sports Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Sports Analyst (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Sports Analyst (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Sports Commentary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Sports Commentary": {
+      "main": [
+        [
+          {
+            "node": "Return Match Recap JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

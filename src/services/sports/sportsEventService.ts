@@ -140,8 +140,20 @@ export const sportsEventService = {
   async deleteTournament(id: number): Promise<void> {
     return apiClient.delete<void>(`/sports/tournaments/${id}`);
   },
+
+  /** DELETE /api/sports/events/{id} — delete a specific sports event */
+  async deleteSportsEvent(id: number): Promise<void> {
+    return apiClient.delete<void>(`/sports/events/${id}`);
+  },
+
   async deleteEvent(id: number): Promise<void> {
-    return this.deleteTournament(id);
+    return apiClient.delete<void>(`/sports/events/${id}`).catch((err: any) => {
+      // Fallback for legacy single-event tournaments mapped under tournaments endpoint
+      if (err?.response?.status === 404 || err?.status === 404) {
+        return this.deleteTournament(id);
+      }
+      throw err;
+    });
   },
 
   /** PUT /api/tournaments/{id}/status — update tournament status */

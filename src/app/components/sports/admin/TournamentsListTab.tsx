@@ -31,6 +31,7 @@ interface TournamentsListTabProps {
   clearTournamentContext?: () => void;
   onGoToConfigureEvents?: () => void;
   handleSportEdit?: (ev: any) => void;
+  handleSportDelete?: (id: number) => void;
   onOpenSportPicker?: () => void;
 }
 
@@ -64,6 +65,7 @@ export function TournamentsListTab({
   clearTournamentContext,
   onGoToConfigureEvents,
   handleSportEdit,
+  handleSportDelete,
   onOpenSportPicker,
 }: TournamentsListTabProps) {
   const allTournaments = [...draftEvents, ...liveEvents, ...completedEvents];
@@ -85,7 +87,7 @@ export function TournamentsListTab({
           <h3 className="text-xl font-bold text-slate-800">Sports Event List</h3>
           <p className="text-sm text-slate-500 mt-1">Manage tournaments and venues for your community</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onOpenSportPicker && (
             <button
               type="button"
@@ -150,6 +152,7 @@ export function TournamentsListTab({
             onAnnounce={handleAnnounce}
             showActivate
             onEditEvent={onEditEvent}
+            onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
           />
 
@@ -183,6 +186,7 @@ export function TournamentsListTab({
               setImportStep(1);
             }}
             onEditEvent={onEditEvent}
+            onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
           />
 
@@ -196,6 +200,7 @@ export function TournamentsListTab({
             onEdit={handleEdit}
             onDelete={handleDelete}
             onEditEvent={onEditEvent}
+            onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
           />
         </>
