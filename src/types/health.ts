@@ -143,6 +143,108 @@ export interface BedAvailabilityDto {
   wardAvailability: Record<"GENERAL" | "SEMI_PRIVATE" | "PRIVATE" | "ICU", number>;
   lastUpdated: string;
 }
+// ── Round 5 types ─────────────────────────────────────────────────────────────
+
+export type MentalHealthSessionType = "TELECONSULT_PSYCHIATRY" | "TELECONSULT_PSYCHOLOGY" | "THERAPY_SESSION" | "WELLNESS_PROGRAM" | "CRISIS_SUPPORT";
+
+export interface MentalHealthSessionDto {
+  id: string;
+  sessionUuid: string;
+  patientId: string;
+  therapistId?: string;
+  therapistName: string;
+  therapistSpecialty: string;
+  sessionType: MentalHealthSessionType;
+  sessionDate: string;
+  sessionTime?: string;
+  durationMinutes: number;
+  fee: number;
+  status: string;
+  bookedAt: string;
+}
+
+export interface MoodCheckInDto {
+  id: string;
+  patientId: string;
+  moodScore: number;
+  note?: string;
+  checkInDate: string;
+  loggedAt: string;
+}
+
+export type InsuranceClaimStatus = "SUBMITTED" | "UNDER_REVIEW" | "DOCS_REQUIRED" | "APPROVED" | "REJECTED" | "SETTLED";
+
+export interface InsuranceClaimDto {
+  id: string;
+  claimUuid: string;
+  claimNumber: string;
+  patientId: string;
+  hospitalName: string;
+  diagnosis: string;
+  admissionDate: string;
+  claimedAmount: number;
+  approvedAmount?: number;
+  status: InsuranceClaimStatus;
+  tpaName: string;
+  policyNumber?: string;
+  submittedAt: string;
+  updatedAt: string;
+}
+
+export type OpdQueueStatus = "WAITING" | "IN_CONSULTATION" | "COMPLETED" | "LEFT_QUEUE";
+
+export interface OpdQueueEntryDto {
+  id: string;
+  queueUuid: string;
+  patientId: string;
+  doctorId: string;
+  doctorName: string;
+  queuePosition: number;
+  estimatedWaitMinutes: number;
+  status: OpdQueueStatus;
+  joinedAt: string;
+  calledAt?: string;
+}
+
+export type HospitalNetworkType = "CASHLESS_TPA" | "REIMBURSEMENT_ONLY" | "BOTH";
+
+export interface NetworkHospitalDto {
+  id: string;
+  hospitalUuid: string;
+  name: string;
+  address: string;
+  city: string;
+  distanceKm: number;
+  rating: number;
+  totalBeds: number;
+  cashless: boolean;
+  nablAccredited: boolean;
+  nabhAccredited: boolean;
+  emergencyAvailable: boolean;
+  specialties: string[];
+  networkName: string;
+  networkType: HospitalNetworkType;
+  contactPhone: string;
+  mapsUrl?: string;
+}
+
+export type GoldPlanTier = "MONTHLY" | "ANNUAL";
+export type GoldMembershipStatus = "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING";
+
+export interface GoldMembershipDto {
+  id: string;
+  membershipUuid: string;
+  patientId: string;
+  planTier: GoldPlanTier;
+  status: GoldMembershipStatus;
+  monthlyPrice: number;
+  startDate: string;
+  renewalDate: string;
+  freeConsultsUsed: number;
+  freeConsultsTotal: number;
+  createdAt: string;
+}
+
 export type AppointmentStatus = "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | "NO_SHOW";
 export type DoctorVerificationStatus = "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type FamilyRelationship = "SELF" | "SPOUSE" | "CHILD" | "PARENT" | "DEPENDENT";

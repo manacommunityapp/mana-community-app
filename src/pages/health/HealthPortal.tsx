@@ -31,7 +31,7 @@ import { PatientSecurityPrivacyModal } from "../../app/components/health/Patient
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery" | "dental" | "abha" | "cancer"
+    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery" | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold"
   >("doctors");
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
@@ -288,7 +288,10 @@ export const HealthPortal: React.FC = () => {
           { id: "surgery", label: "🔪 Surgery Care" },
           { id: "dental", label: "🦷 Dental Care" },
           { id: "abha", label: "🪪 ABHA Health ID" },
-          { id: "cancer", label: "🎗️ Cancer Care" }
+          { id: "cancer", label: "🎗️ Cancer Care" },
+          { id: "mental-health", label: "🧠 Mental Health" },
+          { id: "hospitals", label: "🏥 Hospital Finder" },
+          { id: "gold", label: "⭐ Mana Gold" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -1660,6 +1663,184 @@ export const HealthPortal: React.FC = () => {
             <p className="text-xs text-purple-200">Our community, Care Buddy, and oncology team support you every step of the way.</p>
             <p className="text-xs text-purple-200 font-semibold">National Cancer Helpline: 1800-180-4104 (Free · 24×7)</p>
           </div>
+        </div>
+      )}
+
+      {/* ── Mental Health ──────────────────────────────────────────────────────── */}
+      {activeTab === "mental-health" && (
+        <div className="space-y-5">
+          {/* Mood Check-in */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+            <p className="font-black text-sm text-gray-900">How are you feeling today?</p>
+            <p className="text-xs text-gray-500">Daily mood tracking helps identify patterns over time.</p>
+            <div className="flex gap-2">
+              {[
+                { score: 1, emoji: "😔", label: "Very Low", color: "bg-red-100 border-red-300" },
+                { score: 2, emoji: "😟", label: "Low", color: "bg-orange-100 border-orange-300" },
+                { score: 3, emoji: "😐", label: "Okay", color: "bg-yellow-100 border-yellow-300" },
+                { score: 4, emoji: "🙂", label: "Good", color: "bg-green-100 border-green-300" },
+                { score: 5, emoji: "😄", label: "Great", color: "bg-emerald-100 border-emerald-300" },
+              ].map((m) => (
+                <button key={m.score} className={`flex-1 border ${m.color} rounded-xl p-2 text-center hover:scale-105 transition-transform`}
+                  onClick={() => alert(`Mood logged: ${m.label} ${m.emoji}\n\nKeep up your wellness check-in streak!`)}>
+                  <div className="text-xl">{m.emoji}</div>
+                  <div className="text-[9px] font-semibold text-gray-600 mt-1">{m.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Therapists */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-1">Mental Health Specialists</h3>
+            <p className="text-xs text-gray-500 mb-3">50-minute sessions with licensed therapists & psychiatrists</p>
+            {[
+              { name: "Dr. Priya Sharma", spec: "Clinical Psychologist", exp: "12 yrs", fee: 1200, modes: ["Video", "Phone"], next: "Today 5:00 PM" },
+              { name: "Dr. Rajan Menon", spec: "Psychiatrist", exp: "18 yrs", fee: 1800, modes: ["Video"], next: "Today 7:00 PM" },
+              { name: "Dr. Sonal Verma", spec: "Psychotherapist", exp: "8 yrs", fee: 900, modes: ["Video", "Phone", "Chat"], next: "Tomorrow 10:00 AM" },
+            ].map((t, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-2">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-black shrink-0">{t.name.split(" ")[1][0]}</div>
+                  <div className="flex-1">
+                    <p className="font-black text-sm text-gray-900">{t.name}</p>
+                    <p className="text-xs text-gray-500">{t.spec} · {t.exp}</p>
+                    <div className="flex gap-1 mt-1">
+                      {t.modes.map(m => <span key={m} className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">{m}</span>)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-purple-700">₹{t.fee}</p>
+                    <p className="text-[10px] text-gray-400 mb-1">/session</p>
+                    <button onClick={() => alert(`50-min session with ${t.name} booked! You'll receive a meeting link.`)} className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Book</button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">🕐 Next: {t.next}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Wellness Programs */}
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-3">Wellness Programs</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { title: "Stress & Anxiety Relief", sessions: 8, duration: "4 weeks", color: "bg-green-50 border-green-200" },
+                { title: "Sleep Improvement", sessions: 6, duration: "3 weeks", color: "bg-purple-50 border-purple-200" },
+                { title: "Mindfulness", sessions: 12, duration: "6 weeks", color: "bg-blue-50 border-blue-200" },
+                { title: "Burnout Recovery", sessions: 8, duration: "4 weeks", color: "bg-amber-50 border-amber-200" },
+              ].map((p, i) => (
+                <button key={i} className={`border ${p.color} rounded-2xl p-4 text-left hover:shadow-md transition-shadow`}
+                  onClick={() => alert(`Enrolled in "${p.title}"! A coach will reach out within 24 hours.`)}>
+                  <p className="font-bold text-sm text-gray-900">{p.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{p.sessions} sessions · {p.duration}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Crisis Banner */}
+          <div className="bg-red-600 text-white rounded-2xl p-4 text-center space-y-2">
+            <p className="font-black text-lg">Crisis Support</p>
+            <p className="text-xs text-red-200">If you're in crisis, help is available right now.</p>
+            <p className="text-xs font-bold">iCall: 9152987821 · Vandrevala: 1860-2662-345</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Hospital Finder ────────────────────────────────────────────────────── */}
+      {activeTab === "hospitals" && (
+        <div className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {["All", "Cashless", "NABL", "NABH"].map(f => (
+              <button key={f} className="bg-white border border-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-teal-50 hover:border-teal-400 hover:text-teal-700 transition-colors">{f}</button>
+            ))}
+          </div>
+          {[
+            { name: "Apollo Hospitals", address: "Bannerghatta Road, Bengaluru", distance: "1.2 km", rating: 4.9, beds: 280, cashless: true, nabl: true, nabh: true, er: true, specs: ["Cardiology", "Oncology", "Neurology"] },
+            { name: "Manipal Hospital", address: "HAL Airport Road, Bengaluru", distance: "3.4 km", rating: 4.8, beds: 350, cashless: true, nabl: true, nabh: true, er: true, specs: ["Ortho", "Cardiology", "Maternity"] },
+            { name: "Fortis Hospital", address: "Cunningham Road, Bengaluru", distance: "4.1 km", rating: 4.7, beds: 190, cashless: true, nabl: true, nabh: false, er: true, specs: ["Oncology", "Neurology"] },
+            { name: "Narayana Health City", address: "Bommasandra, Bengaluru", distance: "7.2 km", rating: 4.8, beds: 540, cashless: true, nabl: true, nabh: true, er: true, specs: ["Cardiology", "Oncology", "Maternity"] },
+          ].map((h, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-black text-sm text-gray-900">{h.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">📍 {h.address}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-xs bg-teal-50 text-teal-700 font-bold px-2 py-1 rounded-lg">🧭 {h.distance}</span>
+                  <p className="text-xs text-gray-500 mt-1">⭐ {h.rating}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {h.cashless && <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">💳 Cashless</span>}
+                {h.nabl && <span className="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">NABL</span>}
+                {h.nabh && <span className="text-[10px] bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">NABH</span>}
+                {h.er && <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full">24×7 ER</span>}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {h.specs.map(s => <span key={s} className="text-[10px] bg-purple-50 text-purple-600 font-semibold px-2 py-0.5 rounded-full">{s}</span>)}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => alert(`Directions to ${h.name}: Opening maps…`)} className="flex-1 border border-teal-500 text-teal-700 text-xs font-bold py-2 rounded-xl">Directions</button>
+                <button onClick={() => alert(`Booking OPD at ${h.name}…`)} className="flex-1 bg-teal-600 text-white text-xs font-bold py-2 rounded-xl">Book OPD</button>
+                <button onClick={() => alert(`Claim intimated for ${h.name}. Your TPA will be notified.`)} className="flex-1 bg-indigo-50 text-indigo-700 text-xs font-bold py-2 rounded-xl">Intimate Claim</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Mana Gold ─────────────────────────────────────────────────────────── */}
+      {activeTab === "gold" && (
+        <div className="space-y-5">
+          {/* Hero */}
+          <div className="bg-gradient-to-br from-amber-700 to-amber-500 rounded-2xl p-6 text-center text-white space-y-2">
+            <div className="text-4xl">⭐</div>
+            <p className="font-black text-xl text-yellow-200">Mana Gold</p>
+            <p className="text-sm text-amber-200">Your Premium Health Membership</p>
+            <p className="text-xs text-amber-100">Unlimited consultations, priority care, exclusive discounts.</p>
+          </div>
+
+          {/* Benefits */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-black text-gray-900">What's Included</h3>
+            {[
+              { icon: "📹", title: "Unlimited Video Consultations", value: "Unlimited" },
+              { icon: "🧪", title: "30% Off Lab Tests", value: "30% off" },
+              { icon: "💊", title: "20% Off Pharmacy", value: "20% off" },
+              { icon: "⚡", title: "Priority Booking", value: "Priority" },
+              { icon: "🩺", title: "Annual Health Check-up", value: "1 free/yr" },
+              { icon: "🧠", title: "4 Free Therapy Sessions/mo", value: "4/mo" },
+              { icon: "📞", title: "24×7 Doctor Helpline", value: "24×7" },
+            ].map((b, i) => (
+              <div key={i} className="bg-white border border-amber-200 rounded-2xl p-3 flex items-center gap-3">
+                <span className="text-xl">{b.icon}</span>
+                <p className="flex-1 text-sm font-semibold text-gray-800">{b.title}</p>
+                <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-lg">{b.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pricing */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+              <p className="text-xs text-gray-500 font-semibold">Monthly</p>
+              <p className="text-2xl font-black text-gray-800 mt-1">₹499<span className="text-sm font-normal text-gray-400">/mo</span></p>
+            </div>
+            <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 text-center relative">
+              <span className="absolute -top-2.5 right-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">SAVE ₹1,200</span>
+              <p className="text-xs text-amber-700 font-semibold">Annual</p>
+              <p className="text-2xl font-black text-amber-700 mt-1">₹399<span className="text-sm font-normal text-amber-500">/mo</span></p>
+              <p className="text-[10px] text-amber-500">₹4,788/year</p>
+            </div>
+          </div>
+
+          <button onClick={() => alert("Welcome to Mana Gold! 🌟\n\nYour Gold membership is now active. All benefits are unlocked.")} className="w-full bg-gradient-to-r from-amber-700 to-amber-500 text-yellow-200 font-black text-base py-4 rounded-2xl flex items-center justify-center gap-2">
+            ⭐ Get Mana Gold — ₹399/mo
+          </button>
+          <p className="text-xs text-center text-gray-400">Cancel anytime · No hidden charges · Instant activation</p>
         </div>
       )}
 
