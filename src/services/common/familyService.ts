@@ -1,4 +1,4 @@
-import { apiClient, getStoredUser } from "./apiClient";
+import { apiClient, getStoredUser, storeUser } from "./apiClient";
 import { safeStorage } from "../../utils/storage";
 
 export interface FamilyMember {
@@ -16,6 +16,7 @@ export interface FamilyMember {
   emergencyContact?: boolean;
   isDevotee?: boolean;
   photoUrl?: string;
+  avatar?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -27,6 +28,22 @@ function getStorageKey(): string {
   const user = getStoredUser();
   const uid = user?.userId || user?.email || "anonymous";
   return `mana_family_members_v4_${uid}`;
+}
+
+function getSelfMetaKey(): string {
+  const user = getStoredUser();
+  const uid = user?.userId || user?.email || "anonymous";
+  return `mana_family_self_meta_v1_${uid}`;
+}
+
+function getStoredSelfMeta(): Partial<FamilyMember> | null {
+  return safeStorage.getJSON<Partial<FamilyMember> | null>(getSelfMetaKey(), null);
+}
+
+function saveSelfMeta(meta: Partial<FamilyMember>): void {
+  const current = getStoredSelfMeta() || {};
+  const updated = { ...current, ...meta };
+  safeStorage.setJSON(getSelfMetaKey(), updated);
 }
 
 const DUMMY_STATIC_NAMES = new Set([
@@ -41,16 +58,22 @@ const DUMMY_STATIC_NAMES = new Set([
 
 function getSelfMember(): FamilyMember | null {
   const user = getStoredUser();
-  if (!user) return null;
-  const userName = (user.fullName || (user.email ? user.email.split("@")[0] : "Primary Member")).trim();
+  const meta = getStoredSelfMeta();
+  if (!user && !meta) return null;
+
+  const userName = (
+    meta?.name ||
+    user?.fullName ||
+    (user?.email ? user.email.split("@")[0] : "Primary Member")
+  ).trim();
   if (!userName) return null;
 
-  const userGender = user.gender || "Male";
-  const userPhone = user.phone || "";
-  const userEmail = user.email || "";
-  const userDob = user.dateOfBirth;
+  const userGender = meta?.gender || user?.gender || "Male";
+  const userPhone = meta?.phone ?? (user?.phone || "");
+  const userEmail = meta?.email ?? (user?.email || "");
+  const userDob = meta?.dob || user?.dateOfBirth;
 
-  let calculatedAge: number | undefined;
+  let calculatedAge: number | undefined = meta?.age;
   if (userDob) {
     const birth = new Date(userDob);
     if (!isNaN(birth.getTime())) {
@@ -60,7 +83,7 @@ function getSelfMember(): FamilyMember | null {
 
   return {
     id: "fam-self",
-    userId: user.userId ? Number(user.userId) : undefined,
+    userId: user?.userId ? Number(user.userId) : undefined,
     name: userName,
     relation: "Self (Head)",
     age: calculatedAge || 30,
@@ -68,10 +91,14 @@ function getSelfMember(): FamilyMember | null {
     gender: userGender,
     phone: userPhone,
     email: userEmail,
-    emergencyContact: true,
-    isDevotee: true,
-    notes: "Primary resident and household head",
-    createdAt: new Date().toISOString(),
+    bloodGroup: meta?.bloodGroup || (user as any)?.bloodGroup || "",
+    gotram: meta?.gotram || (user as any)?.gotram || (user as any)?.gothram || "",
+    avatar: meta?.avatar || (userGender === "Female" ? "👩" : "👨"),
+    emergencyContact: meta?.emergencyContact !== undefined ? meta.emergencyContact : true,
+    isDevotee: meta?.isDevotee !== undefined ? meta.isDevotee : true,
+    notes: meta?.notes !== undefined ? meta.notes : "Primary resident and household head",
+    createdAt: meta?.createdAt || new Date().toISOString(),
+    updatedAt: meta?.updatedAt || new Date().toISOString(),
   };
 }
 
@@ -84,6 +111,8 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
   // Find if Self is already in the list
   const existingSelfIdx = members.findIndex(
     (m) =>
+      String(m.id) === "fam-self" ||
+      String(m.id) === "self" ||
       (m.name && m.name.trim().toLowerCase() === cleanSelfName) ||
       (m.relation && (m.relation.toLowerCase().includes("self") || m.relation.toLowerCase().includes("head")))
   );
@@ -92,10 +121,18 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
   let otherMembers: FamilyMember[];
 
   if (existingSelfIdx !== -1) {
+    const existing = members[existingSelfIdx];
     selfEntry = {
       ...self,
-      ...members[existingSelfIdx],
+      ...existing,
       relation: "Self (Head)",
+      // Ensure customized fields from self (which loads from getStoredSelfMeta) are preserved
+      gotram: existing.gotram || self.gotram,
+      bloodGroup: existing.bloodGroup || self.bloodGroup,
+      avatar: existing.avatar || self.avatar,
+      notes: existing.notes || self.notes,
+      emergencyContact: existing.emergencyContact !== undefined ? existing.emergencyContact : self.emergencyContact,
+      isDevotee: existing.isDevotee !== undefined ? existing.isDevotee : self.isDevotee,
     };
     otherMembers = members.filter((_, idx) => idx !== existingSelfIdx);
   } else {
@@ -151,7 +188,27 @@ export const familyService = {
    */
   async getSlimFamilyMembers(userId?: number): Promise<FamilyMemberSlim[]> {
     const url = userId ? `/users/family-members/slim?userId=${userId}` : "/users/family-members/slim";
-    return apiClient.get<FamilyMemberSlim[]>(url);
+    try {
+      const res = await apiClient.get<FamilyMemberSlim[]>(url);
+      if (Array.isArray(res) && res.length > 0) {
+        return res;
+      }
+    } catch {
+      // Fallback to building slim members from getFamilyMembers
+    }
+
+    const full = await this.getFamilyMembers();
+    return full.map((m, idx) => ({
+      id: typeof m.id === "number" ? m.id : (10000 + idx),
+      name: m.name,
+      gothram: m.gotram,
+      relation: m.relation,
+      phone: m.phone,
+      gender: m.gender,
+      age: m.age,
+      dob: m.dob,
+      email: m.email,
+    }));
   },
 
   /**
@@ -198,11 +255,22 @@ export const familyService = {
             emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
             isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
             photoUrl: m.photoUrl || m.avatar,
+            avatar: m.avatar || m.photoUrl,
             notes: m.notes,
             createdAt: m.createdAt,
             updatedAt: m.updatedAt,
           }));
-          const fullList = mergeWithSelf(mapped);
+
+          // Preserve any local-only non-self members not yet reflected on the server
+          const currentlyStored = getStoredMembers();
+          const localOnlyMembers = currentlyStored.filter(
+            (sm) =>
+              String(sm.id).startsWith("fam-") &&
+              String(sm.id) !== "fam-self" &&
+              !mapped.some((m) => m.name.trim().toLowerCase() === sm.name.trim().toLowerCase())
+          );
+
+          const fullList = mergeWithSelf([...mapped, ...localOnlyMembers]);
           // Do NOT emit mana_family_updated on GET to prevent infinite event loop
           persistMembers(fullList, false);
           lastFetchedData = fullList;
@@ -245,6 +313,7 @@ export const familyService = {
       emergencyContact: Boolean(data.emergencyContact),
       isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
       photoUrl: data.photoUrl,
+      avatar: (data as any).avatar || (data.gender === "Female" ? (Number(data.age) < 18 ? "👧" : "👩") : (Number(data.age) < 18 ? "👦" : "👨")),
       notes: data.notes?.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -256,7 +325,7 @@ export const familyService = {
       relation: newMember.relation,
       age: newMember.age,
       gender: newMember.gender,
-      avatar: (data as any).avatar || (newMember.gender === "Female" ? (Number(newMember.age) < 18 ? "👧" : "👩") : (Number(newMember.age) < 18 ? "👦" : "👨")),
+      avatar: newMember.avatar,
       gothram: newMember.gotram || undefined,
       gotram: newMember.gotram || undefined,
       dob: newMember.dob || undefined,
@@ -284,6 +353,8 @@ export const familyService = {
     }
 
     const updated = [newMember, ...current.filter((m) => m.name.toLowerCase() !== newMember.name.toLowerCase())];
+    lastFetchedData = updated;
+    lastFetchTime = Date.now();
     persistMembers(updated, true);
     return newMember;
   },
@@ -292,8 +363,17 @@ export const familyService = {
    * Update an existing family member.
    */
   async updateFamilyMember(id: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
+    const idStr = String(id);
+    const isSelf =
+      idStr === "fam-self" ||
+      idStr === "self" ||
+      (data.relation && (data.relation.toLowerCase().includes("self") || data.relation.toLowerCase().includes("head")));
+
     const current = getStoredMembers();
-    const index = current.findIndex((m) => String(m.id) === String(id));
+    const index = current.findIndex((m) =>
+      String(m.id) === idStr ||
+      (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
+    );
 
     let updatedMember: FamilyMember;
     if (index !== -1) {
@@ -302,19 +382,34 @@ export const familyService = {
         ...data,
         updatedAt: new Date().toISOString(),
       };
+      if (isSelf) {
+        updatedMember.id = "fam-self";
+        updatedMember.relation = "Self (Head)";
+      }
       current[index] = updatedMember;
     } else {
       updatedMember = {
-        id,
+        id: isSelf ? "fam-self" : id,
         name: data.name || "Family Member",
-        relation: data.relation || "Family",
+        relation: isSelf ? "Self (Head)" : (data.relation || "Family"),
         ...data,
         updatedAt: new Date().toISOString(),
       };
       current.push(updatedMember);
     }
 
-    const idStr = String(id);
+    if (isSelf) {
+      saveSelfMeta(updatedMember);
+      const user = getStoredUser();
+      if (user) {
+        if (updatedMember.name) user.fullName = updatedMember.name;
+        if (updatedMember.phone) user.phone = updatedMember.phone;
+        if (updatedMember.gender) user.gender = updatedMember.gender;
+        if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
+        storeUser(user);
+      }
+    }
+
     const isRealNumericId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     if (isRealNumericId) {
@@ -323,7 +418,7 @@ export const familyService = {
         relation: updatedMember.relation,
         age: updatedMember.age,
         gender: updatedMember.gender,
-        avatar: (data as any).avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
+        avatar: (data as any).avatar || updatedMember.avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
         gothram: updatedMember.gotram || (data as any).gothram,
         gotram: updatedMember.gotram || (data as any).gothram,
         dob: updatedMember.dob || undefined,
@@ -346,6 +441,8 @@ export const familyService = {
       }
     }
 
+    lastFetchedData = [...current];
+    lastFetchTime = Date.now();
     persistMembers([...current], true);
     return updatedMember;
   },
@@ -372,6 +469,8 @@ export const familyService = {
       }
     }
 
+    lastFetchedData = filtered;
+    lastFetchTime = Date.now();
     persistMembers(filtered, true);
   },
 
@@ -381,7 +480,7 @@ export const familyService = {
   syncUserProfile(fullName: string, dob?: string, gender?: string, phone?: string, email?: string): void {
     if (!fullName) return;
     const current = getStoredMembers();
-    const selfIndex = current.findIndex((m) => m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head"));
+    const selfIndex = current.findIndex((m) => String(m.id) === "fam-self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head"));
 
     let calculatedAge: number | undefined;
     if (dob) {
@@ -390,6 +489,17 @@ export const familyService = {
         calculatedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
       }
     }
+
+    const selfMeta = getStoredSelfMeta() || {};
+    const updatedMeta = {
+      ...selfMeta,
+      name: fullName,
+      dob: dob || selfMeta.dob,
+      gender: gender || selfMeta.gender,
+      phone: phone || selfMeta.phone,
+      email: email || selfMeta.email,
+    };
+    saveSelfMeta(updatedMeta);
 
     if (selfIndex !== -1) {
       current[selfIndex] = {
@@ -412,12 +522,18 @@ export const familyService = {
         gender: gender || "Male",
         phone,
         email,
-        emergencyContact: true,
-        isDevotee: true,
+        bloodGroup: selfMeta.bloodGroup,
+        gotram: selfMeta.gotram,
+        avatar: selfMeta.avatar || (gender === "Female" ? "👩" : "👨"),
+        emergencyContact: selfMeta.emergencyContact !== undefined ? selfMeta.emergencyContact : true,
+        isDevotee: selfMeta.isDevotee !== undefined ? selfMeta.isDevotee : true,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
     }
 
+    lastFetchedData = [...current];
+    lastFetchTime = Date.now();
     persistMembers([...current], false);
   },
 };

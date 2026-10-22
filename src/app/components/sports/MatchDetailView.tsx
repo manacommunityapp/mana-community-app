@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Trophy, ChevronDown, ChevronUp, Camera, Star, Share2, Check } from "lucide-react";
+import { X, Loader2, Trophy, ChevronDown, ChevronUp, Camera, Star, Share2, Check, Sparkles, Award, MessageSquare } from "lucide-react";
 import { tournamentService, type MatchDetailData, type InningsDetailData } from "../../../services/sports/tournamentService";
+import { automationService, type SportsMatchRecapData } from "../../../services/automation/automationService";
 import { SportsMatchPhotoGallery } from "./SportsMatchPhotoGallery";
 import { SportsMatchRatings } from "./SportsMatchRatings";
+import { toast } from "sonner";
 
 interface MatchDetailViewProps {
   matchId: number;
@@ -119,7 +121,7 @@ function ScorecardTable({ innings, index }: { innings: InningsDetailData; index:
   );
 }
 
-type DetailTab = "scorecard" | "photos" | "ratings";
+type DetailTab = "scorecard" | "photos" | "ratings" | "ai-recap";
 
 function formatScorecardText(d: MatchDetailData): string {
   const lines: string[] = [];
@@ -159,6 +161,9 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("scorecard");
   const [copied, setCopied] = useState(false);
+  const [aiRecap, setAiRecap] = useState<SportsMatchRecapData | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [recapCopied, setRecapCopied] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -168,6 +173,41 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
       .catch((e) => setError(e?.message || "Failed to load match details"))
       .finally(() => setLoading(false));
   }, [matchId]);
+
+  const handleGenerateRecap = async () => {
+    if (!detail) return;
+    setAiLoading(true);
+    try {
+      const res = await automationService.generateMatchRecap({
+        matchId,
+        sport: "CRICKET",
+        tournamentName: detail.roundName || "Mana Community Championship",
+        teamA: detail.teamA?.name || "Team A",
+        teamB: detail.teamB?.name || "Team B",
+        result: detail.winnerName
+          ? `${detail.winnerName} won${detail.winMargin ? ` by ${detail.winMargin}` : ""}`
+          : "Match concluded",
+        scoreSummary: {
+          teamA: `${detail.teamA?.name}: ${detail.scoreTeamA || "N/A"}`,
+          teamB: `${detail.teamB?.name}: ${detail.scoreTeamB || "N/A"}`,
+        },
+        topPerformers: detail.topRunScorers?.map((r) => ({
+          playerName: r.playerName,
+          stats: `${r.totalRuns} runs`,
+          team: r.teamName,
+        })),
+      });
+
+      if (res?.data) {
+        setAiRecap(res.data);
+        toast.success("AI Match Recap & Badges generated!");
+      }
+    } catch {
+      toast.error("Failed to generate AI recap. Ensure automation engine is running.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
@@ -236,6 +276,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
             <div className="flex gap-1 p-1 bg-slate-50 rounded-lg">
               {([
                 { key: "scorecard" as DetailTab, label: "Scorecard", icon: Trophy },
+                { key: "ai-recap" as DetailTab, label: "AI Recap", icon: Sparkles },
                 { key: "photos" as DetailTab, label: "Photos", icon: Camera },
                 { key: "ratings" as DetailTab, label: "Ratings", icon: Star },
               ]).map(tab => (
@@ -253,6 +294,142 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                 </button>
               ))}
             </div>
+
+            {/* AI Recap Tab */}
+            {activeTab === "ai-recap" && (
+              <div className="space-y-3 sm:space-y-4">
+                {!aiRecap ? (
+                  <div className="p-4 sm:p-6 text-center border-2 border-dashed border-indigo-200 rounded-xl sm:rounded-2xl bg-indigo-50/40">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                      <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-800 mb-1">Mana AI Sports Commentator</h4>
+                    <p className="text-[10px] sm:text-xs text-slate-500 max-w-sm mx-auto mb-3 sm:mb-4">
+                      Automatically analyze scorecard data to produce exciting news headlines, narrative recaps, MVP highlights, and recommended performance badges.
+                    </p>
+                    <button
+                      onClick={handleGenerateRecap}
+                      disabled={aiLoading}
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 active:scale-95 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md transition disabled:opacity-50"
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analyzing Scorecard...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Generate Match Recap & Badges
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 sm:space-y-4">
+                    {/* Headline Banner */}
+                    <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-100">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" /> Mana Sports News Desk
+                        </span>
+                        <button
+                          onClick={handleGenerateRecap}
+                          disabled={aiLoading}
+                          className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                        >
+                          Re-generate
+                        </button>
+                      </div>
+                      <h3 className="text-xs sm:text-base font-extrabold text-slate-800 leading-snug">
+                        {aiRecap.headline}
+                      </h3>
+                    </div>
+
+                    {/* Narrative Recap */}
+                    <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                      <h4 className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Match Report</h4>
+                      <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+                        {aiRecap.recap}
+                      </p>
+                    </div>
+
+                    {/* Key Moments */}
+                    {aiRecap.keyMoments && aiRecap.keyMoments.length > 0 && (
+                      <div className="p-3 sm:p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                        <h4 className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Key Turning Moments</h4>
+                        <ul className="space-y-1.5">
+                          {aiRecap.keyMoments.map((moment, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-[10px] sm:text-xs text-slate-700">
+                              <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 mt-0.5 text-[9px]">
+                                {idx + 1}
+                              </span>
+                              <span>{moment}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* MVP & Badge Awards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                      {aiRecap.mvp && (
+                        <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 uppercase mb-1">
+                            <Trophy className="w-3.5 h-3.5" /> Player of the Match (MVP)
+                          </div>
+                          <div className="font-bold text-xs sm:text-sm text-slate-800">{aiRecap.mvp.playerName}</div>
+                          <div className="text-[10px] text-amber-700 font-semibold mb-1">{aiRecap.mvp.team}</div>
+                          <p className="text-[10px] text-slate-600">{aiRecap.mvp.rationale}</p>
+                        </div>
+                      )}
+
+                      {aiRecap.badgeRecommendations && aiRecap.badgeRecommendations.length > 0 && (
+                        <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-200">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-600 uppercase mb-1">
+                            <Award className="w-3.5 h-3.5" /> Recommended Badges
+                          </div>
+                          <div className="space-y-1.5 mt-1">
+                            {aiRecap.badgeRecommendations.map((b, idx) => (
+                              <div key={idx} className="text-[10px] text-slate-700">
+                                <span className="font-bold text-purple-700">⭐ {b.badgeName}: </span>
+                                <span>{b.playerName} ({b.reason})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* WhatsApp Bulletin Broadcast */}
+                    {aiRecap.socialBulletin && (
+                      <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 flex items-center justify-between">
+                        <div className="text-[10px] sm:text-xs text-emerald-800 font-medium truncate mr-2">
+                          📢 <span className="font-semibold">WhatsApp Bulletin ready:</span> {aiRecap.socialBulletin.slice(0, 60)}...
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (navigator?.clipboard?.writeText) {
+                              navigator.clipboard.writeText(aiRecap.socialBulletin).then(() => {
+                                setRecapCopied(true);
+                                toast.success("WhatsApp bulletin copied to clipboard!");
+                                setTimeout(() => setRecapCopied(false), 2000);
+                              }).catch(() => toast.error("Could not copy to clipboard"));
+                            } else {
+                              toast.info("Clipboard access unavailable in this environment");
+                            }
+                          }}
+                          className="shrink-0 px-2.5 py-1 text-[10px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center gap-1"
+                        >
+                          {recapCopied ? <Check className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
+                          {recapCopied ? "Copied" : "Copy Bulletin"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Photos Tab */}
             {activeTab === "photos" && (

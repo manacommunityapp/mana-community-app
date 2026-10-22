@@ -1,0 +1,125 @@
+{
+  "name": "Mana Sports Dispute Resolution & Negativity Moderation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sports-dispute-and-moderation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Dispute & Moderation Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-sports-dispute-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst type = item.type || 'DISPUTE'; // 'DISPUTE' | 'CONTENT_MODERATION' | 'RAIN_RULE'\nconst matchId = item.matchId;\nconst tournamentName = item.tournamentName || 'Mana Community Championship';\nconst incidentDescription = item.incidentDescription || item.text || '';\nconst involvedParties = item.parties || item.playerName || 'Team A vs Team B';\n\nconst prompt = `You are the Chief Disciplinary Officer & Head Arbitrator for the Mana Community Sports Council.\nAnalyze the following incident or user submission for disputes, toxicity, unsportsmanlike conduct, or rule violations.\n\nContext:\n- Incident Type: ${type}\n- Tournament: ${tournamentName}\n- Involved Parties: ${JSON.stringify(involvedParties)}\n- Description / User Content: \"${incidentDescription}\"\n\nRules & Standards:\n1. Zero tolerance for abusive language, threats, defamation, or discrimination.\n2. In sports disputes (walkovers, rain stops, contested calls), apply standard fair-play regulations.\n3. Walkover Rule: A team failing to report within 15 minutes of scheduled time forfeits the match.\n4. Rain Delay: Recommend proportionate overs reduction or reschedule if less than 50% overs possible.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"actionTaken\": \"DISMISSED\" | \"SANCTION_APPLIED\" | \"WALKOVER_CONFIRMED\" | \"TARGET_REVISED\" | \"CONTENT_CENSORED\" | \"REFERRED_TO_COMMITTEE\",\n  \"toxicityScore\": number (0.0 to 1.0),\n  \"isHostile\": boolean,\n  \"officialRuling\": \"Clear, authoritative 2-paragraph verdict explaining the decision\",\n  \"penaltyDetails\": {\n    \"warningIssued\": boolean,\n    \"pointsDeducted\": number,\n    \"matchForfeitTo\": string | null,\n    \"suspensionPeriod\": string | null\n  },\n  \"revisedMatchConditions\": {\n    \"oversReducedTo\": number | null,\n    \"revisedTargetRuns\": number | null,\n    \"rescheduledDate\": string | null\n  },\n  \"residentMessage\": \"Neutral, de-escalating communication message to be sent to both parties via app\"\n}`;\n\nreturn [{\n  json: {\n    type,\n    matchId,\n    incidentDescription,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Arbitration Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Sports Arbitrator (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedRuling = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedRuling = JSON.parse(rawText);\n} catch (err) {\n  parsedRuling = {\n    actionTaken: \"REFERRED_TO_COMMITTEE\",\n    toxicityScore: 0.1,\n    isHostile: false,\n    officialRuling: \"Incident noted and referred to committee review.\",\n    penaltyDetails: { warningIssued: false, pointsDeducted: 0, matchForfeitTo: null, suspensionPeriod: null },\n    revisedMatchConditions: { oversReducedTo: null, revisedTargetRuns: null, rescheduledDate: null },\n    residentMessage: \"Your report has been logged with the sports committee for review.\"\n  };\n}\n\nconst meta = $('Prepare Arbitration Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    matchId: meta.matchId,\n    incidentType: meta.type,\n    arbitratedAt: new Date().toISOString(),\n    ruling: parsedRuling\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Parse Arbitration Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Arbitration Decision",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Dispute & Moderation Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Arbitration Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Arbitration Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Sports Arbitrator (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Sports Arbitrator (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Arbitration Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Arbitration Verdict": {
+      "main": [
+        [
+          {
+            "node": "Respond with Arbitration Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

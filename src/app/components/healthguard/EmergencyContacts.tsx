@@ -34,7 +34,7 @@ export function EmergencyContacts() {
 
   useEffect(() => {
     healthGuardService.getContacts()
-      .then(r => setContacts(r.data))
+      .then((r: any) => setContacts(Array.isArray(r) ? r : r?.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

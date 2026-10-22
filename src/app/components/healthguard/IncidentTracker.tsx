@@ -115,7 +115,7 @@ export function IncidentTracker() {
 
   useEffect(() => {
     healthGuardService.getIncidentHistory()
-      .then(r => setIncidents(r.data))
+      .then((r: any) => setIncidents(Array.isArray(r) ? r : r?.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

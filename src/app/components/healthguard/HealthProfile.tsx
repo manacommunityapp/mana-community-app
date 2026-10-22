@@ -40,7 +40,7 @@ export function HealthProfile() {
 
   useEffect(() => {
     healthGuardService.getProfile()
-      .then(r => setForm({ ...BLANK, ...r.data }))
+      .then((r: any) => setForm({ ...BLANK, ...(r?.data || r) }))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

@@ -51,6 +51,7 @@ import { SportsPlayerComparisonModal } from "./SportsPlayerComparisonModal";
 import { SportsTeamBalanceRadar } from "./SportsTeamBalanceRadar";
 import { SportsPlayerProfileCard } from "./SportsPlayerProfileCard";
 import { SportsAuctionDiscovery } from "./SportsAuctionDiscovery";
+import { validateAuctionBid, validateSelfBidding } from "./sportsValidation";
 import "./SportsAuction.css";
 
 // ─── Fallback Data ─────────────────────────────────────────────
@@ -634,10 +635,36 @@ export function SportsAuction() {
 
   const handleTeamBid = async (team: AuctionTeam) => {
     if (!livePlayer) return;
+
+    // Negativity Guard 1: Prevent self-bidding against own team
+    const selfBidCheck = validateSelfBidding(biddingTeamId, team.id);
+    if (!selfBidCheck.valid) {
+      toast.error(selfBidCheck.error);
+      return;
+    }
+
     const bidAmount = livePlayer.nextBid;
     const remaining = team.budget - team.spent;
-    if (remaining < bidAmount) {
-      toast.error(`${team.name} doesn't have enough budget (₹${remaining.toLocaleString('en-IN')} < ₹${bidAmount.toLocaleString('en-IN')})`);
+
+    // Negativity Guard 2: Comprehensive purse & squad capacity validation
+    const maxSquadCount = totalTeamsConfig > 0 && totalPlayersConfig > 0
+      ? Math.ceil(totalPlayersConfig / totalTeamsConfig)
+      : 15;
+    const currentSquadCount = (team as any).playerCount ?? team.players?.length ?? 0;
+    const currentBid = livePlayer.currentBid ?? livePlayer.basePrice ?? 0;
+    const minIncrement = currentBid >= bidIncrementThreshold ? bidIncrementAbove : bidIncrementDefault;
+
+    const bidCheck = validateAuctionBid(
+      currentBid,
+      bidAmount,
+      remaining,
+      currentSquadCount,
+      maxSquadCount,
+      minIncrement
+    );
+
+    if (!bidCheck.valid) {
+      toast.error(bidCheck.error);
       return;
     }
     try {

@@ -30,7 +30,10 @@ export function SosScreen() {
 
   useEffect(() => {
     healthGuardService.getContacts()
-      .then(r => setContacts(r.data.filter(c => c.notifyOnSos && c.isActive !== false)))
+      .then((r: any) => {
+        const list: EmergencyContactDto[] = Array.isArray(r) ? r : r?.data || [];
+        setContacts(list.filter((c: EmergencyContactDto) => c.notifyOnSos && c.isActive !== false));
+      })
       .catch(() => {});
   }, []);
 

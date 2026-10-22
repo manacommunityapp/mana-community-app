@@ -603,10 +603,10 @@ export function ProfileDashboard() {
     notes: "",
   });
 
-  const loadFamilyMembers = useCallback(async () => {
+  const loadFamilyMembers = useCallback(async (forceRefresh = false) => {
     setLoadingFamily(true);
     try {
-      const data = await familyService.getFamilyMembers();
+      const data = await familyService.getFamilyMembers(forceRefresh);
       setFamilyMembers(data);
     } catch (err) {
       console.warn("Error loading family members:", err);
@@ -621,7 +621,7 @@ export function ProfileDashboard() {
       if (e.detail && Array.isArray(e.detail)) {
         setFamilyMembers(e.detail);
       } else {
-        loadFamilyMembers();
+        loadFamilyMembers(true);
       }
     };
     window.addEventListener("mana_family_updated", handleFamilyUpdated);
@@ -650,17 +650,17 @@ export function ProfileDashboard() {
   const handleOpenEditFamily = (member: FamilyMember) => {
     setEditingMember(member);
     setMemberForm({
-      name: member.name,
-      relation: member.relation,
+      name: member.name || "",
+      relation: member.relation || "Spouse",
       age: member.age,
-      dob: member.dob,
+      dob: member.dob || (member as any).dateOfBirth || "",
       gender: member.gender || "Male",
-      avatar: (member as any).avatar || (member.gender === "Female" ? "👩" : "👨"),
-      phone: member.phone || "",
+      avatar: (member as any).avatar || member.avatar || (member as any).photoUrl || (member.gender === "Female" ? "👩" : "👨"),
+      phone: member.phone || (member as any).mobile || "",
       email: member.email || "",
-      bloodGroup: member.bloodGroup || "",
-      gotram: member.gotram || "",
-      emergencyContact: member.emergencyContact || false,
+      bloodGroup: member.bloodGroup || (member as any).blood || "",
+      gotram: member.gotram || (member as any).gothram || "",
+      emergencyContact: Boolean(member.emergencyContact),
       isDevotee: member.isDevotee !== undefined ? member.isDevotee : true,
       notes: member.notes || "",
     });
@@ -684,17 +684,66 @@ export function ProfileDashboard() {
           computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
         }
       }
-      const payload = { ...memberForm, age: computedAge };
+      const payload: Partial<FamilyMember> = { ...memberForm, age: computedAge };
+
+      const isSelf = editingMember && (
+        String(editingMember.id) === "fam-self" ||
+        String(editingMember.id) === "self" ||
+        editingMember.relation?.toLowerCase().includes("self") ||
+        editingMember.relation?.toLowerCase().includes("head")
+      );
 
       if (editingMember) {
         await familyService.updateFamilyMember(editingMember.id, payload);
+
+        if (isSelf) {
+          // Synchronize Self changes to User Profile on backend and AuthContext
+          try {
+            await profileService.updateProfile({
+              fullName: payload.name?.trim(),
+              phone: payload.phone?.trim(),
+              dob: payload.dob,
+              gender: payload.gender,
+            });
+          } catch (syncErr) {
+            console.warn("Failed to sync Self family member update to profile API:", syncErr);
+          }
+
+          updateUser({
+            fullName: payload.name?.trim(),
+            phone: payload.phone?.trim(),
+            gender: payload.gender,
+            dateOfBirth: payload.dob,
+          });
+
+          setFormData((prev) => ({
+            ...prev,
+            fullName: payload.name?.trim() || prev.fullName,
+            phone: payload.phone?.trim() || prev.phone,
+            dob: payload.dob || prev.dob,
+            gender: payload.gender || prev.gender,
+          }));
+
+          setProfile((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  fullName: payload.name?.trim() || prev.fullName,
+                  phone: payload.phone?.trim() || prev.phone,
+                  dob: payload.dob || prev.dob,
+                  gender: payload.gender || prev.gender,
+                }
+              : prev
+          );
+        }
+
         toast.success(`Updated ${memberForm.name}'s details`);
       } else {
         await familyService.addFamilyMember(payload);
         toast.success(`Added ${memberForm.name} to your family list`);
       }
       setIsFamilyModalOpen(false);
-      loadFamilyMembers();
+      await loadFamilyMembers(true);
     } catch (err: any) {
       toast.error(err?.message || "Failed to save family member");
     } finally {
@@ -707,7 +756,7 @@ export function ProfileDashboard() {
       try {
         await familyService.deleteFamilyMember(id);
         toast.success(`Removed ${name} from family members`);
-        loadFamilyMembers();
+        await loadFamilyMembers(true);
       } catch (err: any) {
         toast.error(err?.message || "Failed to delete family member");
       }
@@ -719,7 +768,7 @@ export function ProfileDashboard() {
       const updated = !member.emergencyContact;
       await familyService.updateFamilyMember(member.id, { emergencyContact: updated });
       toast.success(updated ? `Marked ${member.name} as emergency contact` : `Removed ${member.name} from emergency contacts`);
-      loadFamilyMembers();
+      await loadFamilyMembers(true);
     } catch (err: any) {
       toast.error("Failed to update emergency contact status");
     }
@@ -1881,7 +1930,15 @@ export function ProfileDashboard() {
                         <select
                           value={memberForm.relation || "Spouse"}
                           onChange={(e) => setMemberForm({ ...memberForm, relation: e.target.value })}
-                          className="w-full px-2 py-1 bg-[var(--mana-bg-input)] border border-border rounded-lg text-xs focus:ring-1 focus:ring-primary/30 outline-none"
+                          disabled={Boolean(
+                            editingMember && (
+                              String(editingMember.id) === "fam-self" ||
+                              String(editingMember.id) === "self" ||
+                              editingMember.relation?.toLowerCase().includes("self") ||
+                              editingMember.relation?.toLowerCase().includes("head")
+                            )
+                          )}
+                          className="w-full px-2 py-1 bg-[var(--mana-bg-input)] border border-border rounded-lg text-xs focus:ring-1 focus:ring-primary/30 outline-none disabled:opacity-75 disabled:cursor-not-allowed"
                         >
                           <option value="Self (Head)">Self (Head)</option>
                           <option value="Spouse">Spouse</option>

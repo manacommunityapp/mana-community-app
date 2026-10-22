@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { Ambulance, RefreshCw, ArrowLeft, Clock, CheckCircle2, MapPin, User, Phone } from "lucide-react";
-import { apiClient } from "@/services/common/apiClient";
+import { apiClient } from "../../../services/common/apiClient";
 
 interface BookingRow {
   id: number;

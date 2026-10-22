@@ -589,6 +589,8 @@ export function useSportsAdminState() {
   const hydratedTabs = useRef(new Set<TabId>());
   const tournamentsFetchedRef = useRef(false);
   const eventsFetchedRef = useRef(false);
+  const isSportSavingRef = useRef(false);
+  const isTournamentSavingRef = useRef(false);
 
   // Sports Event form state
   const [showSportForm, setShowSportForm] = useState(false);
@@ -1467,6 +1469,7 @@ export function useSportsAdminState() {
     setSelectedCats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSave = async () => {
+    if (isTournamentSavingRef.current) return;
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
@@ -1519,12 +1522,13 @@ export function useSportsAdminState() {
       }));
     };
 
+    isTournamentSavingRef.current = true;
     setSubmitting(true);
     try {
       if (editingEventId) {
         const singleSport = selectedSportsWithEvents[0];
         const singleEvent = singleSport?.events[0];
-        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); return; }
+        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); isTournamentSavingRef.current = false; return; }
         // Preserve the tournament's existing event links captured at edit time; fall
         // back to the form's configured events only if none were captured.
         const formEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
@@ -1603,6 +1607,7 @@ export function useSportsAdminState() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save tournament(s)");
     } finally {
+      isTournamentSavingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -2375,6 +2380,16 @@ export function useSportsAdminState() {
     if (firstCatId) {
       setSelectedTemplates(prev => ({ ...prev, [evId]: firstCatId }));
     }
+    const sportName = e.sport?.name || e.name || "";
+    let cleanEventName = e.name || "";
+    if (sportName && cleanEventName.toLowerCase().startsWith(sportName.toLowerCase())) {
+      cleanEventName = cleanEventName.substring(sportName.length).replace(/^[\s—\-:]+/, "").trim();
+    } else if (cleanEventName.includes(" — ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" — ") + 3).trim();
+    } else if (cleanEventName.includes(" - ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" - ") + 3).trim();
+    }
+
     const editEntry: SportFormEntry = {
       id: Math.random().toString(36).substring(2),
       name: e.sport?.name || e.name,
@@ -2385,7 +2400,7 @@ export function useSportsAdminState() {
       tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
       events: [{
         id: evId,
-        eventName: e.name.includes(" — ") ? e.name.split(" — ")[1] : e.name,
+        eventName: cleanEventName || e.name,
         startDate: e.eventDateStart || "",
         endDate: e.eventDateEnd || "",
         gender: e.gender || "ALL",
@@ -2430,6 +2445,7 @@ export function useSportsAdminState() {
   };
 
   const handleSportSave = async () => {
+    if (isSportSavingRef.current) return;
     for (const form of sportForms) {
       for (const ev of form.events) {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
@@ -2509,98 +2525,127 @@ export function useSportsAdminState() {
         }
       }
     }
+    isSportSavingRef.current = true;
     setSportSubmitting(true);
     let successCount = 0;
     let failCount = 0;
-    for (const form of sportForms) {
-      const isTeam = isTeamSport(form.name);
-      for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
-        const ev = form.events[eIdx];
-        let effectiveTourneyId = (ev as any).tournamentId !== undefined
-          ? (ev as any).tournamentId
-          : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+    const succeededEventIds = new Set<string>();
+    try {
+      for (const form of sportForms) {
+        const isTeam = isTeamSport(form.name);
+        for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
+          const ev = form.events[eIdx];
+          let effectiveTourneyId = (ev as any).tournamentId !== undefined
+            ? (ev as any).tournamentId
+            : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
 
-        // Guard 1: Never let tournamentId equal the event being edited
-        if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
-          const parent = activeTournaments.find(t =>
-            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
-          );
-          effectiveTourneyId = parent ? parent.id : undefined;
-        }
-
-        // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
-        if (effectiveTourneyId != null) {
-          const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
-          if (!isTournament) {
+          // Guard 1: Never let tournamentId equal the event being edited
+          if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
             const parent = activeTournaments.find(t =>
-              t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+            );
+            effectiveTourneyId = parent ? parent.id : undefined;
+          }
+
+          // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
+          if (effectiveTourneyId != null) {
+            const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
+            if (!isTournament) {
+              const parent = activeTournaments.find(t =>
+                t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+              );
+              if (parent) {
+                effectiveTourneyId = parent.id;
+              }
+            }
+          }
+
+          // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
+          if (!effectiveTourneyId && form.editingSportId) {
+            const parent = activeTournaments.find(t =>
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
             );
             if (parent) {
               effectiveTourneyId = parent.id;
             }
           }
-        }
 
-        // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
-        if (!effectiveTourneyId && form.editingSportId) {
-          const parent = activeTournaments.find(t =>
-            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
-          );
-          if (parent) {
-            effectiveTourneyId = parent.id;
+          // Normalize eventName so sport prefix is never duplicated
+          let rawEventName = ev.eventName.trim();
+          const sportPrefix = form.name.trim();
+          if (rawEventName.toLowerCase().startsWith(sportPrefix.toLowerCase())) {
+            rawEventName = rawEventName.substring(sportPrefix.length).replace(/^[\s—\-:]+/, "").trim();
           }
-        }
+          const eventDisplayName = rawEventName ? `${form.name} — ${rawEventName}` : form.name;
 
-        const payload: SportsEventRequest = {
-          name: `${form.name} — ${ev.eventName}`,
-          sportId: form.sportId,
-          communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
-          eventDateStart: ev.startDate,
-          eventDateEnd: ev.endDate,
-          venueId: ev.venueId ? Number(ev.venueId) : undefined,
-          minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
-          maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
-          minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
-          maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
-          gender: ev.gender || "ALL",
-          playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
-          format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
-          tournamentType: ev.tournamentType || "KNOCKOUT",
-          categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
-          contactName: ev.contactName?.trim() || "",
-          contactNumber: ev.contactNumber?.trim() || "",
-          contactEmail: ev.contactEmail?.trim() || "",
-          otherContacts: JSON.stringify(
-            (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
-          ) as any,
-          auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
-          adminApprovalRequired: ev.adminApprovalRequired !== false,
-          mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
-          tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
-        };
-        try {
-          if (form.editingSportId && eIdx === 0) {
-            await sportsService.updateSportsEvent(form.editingSportId, payload);
-            toast.success(`Event "${payload.name}" updated successfully!`);
-          } else {
-            await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
+          const payload: SportsEventRequest = {
+            name: eventDisplayName,
+            sportId: form.sportId,
+            communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
+            eventDateStart: ev.startDate,
+            eventDateEnd: ev.endDate,
+            venueId: ev.venueId ? Number(ev.venueId) : undefined,
+            minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
+            maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
+            minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
+            maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
+            gender: ev.gender || "ALL",
+            playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
+            format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
+            tournamentType: ev.tournamentType || "KNOCKOUT",
+            categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
+            contactName: ev.contactName?.trim() || "",
+            contactNumber: ev.contactNumber?.trim() || "",
+            contactEmail: ev.contactEmail?.trim() || "",
+            otherContacts: JSON.stringify(
+              (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
+            ) as any,
+            auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+            adminApprovalRequired: ev.adminApprovalRequired !== false,
+            mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
+            tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
+          };
+          try {
+            if (form.editingSportId && eIdx === 0) {
+              await sportsService.updateSportsEvent(form.editingSportId, payload);
+              toast.success(`Event "${payload.name}" updated successfully!`);
+            } else {
+              await sportsService.createSportsEvent(payload);
+              toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
+            }
+            succeededEventIds.add(ev.id);
+            successCount++;
+          } catch (err) {
+            console.error(`Save event error:`, err);
+            toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
+            failCount++;
           }
-          successCount++;
-        } catch (err) {
-          console.error(`Save event error:`, err);
-          toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
-          failCount++;
         }
       }
+      if (successCount > 0) {
+        refreshEvents();
+        refreshTournaments();
+      }
+      if (failCount === 0) {
+        const wasEditing = sportForms.some(f => f.editingSportId);
+        resetSportForm();
+        if (wasEditing) clearTournamentContext();
+      } else if (succeededEventIds.size > 0) {
+        // Partial failure: remove successfully saved events from sportForms so retrying won't duplicate them
+        setSportForms(prev =>
+          prev
+            .map(f => ({
+              ...f,
+              events: f.events.filter(e => !succeededEventIds.has(e.id)),
+            }))
+            .filter(f => f.events.length > 0)
+        );
+        toast.warning(`${successCount} event(s) saved. ${failCount} failed — please review remaining events.`);
+      }
+    } finally {
+      isSportSavingRef.current = false;
+      setSportSubmitting(false);
     }
-    if (successCount > 0) refreshEvents();
-    if (failCount === 0) {
-      const wasEditing = sportForms.some(f => f.editingSportId);
-      resetSportForm();
-      if (wasEditing) clearTournamentContext();
-    }
-    setSportSubmitting(false);
   };
 
   // Derived data
