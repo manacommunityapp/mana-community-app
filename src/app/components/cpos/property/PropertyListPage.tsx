@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Box, Grid, Paper, Typography, TextField, Button, Chip, Avatar, InputAdornment } from '@mui/material';
+import { INITIAL_LEADS } from '../crm/crmData';
 import SearchIcon from '@mui/icons-material/Search';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import AddIcon from '@mui/icons-material/Add';
@@ -8,21 +9,37 @@ import BedIcon from '@mui/icons-material/Bed';
 import BathtubIcon from '@mui/icons-material/Bathtub';
 import SquareFootIcon from '@mui/icons-material/SquareFoot';
 
-const properties = [
+interface Property {
+  code: string; type: string; status: string; unit: string;
+  beds: number; baths: number; area: number; value: string; image: string;
+  leadId?: string;
+}
+
+const properties: Property[] = [
   { code: 'CPOS-MEADOWS-101', type: 'APARTMENT', status: 'OWNER_OCCUPIED', unit: 'A-101', beds: 3, baths: 3, area: 1650, value: '₹1.45 Cr', image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80' },
   { code: 'CPOS-MEADOWS-102', type: 'APARTMENT', status: 'TENANT_OCCUPIED', unit: 'A-102', beds: 2, baths: 2, area: 1200, value: '₹1.10 Cr', image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80' },
   { code: 'CPOS-MEADOWS-V01', type: 'VILLA', status: 'OWNER_OCCUPIED', unit: 'Villa-01', beds: 4, baths: 5, area: 3200, value: '₹3.80 Cr', image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=400&q=80' },
-  { code: 'CPOS-MEADOWS-201', type: 'APARTMENT', status: 'VACANT', unit: 'B-201', beds: 3, baths: 3, area: 1580, value: '₹1.35 Cr', image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80' },
+  { code: 'CPOS-MEADOWS-201', type: 'APARTMENT', status: 'VACANT', unit: 'B-201', beds: 3, baths: 3, area: 1580, value: '₹1.35 Cr', image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80', leadId: 'L007' },
   { code: 'CPOS-MEADOWS-S05', type: 'RETAIL_SHOP', status: 'TENANT_OCCUPIED', unit: 'Shop G-05', beds: 0, baths: 1, area: 850, value: '₹95L', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=80' },
   { code: 'CPOS-MEADOWS-P01', type: 'PENTHOUSE', status: 'OWNER_OCCUPIED', unit: 'PH-01', beds: 4, baths: 4, area: 2800, value: '₹2.90 Cr', image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80' },
   { code: 'CPOS-MEADOWS-202', type: 'APARTMENT', status: 'VACANT', unit: 'B-202', beds: 2, baths: 2, area: 1150, value: '₹1.05 Cr', image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80' },
-  { code: 'CPOS-MEADOWS-OFF1', type: 'COMMERCIAL_OFFICE', status: 'TENANT_OCCUPIED', unit: 'Off-301', beds: 0, baths: 2, area: 2100, value: '₹2.20 Cr', image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=400&q=80' },
+  { code: 'CPOS-MEADOWS-OFF1', type: 'COMMERCIAL_OFFICE', status: 'TENANT_OCCUPIED', unit: 'Off-301', beds: 0, baths: 2, area: 2100, value: '₹2.20 Cr', image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=400&q=80', leadId: 'L008' },
 ];
 
 const statusColors: Record<string, { bg: string; color: string; label: string }> = {
   OWNER_OCCUPIED: { bg: 'rgba(16,185,129,0.15)', color: '#10B981', label: 'Owner Occupied' },
   TENANT_OCCUPIED: { bg: 'rgba(79,106,245,0.15)', color: '#7B93FF', label: 'Tenant Occupied' },
   VACANT: { bg: 'rgba(245,158,11,0.15)', color: '#F59E0B', label: 'Vacant' },
+  RESERVED: { bg: 'rgba(236,72,153,0.15)', color: '#EC4899', label: 'Reserved (CRM)' },
+  SOLD: { bg: 'rgba(16,185,129,0.18)', color: '#10B981', label: 'Sold (CRM)' },
+};
+
+const getEffectiveStatus = (p: Property): string => {
+  if (!p.leadId) return p.status;
+  const lead = INITIAL_LEADS.find(l => l.id === p.leadId);
+  if (lead?.stage === 'CLOSED') return 'SOLD';
+  if (lead?.stage === 'NEGOTIATION') return 'RESERVED';
+  return p.status;
 };
 
 const PropertyListPage: React.FC = () => {
@@ -75,16 +92,18 @@ const PropertyListPage: React.FC = () => {
       {/* Grid */}
       <Grid container spacing={2.5}>
         {filtered.map(p => {
-          const s = statusColors[p.status] || { bg: 'rgba(255,255,255,0.1)', color: '#fff', label: p.status };
+          const effectiveStatus = getEffectiveStatus(p);
+          const s = statusColors[effectiveStatus] || { bg: 'rgba(255,255,255,0.1)', color: '#fff', label: effectiveStatus };
+          const crmLead = p.leadId ? INITIAL_LEADS.find(l => l.id === p.leadId) ?? null : null;
           return (
             <Grid size={{ xs: 12, sm: 6, md: 3 }} key={p.code}>
-              <Paper sx={{ overflow: 'hidden', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)' } }}>
+              <Paper sx={{ overflow: 'hidden', borderRadius: '20px', border: `1px solid ${effectiveStatus === 'RESERVED' ? 'rgba(236,72,153,0.3)' : effectiveStatus === 'SOLD' ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'}`, transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)' } }}>
                 <Box sx={{ height: 160, width: '100%', position: 'relative', overflow: 'hidden' }}>
                   <Box component="img" src={p.image} alt={p.unit} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <Chip label={s.label} size="small" sx={{ position: 'absolute', top: 12, right: 12, bgcolor: s.bg, color: s.color, fontWeight: 700, backdropFilter: 'blur(8px)' }} />
                   <Chip label={p.type} size="small" sx={{ position: 'absolute', bottom: 12, left: 12, bgcolor: 'rgba(0,0,0,0.6)', color: '#fff', fontWeight: 600 }} />
                 </Box>
-                <Box sx={{ p: 2.5 }}>
+                <Box sx={{ p: 2.5, pb: crmLead ? 1.5 : 2.5 }}>
                   <Typography variant="caption" sx={{ color: '#7B93FF', fontWeight: 700, display: 'block' }}>{p.code}</Typography>
                   <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800, mb: 1 }}>{p.unit}</Typography>
 
@@ -104,6 +123,27 @@ const PropertyListPage: React.FC = () => {
                     </Button>
                   </Box>
                 </Box>
+
+                {crmLead && (
+                  <Box
+                    onClick={() => navigate(`/cpos/crm/leads/${crmLead.id}`)}
+                    sx={{
+                      mx: 2, mb: 2, px: 2, py: 1, borderRadius: '10px', cursor: 'pointer',
+                      bgcolor: effectiveStatus === 'SOLD' ? 'rgba(16,185,129,0.08)' : 'rgba(236,72,153,0.08)',
+                      border: `1px solid ${effectiveStatus === 'SOLD' ? 'rgba(16,185,129,0.2)' : 'rgba(236,72,153,0.2)'}`,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      '&:hover': { opacity: 0.8 },
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'block', fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>CRM Lead</Typography>
+                      <Typography variant="caption" sx={{ color: '#fff', fontWeight: 700, fontSize: '0.75rem' }}>{crmLead.name}</Typography>
+                    </Box>
+                    <Typography variant="caption" sx={{ color: s.color, fontWeight: 700, fontSize: '0.7rem' }}>
+                      View →
+                    </Typography>
+                  </Box>
+                )}
               </Paper>
             </Grid>
           );
