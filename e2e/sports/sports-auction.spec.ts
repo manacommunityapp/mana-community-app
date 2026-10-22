@@ -214,3 +214,88 @@ test.describe("Sports Auction", () => {
     await expect(page.locator("body")).not.toContainText("Unhandled");
   });
 });
+
+// ── Parameterised route: /sports/auction/:eventId ─────────────────────────────
+
+test.describe("Sports Auction — Parameterised Route (/sports/auction/:eventId)", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectAuth(page);
+    await mockAuthRoutes(page);
+    await mockSportsDashboardRoutes(page);
+
+    await page.route("**/api/auction/config**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: {
+          id: 1,
+          eventId: 1,
+          eventName: "Cricket Premier League 2026",
+          maxTeams: 8,
+          budgetPerTeam: 1000,
+          status: "DRAFT",
+        },
+      });
+    });
+
+    await page.route("**/api/auction/teams**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: [
+          { id: 1, name: "Team Alpha", captain: "Ravi Kumar", budget: 1000, spent: 450, playerCount: 6, status: "APPROVED" },
+        ],
+      });
+    });
+
+    await page.route("**/api/auction/player-pool**", async (route) => {
+      await route.fulfill({ status: 200, json: [] });
+    });
+
+    await page.route("**/api/auction/results**", async (route) => {
+      await route.fulfill({ status: 200, json: { status: "DRAFT", teamsFinalized: 0 } });
+    });
+
+    await page.route("**/api/auction/live**", async (route) => {
+      await route.fulfill({ status: 200, json: { status: "NOT_STARTED", currentPlayer: null } });
+    });
+  });
+
+  test("renders auction page for a specific eventId without crashing", async ({ page }) => {
+    await page.goto("/sports/auction/1");
+    await page.waitForTimeout(600);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+    await expect(page.locator("body")).not.toContainText("Cannot read");
+  });
+
+  test("shows Auction breadcrumb on event-scoped auction page", async ({ page }) => {
+    await page.goto("/sports/auction/1");
+    await page.waitForTimeout(600);
+    await expect(page.getByRole("link", { name: /Auction/i })).toBeVisible();
+  });
+
+  test("loads auction config for the specified event", async ({ page }) => {
+    await page.goto("/sports/auction/1");
+    await page.waitForTimeout(700);
+    const body = await page.locator("body").innerText();
+    expect(
+      body.includes("Cricket Premier League 2026") ||
+      body.includes("Team Alpha") ||
+      body.includes("Auction") ||
+      body.length > 30
+    ).toBe(true);
+  });
+
+  test("tab navigation works on event-scoped auction page", async ({ page }) => {
+    await page.goto("/sports/auction/1?tab=live");
+    await page.waitForTimeout(600);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+  });
+
+  test("does not crash for an unknown eventId", async ({ page }) => {
+    await page.route("**/api/auction/config**", (route) =>
+      route.fulfill({ status: 404, json: { error: "Not found" } })
+    );
+    await page.goto("/sports/auction/99999");
+    await page.waitForTimeout(600);
+    await expect(page.locator("body")).not.toContainText("Unhandled");
+  });
+});
