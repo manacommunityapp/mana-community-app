@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ShieldAlert, AlertTriangle, Clock, CheckCircle2, Users, RefreshCw, Ambulance } from "lucide-react";
-import { healthGuardService } from "@/services/healthguard/healthGuardService";
-import { apiClient } from "@/services/common/apiClient";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { ShieldAlert, AlertTriangle, Clock, CheckCircle2, Users, RefreshCw, Ambulance, Watch } from "lucide-react";
+import { healthGuardService } from "../../../services/healthguard/healthGuardService";
+import { apiClient } from "../../../services/common/apiClient";
 
 interface IncidentRow {
   id: number;
@@ -115,6 +115,15 @@ export default function AdminIncidentDashboard() {
             <div>
               <p className="text-sm font-semibold">Ambulance</p>
               <p className="text-xs text-muted-foreground">Dispatch</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:border-blue-300 transition-colors" onClick={() => navigate("/healthguard/admin/wearable-alerts")}>
+          <CardContent className="pt-4 pb-4 flex items-center gap-2">
+            <Watch className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="text-sm font-semibold">Wearables</p>
+              <p className="text-xs text-muted-foreground">Health Alerts</p>
             </div>
           </CardContent>
         </Card>
