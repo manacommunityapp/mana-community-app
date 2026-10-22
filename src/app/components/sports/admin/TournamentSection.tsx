@@ -32,6 +32,7 @@ interface TournamentSectionProps {
   onAddParticipant?: (eventId: number) => void;
   onImportParticipants?: (eventId: number) => void;
   onEditEvent?: (ev: any) => void;
+  onDeleteEvent?: (id: number, tournamentId?: number) => void;
   onAddEventToTournament?: (tournamentId: number, tournamentName: string) => void;
 }
 
@@ -41,7 +42,7 @@ export function TournamentSection({
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
-  onAddParticipant, onImportParticipants, onEditEvent, onAddEventToTournament,
+  onAddParticipant, onImportParticipants, onEditEvent, onDeleteEvent, onAddEventToTournament,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
   const [seedDrafts, setSeedDrafts] = useState<Record<number, string>>({});
@@ -87,7 +88,7 @@ export function TournamentSection({
 
   const renderRegistrationPanel = (ev: any) => (
     <div className="mt-2 bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 mb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200 mb-2">
         <div className="flex items-center gap-2">
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
@@ -97,7 +98,7 @@ export function TournamentSection({
             {viewMode === "captains" ? "captains" : "players"}
           </span>
         </div>
-        <div className="flex items-center gap-2 relative">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 relative">
           {viewMode === "players" && registrations && registrations.length > 0 && (
             <div className="relative">
               <button
@@ -201,14 +202,14 @@ export function TournamentSection({
       {!loadingRegs && viewMode === "players" && registrations && registrations.length > 0 && (
         <div className="space-y-2">
           {registrations.map((reg, idx) => (
-            <div key={reg.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+            <div key={reg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
                 <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 flex-shrink-0">
                   {idx + 1}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-800 truncate">{reg.playerName || reg.user?.fullName || "—"}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="text-sm font-medium text-slate-800 break-words">{reg.playerName || reg.user?.fullName || "—"}</span>
                     {reg.registrationSource === "GOOGLE_FORMS" && (
                       <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
                         Google Form
@@ -220,7 +221,7 @@ export function TournamentSection({
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     {reg.category?.name && <span>{reg.category.name}</span>}
                     {reg.age && <span>Age: {reg.age}</span>}
                     {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
@@ -229,7 +230,7 @@ export function TournamentSection({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 <div className="flex items-center gap-1 mr-1">
                   <span className="text-[9px] text-slate-400 font-medium">Seed</span>
                   <input
@@ -273,23 +274,23 @@ export function TournamentSection({
       {!loadingRegs && viewMode === "captains" && nominatedCaptains && nominatedCaptains.length > 0 && (
         <div className="space-y-2">
           {nominatedCaptains.map((team) => (
-            <div key={team.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+            <div key={team.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
                 <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-[10px] font-bold text-[#f97316] flex-shrink-0">
                   C
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-slate-800 truncate">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-slate-800 break-words">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
                   <div className="text-[10px] text-[#f97316] mt-1 font-semibold tracking-wide">
                     Proposed Team: {team.teamName}
                   </div>
-                  <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     <span>Budget: ₹{team.totalBudget?.toLocaleString()}</span>
                     {team.ownerUser?.phone && <span>· {team.ownerUser.phone}</span>}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 {team.captainConfirmation ? (
                   <span className="text-[10px] px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Confirmed
@@ -379,7 +380,7 @@ export function TournamentSection({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="rounded-xl p-4"
+    <div className="rounded-xl p-3 sm:p-4"
       style={{
         background: "white",
         border: "1px solid rgba(99, 102, 241, 0.12)",
@@ -396,18 +397,18 @@ export function TournamentSection({
           if (item.sportsEvents && item.sportsEvents.length > 0) {
             const isExpanded = !!expandedTournamentIds[item.id];
             return (
-              <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+              <div key={item.id} className="p-3 sm:p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
-                <div className="flex items-center justify-between border-b border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200">
                   <div className="min-w-0 flex-1 text-left">
-                    <h3 className="text-sm font-bold text-slate-800 m-0 mb-0">{item.name}</h3>
-                    <div className="text-[10px] text-slate-500 m-0">
+                    <h3 className="text-sm font-bold text-slate-800 m-0 mb-0 break-words">{item.name}</h3>
+                    <div className="text-[10px] text-slate-500 m-0 mt-0.5">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
                         : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     {showActivate && onActivate && (
                       <button onClick={() => onActivate(item.id)} className="text-[10px] px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                         Open for Registration
@@ -420,7 +421,7 @@ export function TournamentSection({
                     )}
                     <button
                       onClick={() => toggleEvents(item.id)}
-                      className={`text-[10px] px-2 py-1.5 border rounded-lg transition-colors cursor-pointer ${
+                      className={`text-[10px] px-2.5 py-1.5 border rounded-lg transition-colors cursor-pointer ${
                         isExpanded
                           ? "bg-indigo-50 border-indigo-200 text-indigo-600 font-semibold"
                           : "border-slate-200 text-slate-500 hover:border-indigo-500 hover:text-indigo-600"
@@ -438,10 +439,10 @@ export function TournamentSection({
                         <Plus className="w-3 h-3" /> Add Event
                       </button>
                     )}
-                    <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
+                    <button onClick={() => onEdit(item)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                       Edit
                     </button>
-                    <button onClick={() => onDelete(item.id)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
+                    <button onClick={() => onDelete(item.id)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                       Delete
                     </button>
                   </div>
@@ -449,21 +450,21 @@ export function TournamentSection({
 
                 {/* Nested sports events */}
                 {isExpanded && (
-                  <div className="space-y-3 pl-3.5 border-l-2 border-slate-200 mt-2">
+                  <div className="space-y-3 pl-2 sm:pl-3.5 border-l-2 border-slate-200 mt-2">
                     {item.sportsEvents.map((ev: any) => {
                       const registrationStatus = ev.registrationStatus || ev.status;
                       return (
                         <div key={ev.id} className="space-y-2">
-                          <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
                             <div className="min-w-0 flex-1 text-left">
-                              <div className="text-xs font-semibold text-slate-800">{ev.name}</div>
-                              <div className="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <div className="text-xs font-semibold text-slate-800 break-words">{ev.name}</div>
+                              <div className="text-[9px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                 {ev.gender && <span>Gender: {ev.gender}</span>}
                                 {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
                                 {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               {registrationStatus && registrationStatus !== "DRAFT" && (
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
                                   registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
@@ -477,6 +478,7 @@ export function TournamentSection({
                               )}
                               {onEditEvent && (
                                 <button
+                                  type="button"
                                   onClick={() => onEditEvent({
                                     ...ev,
                                     tournament: item,
@@ -487,6 +489,16 @@ export function TournamentSection({
                                   title="Edit Event"
                                 >
                                   <Edit2 className="w-2.5 h-2.5" /> Edit
+                                </button>
+                              )}
+                              {onDeleteEvent && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteEvent(ev.id, item.id)}
+                                  className="text-[9px] px-2 py-1 border border-slate-200 text-[#ef4444]/70 rounded hover:border-[#ef4444] hover:text-[#ef4444] hover:bg-red-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  title="Delete Event"
+                                >
+                                  <Trash2 className="w-2.5 h-2.5" /> Delete
                                 </button>
                               )}
                               {hasRegistrationButtons && (
@@ -516,16 +528,16 @@ export function TournamentSection({
 
           return (
             <div key={item.id} className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
                 <div className="min-w-0 flex-1 text-left">
-                  <div className="text-sm font-semibold text-slate-800 truncate">{ev.name}</div>
+                  <div className="text-sm font-semibold text-slate-800 break-words">{ev.name}</div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
                     {ev.eventDateStart && ev.eventDateEnd
                       ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
                       : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {registrationStatus && registrationStatus !== "DRAFT" && (
                     <span className={`text-[10px] px-2 py-1 rounded ${
                       registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
@@ -563,10 +575,10 @@ export function TournamentSection({
                       <Plus className="w-3 h-3" /> Add Event
                     </button>
                   )}
-                  <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
+                  <button onClick={() => onEdit(item)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                     Edit
                   </button>
-                  <button onClick={() => onDelete(targetId)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
+                  <button onClick={() => onDelete(targetId)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                     Delete
                   </button>
                 </div>

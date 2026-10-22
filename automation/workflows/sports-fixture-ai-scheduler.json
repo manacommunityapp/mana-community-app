@@ -1,0 +1,125 @@
+{
+  "name": "Mana Sports Tournament AI Fixture Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sports-fixture-scheduler",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Scheduler Request Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-sports-scheduler-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst tournamentName = item.tournamentName || 'Society Premier League';\nconst sport = item.sport || 'CRICKET';\nconst format = item.format || 'KNOCKOUT';\nconst teams = item.teams || ['Titans', 'Strikers', 'Warriors', 'Knights'];\nconst venues = item.venues || ['Main Turf Ground', 'Clubhouse Court'];\nconst startDate = item.startDate || new Date().toISOString().split('T')[0];\nconst timeSlots = item.timeSlots || ['08:00 AM', '10:30 AM', '04:00 PM', '06:30 PM'];\n\nconst prompt = `You are the Lead Tournament Director for the Mana Community Sports Council.\nCreate an optimal, conflict-free match fixture schedule for this tournament.\n\nRules:\n1. Ensure fair rest periods (no team should play consecutive matches on the same day if possible).\n2. Maximize court/venue utilization across the specified time slots.\n3. Include a Grand Finale as the culminating fixture.\n\nInput Data:\n- Tournament: ${tournamentName}\n- Sport: ${sport}\n- Format: ${format}\n- Participating Teams (${teams.length}): ${teams.join(', ')}\n- Venues: ${venues.join(', ')}\n- Starting Date: ${startDate}\n- Time Slots: ${timeSlots.join(', ')}\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"tournamentSummary\": \"Brief strategy on how fixtures were structured\",\n  \"totalMatches\": number,\n  \"fixtures\": [\n    {\n      \"matchNumber\": number,\n      \"round\": \"Quarter Final\" | \"Semi Final\" | \"Final\" | \"League Group A\",\n      \"teamA\": string,\n      \"teamB\": string,\n      \"venue\": string,\n      \"date\": \"YYYY-MM-DD\",\n      \"timeSlot\": string,\n      \"notes\": \"Key matchup insight\"\n    }\n  ],\n  \"fairnessAudit\": \"Brief explanation of rest interval balance\"\n}`;\n\nreturn [{\n  json: {\n    tournamentName,\n    sport,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Format Schedule Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "${GEMINI_API_KEY}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Fixture Engine (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedSchedule = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedSchedule = JSON.parse(rawText);\n} catch (err) {\n  parsedSchedule = {\n    tournamentSummary: \"Standard tournament bracket\",\n    totalMatches: 0,\n    fixtures: [],\n    fairnessAudit: \"Balanced distribution\"\n  };\n}\n\nconst meta = $('Format Schedule Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    tournamentName: meta.tournamentName,\n    sport: meta.sport,\n    generatedAt: new Date().toISOString(),\n    schedule: parsedSchedule\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Parse Fixtures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Return Fixtures JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Scheduler Request Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Schedule Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Schedule Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Fixture Engine (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Fixture Engine (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Fixtures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Fixtures": {
+      "main": [
+        [
+          {
+            "node": "Return Fixtures JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

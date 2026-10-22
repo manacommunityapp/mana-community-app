@@ -73,6 +73,7 @@ export const sportsService = {
   updateSportsEvent: sportsEventService.updateSportsEvent,
   deleteTournament: sportsEventService.deleteTournament,
   deleteEvent: sportsEventService.deleteEvent,
+  deleteSportsEvent: sportsEventService.deleteSportsEvent,
   updateTournamentStatus: sportsEventService.updateTournamentStatus,
   updateEventStatus: sportsEventService.updateEventStatus,
   getClosedTournaments: sportsEventService.getClosedTournaments,

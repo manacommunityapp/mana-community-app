@@ -238,6 +238,7 @@ export function SportsEventTab({
           clearTournamentContext={clearTournamentContext}
           onGoToConfigureEvents={() => setSportsEventSubTab("config")}
           handleSportEdit={onEditEventFromList}
+          handleSportDelete={handleSportDelete}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();
