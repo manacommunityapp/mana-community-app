@@ -94,7 +94,7 @@ export default function WearableAlertsDashboard() {
     // For now fetch from a hypothetical admin endpoint; graceful fallback to empty
     apiClient
       .get<WearableHealthEventDto[]>("/api/healthguard/admin/wearable-events")
-      .then(r => setEvents(r.data ?? []))
+      .then(r => setEvents(Array.isArray(r) ? r : ((r as any)?.data ?? [])))
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   };

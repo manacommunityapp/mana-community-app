@@ -601,7 +601,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                         <PendingRegistrationCard
                           key={reg.id}
                           reg={reg}
-                          sportName={g.tournament.sportName || "Sports"}
+                          sportName={(g.tournament as any)?.sportName || g.tournament.event?.sport?.name || "Sports"}
                           onApprove={id => handleApprove(id, eventId)}
                           onReject={id => handleReject(id, eventId)}
                           approving={approvingIds.has(reg.id)}
@@ -758,7 +758,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                       <PendingRegistrationCard
                         key={reg.id}
                         reg={reg}
-                        sportName={g.tournament.sportName || "Sports"}
+                        sportName={(g.tournament as any)?.sportName || g.tournament.event?.sport?.name || "Sports"}
                         onApprove={id => handleApprove(id, eventId)}
                         onReject={id => handleReject(id, eventId)}
                         approving={approvingIds.has(reg.id)}
