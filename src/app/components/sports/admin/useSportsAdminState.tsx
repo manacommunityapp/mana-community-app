@@ -23,7 +23,7 @@ import { ClipboardList } from "lucide-react";
 import { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS, SPORT_COLORS, DEFAULT_AVATAR_URL } from "../utils/sportsConstants";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
 import type { AnnouncementConfig } from "./TournamentAnnouncementModal";
-import { isValidIndianPhone, isValidEmail } from "../sportsValidation";
+import { isValidIndianPhone, isValidEmail, validateEventDates } from "../sportsValidation";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -1469,6 +1469,8 @@ export function useSportsAdminState() {
   const handleSave = async () => {
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
+    const dateCheck = validateEventDates(startDate, endDate);
+    if (!dateCheck.valid) { toast.error(dateCheck.error!); return; }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
     if (!isValidIndianPhone(eventContactNumber)) { toast.error("Tournament Contact Number must be a valid 10-digit Indian mobile number"); return; }
@@ -2119,6 +2121,11 @@ export function useSportsAdminState() {
     if (!categoryType) { toast.error("Category Type is required"); return; }
     if (!categoryGender) { toast.error("Gender is required"); return; }
     if (!categoryMinAge || !categoryMaxAge) { toast.error("Age range is required"); return; }
+    const minA = parseInt(categoryMinAge);
+    const maxA = parseInt(categoryMaxAge);
+    if (isNaN(minA) || minA < 0) { toast.error("Minimum age must be a valid non-negative number"); return; }
+    if (isNaN(maxA) || maxA < 0) { toast.error("Maximum age must be a valid non-negative number"); return; }
+    if (minA > maxA) { toast.error("Minimum age cannot be greater than maximum age"); return; }
     setCategorySubmitting(true);
     try {
       const commId = categoryCommId ? Number(categoryCommId) : (isSuperAdmin ? undefined : (user?.communityId ?? activeCommId));
