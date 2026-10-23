@@ -7,3 +7,4 @@ export type { CashfreeReceiptModalProps } from "./CashfreeReceiptModal";
 export { default as PaymentHistory } from "./PaymentHistory";
 export { default as PaymentSuccess } from "./PaymentSuccess";
 export { default as PaymentFailed } from "./PaymentFailed";
+export { default as AdminCashfreePaymentReport } from "./AdminCashfreePaymentReport";
