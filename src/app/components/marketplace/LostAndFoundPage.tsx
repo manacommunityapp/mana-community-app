@@ -475,8 +475,8 @@ function LostAndFoundMatchModal({
         <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#262644] border border-slate-200 dark:border-slate-700">
           <div>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Match Status</span>
-            <span className={cn("inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border", getBadgeColor(result.matchStatus))}>
-              {result.matchStatus.replace(/_/g, " ")}
+            <span className={cn("inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border", getBadgeColor(result.matchStatus || "NO_MATCH"))}>
+              {(result.matchStatus || "NO_MATCH").replace(/_/g, " ")}
             </span>
           </div>
           <div className="text-right">

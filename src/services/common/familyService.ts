@@ -148,10 +148,33 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
   return [selfEntry, ...cleanOthers];
 }
 
+export function inferGenderFromRelation(relation?: string, userGender?: string): "Male" | "Female" | "Other" {
+  if (!relation) return "Other";
+  const rel = relation.toLowerCase().trim();
+  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (femaleRelations.some(r => rel.includes(r))) return "Female";
+  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  if (maleRelations.some(r => rel.includes(r))) return "Male";
+  if (rel.includes("spouse") || rel.includes("partner")) {
+    return (userGender || "Male").toLowerCase().startsWith("m") ? "Female" : "Male";
+  }
+  return "Other";
+}
+
 function getStoredMembers(): FamilyMember[] {
   const parsed = safeStorage.getJSON<FamilyMember[] | null>(getStorageKey(), null);
   if (Array.isArray(parsed)) {
-    return mergeWithSelf(parsed);
+    const user = getStoredUser();
+    const sanitized = parsed.map(m => {
+      if (m.relation) {
+        const inferred = inferGenderFromRelation(m.relation, user?.gender);
+        if (inferred === "Female" && (m.gender === "Male" || !m.gender)) {
+          return { ...m, gender: "Female" };
+        }
+      }
+      return m;
+    });
+    return mergeWithSelf(sanitized);
   }
   const self = getSelfMember();
   return self ? [self] : [];
@@ -240,26 +263,35 @@ export const familyService = {
         }
 
         if (Array.isArray(res)) {
-          const mapped: FamilyMember[] = res.map((m) => ({
-            id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            userId: m.userId,
-            name: m.name || m.fullName || "Family Member",
-            relation: m.relation || m.relationship || "Family",
-            age: Number(m.age) || undefined,
-            dob: m.dob || m.dateOfBirth,
-            gender: m.gender || "Male",
-            phone: m.phone || m.mobile,
-            email: m.email,
-            bloodGroup: m.bloodGroup || m.blood,
-            gotram: m.gothram || m.gotram,
-            emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
-            isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
-            photoUrl: m.photoUrl || m.avatar,
-            avatar: m.avatar || m.photoUrl,
-            notes: m.notes,
-            createdAt: m.createdAt,
-            updatedAt: m.updatedAt,
-          }));
+          const currentUser = getStoredUser();
+          const mapped: FamilyMember[] = res.map((m) => {
+            const rel = m.relation || m.relationship || "Family";
+            const inferredGender = inferGenderFromRelation(rel, currentUser?.gender);
+            let finalGender = m.gender;
+            if (!finalGender || (finalGender === "Male" && inferredGender === "Female")) {
+              finalGender = inferredGender !== "Other" ? inferredGender : (m.gender || "Other");
+            }
+            return {
+              id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              userId: m.userId,
+              name: m.name || m.fullName || "Family Member",
+              relation: rel,
+              age: Number(m.age) || undefined,
+              dob: m.dob || m.dateOfBirth,
+              gender: finalGender || "Other",
+              phone: m.phone || m.mobile,
+              email: m.email,
+              bloodGroup: m.bloodGroup || m.blood,
+              gotram: m.gothram || m.gotram,
+              emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
+              isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
+              photoUrl: m.photoUrl || m.avatar,
+              avatar: m.avatar || m.photoUrl,
+              notes: m.notes,
+              createdAt: m.createdAt,
+              updatedAt: m.updatedAt,
+            };
+          });
 
           // Preserve any local-only non-self members not yet reflected on the server
           const currentlyStored = getStoredMembers();
@@ -299,13 +331,16 @@ export const familyService = {
    */
   async addFamilyMember(data: Partial<FamilyMember>): Promise<FamilyMember> {
     const current = getStoredMembers();
+    const currentUser = getStoredUser();
+    const inferred = inferGenderFromRelation(data.relation, currentUser?.gender);
+    const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
     const newMember: FamilyMember = {
       id: `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: (data.name || "").trim() || "Family Member",
       relation: (data.relation || "Family").trim(),
       age: data.age ? Number(data.age) : undefined,
       dob: data.dob,
-      gender: data.gender || "Male",
+      gender: finalGender,
       phone: data.phone?.trim(),
       email: data.email?.trim(),
       bloodGroup: data.bloodGroup?.trim(),
@@ -313,7 +348,7 @@ export const familyService = {
       emergencyContact: Boolean(data.emergencyContact),
       isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
       photoUrl: data.photoUrl,
-      avatar: (data as any).avatar || (data.gender === "Female" ? (Number(data.age) < 18 ? "👧" : "👩") : (Number(data.age) < 18 ? "👦" : "👨")),
+      avatar: (data as any).avatar || (finalGender === "Female" ? (Number(data.age) < 18 ? "👧" : "👩") : (Number(data.age) < 18 ? "👦" : "👨")),
       notes: data.notes?.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

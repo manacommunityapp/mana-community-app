@@ -577,7 +577,7 @@ export function ProductDetail() {
                       <span className="text-[10px] font-semibold text-slate-500">Drafted Courteous Note:</span>
                       <button
                         type="button"
-                        onClick={() => setOfferNote(offerAdvice.suggestedNeighborMessage)}
+                        onClick={() => setOfferNote(offerAdvice.suggestedNeighborMessage || "")}
                         className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
                       >
                         Insert Note

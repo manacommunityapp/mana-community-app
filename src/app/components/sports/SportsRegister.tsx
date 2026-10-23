@@ -63,8 +63,78 @@ export function normalizeGender(gender: string | null | undefined): "MALE" | "FE
   return "OTHER";
 }
 
+export function parseDobDate(dobString?: string | null): Date | null {
+  if (!dobString) return null;
+  const str = String(dobString).trim();
+  if (!str) return null;
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+export function inferGender(
+  member?: { gender?: string | null; relation?: string | null; name?: string | null } | null,
+  primaryUserGender?: string | null
+): string {
+  if (!member) return "";
+  const rel = (member.relation || "").trim().toLowerCase();
+  
+  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (femaleRelations.some(r => rel.includes(r))) {
+    return "Female";
+  }
+
+  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  if (maleRelations.some(r => rel.includes(r))) {
+    return "Male";
+  }
+
+  if (rel.includes("spouse") || rel.includes("partner")) {
+    const pGen = (primaryUserGender || "Male").toLowerCase();
+    return pGen.startsWith("m") ? "Female" : "Male";
+  }
+
+  if (member.gender && String(member.gender).trim()) {
+    const norm = normalizeGender(member.gender);
+    if (norm === "FEMALE") return "Female";
+    if (norm === "MALE") return "Male";
+    return String(member.gender).trim();
+  }
+
+  return "";
+}
+
 export function checkCategoryEligibility(
-  categoryOrEvent: { name?: string | null; categoryName?: string | null; gender?: string | null; minAge?: number | null; maxAge?: number | null } | null | undefined,
+  categoryOrEvent: {
+    name?: string | null;
+    categoryName?: string | null;
+    gender?: string | null;
+    minAge?: number | null;
+    maxAge?: number | null;
+    categories?: any[] | null;
+    allowedGenders?: string[] | null;
+  } | null | undefined,
   participantAge: number,
   participantGender: string
 ): CategoryEligibilityResult {
@@ -79,6 +149,40 @@ export function checkCategoryEligibility(
       requiredGender: null,
       warningMsg: "",
     };
+  }
+
+  // If categoryOrEvent has an array of subcategories, check if any subcategory matches or if all are blocked
+  if (Array.isArray(categoryOrEvent.categories) && categoryOrEvent.categories.length > 0) {
+    const subCategories: any[] = categoryOrEvent.categories;
+    const subResults = subCategories.map(sub => checkCategoryEligibility(sub, participantAge, participantGender));
+    const anyEligible = subResults.some(r => r.eligible);
+    if (anyEligible) {
+      const matchingSub = subResults.find(r => r.eligible);
+      return matchingSub || {
+        eligible: true,
+        isGenderMismatch: false,
+        isOverAge: false,
+        isUnderAge: false,
+        minAge: null,
+        maxAge: null,
+        requiredGender: null,
+        warningMsg: "",
+      };
+    } else {
+      const isGenderMismatch = subResults.every(r => r.isGenderMismatch);
+      const isOverAge = subResults.every(r => r.isOverAge);
+      const isUnderAge = subResults.every(r => r.isUnderAge);
+      return {
+        eligible: false,
+        isGenderMismatch,
+        isOverAge,
+        isUnderAge,
+        minAge: subResults[0]?.minAge ?? null,
+        maxAge: subResults[0]?.maxAge ?? null,
+        requiredGender: subResults[0]?.requiredGender ?? null,
+        warningMsg: subResults[0]?.warningMsg || "No eligible category for selected participant",
+      };
+    }
   }
 
   const text = `${categoryOrEvent.categoryName || ""} ${categoryOrEvent.name || ""}`.toLowerCase();
@@ -225,10 +329,10 @@ export function findBestMatchingCategory<T extends { name?: string | null; categ
   return bestScore > -1 ? bestItem : undefined;
 }
 
-export function calculateAge(dobString: string): number | null {
+export function calculateAge(dobString?: string | null): number | null {
   if (!dobString) return null;
-  const dob = new Date(dobString);
-  if (isNaN(dob.getTime())) return null;
+  const dob = parseDobDate(dobString);
+  if (!dob) return null;
   const today = new Date();
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();
@@ -1408,12 +1512,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
       if (targetMember) {
         const calculatedAge = (targetMember.dob ? calculateAge(targetMember.dob) : null) ?? targetMember.age ?? 25;
+        const inferredGen = inferGender(targetMember, userGender);
         setFormData(prev => ({
           ...prev,
           regType: "family",
           playerName: targetMember.name,
           familyMemberId: targetMember.id,
-          gender: targetMember.gender || "",
+          gender: inferredGen || targetMember.gender || "",
           dateOfBirth: targetMember.dob || "",
           flatNumber: userFlat,
           age: calculatedAge,
