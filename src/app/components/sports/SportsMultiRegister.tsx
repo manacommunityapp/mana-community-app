@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
+import { inferGender } from "./SportsRegister";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -67,10 +68,38 @@ function getSportMeta(sportName: string) {
   return { emoji: "🏆", bg: "bg-indigo-50 text-indigo-700 border-indigo-200" };
 }
 
+function parseDobDate(dobString?: string | null): Date | null {
+  if (!dobString) return null;
+  const str = String(dobString).trim();
+  if (!str) return null;
+
+  const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const ymdMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
 function calculateAge(dobString: string): number | null {
   if (!dobString) return null;
-  const dob = new Date(dobString);
-  if (isNaN(dob.getTime())) return null;
+  const dob = parseDobDate(dobString);
+  if (!dob) return null;
   const today = new Date();
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();
@@ -965,7 +994,7 @@ export function SportsMultiRegister() {
         setRegType("family");
         setPlayerName(targetMember.name);
         setEmail(targetMember.email || "");
-        setGender(targetMember.gender || "");
+        setGender(inferGender(targetMember, userProfileGender) || targetMember.gender || "");
         setDateOfBirth(targetMember.dob || (targetMember as any).dateOfBirth || "");
         setRelation(targetMember.relation || (targetMember as any).relationship || "");
         setFamilyMemberId(targetMember.id);

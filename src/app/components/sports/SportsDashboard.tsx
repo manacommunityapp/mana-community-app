@@ -8,7 +8,7 @@ import { confirmAction } from "../../../utils/AlertUtils";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
-import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats } from "./SportsRegister";
+import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats, inferGender } from "./SportsRegister";
 import { isTeamSport } from "./utils/sportsConstants";
 import {
   VIEW_SPORTS_MAIN,
@@ -561,10 +561,12 @@ export function SportsDashboard() {
   const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
     const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
     if (isSelf) {
-      const hasDob = Boolean(user?.dateOfBirth || (user as any)?.dob);
+      const rawDob = user?.dateOfBirth || (user as any)?.dob;
+      const parsedAge = calculateAge(rawDob);
+      const hasDob = Boolean(rawDob || (user as any)?.age > 0 || (parsedAge !== null && parsedAge > 0));
       const hasGender = Boolean(user?.gender && String(user.gender).trim());
       const missingFields: string[] = [];
-      if (!hasDob) missingFields.push("Date of Birth (DOB)");
+      if (!hasDob) missingFields.push("Date of Birth / Age");
       if (!hasGender) missingFields.push("Gender");
       return {
         isValid: hasDob && hasGender,
@@ -588,10 +590,13 @@ export function SportsDashboard() {
       };
     }
 
-    const hasDob = Boolean(member.dob && String(member.dob).trim());
-    const hasGender = Boolean(member.gender && String(member.gender).trim());
+    const rawDob = member.dob || (member as any)?.dateOfBirth;
+    const parsedAge = calculateAge(rawDob);
+    const hasDob = Boolean(rawDob || (member.age && Number(member.age) > 0) || (parsedAge !== null && parsedAge > 0));
+    const memberGen = inferGender(member, user?.gender);
+    const hasGender = Boolean((member.gender && String(member.gender).trim()) || memberGen);
     const missingFields: string[] = [];
-    if (!hasDob) missingFields.push("Date of Birth (DOB)");
+    if (!hasDob) missingFields.push("Date of Birth / Age");
     if (!hasGender) missingFields.push("Gender");
 
     return {
@@ -613,15 +618,18 @@ export function SportsDashboard() {
     if (upcomingFamilyFilter === "ALL") return null;
     const isSelf = upcomingFamilyFilter === "SELF" || upcomingFamilyFilter === "self";
     if (isSelf) {
+      const computedAge = calculateAge(user?.dateOfBirth || (user as any)?.dob);
       return {
-        age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
-        gender: user?.gender || "",
+        age: (computedAge !== null && computedAge > 0 ? computedAge : Number((user as any)?.age)) || 0,
+        gender: user?.gender || "Male",
       };
     }
     const fm = familyMembers.find(m => String(m.id) === String(upcomingFamilyFilter));
+    const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+    const inferredGen = inferGender(fm, user?.gender);
     return {
-      age: (fm ? calculateAge(fm.dob || (fm as any)?.dateOfBirth) : 0) || (fm?.age || 0),
-      gender: fm?.gender || "",
+      age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+      gender: inferredGen || fm?.gender || "",
     };
   }, [upcomingFamilyFilter, user, familyMembers]);
 
@@ -760,6 +768,12 @@ export function SportsDashboard() {
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
+          gender: e.gender ?? (e as any).genderCategory ?? (e as any).category?.gender ?? (e as any).playerCategory?.gender ?? (e as any).categories?.[0]?.gender ?? undefined,
+          minAge: e.minAge ?? (e as any).category?.minAge ?? (e as any).playerCategory?.minAge ?? (e as any).categories?.[0]?.minAge ?? undefined,
+          maxAge: e.maxAge ?? (e as any).category?.maxAge ?? (e as any).playerCategory?.maxAge ?? (e as any).categories?.[0]?.maxAge ?? undefined,
+          categories: e.categories ?? undefined,
+          allowedGenders: e.allowedGenders ?? undefined,
+          rawEvent: e,
         };
       };
 
@@ -1390,19 +1404,21 @@ export function SportsDashboard() {
                 const viewMode = tournamentViewMode[t.id] || "grid";
 
 
-                const selectedMemberId = selectedMemberByTournament[t.id] || "self";
+                const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
                 const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
                 const isSelf = selectedMemberId === "self";
                 const targetMember = isSelf
                   ? {
                       age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
-                      gender: user?.gender || "",
+                      gender: user?.gender || "Male",
                     }
                   : (() => {
                       const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+                      const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+                      const inferredGen = inferGender(fm, user?.gender);
                       return {
-                        age: (fm ? calculateAge(fm.dob || (fm as any)?.dateOfBirth) : 0) || (fm?.age || 0),
-                        gender: fm?.gender || "",
+                        age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+                        gender: inferredGen || fm?.gender || "",
                       };
                     })();
 
@@ -1713,10 +1729,14 @@ export function SportsDashboard() {
                               </label>
                               <div className="relative">
                                 <select
-                                  value={selectedMemberByTournament[t.id] || "self"}
+                                  value={selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self"}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setSelectedMemberByTournament(prev => ({ ...prev, [t.id]: val }));
+                                    setSelectedMemberByTournament(prev => ({
+                                      ...prev,
+                                      [t.id]: val,
+                                      [String(t.id)]: val,
+                                    }));
                                     notifyIncompleteProfile(val);
                                   }}
                                   className="text-xs font-semibold pl-2.5 pr-7 py-1.5 rounded-lg bg-white border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all"
@@ -1736,7 +1756,7 @@ export function SportsDashboard() {
                               {memberProfileStatus.isValid ? (
                                 <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span>Profile Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}, {targetMember.age}y)</span>
+                                  <span>Profile Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
                                 </span>
                               ) : (
                                 <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
@@ -2387,8 +2407,9 @@ export function SportsDashboard() {
           onClose={() => setIsDetailsModalOpen(false)}
           tournament={detailsModalTournament}
           onRegisterEvent={(eventIdOrUuid) => {
-            const isSelf = (selectedMemberByTournament[detailsModalTournament?.id] || "self") === "self";
-            const memberId = isSelf ? undefined : selectedMemberByTournament[detailsModalTournament?.id];
+            const memberVal = selectedMemberByTournament[detailsModalTournament?.id] ?? (detailsModalTournament?.id ? selectedMemberByTournament[String(detailsModalTournament.id)] : undefined) ?? "self";
+            const isSelf = memberVal === "self";
+            const memberId = isSelf ? undefined : memberVal;
             handleOpenRegistration(eventIdOrUuid, isSelf ? "self" : "family", memberId);
           }}
           onViewSchedule={(tournamentId) => {

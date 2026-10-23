@@ -45,6 +45,12 @@ export interface OpenRegistration {
   isTeamSport?: boolean;
   sportEmoji?: string;
   categoryName?: string;
+  gender?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categories?: any[] | null;
+  allowedGenders?: string[] | null;
+  rawEvent?: any;
 }
 
 export interface Notification {
