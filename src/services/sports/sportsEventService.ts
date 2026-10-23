@@ -158,11 +158,26 @@ export const sportsEventService = {
 
   /** PUT /api/tournaments/{id}/status — update tournament status */
   async updateTournamentStatus(id: number, status: string): Promise<any> {
-    return apiClient.put<any>(`/tournaments/${id}/status?status=${status}`);
+    return apiClient.put<any>(`/tournaments/${id}/status?status=${status}`).catch((err: any) => {
+      if (err?.response?.status === 404 || err?.status === 404) {
+        return apiClient.put<any>(`/sports/tournaments/${id}/status?status=${status}`);
+      }
+      throw err;
+    });
   },
   async updateEventStatus(id: number, status: string): Promise<SportsEvent> {
     return apiClient.put<SportsEvent>(`/sports/events/${id}/status?status=${status}`)
       .then((x: any) => this.mapEvent(x));
+  },
+
+  /** Close tournament registration: set status to REGISTRATION_CLOSED */
+  async closeTournament(id: number): Promise<any> {
+    return this.updateTournamentStatus(id, "REGISTRATION_CLOSED");
+  },
+
+  /** Close sports event registration: set status to REGISTRATION_CLOSED */
+  async closeSportsEvent(id: number): Promise<SportsEvent> {
+    return this.updateEventStatus(id, "REGISTRATION_CLOSED");
   },
 
   /** GET /api/sports/tournaments/closed — all REGISTRATION_CLOSED tournaments */

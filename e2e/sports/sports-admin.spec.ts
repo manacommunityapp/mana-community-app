@@ -399,3 +399,72 @@ test.describe("Sports Admin — Create Tournament Form", () => {
     }
   });
 });
+
+test.describe("Sports Admin — Tournament & Event Deletion Safety", () => {
+  test.beforeEach(async ({ page }) => {
+    await injectAuth(page);
+    await mockAuthRoutes(page);
+    await mockSportsDashboardRoutes(page);
+    await mockSportsAdminRoutes(page);
+
+    await page.route("**/api/tournaments**", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          json: [
+            {
+              id: 101,
+              name: "Active Premier League",
+              registrationStatus: "REGISTRATION_OPEN",
+              eventDateStart: "2026-11-01",
+              eventDateEnd: "2026-11-10",
+              sportsEvents: [
+                {
+                  id: 201,
+                  name: "Badminton Men Singles",
+                  registrationStatus: "REGISTRATION_OPEN",
+                  registeredCount: 4,
+                  eventDateStart: "2026-11-01",
+                  eventDateEnd: "2026-11-05",
+                },
+              ],
+            },
+          ],
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.route("**/api/sports/tournaments/101/registrations**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: [{ id: 1, playerName: "John Doe" }],
+      });
+    });
+
+    await page.route("**/api/sports/tournaments/201/registrations**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        json: [{ id: 1, playerName: "John Doe" }],
+      });
+    });
+
+    await page.goto("/sports/admin?tab=sports-event");
+  });
+
+  test("shows Close Reg button on open tournaments", async ({ page }) => {
+    await expect(page.getByRole("button", { name: /Close Reg/i }).first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test("prevents deleting tournament when registrations exist and offers Close Tournament", async ({ page }) => {
+    // Click Delete on the tournament
+    const deleteBtn = page.getByRole("button", { name: "Delete" }).first();
+    await expect(deleteBtn).toBeVisible({ timeout: 5000 });
+    await deleteBtn.click();
+
+    // SweetAlert modal appears blocking deletion and offering Close Tournament
+    await expect(page.getByText(/Cannot Delete Tournament/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: /Close Tournament/i })).toBeVisible();
+  });
+});

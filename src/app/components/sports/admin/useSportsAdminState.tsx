@@ -1864,16 +1864,173 @@ export function useSportsAdminState() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Delete Tournament",
-      "Are you sure you want to delete this tournament?"
-    );
+  const getTournamentEvents = (tourneyId: number): any[] => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(tourneyId));
+    const eventsMap = new Map<number, any>();
+
+    if (Array.isArray(tourney?.sportsEvents)) {
+      tourney.sportsEvents.forEach((ev: any) => {
+        if (ev?.id != null) eventsMap.set(Number(ev.id), ev);
+      });
+    }
+    if (tourney?.event?.id != null) {
+      eventsMap.set(Number(tourney.event.id), tourney.event);
+    }
+    if (Array.isArray(activeEvents)) {
+      activeEvents.forEach((ev: any) => {
+        const parentId = ev.tournamentId ?? ev.tournament?.id;
+        if (Number(parentId) === Number(tourneyId) && ev?.id != null) {
+          eventsMap.set(Number(ev.id), ev);
+        }
+      });
+    }
+    return Array.from(eventsMap.values());
+  };
+
+  const checkEventRegistrations = async (eventId: number, cachedEvent?: any): Promise<number> => {
+    if (typeof cachedEvent?.registeredCount === "number" && cachedEvent.registeredCount > 0) {
+      return cachedEvent.registeredCount;
+    }
+    try {
+      const regs = await sportsService.getTournamentRegistrations(eventId);
+      if (Array.isArray(regs)) {
+        return regs.length;
+      }
+    } catch {
+      try {
+        const count = await sportsService.getConfirmedCount(eventId);
+        if (typeof count === "number") return count;
+      } catch {
+        // ignore
+      }
+    }
+    return cachedEvent?.registeredCount || 0;
+  };
+
+  const handleCloseTournament = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const name = tourney?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Close Tournament Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
+    try {
+      await sportsService.closeTournament(id);
+      const events = getTournamentEvents(id);
+      if (events.length > 0) {
+        await Promise.allSettled(
+          events.map(ev => sportsService.closeSportsEvent(ev.id))
+        );
+      }
+      toast.success("Tournament registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close tournament registration");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const events = getTournamentEvents(id);
+    const hasEvents = events.length > 0;
+
+    // Check if registrations exist across all events in this tournament
+    let totalRegistrations = 0;
+    if (hasEvents) {
+      const counts = await Promise.all(
+        events.map(ev => checkEventRegistrations(ev.id, ev))
+      );
+      totalRegistrations = counts.reduce((acc, c) => acc + c, 0);
+    } else {
+      totalRegistrations = await checkEventRegistrations(id, tourney);
+    }
+
+    // If registrations exist: DO NOT DELETE! Ask to close the tournament instead.
+    if (totalRegistrations > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Tournament",
+        text: `This tournament has ${hasEvents ? `${events.length} event(s) and ` : ""}${totalRegistrations} active registration${totalRegistrations > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close the tournament instead?`,
+        confirmButtonText: "Close Tournament",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament and registrations closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament");
+        }
+      }
+      return;
+    }
+
+    // If no registrations exist:
+    const status = tourney?.registrationStatus || tourney?.event?.registrationStatus;
+    const isOpen = status === "LIVE" || status === "REGISTRATION_OPEN";
+
+    if (isOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Tournament Registration?",
+        text: `This tournament is currently open for registration with ${hasEvents ? `${events.length} event(s)` : "no events"} (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Tournament",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament registration");
+        }
+        return;
+      }
+    }
+
+    // If draft or user chose to proceed with deleting 0-registration tournament:
+    const confirmed = await confirmAction({
+      title: "Delete Tournament",
+      text: hasEvents
+        ? `This tournament contains ${events.length} event(s) with no registrations. Are you sure you want to permanently delete this tournament and all its events? This action cannot be undone.`
+        : "Are you sure you want to delete this tournament? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
     try {
       await sportsService.deleteTournament(id);
       toast.success("Tournament deleted");
       refreshTournaments();
+      refreshEvents();
     } catch (err) {
       toast.error("Failed to delete tournament");
     }
@@ -2413,12 +2570,112 @@ export function useSportsAdminState() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSportDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Delete Sports Event",
-      "Are you sure you want to delete this sports event? This action cannot be undone."
-    );
+  const handleCloseEvent = async (id: number) => {
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+    const name = targetEvent?.name || "this event";
+    const confirmed = await confirmAction({
+      title: "Close Event Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
+    try {
+      await sportsService.closeSportsEvent(id);
+      toast.success("Event registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close event registration");
+    }
+  };
+
+  const handleSportDelete = async (id: number) => {
+    // 1. Find event in activeEvents or activeTournaments
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+
+    // 2. Check if registrations exist for this event
+    const regCount = await checkEventRegistrations(id, targetEvent);
+
+    // 3. If registrations exist: DO NOT DELETE! Ask to close registration instead
+    if (regCount > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Sports Event",
+        text: `This sports event has ${regCount} active registration${regCount > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close registration for this event instead?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+      }
+      return;
+    }
+
+    // 4. If no registrations exist:
+    const eventStatus = targetEvent?.registrationStatus || targetEvent?.status;
+    const isEventOpen = eventStatus === "LIVE" || eventStatus === "REGISTRATION_OPEN";
+
+    if (isEventOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Event Registration?",
+        text: `This sports event is currently open for registration (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Event",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+        return;
+      }
+    }
+
+    // 5. If draft or confirmed delete:
+    const confirmed = await confirmAction({
+      title: "Delete Sports Event",
+      text: "Are you sure you want to delete this sports event? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
     try {
       await sportsService.deleteEvent(id);
       toast.success("Event deleted successfully");
@@ -2698,7 +2955,7 @@ export function useSportsAdminState() {
     // Tournament data
     activeTournaments, activeEvents,
     draftEvents, liveEvents, completedEvents,
-    handleEdit, handleDelete, handleActivate,
+    handleEdit, handleDelete, handleActivate, handleCloseTournament,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
     announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
@@ -2747,7 +3004,7 @@ export function useSportsAdminState() {
     sportForms, sportSubmitting,
     handleSportPickerSelect, handleCreateCustomSport,
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
-    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete,
+    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,
