@@ -79,6 +79,8 @@ export function SportsAdmin() {
                 handleEdit={s.handleEdit}
                 handleDelete={s.handleDelete}
                 handleActivate={s.handleActivate}
+                handleCloseTournament={s.handleCloseTournament}
+                handleCloseEvent={s.handleCloseEvent}
                 handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
                 handleViewPlayers={s.handleViewPlayers}
                 handleViewCaptains={s.handleViewCaptains}

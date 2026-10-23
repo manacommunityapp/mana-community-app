@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport } from "../utils/sportsConstants";
@@ -18,6 +18,8 @@ interface TournamentSectionProps {
   onDelete: (id: number) => void;
   onActivate?: (id: number) => void;
   showActivate?: boolean;
+  onCloseTournament?: (id: number) => void;
+  onCloseEvent?: (id: number) => void;
   onAnnounce?: (id: number, name: string) => void;
   onViewPlayers?: (eventId: number) => void;
   onViewCaptains?: (eventId: number) => void;
@@ -38,7 +40,7 @@ interface TournamentSectionProps {
 
 export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
-  onEdit, onDelete, onActivate, showActivate, onAnnounce,
+  onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCloseEvent, onAnnounce,
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
@@ -414,6 +416,11 @@ export function TournamentSection({
                         Open for Registration
                       </button>
                     )}
+                    {onCloseTournament && (item.registrationStatus === "LIVE" || item.registrationStatus === "REGISTRATION_OPEN" || item.status === "LIVE" || item.status === "REGISTRATION_OPEN") && (
+                      <button onClick={() => onCloseTournament(item.id)} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
+                        <Lock className="w-3 h-3" /> Close Reg
+                      </button>
+                    )}
                     {onAnnounce && (
                       <button onClick={() => onAnnounce(item.id, item.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
                         <Megaphone className="w-3 h-3" /> Announce
@@ -491,6 +498,16 @@ export function TournamentSection({
                                   <Edit2 className="w-2.5 h-2.5" /> Edit
                                 </button>
                               )}
+                              {onCloseEvent && (registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN") && (
+                                <button
+                                  type="button"
+                                  onClick={() => onCloseEvent(ev.id)}
+                                  className="text-[9px] px-2 py-1 border border-amber-200 text-amber-600 rounded hover:border-amber-400 hover:bg-amber-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  title="Close Event Registration"
+                                >
+                                  <Lock className="w-2.5 h-2.5" /> Close
+                                </button>
+                              )}
                               {onDeleteEvent && (
                                 <button
                                   type="button"
@@ -558,6 +575,11 @@ export function TournamentSection({
                   {showActivate && onActivate && (
                     <button onClick={() => onActivate(targetId)} className="text-[10px] px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                       Open for Registration
+                    </button>
+                  )}
+                  {onCloseTournament && (registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN") && (
+                    <button onClick={() => onCloseTournament(targetId)} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
+                      <Lock className="w-3 h-3" /> Close Reg
                     </button>
                   )}
                   {onAnnounce && (

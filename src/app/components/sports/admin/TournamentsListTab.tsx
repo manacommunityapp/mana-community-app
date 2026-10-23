@@ -32,6 +32,8 @@ interface TournamentsListTabProps {
   onGoToConfigureEvents?: () => void;
   handleSportEdit?: (ev: any) => void;
   handleSportDelete?: (id: number) => void;
+  handleCloseTournament?: (id: number) => void;
+  handleCloseEvent?: (id: number) => void;
   onOpenSportPicker?: () => void;
 }
 
@@ -44,6 +46,8 @@ export function TournamentsListTab({
   handleEdit,
   handleDelete,
   handleActivate,
+  handleCloseTournament,
+  handleCloseEvent,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
@@ -149,6 +153,8 @@ export function TournamentsListTab({
             onEdit={handleEdit}
             onDelete={handleDelete}
             onActivate={handleActivate}
+            onCloseTournament={handleCloseTournament}
+            onCloseEvent={handleCloseEvent}
             onAnnounce={handleAnnounce}
             showActivate
             onEditEvent={onEditEvent}
@@ -165,6 +171,8 @@ export function TournamentsListTab({
             events={liveEvents}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onCloseTournament={handleCloseTournament}
+            onCloseEvent={handleCloseEvent}
             onAnnounce={handleAnnounce}
             onViewPlayers={handleViewPlayers}
             onViewCaptains={handleViewCaptains}
@@ -199,6 +207,8 @@ export function TournamentsListTab({
             events={completedEvents}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onCloseTournament={handleCloseTournament}
+            onCloseEvent={handleCloseEvent}
             onEditEvent={onEditEvent}
             onDeleteEvent={handleSportDelete}
             onAddEventToTournament={onAddEventToTournament}
