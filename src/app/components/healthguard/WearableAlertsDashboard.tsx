@@ -1,10 +1,40 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Watch, RefreshCw, ArrowLeft, Heart, Droplets, AlertTriangle } from "lucide-react";
-import { apiClient } from "@/services/common/apiClient";
+import { apiClient } from "../../../services/common/apiClient";
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm ${className}`}>{children}</div>;
+}
+
+function CardContent({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`p-4 ${className}`}>{children}</div>;
+}
+
+function CardHeader({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`p-4 pb-2 ${className}`}>{children}</div>;
+}
+
+function CardTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <h3 className={`font-semibold ${className}`}>{children}</h3>;
+}
+
+function Badge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${className}`}>{children}</span>;
+}
+
+function Button({ children, onClick, disabled, className = "" }: any) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center font-medium rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 px-3 py-1.5 text-xs transition cursor-pointer disabled:opacity-50 ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
 
 type WearableEventType =
   | "FALL_DETECTED" | "HIGH_HEART_RATE" | "LOW_HEART_RATE" | "IRREGULAR_HEART_RATE"

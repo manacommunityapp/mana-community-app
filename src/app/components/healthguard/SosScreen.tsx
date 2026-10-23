@@ -58,13 +58,13 @@ export function SosScreen() {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setPhase('triggering');
     try {
-      const res = await healthGuardService.triggerSos({
+      const res: any = await healthGuardService.triggerSos({
         description: description.trim() || undefined,
         severity,
         locationAddress: location.trim() || undefined,
         triggerType: 'MANUAL_SOS',
       });
-      setIncident(res.data);
+      setIncident(res?.data || res);
       setPhase('triggered');
     } catch (e) {
       setErrorMsg('Failed to send SOS. Please call 112 directly.');

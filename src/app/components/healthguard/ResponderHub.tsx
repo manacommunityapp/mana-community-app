@@ -37,8 +37,8 @@ export default function ResponderHub() {
 
   useEffect(() => {
     Promise.all([
-      healthGuardService.getMyResponderProfile().then(r => r.status !== 204 ? r.data : null).catch(() => null),
-      healthGuardService.getAvailableRespondersCount().then(r => r.data?.count ?? 0).catch(() => 0),
+      healthGuardService.getMyResponderProfile().then((r: any) => r?.status !== 204 ? (r?.data || r) : null).catch(() => null),
+      healthGuardService.getAvailableRespondersCount().then((r: any) => (r?.count ?? r?.data?.count ?? 0)).catch(() => 0),
     ]).then(([p, count]) => {
       setProfile(p);
       setCommunityCount(count);
@@ -49,8 +49,8 @@ export default function ResponderHub() {
   const handleRegister = async () => {
     setSaving(true);
     try {
-      const r = await healthGuardService.registerAsResponder(form);
-      setProfile(r.data);
+      const r: any = await healthGuardService.registerAsResponder(form);
+      setProfile(r?.data || r);
       setShowRegister(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -63,8 +63,8 @@ export default function ResponderHub() {
     if (!profile) return;
     setSaving(true);
     try {
-      const r = await healthGuardService.updateResponderStatus(status);
-      setProfile(r.data);
+      const r: any = await healthGuardService.updateResponderStatus(status);
+      setProfile(r?.data || r);
       if (status === "AVAILABLE") setCommunityCount(c => c + 1);
       else if (profile.availabilityStatus === "AVAILABLE") setCommunityCount(c => Math.max(0, c - 1));
     } finally {
