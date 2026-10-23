@@ -308,6 +308,16 @@ import WaterTracker from "./components/wellness/WaterTracker";
 import WellnessChallenges from "./components/wellness/WellnessChallenges";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
+import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
+import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
+import { IncidentTracker } from "./components/healthguard/IncidentTracker";
+import { SosScreen } from "./components/healthguard/SosScreen";
+import { HealthProfile } from "./components/healthguard/HealthProfile";
+import ResponderHub from "./components/healthguard/ResponderHub";
+import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
+import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
+import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
+import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -1156,6 +1166,21 @@ export const router = createBrowserRouter([
           { path: "challenges", element: <WellnessChallenges /> },
           { path: "providers", element: <WellnessProviders /> },
           { path: "profile", element: <WellnessProfilePage /> },
+        ],
+      },
+      {
+        path: "healthguard",
+        children: [
+          { index: true, element: <HealthGuardDashboard /> },
+          { path: "contacts", element: <EmergencyContacts /> },
+          { path: "incidents", element: <IncidentTracker /> },
+          { path: "sos", element: <SosScreen /> },
+          { path: "profile", element: <HealthProfile /> },
+          { path: "responder", element: <ResponderHub /> },
+          { path: "ambulance", element: <AmbulanceBookingScreen /> },
+          { path: "admin/incidents", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminIncidentDashboard /></PermissionGuard> },
+          { path: "ambulance-dispatch", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AmbulanceDispatch /></PermissionGuard> },
+          { path: "admin/wearable-alerts", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><WearableAlertsDashboard /></PermissionGuard> },
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
