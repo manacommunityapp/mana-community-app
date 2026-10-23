@@ -1,4 +1,4 @@
-import { createBrowserRouter, useParams, useNavigate } from "react-router";
+import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -326,6 +326,7 @@ import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDas
 import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
 // Mana Academy
 import { AcademyLayout } from "./components/academy/AcademyLayout";
@@ -381,6 +382,11 @@ import {
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
+
+function HealthSubRouteRedirect() {
+  const { tab } = useParams();
+  return <Navigate to={`/health?tab=${tab || 'doctors'}`} replace />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -1206,6 +1212,19 @@ export const router = createBrowserRouter([
           { path: "committee", element: <CommitteeAndElections /> },
         ],
       },
+      // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
+      { path: "recharge", element: <MobileRechargeHub /> },
+      { path: "facilities", element: <Navigate to="/bookings" replace /> },
+      { path: "offers", element: <Navigate to="/deals" replace /> },
+      { path: "trips/flights", element: <Navigate to="/trips?tab=flights" replace /> },
+      // ── Mobile Super-Set Harmonization Redirects ────────
+      { path: "health/:tab", element: <HealthSubRouteRedirect /> },
+      { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "guard/*", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "sports-admin", element: <Navigate to="/sports/admin" replace /> },
+      { path: "sports-admin/*", element: <Navigate to="/sports/admin" replace /> },
+      { path: "event-admin", element: <Navigate to="/events/operations" replace /> },
+      { path: "event-admin/*", element: <Navigate to="/events/operations" replace /> },
     ],
   },
 ]);

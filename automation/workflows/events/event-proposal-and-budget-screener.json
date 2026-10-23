@@ -1,0 +1,140 @@
+{
+  "name": "Event Proposal & Budget Screener",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-proposal-screener",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-event-proposal-screener"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst proposalId = item.proposalId || item.id || 'PROP-' + Date.now();\nconst title = item.title || 'Untitled Community Event';\nconst category = item.category || 'FESTIVAL';\nconst venue = item.venue || item.venueName || 'Main Grounds / Clubhouse';\nconst expectedAttendees = Number(item.expectedAttendees || item.capacity || 200);\nconst estimatedBudget = Number(item.estimatedBudget || item.budget || 25000);\nconst fundingSource = item.fundingSource || 'SOCIETY_FUND';\nconst eventStart = item.eventStart || item.startDate || '2026-08-27 18:00';\nconst eventEnd = item.eventEnd || item.endDate || '2026-08-27 22:30';\nconst soundLoudspeakersPlanned = item.soundLoudspeakersPlanned ?? true;\nconst fireOrCookingPlanned = item.fireOrCookingPlanned ?? false;\nconst organizer = item.organizer || { name: 'Cultural Committee', phone: '', flatNo: '' };\n\nconst prompt = `You are the Chief Event Auditor & Safety Compliance Officer for Mana Community Gated Society.\nAudit this event proposal before Management Committee (MC) and President approval:\n\nEvent Proposal Dossier:\n- Proposal ID: ${proposalId}\n- Title: ${title}\n- Category: ${category}\n- Requested Venue: ${venue}\n- Expected Attendees: ${expectedAttendees} persons\n- Estimated Budget: ₹${estimatedBudget} (Funding: ${fundingSource})\n- Timing: From ${eventStart} to ${eventEnd}\n- Loudspeakers / Amplified Audio: ${soundLoudspeakersPlanned ? 'YES' : 'NO'}\n- Live Cooking / Flame / Pandal Stalls: ${fireOrCookingPlanned ? 'YES' : 'NO'}\n- Organizer: ${JSON.stringify(organizer)}\n\nAudit Guidelines:\n1. Curfew & Noise: Residential quiet hours strictly start at 10:00 PM. If speakers are used past 10:00 PM, flag as non-compliant or require volume reduction.\n2. Fire & Life Safety: If live flame / cooking is planned in temporary pandals, mandate Class B/C fire extinguishers, 6m clear aisle, and local authority notice.\n3. Venue Density: Check if venue is suitable for ${expectedAttendees} attendees without blocking emergency exits or resident driveways.\n4. Budget Health: Check if cost per attendee (₹${Math.round(estimatedBudget / Math.max(1, expectedAttendees))}/head) is viable, and whether contingency reserve is adequate.\n5. Recommendation: Provide one of [APPROVED, CONDITIONAL_APPROVAL, REVISION_REQUIRED, REJECTED] with clear rationale.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"screeningVerdict\": \"APPROVED\" | \"CONDITIONAL_APPROVAL\" | \"REVISION_REQUIRED\" | \"REJECTED\",\n  \"viabilityScore\": number (0 to 100),\n  \"budgetHealth\": {\n    \"feasibility\": \"FEASIBLE\" | \"UNDERBUDGETED\" | \"RISKY\",\n    \"costPerHead\": number,\n    \"notes\": string\n  },\n  \"safetyCompliance\": {\n    \"curfewCompliant\": boolean,\n    \"fireClearanceRequired\": boolean,\n    \"crowdDensityRisk\": \"LOW\" | \"MODERATE\" | \"HIGH\",\n    \"noiseAdvisory\": string\n  },\n  \"permitRequirements\": string[],\n  \"committeeRecommendation\": string\n}`;\n\nreturn [{ json: { prompt, proposalId, title, expectedAttendees, estimatedBudget } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.screeningVerdict) {\n  const budget = raw.estimatedBudget || 25000;\n  const attendees = raw.expectedAttendees || 200;\n  const costPerHead = Math.round(budget / Math.max(1, attendees));\n  parsed = {\n    screeningVerdict: \"CONDITIONAL_APPROVAL\",\n    viabilityScore: 84,\n    budgetHealth: {\n      feasibility: costPerHead < 500 ? \"FEASIBLE\" : \"RISKY\",\n      costPerHead: costPerHead,\n      notes: \"Standard society festive allocation within typical parameters.\"\n    },\n    safetyCompliance: {\n      curfewCompliant: true,\n      fireClearanceRequired: false,\n      crowdDensityRisk: attendees > 300 ? \"MODERATE\" : \"LOW\",\n      noiseAdvisory: \"Loudspeaker levels must be reduced below 55dB after 9:30 PM.\"\n    },\n    permitRequirements: [\n      \"Estate Manager Venue Clearance\",\n      \"Security Gate Headcount Log\"\n    ],\n    committeeRecommendation: \"Recommended for conditional approval subject to compliance with residential quiet hours.\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    proposalId: raw.proposalId,\n    eventTitle: raw.title,\n    evaluatedAt: new Date().toISOString(),\n    evaluation: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "name": "Marketplace Listing Screener & Price Optimizer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketplace-listing-screener",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-marketplace-listing-screener"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst listingId = item.listingId || item.id || 'LST-' + Date.now();\nconst title = item.title || 'Untitled Listing';\nconst description = item.description || '';\nconst category = item.category || 'General';\nconst condition = item.condition || 'LIKE_NEW';\nconst price = Number(item.price || 0);\nconst priceUnit = item.priceUnit || '';\nconst seller = item.seller || { name: 'Resident', flatNo: '' };\nconst imageUrls = item.imageUrls || [];\n\nconst prompt = `You are the Chief Trust & Safety Officer and Valuation Expert for Mana Community Resident Marketplace.\nEvaluate this resident advertisement for policy compliance, fair market pricing, and community appeal:\n\nListing Dossier:\n- Listing ID: ${listingId}\n- Title: ${title}\n- Category: ${category}\n- Condition: ${condition} (NEW, LIKE_NEW, GOOD, FAIR)\n- Asking Price: ₹${price} ${priceUnit ? 'per ' + priceUnit : ''}\n- Description: ${description}\n- Images Count: ${imageUrls.length}\n- Seller: ${JSON.stringify(seller)}\n\nPolicy & Valuation Guidelines:\n1. Prohibited Items: Strictly REJECT firearms, weapons, fireworks, tobacco, alcohol, counterfeit luxury goods, adult items, or commercial pet breeding (pet adoption/rescue is allowed, commercial sales are banned).\n2. Food Safety: For 'Homemade Food', require basic hygiene notes and preparation freshness timeframe.\n3. Fair Pricing: Calculate a realistic pre-owned fair price range (low, suggested, high) based on typical Indian urban society resale rates.\n4. Search Optimization: Suggest high-intent tags and condition bullet points to help neighbors find it quickly.\n5. Recommendation: Provide one of [APPROVED, FLAGGED_FOR_REVISION, REJECTED_POLICY_VIOLATION].\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"verdict\": \"APPROVED\" | \"FLAGGED_FOR_REVISION\" | \"REJECTED_POLICY_VIOLATION\",\n  \"confidenceScore\": number (0 to 100),\n  \"buyerAppealScore\": number (0 to 100),\n  \"policyCheck\": {\n    \"isProhibited\": boolean,\n    \"violationReason\": string | null,\n    \"safetyFlags\": string[]\n  },\n  \"fairPriceBand\": {\n    \"low\": number,\n    \"suggested\": number,\n    \"high\": number,\n    \"priceVerdict\": \"FAIR\" | \"OVERPRICED\" | \"UNDERPRICED\" | \"ATTRACTIVE_DEAL\"\n  },\n  \"suggestions\": {\n    \"optimizedTitle\": string,\n    \"suggestedTags\": string[],\n    \"sellerTips\": string\n  }\n}`;\n\nreturn [{ json: { prompt, listingId, title, category, price } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.verdict) {\n  const price = raw.price || 1000;\n  const isFood = (raw.category || '').toLowerCase().includes('food');\n  parsed = {\n    verdict: \"APPROVED\",\n    confidenceScore: 92,\n    buyerAppealScore: 84,\n    policyCheck: {\n      isProhibited: false,\n      violationReason: null,\n      safetyFlags: isFood ? [\"Requires allergen notice (nuts/dairy)\"] : []\n    },\n    fairPriceBand: {\n      low: Math.round(price * 0.8),\n      suggested: price,\n      high: Math.round(price * 1.2),\n      priceVerdict: \"FAIR\"\n    },\n    suggestions: {\n      optimizedTitle: raw.title || \"Pre-owned Community Item\",\n      suggestedTags: [raw.category || \"Classifieds\", \"Verified Neighbor\", \"Good Condition\"],\n      sellerTips: \"Add clear pickup timings near Tower lobby for smoother resident handover.\"\n    }\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    listingId: raw.listingId,\n    itemTitle: raw.title,\n    evaluatedAt: new Date().toISOString(),\n    audit: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

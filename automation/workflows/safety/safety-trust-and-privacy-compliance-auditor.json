@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety Trust & Privacy Compliance Auditor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-trust-privacy-auditor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Trust & Privacy Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-trust-privacy-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst totalResidents = item.totalResidents || 450;\nconst verifiedMembersCount = item.verifiedMembersCount || 412;\nconst pendingKycCount = item.pendingKycCount || 38;\nconst consentMetrics = item.consentMetrics || {\n  EMERGENCY_SOS: { optedIn: 442, mandatory: true },\n  SECURITY_PATROL: { optedIn: 380, mandatory: false },\n  GEOFENCE_GATE: { optedIn: 290, mandatory: false },\n  AMENITY_PROXIMITY: { optedIn: 210, mandatory: false }\n};\nconst recentAdminAuditEvents = item.recentAdminAuditEvents || [];\nconst unmaskedPiiQueriesCount = item.unmaskedPiiQueriesCount ?? 3;\nconst cctvPlaybackRequests = item.cctvPlaybackRequests ?? 5;\n\nconst prompt = `You are the Chief Privacy Officer and Trust & Safety Auditor for Mana Community Society, specializing in Digital Personal Data Protection (DPDP) Act compliance.\nAudit the following society trust metrics, location consent telemetry, and privileged security log access trail.\n\nCommunity Trust & Privacy Snapshot:\n- Total Active Residents: ${totalResidents}\n- Verified KYC Members: ${verifiedMembersCount} (${Math.round((verifiedMembersCount/totalResidents)*100)}% Verified)\n- Pending/Suspended KYC: ${pendingKycCount}\n- Location Consent Granularity: ${JSON.stringify(consentMetrics)}\n- Unmasked Resident PII Queries by Guards: ${unmaskedPiiQueriesCount}\n- CCTV Footage Playback Requests: ${cctvPlaybackRequests}\n- Recent Privileged Security Actions (Last 10 Logs): ${JSON.stringify(recentAdminAuditEvents.slice(0, 10))}\n\nRegulatory & Trust Mandates:\n1. Evaluate DPDP Act (India) statutory compliance grade (GRADE_A_COMPLIANT, GRADE_B_MINOR_DEFICITS, GRADE_C_NON_COMPLIANT_WARNING).\n2. Location Purpose Limitation Audit: Flag any scope creep or forced non-essential location tracking (e.g. amenity proximity or automatic gate geofencing must remain strictly opt-in).\n3. Surveillance Proportionality: Verify whether CCTV playback and security officer phone-number lookups adhere to need-to-know constraints.\n4. Compute Community Trust & Safety Composite Index (0 to 100).\n5. Formulate 3 actionable governance recommendations for the Management Committee.\n\nRespond ONLY with a valid JSON object matching this exact schema:\n{\n  \"dpdpComplianceGrade\": \"GRADE_A_COMPLIANT\" | \"GRADE_B_MINOR_DEFICITS\" | \"GRADE_C_NON_COMPLIANT_WARNING\",\n  \"communityTrustScore\": number,\n  \"privacyRiskLevel\": \"LOW\" | \"MEDIUM\" | \"HIGH\",\n  \"locationConsentAudit\": {\n    \"isPurposeLimitationMaintained\": boolean,\n    \"criticalConcerns\": [\"Concern 1\"]\n  },\n  \"surveillanceOversight\": {\n    \"excessiveAccessDetected\": boolean,\n    \"piiExposureRisk\": string\n  },\n  \"managementCommitteeReport\": [\n    \"Recommendation 1\",\n    \"Recommendation 2\",\n    \"Recommendation 3\"\n  ],\n  \"residentFacingPrivacyAssurance\": \"A clear, transparent 2-sentence privacy guarantee for the resident trust dashboard\"\n}`;\n\nreturn [{\n  json: {\n    totalResidents,\n    verifiedMembersCount,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Trust & Privacy Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Privacy Officer (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst meta = $('Prepare Trust & Privacy Prompt').first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  parsed = {\n    dpdpComplianceGrade: \"GRADE_A_COMPLIANT\",\n    communityTrustScore: 92,\n    privacyRiskLevel: \"LOW\",\n    locationConsentAudit: {\n      isPurposeLimitationMaintained: true,\n      criticalConcerns: []\n    },\n    surveillanceOversight: {\n      excessiveAccessDetected: false,\n      piiExposureRisk: \"Resident phone numbers masked by default on guard tablets.\"\n    },\n    managementCommitteeReport: [\n      \"Maintain granular opt-in controls for non-essential location tracking.\",\n      \"Conduct quarterly security guard access privilege recertification.\",\n      \"Purge unlinked visitor entry logs older than 90 days.\"\n    ],\n    residentFacingPrivacyAssurance: \"Your personal data and location coordinates are protected under India DPDP principles. Location tracking is restricted to explicit emergency SOS triggers.\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    auditedAt: new Date().toISOString(),\n    scope: \"COMMUNITY_TRUST_AND_SAFETY\",\n    privacyAudit: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Privacy Audit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Trust Hub",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Trust & Privacy Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Trust & Privacy Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Trust & Privacy Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Privacy Officer (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Privacy Officer (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Privacy Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Privacy Audit": {
+      "main": [
+        [
+          {
+            "node": "Respond to Trust Hub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

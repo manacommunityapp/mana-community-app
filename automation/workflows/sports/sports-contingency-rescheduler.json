@@ -1,0 +1,124 @@
+﻿{
+  "name": "Mana Sports Weather Delay & Emergency Contingency Rescheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sports-contingency-rescheduler",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Emergency Reschedule Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-sports-contingency-rescheduler-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst tournamentName = item.tournamentName || 'Mana Community Championship';\nconst disruptionReason = item.disruptionReason || item.reason || 'Rain / Weather Delay';\nconst remainingMatches = item.remainingMatches || [];\nconst availableVenues = item.availableVenues || ['Ground A', 'Indoor Multi-Court'];\nconst availableHours = item.availableHours || 4;\nconst reserveDayAvailable = item.reserveDayAvailable ?? true;\nconst curfewTime = item.curfewTime || '22:00';\n\nconst prompt = `You are the Emergency Tournament Director and Operations Planner for the Mana Community Sports Council.\nA major disruption has occurred during a live sports tournament.\n\nDisruption Scenario:\n- Tournament: ${tournamentName}\n- Cause: ${disruptionReason}\n- Remaining Matches To Play: ${JSON.stringify(remainingMatches, null, 2)}\n- Available Venues: ${JSON.stringify(availableVenues)}\n- Time Remaining Before Curfew (${curfewTime}): ${availableHours} hours\n- Reserve Day Available: ${reserveDayAvailable ? 'YES' : 'NO'}\n\nTask:\nFormulate an emergency contingency recovery plan that guarantees athletic fairness, avoids back-to-back player exhaustion (< 30 min rest), and ensures the championship concludes legitimately.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"contingencyStrategy\": \"COMPRESSED_FORMAT\" | \"RESERVE_DAY_ACTIVATION\" | \"VENUE_REALLOCATION\" | \"SHARED_TROPHY_CONTINGENCY\",\n  \"revisedMatchDuration\": string,\n  \"rescheduledFixtures\": [\n    {\n      \"matchId\": string | number,\n      \"matchName\": string,\n      \"revisedVenue\": string,\n      \"revisedTime\": string,\n      \"formatAdjustment\": string\n    }\n  ],\n  \"tiebreakerRuling\": \"Fair-play criteria for any abandoned matches that cannot be rescheduled\",\n  \"directorOfficialStatement\": \"Authoritative, reassuring communication to teams explaining the necessary schedule changes\",\n  \"emergencyWhatsAppBroadcast\": \"Urgent, clear WhatsApp bulletin with emojis ready to send to team captains and community group\"\n}`;\n\nreturn [{\n  json: {\n    tournamentName,\n    disruptionReason,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Contingency Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Contingency Planner (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedPlan = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedPlan = JSON.parse(rawText);\n} catch (err) {\n  parsedPlan = {\n    contingencyStrategy: \"RESERVE_DAY_ACTIVATION\",\n    revisedMatchDuration: \"Standard overs maintained on Reserve Day\",\n    rescheduledFixtures: [],\n    tiebreakerRuling: \"Points split evenly or higher league standing advances if knockout match impossible\",\n    directorOfficialStatement: \"Due to adverse conditions, tournament matches are moved to the designated reserve schedule to ensure safety and fair play.\",\n    emergencyWhatsAppBroadcast: \"âš ï¸ WEATHER ALERT: Matches rescheduled due to rain. Please check revised timetable below.\"\n  };\n}\n\nconst meta = $('Prepare Contingency Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    tournamentName: meta.tournamentName,\n    disruptionReason: meta.disruptionReason,\n    plannedAt: new Date().toISOString(),\n    contingencyPlan: parsedPlan\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Contingency Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Contingency Plan",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Emergency Reschedule Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Contingency Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Contingency Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Contingency Planner (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Contingency Planner (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Contingency Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Contingency Plan": {
+      "main": [
+        [
+          {
+            "node": "Respond with Contingency Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

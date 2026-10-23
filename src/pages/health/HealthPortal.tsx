@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   SEED_DOCTORS,
   SEED_LAB_PACKAGES,
@@ -28,11 +28,43 @@ import { PreventiveWellnessHub } from "../../app/components/health/PreventiveWel
 import { ProviderOperationsDashboard } from "../../app/components/health/provider/ProviderOperationsDashboard";
 import { PatientSecurityPrivacyModal } from "../../app/components/health/PatientSecurityPrivacyModal";
 
+export type HealthTab =
+  | "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness"
+  | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery"
+  | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold";
+
+export const VALID_HEALTH_TABS: HealthTab[] = [
+  "doctors", "camps", "family", "appointments", "records", "labs", "benefits", "wellness",
+  "provider", "emergency", "ai", "care-journey", "pharmacy", "ambulance", "ipd", "surgery",
+  "dental", "abha", "cancer", "mental-health", "hospitals", "gold"
+];
+
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery" | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold"
-  >("doctors");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab") as HealthTab | null;
+  const initialTab: HealthTab = (urlTab && VALID_HEALTH_TABS.includes(urlTab)) ? urlTab : "doctors";
+  const [activeTab, setActiveTab] = useState<HealthTab>(initialTab);
+
+  // Sync state if URL query param changes externally
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab") as HealthTab | null;
+    if (tabFromUrl && VALID_HEALTH_TABS.includes(tabFromUrl) && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Sync URL when activeTab changes
+  useEffect(() => {
+    const currentUrlTab = searchParams.get("tab");
+    if (currentUrlTab !== activeTab) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", activeTab);
+        return next;
+      }, { replace: true });
+    }
+  }, [activeTab]);
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorDto | null>(null);

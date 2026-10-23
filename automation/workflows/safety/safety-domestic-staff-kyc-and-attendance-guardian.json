@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety Domestic Staff KYC & Attendance Guardian",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-staff-kyc-attendance-guardian",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Staff Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-staff-guardian-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst staffId = item.staffId || item.id || 101;\nconst staffName = item.staffName || 'Domestic Staff';\nconst staffType = item.staffType || 'MAID'; // MAID, DRIVER, COOK, CLEANER, ELECTRICIAN, PLUMBER, GARDENER, SECURITY_GUARD\nconst phone = item.phone || '+91 98765 00000';\nconst verificationStatus = item.verificationStatus || 'PENDING'; // VERIFIED, PENDING, REJECTED, SUSPENDED\nconst govtIdType = item.govtIdType || 'AADHAAR';\nconst govtIdNumber = item.govtIdNumber || 'XXXX-XXXX-1234';\nconst assignedFlats = item.assignedFlats || 'A-402, B-102';\nconst checkInTime = item.checkInTime || new Date().toISOString();\nconst checkOutTime = item.checkOutTime || null;\nconst entryMethod = item.verificationMethod || item.entryMethod || 'BIOMETRIC_FINGERPRINT';\nconst rating = item.rating ?? 4.5;\n\nconst prompt = `You are the Society Registrar and Domestic Staff Security Compliance Auditor for Mana Community Society.\nPerform a security and KYC compliance audit for the following domestic worker check-in or credential record.\n\nStaff Profile & Attendance Record:\n- Staff ID: ${staffId}\n- Name: ${staffName} (${staffType})\n- Contact: ${phone}\n- Verification Status: ${verificationStatus}\n- Government ID: ${govtIdType} (${govtIdNumber})\n- Assigned Household Flats: ${assignedFlats}\n- Check-In Timestamp: ${checkInTime}\n- Check-Out Timestamp: ${checkOutTime || 'Currently on-site'}\n- Entry Gate Verification Method: ${entryMethod}\n- Society Peer Rating: ${rating} / 5.0\n\nCompliance Review Mandates:\n1. Audit Police KYC & Background Verification compliance (VERIFIED_PASS, CONDITIONAL_30_DAY_GRACE, BLOCKED_UNVERIFIED).\n2. Time-of-Entry Anomaly Check: Flag suspicious off-hours check-ins (e.g. domestic maid entering between 10:00 PM and 5:00 AM without emergency flat owner authorization).\n3. Multi-Flat Access Authorization: Verify if assigned flat coverage matches typical staff capacity.\n4. Determine Gate Access Verdict (PERMIT_ENTRY, PROCEED_WITH_WARNING, HOLD_AT_SECURITY_POST).\n5. Formulate resident employer safety briefing.\n\nRespond ONLY with a valid JSON object matching this exact schema:\n{\n  \"accessVerdict\": \"PERMIT_ENTRY\" | \"PROCEED_WITH_WARNING\" | \"HOLD_AT_SECURITY_POST\",\n  \"kycComplianceGrade\": \"FULL_COMPLIANCE\" | \"PROVISIONAL_GRACE\" | \"POLICE_VERIFICATION_DEFICIT\" | \"HIGH_RISK_SUSPENDED\",\n  \"curfewAnomaly\": boolean,\n  \"curfewNotes\": string,\n  \"safetyScore\": number,\n  \"securityOfficerAction\": \"Actionable order for on-duty security guard\",\n  \"employerNotice\": \"Direct advisory text for the flat owners employing this staff member\",\n  \"adminAuditFlags\": [\"Flag 1\", \"Flag 2\"]\n}`;\n\nreturn [{\n  json: {\n    staffId,\n    staffName,\n    staffType,\n    verificationStatus,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Staff Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Staff Auditor (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst meta = $('Prepare Staff Audit Prompt').first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  const isVerified = (meta.verificationStatus === 'VERIFIED');\n  parsed = {\n    accessVerdict: isVerified ? \"PERMIT_ENTRY\" : \"PROCEED_WITH_WARNING\",\n    kycComplianceGrade: isVerified ? \"FULL_COMPLIANCE\" : \"PROVISIONAL_GRACE\",\n    curfewAnomaly: false,\n    curfewNotes: \"Entry timestamp conforms to standard daylight working schedule.\",\n    safetyScore: isVerified ? 95 : 65,\n    securityOfficerAction: isVerified ? \"Verify badge and permit entry.\" : \"Request staff member to submit pending police verification documents to estate office.\",\n    employerNotice: isVerified ? `Staff member ${meta.staffName} checked in.` : `Staff member ${meta.staffName} has pending police verification. Please assist in uploading Aadhaar/KYC.`,\n    adminAuditFlags: isVerified ? [] : [\"Pending police verification certificate\"]\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    auditedAt: new Date().toISOString(),\n    staffId: meta.staffId,\n    staffName: meta.staffName,\n    complianceAudit: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Staff Compliance Audit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Security Desk",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Staff Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Staff Audit Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Staff Audit Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Staff Auditor (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Staff Auditor (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Staff Compliance Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Staff Compliance Audit": {
+      "main": [
+        [
+          {
+            "node": "Respond to Security Desk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

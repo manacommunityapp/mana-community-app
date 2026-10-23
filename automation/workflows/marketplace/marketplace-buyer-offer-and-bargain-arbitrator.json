@@ -1,0 +1,140 @@
+{
+  "name": "Marketplace Buyer Offer & Bargain Arbitrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketplace-offer-arbitrator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-marketplace-offer-arbitrator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst listingId = item.listingId || 101;\nconst listingTitle = item.listingTitle || 'Pre-loved Sofa Set';\nconst originalPrice = Number(item.originalPrice || 12000);\nconst offerPrice = Number(item.offerPrice || 9000);\nconst buyerName = item.buyerName || 'Neighbor';\nconst buyerNote = item.buyerNote || '';\nconst daysActive = Number(item.daysActive || 5);\n\nconst prompt = `You are the Friendly Community Trade Arbitrator for Mana Community Resident Marketplace.\nEvaluate a buyer's price offer and advise the seller on negotiation strategy while preserving neighborly harmony:\n\nTrade Context:\n- Item: ${listingTitle} (ID: ${listingId})\n- Listed Asking Price: ₹${originalPrice}\n- Buyer Offer: ₹${offerPrice} (from ${buyerName})\n- Buyer Message: \"${buyerNote}\"\n- Days on Marketplace: ${daysActive} days\n\nArbitration Directives:\n1. Calculate discount: ${Math.round(((originalPrice - offerPrice) / Math.max(1, originalPrice)) * 100)}% off.\n2. Lowball Scoring:\n   - Discount <= 15%: FAIR_OFFER (Recommended to accept or round off).\n   - Discount 16%–35%: SLIGHT_LOWBALL (Counter-offer recommended).\n   - Discount > 35%: SEVERE_LOWBALL (Counter firmly or politely decline).\n3. Compute a win-win counter price that gives buyer a fair concession while protecting seller's return.\n4. Compose a warm, polite WhatsApp/Mana chat message from seller to buyer.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"offerAssessment\": \"FAIR_OFFER\" | \"SLIGHT_LOWBALL\" | \"SEVERE_LOWBALL\",\n  \"discountPercentage\": number,\n  \"recommendedAction\": \"ACCEPT\" | \"COUNTER\" | \"DECLINE\",\n  \"recommendedCounterPrice\": number,\n  \"sellerAdvisory\": string,\n  \"suggestedNeighborReply\": string\n}`;\n\nreturn [{ json: { prompt, listingId, listingTitle, originalPrice, offerPrice, buyerName } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.offerAssessment) {\n  const orig = raw.originalPrice || 10000;\n  const off = raw.offerPrice || 8000;\n  const discount = Math.round(((orig - off) / Math.max(1, orig)) * 100);\n  const counter = Math.round((orig + off) / 2);\n  const isSevere = discount > 35;\n  const isFair = discount <= 15;\n\n  parsed = {\n    offerAssessment: isFair ? \"FAIR_OFFER\" : isSevere ? \"SEVERE_LOWBALL\" : \"SLIGHT_LOWBALL\",\n    discountPercentage: discount,\n    recommendedAction: isFair ? \"ACCEPT\" : isSevere ? \"DECLINE\" : \"COUNTER\",\n    recommendedCounterPrice: counter,\n    sellerAdvisory: isFair\n      ? \"Great offer close to asking price. Recommended to accept for quick doorstep handover.\"\n      : isSevere\n      ? \"Offer represents a steep discount. You can counter at a reasonable middle ground or decline.\"\n      : \"Standard resident negotiation. Meeting halfway protects value while keeping transaction active.\",\n    suggestedNeighborReply: `Hi ${raw.buyerName || 'Neighbor'}, thank you for your interest in \"${raw.listingTitle || 'the item'}\"! ₹${off.toLocaleString('en-IN')} is slightly below my expectation, but as we live in the same community, I can happily meet you at ₹${counter.toLocaleString('en-IN')}. Let me know if that works for you! 😊`\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    listingId: raw.listingId,\n    itemTitle: raw.listingTitle,\n    analyzedAt: new Date().toISOString(),\n    negotiation: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Users, Clock, Plus, Loader2, AlertCircle, Search,
-  X, LogIn, LogOut, Edit2, Trash2, Filter,
+  X, LogIn, LogOut, Edit2, Trash2, Filter, Sparkles, Copy, Check,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 
@@ -9,6 +9,7 @@ import { LoadingSpinner } from "./shared";
 
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
+import { automationService, type EventVolunteerAllocatorResponse } from "../../../services/automation/automationService";
 
 import {
   eventVolunteerService,
@@ -589,6 +590,60 @@ export function EventsVolunteers() {
   const [events, setEvents]         = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number>(0);
 
+  // ── AI Seva Allocator State ──
+  const [aiAllocating, setAiAllocating] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiRosterResult, setAiRosterResult] = useState<EventVolunteerAllocatorResponse['roster'] | null>(null);
+  const [copiedDuty, setCopiedDuty] = useState(false);
+
+  const handleRunAiAllocation = async () => {
+    setAiAllocating(true);
+    try {
+      const activeEvent = events.find(e => e.id === selectedEventId);
+      const res = await automationService.allocateEventVolunteers({
+        eventId: selectedEventId || 101,
+        eventName: activeEvent?.title || "Community Festival",
+        departments: liveDepartments.map(d => ({
+          name: d.name,
+          head: d.head,
+          requiredCount: d.total || 6,
+        })),
+        shifts: SHIFTS,
+        volunteers: volunteers.map(v => ({
+          id: v.id,
+          name: v.name,
+          phone: v.contact,
+          flatNo: v.flatNo,
+          preferredDepts: [v.dept],
+          preferredShifts: [v.shift],
+        })),
+      });
+      setAiRosterResult(res.roster);
+      setAiModalOpen(true);
+    } catch (e: any) {
+      setError(e?.message || "Failed to run AI volunteer allocation");
+    } finally {
+      setAiAllocating(false);
+    }
+  };
+
+  const applyAiRoster = () => {
+    if (!aiRosterResult) return;
+    const assignmentMap = new Map(aiRosterResult.assignments.map(a => [a.volunteerId, a]));
+    setVolunteers(prev => prev.map(v => {
+      const assigned = assignmentMap.get(v.id);
+      if (assigned) {
+        return {
+          ...v,
+          dept: assigned.department,
+          shift: assigned.shift,
+        };
+      }
+      return v;
+    }));
+    setAiModalOpen(false);
+  };
+
   useEffect(() => {
     eventService.getAllEvents().then((evts: EventResponse[]) => {
       setEvents(evts);
@@ -756,6 +811,142 @@ export function EventsVolunteers() {
         <AddDepartmentDialog useMock={useMock} onClose={() => setModal(null)} onSaved={onDepartmentSaved} />
       )}
 
+      {/* ── AI Seva & Shift Auto-Allocator Modal ── */}
+      {aiModalOpen && aiRosterResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={e => { if (e.target === e.currentTarget) setAiModalOpen(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-purple-50 via-indigo-50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">AI Seva & Shift Auto-Allocator</h3>
+                  <p className="text-[11px] text-slate-500">Autonomous squad assignment powered by Gemini 3.5 Flash Lite</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAiModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Score Badges */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-center">
+                  <p className="text-xl font-black text-purple-700">{aiRosterResult.shiftBalanceScore}%</p>
+                  <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wide">Shift Balance Score</p>
+                </div>
+                <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
+                  <p className="text-xl font-black text-indigo-700">{aiRosterResult.totalAssigned}</p>
+                  <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide">Volunteers Assigned</p>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-center">
+                  <p className="text-xl font-black text-amber-700">{aiRosterResult.departmentDeficits.filter(d => d.deficit > 0).length}</p>
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Depts with Deficits</p>
+                </div>
+              </div>
+
+              {/* Department Deficits Warning */}
+              {aiRosterResult.departmentDeficits.some(d => d.deficit > 0) && (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
+                  <p className="text-xs font-bold text-amber-900 mb-1.5 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                    Volunteer Deficits Detected
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiRosterResult.departmentDeficits.filter(d => d.deficit > 0).map(d => (
+                      <span key={d.department} className="text-[11px] font-semibold bg-white border border-amber-300 px-2 py-0.5 rounded-md text-amber-800">
+                        {d.department}: need {d.needed}, assigned {d.assigned} (short {d.deficit})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assignments Preview */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 mb-2">Optimized Duty Assignments ({aiRosterResult.assignments.length})</h4>
+                <div className="border border-slate-100 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                  <table className="w-full text-[11px] text-left">
+                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100 sticky top-0">
+                      <tr>
+                        <th className="p-2">Volunteer</th>
+                        <th className="p-2">Department</th>
+                        <th className="p-2">Shift</th>
+                        <th className="p-2">Assigned Role</th>
+                        <th className="p-2">Rationale</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {aiRosterResult.assignments.map(a => (
+                        <tr key={a.volunteerId} className="hover:bg-slate-50/50">
+                          <td className="p-2 font-semibold text-slate-800">{a.name}</td>
+                          <td className="p-2"><span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-medium">{a.department}</span></td>
+                          <td className="p-2 text-slate-600">{a.shift}</td>
+                          <td className="p-2 font-medium text-slate-700">{a.role}</td>
+                          <td className="p-2 text-slate-500 italic">{a.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* WhatsApp Volunteer Broadcast */}
+              {aiRosterResult.sampleVolunteerBroadcast && (
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
+                      💬 WhatsApp Volunteer Duty Broadcast
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(aiRosterResult.sampleVolunteerBroadcast);
+                        setCopiedDuty(true);
+                        setTimeout(() => setCopiedDuty(false), 2500);
+                      }}
+                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300 transition"
+                    >
+                      {copiedDuty ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      {copiedDuty ? "Copied!" : "Copy Broadcast"}
+                    </button>
+                  </div>
+                  <pre className="text-[11px] text-slate-700 font-sans whitespace-pre-wrap bg-white/80 p-2.5 rounded-lg border border-emerald-100">
+                    {aiRosterResult.sampleVolunteerBroadcast}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                onClick={() => setAiModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition cursor-pointer"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={applyAiRoster}
+                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Apply AI Roster to Directory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Error banner ── */}
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
@@ -842,14 +1033,24 @@ export function EventsVolunteers() {
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         {/* Header + search bar */}
         <div className="px-3 sm:px-6 pt-3 sm:pt-5 pb-3 border-b border-slate-50 space-y-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <h2 className="font-bold text-slate-800 text-xs sm:text-base">Volunteer Directory</h2>
-            <button
-              onClick={() => setModal({ type: "assign" })}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" /> Assign Volunteer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRunAiAllocation}
+                disabled={aiAllocating}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                {aiAllocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                AI Seva & Shift Allocator
+              </button>
+              <button
+                onClick={() => setModal({ type: "assign" })}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" /> Assign Volunteer
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

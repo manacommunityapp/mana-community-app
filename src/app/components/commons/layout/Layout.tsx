@@ -5,7 +5,8 @@ import {
   Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone,
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
-  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart
+  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
+  Smartphone
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -417,6 +418,7 @@ export function Layout() {
     "AI Chat": "AI_CHAT",
     "Calendar": "CALENDAR",
     "Commerce": "COMMERCE",
+    "Mobile Recharge": ["PAYMENTS", "MANA_PAY", "FINANCE_MGMT"],
   };
 
   const toggleSidebar = () => {
@@ -463,6 +465,7 @@ export function Layout() {
       title: "Living & Facilities",
       items: [
         { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI" },
+        { to: "/recharge", icon: Smartphone, label: "Mobile Recharge", badge: "NEW" },
         { to: "/bookings", icon: Building2, label: "Bookings" },
         { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
         { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
@@ -561,6 +564,7 @@ export function Layout() {
     if (label === "Community Rides") return true;
     if (label === "My Money") return true;
     if (label === "Mana Split") return true;
+    if (label === "Mobile Recharge") return true;
     return false;
   };
 

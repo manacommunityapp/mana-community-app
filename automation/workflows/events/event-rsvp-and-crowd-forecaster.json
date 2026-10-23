@@ -1,0 +1,140 @@
+{
+  "name": "Event RSVP & Crowd Forecaster",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-crowd-forecaster",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-event-crowd-forecaster"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst eventId = item.eventId || item.id || 'EVT-' + Date.now();\nconst eventName = item.eventName || item.title || 'Community Festival';\nconst category = item.category || 'FESTIVAL';\nconst totalRsvps = Number(item.totalRsvps || item.passesCount || 150);\nconst totalDevoteesCount = Number(item.totalDevoteesCount || (totalRsvps * 2.2));\nconst meals = item.mealRegistrations || { lunch: 120, dinner: 180, prasadamTakeaway: 90 };\nconst eventDay = item.eventDay || 'Sunday';\nconst basementSlots = Number(item.totalSocietyBasementParkingSlots || 85);\n\nconst prompt = `You are the Operations & Crowd Management Specialist for Mana Community society mega-events and festivals.\nAnalyze the following registration and seva data to forecast actual crowd turnout, catering buffer, and parking strain:\n\nEvent Parameters:\n- Event ID: ${eventId}\n- Event Name: ${eventName} (${category})\n- Primary Registrations (RSVPs): ${totalRsvps}\n- Total Devotees Headcount (including family members): ${Math.round(totalDevoteesCount)}\n- Registered Food Headcounts: Lunch: ${meals.lunch || 0}, Dinner: ${meals.dinner || 0}, Prasadam Packets: ${meals.prasadamTakeaway || 0}\n- Day of Week: ${eventDay}\n- Available Society Guest Parking Slots: ${basementSlots}\n\nForecasting Directives:\n1. Attrition Modeling: In Indian gated societies, weekend festivals have ~80-88% show-up; weekdays have ~65-72%.\n2. Annadanam / Meal Buffer: Calculate required meal portions with an optimal 12-15% buffer to guarantee no resident or guest is turned away empty-handed without massive food waste.\n3. Vehicle Influx: Approximately 45% of resident families walk; 35% use 2-wheelers; 20% use 4-wheelers. External guests add car strain. Check if slots overflow.\n4. Peak Rush Window: Identify expected peak hour (e.g. Aarti/Pooja time or Dinner window 7:30 PM - 9:00 PM).\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"forecastedTurnout\": number,\n  \"turnoutConfidence\": number (0 to 100),\n  \"expectedShowUpRatePercent\": number,\n  \"peakWindow\": string,\n  \"mealBuffer\": {\n    \"recommendedPortions\": number,\n    \"bufferPercentage\": number,\n    \"wasteRisk\": \"MINIMAL\" | \"LOW\" | \"MODERATE\"\n  },\n  \"parkingForecast\": {\n    \"estimatedVehicles\": number,\n    \"overflowRisk\": \"LOW\" | \"MEDIUM\" | \"CRITICAL\",\n    \"overflowVehiclesCount\": number,\n    \"mitigation\": string\n  },\n  \"gateStaffRecommendation\": number,\n  \"organizerAlert\": string\n}`;\n\nreturn [{ json: { prompt, eventId, eventName, totalRsvps, totalDevoteesCount } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.forecastedTurnout) {\n  const totalDevotees = Math.round(raw.totalDevoteesCount || (raw.totalRsvps * 2.2));\n  const expectedTurnout = Math.round(totalDevotees * 0.82);\n  const recommendedMeals = Math.round(expectedTurnout * 1.15);\n  parsed = {\n    forecastedTurnout: expectedTurnout,\n    turnoutConfidence: 89,\n    expectedShowUpRatePercent: 82,\n    peakWindow: \"7:00 PM – 8:45 PM (Maha Aarti & Dinner Seva)\",\n    mealBuffer: {\n      recommendedPortions: recommendedMeals,\n      bufferPercentage: 15,\n      wasteRisk: \"LOW\"\n    },\n    parkingForecast: {\n      estimatedVehicles: Math.round(expectedTurnout * 0.35),\n      overflowRisk: \"MEDIUM\",\n      overflowVehiclesCount: 18,\n      mitigation: \"Station 2 volunteer marshals at Gate 2 and route overflow 4-wheelers to Club Outer Driveway.\"\n    },\n    gateStaffRecommendation: 4,\n    organizerAlert: \"Peak crowd anticipated between 7:00 PM - 8:45 PM. Open dual registration QR scanners to prevent lobby queues.\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    eventId: raw.eventId,\n    eventName: raw.eventName,\n    forecastAt: new Date().toISOString(),\n    forecast: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

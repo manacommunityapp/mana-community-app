@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "Mana Weekly Community Digest Generator",
   "nodes": [
     {
@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const notices = $input.first().json || [];\n\nconst prompt = `You are the Editor of the Mana Community Weekly Newsletter.\nSummarize the following society updates, upcoming events, and maintenance schedules into an engaging 1-minute read for residents.\n\nNotices:\n${JSON.stringify(notices)}\n\nFormat your response as a structured markdown bulletin with sections:\n- 🌟 Society Highlights\n- 📅 Upcoming Events & Tournaments\n- 🔧 Scheduled Maintenance & Alerts\n- 💡 Resident Tip of the Week`;\n\nreturn [{\n  json: {\n    prompt\n  }\n}];"
+        "jsCode": "const notices = $input.first().json || [];\n\nconst prompt = `You are the Editor of the Mana Community Weekly Newsletter.\nSummarize the following society updates, upcoming events, and maintenance schedules into an engaging 1-minute read for residents.\n\nNotices:\n${JSON.stringify(notices)}\n\nFormat your response as a structured markdown bulletin with sections:\n- ðŸŒŸ Society Highlights\n- ðŸ“… Upcoming Events & Tournaments\n- ðŸ”§ Scheduled Maintenance & Alerts\n- ðŸ’¡ Resident Tip of the Week`;\n\nreturn [{\n  json: {\n    prompt\n  }\n}];"
       },
       "id": "3",
       "name": "Compose Digest Prompt",

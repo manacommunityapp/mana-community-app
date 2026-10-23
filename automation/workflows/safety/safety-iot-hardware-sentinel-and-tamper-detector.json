@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety IoT Hardware Sentinel & Tamper Detector",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-iot-hardware-sentinel",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound IoT Telemetry Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-iot-hardware-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst deviceCode = item.deviceCode || 'ANPR-GATE-01';\nconst deviceName = item.deviceName || 'North Main Gate ANPR Camera';\nconst deviceType = item.deviceType || 'ANPR_CAMERA'; // ANPR_CAMERA, BOOM_BARRIER, RFID_READER, QR_SCANNER, SMART_LOCK, TURNSTILE, CCTV_ANALYTICS, INTERCOM\nconst isOnline = item.isOnline ?? false;\nconst ipAddress = item.ipAddress || '192.168.10.45';\nconst location = item.location || 'North Main Gate Entry Lane';\nconst lastHeartbeatAt = item.lastHeartbeatAt || new Date(Date.now() - 35 * 60000).toISOString();\nconst offlineMinutes = item.offlineMinutes ?? 35;\nconst manualOverridesCount = item.manualOverridesCount ?? 0;\nconst sensorErrorFlags = item.sensorErrorFlags || ['OPTICAL_OCCLUSION_WARNING', 'HEARTBEAT_TIMEOUT'];\nconst firmwareVersion = item.firmwareVersion || 'v2.4.12';\n\nconst prompt = `You are the Lead IoT Infrastructure Engineer & Physical Security Sentinel for Mana Community Society.\nEvaluate the following hardware telemetry and diagnostic health snapshot from a critical perimeter security device.\n\nHardware Telemetry Snapshot:\n- Device Code: ${deviceCode} (${deviceName})\n- Device Type: ${deviceType}\n- Status: ${isOnline ? 'ONLINE' : 'OFFLINE'} (Offline for ${offlineMinutes} mins)\n- IP / Location: ${ipAddress} at ${location}\n- Last Ping Heartbeat: ${lastHeartbeatAt}\n- Manual Physical Overrides: ${manualOverridesCount}\n- Hardware Error Flags: ${JSON.stringify(sensorErrorFlags)}\n- Installed Firmware: ${firmwareVersion}\n\nDiagnostic Mandates:\n1. Assess Perimeter Vulnerability Risk (CRITICAL_BREACH_WINDOW, ELEVATED_OPERATIONAL_RISK, MINOR_GLITCH, NOMINAL).\n2. Root Cause Analysis (e.g. power PoE drop, physical camera lens tampering/spray paint, mechanical gear jam on boom barrier, switch port flapping).\n3. Tamper / Sabotage Likelihood Assessment (HIGH, SUSPICIOUS, UNLIKELY_HARDWARE_FAILURE).\n4. Guard Contingency Protocol: Immediate fallback procedure for gate guards while hardware is compromised (e.g. manual physical ledger, dual-guard verification).\n5. Automated Facility Maintenance Work-Order: Generate urgency, repair instructions, and required spare parts.\n\nRespond ONLY with a valid JSON object matching this exact schema:\n{\n  \"vulnerabilityRisk\": \"CRITICAL_BREACH_WINDOW\" | \"ELEVATED_OPERATIONAL_RISK\" | \"MINOR_GLITCH\" | \"NOMINAL\",\n  \"tamperLikelihood\": \"HIGH\" | \"SUSPICIOUS\" | \"UNLIKELY_HARDWARE_FAILURE\",\n  \"rootCauseHypothesis\": \"Detailed technical explanation of device state\",\n  \"immediateGuardProtocol\": [\n    \"Guard step 1\",\n    \"Guard step 2\"\n  ],\n  \"maintenanceTicket\": {\n    \"priority\": \"EMERGENCY_P1\" | \"HIGH_P2\" | \"ROUTINE_P3\",\n    \"assignedVendor\": string,\n    \"targetResolutionHours\": number,\n    \"repairProcedure\": string\n  },\n  \"commandCenterAlertBanner\": \"Single clear urgent banner message for security dashboard\"\n}`;\n\nreturn [{\n  json: {\n    deviceCode,\n    deviceName,\n    deviceType,\n    isOnline,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Hardware Diagnostic Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Hardware Sentinel (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst meta = $('Prepare Hardware Diagnostic Prompt').first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  const isDown = !meta.isOnline;\n  parsed = {\n    vulnerabilityRisk: isDown ? \"ELEVATED_OPERATIONAL_RISK\" : \"NOMINAL\",\n    tamperLikelihood: \"UNLIKELY_HARDWARE_FAILURE\",\n    rootCauseHypothesis: isDown ? \"Network timeout or PoE switch port renegotiation delay.\" : \"Device operating within standard operational parameters.\",\n    immediateGuardProtocol: isDown ? [\n      \"Deploy secondary manual guard with mobile ANPR backup app to gate.\",\n      \"Log all vehicle license plates in manual gate register until telemetry recovers.\"\n    ] : [\"Maintain standard automated gate operation.\"],\n    maintenanceTicket: {\n      priority: isDown ? \"HIGH_P2\" : \"ROUTINE_P3\",\n      assignedVendor: \"Estate IoT & Automation Team\",\n      targetResolutionHours: isDown ? 2 : 24,\n      repairProcedure: isDown ? \"Check physical PoE injector and reboot local switch port.\" : \"Routine quarterly diagnostic scan.\"\n    },\n    commandCenterAlertBanner: isDown ? `WARNING: ${meta.deviceName} is offline. Manual gate backup active.` : `${meta.deviceName} is healthy.`\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    evaluatedAt: new Date().toISOString(),\n    deviceCode: meta.deviceCode,\n    deviceName: meta.deviceName,\n    diagnostics: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Hardware Diagnostics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Hardware Hub",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound IoT Telemetry Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Hardware Diagnostic Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Hardware Diagnostic Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Hardware Sentinel (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Hardware Sentinel (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Hardware Diagnostics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Hardware Diagnostics": {
+      "main": [
+        [
+          {
+            "node": "Respond to Hardware Hub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

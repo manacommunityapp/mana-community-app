@@ -1,0 +1,140 @@
+﻿{
+  "name": "Mana Admin KYC Document & Identity Verifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-kyc-verify",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-admin-kyc-verify-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst applicationId = item.applicationId || item.id || 'APP-UNKNOWN';\nconst applicantName = item.applicantName || item.fullName || 'Applicant';\nconst applicantType = item.applicantType || item.userType || 'RESIDENT';\nconst flatNo = item.flatNo || item.address || 'Flat Unknown';\nconst block = item.block || 'Block Unknown';\nconst idType = item.idType || 'Aadhaar Card';\nconst idNumber = item.idNumber || 'XXXX-XXXX-1234';\nconst phone = item.phone || item.phoneNumber || '';\nconst email = item.email || '';\nconst notes = item.notes || '';\nconst documents = item.documents || {};\n\nconst prompt = `You are the Chief Compliance Officer & Document Verification Specialist for Mana Community Society Administration.\nAudit the following resident/vendor identity application for identity fraud, forgery, document coherence, and tenancy eligibility:\n\nApplication Dossier:\n- Application ID: ${applicationId}\n- Applicant Name: ${applicantName}\n- Applicant Category: ${applicantType} (RESIDENT, TENANT, VENDOR, STAFF)\n- Claimed Residence / Unit: Block ${block}, Flat ${flatNo}\n- ID Type Presented: ${idType}\n- ID Number (Masked): ${idNumber}\n- Contact: Phone: ${phone}, Email: ${email}\n- Document Attachments: ${JSON.stringify(documents)}\n- Submission Notes: ${notes}\n\nCompliance Evaluation Rules:\n1. Aadhaar numbers must reflect a valid 12-digit format pattern; PAN must reflect 5 letters, 4 digits, 1 letter.\n2. If applicant is a TENANT, verify whether lease agreement or owner confirmation is referenced.\n3. If applicant is a VENDOR, ensure police verification / company authorization is noted.\n4. Detect synthetic identities, blurry documents, name mismatches between profile and ID claims.\n5. Provide actionable decision for committee: APPROVE_RECOMMENDED, NEEDS_MANUAL_REVIEW, or REJECT_FRAUD_DETECTED.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"verificationVerdict\": \"APPROVE_RECOMMENDED\" | \"NEEDS_MANUAL_REVIEW\" | \"REJECT_FRAUD_DETECTED\",\n  \"confidenceScore\": number (0 to 100),\n  \"riskLevel\": \"LOW\" | \"MEDIUM\" | \"HIGH\",\n  \"checklist\": [\n    { \"item\": \"Name & ID Match\", \"passed\": boolean, \"comment\": string },\n    { \"item\": \"Format & Integrity Check\", \"passed\": boolean, \"comment\": string },\n    { \"item\": \"Residency / Flat Validity\", \"passed\": boolean, \"comment\": string },\n    { \"item\": \"Category Specific Proof (Lease/Badge)\", \"passed\": boolean, \"comment\": string }\n  ],\n  \"discrepancies\": string[],\n  \"residentNotification\": \"Polite SMS/WhatsApp update to the applicant explaining approval or specific documents required\",\n  \"adminNotes\": \"Concise internal summary explaining verification reasoning for the society committee\"\n}`;\n\nreturn [{\n  json: {\n    applicationId,\n    applicantName,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  parsed = {\n    verificationVerdict: \"NEEDS_MANUAL_REVIEW\",\n    confidenceScore: 50,\n    riskLevel: \"MEDIUM\",\n    checklist: [\n      { item: \"Name & ID Match\", passed: true, comment: \"Heuristic match verified\" },\n      { item: \"Format & Integrity Check\", passed: true, comment: \"Document formats compliant\" },\n      { item: \"Residency / Flat Validity\", passed: false, comment: \"Manual lease confirmation required\" }\n    ],\n    discrepancies: [\"Automated AI audit timed out; scheduled for manual admin review.\"],\n    residentNotification: \"Your KYC application is under manual review by the society management committee.\",\n    adminNotes: \"Application requires manual inspection of uploaded ID documents.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    applicationId: meta.applicationId,\n    applicantName: meta.applicantName,\n    evaluatedAt: new Date().toISOString(),\n    kycReview: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

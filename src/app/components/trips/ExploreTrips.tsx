@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import {
   Compass,
   Calendar,
@@ -21,11 +22,13 @@ import {
   Bed,
   Phone,
   Wallet,
+  Plane,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { FlightSearchTab } from "./FlightSearchTab";
 import {
   Dialog,
   DialogContent,
@@ -60,11 +63,17 @@ const CATEGORY_ICONS: Record<TripCategory, React.ComponentType<{ className?: str
 
 export function ExploreTrips() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [myBookings, setMyBookings] = useState<TripBooking[]>([]);
   const [hostTrips, setHostTrips] = useState<Trip[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [activeTab, setActiveTab] = useState("explore");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explore");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   // Modals state
   const [selectedTripDetails, setSelectedTripDetails] = useState<Trip | null>(null);
@@ -142,10 +151,14 @@ export function ExploreTrips() {
 
       {/* Primary Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 w-full max-w-md h-auto p-1 bg-slate-100 rounded-xl">
+        <TabsList className="grid grid-cols-4 w-full max-w-xl h-auto p-1 bg-slate-100 rounded-xl">
           <TabsTrigger value="explore" className="py-2.5 font-semibold text-xs gap-1.5">
             <Compass className="w-3.5 h-3.5 text-blue-600" />
             Explore ({trips.length})
+          </TabsTrigger>
+          <TabsTrigger value="flights" className="py-2.5 font-semibold text-xs gap-1.5">
+            <Plane className="w-3.5 h-3.5 text-sky-600" />
+            Flights
           </TabsTrigger>
           <TabsTrigger value="my-trips" className="py-2.5 font-semibold text-xs gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-purple-600" />
@@ -529,6 +542,11 @@ export function ExploreTrips() {
               })}
             </div>
           )}
+        </TabsContent>
+
+        {/* ── TAB 4: Flights (EaseMyTrip / MakeMyTrip) ── */}
+        <TabsContent value="flights" className="space-y-6 pt-4">
+          <FlightSearchTab />
         </TabsContent>
       </Tabs>
 
