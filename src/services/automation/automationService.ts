@@ -292,6 +292,8 @@ export interface ContingencyRescheduleResponse {
     directorOfficialStatement: string;
     emergencyWhatsAppBroadcast: string;
   };
+}
+
 // ─── User Authentication & Registration Interfaces ────────────────────────────
 
 export interface UserRegistrationAuditRequest {
@@ -757,6 +759,9 @@ export const automationService = {
           emergencyWhatsAppBroadcast: `⚠️ SCHEDULE UPDATE: Matches rescheduled due to ${req.disruptionReason}. Please check with your team captain.`,
         },
       };
+    }
+  },
+
   /**
    * Audits new user registration for fraud, address realism, and builds personalized onboarding
    */
