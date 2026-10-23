@@ -1,7 +1,8 @@
-import React from "react";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Loader2, CheckCircle2, XCircle, FileText } from "lucide-react";
 import type { CashfreePaymentStatus } from "../../../hooks/useCashfree";
 import type { CashfreeOrderResponse } from "../../../services/payments/cashfreePaymentService";
+import CashfreeReceiptModal from "./CashfreeReceiptModal";
 
 export interface CashfreeCheckoutProps {
   /** Whether the overlay is visible. */
@@ -28,6 +29,8 @@ export default function CashfreeCheckout({
   error,
   onDismiss,
 }: CashfreeCheckoutProps) {
+  const [showReceipt, setShowReceipt] = useState(false);
+
   if (!visible) return null;
 
   const isLoading = status === "creating" || status === "checkout" || status === "verifying";
@@ -35,6 +38,14 @@ export default function CashfreeCheckout({
   const isFailed  = status === "failed";
 
   return (
+    <>
+    {showReceipt && (
+      <CashfreeReceiptModal
+        isOpen={showReceipt}
+        order={order}
+        onClose={() => { setShowReceipt(false); onDismiss(); }}
+      />
+    )}
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
@@ -83,13 +94,23 @@ export default function CashfreeCheckout({
               />
               <Row label="Status" value="PAID" valueClass="text-emerald-600 dark:text-emerald-400 font-bold" />
             </div>
-            <button
-              type="button"
-              onClick={onDismiss}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-500 text-white font-bold text-sm hover:opacity-90 transition active:scale-[0.98] cursor-pointer"
-            >
-              Continue
-            </button>
+            <div className="w-full flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowReceipt(true)}
+                className="flex items-center justify-center gap-1.5 flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition active:scale-[0.98] cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                Receipt
+              </button>
+              <button
+                type="button"
+                onClick={onDismiss}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-500 text-white font-bold text-sm hover:opacity-90 transition active:scale-[0.98] cursor-pointer"
+              >
+                Continue
+              </button>
+            </div>
           </>
         )}
 
@@ -116,6 +137,7 @@ export default function CashfreeCheckout({
         )}
       </div>
     </div>
+    </>
   );
 }
 
