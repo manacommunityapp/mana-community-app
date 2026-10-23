@@ -453,7 +453,7 @@ export function SportsDashboard() {
 
   // Family members for tournament registration selector
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [selectedMemberByTournament, setSelectedMemberByTournament] = useState<Record<number, string>>({});
+  const [selectedMemberByTournament, setSelectedMemberByTournament] = useState<Record<string | number, string>>({});
   // Upcoming Events Family Member Filter ("ALL" | "SELF" | memberId)
   const [upcomingFamilyFilter, setUpcomingFamilyFilter] = useState<string>("ALL");
   // Stats Card Modal State ("registrations" | "live_events" | null)

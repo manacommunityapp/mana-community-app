@@ -37,6 +37,7 @@ export interface CreatePostRequest {
   hashtags?: string;
   mentions?: string;
   linkUrl?: string;
+  linkTitle?: string;
   eventId?: number;
   eventDate?: string;
   eventEndDate?: string;

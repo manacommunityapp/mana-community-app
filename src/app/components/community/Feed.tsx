@@ -1685,7 +1685,7 @@ export function Feed() {
                               </option>
                             ))}
                             {createdEvents
-                              .filter((ev) => ev.eventType?.toLowerCase().includes("sport") || ev.category?.toLowerCase().includes("sport") || ev.title?.toLowerCase().includes("sport"))
+                              .filter((ev) => (ev.eventType || ev.type)?.toLowerCase().includes("sport") || ev.category?.toLowerCase().includes("sport") || ev.title?.toLowerCase().includes("sport"))
                               .map((ev) => (
                                 <option key={`ev-${ev.id}`} value={ev.id}>
                                   🏅 {eventOptionLabel(ev)}
