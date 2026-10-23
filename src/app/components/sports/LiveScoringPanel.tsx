@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle } from "lucide-react";
+import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle, Scale } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
 import { stompClient } from "../../../services/chat/stompClient";
 import { ballColor } from "./utils/cricketUtils";
 import { toast } from "sonner";
+import { SportsDisputeModal } from "./SportsDisputeModal";
 
 interface LiveScoringPanelProps {
   matchId: number;
@@ -38,6 +39,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
   const [wsConnected, setWsConnected] = useState(false);
   const [showNewBatsman, setShowNewBatsman] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
 
   useEffect(() => {
     tournamentService.getLiveMatchState(matchId)
@@ -494,6 +496,14 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
             >
               Swap Batsmen
             </button>
+            <button
+              onClick={() => setShowDisputeModal(true)}
+              className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200/70 rounded-lg sm:rounded-xl hover:bg-amber-100 transition active:scale-[0.96] ml-auto cursor-pointer"
+              title="Dispute arbitration, 15-min walkovers, or rain rules"
+            >
+              <Scale className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600" />
+              Dispute / Rain
+            </button>
           </div>
         </div>
 
@@ -553,6 +563,31 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
             </div>
           </div>
         </div>
+      )}
+
+      {/* Sports Incident & Dispute Arbitration Modal */}
+      {showDisputeModal && (
+        <SportsDisputeModal
+          isOpen={showDisputeModal}
+          onClose={() => setShowDisputeModal(false)}
+          matchId={matchId}
+          tournamentName="Mana Community Cricket"
+          teamAName={state?.innings1?.battingTeamName || "Team A"}
+          teamBName={state?.innings2?.battingTeamName || (state?.innings1 ? "Team B" : "Opponent")}
+          sport="Cricket"
+          currentScoreSummary={{
+            firstInningsRuns: state?.innings1?.totalRuns,
+            firstInningsOvers: typeof state?.innings1?.totalOvers === "number" ? state.innings1.totalOvers : parseFloat(state?.innings1?.totalOvers || "20") || 20,
+            currentOvers: typeof inn?.totalOvers === "number" ? inn.totalOvers : parseFloat(inn?.totalOvers || "0") || 0,
+          }}
+          onApplyRuling={(ruling) => {
+            if (ruling.revisedMatchConditions?.revisedTargetRuns && state) {
+              setState({ ...state, target: ruling.revisedMatchConditions.revisedTargetRuns });
+              toast.success(`Match target revised to ${ruling.revisedMatchConditions.revisedTargetRuns} runs!`);
+            }
+            setShowDisputeModal(false);
+          }}
+        />
       )}
     </div>
   );

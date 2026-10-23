@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   TrendingUp, TrendingDown, CreditCard, AlertCircle,
   RefreshCw, RotateCcw, ChevronLeft, ChevronRight, X,
@@ -143,8 +142,6 @@ function RefundModal({ order, onClose, onConfirm, loading }: RefundModalProps) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AdminCashfreePaymentReport() {
-  const qc = useQueryClient();
-
   // Filters
   const [status,  setStatus]  = useState("");
   const [refType, setRefType] = useState("");
@@ -155,35 +152,56 @@ export default function AdminCashfreePaymentReport() {
 
   // Refund modal
   const [refundTarget, setRefundTarget] = useState<CashfreeOrderResponse | null>(null);
+  const [refundLoading, setRefundLoading] = useState(false);
 
   // ── Summary ──
-  const { data: summary } = useQuery<CashfreeAdminSummaryResponse>({
-    queryKey: ["payments", "admin", "summary", from, to],
-    queryFn:  () => cashfreePaymentService.getAdminSummary({ from: from || undefined, to: to || undefined }),
-  });
+  const [summary, setSummary] = useState<CashfreeAdminSummaryResponse | null>(null);
+  const [report, setReport] = useState<any>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
-  // ── Report table ──
-  const { data: report, isFetching } = useQuery({
-    queryKey: ["payments", "admin", "report", status, refType, from, to, page],
-    queryFn:  () => cashfreePaymentService.getAdminReport({
+  const fetchSummary = useCallback(() => {
+    cashfreePaymentService.getAdminSummary({ from: from || undefined, to: to || undefined })
+      .then(setSummary)
+      .catch(() => setSummary(null));
+  }, [from, to]);
+
+  const fetchReport = useCallback(() => {
+    setIsFetching(true);
+    cashfreePaymentService.getAdminReport({
       status:  status  || undefined,
       refType: refType || undefined,
       from:    from    || undefined,
       to:      to      || undefined,
       page,
       size: PAGE_SIZE,
-    }),
-  });
+    })
+      .then(setReport)
+      .catch(() => setReport(null))
+      .finally(() => setIsFetching(false));
+  }, [status, refType, from, to, page]);
 
-  // ── Admin refund ──
-  const refundMut = useMutation({
-    mutationFn: ({ orderId, amount, reason }: { orderId: string; amount: number; reason: string }) =>
-      cashfreePaymentService.adminInitiateRefund(orderId, amount, reason),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["payments", "admin"] });
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
+
+  const handleRefund = async (amount: number, reason: string) => {
+    if (!refundTarget) return;
+    setRefundLoading(true);
+    try {
+      await cashfreePaymentService.adminInitiateRefund(refundTarget.manaOrderId, amount, reason);
       setRefundTarget(null);
-    },
-  });
+      fetchSummary();
+      fetchReport();
+    } catch (e) {
+      console.error("Refund failed", e);
+    } finally {
+      setRefundLoading(false);
+    }
+  };
 
   const totalCollected = summary?.totalCollected ?? 0;
   const totalRefunded  = summary?.totalRefunded  ?? 0;
@@ -370,11 +388,9 @@ export default function AdminCashfreePaymentReport() {
       {refundTarget && (
         <RefundModal
           order={refundTarget}
-          loading={refundMut.isPending}
+          loading={refundLoading}
           onClose={() => setRefundTarget(null)}
-          onConfirm={(amount, reason) =>
-            refundMut.mutate({ orderId: refundTarget.manaOrderId, amount, reason })
-          }
+          onConfirm={(amount, reason) => handleRefund(amount, reason)}
         />
       )}
     </div>
