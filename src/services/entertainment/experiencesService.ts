@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+const API_BASE = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:8080/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,6 +57,7 @@ export interface Review {
   reviewId: string; experienceId: string; reviewerName: string; reviewerInitials: string;
   rating: number; title: string; body: string; attendedDate: string;
   createdAt: string; helpfulCount: number; verifiedAttendee: boolean;
+  photosCount?: number;
 }
 
 export interface InterestMatch {

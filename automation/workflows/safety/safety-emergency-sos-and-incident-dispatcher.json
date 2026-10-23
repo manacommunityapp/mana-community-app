@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety SOS Emergency & Incident Dispatcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-emergency-sos-dispatcher",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound SOS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-emergency-sos-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst incidentId = item.incidentId || item.id || `SOS-${Date.now().toString().slice(-4)}`;\nconst title = item.title || 'Emergency SOS Panic Triggered';\nconst category = item.category || 'SOS_PANIC'; // SOS_PANIC, FIRE_HAZARD, THEFT, PERIMETER_BREACH, MEDICAL, VANDALISM, SUSPICIOUS_ACTIVITY\nconst severity = item.severity || 'CRITICAL'; // CRITICAL, HIGH, MEDIUM, LOW\nconst flatNumber = item.flatNumber || 'Unknown Flat';\nconst tower = item.tower || 'General Society';\nconst location = item.location || `${tower} - Flat ${flatNumber}`;\nconst description = item.description || 'Resident triggered instant panic alert from mobile app';\nconst reportedByName = item.reportedByName || 'Resident / Security Guard';\nconst callerPhone = item.callerPhone || item.phone || 'N/A';\nconst evidencePhotos = item.evidencePhotos || [];\n\nconst prompt = `You are the Chief Emergency Response Commander and Crisis Triage AI for Mana Community Society.\nAn urgent security or safety incident has been triggered in the command center. Analyze the incident details immediately and formulate an emergency dispatch and containment plan.\n\nIncident Telemetry:\n- Incident ID: ${incidentId}\n- Category: ${category}\n- Assessed Severity: ${severity}\n- Location: ${location} (${tower}, Flat ${flatNumber})\n- Description: ${description}\n- Reported By: ${reportedByName} (${callerPhone})\n- Evidence Files Count: ${evidencePhotos.length}\n\nYour Objectives:\n1. Triage priority level (P1_LIFE_SAFETY, P2_PROPERTY_THREAT, P3_URGENT_INVESTIGATION, P4_ROUTINE).\n2. Formulate immediate Security Guard on-ground deployment instructions (nearest gate guards, quick-response team).\n3. Recommend external emergency services mobilization (Ambulance, Fire Brigade, Police Station 112) with trigger thresholds.\n4. Draft immediate WhatsApp/SMS broadcast advisory for neighboring residents to keep hallways clear or stay indoors.\n5. Provide a 4-step Incident Commander stabilization checklist.\n\nRespond ONLY with a valid JSON object matching this exact schema:\n{\n  \"incidentId\": \"${incidentId}\",\n  \"priority\": \"P1_LIFE_SAFETY\" | \"P2_PROPERTY_THREAT\" | \"P3_URGENT_INVESTIGATION\" | \"P4_ROUTINE\",\n  \"escalationLevel\": \"RED_ALERT\" | \"AMBER_ALERT\" | \"YELLOW_MONITOR\",\n  \"externalServicesRequired\": {\n    \"callPolice\": boolean,\n    \"callAmbulance\": boolean,\n    \"callFireBrigade\": boolean,\n    \"justification\": string\n  },\n  \"guardDispatchRunbook\": [\n    \"Step 1: Specific guard action\",\n    \"Step 2: Specific containment action\"\n  ],\n  \"residentBroadcastMessage\": \"Short 2-sentence urgent advisory for society notification feed\",\n  \"estimatedContainmentMinutes\": number,\n  \"incidentCommanderChecklist\": [\n    \"Checklist item 1\",\n    \"Checklist item 2\",\n    \"Checklist item 3\",\n    \"Checklist item 4\"\n  ]\n}`;\n\nreturn [{\n  json: {\n    incidentId,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Emergency Dispatch Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Emergency Commander (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst incidentId = $('Prepare Emergency Dispatch Prompt').first().json.incidentId;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  parsed = {\n    incidentId: incidentId,\n    priority: \"P1_LIFE_SAFETY\",\n    escalationLevel: \"RED_ALERT\",\n    externalServicesRequired: {\n      callPolice: true,\n      callAmbulance: false,\n      callFireBrigade: false,\n      justification: \"Fallback safety rule: dispatch duty guards immediately to verify situation.\"\n    },\n    guardDispatchRunbook: [\n      \"Dispatch Main Gate Quick Response Team (QRT) to reported flat/tower immediately.\",\n      \"CCTV control room lock and monitor elevators and entry/exit turnstiles.\",\n      \"Establish two-way intercom contact with resident.\"\n    ],\n    residentBroadcastMessage: \"Emergency response team is investigating an incident in your tower. Please cooperate with security guards and keep stairways accessible.\",\n    estimatedContainmentMinutes: 10,\n    incidentCommanderChecklist: [\n      \"Verify guard arrival on ground\",\n      \"Confirm resident safety via intercom\",\n      \"Check CCTV camera feed for perimeter anomalies\",\n      \"Document entry/exit logs during incident window\"\n    ]\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    dispatchedAt: new Date().toISOString(),\n    dispatchPlan: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Emergency Response Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Command Center",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound SOS Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Emergency Dispatch Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Emergency Dispatch Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Emergency Commander (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Emergency Commander (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Emergency Response Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Emergency Response Plan": {
+      "main": [
+        [
+          {
+            "node": "Respond to Command Center",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

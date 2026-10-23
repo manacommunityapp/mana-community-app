@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "Mana Sports Match AI Recap & Badge Awards",
   "nodes": [
     {
@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedAnalysis = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedAnalysis = JSON.parse(rawText);\n} catch (err) {\n  parsedAnalysis = {\n    headline: \"Match Concluded with High Drama\",\n    recap: \"Both teams displayed exceptional sportsmanship in a tightly contested fixture.\",\n    keyMoments: [\"Decisive plays in closing stages settled the outcome\"],\n    mvp: { playerName: \"Outstanding Player\", team: \"Winning Team\", rationale: \"Consistent match-winning impact\" },\n    badgeRecommendations: [],\n    socialBulletin: \"🏆 Match completed! Check the leaderboard for updated standings.\"\n  };\n}\n\nconst matchMeta = $('Format Sports Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    matchId: matchMeta.matchId,\n    sport: matchMeta.sport,\n    tournamentName: matchMeta.tournamentName,\n    generatedAt: new Date().toISOString(),\n    data: parsedAnalysis\n  }\n}];"
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedAnalysis = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedAnalysis = JSON.parse(rawText);\n} catch (err) {\n  parsedAnalysis = {\n    headline: \"Match Concluded with High Drama\",\n    recap: \"Both teams displayed exceptional sportsmanship in a tightly contested fixture.\",\n    keyMoments: [\"Decisive plays in closing stages settled the outcome\"],\n    mvp: { playerName: \"Outstanding Player\", team: \"Winning Team\", rationale: \"Consistent match-winning impact\" },\n    badgeRecommendations: [],\n    socialBulletin: \"ðŸ† Match completed! Check the leaderboard for updated standings.\"\n  };\n}\n\nconst matchMeta = $('Format Sports Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    matchId: matchMeta.matchId,\n    sport: matchMeta.sport,\n    tournamentName: matchMeta.tournamentName,\n    generatedAt: new Date().toISOString(),\n    data: parsedAnalysis\n  }\n}];"
       },
       "id": "4",
       "name": "Parse Sports Commentary",
