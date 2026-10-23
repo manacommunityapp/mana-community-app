@@ -76,6 +76,8 @@ export interface DashboardTournamentCard {
   registrationStatus: string | null;
   communityId: number | null;
   communityName: string | null;
+  venueName?: string | null;
+  sportName?: string | null;
   events: DashboardEventCard[];
   sponsors?: Sponsor[];
 }

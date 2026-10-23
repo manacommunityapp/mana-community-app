@@ -25,6 +25,7 @@ export interface EventResponse {
   title: string;
   description: string;
   type: string;
+  eventType?: string;
   category?: string | null;
   startDate: string;
   endDate: string | null;
