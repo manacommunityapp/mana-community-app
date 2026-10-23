@@ -2840,7 +2840,7 @@ export function SportsMultiRegister() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 m-0 mb-0">
+                  <h3 className="font-sans text-base font-bold text-slate-900 m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Details (Self)"
                       : profileModalState.mode === "family_edit"
