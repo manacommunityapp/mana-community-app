@@ -29,6 +29,15 @@ export interface CashfreeOrderResponse {
   appId?: string;
 }
 
+export interface CashfreeAdminSummaryResponse {
+  totalCollected: number;
+  totalRefunded: number;
+  countByStatus: Record<string, number>;
+  amountByStatus: Record<string, number>;
+  countByReferenceType: Record<string, number>;
+  revenueByReferenceType: Record<string, number>;
+}
+
 export const cashfreePaymentService = {
   createOrder(req: CashfreeCreateOrderRequest): Promise<CashfreeOrderResponse> {
     return apiClient.post<CashfreeOrderResponse>("/payments/cashfree/orders", req);
@@ -61,5 +70,40 @@ export const cashfreePaymentService = {
     return apiClient.get(
       `/payments/cashfree/orders/by-reference?referenceType=${referenceType}&referenceId=${referenceId}&page=${page}&size=${size}`,
     );
+  },
+
+  // ── Admin endpoints ───────────────────────────────────────────────────────
+
+  getAdminReport(params: {
+    status?: string;
+    refType?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+  }): Promise<PaginatedResponse<CashfreeOrderResponse>> {
+    const q = new URLSearchParams();
+    if (params.status)        q.set("status",   params.status);
+    if (params.refType)       q.set("refType",  params.refType);
+    if (params.from)          q.set("from",     params.from);
+    if (params.to)            q.set("to",       params.to);
+    q.set("page", String(params.page ?? 0));
+    q.set("size", String(params.size ?? 20));
+    return apiClient.get(`/payments/cashfree/admin/report?${q.toString()}`);
+  },
+
+  getAdminSummary(params: { from?: string; to?: string }): Promise<CashfreeAdminSummaryResponse> {
+    const q = new URLSearchParams();
+    if (params.from) q.set("from", params.from);
+    if (params.to)   q.set("to",   params.to);
+    return apiClient.get(`/payments/cashfree/admin/summary?${q.toString()}`);
+  },
+
+  adminInitiateRefund(
+    manaOrderId: string,
+    amount?: number,
+    reason?: string,
+  ): Promise<CashfreeOrderResponse> {
+    return apiClient.post(`/payments/cashfree/admin/refund/${manaOrderId}`, { amount, reason });
   },
 };
