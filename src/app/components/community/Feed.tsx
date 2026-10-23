@@ -116,6 +116,7 @@ const COMMENT_REACTION_CONFIG: { type: string; emoji: string; label: string; act
 
 const POST_TYPE_CONFIG: { id: PostTypeEnum; label: string; icon: string; color: string }[] = [
   { id: "GENERAL", label: "General", icon: "💬", color: "bg-slate-100 text-slate-700" },
+  { id: "SPORTS", label: "Sports", icon: "🏆", color: "bg-emerald-100 text-emerald-700" },
   { id: "ANNOUNCEMENT", label: "Announcement", icon: "📢", color: "bg-amber-100 text-amber-700" },
   { id: "QUESTION", label: "Question", icon: "❓", color: "bg-blue-100 text-blue-700" },
   { id: "POLL", label: "Poll", icon: "📊", color: "bg-violet-100 text-violet-700" },
@@ -136,6 +137,7 @@ const POST_TYPE_CONFIG: { id: PostTypeEnum; label: string; icon: string; color: 
 const FEED_FILTERS = [
   { id: "ALL", label: "All", shortLabel: "All" },
   { id: "OFFICIAL", label: "Official", shortLabel: "Official" },
+  { id: "SPORTS", label: "Sports", shortLabel: "Sports" },
   { id: "ANNOUNCEMENT", label: "Announcements", shortLabel: "Announce" },
   { id: "POLL", label: "Polls", shortLabel: "Polls" },
   { id: "EVENT", label: "Events", shortLabel: "Events" },
@@ -1426,11 +1428,11 @@ export function Feed() {
                     </div>
                   </div>
 
-                  {/* Title input (for Articles / Announcements) */}
-                  {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT") && (
+                  {/* Title input (for Articles / Announcements / Sports) */}
+                  {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT" || composerType === "SPORTS") && (
                     <input
                       type="text"
-                      placeholder="Post title..."
+                      placeholder={composerType === "SPORTS" ? "Match / Tournament headline (optional)..." : "Post title..."}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       value={newPostTitle}
                       onChange={(e) => setNewPostTitle(e.target.value)}
@@ -1445,6 +1447,7 @@ export function Feed() {
                       composerType === "POLL" ? "Provide context or details about this poll..."
                       : composerType === "QUESTION" ? "Ask your community a question..."
                       : composerType === "ANNOUNCEMENT" ? "Write your official announcement details..."
+                      : composerType === "SPORTS" ? "Share sports updates, match scores, practice sessions, or tournament news..."
                       : composerType === "EMERGENCY" ? "Describe the emergency situation and action needed..."
                       : composerType === "APPRECIATION" ? "Share who and what you are appreciating..."
                       : composerType === "SUGGESTION" ? "Share your idea or suggestion..."
@@ -1455,7 +1458,7 @@ export function Feed() {
                     value={newPostContent}
                     onChange={(e) => setNewPostContent(e.target.value)}
                     disabled={isPosting}
-                    autoFocus={composerType !== "ARTICLE" && composerType !== "ANNOUNCEMENT"}
+                    autoFocus={composerType !== "ARTICLE" && composerType !== "ANNOUNCEMENT" && composerType !== "SPORTS"}
                   />
 
                   {/* Dynamic Type-specific inputs */}
@@ -1647,6 +1650,17 @@ export function Feed() {
                         title="Add Event Details"
                       >
                         <Calendar className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setComposerType(composerType === "SPORTS" ? "GENERAL" : "SPORTS")}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${
+                          composerType === "SPORTS" ? "text-emerald-600 bg-emerald-50" : "text-emerald-500 hover:bg-emerald-50"
+                        }`}
+                        title="Sports Post"
+                      >
+                        <Trophy className="w-5 h-5" />
                       </button>
 
                       <button
@@ -2273,7 +2287,7 @@ const PostCard = React.memo(function PostCard({
             <button onClick={() => setIsEditing(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
           </div>
 
-          {(post.postType === "ARTICLE" || post.postType === "ANNOUNCEMENT") && (
+          {(post.postType === "ARTICLE" || post.postType === "ANNOUNCEMENT" || post.postType === "SPORTS") && (
             <input
               type="text"
               placeholder="Title..."
