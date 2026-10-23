@@ -1335,7 +1335,7 @@ export function SportsDashboard() {
                 </div>
                 <div>
                   <div className="relative flex items-center gap-1.5">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
+                    <h3 className="font-sans text-sm sm:text-base font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
                     <div className="relative inline-flex items-center">
                       <button
                         type="button"
@@ -1644,7 +1644,7 @@ export function SportsDashboard() {
                           <div className="min-w-0 flex-1">
                             {/* Top Row: Tournament Name & Details Button */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-base font-bold text-slate-900 truncate m-0 mb-0">{t.name}</h3>
+                              <h3 className="font-sans text-base font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
 
                               <button
                                 type="button"

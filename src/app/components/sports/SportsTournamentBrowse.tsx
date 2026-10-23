@@ -540,7 +540,7 @@ function MyTournamentCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 onClick={onViewDetails}
-                className="text-base font-bold text-slate-900 hover:text-amber-700 transition-colors cursor-pointer truncate"
+                className="font-sans text-base font-bold text-slate-900 hover:text-amber-700 transition-colors cursor-pointer truncate max-w-full"
               >
                 {event.name}
               </h3>
