@@ -51,7 +51,7 @@ export default function AdminIncidentDashboard() {
   const load = () => {
     setLoading(true);
     apiClient.get<IncidentRow[]>("/api/healthguard/admin/incidents")
-      .then(r => setIncidents(r.data ?? []))
+      .then(r => setIncidents(Array.isArray(r) ? r : ((r as any)?.data ?? [])))
       .catch(() => setIncidents([]))
       .finally(() => setLoading(false));
   };

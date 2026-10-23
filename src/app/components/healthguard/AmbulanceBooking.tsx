@@ -54,8 +54,8 @@ export default function AmbulanceBookingScreen() {
 
   const loadData = () => {
     Promise.all([
-      healthGuardService.getActiveAmbulanceBooking().then(r => r.status !== 204 ? r.data : null).catch(() => null),
-      healthGuardService.getAmbulanceHistory().then(r => r.data ?? []).catch(() => []),
+      healthGuardService.getActiveAmbulanceBooking().then((r: any) => r?.status !== 204 ? (r?.data || r) : null).catch(() => null),
+      healthGuardService.getAmbulanceHistory().then((r: any) => Array.isArray(r) ? r : (r?.data ?? [])).catch(() => []),
     ]).then(([active, hist]) => {
       setActiveBooking(active);
       setHistory(hist.filter((b: AmbulanceBookingData) => b.status === "COMPLETED" || b.status === "CANCELLED"));
@@ -68,8 +68,8 @@ export default function AmbulanceBookingScreen() {
     if (!form.pickupAddress.trim()) return;
     setBooking(true);
     try {
-      const r = await healthGuardService.bookAmbulance(form);
-      setActiveBooking(r.data);
+      const r: any = await healthGuardService.bookAmbulance(form);
+      setActiveBooking(r?.data || r);
       setShowForm(false);
       setForm({ pickupAddress: "", destinationAddress: "", patientName: "", patientPhone: "", emergencyDescription: "" });
     } finally {

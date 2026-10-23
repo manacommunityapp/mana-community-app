@@ -69,7 +69,7 @@ export default function AmbulanceDispatch() {
     // Fetch all active ambulance bookings — reuse the admin pattern
     apiClient.get<BookingRow[]>("/api/healthguard/ambulance/all")
       .catch(() => apiClient.get<BookingRow[]>("/api/healthguard/ambulance"))
-      .then(r => setBookings(r.data ?? []))
+      .then(r => setBookings(Array.isArray(r) ? r : ((r as any)?.data ?? [])))
       .catch(() => setBookings([]))
       .finally(() => setLoading(false));
   };

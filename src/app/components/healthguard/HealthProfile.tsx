@@ -49,8 +49,8 @@ export function HealthProfile() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await healthGuardService.saveProfile(form as HealthProfileDto);
-      setForm({ ...BLANK, ...res.data });
+      const res: any = await healthGuardService.saveProfile(form as HealthProfileDto);
+      setForm({ ...BLANK, ...(res?.data || res) });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {

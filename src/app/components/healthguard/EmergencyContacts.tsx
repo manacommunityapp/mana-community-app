@@ -45,10 +45,10 @@ export function EmergencyContacts() {
     try {
       if (editId != null) {
         const res = await healthGuardService.updateContact(editId, form as EmergencyContactDto);
-        setContacts(prev => prev.map(c => c.id === editId ? res.data : c));
+        setContacts(prev => prev.map(c => c.id === editId ? ((res as any)?.data || res) : c));
       } else {
         const res = await healthGuardService.addContact(form as EmergencyContactDto);
-        setContacts(prev => [...prev, res.data]);
+        setContacts(prev => [...prev, ((res as any)?.data || res)]);
       }
       setShowForm(false);
       setEditId(null);

@@ -60,8 +60,9 @@ export function HealthGuardDashboard() {
     try {
       await healthGuardService.resolveIncident(activeIncident.id, 'Resolved from dashboard');
       setActiveIncident(null);
-      const histRes = await healthGuardService.getIncidentHistory();
-      setRecentIncidents(histRes.data.slice(0, 5));
+      const histRes: any = await healthGuardService.getIncidentHistory();
+      const list = Array.isArray(histRes) ? histRes : (histRes?.data || []);
+      setRecentIncidents(list.slice(0, 5));
     } catch (e) {
       console.error(e);
     } finally {
