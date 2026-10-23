@@ -20,6 +20,8 @@ import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
+import { useCashfree } from "../../../hooks/useCashfree";
+import CashfreeCheckout from "../payments/CashfreeCheckout";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -715,6 +717,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const isAnyAdmin = hasAnyPermission(CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
   const isModal = Boolean(props.isModal);
   const handleClose = props.onClose || (() => navigate(-1));
+
+  // Cashfree payment hook — used when the event has a registration fee.
+  const cashfree = useCashfree({
+    onSuccess: () => toast.success("Payment confirmed!"),
+    onError:   (msg) => toast.error(msg),
+  });
+  const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
+  // Pending registration payload saved until payment succeeds.
+  const pendingRegistrationRef = useRef<null | (() => Promise<void>)>(null);
 
   const [event, setEvent] = useState<SportsEvent | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
@@ -1870,6 +1881,81 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     const isDoublesSelected = formatsToSubmit.some(f => f.toUpperCase().includes("DOUBLES")) || formData.matchTypes.some(f => f.toUpperCase().includes("DOUBLES"));
     if (isDoublesSelected && !formData.partnerInfo && !formData.partnerUserId && !formData.partnerFamilyMemberId) {
       toast.error("Doubles Partner is mandatory. Please choose a partner or select 'Looking for Partner (Open Pool)'.");
+      return;
+    }
+
+    // If this event has a registration fee, gate through Cashfree before submitting.
+    const registrationFee: number = Number((event as any).registrationFee ?? 0);
+    if (registrationFee > 0) {
+      // Save the registration call as a closure to run after payment confirmation.
+      pendingRegistrationRef.current = async () => {
+        setSubmitting(true);
+        try {
+          for (const catId of formData.categoryIds) {
+            for (const fmt of formatsToSubmit) {
+              const isDoubles = fmt.toUpperCase().includes("DOUBLES");
+              await sportsService.registerForEvent({
+                eventId: event!.id,
+                categoryId: catId,
+                matchType: fmt,
+                role: formData.role,
+                age: formData.age,
+                gender: formData.gender || undefined,
+                dateOfBirth: formData.dateOfBirth,
+                matches: formData.matches,
+                runs: formData.runs,
+                wickets: formData.wickets,
+                strikeRate: formData.strikeRate,
+                avgScore: formData.avgScore,
+                playerName: formData.playerName,
+                email: email.trim() || undefined,
+                relation: formData.relation,
+                flatNumber: formData.flatNumber,
+                familyMemberId: formData.familyMemberId
+                  ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId)
+                  : undefined,
+                partnerUserId:
+                  isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId)
+                    ? (formData.partnerInfo?.userId || formData.partnerUserId)
+                    : undefined,
+                partnerFamilyMemberId:
+                  isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    : undefined,
+                captainNomination: formData.captainNomination || undefined,
+                proposedTeamName:
+                  formData.captainNomination && formData.proposedTeamName
+                    ? formData.proposedTeamName.trim()
+                    : undefined,
+                recaptchaToken,
+              });
+            }
+          }
+          toast.success("You're registered! See you on the court.");
+          props.onSuccess?.();
+          if (!props.isModal) navigate(-1);
+        } catch (err: any) {
+          toast.error(err?.message || "Registration failed after payment. Please contact support.");
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      setShowPaymentOverlay(true);
+      const paid = await cashfree.initiatePayment({
+        amount: registrationFee,
+        referenceType: "SPORTS_REGISTRATION",
+        referenceId: event!.id,
+        description: `${event!.name ?? "Sports"} registration fee`,
+        customerPhone: (user as any)?.phone,
+      });
+
+      if (paid?.status === "PAID") {
+        await pendingRegistrationRef.current?.();
+        setShowPaymentOverlay(false);
+      } else {
+        setShowPaymentOverlay(cashfree.status === "failed");
+      }
       return;
     }
 
@@ -3942,6 +4028,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           </div>
         </div>
         {snackbarElement}
+        <CashfreeCheckout
+          visible={showPaymentOverlay}
+          status={cashfree.status}
+          order={cashfree.order}
+          error={cashfree.error}
+          onDismiss={() => {
+            setShowPaymentOverlay(false);
+            cashfree.reset();
+          }}
+        />
         <Toaster richColors position="top-right" />
       </>
     );
@@ -3951,6 +4047,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     <>
       {mainContent}
       {snackbarElement}
+      <CashfreeCheckout
+        visible={showPaymentOverlay}
+        status={cashfree.status}
+        order={cashfree.order}
+        error={cashfree.error}
+        onDismiss={() => {
+          setShowPaymentOverlay(false);
+          cashfree.reset();
+        }}
+      />
       <Toaster richColors position="top-right" />
     </>
   );
