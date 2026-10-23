@@ -28,7 +28,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || { bg: "bg-gray-100", text: "text-gray-600", label: status };
-  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide`}>{s.label}</span>;
+  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide`}>{s.label}</span>;
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -99,7 +99,7 @@ function MatchDetailModal({ matchId, onClose }: { matchId: number; onClose: () =
                       <span className="font-medium text-slate-700">{inn.battingTeamName}</span>
                       <span className="font-bold text-slate-800">{inn.totalRuns}/{inn.totalWickets} ({inn.totalOvers} ov)</span>
                     </div>
-                    <div className="text-[10px] text-slate-500">RR: {inn.runRate} · Extras: {inn.extras}</div>
+                    <div className="text-xs text-slate-500">RR: {inn.runRate} · Extras: {inn.extras}</div>
                   </div>
                 ))}
               </div>
@@ -230,7 +230,7 @@ export function ResultsAdminTab() {
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
 
-        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[11px] font-medium">
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
           {(["all", "pending", "completed"] as const).map(f => (
             <button
               key={f}
@@ -242,7 +242,7 @@ export function ResultsAdminTab() {
           ))}
         </div>
 
-        <span className="text-[11px] text-slate-400 ml-auto">{filtered.length} match{filtered.length !== 1 ? "es" : ""}</span>
+        <span className="text-xs text-slate-400 ml-auto">{filtered.length} match{filtered.length !== 1 ? "es" : ""}</span>
       </div>
 
       {loadingMatches ? (
@@ -263,8 +263,8 @@ export function ResultsAdminTab() {
             return (
               <div key={m.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-[10px] font-medium text-indigo-500">{(m.round || "").replace(/_/g, " ")} · #{m.matchNumber}</span>
-                  <span className="text-[10px] text-slate-400">{formatDateTime(m.scheduledAt)}</span>
+                  <span className="text-xs font-medium text-indigo-500">{(m.round || "").replace(/_/g, " ")} · #{m.matchNumber}</span>
+                  <span className="text-xs text-slate-400">{formatDateTime(m.scheduledAt)}</span>
                   <StatusBadge status={m.status} />
                 </div>
 
@@ -306,22 +306,22 @@ export function ResultsAdminTab() {
 
                     {isEditing && m.teamAId && m.teamBId && (
                       <div className="flex items-center gap-2 mt-2 justify-center">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Winner:</span>
+                        <span className="text-xs text-slate-400 uppercase tracking-wide">Winner:</span>
                         <button
                           onClick={() => setWinnerId(m.teamAId)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${winnerId === m.teamAId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === m.teamAId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                         >
                           {m.teamAName}
                         </button>
                         <button
                           onClick={() => setWinnerId(m.teamBId)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${winnerId === m.teamBId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === m.teamBId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                         >
                           {m.teamBName}
                         </button>
                         <button
                           onClick={() => setWinnerId(null)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${winnerId === null ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === null ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                         >
                           Draw
                         </button>

@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || { bg: "bg-gray-100", text: "text-gray-600", label: status };
-  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide`}>{s.label}</span>;
+  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide`}>{s.label}</span>;
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -153,7 +153,7 @@ export function ScheduleAdminTab() {
                   <span className="text-sm font-semibold text-slate-800 truncate">{cfg.tournamentName}</span>
                   <StatusBadge status={cfg.status} />
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                   <span>{cfg.tournamentType?.replace(/_/g, " ")}</span>
                   <span>·</span>
                   <span>{cfg.totalTeams} teams</span>
@@ -168,7 +168,7 @@ export function ScheduleAdminTab() {
                 </div>
               </div>
               <div className="flex-shrink-0 text-right">
-                <div className="text-[10px] text-slate-400 uppercase tracking-wide">Event #{cfg.eventId}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Event #{cfg.eventId}</div>
               </div>
             </button>
 
@@ -188,7 +188,7 @@ export function ScheduleAdminTab() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
                           <th className="px-4 py-2 text-left font-medium">#</th>
                           <th className="px-4 py-2 text-left font-medium">Round</th>
                           <th className="px-4 py-2 text-left font-medium">Match</th>
@@ -229,7 +229,7 @@ export function ScheduleAdminTab() {
                         ))}
                       </tbody>
                     </table>
-                    <div className="px-4 py-2 text-[10px] text-slate-400 text-right border-t border-slate-100">
+                    <div className="px-4 py-2 text-xs text-slate-400 text-right border-t border-slate-100">
                       {cfgMatches.length} match{cfgMatches.length !== 1 ? "es" : ""}
                     </div>
                   </div>

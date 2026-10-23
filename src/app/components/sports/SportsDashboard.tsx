@@ -83,12 +83,12 @@ function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon, 
             <span className="text-base sm:text-xl font-bold leading-none shrink-0" style={{ color }}>
               {value}
             </span>
-            <span className="text-[11px] sm:text-xs text-slate-500 font-medium truncate" title={label}>
+            <span className="text-xs text-slate-500 font-medium truncate" title={label}>
               {label}
             </span>
           </div>
           <span
-            className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
+            className="text-xs font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
             style={{ background: badgeBg, color: badgeText }}
           >
             {badge}
@@ -130,8 +130,8 @@ function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 
   return (
-    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] sm:text-[11px] font-bold tabular-nums shrink-0 ml-1 sm:ml-1.5 shadow-2xs">
-      <span className="text-[9px] sm:text-[10px] text-amber-600/70">⏱</span>
+    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-xs font-bold tabular-nums shrink-0 ml-1 sm:ml-1.5 shadow-2xs">
+      <span className="text-xs text-amber-600/70">⏱</span>
       {timeLeft.d > 0 && <span>{timeLeft.d}d</span>}
       <span>{pad(timeLeft.h)}h</span>
       <span>:</span>
@@ -166,13 +166,13 @@ function EventRow({ event, onClick }: EventRowProps) {
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
             {event.venue && (
-              <span className="text-[11px] sm:text-xs text-slate-500 font-medium flex items-center gap-1">
+              <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
                 <span>·</span>
                 <span>{event.venue}</span>
               </span>
             )}
             {event.registrantBadge && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 font-semibold inline-flex items-center gap-1">
+              <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
               </span>
             )}
@@ -180,8 +180,8 @@ function EventRow({ event, onClick }: EventRowProps) {
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <div className="text-[11px] sm:text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
-        <div className="text-[10px] text-slate-500 mt-0.5 font-medium">{event.statusSub}</div>
+        <div className="text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
+        <div className="text-xs text-slate-500 mt-0.5 font-medium">{event.statusSub}</div>
       </div>
     </div>
   );
@@ -230,19 +230,19 @@ function RegCard({
         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
           <span className="text-xs text-slate-500 font-medium">{item.category}</span>
           {item.categoryName && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
               {item.categoryName}
             </span>
           )}
         </div>
-        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1">{item.spots}</div>}
+        {item.spots && <div className="text-xs text-indigo-600 font-semibold mt-1">{item.spots}</div>}
       </div>
       <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
         <div className="flex gap-1.5 justify-end">
           {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
             <button
               disabled
-              className="text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
+              className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
             >
               Closed
             </button>
@@ -255,7 +255,7 @@ function RegCard({
                 else onView(item);
               }}
               disabled={item.action === "Confirmed"}
-              className={`text-[11px] font-bold px-3 py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
+              className={`text-xs font-bold px-3 py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
                 item.action === "Register"
                   ? "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95"
                   : item.action === "Confirmed"
@@ -272,7 +272,7 @@ function RegCard({
           {secondaryActionLabel && onSecondaryAction && (
             <button
               onClick={() => onSecondaryAction(item)}
-              className="text-[11px] font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs hover:opacity-95"
+              className="text-xs font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs hover:opacity-95"
             >
               {secondaryActionLabel}
             </button>
@@ -284,7 +284,7 @@ function RegCard({
               <button
                 onClick={() => onToggleStatus(item)}
                 disabled={toggling}
-                className={`text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent disabled:opacity-50 ${item.status === "REGISTRATION_OPEN"
+                className={`text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent disabled:opacity-50 ${item.status === "REGISTRATION_OPEN"
                   ? "border-red-500/30 text-red-500 hover:bg-red-500/5"
                   : "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5"
                   }`}
@@ -298,21 +298,21 @@ function RegCard({
                 {item.auctionStatus === "COMPLETED" ? (
                   <button
                     disabled
-                    className="text-[10px] py-1 rounded-lg font-bold border transition-all bg-emerald-50 border-emerald-200 text-emerald-600 cursor-default"
+                    className="text-xs py-1 rounded-lg font-bold border transition-all bg-emerald-50 border-emerald-200 text-emerald-600 cursor-default"
                   >
                     Auction Completed
                   </button>
                 ) : (
                   <button
                     onClick={() => onStartAuction?.(item)}
-                    className="text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-indigo-500/30 text-indigo-600 hover:bg-indigo-50"
+                    className="text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-indigo-500/30 text-indigo-600 hover:bg-indigo-50"
                   >
                     {item.auctionStatus === "LIVE" ? "Resume Auction" : "Start Auction"}
                   </button>
                 )}
                 <button
                   onClick={() => onScheduleMatches?.(item)}
-                  className="text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-violet-500/30 text-violet-600 hover:bg-violet-50"
+                  className="text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-violet-500/30 text-violet-600 hover:bg-violet-50"
                 >
                   Schedule Matches
                 </button>
@@ -378,7 +378,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
         boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
-      <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-500">
+      <div className="text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-500">
         Next Match Timer
       </div>
       <div className="text-center">
@@ -395,7 +395,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
                 >
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wider text-slate-500">
+                <div className="text-xs mt-1 font-semibold tracking-wider text-slate-500">
                   {l}
                 </div>
               </div>
@@ -1062,7 +1062,7 @@ export function SportsDashboard() {
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Live Tracker Alert</h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-relaxed">{error}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-relaxed">{error}</p>
             </div>
           </div>
           <button 
@@ -1159,7 +1159,7 @@ export function SportsDashboard() {
               className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] text-center no-underline"
             >
               <span className="text-lg sm:text-2xl">{action.emoji}</span>
-              <span className="text-[10px] sm:text-xs font-semibold text-slate-600 leading-tight">{action.label}</span>
+              <span className="text-xs font-semibold text-slate-600 leading-tight">{action.label}</span>
             </Link>
           ))}
         </div>
@@ -1173,7 +1173,7 @@ export function SportsDashboard() {
               <span className="text-lg">🎯</span>
               <span className="text-xs sm:text-sm font-bold text-amber-900">Community Challenges</span>
             </div>
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[
@@ -1184,9 +1184,9 @@ export function SportsDashboard() {
               <div key={ch.title} className="bg-white/80 rounded-lg p-2.5 border border-amber-100/60 opacity-75">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-sm">{ch.icon}</span>
-                  <span className="text-[11px] font-bold text-slate-800">{ch.title}</span>
+                  <span className="text-xs font-bold text-slate-800">{ch.title}</span>
                 </div>
-                <div className="text-[10px] text-slate-500">{ch.desc}</div>
+                <div className="text-xs text-slate-500">{ch.desc}</div>
               </div>
             ))}
           </div>
@@ -1207,17 +1207,17 @@ export function SportsDashboard() {
                 ? (familyMembersOnly.length > 0 ? "mb-1 sm:mb-1.5" : "")
                 : "mb-1.5 sm:mb-2"
             }`}>
-              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Your Upcoming Events
               </div>
               {/* Family Filter Dropdown */}
               {familyMembersOnly.length > 0 ? (
                 <div className="flex items-center gap-1.5">
-                  <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden sm:inline-block">Filter:</label>
+                  <label className="text-xs text-slate-400 font-bold uppercase tracking-wider hidden sm:inline-block">Filter:</label>
                   <select
                     value={upcomingFamilyFilter}
                     onChange={(e) => setUpcomingFamilyFilter(e.target.value)}
-                    className="text-[10px] sm:text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 sm:px-2.5 py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
+                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 sm:px-2.5 py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
                     title="Filter upcoming events by family member"
                   >
                     <option value="ALL">👥 All Registrations</option>
@@ -1230,12 +1230,12 @@ export function SportsDashboard() {
                   </select>
                   {upcomingMemberProfileStatus && (
                     upcomingMemberProfileStatus.isValid ? (
-                      <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
+                      <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                         <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                         <span>Profile Ready ({upcomingTargetMember?.gender ? (upcomingTargetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}, {upcomingTargetMember?.age}y)</span>
                       </span>
                     ) : (
-                      <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
+                      <span className="text-xs font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                         <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
                         <span>Missing {upcomingMemberProfileStatus.missingFields.join(" & ")}</span>
                       </span>
@@ -1243,7 +1243,7 @@ export function SportsDashboard() {
                   )}
                 </div>
               ) : (filteredLiveEvents.length === 0 && !loading) ? (
-                <div className="text-[11px] sm:text-xs font-semibold text-slate-400">
+                <div className="text-xs font-semibold text-slate-400">
                   No upcoming events
                 </div>
               ) : null}
@@ -1291,8 +1291,8 @@ export function SportsDashboard() {
                           }}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
-                            <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
+                            <span className="text-xs text-slate-500 font-medium">Captaincy Status:</span>
+                            <span className={`text-xs font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
                               {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
                             </span>
                           </div>
@@ -1317,7 +1317,7 @@ export function SportsDashboard() {
                               }
                             }}
                             disabled={myReg?.captainConfirmation}
-                            className={`text-[10px] px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
+                            className={`text-xs px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
                               ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
                               : isNominated
                                 ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
@@ -1361,7 +1361,7 @@ export function SportsDashboard() {
                         <Info className="w-3.5 h-3.5" />
                       </button>
                       {showOpenRegInfo && (
-                        <div className="absolute left-0 sm:left-auto top-full mt-1.5 z-30 w-64 sm:w-72 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-lg border border-slate-800 animate-in fade-in slide-in-from-top-1">
+                        <div className="absolute left-0 sm:left-auto top-full mt-1.5 z-30 w-64 sm:w-72 p-2.5 bg-slate-900 text-white text-xs font-medium rounded-xl shadow-lg border border-slate-800 animate-in fade-in slide-in-from-top-1">
                           <div className="flex items-start justify-between gap-2">
                             <p className="leading-snug">Select sports groups and categories to register yourself or family members</p>
                             <button
@@ -1379,11 +1379,11 @@ export function SportsDashboard() {
                   </div>
                 </div>
               </div>
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                {openTournaments.length > 0
-                  ? `${openTournaments.length} tournament${openTournaments.length !== 1 ? "s" : ""} active`
-                  : `${openRegs.length} event${openRegs.length !== 1 ? "s" : ""}`}
-              </span>
+              {(openTournaments.length > 0 || openRegs.length > 0) && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  Active
+                </span>
+              )}
             </div>
 
             {loading ? (
@@ -1533,11 +1533,11 @@ export function SportsDashboard() {
                               <h5 className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
                                 {item.name || item.categoryName}
                               </h5>
-                              <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <div className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
                                 <span>{sportName} {item.date ? `· ${item.date}` : ""}</span>
                                 {item.categoryName && (
                                   <span
-                                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                                    className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
                                     title={`Player Category: ${item.categoryName}`}
                                   >
                                     {item.categoryName}
@@ -1547,7 +1547,7 @@ export function SportsDashboard() {
                             </div>
                           </div>
                           <span
-                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
                               formatBadge === "Team Squad"
                                 ? "bg-purple-50 text-purple-700 border border-purple-200"
                                 : formatBadge === "Doubles"
@@ -1563,27 +1563,27 @@ export function SportsDashboard() {
                         <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap mt-2">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {elig.requiredGender ? (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                                 👤 {elig.requiredGender === "MALE" ? "Men Only" : elig.requiredGender === "FEMALE" ? "Women Only" : elig.requiredGender === "MIXED" ? "Mixed (1M+1F)" : "Open to All"}
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                                 👤 Open Gender
                               </span>
                             )}
 
                             {elig.minAge != null || elig.maxAge != null ? (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                                 🎂 {elig.minAge != null && elig.maxAge != null ? `${elig.minAge} - ${elig.maxAge} yrs` : elig.minAge != null ? `${elig.minAge}+ yrs` : `Under ${elig.maxAge}`}
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
                                 🎂 All Ages
                               </span>
                             )}
 
                             {isNearlyFull && !isFull && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="text-xs font-bold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
                                 ⚡ Filling Fast
                               </span>
                             )}
@@ -1592,13 +1592,13 @@ export function SportsDashboard() {
                           {/* Action / Registration button beside criteria */}
                           <div className="shrink-0">
                             {isFullyReg ? (
-                              <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                 <span>Registered</span>
                               </span>
                             ) : isPartiallyReg ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   ✓ {regFormats.join(", ")}
                                 </span>
                                 <button
@@ -1607,7 +1607,7 @@ export function SportsDashboard() {
                                     const isSelfMember = selectedMemberId === "self";
                                     handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
                                   }}
-                                  className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                  className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
                                 >
                                   <span>+ {unregFormats.join(", ")}</span>
                                   <ArrowUpRight className="w-2.5 h-2.5" />
@@ -1616,7 +1616,7 @@ export function SportsDashboard() {
                             ) : isBlocked ? (
                               <span
                                 title={elig.warningMsg}
-                                className="text-[10px] font-bold px-2 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed"
+                                className="text-xs font-bold px-2 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed"
                               >
                                 {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : "Under Age Limit"}
                               </span>
@@ -1624,7 +1624,7 @@ export function SportsDashboard() {
                               <button
                                 type="button"
                                 onClick={() => notifyIncompleteProfile(selectedMemberId)}
-                                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
+                                className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
                               >
                                 Complete Profile →
                               </button>
@@ -1677,7 +1677,7 @@ export function SportsDashboard() {
                               </button>
 
                               {deadlineDays !== null && deadlineDays >= 0 && (
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
                                   {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays}d to start`}
                                 </span>
@@ -1697,10 +1697,11 @@ export function SportsDashboard() {
                                   </span>
                                 </span>
                               )}
-                              <span className="inline-flex items-center gap-1">
+                              {/* Hidden as requested */}
+                              {/* <span className="inline-flex items-center gap-1">
                                 <Award className="w-3.5 h-3.5 text-indigo-500" />
                                 <span>{totalCount} Sports {totalCount === 1 ? "Group" : "Groups"}</span>
-                              </span>
+                              </span> */}
 
                               <button
                                 type="button"
@@ -1724,7 +1725,7 @@ export function SportsDashboard() {
                         <div className="mt-2 pt-2 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-2 flex-nowrap shrink-0">
-                              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
                                 Register For:
                               </label>
                               <div className="relative">
@@ -1754,12 +1755,15 @@ export function SportsDashboard() {
 
                               {/* Profile readiness chip */}
                               {memberProfileStatus.isValid ? (
-                                <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
+                                <span
+                                  className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`Profile Ready (${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""})`}
+                                >
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span>Profile Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
+                                  <span>Ready</span>
                                 </span>
                               ) : (
-                                <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
+                                <span className="text-xs font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
                                   <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
                                   <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
                                 </span>
@@ -1768,15 +1772,15 @@ export function SportsDashboard() {
                           </div>
 
                           {/* View mode & eligibility filter toolbar */}
-                          <div className="flex items-center gap-1 self-end sm:self-auto bg-slate-100 p-0.5 rounded-lg text-[11px] font-semibold text-slate-600">
+                          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-1 bg-slate-100/90 p-1 rounded-xl sm:rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60 shadow-2xs">
                             {/* Eligible filter toggle: Default selected */}
                             <button
                               type="button"
                               onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: !(prev[t.id] ?? true) }))}
-                              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                              className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
                                 showEligibleOnly
-                                  ? "bg-white text-emerald-700 shadow-2xs font-bold"
-                                  : "text-slate-500 hover:text-slate-800"
+                                  ? "bg-white text-emerald-700 shadow-2xs font-bold border border-emerald-100/60"
+                                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
                               }`}
                               title={
                                 showEligibleOnly
@@ -1784,10 +1788,10 @@ export function SportsDashboard() {
                                   : "Showing all categories (eligible & ineligible). Click to show eligible only."
                               }
                             >
-                              <CheckCircle2 className={`w-3 h-3 ${showEligibleOnly ? "text-emerald-600" : "text-slate-400"}`} />
-                              <span>Eligible</span>
+                              <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${showEligibleOnly ? "text-emerald-600" : "text-slate-400"}`} />
+                              <span className="whitespace-nowrap">Eligible</span>
                               <span
-                                className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
+                                className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
                                   showEligibleOnly
                                     ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                     : "bg-slate-200 text-slate-600"
@@ -1797,30 +1801,39 @@ export function SportsDashboard() {
                               </span>
                             </button>
 
-                            <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
+                            <div className="w-px h-4 bg-slate-300 mx-0.5 shrink-0" />
 
-                            <button
-                              type="button"
-                              onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "grid" }))}
-                              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
-                                viewMode === "grid" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "hover:text-slate-900"
-                              }`}
-                              title="View all categories in a grid"
-                            >
-                              <LayoutGrid className="w-3 h-3" />
-                              <span>All Grid</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "groups" }))}
-                              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
-                                viewMode === "groups" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "hover:text-slate-900"
-                              }`}
-                              title="Group categories by sport"
-                            >
-                              <ListTree className="w-3 h-3" />
-                              <span>By Sport</span>
-                            </button>
+                            {/* View Switcher: Grid vs By Sport */}
+                            <div className="flex items-center gap-1 flex-1 sm:flex-initial">
+                              <button
+                                type="button"
+                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "grid" }))}
+                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                                  viewMode === "grid"
+                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                }`}
+                                title="View all categories in a grid"
+                              >
+                                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">
+                                  <span className="hidden sm:inline">All </span>Grid
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "groups" }))}
+                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                                  viewMode === "groups"
+                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                }`}
+                                title="Group categories by sport"
+                              >
+                                <ListTree className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">By Sport</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1830,14 +1843,14 @@ export function SportsDashboard() {
                         <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                            <span className="truncate text-[11px]">
+                            <span className="truncate text-xs">
                               <strong className="font-semibold">{memberProfileStatus.memberName}</strong> missing {memberProfileStatus.missingFields.join(" & ")}. Update profile to register.
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
-                            className="text-[10px] font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer shrink-0"
+                            className="text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer shrink-0"
                           >
                             Update Profile →
                           </button>
@@ -1854,7 +1867,7 @@ export function SportsDashboard() {
                               🔍
                             </div>
                             <p className="text-xs font-semibold text-slate-700">No eligible categories found for this participant</p>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-500 mt-0.5">
                               Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
                             </p>
                             <button
@@ -1874,23 +1887,23 @@ export function SportsDashboard() {
 
                               return (
                                 <div key={sport} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 bg-white">
-                                  <div className="flex items-center justify-between mb-2 border-b border-slate-100">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xl">{emoji}</span>
-                                      <h3 className="text-sm font-bold text-slate-900 m-0 mb-0">{sport}</h3>
-                                      <span className="text-[11px] text-slate-500 font-medium">
-                                        · {sportEvents.length} {sportEvents.length === 1 ? "group/category" : "groups/categories"}
+                                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 flex-wrap gap-1.5">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-xl shrink-0">{emoji}</span>
+                                      <h3 className="text-sm font-bold text-slate-900 m-0 mb-0 truncate">{sport}</h3>
+                                      <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                                        · {sportEvents.length} {sportEvents.length === 1 ? "category" : "categories"}
                                       </span>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                                       {eligibleCount > 0 && (
-                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
                                           {eligibleCount} eligible
                                         </span>
                                       )}
                                       {regCount > 0 && (
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                                           ✓ {regCount} registered
                                         </span>
                                       )}
@@ -1971,8 +1984,8 @@ export function SportsDashboard() {
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
             <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
               <div className="flex items-center justify-between mb-2.5">
-                <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
-                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
+                <span className="text-xs px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedTournaments.length > 0
                     ? `${closedTournaments.length} tournament${closedTournaments.length !== 1 ? "s" : ""}`
                     : `${closedRegs.length} event${closedRegs.length !== 1 ? "s" : ""}`}
@@ -1997,7 +2010,7 @@ export function SportsDashboard() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-bold text-slate-900 truncate">{t.name}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+                          <div className="text-xs text-slate-500 mt-0.5 font-medium">
                             {t.eventDateStart && t.eventDateEnd
                               ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
                               : "Dates TBD"}
@@ -2006,7 +2019,7 @@ export function SportsDashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
                             Closed
                           </span>
                           {isExpanded
@@ -2100,8 +2113,8 @@ export function SportsDashboard() {
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
             <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
-                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
+                <span className="text-xs px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
                 </span>
               </div>
@@ -2179,7 +2192,7 @@ export function SportsDashboard() {
         <div className="space-y-2.5">
           {/* Notifications */}
           <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-2">
               <Bell className="w-3 h-3" /> Notifications
             </div>
             <div className="space-y-0">
@@ -2188,7 +2201,7 @@ export function SportsDashboard() {
                   <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-[10px] text-center py-3 text-slate-500">No new notifications</p>
+                <p className="text-xs text-center py-3 text-slate-500">No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
                   <div key={n.id} className={`flex items-start gap-2.5 py-1.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
@@ -2199,7 +2212,7 @@ export function SportsDashboard() {
                       <div className="text-xs leading-relaxed text-slate-800">
                         {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
                       </div>
-                      <div className="text-[10px] mt-0.5 text-slate-500">{n.time}</div>
+                      <div className="text-xs mt-0.5 text-slate-500">{n.time}</div>
                     </div>
                   </div>
                 ))
@@ -2214,7 +2227,7 @@ export function SportsDashboard() {
           <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
             <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-4 h-4 text-[#f97316]" />
-              <div className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">Season Stats</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Season Stats</div>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-4">
@@ -2249,11 +2262,11 @@ export function SportsDashboard() {
               <Users className="w-16 h-16 text-indigo-400" />
             </div>
             <div className="relative z-10 space-y-1.5">
-              <span className="text-[9px] uppercase font-bold tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
+              <span className="text-xs uppercase font-bold tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
                 Tournament Hub
               </span>
               <h4 className="text-sm font-bold text-white">Teams & Squad Rosters</h4>
-              <p className="text-[11px] text-indigo-200/80 leading-relaxed">
+              <p className="text-xs text-indigo-200/80 leading-relaxed">
                 Explore franchise owners, captains, purse utilization, and full squad player lists.
               </p>
               <Link
@@ -2316,7 +2329,7 @@ export function SportsDashboard() {
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                           {isAdminNomination ? "Select Registrant" : "Nominated Person"}
                         </label>
                         {isAdminNomination ? (
@@ -2344,12 +2357,12 @@ export function SportsDashboard() {
                                 <div className="text-sm font-bold text-slate-900 truncate">
                                   {targetPersonName}
                                 </div>
-                                <div className="text-[11px] text-slate-500 font-medium truncate">
+                                <div className="text-xs text-slate-500 font-medium truncate">
                                   {targetRelation} {targetReg?.event?.name ? `· ${targetReg.event.name}` : ""}
                                 </div>
                               </div>
                             </div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 whitespace-nowrap shrink-0">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 whitespace-nowrap shrink-0">
                               {isTargetSelf ? "Self" : "Family Member"}
                             </span>
                           </div>
@@ -2357,7 +2370,7 @@ export function SportsDashboard() {
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                           {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
                         </label>
                         <input
@@ -2448,7 +2461,7 @@ export function SportsDashboard() {
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 m-0 mb-0">
                         Your Registrations
                       </h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
                         {myRegistrations.length} Total
                       </span>
                     </div>
@@ -2500,7 +2513,7 @@ export function SportsDashboard() {
                                 {reg.event?.name || "Sports Event"}
                               </span>
                               {reg.event?.sport?.name && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
                                   {reg.event.sport.name}
                                 </span>
                               )}
@@ -2512,7 +2525,7 @@ export function SportsDashboard() {
                             )}
                           </div>
 
-                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider ${statusColor}`}>
+                          <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider ${statusColor}`}>
                             {reg.status}
                           </span>
                         </div>
@@ -2520,20 +2533,20 @@ export function SportsDashboard() {
                         <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
                           <div className="flex items-center gap-2 flex-wrap">
                             {reg.playerName && (
-                              <span className="text-[11px] font-semibold text-slate-700 inline-flex items-center gap-1">
+                              <span className="text-xs font-semibold text-slate-700 inline-flex items-center gap-1">
                                 👤 <span>{reg.playerName}</span>
                                 {reg.relation && reg.relation.toUpperCase() !== "SELF" && (
-                                  <span className="text-[10px] text-slate-400">({reg.relation})</span>
+                                  <span className="text-xs text-slate-400">({reg.relation})</span>
                                 )}
                               </span>
                             )}
                             {reg.matchType && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
                                 {reg.matchType.replace(/_/g, " ")}
                               </span>
                             )}
                             {reg.captainNomination && (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                                 👑 {reg.captainConfirmation ? "Confirmed Captain" : "Captain Nominee"}
                               </span>
                             )}
@@ -2542,7 +2555,7 @@ export function SportsDashboard() {
                           <Link
                             to="/sports/my-sports"
                             onClick={() => setActiveStatsModal(null)}
-                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
                           >
                             Manage in My Sports →
                           </Link>
@@ -2589,7 +2602,7 @@ export function SportsDashboard() {
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 m-0 mb-0">
                         Live & Running Events
                       </h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
                         {liveEvents.filter(e => e.status === "LIVE").length} Active
                       </span>
                     </div>
@@ -2645,7 +2658,7 @@ export function SportsDashboard() {
                             </p>
                           </div>
 
-                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider inline-flex items-center gap-1 ${
+                          <span className={`text-xs font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider inline-flex items-center gap-1 ${
                             isLive
                               ? "bg-emerald-100 text-emerald-800 border-emerald-300 animate-pulse"
                               : "bg-orange-50 text-[#f97316] border-orange-200"
@@ -2656,13 +2669,13 @@ export function SportsDashboard() {
                         </div>
 
                         <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             {ev.statusSub ? `Status: ${ev.statusSub}` : "Scheduled Match"}
                           </div>
                           <Link
                             to="/sports/schedule"
                             onClick={() => setActiveStatsModal(null)}
-                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
                           >
                             View Draws & Schedule →
                           </Link>

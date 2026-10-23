@@ -76,7 +76,7 @@ export function SportsLayout() {
   });
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0 font-sans">
+    <div className="flex flex-col gap-2 h-full min-h-0 font-sans text-xs">
       {/* Breadcrumb + page header in a single horizontal row */}
       <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100">
         {/* Left: Breadcrumbs */}
@@ -109,7 +109,7 @@ export function SportsLayout() {
           </div>
           <div className="text-left hidden sm:block">
             <h3 className="text-base sm:text-lg font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Sports</h3>
-            <p className="text-[11px] m-0" style={{ color: "#6b7094" }}>
+            <p className="text-xs m-0" style={{ color: "#6b7094" }}>
               Leagues, teams, schedules &amp; player auctions
             </p>
           </div>

@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = map[status] || map["REGISTERED"];
   return (
     <span
-      className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+      className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
       style={{ background: s.bg, color: s.text }}
     >
       {s.label}
@@ -83,17 +83,17 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
               {team.teamName || team.name}
             </p>
             {team.captainConfirmation && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
                 <CheckCircle2 className="w-2.5 h-2.5" /> Confirmed
               </span>
             )}
             {team.captainNomination && !team.captainConfirmation && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
                 <Clock className="w-2.5 h-2.5" /> Nominated
               </span>
             )}
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: "#6b7094" }}>
+          <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
             {team.ownerName && <span>Owner: <strong>{team.ownerName}</strong> · </span>}
             {team.captainUser?.fullName && <span>Captain: <strong>{team.captainUser.fullName}</strong> · </span>}
             {memberCount} player{memberCount !== 1 ? "s" : ""}
@@ -103,7 +103,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
         <div className="flex items-center gap-3">
           {/* Budget mini bar */}
           <div className="hidden sm:block text-right">
-            <p className="text-[10px] font-bold" style={{ color: "#0d0d2b" }}>
+            <p className="text-xs font-bold" style={{ color: "#0d0d2b" }}>
               ₹{(budget - spent).toLocaleString()} left
             </p>
             <div className="w-20 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
@@ -142,7 +142,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
               >
                 <Icon className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: c }} />
                 <p className="text-sm font-bold" style={{ color: c }}>{value}</p>
-                <p className="text-[9px] uppercase tracking-wider font-semibold mt-0.5" style={{ color: "#6b7094" }}>{label}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold mt-0.5" style={{ color: "#6b7094" }}>{label}</p>
               </div>
             ))}
           </div>
@@ -150,7 +150,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
           {/* Players list */}
           {team.players && team.players.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: "#6b7094" }}>
+              <p className="text-xs uppercase tracking-wider font-bold mb-2" style={{ color: "#6b7094" }}>
                 Players ({team.players.length})
               </p>
               <div className="space-y-1.5">
@@ -162,14 +162,14 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                         style={{ background: color }}
                       >
                         {i + 1}
                       </span>
                       <span className="text-xs font-medium" style={{ color: "#0d0d2b" }}>{p.name}</span>
                       {p.category && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
                       )}
                     </div>
                     <span className="text-xs font-bold" style={{ color: "#4f46e5" }}>
@@ -183,7 +183,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
 
           {eventName && (
             <div
-              className="flex items-center gap-2 pt-1 text-[10px] font-medium"
+              className="flex items-center gap-2 pt-1 text-xs font-medium"
               style={{ color: "#6b7094" }}
             >
               <Trophy className="w-3 h-3 text-indigo-400" />
@@ -286,7 +286,7 @@ function PendingRegistrationCard({
             </p>
             {screenAudit && (
               <span
-                className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 ${
+                className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 ${
                   screenAudit.eligibilityStatus === "APPROVED"
                     ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                     : screenAudit.eligibilityStatus === "FLAGGED_FOR_REVIEW"
@@ -299,7 +299,7 @@ function PendingRegistrationCard({
               </span>
             )}
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: "#6b7094" }}>
+          <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
             {reg.user?.fullName && <span>{reg.user.fullName} · </span>}
             {reg.flatNumber && <span>Flat {reg.flatNumber} · </span>}
             {reg.registeredAt && (
@@ -343,7 +343,7 @@ function PendingRegistrationCard({
       {/* Screen Audit Details Accordion */}
       {screenAudit && (
         <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-700 space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-slate-500">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span className="font-medium text-slate-800">
               AI Audit Notes: <span className="font-normal text-slate-600">{screenAudit.auditNotes}</span>
             </span>
@@ -357,7 +357,7 @@ function PendingRegistrationCard({
 
           {showAuditDetails && (
             <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200 space-y-1.5 animate-in fade-in duration-150">
-              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
                 {screenAudit.adminChecklist?.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-1.5">
                     {item.status === "PASS" ? (
@@ -372,7 +372,7 @@ function PendingRegistrationCard({
                 ))}
               </div>
               {screenAudit.residentNotificationMessage && (
-                <p className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-100">
+                <p className="text-xs text-slate-500 italic pt-1 border-t border-slate-100">
                   Notification: "{screenAudit.residentNotificationMessage}"
                 </p>
               )}
@@ -523,7 +523,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
           <p className="text-xs text-slate-500 mt-0.5">
             {allTeamsCount} team{allTeamsCount !== 1 ? "s" : ""} across {groups.length} tournament{groups.length !== 1 ? "s" : ""}
             {allPendingCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">
+              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
                 <Clock className="w-2.5 h-2.5" /> {allPendingCount} pending
               </span>
             )}
@@ -572,7 +572,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-800">Pending Approvals</p>
-                <p className="text-[11px] text-amber-600 font-semibold">{allPendingCount} registration{allPendingCount !== 1 ? "s" : ""} awaiting review</p>
+                <p className="text-xs text-amber-600 font-semibold">{allPendingCount} registration{allPendingCount !== 1 ? "s" : ""} awaiting review</p>
               </div>
             </div>
             {globalExpanded === "pending" ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -590,7 +590,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                       <Trophy className="w-3.5 h-3.5 text-indigo-400" />
                       <span className="text-xs font-bold text-indigo-700">{tournamentName}</span>
                       <span
-                        className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                        className="text-xs px-1.5 py-0.5 rounded-full font-bold"
                         style={{ background: "rgba(245,158,11,0.12)", color: "#d97706" }}
                       >
                         {g.pendingRegs.length} pending
@@ -676,16 +676,16 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-extrabold text-slate-800 truncate">{tournamentName}</p>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: ss.bg, color: ss.text }}>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: ss.bg, color: ss.text }}>
                     {status.replace(/_/g, " ")}
                   </span>
                   {sport && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600">
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600">
                       {sport}
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   <Calendar className="w-2.5 h-2.5 inline mr-1" />
                   {g.tournament.event?.eventDateStart
                     ? new Date(g.tournament.event.eventDateStart).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
@@ -710,7 +710,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                     <Shield className="w-3.5 h-3.5 text-indigo-400" />
                     <span className="text-xs font-bold text-slate-700">All Teams</span>
                     <span
-                      className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-xs px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}
                     >
                       {g.teams.length}
@@ -743,7 +743,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                     <Clock className="w-3.5 h-3.5 text-amber-500" />
                     <span className="text-xs font-bold text-amber-700">Pending Approvals</span>
                     <span
-                      className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-xs px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(245,158,11,0.15)", color: "#d97706" }}
                     >
                       {g.pendingRegs.length}

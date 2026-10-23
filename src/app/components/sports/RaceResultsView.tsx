@@ -71,7 +71,7 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
             <Timer className="w-5 h-5 text-white" />
             <div>
               <div className="text-sm font-bold text-white">Race Results</div>
-              <div className="text-[10px] text-cyan-200">{results.length} participants</div>
+              <div className="text-xs text-cyan-200">{results.length} participants</div>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition">
@@ -139,7 +139,7 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                         <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
                           {r.playerName}
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                           {r.teamName || "Individual"}
                           {r.laneNumber ? ` · Lane ${r.laneNumber}` : ""}
                         </div>
@@ -152,11 +152,11 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                             {r.raceStatus === "FINISHED" ? r.formattedTime || "-" : ""}
                           </div>
                           {r.isPersonalBest && (
-                            <div className="text-[8px] font-bold text-emerald-500 uppercase">PB</div>
+                            <div className="text-xs font-bold text-emerald-500 uppercase">PB</div>
                           )}
                         </div>
                         {r.raceStatus !== "FINISHED" && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>
+                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>
                             {badge.label}
                           </span>
                         )}
@@ -169,11 +169,11 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                     {/* Split Times */}
                     {isExpanded && r.splitTimes && r.splitTimes.length > 0 && (
                       <div className="ml-10 mr-3 mt-1 mb-2 px-3 py-2 bg-slate-50 dark:bg-slate-700/30 rounded-lg">
-                        <div className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Split Times</div>
+                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Split Times</div>
                         <div className="flex flex-wrap gap-2">
                           {r.splitTimes.map((split, idx) => (
                             <div key={idx} className="bg-white dark:bg-slate-800 px-2 py-1 rounded text-xs border border-slate-200 dark:border-slate-600">
-                              <span className="text-slate-400 text-[9px]">Lap {idx + 1}: </span>
+                              <span className="text-slate-400 text-xs">Lap {idx + 1}: </span>
                               <span className="font-bold text-slate-700 dark:text-white">{split}</span>
                             </div>
                           ))}

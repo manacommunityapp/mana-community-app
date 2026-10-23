@@ -123,7 +123,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                       )}
                     />
                     {!ev.name.trim() && (
-                      <span className="text-[10px] text-red-500 font-medium">Event Name is required</span>
+                      <span className="text-xs text-red-500 font-medium">Event Name is required</span>
                     )}
                   </div>
 
@@ -272,7 +272,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                         </div>
                       </div>
                       {!ev.tournamentType && (
-                        <span className="text-[10px] text-red-500 font-medium">Format is required</span>
+                        <span className="text-xs text-red-500 font-medium">Format is required</span>
                       )}
                     </div>
                   </div>

@@ -95,7 +95,7 @@ export function TournamentSection({
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
+          <span className="text-xs px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
             {viewMode === "captains" ? (nominatedCaptains?.length ?? 0) : (registrations?.length ?? 0)}{" "}
             {viewMode === "captains" ? "captains" : "players"}
           </span>
@@ -106,7 +106,7 @@ export function TournamentSection({
               <button
                 type="button"
                 onClick={() => setExportDropdownEventId(exportDropdownEventId === ev.id ? null : ev.id)}
-                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-[10px] font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
+                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Players</span>
@@ -159,19 +159,19 @@ export function TournamentSection({
             <>
               <button
                 onClick={() => onAddParticipant(ev.id)}
-                className="px-2.5 py-1 bg-[#f97316]/10 hover:bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 hover:border-[#f97316]/50 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-[#f97316]/10 hover:bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30 hover:border-[#f97316]/50 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Participant
               </button>
               <button
                 onClick={() => onImportParticipants(ev.id)}
-                className="px-2.5 py-1 bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 hover:border-[#10b981]/50 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                className="px-2.5 py-1 bg-[#10b981]/10 hover:bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 hover:border-[#10b981]/50 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <ClipboardList className="w-3.5 h-3.5" /> Import
               </button>
               <button
                 onClick={() => setShowExternalFormsEventId(showExternalFormsEventId === ev.id ? null : ev.id)}
-                className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border ${
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border ${
                   showExternalFormsEventId === ev.id
                     ? "bg-purple-600 text-white border-purple-600"
                     : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
@@ -206,24 +206,24 @@ export function TournamentSection({
           {registrations.map((reg, idx) => (
             <div key={reg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
                   {idx + 1}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <span className="text-sm font-medium text-slate-800 break-words">{reg.playerName || reg.user?.fullName || "—"}</span>
                     {reg.registrationSource === "GOOGLE_FORMS" && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                      <span className="text-xs px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
                         Google Form
                       </span>
                     )}
                     {reg.isExternalGuest && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
+                      <span className="text-xs px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
                         Guest
                       </span>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                  <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     {reg.category?.name && <span>{reg.category.name}</span>}
                     {reg.age && <span>Age: {reg.age}</span>}
                     {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
@@ -234,7 +234,7 @@ export function TournamentSection({
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 <div className="flex items-center gap-1 mr-1">
-                  <span className="text-[9px] text-slate-400 font-medium">Seed</span>
+                  <span className="text-xs text-slate-400 font-medium">Seed</span>
                   <input
                     type="number"
                     min={1}
@@ -243,17 +243,17 @@ export function TournamentSection({
                     onBlur={() => handleSeedSave(reg.id)}
                     onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); handleSeedSave(reg.id); } }}
                     placeholder="—"
-                    className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-[10px] focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
+                    className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
                     disabled={!!savingSeeds[reg.id]}
                   />
                 </div>
-                <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
+                <span className={`text-xs px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
                   {reg.status}
                 </span>
                 {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
                   <button
                     onClick={() => onConfirmRegistration(reg.id)}
-                    className="text-[10px] px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
+                    className="text-xs px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
                   >
                     <CheckCircle2 className="w-3 h-3" /> Confirm
                   </button>
@@ -261,7 +261,7 @@ export function TournamentSection({
                 {(reg.status === "REGISTERED" || reg.status === "PENDING") && onRejectRegistration && (
                   <button
                     onClick={() => onRejectRegistration(reg.id)}
-                    className="text-[10px] px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
+                    className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
                   >
                     <XCircle className="w-3 h-3" /> Reject
                   </button>
@@ -278,15 +278,15 @@ export function TournamentSection({
           {nominatedCaptains.map((team) => (
             <div key={team.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
               <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-[10px] font-bold text-[#f97316] flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-xs font-bold text-[#f97316] flex-shrink-0">
                   C
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-slate-800 break-words">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
-                  <div className="text-[10px] text-[#f97316] mt-1 font-semibold tracking-wide">
+                  <div className="text-xs text-[#f97316] mt-1 font-semibold tracking-wide">
                     Proposed Team: {team.teamName}
                   </div>
-                  <div className="text-[10px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                  <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                     <span>Budget: ₹{team.totalBudget?.toLocaleString()}</span>
                     {team.ownerUser?.phone && <span>· {team.ownerUser.phone}</span>}
                   </div>
@@ -294,14 +294,14 @@ export function TournamentSection({
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 {team.captainConfirmation ? (
-                  <span className="text-[10px] px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
+                  <span className="text-xs px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Confirmed
                   </span>
                 ) : (
                   onConfirmCaptain && (
                     <button
                       onClick={() => onConfirmCaptain(team.id, true)}
-                      className="text-[10px] px-3 py-1.5 bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/30 rounded-lg hover:bg-[#f97316]/20 transition-colors flex items-center gap-1 font-medium"
+                      className="text-xs px-3 py-1.5 bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/30 rounded-lg hover:bg-[#f97316]/20 transition-colors flex items-center gap-1 font-medium"
                     >
                       <CheckCircle2 className="w-3 h-3" /> Confirm Captain
                     </button>
@@ -340,7 +340,7 @@ export function TournamentSection({
         </div>
       )}
       {!loadingRegs && viewMode === "captains" && (!nominatedCaptains || nominatedCaptains.length === 0) && (
-        <div className="text-center py-6 text-[10px] text-[#475569] italic">No nominated captains found</div>
+        <div className="text-center py-6 text-xs text-[#475569] italic">No nominated captains found</div>
       )}
     </div>
   );
@@ -351,7 +351,7 @@ export function TournamentSection({
     onViewPlayers ? (
       <button
         onClick={() => onViewPlayers(evId)}
-        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
+        className={`${size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "players"
             ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30"
             : "border border-slate-200 text-slate-500 hover:border-[#3b82f6] hover:text-[#3b82f6]"
@@ -367,7 +367,7 @@ export function TournamentSection({
     return (
       <button
         onClick={() => onViewCaptains(evId)}
-        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
+        className={`${size === "xs" ? "text-xs px-2 py-1" : "text-xs px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "captains"
             ? "bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30"
             : "border border-slate-200 text-slate-500 hover:border-[#f97316] hover:text-[#f97316]"
@@ -391,7 +391,7 @@ export function TournamentSection({
     >
       <div className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center justify-between" style={{ color: "#6b7094" }}>
         <span>{title}</span>
-        <span className={`px-2 py-0.5 rounded text-[10px] ${badgeColor}`}>{badge}</span>
+        <span className={`px-2 py-0.5 rounded text-xs ${badgeColor}`}>{badge}</span>
       </div>
       <div className="space-y-2">
         {events.map(item => {
@@ -404,7 +404,7 @@ export function TournamentSection({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200">
                   <div className="min-w-0 flex-1 text-left">
                     <h3 className="text-sm font-bold text-slate-800 m-0 mb-0 break-words">{item.name}</h3>
-                    <div className="text-[10px] text-slate-500 m-0 mt-0.5">
+                    <div className="text-xs text-slate-500 m-0 mt-0.5">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
                         : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
@@ -412,23 +412,23 @@ export function TournamentSection({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     {showActivate && onActivate && (
-                      <button onClick={() => onActivate(item.id)} className="text-[10px] px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
+                      <button onClick={() => onActivate(item.id)} className="text-xs px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                         Open for Registration
                       </button>
                     )}
                     {onCloseTournament && (item.registrationStatus === "LIVE" || item.registrationStatus === "REGISTRATION_OPEN" || item.status === "LIVE" || item.status === "REGISTRATION_OPEN") && (
-                      <button onClick={() => onCloseTournament(item.id)} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
+                      <button onClick={() => onCloseTournament(item.id)} className="text-xs px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
                         <Lock className="w-3 h-3" /> Close Reg
                       </button>
                     )}
                     {onAnnounce && (
-                      <button onClick={() => onAnnounce(item.id, item.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
+                      <button onClick={() => onAnnounce(item.id, item.name)} className="text-xs px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
                         <Megaphone className="w-3 h-3" /> Announce
                       </button>
                     )}
                     <button
                       onClick={() => toggleEvents(item.id)}
-                      className={`text-[10px] px-2.5 py-1.5 border rounded-lg transition-colors cursor-pointer ${
+                      className={`text-xs px-2.5 py-1.5 border rounded-lg transition-colors cursor-pointer ${
                         isExpanded
                           ? "bg-indigo-50 border-indigo-200 text-indigo-600 font-semibold"
                           : "border-slate-200 text-slate-500 hover:border-indigo-500 hover:text-indigo-600"
@@ -440,16 +440,16 @@ export function TournamentSection({
                       <button
                         type="button"
                         onClick={() => onAddEventToTournament(item.id, item.name)}
-                        className="text-[10px] px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                        className="text-xs px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
                         title="Add Event to Tournament"
                       >
                         <Plus className="w-3 h-3" /> Add Event
                       </button>
                     )}
-                    <button onClick={() => onEdit(item)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
+                    <button onClick={() => onEdit(item)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                       Edit
                     </button>
-                    <button onClick={() => onDelete(item.id)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
+                    <button onClick={() => onDelete(item.id)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                       Delete
                     </button>
                   </div>
@@ -465,7 +465,7 @@ export function TournamentSection({
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
                             <div className="min-w-0 flex-1 text-left">
                               <div className="text-xs font-semibold text-slate-800 break-words">{ev.name}</div>
-                              <div className="text-[9px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                              <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                 {ev.gender && <span>Gender: {ev.gender}</span>}
                                 {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
                                 {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
@@ -473,7 +473,7 @@ export function TournamentSection({
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               {registrationStatus && registrationStatus !== "DRAFT" && (
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                                   registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
                                     ? "bg-green-500/20 text-[#10b981]"
                                     : registrationStatus === "COMPLETED"
@@ -492,7 +492,7 @@ export function TournamentSection({
                                     tournamentId: item.id,
                                     tournamentName: item.name,
                                   })}
-                                  className="text-[9px] px-2 py-1 border border-slate-200 text-slate-500 rounded hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  className="text-xs px-2 py-1 border border-slate-200 text-slate-500 rounded hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
                                   title="Edit Event"
                                 >
                                   <Edit2 className="w-2.5 h-2.5" /> Edit
@@ -502,7 +502,7 @@ export function TournamentSection({
                                 <button
                                   type="button"
                                   onClick={() => onCloseEvent(ev.id)}
-                                  className="text-[9px] px-2 py-1 border border-amber-200 text-amber-600 rounded hover:border-amber-400 hover:bg-amber-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  className="text-xs px-2 py-1 border border-amber-200 text-amber-600 rounded hover:border-amber-400 hover:bg-amber-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
                                   title="Close Event Registration"
                                 >
                                   <Lock className="w-2.5 h-2.5" /> Close
@@ -512,7 +512,7 @@ export function TournamentSection({
                                 <button
                                   type="button"
                                   onClick={() => onDeleteEvent(ev.id, item.id)}
-                                  className="text-[9px] px-2 py-1 border border-slate-200 text-[#ef4444]/70 rounded hover:border-[#ef4444] hover:text-[#ef4444] hover:bg-red-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  className="text-xs px-2 py-1 border border-slate-200 text-[#ef4444]/70 rounded hover:border-[#ef4444] hover:text-[#ef4444] hover:bg-red-50/50 transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
                                   title="Delete Event"
                                 >
                                   <Trash2 className="w-2.5 h-2.5" /> Delete
@@ -548,7 +548,7 @@ export function TournamentSection({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
                 <div className="min-w-0 flex-1 text-left">
                   <div className="text-sm font-semibold text-slate-800 break-words">{ev.name}</div>
-                  <div className="text-[10px] text-slate-500 mt-0.5">
+                  <div className="text-xs text-slate-500 mt-0.5">
                     {ev.eventDateStart && ev.eventDateEnd
                       ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
                       : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
@@ -556,7 +556,7 @@ export function TournamentSection({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {registrationStatus && registrationStatus !== "DRAFT" && (
-                    <span className={`text-[10px] px-2 py-1 rounded ${
+                    <span className={`text-xs px-2 py-1 rounded ${
                       registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
                         ? "bg-green-500/20 text-[#10b981]"
                         : registrationStatus === "COMPLETED"
@@ -573,17 +573,17 @@ export function TournamentSection({
                     </>
                   )}
                   {showActivate && onActivate && (
-                    <button onClick={() => onActivate(targetId)} className="text-[10px] px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
+                    <button onClick={() => onActivate(targetId)} className="text-xs px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                       Open for Registration
                     </button>
                   )}
                   {onCloseTournament && (registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN") && (
-                    <button onClick={() => onCloseTournament(targetId)} className="text-[10px] px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
+                    <button onClick={() => onCloseTournament(targetId)} className="text-xs px-2.5 py-1.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1" title="Close Tournament Registration">
                       <Lock className="w-3 h-3" /> Close Reg
                     </button>
                   )}
                   {onAnnounce && (
-                    <button onClick={() => onAnnounce(targetId, ev.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
+                    <button onClick={() => onAnnounce(targetId, ev.name)} className="text-xs px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
                       <Megaphone className="w-3 h-3" /> Announce
                     </button>
                   )}
@@ -591,16 +591,16 @@ export function TournamentSection({
                     <button
                       type="button"
                       onClick={() => onAddEventToTournament(item.id, item.name)}
-                      className="text-[10px] px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
+                      className="text-xs px-2.5 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors font-medium cursor-pointer flex items-center gap-1"
                       title="Add Event to Tournament"
                     >
                       <Plus className="w-3 h-3" /> Add Event
                     </button>
                   )}
-                  <button onClick={() => onEdit(item)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
+                  <button onClick={() => onEdit(item)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                     Edit
                   </button>
-                  <button onClick={() => onDelete(targetId)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
+                  <button onClick={() => onDelete(targetId)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                     Delete
                   </button>
                 </div>
@@ -610,7 +610,7 @@ export function TournamentSection({
           );
         })}
         {events.length === 0 && (
-          <div className="text-center py-6 text-[10px] text-[#475569] italic">{emptyText}</div>
+          <div className="text-center py-6 text-xs text-[#475569] italic">{emptyText}</div>
         )}
       </div>
     </div>

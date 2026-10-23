@@ -31,7 +31,7 @@ function PlayerStatsModal({ playerId, playerName, onClose }: { playerId: number;
         <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
           <div>
             <div className="text-sm sm:text-base font-bold text-white">{playerName}</div>
-            <div className="text-[10px] sm:text-xs text-indigo-200">Career Statistics</div>
+            <div className="text-xs text-indigo-200">Career Statistics</div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition">
             <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -64,37 +64,37 @@ function PlayerStatsModal({ playerId, playerName, onClose }: { playerId: number;
                 return (
                   <div key={idx} className="space-y-3">
                     {stats.length > 1 && (
-                      <div className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         {s.teamName}
                       </div>
                     )}
                     <div className="bg-slate-50 rounded-xl border border-slate-100 p-3 sm:p-4">
-                      <div className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Batting</div>
+                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Batting</div>
                       <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         {batting.map(({ label, value }) => (
                           <div key={label}>
                             <div className="text-lg sm:text-xl font-extrabold text-slate-800">{value}</div>
-                            <div className="text-[9px] sm:text-[10px] text-slate-500">{label}</div>
+                            <div className="text-xs text-slate-500">{label}</div>
                           </div>
                         ))}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-purple-50 rounded-xl border border-purple-100 p-3 sm:p-4">
-                        <div className="text-[9px] sm:text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-2">Bowling</div>
+                        <div className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Bowling</div>
                         {bowling.map(({ label, value }) => (
                           <div key={label} className="mb-1 last:mb-0">
                             <div className="text-lg sm:text-xl font-extrabold text-slate-800">{value}</div>
-                            <div className="text-[9px] sm:text-[10px] text-slate-500">{label}</div>
+                            <div className="text-xs text-slate-500">{label}</div>
                           </div>
                         ))}
                       </div>
                       <div className="bg-amber-50 rounded-xl border border-amber-100 p-3 sm:p-4">
-                        <div className="text-[9px] sm:text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-2">Awards</div>
+                        <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2">Awards</div>
                         {awards.map(({ label, value }) => (
                           <div key={label}>
                             <div className="text-lg sm:text-xl font-extrabold text-slate-800">{value}</div>
-                            <div className="text-[9px] sm:text-[10px] text-slate-500">{label}</div>
+                            <div className="text-xs text-slate-500">{label}</div>
                           </div>
                         ))}
                       </div>
@@ -191,8 +191,8 @@ export function Leaderboard() {
     return (
       <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-slate-100 shadow-sm text-center">
         <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-slate-300 mx-auto mb-2 sm:mb-3" />
-        <h4 className="text-[11px] sm:text-sm font-bold text-slate-700">No Tournaments Found</h4>
-        <p className="text-[9px] sm:text-xs text-slate-500 mt-1">Create a tournament configuration to see leaderboards.</p>
+        <h4 className="text-xs sm:text-sm font-bold text-slate-700">No Tournaments Found</h4>
+        <p className="text-xs text-slate-500 mt-1">Create a tournament configuration to see leaderboards.</p>
       </div>
     );
   }
@@ -204,7 +204,7 @@ export function Leaderboard() {
         <select
           value={selectedConfigId ?? ""}
           onChange={(e) => setSelectedConfigId(Number(e.target.value))}
-          className="border border-slate-200 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-sm text-slate-700 bg-white outline-none focus:border-indigo-500 w-full sm:w-auto sm:min-w-[200px]"
+          className="border border-slate-200 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-slate-700 bg-white outline-none focus:border-indigo-500 w-full sm:w-auto sm:min-w-[200px]"
         >
           {configs.map((c) => (
             <option key={c.id} value={c.id}>{c.tournamentName}</option>
@@ -217,7 +217,7 @@ export function Leaderboard() {
             <button
               key={tab}
               onClick={() => setActiveType(tab)}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-xs font-semibold rounded-md sm:rounded-lg transition active:scale-[0.96] ${
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-md sm:rounded-lg transition active:scale-[0.96] ${
                 activeType === tab
                   ? "bg-white text-slate-800 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
@@ -235,9 +235,9 @@ export function Leaderboard() {
         style={{ backgroundColor: cfg.capBg, borderColor: `${cfg.capColor}30`, color: cfg.capColor }}
       >
         <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        <span className="text-[10px] sm:text-sm font-bold">{cfg.capLabel}</span>
+        <span className="text-xs sm:text-sm font-bold">{cfg.capLabel}</span>
         {stats.length > 0 && (
-          <span className="text-[10px] sm:text-sm font-semibold">— {stats[0].playerName}</span>
+          <span className="text-xs sm:text-sm font-semibold">— {stats[0].playerName}</span>
         )}
       </div>
 
@@ -248,12 +248,12 @@ export function Leaderboard() {
         </div>
       ) : stats.length === 0 ? (
         <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-slate-100 shadow-sm text-center">
-          <p className="text-[10px] sm:text-sm text-slate-500">No stats available yet. Record match results to populate the leaderboard.</p>
+          <p className="text-xs sm:text-sm text-slate-500">No stats available yet. Record match results to populate the leaderboard.</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-[10px] sm:text-xs">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
                   <th className="text-left py-2 sm:py-3 pl-2.5 sm:pl-4 pr-1 sm:pr-2 font-semibold w-6 sm:w-8">#</th>
@@ -323,7 +323,7 @@ export function Leaderboard() {
                       <td className="py-2 sm:py-2.5 pl-2.5 sm:pl-4 pr-1 sm:pr-2">
                         {isTop ? (
                           <span
-                            className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[9px] sm:text-[10px] font-bold text-white"
+                            className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-bold text-white"
                             style={{ backgroundColor: cfg.capColor }}
                           >
                             1
@@ -361,7 +361,7 @@ export function Leaderboard() {
               </tbody>
             </table>
           </div>
-          <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 border-t border-slate-100 text-[9px] sm:text-[10px] text-slate-400">
+          <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
             Click any player to view detailed career stats
           </div>
         </div>

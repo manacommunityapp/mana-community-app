@@ -147,7 +147,7 @@ export function SportsDisputeModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white">Dispute & Incident Arbitrator</h3>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> AI Assisted
                 </span>
               </div>
@@ -205,7 +205,7 @@ export function SportsDisputeModal({
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">1st Innings Runs</label>
+                  <label className="text-xs font-semibold text-slate-600">1st Innings Runs</label>
                   <input
                     type="number"
                     value={firstInningsRuns}
@@ -214,7 +214,7 @@ export function SportsDisputeModal({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">1st Innings Overs</label>
+                  <label className="text-xs font-semibold text-slate-600">1st Innings Overs</label>
                   <input
                     type="number"
                     value={firstInningsOvers}
@@ -223,7 +223,7 @@ export function SportsDisputeModal({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">Available 2nd Inn. Overs</label>
+                  <label className="text-xs font-semibold text-slate-600">Available 2nd Inn. Overs</label>
                   <input
                     type="number"
                     value={availableOvers}
@@ -251,12 +251,12 @@ export function SportsDisputeModal({
                 <Clock className="w-4 h-4 text-amber-600" />
                 Walkover & No-Show Grace Period Check
               </h4>
-              <p className="text-[11px] text-slate-600">
+              <p className="text-xs text-slate-600">
                 Official tournament rule: 15-minute grace period allowed. Failing to report with minimum squad constitutes automatic forfeit.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">Defaulting Team</label>
+                  <label className="text-xs font-semibold text-slate-600">Defaulting Team</label>
                   <select
                     value={selectedParty}
                     onChange={(e) => setSelectedParty(e.target.value)}
@@ -267,7 +267,7 @@ export function SportsDisputeModal({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">Minutes Past Toss</label>
+                  <label className="text-xs font-semibold text-slate-600">Minutes Past Toss</label>
                   <input
                     type="number"
                     value={minutesLate}
@@ -276,7 +276,7 @@ export function SportsDisputeModal({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600">Players Present</label>
+                  <label className="text-xs font-semibold text-slate-600">Players Present</label>
                   <input
                     type="number"
                     value={playersPresent}
@@ -351,7 +351,7 @@ export function SportsDisputeModal({
                   Official Arbitrator Verdict
                 </span>
                 <span
-                  className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
+                  className={`text-xs font-bold uppercase px-2.5 py-1 rounded-full ${
                     rulingResponse.ruling.actionTaken === "WALKOVER_CONFIRMED"
                       ? "bg-red-100 text-red-700 border border-red-200"
                       : rulingResponse.ruling.actionTaken === "TARGET_REVISED"
@@ -406,7 +406,7 @@ export function SportsDisputeModal({
                   {onApplyRuling && (
                     <button
                       onClick={() => onApplyRuling(rulingResponse.ruling)}
-                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer"
                     >
                       Apply To Match
                     </button>
@@ -418,13 +418,13 @@ export function SportsDisputeModal({
               {rulingResponse.ruling.residentMessage && (
                 <div className="p-3.5 bg-green-50/70 border border-green-200 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-green-900 flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-green-900 flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-green-700" />
                       De-escalating Announcement (WhatsApp / App):
                     </span>
                     <button
                       onClick={handleCopyBulletin}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-semibold transition cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
                     >
                       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                       {copied ? "Copied" : "Copy"}

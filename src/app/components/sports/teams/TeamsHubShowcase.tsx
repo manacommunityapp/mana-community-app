@@ -153,7 +153,7 @@ export const TeamsHubShowcase: React.FC<TeamsHubShowcaseProps> = ({
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-1.5 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 shadow-2xs inline-flex items-center gap-1">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-widest bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 shadow-2xs inline-flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-indigo-300" />
                 Tournament Teams & Squads
               </span>
@@ -170,21 +170,21 @@ export const TeamsHubShowcase: React.FC<TeamsHubShowcaseProps> = ({
           {/* Tournament Quick Metrics Pill Box */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white/5 backdrop-blur-md p-3 sm:p-3.5 rounded-2xl border border-white/10 shrink-0">
             <div className="text-center px-2">
-              <span className="text-[10px] uppercase font-bold text-indigo-200/70 block">Franchises</span>
+              <span className="text-xs uppercase font-bold text-indigo-200/70 block">Franchises</span>
               <strong className="text-sm sm:text-lg font-black text-white">{tournamentMetrics.totalTeams} Teams</strong>
             </div>
             <div className="text-center px-2 border-l border-white/10">
-              <span className="text-[10px] uppercase font-bold text-indigo-200/70 block">Drafted</span>
+              <span className="text-xs uppercase font-bold text-indigo-200/70 block">Drafted</span>
               <strong className="text-sm sm:text-lg font-black text-white">{tournamentMetrics.totalPlayers} Players</strong>
             </div>
             <div className="text-center px-2 border-l border-white/10">
-              <span className="text-[10px] uppercase font-bold text-indigo-200/70 block">Purse Spent</span>
+              <span className="text-xs uppercase font-bold text-indigo-200/70 block">Purse Spent</span>
               <strong className="text-sm sm:text-lg font-black text-amber-300">
                 ₹{(tournamentMetrics.totalSpent / 1000).toFixed(0)}k
               </strong>
             </div>
             <div className="text-center px-2 border-l border-white/10">
-              <span className="text-[10px] uppercase font-bold text-indigo-200/70 block">Avg Squad</span>
+              <span className="text-xs uppercase font-bold text-indigo-200/70 block">Avg Squad</span>
               <strong className="text-sm sm:text-lg font-black text-emerald-300">
                 {tournamentMetrics.totalTeams > 0
                   ? Math.round(tournamentMetrics.totalPlayers / tournamentMetrics.totalTeams)

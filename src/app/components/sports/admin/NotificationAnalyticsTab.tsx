@@ -29,8 +29,8 @@ function MetricCard({ label, value, sub, icon: Icon, color }: {
         </div>
         <div>
           <div className="text-lg font-bold text-slate-800">{value}</div>
-          <div className="text-[11px] text-slate-500">{label}</div>
-          {sub && <div className="text-[10px] text-slate-400">{sub}</div>}
+          <div className="text-xs text-slate-500">{label}</div>
+          {sub && <div className="text-xs text-slate-400">{sub}</div>}
         </div>
       </div>
     </div>
@@ -50,14 +50,14 @@ function BarChartSimple({ data, labelKey, valueKey, colorFn, maxBars = 10 }: {
         const label = (d[labelKey] || "").replace(/_/g, " ");
         return (
           <div key={i} className="flex items-center gap-2">
-            <span className="text-[10px] text-slate-500 w-28 truncate text-right">{label}</span>
+            <span className="text-xs text-slate-500 w-28 truncate text-right">{label}</span>
             <div className="flex-1 h-5 bg-slate-50 rounded-md overflow-hidden">
               <div
                 className="h-full rounded-md transition-all duration-500"
                 style={{ width: `${Math.max(pct, 2)}%`, background: colorFn(d[labelKey]) }}
               />
             </div>
-            <span className="text-[11px] font-semibold text-slate-700 w-10 text-right">{d[valueKey]}</span>
+            <span className="text-xs font-semibold text-slate-700 w-10 text-right">{d[valueKey]}</span>
           </div>
         );
       })}
@@ -201,7 +201,7 @@ export function NotificationAnalyticsTab() {
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">Notification engagement metrics</p>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[11px] font-medium">
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-medium">
             {[7, 30, 90].map(d => (
               <button
                 key={d}
@@ -273,11 +273,11 @@ export function NotificationAnalyticsTab() {
           />
           {analytics.readRateByCategory.length > 0 && (
             <div className="mt-4 pt-3 border-t border-slate-100">
-              <h5 className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">Read Rate by Category</h5>
+              <h5 className="text-xs uppercase tracking-wide text-slate-400 mb-2">Read Rate by Category</h5>
               <div className="space-y-1">
                 {analytics.readRateByCategory.map(r => (
                   <div key={r.category} className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-500 w-20 truncate text-right">{r.category.replace(/_/g, " ")}</span>
+                    <span className="text-xs text-slate-500 w-20 truncate text-right">{r.category.replace(/_/g, " ")}</span>
                     <div className="flex-1 h-4 bg-slate-50 rounded-md overflow-hidden relative">
                       <div
                         className="h-full rounded-md"
@@ -287,11 +287,11 @@ export function NotificationAnalyticsTab() {
                           opacity: 0.7,
                         }}
                       />
-                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-semibold text-slate-700">
+                      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-slate-700">
                         {r.readRate}%
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 w-16 text-right">{r.read}/{r.total}</span>
+                    <span className="text-xs text-slate-400 w-16 text-right">{r.read}/{r.total}</span>
                   </div>
                 ))}
               </div>
@@ -315,13 +315,13 @@ export function NotificationAnalyticsTab() {
 
           {analytics.byPriority.length > 0 && (
             <div className="mt-4 pt-3 border-t border-slate-100">
-              <h5 className="text-[10px] uppercase tracking-wide text-slate-400 mb-2">By Priority</h5>
+              <h5 className="text-xs uppercase tracking-wide text-slate-400 mb-2">By Priority</h5>
               <div className="flex items-center gap-3 flex-wrap">
                 {analytics.byPriority.map(p => (
                   <div key={p.priority} className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ background: PRIORITY_COLORS[p.priority] || "#6366f1" }} />
-                    <span className="text-[11px] text-slate-600">{p.priority}</span>
-                    <span className="text-[11px] font-semibold text-slate-800">{p.count}</span>
+                    <span className="text-xs text-slate-600">{p.priority}</span>
+                    <span className="text-xs font-semibold text-slate-800">{p.count}</span>
                   </div>
                 ))}
               </div>

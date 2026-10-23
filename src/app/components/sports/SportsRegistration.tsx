@@ -170,7 +170,7 @@ export function SportsRegistration() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-semibold cursor-pointer border transition-all duration-200 min-h-[36px]"
+              className="flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-2.5 rounded-lg text-xs font-semibold cursor-pointer border transition-all duration-200 min-h-[36px]"
               style={isActive ? {
                 background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
                 color: "white",
@@ -243,23 +243,23 @@ export function SportsRegistration() {
                               <h4 className="text-[13px] sm:text-sm font-bold text-foreground truncate mt-1 leading-snug">{reg.event?.name}</h4>
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 {reg.category?.name && (
-                                  <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
+                                  <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
                                     {reg.category.name}
                                   </span>
                                 )}
                                 {reg.age && (
-                                  <span className="text-[10px] bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
+                                  <span className="text-xs bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
                                     Age: {reg.age}
                                   </span>
                                 )}
                                 {reg.flatNumber && (
-                                  <span className="text-[10px] bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
+                                  <span className="text-xs bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
                                     Flat: {reg.flatNumber}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <span className={`text-[10px] px-2.5 py-1 rounded font-bold uppercase tracking-wide flex-shrink-0 ${statusColors[reg.status] || "bg-input text-muted-foreground"}`}>
+                            <span className={`text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wide flex-shrink-0 ${statusColors[reg.status] || "bg-input text-muted-foreground"}`}>
                               {reg.status}
                             </span>
                           </div>
@@ -304,7 +304,7 @@ export function SportsRegistration() {
                       </div>
                       <div className="text-left">
                         <h3 className="text-base font-bold text-foreground uppercase tracking-wider m-0 mb-0">{myCommunity.name}</h3>
-                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-widest mt-1 inline-block">
+                        <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-widest mt-1 inline-block">
                           {myCommunity.type} COMMUNITY
                         </span>
                       </div>
@@ -361,9 +361,9 @@ export function SportsRegistration() {
                               <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5 m-0 mb-0">
                                 {team.emoji || "🛡️"} {team.teamName}
                               </h3>
-                              <span className="text-[10px] text-muted-foreground m-0 block font-semibold">Owner: {team.ownerName || "—"}</span>
+                              <span className="text-xs text-muted-foreground m-0 block font-semibold">Owner: {team.ownerName || "—"}</span>
                             </div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${team.captainConfirmation ? "bg-emerald-500/15 text-emerald-400" : "bg-primary/15 text-primary"}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide ${team.captainConfirmation ? "bg-emerald-500/15 text-emerald-400" : "bg-primary/15 text-primary"}`}>
                               {team.captainConfirmation ? "CONFIRMED CAPTAIN" : "NOMINATED"}
                             </span>
                           </div>
@@ -376,7 +376,7 @@ export function SportsRegistration() {
                             <div className="w-full bg-input rounded-full h-2 border border-border">
                               <div className="bg-gradient-to-r from-primary to-emerald-500 h-1.5 rounded-full transition-all duration-500" style={{ width: `${percent}%` }} />
                             </div>
-                            <div className="text-[10px] text-emerald-400 font-semibold text-right">Remaining: ₹{remaining.toLocaleString()}</div>
+                            <div className="text-xs text-emerald-400 font-semibold text-right">Remaining: ₹{remaining.toLocaleString()}</div>
                           </div>
                         </div>
                       );
@@ -397,7 +397,7 @@ export function SportsRegistration() {
                   </div>
                 ) : (
                   <div className="bg-card border border-border rounded-xl p-3 sm:p-5 max-w-3xl mx-auto shadow-lg">
-                    <h3 className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 sm:mb-5 border-b border-border/60 text-left m-0">My Match Timeline</h3>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 sm:mb-5 border-b border-border/60 text-left m-0">My Match Timeline</h3>
                     <div className="space-y-1">
                       {myMatches.map((m, i) => {
                         const statusColors: Record<string, string> = {
@@ -421,8 +421,8 @@ export function SportsRegistration() {
                                 <MapPin className="w-3.5 h-3.5 text-primary" /> {m.venue?.name || "Venue TBD"}{m.venue?.city ? `, ${m.venue.city}` : ""}
                               </div>
                               <div className="flex gap-2 mt-2.5">
-                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{m.format || "SINGLES"}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/20">{m.registrationStatus}</span>
+                                <span className="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{m.format || "SINGLES"}</span>
+                                <span className="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/20">{m.registrationStatus}</span>
                               </div>
                             </div>
                           </div>
@@ -449,7 +449,7 @@ export function SportsRegistration() {
                           <button
                             key={s.id}
                             onClick={() => toggleSport(s.id)}
-                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-[11px] sm:text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
+                            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
                               selected[s.id]
                                 ? "border-primary bg-primary/10 text-primary"
                                 : "border-border bg-input text-muted-foreground hover:border-border-hover"
@@ -464,24 +464,24 @@ export function SportsRegistration() {
 
                   {/* Player profile */}
                   <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
-                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Player Profile</div>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Player Profile</div>
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <div>
-                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Full Name</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Full Name</label>
                         <input defaultValue={user?.fullName ?? "Community Player"} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
-                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Age</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Age</label>
                         <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
-                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Gender</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Gender</label>
                         <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-input border border-border rounded-lg px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm">
                           <option>Male</option><option>Female</option><option>Other</option>
                         </select>
                       </div>
                       <div>
-                        <label className="text-[11px] sm:text-xs text-muted-foreground block mb-1">Govt ID</label>
+                        <label className="text-xs text-muted-foreground block mb-1">Govt ID</label>
                         <div className="flex items-center gap-2 px-3 py-2 bg-input border border-success rounded-lg">
                           <CheckCircle className="w-4 h-4 text-success" />
                           <span className="text-xs text-success">Aadhaar Linked</span>
@@ -492,7 +492,7 @@ export function SportsRegistration() {
 
                   {/* Auto category */}
                   <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
-                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Auto-assigned Category</div>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Auto-assigned Category</div>
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">{autoCategory}</span>
                       <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">Open</span>
@@ -506,7 +506,7 @@ export function SportsRegistration() {
                 <div className="space-y-2.5 sm:space-y-4">
                   {/* Match type per sport */}
                   <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
-                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Match Type per Sport</div>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Match Type per Sport</div>
                     {selectedSports.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">Select sports from the left panel</p>
                     ) : (
@@ -514,14 +514,14 @@ export function SportsRegistration() {
                         <div key={sport.id} className="bg-input/50 border border-border rounded-xl p-2.5 sm:p-4 mb-2.5 sm:mb-3">
                           <div className="flex items-center justify-between mb-2.5 sm:mb-3">
                             <div className="text-[13px] sm:text-sm font-medium text-foreground">{sport.icon} {sport.name}</div>
-                            <span className="text-[10px] px-2 py-0.5 rounded bg-success/15 text-success">Age OK</span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success">Age OK</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {(MATCH_TYPES[sport.id] ?? ["Singles"]).map(type => (
                               <button
                                 key={type}
                                 onClick={() => setMatchType(sport.id, type)}
-                                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
+                                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-all min-h-[36px] ${
                                   matchTypes[sport.id] === type || (!matchTypes[sport.id] && type === (MATCH_TYPES[sport.id]?.[0]))
                                     ? "border-primary bg-primary/10 text-primary"
                                     : "border-border bg-input text-muted-foreground hover:border-border-hover"
@@ -538,7 +538,7 @@ export function SportsRegistration() {
 
                   {/* Age check */}
                   <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
-                    <div className="text-[11px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Age Restriction Check</div>
+                    <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Age Restriction Check</div>
                     <div className="bg-input rounded-lg overflow-hidden border border-border">
                       <div className="flex justify-between px-3 py-2 border-b border-border text-xs text-muted-foreground font-semibold">
                         <span>Sport</span><span>Age Range</span><span>Status</span>

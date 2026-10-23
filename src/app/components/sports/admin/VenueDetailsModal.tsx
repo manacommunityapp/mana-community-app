@@ -65,7 +65,7 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
                   ) : null}
                 </div>
                 <span className={cn(
-                  "px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border",
+                  "px-2.5 py-1 rounded-full text-xs font-bold tracking-wider uppercase border",
                   selectedVenueDetails.venueType === "OUTSIDE" 
                     ? "bg-blue-50 text-blue-600 border-blue-200" 
                     : "bg-emerald-50 text-emerald-600 border-emerald-200"
@@ -78,7 +78,7 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs leading-relaxed">
                 {/* Location Details */}
                 <div className="space-y-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Location Details</span>
+                  <span className="text-xs text-slate-400 uppercase tracking-wider block font-bold">Location Details</span>
                   <p className="text-slate-700 font-medium">
                     {selectedVenueDetails.address || "No address provided"}
                   </p>
@@ -100,13 +100,13 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
                 {/* Capacity & Timings */}
                 <div className="space-y-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold mb-1">Capacity</span>
+                    <span className="text-xs text-slate-400 uppercase tracking-wider block font-bold mb-1">Capacity</span>
                     <p className="text-slate-700 font-semibold text-sm">
                       {selectedVenueDetails.capacity ? `${selectedVenueDetails.capacity} People` : "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold mb-1">Operating Hours</span>
+                    <span className="text-xs text-slate-400 uppercase tracking-wider block font-bold mb-1">Operating Hours</span>
                     <div className="flex items-center gap-1.5 text-slate-700 font-medium">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
                       <span>
@@ -119,22 +119,22 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
 
               {/* Contact Person Card */}
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Contact Person</span>
+                <span className="text-xs text-slate-400 uppercase tracking-wider block font-bold">Contact Person</span>
                 {selectedVenueDetails.contactName ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-left">
                     <div>
-                      <span className="text-[9px] text-slate-400 uppercase font-bold block">Name</span>
+                      <span className="text-xs text-slate-400 uppercase font-bold block">Name</span>
                       <p className="text-slate-800 font-semibold mt-0.5">{selectedVenueDetails.contactName}</p>
                     </div>
                     {selectedVenueDetails.contactNumber && (
                       <div>
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Phone</span>
+                        <span className="text-xs text-slate-400 uppercase font-bold block">Phone</span>
                         <p className="text-slate-600 mt-0.5 font-mono">{selectedVenueDetails.contactNumber}</p>
                       </div>
                     )}
                     {selectedVenueDetails.contactEmail && (
                       <div className="min-w-0">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Email</span>
+                        <span className="text-xs text-slate-400 uppercase font-bold block">Email</span>
                         <p className="text-slate-600 mt-0.5 truncate font-mono">{selectedVenueDetails.contactEmail}</p>
                       </div>
                     )}
@@ -147,7 +147,7 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
               {/* Courts Available */}
               {selectedVenueDetails.courts && selectedVenueDetails.courts.length > 0 && (
                 <div className="border-t border-slate-200 pt-4">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold mb-2">Courts Available ({selectedVenueDetails.courts.length})</span>
+                  <span className="text-xs text-slate-400 uppercase tracking-wider block font-bold mb-2">Courts Available ({selectedVenueDetails.courts.length})</span>
                   <div className="flex flex-wrap gap-2">
                     {selectedVenueDetails.courts.map((court, i) => (
                       <span 

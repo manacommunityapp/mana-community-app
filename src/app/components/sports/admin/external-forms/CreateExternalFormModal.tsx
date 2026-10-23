@@ -169,7 +169,7 @@ export function CreateExternalFormModal({
                 <p className="text-xs text-slate-400">
                   To stream responses directly into Mana the second someone submits Google Forms, use the pre-configured Apps Script snippet.
                 </p>
-                <div className="text-[11px] text-slate-500 font-mono break-all bg-slate-950 p-2 rounded-lg border border-slate-800">
+                <div className="text-xs text-slate-500 font-mono break-all bg-slate-950 p-2 rounded-lg border border-slate-800">
                   Webhook URL: {createdForm.webhookUrl}
                 </div>
               </div>
@@ -208,7 +208,7 @@ export function CreateExternalFormModal({
                   </div>
                   <div>
                     <div className="text-xs font-semibold">Google Forms</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Familiar Google Forms responder link with auto-sync webhook.
                     </div>
                   </div>
@@ -228,7 +228,7 @@ export function CreateExternalFormModal({
                   </div>
                   <div>
                     <div className="text-xs font-semibold">Mana Public Form</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Hosted branded form with real-time field validation.
                     </div>
                   </div>
@@ -280,7 +280,7 @@ export function CreateExternalFormModal({
                 <option value="AUTO">Auto-Confirm (Valid community entries are confirmed immediately)</option>
                 <option value="MANUAL">Manual Review (All external entries require organizer confirmation)</option>
               </select>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 Invalid age, over-capacity, or duplicate entries always route to the Review Queue regardless of setting.
               </p>
             </div>
@@ -311,7 +311,7 @@ export function CreateExternalFormModal({
                         className="rounded border-slate-700 text-blue-600 focus:ring-0 w-3.5 h-3.5"
                       />
                       <span className="truncate">
-                        {f.label} {f.required && <span className="text-red-400 text-[10px]">*</span>}
+                        {f.label} {f.required && <span className="text-red-400 text-xs">*</span>}
                       </span>
                     </label>
                   );

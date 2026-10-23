@@ -180,7 +180,7 @@ export function SportsTournamentBrowse() {
               <span>{tab.label}</span>
               {tab.count > 0 && (
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                  className={`text-xs font-bold px-1.5 py-0.2 rounded-md ${
                     active ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"
                   }`}
                 >
@@ -356,7 +356,7 @@ function TournamentCard({
               </h3>
 
               <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                   completed
                     ? "bg-slate-100 text-slate-600 border border-slate-200"
                     : isOpen
@@ -368,7 +368,7 @@ function TournamentCard({
               </span>
 
               {daysLeft !== null && daysLeft >= 0 && isOpen && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {daysLeft === 0 ? "Starts Today!" : `${daysLeft}d left`}
                 </span>
@@ -441,19 +441,19 @@ function TournamentCard({
       {/* Child Sports Category Groups Preview Chips */}
       {tournament.events && tournament.events.length > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mr-1">Groups:</span>
+          <span className="text-xs font-bold uppercase text-slate-400 tracking-wider mr-1">Groups:</span>
           {tournament.events.slice(0, 5).map(ev => {
             const emoji = getSportEmoji(ev.sportName);
             return (
               <span
                 key={ev.id}
                 onClick={onViewDetails}
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-slate-100/80 text-slate-700 border border-slate-200/60 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+                className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-slate-100/80 text-slate-700 border border-slate-200/60 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors cursor-pointer inline-flex items-center gap-1"
               >
                 <span>{emoji}</span>
                 <span>{ev.categoryName || ev.name}</span>
                 {ev.registeredCount != null && (
-                  <span className="text-[9px] text-slate-400">({ev.registeredCount})</span>
+                  <span className="text-xs text-slate-400">({ev.registeredCount})</span>
                 )}
               </span>
             );
@@ -461,7 +461,7 @@ function TournamentCard({
           {tournament.events.length > 5 && (
             <button
               onClick={onViewDetails}
-              className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+              className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
             >
               +{tournament.events.length - 5} more groups →
             </button>
@@ -545,7 +545,7 @@ function MyTournamentCard({
                 {event.name}
               </h3>
               {event.registrationStatus && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 uppercase">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 uppercase">
                   {event.registrationStatus}
                 </span>
               )}

@@ -73,7 +73,7 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
               <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
               Right To Match (RTM) Card
             </span>
@@ -98,7 +98,7 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Current Winning Bidder Card */}
           <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
               Current Winning Bidder
             </span>
             <div className="flex items-center gap-2.5">
@@ -123,10 +123,10 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
             }}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
                 Eligible Franchise
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-200 border border-amber-500/40">
+              <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-200 border border-amber-500/40">
                 <Ticket className="w-3 h-3" />
                 {rtmTeam.rtmCardsLeft} RTM Card{rtmTeam.rtmCardsLeft !== 1 ? 's' : ''} Left
               </span>
@@ -138,7 +138,7 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
                 <strong className="text-sm font-bold text-white truncate block">
                   {rtmTeam.name}
                 </strong>
-                <span className="text-[11px] text-slate-300">
+                <span className="text-xs text-slate-300">
                   Purse: ₹{rtmTeam.remainingBudget.toLocaleString('en-IN')} left
                 </span>
               </div>

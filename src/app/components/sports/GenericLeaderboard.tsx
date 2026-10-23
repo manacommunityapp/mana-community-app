@@ -175,7 +175,7 @@ export function GenericLeaderboard() {
                   <div className="text-sm font-bold text-slate-800 dark:text-white truncate">
                     {entry.playerName}
                   </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
                     {entry.teamName} · {entry.matchesPlayed} match{entry.matchesPlayed !== 1 ? "es" : ""}
                   </div>
                 </div>

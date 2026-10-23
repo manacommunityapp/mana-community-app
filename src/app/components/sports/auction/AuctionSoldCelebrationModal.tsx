@@ -163,7 +163,7 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
         <div
           className="py-4 px-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 space-y-1"
         >
-          <span className="text-[11px] uppercase font-bold text-amber-300 tracking-wider">
+          <span className="text-xs uppercase font-bold text-amber-300 tracking-wider">
             Final Winning Bid
           </span>
           <div className="text-3xl sm:text-4xl font-black text-white tracking-tight" style={{ color: teamColor }}>
@@ -181,7 +181,7 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
         >
           <span className="text-3xl">{teamEmoji}</span>
           <div className="text-left min-w-0">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+            <span className="text-xs uppercase font-bold text-slate-400 block tracking-wider">
               Acquired By Franchise
             </span>
             <strong className="text-base sm:text-lg font-black text-white truncate block">
@@ -191,7 +191,7 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
         </div>
 
         {/* Dismiss prompt */}
-        <p className="text-[11px] text-slate-400 animate-pulse">
+        <p className="text-xs text-slate-400 animate-pulse">
           Click anywhere or wait to continue next player draft
         </p>
       </div>

@@ -243,7 +243,7 @@ export function TournamentDetailsModal({
           {/* Badges row */}
           <div className="flex items-center gap-2 flex-wrap mb-2.5">
             <span
-              className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                 isOpenRegistration
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
                   : isCompleted
@@ -255,14 +255,14 @@ export function TournamentDetailsModal({
             </span>
 
             {daysLeft !== null && daysLeft >= 0 && isOpenRegistration && (
-              <span className="text-[10px] sm:text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 flex items-center gap-1">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 {daysLeft === 0 ? "Starts Today!" : `${daysLeft} days to start`}
               </span>
             )}
 
             {communityName && (
-              <span className="text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded-md bg-white/10 text-indigo-100">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-white/10 text-indigo-100">
                 {communityName}
               </span>
             )}
@@ -336,28 +336,28 @@ export function TournamentDetailsModal({
               {/* Highlights 4-card Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                 <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold uppercase text-indigo-600 tracking-wider">Tournament Format</span>
+                  <span className="text-xs font-bold uppercase text-indigo-600 tracking-wider">Tournament Format</span>
                   <div className="text-sm font-bold text-slate-800 mt-1 truncate" title={tournamentFormatDisplay}>
                     {tournamentFormatDisplay}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-100 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Venue & Courts</span>
+                  <span className="text-xs font-bold uppercase text-amber-700 tracking-wider">Venue & Courts</span>
                   <div className="text-sm font-bold text-slate-800 mt-1 truncate" title={venueDisplay}>
                     {venueDisplay}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold uppercase text-emerald-700 tracking-wider">Categories</span>
+                  <span className="text-xs font-bold uppercase text-emerald-700 tracking-wider">Categories</span>
                   <div className="text-sm font-bold text-slate-800 mt-1">
                     {events.length} {isOpenRegistration ? "Groups Open" : "Total Groups"}
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-violet-50/70 border border-violet-100 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold uppercase text-violet-700 tracking-wider">Total Sports</span>
+                  <span className="text-xs font-bold uppercase text-violet-700 tracking-wider">Total Sports</span>
                   <div className="text-sm font-bold text-slate-800 mt-1">
                     {sportsList.length} Sports
                   </div>
@@ -424,7 +424,7 @@ export function TournamentDetailsModal({
                           <span className="text-2xl">{getSportEmoji(sport)}</span>
                           <div>
                             <div className="text-sm font-bold text-slate-900">{sport}</div>
-                            <div className="text-[11px] text-slate-500 font-medium">
+                            <div className="text-xs text-slate-500 font-medium">
                               {evList.length} {evList.length === 1 ? "group/category" : "groups/categories"}
                             </div>
                           </div>
@@ -457,7 +457,7 @@ export function TournamentDetailsModal({
                         <Sparkles className="w-3 h-3 text-amber-500" />
                         <span>{sp.name}</span>
                         {(sp as any).category && (
-                          <span className="text-[10px] text-amber-700/80 font-normal">
+                          <span className="text-xs text-amber-700/80 font-normal">
                             ({(sp as any).category})
                           </span>
                         )}
@@ -485,9 +485,9 @@ export function TournamentDetailsModal({
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-slate-900 truncate">{c.name}</div>
                           {c.title && (
-                            <div className="text-[10px] text-indigo-600 font-medium truncate">{c.title}</div>
+                            <div className="text-xs text-indigo-600 font-medium truncate">{c.title}</div>
                           )}
-                          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-600 flex-wrap">
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600 flex-wrap">
                             {c.phone && (
                               <a
                                 href={`tel:${c.phone}`}
@@ -570,11 +570,11 @@ export function TournamentDetailsModal({
                                 <h5 className="text-sm font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
                                   {item.name || item.categoryName}
                                 </h5>
-                                <div className="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <div className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
                                   <span>{sportName} {venueItem ? `· ${venueItem}` : ""}</span>
                                   {item.categoryName && (
                                     <span
-                                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                                      className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
                                       title={`Player Category: ${item.categoryName}`}
                                     >
                                       {item.categoryName}
@@ -584,7 +584,7 @@ export function TournamentDetailsModal({
                               </div>
                             </div>
                             <span
-                              className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                              className={`text-xs font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
                                 formatBadge === "Team Event"
                                   ? "bg-purple-50 text-purple-700 border border-purple-200"
                                   : formatBadge === "Doubles"
@@ -598,7 +598,7 @@ export function TournamentDetailsModal({
 
                           {/* Capacity meter */}
                           <div className="mt-3">
-                            <div className="flex justify-between text-[11px] text-slate-500 font-medium mb-1">
+                            <div className="flex justify-between text-xs text-slate-500 font-medium mb-1">
                               <span>Spots Filled</span>
                               <span className="font-semibold text-slate-700">
                                 {registeredCount}
@@ -621,7 +621,7 @@ export function TournamentDetailsModal({
                         {/* Status & Schedule Info (NO registration button in info modal) */}
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 gap-2">
                           <span
-                            className={`text-[11px] font-semibold px-2 py-0.5 rounded inline-flex items-center gap-1 ${
+                            className={`text-xs font-semibold px-2 py-0.5 rounded inline-flex items-center gap-1 ${
                               isEventOpen
                                 ? "text-emerald-700 bg-emerald-50 border border-emerald-200/60"
                                 : "text-slate-600 bg-slate-100 border border-slate-200"

@@ -41,14 +41,14 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
           </div>
           <div className="min-w-0 text-left">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] uppercase font-black tracking-wider text-amber-400">
+              <span className="text-xs uppercase font-black tracking-wider text-amber-400">
                 {presentingSponsor.category || 'Presenting Sponsor'}
               </span>
               <span className="text-xs font-bold text-slate-100 truncate">
                 {presentingSponsor.name}
               </span>
               {presentingSponsor.tagline && (
-                <span className="text-[10px] text-slate-300 hidden md:inline opacity-85">
+                <span className="text-xs text-slate-300 hidden md:inline opacity-85">
                   • {presentingSponsor.tagline}
                 </span>
               )}
@@ -62,7 +62,7 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
               {coSponsors.map((cs, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-medium text-slate-300 truncate max-w-[100px]"
+                  className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-xs font-medium text-slate-300 truncate max-w-[100px]"
                   title={`${cs.category}: ${cs.name}`}
                 >
                   {cs.name}
@@ -75,7 +75,7 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
               href={sanitizeHref(presentingSponsor.url)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold transition-all shadow-2xs hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-2xs hover:scale-105 active:scale-95"
             >
               <span>Visit</span>
               <ExternalLink className="w-3 h-3" />
@@ -113,11 +113,11 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[9.5px] font-black uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
                 👑 {presentingSponsor.category || 'Presenting Sponsor'}
               </span>
               {tournamentName && (
-                <span className="text-[11px] font-semibold text-slate-400 truncate">
+                <span className="text-xs font-semibold text-slate-400 truncate">
                   for {tournamentName}
                 </span>
               )}
@@ -132,7 +132,7 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
                 "{presentingSponsor.tagline}"
               </p>
             ) : (
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+              <p className="text-xs text-slate-400 font-medium mt-0.5">
                 Official tournament partner powering community sports excellence
               </p>
             )}
@@ -142,12 +142,12 @@ export const TournamentSponsorBanner: React.FC<TournamentSponsorBannerProps> = (
         <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
           {coSponsors.length > 0 && (
             <div className="flex items-center gap-1.5 py-1 px-2.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-              <span className="text-[9px] uppercase font-bold text-slate-400">Partners:</span>
+              <span className="text-xs uppercase font-bold text-slate-400">Partners:</span>
               <div className="flex items-center gap-1">
                 {coSponsors.map((cs, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-0.5 rounded-md bg-white/10 text-[10px] font-semibold text-slate-200"
+                    className="px-2 py-0.5 rounded-md bg-white/10 text-xs font-semibold text-slate-200"
                     title={`${cs.category}: ${cs.name}`}
                   >
                     {cs.name}

@@ -317,7 +317,7 @@ export function VenueCreationSection({
                 {venueContacts.map((contact, index) => (
                   <div key={index} className="relative p-4 rounded-xl border bg-slate-50/50 flex flex-col gap-3" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Contact #{index + 1}</span>
+                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Contact #{index + 1}</span>
                       {venueContacts.length > 1 && (
                         <button
                           type="button"
@@ -331,7 +331,7 @@ export function VenueCreationSection({
                     
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Name *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Name *</label>
                         <input
                           value={contact.name}
                           onChange={e => updateVenueContact(index, "name", e.target.value)}
@@ -341,7 +341,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Title (Role/Designation)</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Title (Role/Designation)</label>
                         <input
                           value={contact.title || ""}
                           onChange={e => updateVenueContact(index, "title", e.target.value)}
@@ -351,7 +351,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Number *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Number *</label>
                         <input
                           value={contact.number}
                           onChange={e => updateVenueContact(index, "number", e.target.value)}
@@ -361,7 +361,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Email *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Email *</label>
                         <input
                           type="email"
                           value={contact.email}
@@ -384,7 +384,7 @@ export function VenueCreationSection({
                   <Plus className="w-4 h-4" style={{ color: "#4f46e5" }} />
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Courts</span>
                   {courts.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
                       {courts.length}
                     </span>
@@ -393,7 +393,7 @@ export function VenueCreationSection({
                 <button
                   type="button"
                   onClick={addCourt}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
                   style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "rgba(99,102,241,0.2)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "rgba(99,102,241,0.1)"; }}
@@ -428,7 +428,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div className="flex items-center gap-2 bg-white border rounded-xl px-2.5 py-1" style={{ borderColor: "rgba(99, 102, 241, 0.15)" }}>
-                        <span className="text-[10px]" style={{ color: "#6b7094" }}>Color</span>
+                        <span className="text-xs" style={{ color: "#6b7094" }}>Color</span>
                         <input
                           type="color"
                           value={court.color}
@@ -490,7 +490,7 @@ export function VenueCreationSection({
       >
         <div className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between border-b m-0" style={{ color: "#6b7094", borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Venues</span>
-          <span className="px-2.5 py-0.5 rounded text-[10px] font-bold"
+          <span className="px-2.5 py-0.5 rounded text-xs font-bold"
             style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
             {venues.length}
           </span>
@@ -514,7 +514,7 @@ export function VenueCreationSection({
                     <div className="text-sm font-bold truncate" style={{ color: "#0d0d2b" }}>
                       {v.name}
                     </div>
-                    <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>
+                    <div className="text-xs mt-1" style={{ color: "#6b7094" }}>
                       {[v.area, v.city, v.pinCode].filter(Boolean).join(", ") || "No location details"}
                       {v.capacity ? ` · Capacity: ${v.capacity}` : ""}
                       {(v.openingTime || v.closingTime) && (
@@ -525,7 +525,7 @@ export function VenueCreationSection({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                   {v.venueType && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
+                    <span className="text-xs font-bold px-2 py-0.5 rounded border"
                       style={
                         v.venueType === "OUTSIDE"
                           ? { background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", borderColor: "rgba(59, 130, 246, 0.2)" }
@@ -541,7 +541,7 @@ export function VenueCreationSection({
                       setSelectedTimingVenue(v);
                       setTimingModalOpen(true);
                     }}
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}
@@ -550,7 +550,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueEdit(v)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}
@@ -559,7 +559,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueHide(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(245, 158, 11, 0.2)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.background = "rgba(245, 158, 11, 0.05)"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.2)"; e.currentTarget.style.color = "#6b7094"; e.currentTarget.style.background = "white"; }}
@@ -568,7 +568,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueDelete(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(239, 68, 68, 0.2)", color: "#ef4444" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#ef4444"; e.currentTarget.style.background = "rgba(239, 68, 68, 0.05)"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.2)"; e.currentTarget.style.background = "white"; }}
@@ -584,7 +584,7 @@ export function VenueCreationSection({
                   {v.contacts && v.contacts.length > 0 ? (
                     <div className="flex flex-col gap-1.5">
                       {v.contacts.map((c, idx) => (
-                        <span key={idx} className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
+                        <span key={idx} className="text-xs flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
                           <Users className="w-3.5 h-3.5 text-slate-400" /> 
                           Contact #{idx + 1}: <strong className="font-semibold text-slate-700">{c.name}</strong> 
                           {c.title && <span className="text-slate-500">({c.title})</span>}
@@ -594,17 +594,17 @@ export function VenueCreationSection({
                       ))}
                     </div>
                   ) : v.contactName ? (
-                    <span className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
+                    <span className="text-xs flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
                       <Users className="w-3.5 h-3.5 text-slate-400" /> Contact: <strong className="font-semibold text-slate-700">{v.contactName}</strong> ({v.contactNumber}) {v.contactEmail && <span className="text-slate-400">· {v.contactEmail}</span>}
                     </span>
                   ) : null}
                   {v.courts && v.courts.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
+                      <span className="text-xs uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
                       {v.courts.map((court, i) => (
                         <span
                           key={i}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
+                          className="text-xs px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
                           style={{ backgroundColor: court.color || "#6366f1" }}
                         >
                           {court.name || `Court ${i + 1}`}
@@ -618,7 +618,7 @@ export function VenueCreationSection({
           ))}
           {hiddenVenues.size > 0 && (
             <div className="border-t pt-4 mt-4" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
-              <div className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>Hidden Venues ({hiddenVenues.size})</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>Hidden Venues ({hiddenVenues.size})</div>
               {venues.filter(v => hiddenVenues.has(v.id)).map(v => (
                 <div 
                   key={v.id} 
@@ -630,7 +630,7 @@ export function VenueCreationSection({
                   </div>
                   <button 
                     onClick={() => handleVenueHide(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-colors flex items-center gap-1 cursor-pointer bg-white"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-colors flex items-center gap-1 cursor-pointer bg-white"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}

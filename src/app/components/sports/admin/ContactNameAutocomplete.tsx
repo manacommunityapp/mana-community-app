@@ -116,7 +116,7 @@ export function ContactNameAutocomplete({
               className="w-full text-left px-3 py-2 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0 cursor-pointer"
             >
               <div className="text-sm font-semibold text-slate-800 truncate">{u.fullName}</div>
-              <div className="text-[11px] text-slate-500 truncate">
+              <div className="text-xs text-slate-500 truncate">
                 {u.email || "no email"}{u.phone ? ` • ${u.phone}` : ""}
               </div>
             </button>

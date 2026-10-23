@@ -97,7 +97,7 @@ export function ExternalFormsManager({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-white">External Form Integration</h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-500/20 text-blue-400 font-medium border border-blue-500/30">
+            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400 font-medium border border-blue-500/30">
               Google Forms & Public Links
             </span>
           </div>
@@ -129,7 +129,7 @@ export function ExternalFormsManager({
             >
               <span>Review Queue</span>
               {totalQuarantined > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
+                <span className="px-1.5 py-0.2 rounded-full text-xs bg-amber-500 text-slate-950 font-bold">
                   {totalQuarantined}
                 </span>
               )}
@@ -206,11 +206,11 @@ export function ExternalFormsManager({
                     <div>
                       <div className="flex items-center gap-2">
                         <h4 className="text-sm font-semibold text-white">{form.title}</h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">
                           {form.status}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5">
                         {isGoogle ? "Google Form" : "Mana Hosted Public Form"} • Created{" "}
                         {new Date(form.createdAt).toLocaleDateString()}
                       </div>
@@ -221,19 +221,19 @@ export function ExternalFormsManager({
                 {/* Sync Counters & Health */}
                 <div className="grid grid-cols-4 gap-2 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 text-center">
                   <div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">Polled</div>
+                    <div className="text-xs text-slate-500 uppercase tracking-wider">Polled</div>
                     <div className="text-sm font-semibold text-slate-200">{sync?.totalResponsesPolled ?? 0}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-emerald-500 uppercase tracking-wider">Imported</div>
+                    <div className="text-xs text-emerald-500 uppercase tracking-wider">Imported</div>
                     <div className="text-sm font-semibold text-emerald-400">{sync?.totalImported ?? 0}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-amber-500 uppercase tracking-wider">Review</div>
+                    <div className="text-xs text-amber-500 uppercase tracking-wider">Review</div>
                     <div className="text-sm font-semibold text-amber-400">{sync?.totalQuarantined ?? 0}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-red-500 uppercase tracking-wider">Rejected</div>
+                    <div className="text-xs text-red-500 uppercase tracking-wider">Rejected</div>
                     <div className="text-sm font-semibold text-red-400">{sync?.totalRejected ?? 0}</div>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export function ExternalFormsManager({
                       title="Copy Public Link"
                     >
                       {copiedId === form.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span className="text-[11px]">{copiedId === form.id ? "Copied" : "Copy Link"}</span>
+                      <span className="text-xs">{copiedId === form.id ? "Copied" : "Copy Link"}</span>
                     </button>
 
                     <a
@@ -257,7 +257,7 @@ export function ExternalFormsManager({
                       className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-1"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">Open</span>
+                      <span className="text-xs">Open</span>
                     </a>
 
                     {isGoogle && (
@@ -267,7 +267,7 @@ export function ExternalFormsManager({
                         title="Webhook Apps Script Integration"
                       >
                         <Code className="w-3.5 h-3.5" />
-                        <span className="text-[11px]">Apps Script</span>
+                        <span className="text-xs">Apps Script</span>
                       </button>
                     )}
                   </div>
@@ -278,7 +278,7 @@ export function ExternalFormsManager({
                     className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-medium transition flex items-center gap-1.5 shadow-sm"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-                    <span className="text-[11px]">{isSyncing ? "Syncing..." : "Sync"}</span>
+                    <span className="text-xs">{isSyncing ? "Syncing..." : "Sync"}</span>
                   </button>
                 </div>
               </div>

@@ -158,12 +158,12 @@ export function SportsPartnerSelector({
             <h3 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
-                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-xs font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
             </h3>
-            <p className="text-[11px] sm:text-[10px] text-slate-500 m-0">
+            <p className="text-xs text-slate-500 m-0">
               {isMixedDoubles
                 ? targetPartnerGender
                   ? `Mixed Doubles requires a ${targetPartnerGender.toLowerCase()} partner (1 Male + 1 Female).`
@@ -175,7 +175,7 @@ export function SportsPartnerSelector({
 
         {/* Mode Selector Tabs */}
         {!selectedPartner && (
-          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-[11px] sm:text-[10px] font-semibold">
+          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-xs font-semibold">
             <button
               type="button"
               onClick={() => { setPartnerMode("community"); onChange(null); }}
@@ -226,21 +226,21 @@ export function SportsPartnerSelector({
               <div className="flex items-center gap-1.5">
                 <span className="text-[13px] sm:text-xs font-bold text-slate-900 truncate">{selectedPartner.name}</span>
                 {selectedPartner.gender && (
-                  <span className="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
                     {selectedPartner.gender}
                   </span>
                 )}
                 {selectedPartner.mode === "open_pool" && (
-                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                     Open Pairing Pool
                   </span>
                 )}
               </div>
               {selectedPartner.flatNumber && (
-                <p className="text-[10px] text-slate-500 truncate">{selectedPartner.flatNumber}</p>
+                <p className="text-xs text-slate-500 truncate">{selectedPartner.flatNumber}</p>
               )}
               {selectedPartner.mode !== "open_pool" && (
-                <p className="text-[9.5px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
                   <Check className="w-3 h-3 stroke-[2.5]" />
                   An invite will be dispatched upon registration
                 </p>
@@ -321,7 +321,7 @@ export function SportsPartnerSelector({
                                 {fullName}
                               </span>
                               {u.gender && (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                <span className={`text-xs font-bold px-1.5 py-0.2 rounded ${
                                   isGenderMismatch ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
                                 }`}>
                                   {u.gender}
@@ -329,15 +329,15 @@ export function SportsPartnerSelector({
                               )}
                             </div>
                             {flatInfo && (
-                              <p className="text-[10px] text-slate-400 truncate">{flatInfo}</p>
+                              <p className="text-xs text-slate-400 truncate">{flatInfo}</p>
                             )}
                           </div>
                           {isGenderMismatch ? (
-                            <span className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
                               <AlertCircle className="w-3 h-3 text-amber-600" /> Need {targetPartnerGender}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
+                            <span className="text-xs text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
                               Select →
                             </span>
                           )}
@@ -381,16 +381,16 @@ export function SportsPartnerSelector({
                           }`}>
                             {fm.name}
                           </span>
-                          <span className="text-[10px] sm:text-[9px] text-slate-400 capitalize">
+                          <span className="text-xs text-slate-400 capitalize">
                             {fm.relation} {fm.gender ? `• ${fm.gender}` : ""}
                           </span>
                         </div>
                         {isGenderMismatch ? (
-                          <span className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0">
+                          <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0">
                             Need {targetPartnerGender}
                           </span>
                         ) : (
-                          <span className="text-[11px] sm:text-[10px] text-indigo-600 font-bold">Pick</span>
+                          <span className="text-xs text-indigo-600 font-bold">Pick</span>
                         )}
                       </button>
                     );
@@ -404,7 +404,7 @@ export function SportsPartnerSelector({
           {partnerMode === "open_pool" && (
             <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <p className="text-[12px] sm:text-[11px] text-amber-800 leading-tight">
+              <p className="text-[12px] sm:text-xs text-amber-800 leading-tight">
                 You will register solo. The tournament organizers or auto-pairing system will pair you with another solo player before match draws are finalized.
               </p>
             </div>

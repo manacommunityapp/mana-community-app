@@ -208,7 +208,7 @@ export function PlayerCategorySection({
       >
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b m-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Categories</span>
-          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-[10px] font-bold">{playerCategories.length}</span>
+          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-xs font-bold">{playerCategories.length}</span>
         </div>
         <div className="space-y-3">
           {playerCategories.map(c => (
@@ -217,7 +217,7 @@ export function PlayerCategorySection({
                 <div className="text-sm font-semibold text-slate-800 truncate flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" /> {c.name}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1 ml-5 flex flex-wrap items-center gap-2">
+                <div className="text-xs text-slate-500 mt-1 ml-5 flex flex-wrap items-center gap-2">
                   {c.description && <span>{c.description}</span>}
                   {c.description && (c.minAge != null || c.gender) && <span>·</span>}
                   {c.minAge != null && c.maxAge != null && <span>Age: {c.minAge}–{c.maxAge}</span>}
@@ -226,17 +226,17 @@ export function PlayerCategorySection({
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {c.categoryType && (
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded border bg-blue-50 text-blue-600 border-blue-200">{c.categoryType}</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded border bg-blue-50 text-blue-600 border-blue-200">{c.categoryType}</span>
                 )}
                 {c.type && (
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${c.type === "DEFAULT" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"}`}>{c.type}</span>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded border ${c.type === "DEFAULT" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"}`}>{c.type}</span>
                 )}
                 {(isSuper || (canManageCategories && c.type !== "DEFAULT")) && (
                   <>
-                    <button onClick={() => handleCategoryEdit(c)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
+                    <button onClick={() => handleCategoryEdit(c)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
                       <Edit2 className="w-3 h-3" /> Edit
                     </button>
-                    <button onClick={() => handleCategoryDelete(c.id)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-red-500 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
+                    <button onClick={() => handleCategoryDelete(c.id)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-red-500 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
                       <Trash2 className="w-3 h-3" /> Delete
                     </button>
                   </>

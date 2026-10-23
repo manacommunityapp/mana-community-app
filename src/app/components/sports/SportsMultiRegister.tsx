@@ -1705,13 +1705,13 @@ export function SportsMultiRegister() {
             {tournament.name}
           </h2>
           {tournament.events && (
-            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-semibold shrink-0">
+            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold shrink-0">
               {tournament.events.length} sports
             </span>
           )}
         </div>
 
-        <span className="hidden sm:flex px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold uppercase tracking-wider items-center gap-1 shadow-2xs shrink-0">
+        <span className="hidden sm:flex px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider items-center gap-1 shadow-2xs shrink-0">
           <Sparkles className="w-3 h-3 text-indigo-500 animate-spin-slow" />
           <span className="hidden md:inline">Multi-Sport Registration</span>
           <span className="md:hidden">Register</span>
@@ -1735,21 +1735,21 @@ export function SportsMultiRegister() {
             <div className="flex items-center justify-between mb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
                 <h3 className="text-[13px] sm:text-sm font-semibold text-slate-900 flex items-center gap-1.5 shrink-0 m-0 mb-0">
-                  <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">1</span>
+                  <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-2xs">1</span>
                   <span>Participant Details</span>
                 </h3>
                 {playerName && (
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 truncate max-w-[120px] sm:max-w-[160px]">
+                  <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 truncate max-w-[120px] sm:max-w-[160px]">
                     {playerName}
                   </span>
                 )}
                 {currentAge !== null && (
-                  <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                  <span className="text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                     Age: {currentAge} Yrs
                   </span>
                 )}
               </div>
-              <span className="hidden sm:inline text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0">Required</span>
+              <span className="hidden sm:inline text-xs font-semibold text-slate-400 uppercase tracking-wider shrink-0">Required</span>
             </div>
 
             {/* Self vs Family Member Toggle */}
@@ -1784,13 +1784,13 @@ export function SportsMultiRegister() {
             {regType === "family" && (
               <div className="mb-2.5 p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-indigo-900">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900">
                     Select Family Member:
                   </label>
                   <button
                     type="button"
                     onClick={() => openUpdateDetailsModal("family_add")}
-                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-md shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Add Member</span>
@@ -1823,16 +1823,16 @@ export function SportsMultiRegister() {
                         >
                           <span className="font-semibold">{m.name}</span>
                           {(m.relation || (m as any).relationship) && (
-                            <span className={`text-[11px] px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
+                            <span className={`text-xs px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
                               {m.relation || (m as any).relationship}
                             </span>
                           )}
                           {formattedDob ? (
-                            <span className={`text-[11px] px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
+                            <span className={`text-xs px-1 py-0.2 rounded font-normal ${isSelected ? "bg-indigo-700/60 text-indigo-100" : "bg-slate-100 text-slate-500"}`}>
                               DOB: {formattedDob}
                             </span>
                           ) : isMissingDetails ? (
-                            <span className="text-[10px] text-amber-500 font-bold">⚠️ Incomplete</span>
+                            <span className="text-xs text-amber-500 font-bold">⚠️ Incomplete</span>
                           ) : null}
                           <button
                             type="button"
@@ -1841,7 +1841,7 @@ export function SportsMultiRegister() {
                               openUpdateDetailsModal("family_edit", m.id);
                             }}
                             title="Edit details"
-                            className={`ml-0.5 p-0.5 rounded text-[11px] transition ${
+                            className={`ml-0.5 p-0.5 rounded text-xs transition ${
                               isSelected ? "hover:bg-indigo-700/80 text-white" : "hover:bg-slate-100 text-slate-500"
                             }`}
                           >
@@ -1861,14 +1861,14 @@ export function SportsMultiRegister() {
                   <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 flex items-center justify-between gap-2 text-left animate-in fade-in">
                     <div className="flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <p className="text-[11px] text-amber-800 dark:text-amber-200 font-medium">
+                      <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
                         Missing {(!gender && !dateOfBirth) ? "Gender & DOB" : !gender ? "Gender" : "Date of Birth"} for {playerName}.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
-                      className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                      className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
                     >
                       <span>Update</span>
                       <ArrowUpRight className="w-2.5 h-2.5" />
@@ -1889,7 +1889,7 @@ export function SportsMultiRegister() {
                     <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
                       Profile Incomplete: {missingProfileFields.join(", ")} Required
                     </h4>
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
                       Your profile is missing {missingProfileFields.join(", ")}. Please update your profile before registering.
                     </p>
                   </div>
@@ -1912,7 +1912,7 @@ export function SportsMultiRegister() {
                   <div className="grid grid-cols-2 gap-2 items-start">
                     {/* Participant Full Name */}
                     <div className="min-w-0">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
                         Participant Name
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center justify-between truncate">
@@ -1920,7 +1920,7 @@ export function SportsMultiRegister() {
                         <button
                           type="button"
                           onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
-                          className="text-[10px] font-bold text-indigo-600 hover:underline shrink-0 ml-1 cursor-pointer"
+                          className="text-xs font-bold text-indigo-600 hover:underline shrink-0 ml-1 cursor-pointer"
                         >
                           Edit
                         </button>
@@ -1929,7 +1929,7 @@ export function SportsMultiRegister() {
 
                     {/* Relationship */}
                     <div className="min-w-0">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
                         Relationship
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
@@ -1941,7 +1941,7 @@ export function SportsMultiRegister() {
                   <div className="grid grid-cols-3 gap-2 items-start">
                     {/* Gender */}
                     <div className="min-w-0">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
                         Gender
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center justify-between truncate">
@@ -1950,7 +1950,7 @@ export function SportsMultiRegister() {
                           <button
                             type="button"
                             onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
-                            className="text-[10px] font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
+                            className="text-xs font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
                           >
                             Add
                           </button>
@@ -1960,7 +1960,7 @@ export function SportsMultiRegister() {
 
                     {/* DOB & Age */}
                     <div className="min-w-0">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
                         DOB / Age
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center justify-between truncate">
@@ -1975,7 +1975,7 @@ export function SportsMultiRegister() {
                           <button
                             type="button"
                             onClick={() => openUpdateDetailsModal("family_edit", familyMemberId)}
-                            className="text-[10px] font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
+                            className="text-xs font-bold text-amber-600 hover:underline shrink-0 ml-1 cursor-pointer"
                           >
                             Add
                           </button>
@@ -1985,7 +1985,7 @@ export function SportsMultiRegister() {
 
                     {/* Block & Flat */}
                     <div className="min-w-0">
-                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
+                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5 truncate">
                         Block & Flat
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
@@ -2014,7 +2014,7 @@ export function SportsMultiRegister() {
                       <button
                         type="button"
                         onClick={() => openUpdateDetailsModal("self")}
-                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
                       >
                         <span>{!userProfileName ? "⚠️ Add" : "Edit"}</span>
                         <ArrowUpRight className="w-3 h-3" />
@@ -2041,7 +2041,7 @@ export function SportsMultiRegister() {
                       <button
                         type="button"
                         onClick={() => openUpdateDetailsModal("self")}
-                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
                       >
                         <span>{!userProfileGender ? "⚠️ Add" : "Edit"}</span>
                         <ArrowUpRight className="w-3 h-3" />
@@ -2075,14 +2075,14 @@ export function SportsMultiRegister() {
                       </label>
                       <div className="flex items-center gap-1">
                         {currentAge !== null && (
-                          <span className="text-[11px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                          <span className="text-xs font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
                             {currentAge}y
                           </span>
                         )}
                         <button
                           type="button"
                           onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
+                          className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
                         >
                           <span>{!userProfileDob ? "⚠️ Add" : "Edit"}</span>
                           <ArrowUpRight className="w-3 h-3" />
@@ -2117,7 +2117,7 @@ export function SportsMultiRegister() {
                       <button
                         type="button"
                         onClick={() => openUpdateDetailsModal("self")}
-                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline flex items-center gap-0.5 cursor-pointer"
                       >
                         <span>{!userProfileFlat ? "⚠️ Add" : "Edit"}</span>
                         <ArrowUpRight className="w-3 h-3" />
@@ -2174,7 +2174,7 @@ export function SportsMultiRegister() {
                           {e.role}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <div className="flex items-center justify-between text-xs text-slate-500">
                         <span className="truncate font-medium text-slate-600">
                           {selCat ? selCat.name : "No category"}
                         </span>
@@ -2230,9 +2230,9 @@ export function SportsMultiRegister() {
           <div className="bg-white border border-slate-200/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shadow-2xs shrink-0">2</span>
+                <span className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-2xs shrink-0">2</span>
                 <h3 className="text-[13px] sm:text-sm font-semibold text-slate-900 m-0 mb-0">Choose Sports</h3>
-                <span className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                <span className="text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
                   {selectedSportsCount}/{totalSportsCount}
                 </span>
               </div>
@@ -2259,7 +2259,7 @@ export function SportsMultiRegister() {
             {/* Progress bar */}
             {totalSportsCount > 0 && (
               <div className="mb-2.5">
-                <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-medium text-slate-500 mb-1">
+                <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
                   <span>{registeredSportsCount} of {totalSportsCount} registered</span>
                   <span>{Math.round((registeredSportsCount / totalSportsCount) * 100)}%</span>
                 </div>
@@ -2283,7 +2283,7 @@ export function SportsMultiRegister() {
                     <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
                       Sports Event Registration Disabled
                     </h4>
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
                       Please provide {(!gender && !dateOfBirth) ? "Gender and Date of Birth" : !gender ? "Gender" : "Date of Birth"} to verify category eligibility and unlock event registration.
                     </p>
                   </div>
@@ -2342,12 +2342,12 @@ export function SportsMultiRegister() {
                           <div className="flex items-center gap-1.5 sm:gap-2">
                             <h3 className="text-[13px] sm:text-sm font-bold truncate">{group.sportName}</h3>
                             {eligibleSelectedCount > 0 && (
-                              <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-600 text-white shadow-2xs">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-indigo-600 text-white shadow-2xs">
                                 {eligibleSelectedCount} selected
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] sm:text-[11px] opacity-75 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-x-2 text-xs opacity-75 mt-0.5">
                             {group.venueName && (
                               <span className="flex items-center gap-0.5">
                                 <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {group.venueName}
@@ -2364,11 +2364,11 @@ export function SportsMultiRegister() {
 
                       <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                         {group.registered.length > 0 && (
-                          <span className="hidden sm:inline text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                          <span className="hidden sm:inline text-xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
                             {group.registered.length} Reg
                           </span>
                         )}
-                        <span className="text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/70 border text-slate-700">
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/70 border text-slate-700">
                           {group.allEvents.length} {group.allEvents.length === 1 ? "Cat" : "Cats"}
                         </span>
                         <button
@@ -2410,7 +2410,7 @@ export function SportsMultiRegister() {
                                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                                     <span className="text-[13px] sm:text-sm font-semibold text-slate-900">{ev.name}</span>
                                     {selectedCat && (
-                                      <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium whitespace-nowrap">
+                                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium whitespace-nowrap">
                                         {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
                                         {selectedCat.minAge != null && selectedCat.maxAge != null
                                           ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
@@ -2420,7 +2420,7 @@ export function SportsMultiRegister() {
                                     )}
                                   </div>
                                   {eventErrors[ev.eventId] && (
-                                    <p className="text-[10px] sm:text-[11px] text-rose-600 mt-0.5 flex items-center gap-1">
+                                    <p className="text-xs text-rose-600 mt-0.5 flex items-center gap-1">
                                       <AlertCircle className="w-3 h-3" /> {eventErrors[ev.eventId]}
                                     </p>
                                   )}
@@ -2456,11 +2456,11 @@ export function SportsMultiRegister() {
                                 {ev.availableFormats && ev.availableFormats.length > 0 && (
                                   <div className="w-full max-w-full">
                                     <div className="flex items-center gap-1.5 mb-1">
-                                      <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
                                         Participant Type:
                                       </label>
                                       {ev.availableFormats.length > 1 && (
-                                        <span className="text-[10px] text-slate-400 font-normal">
+                                        <span className="text-xs text-slate-400 font-normal">
                                           (Select one or more)
                                         </span>
                                       )}
@@ -2538,7 +2538,7 @@ export function SportsMultiRegister() {
                                               <span className="text-xs font-bold text-slate-800">
                                                 Nominate as Team Captain
                                               </span>
-                                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                                                 Optional
                                               </span>
                                               <button
@@ -2581,7 +2581,7 @@ export function SportsMultiRegister() {
 
                                       {ev.captainNomination && (
                                         <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-1 duration-150 space-y-1.5">
-                                          <label className="block text-[10px] font-bold text-slate-700">
+                                          <label className="block text-xs font-bold text-slate-700">
                                             Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
                                           </label>
                                           <input
@@ -2607,7 +2607,7 @@ export function SportsMultiRegister() {
                                 {/* Category selection for multi-category events */}
                                 {eventCats.length > 1 && (
                                   <div className="w-full max-w-full">
-                                    <label className="sm:hidden block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                                    <label className="sm:hidden block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
                                       Age Bracket:
                                     </label>
                                     {/* Desktop Select */}
@@ -2670,7 +2670,7 @@ export function SportsMultiRegister() {
                                                 <div className="text-xs font-semibold truncate leading-tight">
                                                   {c.name}
                                                 </div>
-                                                <div className={`text-[10px] mt-0.5 ${!itemEl.eligible ? "text-rose-500" : "text-slate-500"}`}>
+                                                <div className={`text-xs mt-0.5 ${!itemEl.eligible ? "text-rose-500" : "text-slate-500"}`}>
                                                   {ageLabel} yrs · {!itemEl.eligible ? `Ineligible (${itemEl.reason || ""})` : "Eligible"}
                                                 </div>
                                               </div>
@@ -2687,7 +2687,7 @@ export function SportsMultiRegister() {
 
                                 {/* Mobile role selection */}
                                 <div className="sm:hidden w-full max-w-full">
-                                  <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
+                                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">
                                     Playing Role:
                                   </label>
                                   <button
@@ -2748,7 +2748,7 @@ export function SportsMultiRegister() {
                                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                                     <span className="text-[13px] sm:text-sm font-semibold text-slate-700">{ev.name}</span>
                                     {selectedCat && (
-                                      <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-medium whitespace-nowrap">
+                                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-medium whitespace-nowrap">
                                         {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
                                         {selectedCat.minAge != null && selectedCat.maxAge != null
                                           ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
@@ -2758,7 +2758,7 @@ export function SportsMultiRegister() {
                                     )}
                                   </div>
                                 </div>
-                                <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] sm:text-[11px] font-bold flex items-center gap-1 shrink-0">
+                                <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-1 shrink-0">
                                   <Check className="w-3 h-3 stroke-[2.5]" /> Registered
                                 </span>
                               </div>
@@ -2770,7 +2770,7 @@ export function SportsMultiRegister() {
                         {group.ineligible.length > 0 && (
                           <>
                             <div className="px-2.5 sm:px-3 py-1.5 bg-rose-50/40 border-t border-rose-100">
-                              <span className="text-[10px] sm:text-[11px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
+                              <span className="text-xs font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3" /> Ineligible
                               </span>
                             </div>
@@ -2787,7 +2787,7 @@ export function SportsMultiRegister() {
                                       <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                                         <span className="text-[13px] sm:text-sm font-medium text-slate-500">{ev.name}</span>
                                         {selectedCat && (
-                                          <span className="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-400 border border-rose-200 font-medium whitespace-nowrap">
+                                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-400 border border-rose-200 font-medium whitespace-nowrap">
                                             {selectedCat.gender && selectedCat.gender.toUpperCase() !== "ALL" ? `${selectedCat.gender} · ` : ""}
                                             {selectedCat.minAge != null && selectedCat.maxAge != null
                                               ? (selectedCat.maxAge >= 90 ? `${selectedCat.minAge}+` : selectedCat.minAge <= 0 ? `U-${selectedCat.maxAge}` : `${selectedCat.minAge}–${selectedCat.maxAge}`)
@@ -2796,9 +2796,9 @@ export function SportsMultiRegister() {
                                           </span>
                                         )}
                                       </div>
-                                      <p className="text-[10px] sm:text-[11px] text-rose-500 mt-0.5">{eligibility.reason}</p>
+                                      <p className="text-xs text-rose-500 mt-0.5">{eligibility.reason}</p>
                                     </div>
-                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 text-[10px] sm:text-[11px] font-bold shrink-0">
+                                    <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-500 text-xs font-bold shrink-0">
                                       Ineligible
                                     </span>
                                   </div>
@@ -2824,7 +2824,7 @@ export function SportsMultiRegister() {
             <div className="text-[13px] font-bold text-slate-900">
               {selectedCount} Sport{selectedCount !== 1 ? "s" : ""} Selected
             </div>
-            <div className="text-[11px] text-slate-500 truncate">
+            <div className="text-xs text-slate-500 truncate">
               {playerName || "Participant"} {currentAge !== null ? `· ${currentAge} yrs` : ""}
             </div>
           </div>
@@ -2983,7 +2983,7 @@ export function SportsMultiRegister() {
                     Date of Birth <span className="text-rose-500">*</span>
                   </label>
                   {profileModalState.dob && calculateAge(profileModalState.dob) !== null && (
-                    <span className="text-[11px] font-bold px-2 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                    <span className="text-xs font-bold px-2 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
                       {calculateAge(profileModalState.dob)} yrs old
                     </span>
                   )}

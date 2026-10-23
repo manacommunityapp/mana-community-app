@@ -70,7 +70,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
               Official Partners
             </span>
             <span className="text-xs text-slate-400 font-medium">• {season}</span>
@@ -109,7 +109,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                 className="relative overflow-hidden rounded-xl border-2 border-amber-400/40 bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-transparent dark:from-amber-950/40 dark:via-slate-900 p-4 sm:p-5 flex items-start justify-between gap-3 shadow-sm hover:border-amber-400 transition-all group"
               >
                 <div className="space-y-1 min-w-0">
-                  <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+                  <span className="text-xs font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
                     {sponsor.category || 'Presenting Sponsor'}
                   </span>
                   <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
@@ -153,14 +153,14 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                 className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-3.5 flex items-start justify-between gap-2.5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <span className="text-[9.5px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
+                  <span className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
                     {sponsor.category || 'Proud Partner'}
                   </span>
                   <h5 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                     {sponsor.name}
                   </h5>
                   {sponsor.tagline && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {sponsor.tagline}
                     </p>
                   )}
@@ -196,7 +196,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                 className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 flex flex-col justify-between text-left space-y-1"
               >
                 <div>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block truncate">
                     {sponsor.category}
                   </span>
                   <strong className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
@@ -204,7 +204,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                   </strong>
                 </div>
                 {sponsor.tagline && (
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
                     {sponsor.tagline}
                   </span>
                 )}

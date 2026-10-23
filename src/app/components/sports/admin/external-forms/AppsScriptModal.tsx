@@ -86,7 +86,7 @@ export function AppsScriptModal({ isOpen, onClose, formId, formTitle }: AppsScri
               </li>
               <li>
                 Click <strong className="text-white">Add Trigger</strong>:
-                <div className="mt-1 ml-4 p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1 text-[11px] text-slate-300">
+                <div className="mt-1 ml-4 p-2 rounded-lg bg-slate-950 border border-slate-800 space-y-1 text-xs text-slate-300">
                   <div>• Choose which function to run: <strong className="text-emerald-400">onFormSubmit</strong></div>
                   <div>• Select event source: <strong className="text-emerald-400">From form</strong></div>
                   <div>• Select event type: <strong className="text-emerald-400">On form submit</strong></div>
@@ -118,7 +118,7 @@ export function AppsScriptModal({ isOpen, onClose, formId, formTitle }: AppsScri
               </div>
             ) : (
               <div className="relative">
-                <pre className="max-h-64 overflow-y-auto p-4 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-emerald-300 font-mono leading-relaxed select-all">
+                <pre className="max-h-64 overflow-y-auto p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-emerald-300 font-mono leading-relaxed select-all">
                   {script}
                 </pre>
               </div>
@@ -126,7 +126,7 @@ export function AppsScriptModal({ isOpen, onClose, formId, formTitle }: AppsScri
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2 text-[11px] text-amber-400">
+            <div className="flex items-center gap-2 text-xs text-amber-400">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span>You only need to install this trigger once per Google Form.</span>
             </div>

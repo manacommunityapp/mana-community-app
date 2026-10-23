@@ -81,7 +81,7 @@ export function ImportPlayersModal({
             <span className="text-xs font-medium text-[#f1f5f9]">
               {csvFile ? csvFile.name : "Choose CSV File or Drag & Drop"}
             </span>
-            <span className="text-[10px] text-[#64748b] mt-1">
+            <span className="text-xs text-[#64748b] mt-1">
               Supports .csv extension up to 5MB
             </span>
           </div>
