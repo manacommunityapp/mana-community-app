@@ -150,7 +150,7 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
             <Gavel className="w-4 h-4 text-amber-400 rotate-12" />
             <span>HAMMER DOWN • SOLD!</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase drop-shadow-md">
+          <h2 className="text-xs font-black tracking-tight text-white uppercase drop-shadow-md">
             {playerName}
           </h2>
           <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-300">
@@ -163,7 +163,7 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
         <div
           className="py-4 px-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 space-y-1"
         >
-          <span className="text-xs uppercase font-bold text-amber-300 tracking-wider">
+          <span className="text-[10px] uppercase font-bold text-amber-300 tracking-wider">
             Final Winning Bid
           </span>
           <div className="text-3xl sm:text-4xl font-black text-white tracking-tight" style={{ color: teamColor }}>
@@ -179,9 +179,9 @@ export const AuctionSoldCelebrationModal: React.FC<AuctionSoldCelebrationModalPr
             borderColor: `${teamColor}66`,
           }}
         >
-          <span className="text-3xl">{teamEmoji}</span>
+          <span className="text-[10px]">{teamEmoji}</span>
           <div className="text-left min-w-0">
-            <span className="text-xs uppercase font-bold text-slate-400 block tracking-wider">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
               Acquired By Franchise
             </span>
             <strong className="text-base sm:text-lg font-black text-white truncate block">

@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: string }) {
   const s = map[status] || map["REGISTERED"];
   return (
     <span
-      className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
+      className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
       style={{ background: s.bg, color: s.text }}
     >
       {s.label}
@@ -83,12 +83,12 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
               {team.teamName || team.name}
             </p>
             {team.captainConfirmation && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
                 <CheckCircle2 className="w-2.5 h-2.5" /> Confirmed
               </span>
             )}
             {team.captainNomination && !team.captainConfirmation && (
-              <span className="text-xs px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
                 <Clock className="w-2.5 h-2.5" /> Nominated
               </span>
             )}
@@ -162,17 +162,17 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                         style={{ background: color }}
                       >
                         {i + 1}
                       </span>
-                      <span className="text-xs font-medium" style={{ color: "#0d0d2b" }}>{p.name}</span>
+                      <span className="text-[10px] font-medium" style={{ color: "#0d0d2b" }}>{p.name}</span>
                       {p.category && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
                       )}
                     </div>
-                    <span className="text-xs font-bold" style={{ color: "#4f46e5" }}>
+                    <span className="text-[10px] font-bold" style={{ color: "#4f46e5" }}>
                       ₹{p.soldPrice?.toLocaleString() ?? "-"}
                     </span>
                   </div>
@@ -286,13 +286,7 @@ function PendingRegistrationCard({
             </p>
             {screenAudit && (
               <span
-                className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 ${
-                  screenAudit.eligibilityStatus === "APPROVED"
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                    : screenAudit.eligibilityStatus === "FLAGGED_FOR_REVIEW"
-                    ? "bg-amber-100 text-amber-800 border border-amber-300"
-                    : "bg-red-100 text-red-800 border border-red-300"
-                }`}
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 ${ screenAudit.eligibilityStatus === "APPROVED" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : screenAudit.eligibilityStatus === "FLAGGED_FOR_REVIEW" ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-red-100 text-red-800 border border-red-300" }`}
               >
                 <Sparkles className="w-2.5 h-2.5" />
                 {screenAudit.eligibilityStatus.replace(/_/g, " ")}
@@ -519,11 +513,11 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
       {/* Header bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-extrabold text-slate-800">Teams Management</h3>
+          <h3 className="text-xs font-extrabold text-slate-800">Teams Management</h3>
           <p className="text-xs text-slate-500 mt-0.5">
             {allTeamsCount} team{allTeamsCount !== 1 ? "s" : ""} across {groups.length} tournament{groups.length !== 1 ? "s" : ""}
             {allPendingCount > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700">
+              <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">
                 <Clock className="w-2.5 h-2.5" /> {allPendingCount} pending
               </span>
             )}
@@ -588,9 +582,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                     {/* Tournament label */}
                     <div className="flex items-center gap-2 mb-3">
                       <Trophy className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="text-xs font-bold text-indigo-700">{tournamentName}</span>
+                      <span className="text-[10px] font-bold text-indigo-700">{tournamentName}</span>
                       <span
-                        className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                         style={{ background: "rgba(245,158,11,0.12)", color: "#d97706" }}
                       >
                         {g.pendingRegs.length} pending
@@ -676,11 +670,11 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-extrabold text-slate-800 truncate">{tournamentName}</p>
-                  <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: ss.bg, color: ss.text }}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: ss.bg, color: ss.text }}>
                     {status.replace(/_/g, " ")}
                   </span>
                   {sport && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600">
                       {sport}
                     </span>
                   )}
@@ -708,9 +702,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                 >
                   <div className="flex items-center gap-2">
                     <Shield className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-700">All Teams</span>
+                    <span className="text-[10px] font-bold text-slate-700">All Teams</span>
                     <span
-                      className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}
                     >
                       {g.teams.length}
@@ -741,9 +735,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                 >
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs font-bold text-amber-700">Pending Approvals</span>
+                    <span className="text-[10px] font-bold text-amber-700">Pending Approvals</span>
                     <span
-                      className="text-xs px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(245,158,11,0.15)", color: "#d97706" }}
                     >
                       {g.pendingRegs.length}

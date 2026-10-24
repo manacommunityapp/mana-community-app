@@ -426,12 +426,12 @@ export function MySports() {
                 <span className="nav-text flex items-center justify-between flex-1">
                   {tab.label}
                   {tab.id === "tournaments" && (partnerInvitations?.length ?? 0) > 0 && (
-                    <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white text-xs font-black rounded-full animate-pulse">
+                    <span className="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white text-[10px] font-black rounded-full animate-pulse">
                       {partnerInvitations?.length ?? 0}
                     </span>
                   )}
                   {tab.id === "settings" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-bold ml-1">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-bold ml-1">
                       PRO
                     </span>
                   )}
@@ -475,16 +475,16 @@ export function MySports() {
                   >
                     {userInitials}
                   </div>
-                  <span className="absolute -bottom-1 -right-1 bg-amber-400 text-slate-900 text-xs font-black px-1.5 py-0.2 rounded-full border border-white shadow-xs">
+                  <span className="absolute -bottom-1 -right-1 bg-amber-400 text-slate-900 text-[10px] font-black px-1.5 py-0.2 rounded-full border border-white shadow-xs">
                     #{passport.jerseyNumber || "7"}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="font-extrabold text-sm sm:text-xl text-[#0d0d2b] leading-tight">
+                    <h2 className="text-xs font-extrabold text-[#0d0d2b] leading-tight">
                       {displayName}
                     </h2>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
                       {passport.skillLevel}
                     </span>
                   </div>
@@ -554,10 +554,10 @@ export function MySports() {
                           <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
                         </div>
                         <div className="max-w-xl relative z-10 space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-xs font-extrabold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block">
                             Athlete Command Center
                           </span>
-                          <h2 className="text-sm sm:text-lg md:text-xl font-extrabold tracking-tight">
+                          <h2 className="text-xs font-extrabold tracking-tight">
                             Welcome back, {displayName}!
                           </h2>
                           <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
@@ -630,9 +630,9 @@ export function MySports() {
                                 <Users className="w-3.5 h-3.5" />
                               </div>
                               <div>
-                                <h3 className="text-xs sm:text-sm font-extrabold text-amber-950 flex items-center gap-1.5 m-0 mb-0">
+                                <h3 className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5 m-0 mb-0">
                                   Pending Doubles Partner Invitations
-                                  <span className="px-1.5 py-0.2 bg-amber-600 text-white text-xs font-black rounded-full">
+                                  <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[10px] font-black rounded-full">
                                     {partnerInvitations.length} new
                                   </span>
                                 </h3>
@@ -656,10 +656,10 @@ export function MySports() {
                                 <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
                                   <div>
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                                      <span className="text-[10px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                                         {spName}
                                       </span>
-                                      <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                                         Action Required
                                       </span>
                                     </div>
@@ -707,11 +707,11 @@ export function MySports() {
                       {nextMatch && (
                         <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-xl sm:rounded-2xl p-3 sm:p-5 text-white shadow-md border border-indigo-500/20 space-y-2 sm:space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/30 text-red-300 text-xs font-extrabold uppercase tracking-wider">
+                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-extrabold uppercase tracking-wider">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                               Next Up On Court
                             </span>
-                            <span className="text-xs text-indigo-200 font-mono font-bold">
+                            <span className="text-[10px] text-indigo-200 font-mono font-bold">
                               {nextMatch.eventDateStart ? new Date(nextMatch.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Scheduled"}
                             </span>
                           </div>
@@ -719,7 +719,7 @@ export function MySports() {
                           <div className="flex items-center justify-between gap-3 sm:gap-4">
                             <div className="space-y-0.5 sm:space-y-1 min-w-0">
                               <p className="text-xs text-indigo-300 font-bold uppercase tracking-wider">{nextMatch.sportName || "Tournament"}</p>
-                              <h3 className="text-[13px] sm:text-base font-extrabold text-white leading-snug truncate">{nextMatch.name}</h3>
+                              <h3 className="text-xs font-extrabold text-white leading-snug truncate">{nextMatch.name}</h3>
                               <p className="text-xs text-slate-300 flex items-center gap-1 truncate">
                                 <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400 shrink-0" />
                                 <span className="truncate">{nextMatch.venueName || "Main Sports Complex"}{nextMatch.venueCity ? `, ${nextMatch.venueCity}` : ""}</span>
@@ -759,13 +759,13 @@ export function MySports() {
                               myMatches.slice(0, 3).map((m) => (
                                 <div key={m.id} className="p-2 sm:p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-2">
                                   <div className="min-w-0">
-                                    <span className="text-xs bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded font-bold uppercase">
+                                    <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded font-bold uppercase">
                                       {m.sportName}
                                     </span>
-                                    <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 mt-0.5 truncate">{m.name}</h4>
+                                    <h4 className="text-xs font-bold text-slate-800 mt-0.5 truncate">{m.name}</h4>
                                     <p className="text-xs text-slate-400 truncate">{m.venueName || "Venue TBD"}</p>
                                   </div>
-                                  <span className="text-xs font-mono font-bold text-slate-600 bg-white px-1.5 sm:px-2 py-1 rounded-lg border border-slate-200 shrink-0">
+                                  <span className="text-[10px] font-mono font-bold text-slate-600 bg-white px-1.5 sm:px-2 py-1 rounded-lg border border-slate-200 shrink-0">
                                     {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
                                   </span>
                                 </div>
@@ -797,14 +797,11 @@ export function MySports() {
                                 return (
                                   <div key={reg.id} className="p-2 sm:p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-2">
                                     <div className="min-w-0">
-                                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
-                                      <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 truncate">{reg.eventName}</h4>
+                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
+                                      <h4 className="text-xs font-bold text-slate-800 truncate">{reg.eventName}</h4>
                                       <p className="text-xs text-slate-500">{reg.categoryName || "Open Category"}</p>
                                     </div>
-                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
-                                      isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                                      "bg-yellow-50 text-yellow-600 border border-yellow-100"
-                                    }`}>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${ isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-yellow-50 text-yellow-600 border border-yellow-100" }`}>
                                       {reg.status}
                                     </span>
                                   </div>
@@ -884,38 +881,34 @@ export function MySports() {
                               >
                                 <div>
                                   <div className="flex items-start justify-between gap-2">
-                                    <span className="text-xs uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
                                       {reg.sportName || "Sports Event"}
                                     </span>
-                                    <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                      isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                                      reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" :
-                                      "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                                    }`}>
+                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${ isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200" }`}>
                                       {reg.status}
                                     </span>
                                   </div>
 
-                                  <h4 className="text-[13px] sm:text-sm font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
+                                  <h4 className="text-xs font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
 
                                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1.5 sm:mt-2">
                                     {reg.matchType && (
-                                      <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 sm:px-2 py-0.5 rounded font-bold capitalize">
+                                      <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 sm:px-2 py-0.5 rounded font-bold capitalize">
                                         {reg.matchType.replace(/_/g, " ").toLowerCase()}
                                       </span>
                                     )}
                                     {reg.categoryName && (
-                                      <span className="text-xs bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
+                                      <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
                                         {reg.categoryName}
                                       </span>
                                     )}
                                     {reg.flatNumber && (
-                                      <span className="text-xs bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
+                                      <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
                                         Flat: {reg.flatNumber}
                                       </span>
                                     )}
                                     {reg.captainNomination && (
-                                      <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded font-bold">
+                                      <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 sm:px-2 py-0.5 rounded font-bold">
                                         Captain Nominee
                                       </span>
                                     )}
@@ -928,25 +921,19 @@ export function MySports() {
                                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                                       {reg.partnerUserId || reg.partnerName ? (
                                         <div className="flex items-center gap-1.5">
-                                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${
-                                            reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED"
-                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                              : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED"
-                                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                                              : "bg-amber-50 text-amber-700 border-amber-200"
-                                          }`}>
+                                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200" }`}>
                                             <Users className="w-3 h-3" />
                                             <span>
                                               Partner: <strong>{reg.partnerName || "Partner"}</strong>
                                             </span>
-                                            <span className="text-xs font-medium opacity-80">
+                                            <span className="text-[10px] font-medium opacity-80">
                                               ({reg.partnerStatus === "CONFIRMED" || reg.partnerStatus === "ACCEPTED" ? "Confirmed" : reg.partnerStatus === "REJECTED" || reg.partnerStatus === "DECLINED" ? "Declined" : "Invited"})
                                             </span>
                                           </span>
                                         </div>
                                       ) : (
                                         <div className="flex items-center gap-1.5">
-                                          <span className="text-xs px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200">
+                                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 bg-purple-50 text-purple-700 border border-purple-200">
                                             <Sparkles className="w-3 h-3 text-purple-600" />
                                             <span>Open Pairing Pool</span>
                                           </span>
@@ -981,13 +968,7 @@ export function MySports() {
                                   {(isTeamSport(reg.eventName || "") || reg.matchType === "TEAM") && (
                                     <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
                                       <div className="flex items-center gap-1.5">
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${
-                                          reg.captainConfirmation
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : reg.captainNomination
-                                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                                            : "bg-slate-50 text-slate-600 border-slate-200"
-                                        }`}>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 border ${ reg.captainConfirmation ? "bg-emerald-50 text-emerald-700 border-emerald-200" : reg.captainNomination ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200" }`}>
                                           <Crown className="w-3 h-3 text-amber-600" />
                                           <span>
                                             {reg.captainConfirmation
@@ -1071,8 +1052,8 @@ export function MySports() {
                                   <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                                 </div>
                                 <div className="min-w-0">
-                                  <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 truncate m-0 mb-0">{myCommunity.name}</h3>
-                                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 inline-block">
+                                  <h3 className="text-xs font-extrabold text-slate-900 truncate m-0 mb-0">{myCommunity.name}</h3>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full mt-0.5 inline-block">
                                     {myCommunity.type} Community
                                   </span>
                                 </div>
@@ -1092,11 +1073,11 @@ export function MySports() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs">
                               <div>
-                                <span className="text-slate-400 font-semibold uppercase text-xs tracking-wider">Classification</span>
+                                <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Classification</span>
                                 <p className="font-bold text-slate-800 mt-0.5 text-[13px] sm:text-xs">{myCommunity.subtype || "Residential Gated Society"}</p>
                               </div>
                               <div>
-                                <span className="text-slate-400 font-semibold uppercase text-xs tracking-wider">Location / City</span>
+                                <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Location / City</span>
                                 <p className="font-bold text-slate-800 mt-0.5">
                                   {myCommunity.area ? `${myCommunity.area}, ` : ""}{myCommunity.city || "Bangalore"}
                                 </p>
@@ -1112,7 +1093,7 @@ export function MySports() {
                                 <span className="hidden sm:inline">Community Sports Facilities & Venues ({venues.length})</span>
                                 <span className="sm:hidden">Venues ({venues.length})</span>
                               </h3>
-                              <span className="text-xs text-slate-400 font-medium">Auto-synced</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Auto-synced</span>
                             </div>
 
                             {venues.length === 0 ? (
@@ -1124,8 +1105,8 @@ export function MySports() {
                                 {venues.map(v => (
                                   <div key={v.id} className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1">
                                     <div className="flex items-center justify-between gap-2">
-                                      <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 truncate">{v.name}</h4>
-                                      <span className="text-xs font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 uppercase shrink-0">
+                                      <h4 className="text-xs font-bold text-slate-800 truncate">{v.name}</h4>
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 uppercase shrink-0">
                                         Active
                                       </span>
                                     </div>
@@ -1179,16 +1160,14 @@ export function MySports() {
                               >
                                 <div className="flex items-center justify-between border-b border-slate-100 gap-2">
                                   <div className="min-w-0">
-                                    <h3 className="text-[13px] sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 truncate m-0 mb-0">
+                                    <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5 truncate m-0 mb-0">
                                       {team.emoji || "🛡️"} {team.teamName}
                                     </h3>
-                                    <span className="text-xs text-slate-400 font-semibold block m-0 truncate">
+                                    <span className="text-[10px] text-slate-400 font-semibold block m-0 truncate">
                                       Owner: {team.ownerName || "Community Franchise"}
                                     </span>
                                   </div>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide shrink-0 ${
-                                    team.captainConfirmation ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-indigo-50 text-indigo-600 border border-indigo-200"
-                                  }`}>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wide shrink-0 ${ team.captainConfirmation ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-indigo-50 text-indigo-600 border border-indigo-200" }`}>
                                     {team.captainConfirmation ? "Captain" : "Squad"}
                                   </span>
                                 </div>
@@ -1211,7 +1190,7 @@ export function MySports() {
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                                  <span className="text-xs text-slate-400 font-medium">Roster Active</span>
+                                  <span className="text-[10px] text-slate-400 font-medium">Roster Active</span>
                                   <Link
                                     to="/sports/auction"
                                     className="text-[13px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 min-h-[36px] sm:min-h-0"
@@ -1273,15 +1252,15 @@ export function MySports() {
 
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-1.5 sm:px-2 py-0.5 rounded">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-1.5 sm:px-2 py-0.5 rounded">
                                       {m.sportName || "Sport"}
                                     </span>
-                                    <span className="text-xs font-mono font-bold text-slate-700">
+                                    <span className="text-[10px] font-mono font-bold text-slate-700">
                                       {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Scheduled"}
                                     </span>
                                   </div>
 
-                                  <h4 className="text-[13px] sm:text-sm font-extrabold text-slate-900 mt-1 truncate">{m.name}</h4>
+                                  <h4 className="text-xs font-extrabold text-slate-900 mt-1 truncate">{m.name}</h4>
 
                                   <div className="text-xs text-slate-500 mt-0.5 sm:mt-1 flex items-center gap-1">
                                     <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 shrink-0" />
@@ -1289,10 +1268,10 @@ export function MySports() {
                                   </div>
 
                                   <div className="flex items-center gap-1.5 sm:gap-2 mt-2 sm:mt-2.5 flex-wrap">
-                                    <span className="text-xs px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
+                                    <span className="text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-slate-100 text-slate-700">
                                       {m.format?.[0] || "Tournament Fixture"}
                                     </span>
-                                    <span className="text-xs px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <span className="text-[10px] px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                                       {m.registrationStatus || "CONFIRMED"}
                                     </span>
                                   </div>
@@ -1310,7 +1289,7 @@ export function MySports() {
                     <div className="space-y-4 text-left animate-fade-in-up">
                       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-sm space-y-4 sm:space-y-5">
                         <div className="border-b border-slate-100">
-                          <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 flex items-center gap-2 m-0 mb-0">
+                          <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-2 m-0 mb-0">
                             <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
                             <span>Player Settings & Preferences</span>
                           </h3>
@@ -1338,7 +1317,7 @@ export function MySports() {
                                       : "border-slate-200 bg-white hover:border-slate-300"
                                   }`}
                                 >
-                                  <span className="text-xs font-extrabold block" style={{ color: level.color }}>
+                                  <span className="text-[10px] font-extrabold block" style={{ color: level.color }}>
                                     {level.badge}
                                   </span>
                                   <p className="text-[13px] sm:text-xs font-bold text-slate-900 mt-0.5">{level.label}</p>
@@ -1402,7 +1381,7 @@ export function MySports() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                             {ALL_SPORTS.slice(0, 4).map(s => (
                               <div key={s.id} className="p-2.5 sm:p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-1.5">
-                                <span className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <span className="text-[13px] text-[10px] font-bold text-slate-800 flex items-center gap-1.5">
                                   <span>{s.icon}</span>
                                   <span>{s.name}</span>
                                 </span>
@@ -1482,7 +1461,7 @@ export function MySports() {
                 className="rounded-2xl p-3.5 sm:p-5 bg-white border border-slate-100 shadow-sm space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
+                  <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-indigo-600" />
                     <span>My Activity</span>
                   </h3>
@@ -1508,10 +1487,10 @@ export function MySports() {
               <div className="rounded-xl sm:rounded-2xl p-3 sm:p-5 bg-white border border-slate-100 shadow-sm space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-[13px] sm:text-xs font-bold text-slate-900">Level {playerLevel}</h4>
+                    <h4 className="text-xs font-bold text-slate-900">Level {playerLevel}</h4>
                     <p className="text-xs text-slate-400">{xpPoints} XP</p>
                   </div>
-                  <span className="text-[13px] sm:text-xs font-extrabold text-indigo-600">{levelProgress}%</span>
+                  <span className="text-[13px] text-[10px] font-extrabold text-indigo-600">{levelProgress}%</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   <div
@@ -1524,8 +1503,8 @@ export function MySports() {
               {/* Achievements Badges */}
               <div className="rounded-xl sm:rounded-2xl p-3 sm:p-5 bg-white border border-slate-100 shadow-sm space-y-2.5 sm:space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-[13px] sm:text-sm text-slate-900">Achievements</h3>
-                  <span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                  <h3 className="text-xs font-extrabold text-slate-900">Achievements</h3>
+                  <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
                     {unlockedCount}/{achievements.length}
                   </span>
                 </div>
@@ -1563,9 +1542,9 @@ export function MySports() {
               >
                 <div className="flex items-center gap-1.5">
                   <Flame className="w-4 h-4 text-white" />
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-amber-100">Live Hub</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-100">Live Hub</span>
                 </div>
-                <h3 className="font-extrabold text-[13px] sm:text-sm text-white leading-snug">Player Auction Center</h3>
+                <h3 className="text-xs font-extrabold text-white leading-snug">Player Auction Center</h3>
                 <p className="text-xs text-white/90 leading-relaxed">
                   Track bids, budgets, and squad lists in real time.
                 </p>
@@ -1590,7 +1569,7 @@ export function MySports() {
                     <HeartHandshake className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900 truncate m-0 mb-0">
+                    <h3 className="text-xs font-extrabold text-slate-900 truncate m-0 mb-0">
                       {partnerModalState.registration.partnerUserId ? "Change Partner" : "Nominate Partner"}
                     </h3>
                     <p className="text-xs text-slate-500 truncate m-0">
@@ -1660,7 +1639,7 @@ export function MySports() {
                     <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-[14px] sm:text-base font-extrabold text-slate-900 m-0 mb-0">
+                    <h3 className="text-xs font-extrabold text-slate-900 m-0 mb-0">
                       Captain Nomination
                     </h3>
                     <p className="text-xs text-slate-500 truncate m-0">

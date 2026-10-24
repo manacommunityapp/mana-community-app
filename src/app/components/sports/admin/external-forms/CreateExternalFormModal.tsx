@@ -103,7 +103,7 @@ export function CreateExternalFormModal({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Create External Registration Form</h3>
+              <h3 className="text-xs font-semibold text-white">Create External Registration Form</h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {event?.name || event?.title} • Automated response synchronization
               </p>
@@ -123,7 +123,7 @@ export function CreateExternalFormModal({
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
               <CheckCircle className="w-6 h-6 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-semibold text-emerald-300">External Form Ready!</h4>
+                <h4 className="text-xs font-semibold text-emerald-300">External Form Ready!</h4>
                 <p className="text-xs text-emerald-200/80 mt-1">
                   Share the link below with participants. Incoming entries will be validated against tournament capacity, age & gender limits, and staged in your sports dashboard.
                 </p>
@@ -311,7 +311,7 @@ export function CreateExternalFormModal({
                         className="rounded border-slate-700 text-blue-600 focus:ring-0 w-3.5 h-3.5"
                       />
                       <span className="truncate">
-                        {f.label} {f.required && <span className="text-red-400 text-xs">*</span>}
+                        {f.label} {f.required && <span className="text-red-400 text-[10px]">*</span>}
                       </span>
                     </label>
                   );

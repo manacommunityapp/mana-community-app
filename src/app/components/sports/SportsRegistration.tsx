@@ -150,7 +150,7 @@ export function SportsRegistration() {
 
       {/* Primary Header */}
       <div>
-        <h1 className="text-lg sm:text-2xl font-semibold text-[#0d0d2b]">My Sports Hub</h1>
+        <h1 className="text-xs font-semibold text-[#0d0d2b]">My Sports Hub</h1>
         <p className="text-[13px] sm:text-sm text-[#6b7094] mt-0.5 sm:mt-1">Manage your active tournaments, matches, teams, and registrations</p>
       </div>
 
@@ -240,26 +240,26 @@ export function SportsRegistration() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">{reg.event?.sport?.name || "Sport Event"}</div>
-                              <h4 className="text-[13px] sm:text-sm font-bold text-foreground truncate mt-1 leading-snug">{reg.event?.name}</h4>
+                              <h4 className="text-xs font-bold text-foreground truncate mt-1 leading-snug">{reg.event?.name}</h4>
                               <div className="flex flex-wrap items-center gap-2 mt-2">
                                 {reg.category?.name && (
-                                  <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
+                                  <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
                                     {reg.category.name}
                                   </span>
                                 )}
                                 {reg.age && (
-                                  <span className="text-xs bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
+                                  <span className="text-[10px] bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
                                     Age: {reg.age}
                                   </span>
                                 )}
                                 {reg.flatNumber && (
-                                  <span className="text-xs bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
+                                  <span className="text-[10px] bg-input text-muted-foreground px-2 py-0.5 rounded font-medium">
                                     Flat: {reg.flatNumber}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <span className={`text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wide flex-shrink-0 ${statusColors[reg.status] || "bg-input text-muted-foreground"}`}>
+                            <span className={`text-[10px] px-2.5 py-1 rounded font-bold uppercase tracking-wide flex-shrink-0 ${statusColors[reg.status] || "bg-input text-muted-foreground"}`}>
                               {reg.status}
                             </span>
                           </div>
@@ -303,8 +303,8 @@ export function SportsRegistration() {
                         <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                       </div>
                       <div className="text-left">
-                        <h3 className="text-base font-bold text-foreground uppercase tracking-wider m-0 mb-0">{myCommunity.name}</h3>
-                        <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-widest mt-1 inline-block">
+                        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider m-0 mb-0">{myCommunity.name}</h3>
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold uppercase tracking-widest mt-1 inline-block">
                           {myCommunity.type} COMMUNITY
                         </span>
                       </div>
@@ -358,12 +358,12 @@ export function SportsRegistration() {
                         <div key={team.id} className="p-3 sm:p-5 bg-card border border-border rounded-xl flex flex-col gap-3 sm:gap-4 hover:border-primary/30 transition-all duration-300 animate-fade-in-up">
                           <div className="flex items-center justify-between gap-3 border-b border-border/60">
                             <div>
-                              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5 m-0 mb-0">
+                              <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5 m-0 mb-0">
                                 {team.emoji || "🛡️"} {team.teamName}
                               </h3>
-                              <span className="text-xs text-muted-foreground m-0 block font-semibold">Owner: {team.ownerName || "—"}</span>
+                              <span className="text-[10px] text-muted-foreground m-0 block font-semibold">Owner: {team.ownerName || "—"}</span>
                             </div>
-                            <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide ${team.captainConfirmation ? "bg-emerald-500/15 text-emerald-400" : "bg-primary/15 text-primary"}`}>
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide ${team.captainConfirmation ? "bg-emerald-500/15 text-emerald-400" : "bg-primary/15 text-primary"}`}>
                               {team.captainConfirmation ? "CONFIRMED CAPTAIN" : "NOMINATED"}
                             </span>
                           </div>
@@ -416,13 +416,13 @@ export function SportsRegistration() {
                             </div>
                             <div className="flex-1 min-w-0 pb-1 text-left animate-fade-in-up">
                               <div className="text-xs text-muted-foreground font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Date TBD"}</div>
-                              <h4 className="text-[13px] sm:text-sm font-bold text-foreground mt-1">{m.sport?.name} — {m.name}</h4>
+                              <h4 className="text-xs font-bold text-foreground mt-1">{m.sport?.name} — {m.name}</h4>
                               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                 <MapPin className="w-3.5 h-3.5 text-primary" /> {m.venue?.name || "Venue TBD"}{m.venue?.city ? `, ${m.venue.city}` : ""}
                               </div>
                               <div className="flex gap-2 mt-2.5">
-                                <span className="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{m.format || "SINGLES"}</span>
-                                <span className="text-xs px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/20">{m.registrationStatus}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">{m.format || "SINGLES"}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-primary/10 text-primary border border-primary/20">{m.registrationStatus}</span>
                               </div>
                             </div>
                           </div>
@@ -484,7 +484,7 @@ export function SportsRegistration() {
                         <label className="text-xs text-muted-foreground block mb-1">Govt ID</label>
                         <div className="flex items-center gap-2 px-3 py-2 bg-input border border-success rounded-lg">
                           <CheckCircle className="w-4 h-4 text-success" />
-                          <span className="text-xs text-success">Aadhaar Linked</span>
+                          <span className="text-[10px] text-success">Aadhaar Linked</span>
                         </div>
                       </div>
                     </div>
@@ -494,8 +494,8 @@ export function SportsRegistration() {
                   <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-lg">
                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2.5 sm:mb-3">Auto-assigned Category</div>
                     <div className="flex flex-wrap gap-2 mb-3">
-                      <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">{autoCategory}</span>
-                      <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-xs font-medium">Open</span>
+                      <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-[10px] font-medium">{autoCategory}</span>
+                      <span className="px-3 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-[10px] font-medium">Open</span>
                     </div>
                     <p className="text-xs text-muted-foreground bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-2.5 leading-relaxed">
                       ℹ️ Category assigned by age and gender — Senior Citizens 55+, Kids Under 12, Boys/Girls 12–18, Mens/Womens 18–55.
@@ -514,7 +514,7 @@ export function SportsRegistration() {
                         <div key={sport.id} className="bg-input/50 border border-border rounded-xl p-2.5 sm:p-4 mb-2.5 sm:mb-3">
                           <div className="flex items-center justify-between mb-2.5 sm:mb-3">
                             <div className="text-[13px] sm:text-sm font-medium text-foreground">{sport.icon} {sport.name}</div>
-                            <span className="text-xs px-2 py-0.5 rounded bg-success/15 text-success">Age OK</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-success/15 text-success">Age OK</span>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {(MATCH_TYPES[sport.id] ?? ["Singles"]).map(type => (

@@ -54,10 +54,10 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                 <img src={configuringSport.sportIconUrl} alt={configuringSport.sportName} className="w-7 h-7 object-cover rounded" />
               </div>
             ) : (
-              <span className="text-2xl leading-none">{configuringSport.sportIcon || "🏆"}</span>
+              <span className="text-[10px] leading-none">{configuringSport.sportIcon || "🏆"}</span>
             )}
             <div>
-              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 m-0 mb-0">
+              <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2 m-0 mb-0">
                 {configuringSport.sportName} Configuration
               </h3>
               <p className="text-xs text-slate-500 m-0">
@@ -77,7 +77,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5e1 #f8fafc" }}>
           <div className="flex justify-between items-center border-b border-slate-200">
-            <h3 className="text-sm font-bold text-indigo-600 uppercase tracking-wider m-0 mb-0">
+            <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider m-0 mb-0">
               Event Configurations ({configuringSport.events.length})
             </h3>
             <button
@@ -96,7 +96,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
               return (
                 <div key={ev.id} className="p-5 border border-slate-200 bg-slate-50 rounded-xl space-y-4 relative text-left">
                   <div className="flex justify-between items-center border-b border-slate-200">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Event #{index + 1}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Event #{index + 1}</span>
                     {configuringSport.events.length > 1 && (
                       <button
                         type="button"
@@ -123,7 +123,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                       )}
                     />
                     {!ev.name.trim() && (
-                      <span className="text-xs text-red-500 font-medium">Event Name is required</span>
+                      <span className="text-[10px] text-red-500 font-medium">Event Name is required</span>
                     )}
                   </div>
 
@@ -272,7 +272,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                         </div>
                       </div>
                       {!ev.tournamentType && (
-                        <span className="text-xs text-red-500 font-medium">Format is required</span>
+                        <span className="text-[10px] text-red-500 font-medium">Format is required</span>
                       )}
                     </div>
                   </div>

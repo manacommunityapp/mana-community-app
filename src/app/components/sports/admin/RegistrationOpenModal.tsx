@@ -44,7 +44,7 @@ export function RegistrationOpenModal({ tournament, onConfirm, onClose }: Regist
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="text-left">
-            <h2 className="text-lg font-bold text-slate-800">Open for Registration</h2>
+            <h2 className="text-xs font-bold text-slate-800">Open for Registration</h2>
             <p className="text-sm text-slate-500 mt-0.5">{tournament.name}</p>
           </div>
           <button

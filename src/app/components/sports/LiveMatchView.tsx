@@ -92,14 +92,14 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-bold text-red-400 uppercase tracking-wider">LIVE</span>
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">LIVE</span>
             </div>
             {wsConnected ? (
               <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
             ) : (
               <div className="flex items-center gap-1">
                 <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
-                <span className="text-xs text-amber-400 font-medium">Reconnecting...</span>
+                <span className="text-[10px] text-amber-400 font-medium">Reconnecting...</span>
               </div>
             )}
           </div>
@@ -112,7 +112,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
         {!wsConnected && wsDisconnectedAt && (
           <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 sm:px-6 sm:py-2 flex items-center gap-2">
             <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="text-xs text-amber-700 font-medium">
+            <span className="text-[10px] text-amber-700 font-medium">
               Live connection lost — auto-refreshing every 15s
             </span>
           </div>
@@ -125,7 +125,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               <div className="text-xs sm:text-sm font-bold" style={{ color: state.teamAColor }}>{state.teamAName}</div>
               <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings1.totalRuns}/{state.innings1.totalWickets}
-                <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings1.totalOvers} ov)</span>
+                <span className="text-[10px] font-normal text-slate-400 ml-1 sm:ml-2">({state.innings1.totalOvers} ov)</span>
               </div>
             </div>
             <div className="text-xs font-bold text-slate-500 px-2 sm:px-4">VS</div>
@@ -133,14 +133,14 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               <div className="text-xs sm:text-sm font-bold" style={{ color: state.teamBColor }}>{state.teamBName}</div>
               <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings2.totalRuns}/{state.innings2.totalWickets}
-                <span className="text-xs sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings2.totalOvers} ov)</span>
+                <span className="text-[10px] font-normal text-slate-400 ml-1 sm:ml-2">({state.innings2.totalOvers} ov)</span>
               </div>
             </div>
           </div>
 
           {state.target && state.currentInnings === 2 && (
             <div className="mt-2 sm:mt-3 text-center">
-              <span className="text-xs bg-amber-500/20 text-amber-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-semibold">
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-semibold">
                 Need {state.target - state.innings2.totalRuns} runs from {remainingBalls(state.innings2.totalOvers, maxOvers)} balls
               </span>
             </div>
@@ -162,7 +162,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
               {inn.thisOver.map((ball, i) => (
                 <span
                   key={i}
-                  className={`w-5 h-5 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-xs font-bold ${ballColor(ball)}`}
+                  className={`w-5 h-5 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}
                 >
                   {ball}
                 </span>
@@ -194,7 +194,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                         <td className="py-2 font-semibold text-slate-800">
                           {b.playerName}
                           {b.playerId === state.batsmanOnStrikeId && (
-                            <span className="ml-1 text-xs text-indigo-500 font-bold">*</span>
+                            <span className="ml-1 text-[10px] text-indigo-500 font-bold">*</span>
                           )}
                         </td>
                         <td className="text-right py-2 px-1 font-bold text-slate-800">{b.runs}</td>
@@ -261,7 +261,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
                         <span className={`font-bold ${b.isSix ? "text-purple-600" : b.isBoundary ? "text-emerald-600" : "text-slate-700"}`}>{b.runsScored}</span>
                       )}
                     </span>
-                    {b.commentary && <span className="text-slate-400 text-xs truncate max-w-[120px]">{b.commentary}</span>}
+                    {b.commentary && <span className="text-slate-400 text-[10px] truncate max-w-[120px]">{b.commentary}</span>}
                   </div>
                 ))}
               </div>

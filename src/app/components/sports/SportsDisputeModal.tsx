@@ -146,8 +146,8 @@ export function SportsDisputeModal({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">Dispute & Incident Arbitrator</h3>
-                <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                <h3 className="text-xs font-bold text-white">Dispute & Incident Arbitrator</h3>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> AI Assisted
                 </span>
               </div>
@@ -346,18 +346,12 @@ export function SportsDisputeModal({
           {rulingResponse && (
             <div className="space-y-3.5 mt-4 pt-4 border-t border-slate-200 animate-in fade-in duration-300">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   Official Arbitrator Verdict
                 </span>
                 <span
-                  className={`text-xs font-bold uppercase px-2.5 py-1 rounded-full ${
-                    rulingResponse.ruling.actionTaken === "WALKOVER_CONFIRMED"
-                      ? "bg-red-100 text-red-700 border border-red-200"
-                      : rulingResponse.ruling.actionTaken === "TARGET_REVISED"
-                      ? "bg-blue-100 text-blue-700 border border-blue-200"
-                      : "bg-purple-100 text-purple-700 border border-purple-200"
-                  }`}
+                  className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${ rulingResponse.ruling.actionTaken === "WALKOVER_CONFIRMED" ? "bg-red-100 text-red-700 border border-red-200" : rulingResponse.ruling.actionTaken === "TARGET_REVISED" ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-purple-100 text-purple-700 border border-purple-200" }`}
                 >
                   {rulingResponse.ruling.actionTaken}
                 </span>
@@ -418,7 +412,7 @@ export function SportsDisputeModal({
               {rulingResponse.ruling.residentMessage && (
                 <div className="p-3.5 bg-green-50/70 border border-green-200 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-green-900 flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-green-900 flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-green-700" />
                       De-escalating Announcement (WhatsApp / App):
                     </span>

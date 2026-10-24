@@ -31,7 +31,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || { bg: "bg-gray-100", text: "text-gray-600", label: status };
-  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide`}>{s.label}</span>;
+  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide`}>{s.label}</span>;
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -92,7 +92,7 @@ export function ScheduleAdminTab() {
     return (
       <div className="flex items-center justify-center py-20">
         <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500">Loading schedules…</span>
+        <span className="text-[10px] ml-2 text-slate-500">Loading schedules…</span>
       </div>
     );
   }
@@ -103,7 +103,7 @@ export function ScheduleAdminTab() {
         <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mx-auto">
           <CalendarIcon className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-slate-800">No Tournament Schedules Yet</h3>
+        <h3 className="text-xs font-bold text-slate-800">No Tournament Schedules Yet</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
           Create a tournament configuration and generate match fixtures from the Sports Schedule page.
         </p>
@@ -150,7 +150,7 @@ export function ScheduleAdminTab() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-800 truncate">{cfg.tournamentName}</span>
+                  <span className="text-[10px] font-semibold text-slate-800 truncate">{cfg.tournamentName}</span>
                   <StatusBadge status={cfg.status} />
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
@@ -177,7 +177,7 @@ export function ScheduleAdminTab() {
                 {isLoadingThis ? (
                   <div className="flex items-center justify-center py-8">
                     <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                    <span className="ml-2 text-xs text-slate-500">Loading matches…</span>
+                    <span className="ml-2 text-[10px] text-slate-500">Loading matches…</span>
                   </div>
                 ) : cfgMatches.length === 0 ? (
                   <div className="py-6 text-center text-xs text-slate-400">

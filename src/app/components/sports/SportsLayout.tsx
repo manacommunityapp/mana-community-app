@@ -76,7 +76,7 @@ export function SportsLayout() {
   });
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0 font-sans text-xs">
+    <div className="flex flex-col gap-2 h-full min-h-0 font-sans text-xs sports-module">
       {/* Breadcrumb + page header in a single horizontal row */}
       <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100">
         {/* Left: Breadcrumbs */}
@@ -108,7 +108,7 @@ export function SportsLayout() {
             <Trophy className="h-4 w-4 text-white" />
           </div>
           <div className="text-left hidden sm:block">
-            <h3 className="text-base sm:text-lg font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Sports</h3>
+            <h3 className="text-xs font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Sports</h3>
             <p className="text-xs m-0" style={{ color: "#6b7094" }}>
               Leagues, teams, schedules &amp; player auctions
             </p>

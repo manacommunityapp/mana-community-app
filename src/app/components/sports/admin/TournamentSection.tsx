@@ -95,7 +95,7 @@ export function TournamentSection({
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
           </div>
-          <span className="text-xs px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
+          <span className="text-[10px] px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
             {viewMode === "captains" ? (nominatedCaptains?.length ?? 0) : (registrations?.length ?? 0)}{" "}
             {viewMode === "captains" ? "captains" : "players"}
           </span>
@@ -211,14 +211,14 @@ export function TournamentSection({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <span className="text-sm font-medium text-slate-800 break-words">{reg.playerName || reg.user?.fullName || "—"}</span>
+                    <span className="text-[10px] font-medium text-slate-800 break-words">{reg.playerName || reg.user?.fullName || "—"}</span>
                     {reg.registrationSource === "GOOGLE_FORMS" && (
-                      <span className="text-xs px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
                         Google Form
                       </span>
                     )}
                     {reg.isExternalGuest && (
-                      <span className="text-xs px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
                         Guest
                       </span>
                     )}
@@ -234,7 +234,7 @@ export function TournamentSection({
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 <div className="flex items-center gap-1 mr-1">
-                  <span className="text-xs text-slate-400 font-medium">Seed</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Seed</span>
                   <input
                     type="number"
                     min={1}
@@ -247,7 +247,7 @@ export function TournamentSection({
                     disabled={!!savingSeeds[reg.id]}
                   />
                 </div>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
+                <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
                   {reg.status}
                 </span>
                 {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
@@ -294,7 +294,7 @@ export function TournamentSection({
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
                 {team.captainConfirmation ? (
-                  <span className="text-xs px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
+                  <span className="text-[10px] px-2 py-1 rounded font-medium bg-[#10b981]/20 text-[#10b981] flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Confirmed
                   </span>
                 ) : (
@@ -319,7 +319,7 @@ export function TournamentSection({
           <div className="flex items-center justify-center w-16 h-16 border border-slate-200 rounded-full bg-slate-50 shadow-inner">
             <Users className="text-2xl text-slate-400" />
           </div>
-          <h6 className="text-sm md:text-base font-bold text-slate-800">No Participants to show</h6>
+          <h6 className="text-xs font-bold text-slate-800">No Participants to show</h6>
           {onAddParticipant && onImportParticipants && (
             <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
               <button
@@ -328,7 +328,7 @@ export function TournamentSection({
               >
                 <Plus className="w-4 h-4" /> Add Participants
               </button>
-              <span className="text-[#64748b] font-semibold text-xs md:text-sm">OR</span>
+              <span className="text-[#64748b] font-semibold text-[10px]">OR</span>
               <button
                 onClick={() => onImportParticipants(ev.id)}
                 className="px-4 py-2 border border-[#10b981]/30 hover:border-[#10b981] bg-[#10b981]/5 hover:bg-[#10b981]/10 text-[#10b981] text-xs md:text-sm font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -391,7 +391,7 @@ export function TournamentSection({
     >
       <div className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center justify-between" style={{ color: "#6b7094" }}>
         <span>{title}</span>
-        <span className={`px-2 py-0.5 rounded text-xs ${badgeColor}`}>{badge}</span>
+        <span className={`px-2 py-0.5 rounded text-[10px] ${badgeColor}`}>{badge}</span>
       </div>
       <div className="space-y-2">
         {events.map(item => {
@@ -403,7 +403,7 @@ export function TournamentSection({
                 {/* Tournament header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200">
                   <div className="min-w-0 flex-1 text-left">
-                    <h3 className="text-sm font-bold text-slate-800 m-0 mb-0 break-words">{item.name}</h3>
+                    <h3 className="text-xs font-bold text-slate-800 m-0 mb-0 break-words">{item.name}</h3>
                     <div className="text-xs text-slate-500 m-0 mt-0.5">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
@@ -473,13 +473,7 @@ export function TournamentSection({
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               {registrationStatus && registrationStatus !== "DRAFT" && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                                  registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
-                                    ? "bg-green-500/20 text-[#10b981]"
-                                    : registrationStatus === "COMPLETED"
-                                    ? "bg-blue-500/20 text-[#3b82f6]"
-                                    : "bg-[#f97316]/20 text-[#f97316]"
-                                }`}>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? "bg-green-500/20 text-[#10b981]" : registrationStatus === "COMPLETED" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-[#f97316]/20 text-[#f97316]" }`}>
                                   {registrationStatus}
                                 </span>
                               )}
@@ -556,13 +550,7 @@ export function TournamentSection({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {registrationStatus && registrationStatus !== "DRAFT" && (
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
-                        ? "bg-green-500/20 text-[#10b981]"
-                        : registrationStatus === "COMPLETED"
-                        ? "bg-blue-500/20 text-[#3b82f6]"
-                        : "bg-[#f97316]/20 text-[#f97316]"
-                    }`}>
+                    <span className={`text-[10px] px-2 py-1 rounded ${ registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? "bg-green-500/20 text-[#10b981]" : registrationStatus === "COMPLETED" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-[#f97316]/20 text-[#f97316]" }`}>
                       {registrationStatus}
                     </span>
                   )}

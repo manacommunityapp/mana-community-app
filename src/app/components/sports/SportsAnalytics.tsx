@@ -184,7 +184,7 @@ export function SportsAnalytics() {
           <div className="h-16 w-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="h-8 w-8" />
           </div>
-          <h3 className="text-lg font-bold text-foreground mb-2">Failed to Load Analytics</h3>
+          <h3 className="text-xs font-bold text-foreground mb-2">Failed to Load Analytics</h3>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{error}</p>
           <button
             onClick={() => fetchData(true)}
@@ -228,9 +228,9 @@ export function SportsAnalytics() {
             <Activity className="h-6 w-6" />
           </div>
           <div>
-            <h4 className="text-base sm:text-lg font-extrabold text-foreground tracking-tight flex items-center gap-2">
+            <h4 className="text-xs font-extrabold text-foreground tracking-tight flex items-center gap-2">
               Analytics & Performance Hub
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase tracking-wider">
                 Live Data
               </span>
             </h4>
@@ -312,7 +312,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
               <Trophy className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
               Leagues
             </span>
           </div>
@@ -326,7 +326,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
               <Target className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
               {kpis.liveEvents} Live Now
             </span>
           </div>
@@ -340,7 +340,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
               <Users className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               {kpis.yourRegistrations} Registered
             </span>
           </div>
@@ -354,7 +354,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
               <Zap className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400">
               Slots
             </span>
           </div>
@@ -371,7 +371,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
               <CheckCircle2 className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400">
               {kpis.totalMatches} Matches
             </span>
           </div>
@@ -388,7 +388,7 @@ export function SportsAnalytics() {
             <div className="h-7 w-7 rounded-lg bg-pink-500/10 text-pink-500 flex items-center justify-center">
               <TrendingUp className="h-3.5 w-3.5" />
             </div>
-            <span className="text-xs font-bold px-1.5 py-0.5 rounded-md bg-pink-500/10 text-pink-600 dark:text-pink-400">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-pink-500/10 text-pink-600 dark:text-pink-400">
               Joinable
             </span>
           </div>
@@ -405,7 +405,7 @@ export function SportsAnalytics() {
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                   <Flame className="w-4 h-4 text-orange-500" />
                   Athlete Participation & Inflow Trend
                 </h3>
@@ -413,7 +413,7 @@ export function SportsAnalytics() {
                   Monthly athlete sign-ups and multi-sport tournament activity
                 </p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground">
+              <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground">
                 Monthly Wave
               </span>
             </div>
@@ -461,7 +461,7 @@ export function SportsAnalytics() {
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-primary" />
                   Monthly Events Breakdown by Sport
                 </h3>
@@ -490,7 +490,7 @@ export function SportsAnalytics() {
         <div className="lg:col-span-4 space-y-6">
           {/* Gender Demographics Donut */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
+            <h3 className="text-xs font-bold text-foreground mb-1 flex items-center gap-2">
               <Users className="w-4 h-4 text-pink-500" />
               Gender Demographics
             </h3>
@@ -529,7 +529,7 @@ export function SportsAnalytics() {
 
           {/* Age Group Distribution */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
+            <h3 className="text-xs font-bold text-foreground mb-1 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
               Age Category Distribution
             </h3>
@@ -557,7 +557,7 @@ export function SportsAnalytics() {
 
           {/* Tower / Block Participation Leaderboard */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-foreground mb-1 flex items-center gap-2">
+            <h3 className="text-xs font-bold text-foreground mb-1 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-indigo-500" />
               Tower & Block Heatmap
             </h3>
@@ -569,7 +569,7 @@ export function SportsAnalytics() {
               {demographics.blockDistribution.map((b, i) => (
                 <div key={b.block} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                    <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
                       {i + 1}
                     </span>
                     <span className="font-semibold text-foreground">{b.block}</span>
@@ -588,7 +588,7 @@ export function SportsAnalytics() {
         <div className="lg:col-span-7 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-500" />
                 Sport Performance Leaders & Caps
               </h3>
@@ -629,12 +629,12 @@ export function SportsAnalytics() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-foreground truncate">{lead.name}</p>
-                    <span className="text-xs font-black text-amber-500">#{lead.rank}</span>
+                    <span className="text-[10px] font-black text-amber-500">#{lead.rank}</span>
                   </div>
                   <p className="text-xs text-muted-foreground font-medium truncate mt-0.5">{lead.category}</p>
                   <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/40 text-xs">
                     <span className="font-bold text-primary">{lead.metricValue} {lead.metricLabel}</span>
-                    {lead.subMetric && <span className="text-xs text-muted-foreground font-semibold">{lead.subMetric}</span>}
+                    {lead.subMetric && <span className="text-[10px] text-muted-foreground font-semibold">{lead.subMetric}</span>}
                   </div>
                 </div>
               </div>
@@ -646,7 +646,7 @@ export function SportsAnalytics() {
         <div className="lg:col-span-5 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                 <Star className="w-4 h-4 text-warning" />
                 Premier Tournaments & Cups
               </h3>
@@ -663,7 +663,7 @@ export function SportsAnalytics() {
                 className="flex items-center justify-between p-3 rounded-xl border border-border/60 bg-muted/20 hover:border-primary/30 transition-all"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-sm font-bold w-6 text-center shrink-0">
+                  <span className="text-[10px] font-bold w-6 text-center shrink-0">
                     {p.rank === 1 ? "🥇" : p.rank === 2 ? "🥈" : p.rank === 3 ? "🥉" : `#${p.rank}`}
                   </span>
                   <div className="min-w-0">
@@ -672,7 +672,7 @@ export function SportsAnalytics() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="text-xs font-bold text-primary">{p.eventsCount}</span>
+                  <span className="text-[10px] font-bold text-primary">{p.eventsCount}</span>
                   <p className="text-xs text-muted-foreground font-medium">{p.label}</p>
                 </div>
               </div>
@@ -687,7 +687,7 @@ export function SportsAnalytics() {
         <div className="lg:col-span-8 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-primary" />
                 Tournament Standings & Team Form
               </h3>
@@ -755,13 +755,7 @@ export function SportsAnalytics() {
                           {(row.form && row.form.length > 0 ? row.form : ["W", "W", "L", "W", "D"]).map((f, fi) => (
                             <span
                               key={fi}
-                              className={`w-4 h-4 rounded text-xs font-black flex items-center justify-center text-white ${
-                                f === "W"
-                                  ? "bg-emerald-500"
-                                  : f === "L"
-                                  ? "bg-rose-500"
-                                  : "bg-amber-500"
-                              }`}
+                              className={`w-4 h-4 rounded text-[10px] font-black flex items-center justify-center text-white ${ f === "W" ? "bg-emerald-500" : f === "L" ? "bg-rose-500" : "bg-amber-500" }`}
                             >
                               {f}
                             </span>
@@ -785,7 +779,7 @@ export function SportsAnalytics() {
         <div className="lg:col-span-4 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-emerald-500" />
                 Venue & Court Utilization
               </h3>

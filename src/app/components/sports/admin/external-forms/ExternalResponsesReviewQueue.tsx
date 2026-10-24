@@ -103,7 +103,7 @@ export function ExternalResponsesReviewQueue({
             <ShieldAlert className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white">External Response Quarantine & Review</h4>
+            <h4 className="text-xs font-semibold text-white">External Response Quarantine & Review</h4>
             <p className="text-xs text-slate-400">
               {eventName} • Verify ineligible, over-capacity, or duplicate submissions
             </p>
@@ -199,13 +199,9 @@ export function ExternalResponsesReviewQueue({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white">{playerName}</span>
+                        <span className="text-[10px] font-semibold text-white">{playerName}</span>
                         <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                            item.status === "NEEDS_REVIEW"
-                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                              : "bg-red-500/20 text-red-300 border border-red-500/30"
-                          }`}
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ item.status === "NEEDS_REVIEW" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30" }`}
                         >
                           {item.status}
                         </span>
@@ -225,7 +221,7 @@ export function ExternalResponsesReviewQueue({
                   <div className="flex items-center gap-2">
                     <div className="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-800/40 text-amber-300 text-xs flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                      <span className="font-mono text-xs font-medium">{item.reviewReason || "NEEDS_REVIEW"}</span>
+                      <span className="font-mono text-[10px] font-medium">{item.reviewReason || "NEEDS_REVIEW"}</span>
                     </div>
 
                     <button

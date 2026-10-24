@@ -123,7 +123,7 @@ export function CreateTournamentTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold text-slate-800">
+          <h3 className="text-xs font-bold text-slate-800">
             {editingEventId ? "Edit Tournament" : "CREATE TOURNAMENT"}
           </h3>
           <p className="text-sm text-slate-500 mt-1">{editingEventId ? "Update tournament details" : "Step 1: Create your tournament, then add sports events to it"}</p>
@@ -143,8 +143,8 @@ export function CreateTournamentTab({
           {editingEventId && onAddEvents && (
             <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 text-left">
               <div>
-                <span className="text-xs font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
-                <span className="text-xs text-indigo-500 mt-0.5">Manage, add, or edit the sports events associated with this tournament.</span>
+                <span className="text-[10px] font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
+                <span className="text-[10px] text-indigo-500 mt-0.5">Manage, add, or edit the sports events associated with this tournament.</span>
               </div>
               <button
                 type="button"
@@ -276,7 +276,7 @@ export function CreateTournamentTab({
                   <div className="relative h-[42px] w-full rounded-lg overflow-hidden border border-slate-200 group flex items-center justify-between px-3 bg-slate-50">
                     <div className="flex items-center gap-2 min-w-0">
                       <img src={bannerImage} alt="Banner Preview" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                      <span className="text-xs text-slate-700 truncate font-medium">Banner Uploaded</span>
+                      <span className="text-[10px] text-slate-700 truncate font-medium">Banner Uploaded</span>
                     </div>
                     <button
                       type="button"
@@ -288,7 +288,7 @@ export function CreateTournamentTab({
                   </div>
                 ) : (
                   <label className="flex items-center justify-between border border-dashed border-slate-200 hover:border-indigo-500 rounded-lg px-3 py-1.5 bg-slate-50 transition-colors cursor-pointer group h-[42px]">
-                    <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">Upload banner image (Max 2MB)</span>
+                    <span className="text-[10px] text-slate-400 group-hover:text-slate-600 transition-colors">Upload banner image (Max 2MB)</span>
                     <div className="px-2.5 py-1 bg-white border border-slate-200 rounded text-xs text-indigo-600 font-semibold group-hover:border-indigo-400 transition-colors flex items-center gap-1 shadow-sm">
                       Browse
                     </div>
@@ -330,7 +330,7 @@ export function CreateTournamentTab({
             {/* Other Contacts */}
             <div className="space-y-3 mt-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Other Information (Multiple entries)</span>
+                <span className="text-[10px] font-semibold text-slate-500">Other Information (Multiple entries)</span>
                 <button type="button" onClick={addOtherContact} className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold">
                   <Plus className="w-3.5 h-3.5" /> Add Contact
                 </button>
@@ -373,7 +373,7 @@ export function CreateTournamentTab({
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Sponsors</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
+                <span className="text-[10px] font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
                 <button type="button" onClick={addSponsor} className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold">
                   <Plus className="w-3.5 h-3.5" /> Add Sponsor
                 </button>
@@ -433,8 +433,8 @@ export function CreateTournamentTab({
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Chat Configuration</h3>
             <div className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 opacity-65 cursor-not-allowed">
               <div>
-                <span className="text-xs font-semibold text-slate-800 block">Chat With Administrator</span>
-                <span className="text-xs text-slate-400 block mt-0.5">Allow applicants to chat with Administrator? (Presently disabled)</span>
+                <span className="text-[10px] font-semibold text-slate-800 block">Chat With Administrator</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Allow applicants to chat with Administrator? (Presently disabled)</span>
               </div>
               <label className="relative inline-flex items-center cursor-not-allowed">
                 <input type="checkbox" disabled checked={allowAdminChat} className="sr-only peer" />
@@ -451,9 +451,9 @@ export function CreateTournamentTab({
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left shadow-sm">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap m-0 mb-0">
+                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2 flex-wrap m-0 mb-0">
                   📡 Automated Notification Scheduler
-                  <span className="text-xs font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full font-bold">
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full font-bold">
                     {totalEnabledCount} Active Triggers
                   </span>
                 </h3>

@@ -155,10 +155,10 @@ export function SportsPartnerSelector({
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
+            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
-                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-xs font-extrabold rounded uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
@@ -224,14 +224,14 @@ export function SportsPartnerSelector({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[13px] sm:text-xs font-bold text-slate-900 truncate">{selectedPartner.name}</span>
+                <span className="text-[13px] text-[10px] font-bold text-slate-900 truncate">{selectedPartner.name}</span>
                 {selectedPartner.gender && (
-                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
                     {selectedPartner.gender}
                   </span>
                 )}
                 {selectedPartner.mode === "open_pool" && (
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                     Open Pairing Pool
                   </span>
                 )}
@@ -315,15 +315,11 @@ export function SportsPartnerSelector({
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className={`text-[13px] sm:text-xs font-semibold truncate ${
-                                isGenderMismatch ? "text-slate-500" : "text-slate-900 group-hover:text-indigo-600"
-                              }`}>
+                              <span className={`text-[13px] text-[10px] font-semibold truncate ${ isGenderMismatch ? "text-slate-500" : "text-slate-900 group-hover:text-indigo-600" }`}>
                                 {fullName}
                               </span>
                               {u.gender && (
-                                <span className={`text-xs font-bold px-1.5 py-0.2 rounded ${
-                                  isGenderMismatch ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
-                                }`}>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${ isGenderMismatch ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600" }`}>
                                   {u.gender}
                                 </span>
                               )}
@@ -333,11 +329,11 @@ export function SportsPartnerSelector({
                             )}
                           </div>
                           {isGenderMismatch ? (
-                            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
                               <AlertCircle className="w-3 h-3 text-amber-600" /> Need {targetPartnerGender}
                             </span>
                           ) : (
-                            <span className="text-xs text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
+                            <span className="text-[10px] text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
                               Select →
                             </span>
                           )}
@@ -376,21 +372,19 @@ export function SportsPartnerSelector({
                         title={isGenderMismatch ? `Mixed Doubles requires a ${targetPartnerGender?.toLowerCase()} partner` : undefined}
                       >
                         <div className="min-w-0">
-                          <span className={`text-[13px] sm:text-xs font-semibold block truncate ${
-                            isGenderMismatch ? "text-slate-500" : "text-slate-800"
-                          }`}>
+                          <span className={`text-[13px] text-[10px] font-semibold block truncate ${ isGenderMismatch ? "text-slate-500" : "text-slate-800" }`}>
                             {fm.name}
                           </span>
-                          <span className="text-xs text-slate-400 capitalize">
+                          <span className="text-[10px] text-slate-400 capitalize">
                             {fm.relation} {fm.gender ? `• ${fm.gender}` : ""}
                           </span>
                         </div>
                         {isGenderMismatch ? (
-                          <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0">
+                          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0">
                             Need {targetPartnerGender}
                           </span>
                         ) : (
-                          <span className="text-xs text-indigo-600 font-bold">Pick</span>
+                          <span className="text-[10px] text-indigo-600 font-bold">Pick</span>
                         )}
                       </button>
                     );

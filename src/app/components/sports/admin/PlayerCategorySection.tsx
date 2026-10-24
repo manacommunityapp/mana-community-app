@@ -75,7 +75,7 @@ export function PlayerCategorySection({
       {/* Title section */}
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold text-slate-800">Player Categories</h3>
+          <h3 className="text-xs font-bold text-slate-800">Player Categories</h3>
           <p className="text-sm text-slate-500 mt-1">Manage player categories for events and tournaments</p>
         </div>
         <div className="flex items-center gap-3">
@@ -208,7 +208,7 @@ export function PlayerCategorySection({
       >
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 flex items-center justify-between border-b m-0" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Categories</span>
-          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-xs font-bold">{playerCategories.length}</span>
+          <span className="bg-indigo-50 text-indigo-600 border border-indigo-200 px-2.5 py-0.5 rounded text-[10px] font-bold">{playerCategories.length}</span>
         </div>
         <div className="space-y-3">
           {playerCategories.map(c => (
@@ -226,10 +226,10 @@ export function PlayerCategorySection({
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {c.categoryType && (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded border bg-blue-50 text-blue-600 border-blue-200">{c.categoryType}</span>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded border bg-blue-50 text-blue-600 border-blue-200">{c.categoryType}</span>
                 )}
                 {c.type && (
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded border ${c.type === "DEFAULT" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"}`}>{c.type}</span>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded border ${c.type === "DEFAULT" ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-indigo-50 text-indigo-600 border-indigo-200"}`}>{c.type}</span>
                 )}
                 {(isSuper || (canManageCategories && c.type !== "DEFAULT")) && (
                   <>

@@ -191,7 +191,7 @@ export function Leaderboard() {
     return (
       <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-slate-100 shadow-sm text-center">
         <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-slate-300 mx-auto mb-2 sm:mb-3" />
-        <h4 className="text-xs sm:text-sm font-bold text-slate-700">No Tournaments Found</h4>
+        <h4 className="text-xs font-bold text-slate-700">No Tournaments Found</h4>
         <p className="text-xs text-slate-500 mt-1">Create a tournament configuration to see leaderboards.</p>
       </div>
     );
@@ -235,9 +235,9 @@ export function Leaderboard() {
         style={{ backgroundColor: cfg.capBg, borderColor: `${cfg.capColor}30`, color: cfg.capColor }}
       >
         <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-        <span className="text-xs sm:text-sm font-bold">{cfg.capLabel}</span>
+        <span className="text-[10px] font-bold">{cfg.capLabel}</span>
         {stats.length > 0 && (
-          <span className="text-xs sm:text-sm font-semibold">— {stats[0].playerName}</span>
+          <span className="text-[10px] font-semibold">— {stats[0].playerName}</span>
         )}
       </div>
 
@@ -323,7 +323,7 @@ export function Leaderboard() {
                       <td className="py-2 sm:py-2.5 pl-2.5 sm:pl-4 pr-1 sm:pr-2">
                         {isTop ? (
                           <span
-                            className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-xs font-bold text-white"
+                            className="inline-flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full text-[10px] font-bold text-white"
                             style={{ backgroundColor: cfg.capColor }}
                           >
                             1

@@ -122,11 +122,11 @@ export function GenericLiveMatchView({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               {sportType.replace(/_/g, " ")} - Live
             </h2>
             {!isCompleted && (
-              <span className="flex items-center gap-1 text-xs font-semibold">
+              <span className="flex items-center gap-1 text-[10px] font-semibold">
                 {wsConnected ? (
                   <>
                     <Wifi className="w-3 h-3 text-emerald-500" />
@@ -212,7 +212,7 @@ export function GenericLiveMatchView({
           {isSetBased(sportType) && (
             <div className="flex items-center justify-center gap-4 mt-4">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500 dark:text-slate-400 mr-1">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 mr-1">
                   {state.teamAName.slice(0, 3)}
                 </span>
                 {Array.from(
@@ -266,7 +266,7 @@ export function GenericLiveMatchView({
                     />
                   )
                 )}
-                <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
                   {state.teamBName.slice(0, 3)}
                 </span>
               </div>
@@ -362,10 +362,10 @@ export function GenericLiveMatchView({
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                     {evt.teamName}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 ml-1.5">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1.5">
                     {evt.eventType.replace(/_/g, " ")}
                     {evt.playerName && ` - ${evt.playerName}`}
                     {evt.pointsAwarded > 0 && ` (+${evt.pointsAwarded})`}
@@ -373,12 +373,12 @@ export function GenericLiveMatchView({
                 </div>
                 <div className="flex-shrink-0 text-right">
                   {evt.matchMinute != null && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                       {evt.matchMinute}'
                     </span>
                   )}
                   {evt.timestamp && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500 block">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
                       {new Date(evt.timestamp).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",

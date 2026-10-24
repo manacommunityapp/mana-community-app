@@ -171,7 +171,7 @@ export function NotificationSetupModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a3a5c] flex-shrink-0">
           <div>
-            <h3 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">
+            <h3 className="text-xs font-bold text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">
               📡 Notification Setup
             </h3>
             <p className="text-xs text-[#64748b] m-0">
@@ -199,11 +199,11 @@ export function NotificationSetupModal({
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] mb-4 flex items-center gap-2">🏆 Live Preview Context Variables</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div className="flex flex-col gap-1.5 p-3 bg-[#0c1220]/60 rounded-lg border border-[#2a3a5c]/50 text-left">
-                    <span className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Tournament Name Placeholder</span>
+                    <span className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">Tournament Name Placeholder</span>
                     <span className="text-[#f1f5f9] font-medium truncate">{eventName.trim() || "Cricket League Season 2026"}</span>
                   </div>
                   <div className="flex flex-col gap-1.5 p-3 bg-[#0c1220]/60 rounded-lg border border-[#2a3a5c]/50 text-left">
-                    <span className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Start Time Placeholder</span>
+                    <span className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">Start Time Placeholder</span>
                     <span className="text-[#f1f5f9] font-medium truncate">
                       {regStartDate ? format(regStartDate, "dd MMM yyyy") : "25 Nov 2026"} · {startTime}
                     </span>
@@ -277,14 +277,14 @@ export function NotificationSetupModal({
 
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-bold text-[#f1f5f9] truncate">
+                                <span className="text-[10px] font-bold text-[#f1f5f9] truncate">
                                   {triggerMeta.emoji} {triggerMeta.label}
                                 </span>
-                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${triggerMeta.tagClass}`}>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${triggerMeta.tagClass}`}>
                                   {isCustom ? "Custom Schedule" : "System Template"}
                                 </span>
                                 {triggerMeta.priority === 'Critical' && (
-                                  <span className="text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 rounded">High Priority</span>
+                                  <span className="text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 rounded">High Priority</span>
                                 )}
                               </div>
                             </div>
@@ -387,7 +387,7 @@ export function NotificationSetupModal({
                                     );
                                   })}
                                 </div>
-                                <span className="text-xs text-[#64748b] font-medium block mt-1">If blank, defaults to Global selection settings</span>
+                                <span className="text-[10px] text-[#64748b] font-medium block mt-1">If blank, defaults to Global selection settings</span>
                               </div>
                             </div>
 
@@ -513,7 +513,7 @@ export function NotificationSetupModal({
                       {previewTrigger.startsWith('custom_') ? '✨' : DEFAULT_TRIGGERS[previewTrigger as keyof typeof DEFAULT_TRIGGERS]?.emoji}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <span className="text-xs text-[#475569] font-bold uppercase tracking-wider block">COMMUNISYNC SPORTS</span>
+                      <span className="text-[10px] text-[#475569] font-bold uppercase tracking-wider block">COMMUNISYNC SPORTS</span>
                       <h4 className="text-xs font-bold text-white mt-0.5 leading-snug truncate">
                         {previewTrigger.startsWith('custom_')
                           ? (customTriggers.find(t => t.id === previewTrigger)?.title || 'Custom Title')
@@ -522,7 +522,7 @@ export function NotificationSetupModal({
                       <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed break-words">
                         {getCompiledPreviewBody()}
                       </p>
-                      <span className="text-xs text-zinc-600 block mt-2 font-medium">Just now</span>
+                      <span className="text-[10px] text-zinc-600 block mt-2 font-medium">Just now</span>
                     </div>
                   </div>
                 </div>
@@ -541,12 +541,12 @@ export function NotificationSetupModal({
                               : 'bg-[#475569]'
                           }`} />
                           <div className="flex-1 min-w-0 leading-none">
-                            <span className={`text-xs font-bold block ${isActive ? 'text-[#f1f5f9]' : 'text-[#475569]'}`}>{t.label}</span>
-                            <span className="text-xs text-[#64748b] font-mono mt-1 block">
+                            <span className={`text-[10px] font-bold block ${isActive ? 'text-[#f1f5f9]' : 'text-[#475569]'}`}>{t.label}</span>
+                            <span className="text-[10px] text-[#64748b] font-mono mt-1 block">
                               {formatINRDate(getTournamentStartDateTime(), t.offset).split('·')[0]}
                             </span>
                           </div>
-                          <span className={`text-xs font-black uppercase px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#141c2e] text-[#475569]'}`}>
+                          <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#141c2e] text-[#475569]'}`}>
                             {isActive ? 'Active' : 'Muted'}
                           </span>
                         </div>
@@ -562,7 +562,7 @@ export function NotificationSetupModal({
                     {currentActiveChannels.map((chId: string) => {
                       const data = CHANNEL_META.find(c => c.id === chId);
                       return (
-                        <span key={chId} className="bg-[#f97316]/10 text-[#f97316] text-xs font-bold px-2.5 py-1 rounded-lg border border-[#f97316]/20 shadow-inner flex items-center gap-1">
+                        <span key={chId} className="bg-[#f97316]/10 text-[#f97316] text-[10px] font-bold px-2.5 py-1 rounded-lg border border-[#f97316]/20 shadow-inner flex items-center gap-1">
                           <span>{data?.emoji}</span> {data?.label}
                         </span>
                       );
@@ -575,10 +575,10 @@ export function NotificationSetupModal({
                   <div>
                     <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Estimated Audience</h3>
                     <div className="text-2xl font-bold text-[#f97316] mt-1">{previewCount}</div>
-                    <span className="text-xs text-[#64748b] font-semibold">Across Selected Recipient Matrix Groups</span>
+                    <span className="text-[10px] text-[#64748b] font-semibold">Across Selected Recipient Matrix Groups</span>
                   </div>
                   <div className="w-12 h-12 rounded-full border-4 border-[#2a3a5c]/50 flex items-center justify-center relative bg-[#0c1220]">
-                    <span className="text-xs font-bold text-teal-400">{previewPercentage}%</span>
+                    <span className="text-[10px] font-bold text-teal-400">{previewPercentage}%</span>
                   </div>
                 </div>
               </div>

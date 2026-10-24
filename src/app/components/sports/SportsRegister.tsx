@@ -2189,7 +2189,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             Back
           </button>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
+            <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
               <Trophy className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">
                 {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
@@ -2246,17 +2246,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
                     {event?.name ?? "Complete Registration"}
                   </h4>
                   <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
@@ -2326,11 +2326,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
                               {sib.categoryName || sib.name}
                             </span>
                             {isCurrent && (
-                              <span className="text-xs px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
                                 Current
                               </span>
                             )}
@@ -2384,7 +2384,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   {profileModalState.mode === "self" ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground m-0 mb-0">
+                  <h3 className="text-xs font-bold text-foreground m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Profile Details"
                       : profileModalState.mode === "family_edit"
@@ -2496,7 +2496,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     Date of Birth <span className="text-destructive">*</span>
                   </label>
                   {profileModalState.dob && calculateAge(profileModalState.dob) !== null && (
-                    <span className="text-xs font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                    <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
                       {calculateAge(profileModalState.dob)} yrs old
                     </span>
                   )}
@@ -2666,7 +2666,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       : "text-[#6b7094] dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  <span className="text-xs sm:text-sm">{tab.icon}</span>
+                  <span className="text-[10px]">{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
@@ -2736,7 +2736,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       Player Identity
                     </h3>
                     {!isPlayerIdentityExpanded && formData.playerName && (
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
                         • {formData.playerName}
                         {(userFlat || formData.flatNumber) ? ` (${userFlat || formData.flatNumber})` : ""}
                       </span>
@@ -2744,12 +2744,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {formData.age > 0 && (
-                      <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                         Age: {formData.age} Yrs
                       </span>
                     )}
                     {isAlreadyRegistered && (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
                         ✓ Registered
                       </span>
                     )}
@@ -2801,7 +2801,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       </div>
                       <div className="flex items-center gap-2">
                         {selectedResident && (
-                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
                             <Check className="w-3 h-3 text-emerald-600" /> Selected
                           </span>
                         )}
@@ -2875,11 +2875,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     {flatDisplay && (
-                                      <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                         {flatDisplay}
                                       </span>
                                     )}
-                                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                                       Select →
                                     </span>
                                   </div>
@@ -2962,7 +2962,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 </button>
 
                                 {loadingResidentFamily && (
-                                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
                                     <Loader2 className="w-3 h-3 animate-spin" /> Loading family...
                                   </span>
                                 )}
@@ -3182,15 +3182,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Trophy className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
                     Participant Type
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-md text-xs font-bold capitalize border ${
-                  registeredFormats.includes(availableFormats[0].toUpperCase())
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
-                    : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50"
-                }`}>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
                   {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
@@ -3204,12 +3200,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
                       Participant Type
                     </h3>
-                    <span className="hidden sm:inline text-xs text-[#6b7094] dark:text-slate-400 font-normal">
+                    <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
                       — Choose format(s)
                     </span>
                   </div>
                   {formData.matchTypes.length > 1 && (
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                       {formData.matchTypes.length} Formats Selected
                     </span>
                   )}
@@ -3239,11 +3235,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         </div>
                         <span>{formatLabel}</span>
                         {isFmtRegistered && (
-                          <span className={`text-xs px-1.5 py-0.2 rounded font-bold uppercase ${
-                            isSelected
-                              ? "bg-white/20 text-white"
-                              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300"
-                          }`}>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${ isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300" }`}>
                             Registered
                           </span>
                         )}
@@ -3288,7 +3280,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
                         Team Captain Nomination
                       </h4>
-                      <span className="text-xs font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
                         Optional
                       </span>
                       <button
@@ -3385,7 +3377,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     </div>
                   </div>
                   {formData.age > 0 && (
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
                       Age: {formData.age} Yrs
                     </span>
                   )}
@@ -3445,36 +3437,36 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             }`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-xs font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
+                                <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
                                   {sib.categoryName || sib.name}
                                 </span>
                                 {minAge != null && maxAge != null ? (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}–{maxAge} Yrs
                                   </span>
                                 ) : minAge != null ? (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}+ Yrs
                                   </span>
                                 ) : maxAge != null ? (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     Under {maxAge} Yrs
                                   </span>
                                 ) : null}
                                 {elig.requiredGender && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
                                     {elig.requiredGender}
                                   </span>
                                 )}
                                 {sib.maxParticipants && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
                                     {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
                                   </span>
                                 )}
                               </div>
                               {sib.venueName && (
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-xs text-[#6b7094]">{sib.venueName}</span>
+                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
                                 </div>
                               )}
                             </div>
@@ -3482,19 +3474,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                           <div className="shrink-0 flex items-center gap-1.5">
                             {isCurrentEvent && !isBlocked ? (
-                              <span className="text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                 Selected {isAlreadyRegistered ? "(Registered)" : ""}
                               </span>
                             ) : isRegistered ? (
-                              <span className="text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
                                 ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
                               </span>
                             ) : isBlocked ? (
-                              <span className="text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
                               </span>
                             ) : (
-                              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
+                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
                                 ✓ Eligible
                               </span>
                             )}
@@ -3583,7 +3575,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-xs text-amber-700 font-medium">
+                          <span className="text-[10px] text-amber-700 font-medium">
                             * Supported: PDF, JPG, PNG (Max 5MB)
                           </span>
                         )}
@@ -3603,7 +3595,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-xs">📊</span>
+                  <span className="text-[10px]">📊</span>
                 </div>
                 <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
@@ -3794,9 +3786,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
                   <>Provide Gender &amp; DOB to Register</>
                 ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-base">→</span></>
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
                 ) : (
-                  <>Submit Registration <span className="text-base">→</span></>
+                  <>Submit Registration <span className="text-[10px]">→</span></>
                 )}
               </button>
             </div>
@@ -3825,17 +3817,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
                     {event?.name ?? "Complete Registration"}
                   </h4>
                   <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
@@ -3905,11 +3897,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
                               {sib.categoryName || sib.name}
                             </span>
                             {isCurrent && (
-                              <span className="text-xs px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
                                 Current
                               </span>
                             )}
@@ -4032,7 +4024,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
+                    <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
                       {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
                       {eventDate ? ` - ${eventDate}` : ""}
                     </h4>
@@ -4084,12 +4076,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </span>
                 )}
                 {selectedFormats.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold border border-indigo-100 dark:border-indigo-900/50">
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
                     {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
                   </span>
                 )}
                 {formData.categoryIds.length > 0 && (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-[10px] text-slate-500">
                     ({formData.categoryIds.length} {formData.categoryIds.length === 1 ? "category" : "categories"} selected)
                   </span>
                 )}
@@ -4124,9 +4116,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
                   <>Provide Gender &amp; DOB to Register</>
                 ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-base sm:text-lg">→</span></>
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
                 ) : (
-                  <>Submit Registration <span className="text-base sm:text-lg">→</span></>
+                  <>Submit Registration <span className="text-[10px]">→</span></>
                 )}
               </button>
             </div>

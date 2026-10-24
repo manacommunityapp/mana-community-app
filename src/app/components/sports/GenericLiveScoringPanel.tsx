@@ -192,7 +192,7 @@ export function GenericLiveScoringPanel({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               {sportType.replace(/_/g, " ")} - Live Scoring
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -527,17 +527,17 @@ export function GenericLiveScoringPanel({
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                     {evt.teamName}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 ml-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
                     {evt.eventType.replace(/_/g, " ")}
                     {evt.playerName && ` - ${evt.playerName}`}
                     {evt.pointsAwarded > 0 && ` (+${evt.pointsAwarded})`}
                   </span>
                 </div>
                 {evt.matchMinute != null && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">
                     {evt.matchMinute}'
                   </span>
                 )}

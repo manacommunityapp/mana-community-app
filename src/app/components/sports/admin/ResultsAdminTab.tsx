@@ -28,7 +28,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || { bg: "bg-gray-100", text: "text-gray-600", label: status };
-  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide`}>{s.label}</span>;
+  return <span className={`${s.bg} ${s.text} px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide`}>{s.label}</span>;
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -53,7 +53,7 @@ function MatchDetailModal({ matchId, onClose }: { matchId: number; onClose: () =
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-800">Match Detail</h3>
+          <h3 className="text-xs font-bold text-slate-800">Match Detail</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
         {loading ? (
@@ -71,7 +71,7 @@ function MatchDetailModal({ matchId, onClose }: { matchId: number; onClose: () =
                 <div className="text-sm font-bold" style={{ color: detail.teamA?.color || "#334155" }}>{detail.teamA?.name || "TBD"}</div>
                 <div className="text-lg font-bold text-slate-800 mt-1">{detail.scoreTeamA ?? "—"}</div>
               </div>
-              <span className="text-slate-300 font-bold text-sm">vs</span>
+              <span className="text-[10px] text-slate-300 font-bold">vs</span>
               <div className="text-left">
                 <div className="text-sm font-bold" style={{ color: detail.teamB?.color || "#334155" }}>{detail.teamB?.name || "TBD"}</div>
                 <div className="text-lg font-bold text-slate-800 mt-1">{detail.scoreTeamB ?? "—"}</div>
@@ -92,7 +92,7 @@ function MatchDetailModal({ matchId, onClose }: { matchId: number; onClose: () =
 
             {detail.innings && detail.innings.length > 0 && (
               <div className="space-y-2 pt-2">
-                <h4 className="font-semibold text-slate-700">Innings</h4>
+                <h4 className="text-xs font-semibold text-slate-700">Innings</h4>
                 {detail.innings.map((inn, idx) => (
                   <div key={idx} className="bg-slate-50 rounded-lg p-3">
                     <div className="flex justify-between mb-1">
@@ -197,7 +197,7 @@ export function ResultsAdminTab() {
     return (
       <div className="flex items-center justify-center py-20">
         <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500">Loading…</span>
+        <span className="text-[10px] ml-2 text-slate-500">Loading…</span>
       </div>
     );
   }
@@ -208,7 +208,7 @@ export function ResultsAdminTab() {
         <div className="w-14 h-14 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center mx-auto">
           <Trophy className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-slate-800">No Tournaments</h3>
+        <h3 className="text-xs font-bold text-slate-800">No Tournaments</h3>
         <p className="text-xs text-slate-500">Create a tournament and generate matches to start entering results.</p>
       </div>
     );
@@ -242,13 +242,13 @@ export function ResultsAdminTab() {
           ))}
         </div>
 
-        <span className="text-xs text-slate-400 ml-auto">{filtered.length} match{filtered.length !== 1 ? "es" : ""}</span>
+        <span className="text-[10px] text-slate-400 ml-auto">{filtered.length} match{filtered.length !== 1 ? "es" : ""}</span>
       </div>
 
       {loadingMatches ? (
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-          <span className="ml-2 text-xs text-slate-500">Loading matches…</span>
+          <span className="ml-2 text-[10px] text-slate-500">Loading matches…</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-8 text-center text-xs text-slate-400">
@@ -263,15 +263,15 @@ export function ResultsAdminTab() {
             return (
               <div key={m.id} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-xs font-medium text-indigo-500">{(m.round || "").replace(/_/g, " ")} · #{m.matchNumber}</span>
-                  <span className="text-xs text-slate-400">{formatDateTime(m.scheduledAt)}</span>
+                  <span className="text-[10px] font-medium text-indigo-500">{(m.round || "").replace(/_/g, " ")} · #{m.matchNumber}</span>
+                  <span className="text-[10px] text-slate-400">{formatDateTime(m.scheduledAt)}</span>
                   <StatusBadge status={m.status} />
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800 flex-1 text-right truncate">{m.teamAName || "TBD"}</span>
+                      <span className="text-[10px] font-semibold text-slate-800 flex-1 text-right truncate">{m.teamAName || "TBD"}</span>
                       {isEditing ? (
                         <div className="flex items-center gap-1.5">
                           <input
@@ -281,7 +281,7 @@ export function ResultsAdminTab() {
                             placeholder="0"
                             className="w-14 text-center rounded-lg py-1.5 text-sm font-bold border-2 border-indigo-200 focus:border-indigo-500 outline-none"
                           />
-                          <span className="text-sm font-bold text-slate-300">–</span>
+                          <span className="text-[10px] font-bold text-slate-300">–</span>
                           <input
                             type="text"
                             value={scoreB}
@@ -292,21 +292,21 @@ export function ResultsAdminTab() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-bold text-slate-700 w-14 text-center">
+                          <span className="text-[10px] font-bold text-slate-700 w-14 text-center">
                             {m.scoreTeamA ?? "—"}
                           </span>
-                          <span className="text-sm font-bold text-slate-300">–</span>
-                          <span className="text-sm font-bold text-slate-700 w-14 text-center">
+                          <span className="text-[10px] font-bold text-slate-300">–</span>
+                          <span className="text-[10px] font-bold text-slate-700 w-14 text-center">
                             {m.scoreTeamB ?? "—"}
                           </span>
                         </div>
                       )}
-                      <span className="text-sm font-semibold text-slate-800 flex-1 truncate">{m.teamBName || "TBD"}</span>
+                      <span className="text-[10px] font-semibold text-slate-800 flex-1 truncate">{m.teamBName || "TBD"}</span>
                     </div>
 
                     {isEditing && m.teamAId && m.teamBId && (
                       <div className="flex items-center gap-2 mt-2 justify-center">
-                        <span className="text-xs text-slate-400 uppercase tracking-wide">Winner:</span>
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wide">Winner:</span>
                         <button
                           onClick={() => setWinnerId(m.teamAId)}
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === m.teamAId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}

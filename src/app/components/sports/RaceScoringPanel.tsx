@@ -185,7 +185,7 @@ export function RaceScoringPanel({
                     min={0}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">min</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">min</span>
                 </div>
                 <div className="relative">
                   <input
@@ -197,7 +197,7 @@ export function RaceScoringPanel({
                     max={59}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">sec</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">sec</span>
                 </div>
                 <div className="relative">
                   <input
@@ -209,7 +209,7 @@ export function RaceScoringPanel({
                     max={999}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">ms</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">ms</span>
                 </div>
               </div>
             </div>

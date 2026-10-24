@@ -128,9 +128,9 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                       {/* Rank / Medal */}
                       <div className="w-8 text-center shrink-0">
                         {rank && rank <= 3 ? (
-                          <span className="text-lg">{MEDAL[rank]}</span>
+                          <span className="text-[10px]">{MEDAL[rank]}</span>
                         ) : (
-                          <span className="text-xs font-bold text-slate-400">{rank || "-"}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{rank || "-"}</span>
                         )}
                       </div>
 
@@ -156,7 +156,7 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                           )}
                         </div>
                         {r.raceStatus !== "FINISHED" && (
-                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badge.cls}`}>
                             {badge.label}
                           </span>
                         )}
@@ -173,7 +173,7 @@ export function RaceResultsView({ matchId, onClose }: RaceResultsViewProps) {
                         <div className="flex flex-wrap gap-2">
                           {r.splitTimes.map((split, idx) => (
                             <div key={idx} className="bg-white dark:bg-slate-800 px-2 py-1 rounded text-xs border border-slate-200 dark:border-slate-600">
-                              <span className="text-slate-400 text-xs">Lap {idx + 1}: </span>
+                              <span className="text-slate-400 text-[10px]">Lap {idx + 1}: </span>
                               <span className="font-bold text-slate-700 dark:text-white">{split}</span>
                             </div>
                           ))}

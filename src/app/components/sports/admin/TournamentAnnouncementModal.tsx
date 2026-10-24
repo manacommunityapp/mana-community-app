@@ -247,7 +247,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
               <Megaphone className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Send Announcement</h2>
+              <h2 className="text-xs font-bold text-slate-800">Send Announcement</h2>
               <p className="text-sm text-slate-500 mt-0.5">{tournament.name}</p>
             </div>
           </div>
@@ -283,8 +283,8 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-base leading-none">{t.icon}</span>
-                      <span className={`text-xs font-bold ${selected ? c.text : "text-slate-700"}`}>
+                      <span className="text-[10px] leading-none">{t.icon}</span>
+                      <span className={`text-[10px] font-bold ${selected ? c.text : "text-slate-700"}`}>
                         {t.label}
                       </span>
                     </div>
@@ -428,11 +428,11 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                   <div className="h-3.5 w-[1px] bg-slate-700 mx-1" />
                   <div className="flex items-center gap-2">
                     <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-extrabold tracking-wide uppercase text-slate-200">
+                    <span className="text-[10px] font-extrabold tracking-wide uppercase text-slate-200">
                       Live Email Preview
                     </span>
                   </div>
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-xs font-black text-emerald-300 tracking-wider uppercase">
+                  <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-[10px] font-black text-emerald-300 tracking-wider uppercase">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     Live Data Applied
                   </span>

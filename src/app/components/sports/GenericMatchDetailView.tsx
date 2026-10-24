@@ -121,10 +121,10 @@ export function GenericMatchDetailView({
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               Match Details
             </h2>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-semibold">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 font-semibold">
               {sportType.replace(/_/g, " ")}
             </span>
           </div>
@@ -159,7 +159,7 @@ export function GenericMatchDetailView({
                 {state.teamAName}
               </p>
               {winnerA && (
-                <span className="text-xs text-emerald-500 font-bold">
+                <span className="text-[10px] text-emerald-500 font-bold">
                   WINNER
                 </span>
               )}
@@ -204,7 +204,7 @@ export function GenericMatchDetailView({
                 {state.teamBName}
               </p>
               {winnerB && (
-                <span className="text-xs text-emerald-500 font-bold">
+                <span className="text-[10px] text-emerald-500 font-bold">
                   WINNER
                 </span>
               )}
@@ -322,12 +322,12 @@ export function GenericMatchDetailView({
                           </span>
                         )}
                         {e.eventType === "OWN_GOAL" && (
-                          <span className="text-orange-500 text-xs ml-1">
+                          <span className="text-orange-500 text-[10px] ml-1">
                             (OG)
                           </span>
                         )}
                         {e.eventType === "PENALTY_GOAL" && (
-                          <span className="text-slate-400 text-xs ml-1">
+                          <span className="text-slate-400 text-[10px] ml-1">
                             (P)
                           </span>
                         )}
@@ -349,12 +349,12 @@ export function GenericMatchDetailView({
                         )}
                         {e.playerName || "Unknown"}
                         {e.eventType === "OWN_GOAL" && (
-                          <span className="text-orange-500 text-xs ml-1">
+                          <span className="text-orange-500 text-[10px] ml-1">
                             (OG)
                           </span>
                         )}
                         {e.eventType === "PENALTY_GOAL" && (
-                          <span className="text-slate-400 text-xs ml-1">
+                          <span className="text-slate-400 text-[10px] ml-1">
                             (P)
                           </span>
                         )}
@@ -379,11 +379,7 @@ export function GenericMatchDetailView({
                 {cardEvents.map((e) => (
                   <span
                     key={e.id}
-                    className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-semibold ${
-                      e.eventType === "YELLOW_CARD"
-                        ? "bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-                        : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    }`}
+                    className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md font-semibold ${ e.eventType === "YELLOW_CARD" ? "bg-yellow-50 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-300" }`}
                   >
                     {EVENT_ICONS[e.eventType]}{" "}
                     {e.playerName || "Unknown"} ({e.teamName})
@@ -421,7 +417,7 @@ export function GenericMatchDetailView({
                   key={evt.id}
                   className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
                 >
-                  <span className="text-sm flex-shrink-0">
+                  <span className="text-[10px] flex-shrink-0">
                     {EVENT_ICONS[evt.eventType] || "•"}
                   </span>
                   <div
@@ -434,10 +430,10 @@ export function GenericMatchDetailView({
                     }}
                   />
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                       {evt.teamName}
                     </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 ml-1.5">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1.5">
                       {evt.eventType.replace(/_/g, " ")}
                       {evt.playerName && ` - ${evt.playerName}`}
                       {evt.pointsAwarded > 0 && ` (+${evt.pointsAwarded})`}
@@ -445,7 +441,7 @@ export function GenericMatchDetailView({
                   </div>
                   <div className="flex-shrink-0 text-right">
                     {evt.matchMinute != null && (
-                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">
                         {evt.matchMinute}'
                       </span>
                     )}

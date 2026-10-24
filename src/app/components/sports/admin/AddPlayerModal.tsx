@@ -184,7 +184,7 @@ export function AddPlayerModal({
                 : <AlertCircle className="w-4 h-4 text-[#f97316]" />}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#f1f5f9] leading-5 m-0 mb-0">Registration Results</h3>
+              <h3 className="text-xs font-bold text-[#f1f5f9] leading-5 m-0 mb-0">Registration Results</h3>
               <p className="text-xs text-[#94a3b8] leading-4 m-0">
                 {successCount} added successfully{failCount > 0 ? `, ${failCount} failed` : ""}
               </p>
@@ -249,7 +249,7 @@ export function AddPlayerModal({
               <Plus className="w-4 h-4 text-[#f97316]" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-[#f1f5f9] leading-5 tracking-tight m-0 mb-0">Add Tournament Participants</h3>
+              <h3 className="text-xs font-bold text-[#f1f5f9] leading-5 tracking-tight m-0 mb-0">Add Tournament Participants</h3>
               <p className="text-xs text-[#94a3b8] leading-4 hidden sm:block m-0">Select community residents or family members to register</p>
             </div>
           </div>
@@ -302,9 +302,9 @@ export function AddPlayerModal({
                 {/* Search & Header */}
                 <div className="flex flex-col gap-0.5 text-left">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-xs text-[#f1f5f9] uppercase tracking-wider leading-4">Community Members</h4>
+                    <h4 className="text-xs font-semibold text-[#f1f5f9] uppercase tracking-wider leading-4">Community Members</h4>
                     {totalUsersCount !== undefined && totalUsersCount > 0 && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#2a3a5c] text-[#cbd5e1] font-medium leading-4 border border-[#3b4e78]">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#2a3a5c] text-[#cbd5e1] font-medium leading-4 border border-[#3b4e78]">
                         {totalUsersCount} found
                       </span>
                     )}
@@ -338,7 +338,7 @@ export function AddPlayerModal({
                   {loadingUsers ? (
                     <div className="flex flex-col items-center justify-center py-10 gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-[#f97316]" />
-                      <span className="text-xs text-[#94a3b8] leading-4">Loading members...</span>
+                      <span className="text-[10px] text-[#94a3b8] leading-4">Loading members...</span>
                     </div>
                   ) : filteredFriends.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 gap-1 text-center">
@@ -382,7 +382,7 @@ export function AddPlayerModal({
                                     }}
                                   />
                                 ) : null}
-                                <span className="text-xs font-bold text-[#94a3b8] uppercase select-none">
+                                <span className="text-[10px] font-bold text-[#94a3b8] uppercase select-none">
                                   {friend.fullName?.slice(0, 2) || "U"}
                                 </span>
                               </div>
@@ -395,7 +395,7 @@ export function AddPlayerModal({
                                     {friend.fullName}
                                   </p>
                                   {friend.flatNo && (
-                                    <span className="text-xs px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
                                       {friend.block ? `${friend.block}-${friend.flatNo}` : `Flat ${friend.flatNo}`}
                                     </span>
                                   )}
@@ -427,11 +427,11 @@ export function AddPlayerModal({
                               {/* Action Buttons */}
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {isAlreadyRegistered ? (
-                                  <span className="text-xs px-2 py-0.5 rounded-lg bg-[#10b981]/15 text-[#10b981] font-semibold border border-[#10b981]/30 flex items-center gap-1 whitespace-nowrap leading-4">
+                                  <span className="text-[10px] px-2 py-0.5 rounded-lg bg-[#10b981]/15 text-[#10b981] font-semibold border border-[#10b981]/30 flex items-center gap-1 whitespace-nowrap leading-4">
                                     <CheckCircle2 className="w-3 h-3" /> Registered
                                   </span>
                                 ) : isAlreadyInList ? (
-                                  <span className="text-xs px-2 py-0.5 rounded-lg bg-[#f97316]/15 text-[#f97316] font-semibold border border-[#f97316]/30 whitespace-nowrap leading-4">
+                                  <span className="text-[10px] px-2 py-0.5 rounded-lg bg-[#f97316]/15 text-[#f97316] font-semibold border border-[#f97316]/30 whitespace-nowrap leading-4">
                                     In list
                                   </span>
                                 ) : (
@@ -460,7 +460,7 @@ export function AddPlayerModal({
                                 <Users className="w-3 h-3 text-indigo-400" />
                                 <span>Family Members</span>
                                 {familyList.length > 0 && (
-                                  <span className="text-xs px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-200 font-bold border border-indigo-500/30">
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-200 font-bold border border-indigo-500/30">
                                     {familyList.length}
                                   </span>
                                 )}
@@ -493,7 +493,7 @@ export function AddPlayerModal({
                                         <div className="flex flex-col min-w-0">
                                           <div className="flex items-center gap-1.5">
                                             <p className="text-xs font-semibold text-[#f1f5f9] leading-4 truncate">{fam.name}</p>
-                                            <span className="text-xs px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-medium whitespace-nowrap border border-indigo-500/30 leading-3">
                                               {fam.relation || "Family"}
                                             </span>
                                           </div>
@@ -505,7 +505,7 @@ export function AddPlayerModal({
                                         </div>
                                         <div className="flex-shrink-0 ml-2">
                                           {isFamInList ? (
-                                            <span className="text-xs px-2 py-0.5 rounded-md bg-[#f97316]/15 text-[#f97316] font-semibold border border-[#f97316]/30 leading-4">
+                                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#f97316]/15 text-[#f97316] font-semibold border border-[#f97316]/30 leading-4">
                                               In list
                                             </span>
                                           ) : (
@@ -546,7 +546,7 @@ export function AddPlayerModal({
                       <ChevronLeft className="w-3 h-3" /> Prev
                     </button>
 
-                    <span className="text-xs leading-4">
+                    <span className="text-[10px] leading-4">
                       Page <span className="font-semibold text-[#f1f5f9]">{usersPage + 1}</span> of <span className="font-semibold text-[#f1f5f9]">{usersTotalPages || 1}</span>
                       <span className="text-[#64748b] ml-1">({totalUsersCount})</span>
                     </span>
@@ -570,8 +570,8 @@ export function AddPlayerModal({
               {/* Header with Title and Add Button */}
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-semibold text-xs text-[#f1f5f9] uppercase tracking-wider leading-4 text-left">Participant Details</h4>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] font-semibold leading-4 border border-[#10b981]/30">
+                  <h4 className="text-xs font-semibold text-[#f1f5f9] uppercase tracking-wider leading-4 text-left">Participant Details</h4>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] font-semibold leading-4 border border-[#10b981]/30">
                     {addPlayerForms.length} participant{addPlayerForms.length > 1 ? "s" : ""}
                   </span>
                 </div>
@@ -614,18 +614,18 @@ export function AddPlayerModal({
                       {/* Card Top Banner */}
                       <div className="flex justify-between items-center border-b border-[#2a3a5c]">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-5 h-5 rounded-md bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 text-xs font-bold flex items-center justify-center flex-shrink-0 leading-3">
+                          <span className="w-5 h-5 rounded-md bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 text-[10px] font-bold flex items-center justify-center flex-shrink-0 leading-3">
                             #{idx + 1}
                           </span>
-                          <span className="text-xs sm:text-sm font-semibold text-[#f1f5f9] leading-4 truncate">
+                          <span className="text-[10px] font-semibold text-[#f1f5f9] leading-4 truncate">
                             {form.playerName.trim() || `Participant #${idx + 1}`}
                           </span>
                           {form.familyMemberId ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 whitespace-nowrap leading-3">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30 whitespace-nowrap leading-3">
                               Family Member
                             </span>
                           ) : (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] font-semibold border border-[#10b981]/25 whitespace-nowrap leading-3">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#10b981] font-semibold border border-[#10b981]/25 whitespace-nowrap leading-3">
                               Resident
                             </span>
                           )}
@@ -663,7 +663,7 @@ export function AddPlayerModal({
                             )}
                           </div>
                           {form.flatNumber && (
-                            <span className="mt-1.5 text-xs font-semibold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-center truncate max-w-full leading-3">
+                            <span className="mt-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-center truncate max-w-full leading-3">
                               Flat {form.flatNumber}
                             </span>
                           )}
@@ -868,7 +868,7 @@ export function AddPlayerModal({
                           <div className="flex flex-col w-full gap-1 text-left">
                             <label className="text-xs font-medium text-[#cbd5e1] leading-4 flex items-center gap-1.5">
                               <Link2 className="w-3.5 h-3.5 text-[#d4a017]" />
-                              <span>CricHeroes URL <span className="text-xs text-[#64748b] font-normal">(optional)</span></span>
+                              <span>CricHeroes URL <span className="text-[10px] text-[#64748b] font-normal">(optional)</span></span>
                             </label>
                             <input
                               type="url"
@@ -890,17 +890,17 @@ export function AddPlayerModal({
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5 text-indigo-400" />
-                              <span className="text-xs font-semibold text-[#f1f5f9] leading-4">
+                              <span className="text-[10px] font-semibold text-[#f1f5f9] leading-4">
                                 {form.matchType === "MIXED_DOUBLES" ? "Mixed Doubles Partner" : "Doubles Partner"}
                               </span>
-                              <span className="text-[#ef4444] font-bold text-xs">*</span>
+                              <span className="text-[#ef4444] font-bold text-[10px]">*</span>
                               {form.matchType === "MIXED_DOUBLES" && (
-                                <span className="text-xs px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
                                   1 Male + 1 Female
                                 </span>
                               )}
                             </div>
-                            <span className="text-xs text-[#94a3b8] leading-4">
+                            <span className="text-[10px] text-[#94a3b8] leading-4">
                               {form.partnerMode === "open_pool" ? "Open Pairing Pool" : form.partnerName ? "Partner Selected" : "Required"}
                             </span>
                           </div>
@@ -918,11 +918,11 @@ export function AddPlayerModal({
                                       {form.partnerMode === "open_pool" ? "Looking for Partner (Open Pool)" : form.partnerName}
                                     </p>
                                     {form.partnerGender && (
-                                      <span className="text-xs px-1.5 py-0.2 rounded bg-slate-700 text-slate-300 font-medium">
+                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-700 text-slate-300 font-medium">
                                         {form.partnerGender}
                                       </span>
                                     )}
-                                    <span className="text-xs px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-medium">
+                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-medium">
                                       {form.partnerMode === "open_pool" ? "Open Pool" : form.partnerFamilyMemberId ? "Family" : "Neighbor"}
                                     </span>
                                   </div>
@@ -1019,7 +1019,7 @@ export function AddPlayerModal({
                                             <p className="text-xs font-semibold text-[#f1f5f9] truncate">{u.fullName}</p>
                                             <p className="text-xs text-[#94a3b8]">{u.flatNo ? `Flat ${u.flatNo}` : ""} {u.gender ? `· ${u.gender}` : ""}</p>
                                           </div>
-                                          <span className="text-xs text-indigo-400 font-semibold flex-shrink-0">Select →</span>
+                                          <span className="text-[10px] text-indigo-400 font-semibold flex-shrink-0">Select →</span>
                                         </button>
                                       ))}
                                   </div>
@@ -1059,7 +1059,7 @@ export function AddPlayerModal({
                           <span className="flex items-center gap-1.5">
                             <BarChart2 className="w-3.5 h-3.5 text-indigo-400" />
                             <span>Player Past Statistics</span>
-                            <span className="text-xs text-[#64748b] font-normal leading-4">(Optional)</span>
+                            <span className="text-[10px] text-[#64748b] font-normal leading-4">(Optional)</span>
                           </span>
                           {expandedStatsCards[form.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>

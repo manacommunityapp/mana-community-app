@@ -114,7 +114,7 @@ export function VenueCreationSection({
       {/* Title section */}
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold" style={{ color: "#0d0d2b" }}>Venue Management</h3>
+          <h3 className="text-xs font-bold" style={{ color: "#0d0d2b" }}>Venue Management</h3>
           <p className="text-sm mt-1" style={{ color: "#6b7094" }}>Create, edit, and manage your community venues</p>
         </div>
         <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export function VenueCreationSection({
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <h3 className="text-sm font-bold uppercase tracking-wider border-b m-0 mb-0" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b m-0 mb-0" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
             {editingVenueId ? "Edit Venue" : "Create New Venue"}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -269,7 +269,7 @@ export function VenueCreationSection({
               style={{ background: "rgba(99, 102, 241, 0.03)", borderColor: "rgba(99, 102, 241, 0.08)" }}>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                <span className="text-sm font-bold text-slate-800">Timings</span>
+                <span className="text-[10px] font-bold text-slate-800">Timings</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -302,7 +302,7 @@ export function VenueCreationSection({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
                 </div>
                 <button
                   type="button"
@@ -317,7 +317,7 @@ export function VenueCreationSection({
                 {venueContacts.map((contact, index) => (
                   <div key={index} className="relative p-4 rounded-xl border bg-slate-50/50 flex flex-col gap-3" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Contact #{index + 1}</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Contact #{index + 1}</span>
                       {venueContacts.length > 1 && (
                         <button
                           type="button"
@@ -382,9 +382,9 @@ export function VenueCreationSection({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Plus className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Courts</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Courts</span>
                   {courts.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
                       {courts.length}
                     </span>
@@ -414,7 +414,7 @@ export function VenueCreationSection({
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.08)"; }}
                     >
-                      <span className="text-xs font-semibold w-5 text-center" style={{ color: "#6b7094" }}>
+                      <span className="text-[10px] font-semibold w-5 text-center" style={{ color: "#6b7094" }}>
                         #{index + 1}
                       </span>
                       <div className="flex-1">
@@ -428,7 +428,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div className="flex items-center gap-2 bg-white border rounded-xl px-2.5 py-1" style={{ borderColor: "rgba(99, 102, 241, 0.15)" }}>
-                        <span className="text-xs" style={{ color: "#6b7094" }}>Color</span>
+                        <span className="text-[10px]" style={{ color: "#6b7094" }}>Color</span>
                         <input
                           type="color"
                           value={court.color}
@@ -490,7 +490,7 @@ export function VenueCreationSection({
       >
         <div className="text-sm font-bold uppercase tracking-wider mb-4 flex items-center justify-between border-b m-0" style={{ color: "#6b7094", borderColor: "rgba(99, 102, 241, 0.12)" }}>
           <span>All Venues</span>
-          <span className="px-2.5 py-0.5 rounded text-xs font-bold"
+          <span className="px-2.5 py-0.5 rounded text-[10px] font-bold"
             style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
             {venues.length}
           </span>
@@ -525,7 +525,7 @@ export function VenueCreationSection({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                   {v.venueType && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded border"
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
                       style={
                         v.venueType === "OUTSIDE"
                           ? { background: "rgba(59, 130, 246, 0.1)", color: "#3b82f6", borderColor: "rgba(59, 130, 246, 0.2)" }
@@ -584,7 +584,7 @@ export function VenueCreationSection({
                   {v.contacts && v.contacts.length > 0 ? (
                     <div className="flex flex-col gap-1.5">
                       {v.contacts.map((c, idx) => (
-                        <span key={idx} className="text-xs flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
+                        <span key={idx} className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
                           <Users className="w-3.5 h-3.5 text-slate-400" /> 
                           Contact #{idx + 1}: <strong className="font-semibold text-slate-700">{c.name}</strong> 
                           {c.title && <span className="text-slate-500">({c.title})</span>}
@@ -594,17 +594,17 @@ export function VenueCreationSection({
                       ))}
                     </div>
                   ) : v.contactName ? (
-                    <span className="text-xs flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
+                    <span className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
                       <Users className="w-3.5 h-3.5 text-slate-400" /> Contact: <strong className="font-semibold text-slate-700">{v.contactName}</strong> ({v.contactNumber}) {v.contactEmail && <span className="text-slate-400">· {v.contactEmail}</span>}
                     </span>
                   ) : null}
                   {v.courts && v.courts.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-xs uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
                       {v.courts.map((court, i) => (
                         <span
                           key={i}
-                          className="text-xs px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
+                          className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
                           style={{ backgroundColor: court.color || "#6366f1" }}
                         >
                           {court.name || `Court ${i + 1}`}

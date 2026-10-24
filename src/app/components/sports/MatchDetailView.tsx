@@ -21,16 +21,16 @@ function ScorecardTable({ innings, index }: { innings: InningsDetailData; index:
         className="w-full flex items-center justify-between px-2.5 py-2 sm:px-4 sm:py-3 bg-slate-50 hover:bg-slate-100 active:scale-[0.99] transition text-left"
       >
         <div>
-          <span className="text-xs sm:text-sm font-bold text-slate-800">{innings.battingTeamName}</span>
-          <span className="text-xs sm:text-sm text-slate-500 ml-1.5 sm:ml-2">
+          <span className="text-[10px] font-bold text-slate-800">{innings.battingTeamName}</span>
+          <span className="text-[10px] text-slate-500 ml-1.5 sm:ml-2">
             {innings.totalRuns}/{innings.totalWickets} ({innings.totalOvers} ov)
           </span>
           {innings.target != null && (
-            <span className="text-xs text-slate-400 ml-1.5 sm:ml-2">Target: {innings.target}</span>
+            <span className="text-[10px] text-slate-400 ml-1.5 sm:ml-2">Target: {innings.target}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className="text-xs text-slate-400">RR: {innings.runRate}</span>
+          <span className="text-[10px] text-slate-400">RR: {innings.runRate}</span>
           {expanded ? <ChevronUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />}
         </div>
       </button>
@@ -217,7 +217,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
       >
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-slate-100 px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
-          <h3 className="text-[13px] sm:text-lg font-bold text-slate-800 m-0 mb-0">Match Details</h3>
+          <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Match Details</h3>
           <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-slate-100 rounded-lg transition">
             <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
           </button>
@@ -303,7 +303,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-2 sm:mb-3">
                       <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-800 mb-1">Mana AI Sports Commentator</h4>
+                    <h4 className="text-xs font-bold text-slate-800 mb-1">Mana AI Sports Commentator</h4>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto mb-3 sm:mb-4">
                       Automatically analyze scorecard data to produce exciting news headlines, narrative recaps, MVP highlights, and recommended performance badges.
                     </p>
@@ -330,7 +330,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                     {/* Headline Banner */}
                     <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-100">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
                           <Sparkles className="w-3 h-3" /> Mana Sports News Desk
                         </span>
                         <button
@@ -341,7 +341,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                           Re-generate
                         </button>
                       </div>
-                      <h3 className="text-xs sm:text-base font-extrabold text-slate-800 leading-snug">
+                      <h3 className="text-xs font-extrabold text-slate-800 leading-snug">
                         {aiRecap.headline}
                       </h3>
                     </div>
@@ -361,7 +361,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                         <ul className="space-y-1.5">
                           {aiRecap.keyMoments.map((moment, idx) => (
                             <li key={idx} className="flex items-start gap-2 text-xs text-slate-700">
-                              <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 mt-0.5 text-xs">
+                              <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
                                 {idx + 1}
                               </span>
                               <span>{moment}</span>
@@ -500,7 +500,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
             {/* Scorecards */}
             {detail.innings && detail.innings.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
-                <h3 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-wider">Scorecard</h3>
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Scorecard</h3>
                 {detail.innings.map((inn, i) => (
                   <ScorecardTable key={i} innings={inn} index={i} />
                 ))}
@@ -517,11 +517,11 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                     <div className="space-y-1 sm:space-y-1.5">
                       {detail.topRunScorers.slice(0, 3).map((p, i) => (
                         <div key={p.playerId} className="flex items-center justify-between">
-                          <span className="text-xs text-slate-700">
+                          <span className="text-[10px] text-slate-700">
                             <span className="font-bold text-orange-500 mr-1 sm:mr-1.5">#{i + 1}</span>
                             {p.playerName}
                           </span>
-                          <span className="text-xs font-bold text-slate-800">{p.totalRuns} runs</span>
+                          <span className="text-[10px] font-bold text-slate-800">{p.totalRuns} runs</span>
                         </div>
                       ))}
                     </div>
@@ -533,11 +533,11 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                     <div className="space-y-1 sm:space-y-1.5">
                       {detail.topWicketTakers.slice(0, 3).map((p, i) => (
                         <div key={p.playerId} className="flex items-center justify-between">
-                          <span className="text-xs text-slate-700">
+                          <span className="text-[10px] text-slate-700">
                             <span className="font-bold text-purple-500 mr-1 sm:mr-1.5">#{i + 1}</span>
                             {p.playerName}
                           </span>
-                          <span className="text-xs font-bold text-slate-800">{p.totalWickets} wkts</span>
+                          <span className="text-[10px] font-bold text-slate-800">{p.totalWickets} wkts</span>
                         </div>
                       ))}
                     </div>

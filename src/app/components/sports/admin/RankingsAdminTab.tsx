@@ -786,7 +786,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
               <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                 {editingId ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               </div>
-              <h3 className="text-sm font-bold text-slate-800 m-0 mb-0">
+              <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">
                 {editingId ? "Edit Player Ranking" : "Add Player Ranking"}
                 {selectedSport && <span className="text-indigo-600 font-medium"> — {selectedSport.name}</span>}
               </h3>
@@ -854,7 +854,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                           {u.flatNo ? ` · Flat ${u.flatNo}` : ""}
                         </div>
                       </div>
-                      <span className="text-xs uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                      <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
                         Select
                       </span>
                     </button>
@@ -959,7 +959,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">CSV Bulk Import</h3>
+                  <h3 className="text-xs font-bold text-slate-800">CSV Bulk Import</h3>
                   <p className="text-xs text-slate-400">
                     Import player rankings for {selectedSport?.name} ({selectedSeason})
                   </p>
@@ -1067,11 +1067,11 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                             <td className="p-2 font-semibold text-indigo-600">{r.rating ?? "—"}</td>
                             <td className="p-2">
                               {r.error ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
                                   <AlertCircle className="w-3 h-3" /> {r.error}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
                                   <CheckCircle2 className="w-3 h-3" /> Valid
                                 </span>
                               )}
@@ -1114,7 +1114,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
           <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
             <Trophy className="w-8 h-8" />
           </div>
-          <h4 className="text-base font-bold text-slate-800">Select a Sport</h4>
+          <h4 className="text-xs font-bold text-slate-800">Select a Sport</h4>
           <p className="text-xs text-slate-500 max-w-sm">
             Choose a sport from the dropdown above to view leaderboards, manage seeds, and analyze player performance ratings.
           </p>
@@ -1122,14 +1122,14 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
       ) : loading ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-16 flex flex-col items-center justify-center gap-3 text-indigo-600">
           <RefreshCw className="w-6 h-6 animate-spin" />
-          <span className="text-xs font-semibold text-slate-500">Loading rankings…</span>
+          <span className="text-[10px] font-semibold text-slate-500">Loading rankings…</span>
         </div>
       ) : rankings.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-12 flex flex-col items-center gap-3 text-center">
           <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center shadow-inner">
             <Medal className="w-8 h-8" />
           </div>
-          <h4 className="text-base font-bold text-slate-800">No rankings yet for {selectedSport?.name}</h4>
+          <h4 className="text-xs font-bold text-slate-800">No rankings yet for {selectedSport?.name}</h4>
           <p className="text-xs text-slate-500 max-w-sm">
             Add resident rankings manually or import via CSV to initialize tournament seeding.
           </p>
@@ -1175,8 +1175,8 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   <div className="absolute top-2 right-3 text-2xl font-black text-amber-500/30">#1</div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🥇</span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px]">🥇</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-md">
                         Gold Champion
                       </span>
                     </div>
@@ -1188,16 +1188,14 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   </div>
                   <div className="mt-4 pt-3 border-t border-amber-200/60 flex items-center justify-between">
                     <div>
-                      <span className="text-xs text-slate-400 uppercase font-semibold block">Rating</span>
-                      <span className="text-base font-extrabold text-amber-800 tabular-nums">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rating</span>
+                      <span className="text-[10px] font-extrabold text-amber-800 tabular-nums">
                         {topPodium.first.rating ?? "—"}
                       </span>
                     </div>
                     {topPodium.first.rating && (
                       <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded border ${
-                          getRatingTier(topPodium.first.rating).color
-                        }`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ getRatingTier(topPodium.first.rating).color }`}
                       >
                         {getRatingTier(topPodium.first.rating).name}
                       </span>
@@ -1212,8 +1210,8 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   <div className="absolute top-2 right-3 text-2xl font-black text-slate-400/30">#2</div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🥈</span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700 bg-slate-200 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px]">🥈</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-200 px-2 py-0.5 rounded-md">
                         Silver Runner-Up
                       </span>
                     </div>
@@ -1225,16 +1223,14 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
                     <div>
-                      <span className="text-xs text-slate-400 uppercase font-semibold block">Rating</span>
-                      <span className="text-base font-extrabold text-slate-800 tabular-nums">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rating</span>
+                      <span className="text-[10px] font-extrabold text-slate-800 tabular-nums">
                         {topPodium.second.rating ?? "—"}
                       </span>
                     </div>
                     {topPodium.second.rating && (
                       <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded border ${
-                          getRatingTier(topPodium.second.rating).color
-                        }`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ getRatingTier(topPodium.second.rating).color }`}
                       >
                         {getRatingTier(topPodium.second.rating).name}
                       </span>
@@ -1249,8 +1245,8 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   <div className="absolute top-2 right-3 text-2xl font-black text-amber-700/20">#3</div>
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🥉</span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px]">🥉</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
                         Bronze 3rd Place
                       </span>
                     </div>
@@ -1262,16 +1258,14 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                   </div>
                   <div className="mt-4 pt-3 border-t border-amber-200/50 flex items-center justify-between">
                     <div>
-                      <span className="text-xs text-slate-400 uppercase font-semibold block">Rating</span>
-                      <span className="text-base font-extrabold text-amber-900 tabular-nums">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold block">Rating</span>
+                      <span className="text-[10px] font-extrabold text-amber-900 tabular-nums">
                         {topPodium.third.rating ?? "—"}
                       </span>
                     </div>
                     {topPodium.third.rating && (
                       <span
-                        className={`text-xs font-bold px-2 py-0.5 rounded border ${
-                          getRatingTier(topPodium.third.rating).color
-                        }`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${ getRatingTier(topPodium.third.rating).color }`}
                       >
                         {getRatingTier(topPodium.third.rating).name}
                       </span>
@@ -1382,16 +1376,16 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                             {r.rank != null ? (
                               <div className="flex items-center gap-1.5">
                                 {r.rank === 1 ? (
-                                  <span className="text-base">🥇</span>
+                                  <span className="text-[10px]">🥇</span>
                                 ) : r.rank === 2 ? (
-                                  <span className="text-base">🥈</span>
+                                  <span className="text-[10px]">🥈</span>
                                 ) : r.rank === 3 ? (
-                                  <span className="text-base">🥉</span>
+                                  <span className="text-[10px]">🥉</span>
                                 ) : null}
                                 <span className="font-bold text-slate-700 tabular-nums">#{r.rank}</span>
                               </div>
                             ) : (
-                              <span className="text-slate-300 text-xs font-mono">—</span>
+                              <span className="text-slate-300 text-[10px] font-mono">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -1415,12 +1409,12 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-800 tabular-nums text-sm">
+                              <span className="text-[10px] font-bold text-slate-800 tabular-nums">
                                 {r.rating != null ? r.rating : <span className="text-slate-300 font-normal">—</span>}
                               </span>
                               {r.rating != null && (
                                 <span
-                                  className={`px-2 py-0.5 rounded text-xs font-bold border ${tier.color}`}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold border ${tier.color}`}
                                 >
                                   {tier.name}
                                 </span>
@@ -1429,11 +1423,7 @@ export function RankingsAdminTab({ communityId, sportsMeta }: Props) {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
-                                r.source === "COMPUTED"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-blue-50 text-blue-700 border border-blue-200"
-                              }`}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${ r.source === "COMPUTED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-blue-50 text-blue-700 border border-blue-200" }`}
                             >
                               {r.source === "COMPUTED" ? "Auto" : "Manual"}
                             </span>

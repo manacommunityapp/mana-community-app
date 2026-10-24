@@ -48,7 +48,7 @@ export function AppsScriptModal({ isOpen, onClose, formId, formTitle }: AppsScri
               <Code className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Google Forms Webhook Integration</h3>
+              <h3 className="text-xs font-semibold text-white">Google Forms Webhook Integration</h3>
               <p className="text-xs text-slate-400 mt-0.5">{formTitle} • Continuous Auto-Sync</p>
             </div>
           </div>
@@ -99,7 +99,7 @@ export function AppsScriptModal({ isOpen, onClose, formId, formTitle }: AppsScri
           {/* Script Code Block */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                 Google Apps Script Code
               </span>
               <button

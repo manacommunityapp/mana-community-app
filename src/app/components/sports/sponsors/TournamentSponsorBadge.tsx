@@ -49,7 +49,7 @@ export const TournamentSponsorBadge: React.FC<TournamentSponsorBadgeProps> = ({
       ) : (
         <Award className="w-3 h-3 text-slate-400 shrink-0" />
       )}
-      <span className="opacity-75 uppercase tracking-wider text-xs font-bold">
+      <span className="opacity-75 uppercase tracking-wider text-[10px] font-bold">
         {sponsor.category}
       </span>
       <span className="font-bold text-foreground truncate max-w-[120px] sm:max-w-[180px]">
