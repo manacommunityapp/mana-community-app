@@ -253,6 +253,9 @@ export function checkCategoryEligibility(
     } else if (minAge != null && participantAge < minAge) {
       isUnderAge = true;
       warningMsg = `Participant age (${participantAge}y) is below minimum age requirement (${minAge}+ yrs).`;
+    } else if (minAge == null && participantAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+      isUnderAge = true;
+      warningMsg = `Participant age (${participantAge}y) is below minimum sports participation age (4+ yrs).`;
     }
   }
 

@@ -181,6 +181,13 @@ function checkCategoryEligibility(
         badgeText: `Ineligible: Max age ${maxAge} yrs`,
       };
     }
+    if (minAge == null && age < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+      return {
+        eligible: false,
+        reason: `Age ${age} yrs is below minimum sports participation age (4+ yrs).`,
+        badgeText: `Ineligible: Min age 4 yrs`,
+      };
+    }
   }
 
   // Gender validation
