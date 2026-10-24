@@ -991,7 +991,7 @@ export function SportsAuction() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[16px] sm:text-lg font-extrabold text-slate-900 leading-tight m-0">{s.value}</p>
-                        <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted)] mt-0.5 sm:mt-[3px] mb-0 uppercase tracking-wide">{s.label}</p>
+                        <p className="text-xs font-bold text-[var(--muted)] mt-0.5 sm:mt-[3px] mb-0 uppercase tracking-wide">{s.label}</p>
                       </div>
                     </div>
                   ))}
@@ -1049,13 +1049,13 @@ export function SportsAuction() {
                       </div>
 
                       <div className="text-[15px] sm:text-base font-extrabold text-slate-900">{ev.name}</div>
-                      <div className="text-[11px] sm:text-xs text-[var(--muted)] mt-1 font-medium">
+                      <div className="text-xs text-[var(--muted)] mt-1 font-medium">
                         {ev.sport?.name} · {ev.status}
                       </div>
                     </div>
 
                     <div className="mt-3 sm:mt-3.5 pt-2.5 border-t border-indigo-500/[0.08] flex items-center justify-between">
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-500">
+                      <span className="text-[10px] font-semibold text-indigo-500">
                         {auctionConfig ? 'Enter Auction Room' : 'Configure Rules'}
                       </span>
                       <span className="text-[13px] text-indigo-500">→</span>
@@ -1066,7 +1066,7 @@ export function SportsAuction() {
                 <div className="col-span-full text-center p-8 sm:p-10 text-[var(--muted)] bg-white rounded-2xl border border-dashed border-slate-300">
                   <div className="text-3xl sm:text-[32px] mb-2">🏆</div>
                   <div className="font-bold text-slate-900 text-sm sm:text-[15px]">No Auction Events Found</div>
-                  <div className="text-[11px] sm:text-xs mt-1">No auction sports events configured for your community yet.</div>
+                  <div className="text-xs mt-1">No auction sports events configured for your community yet.</div>
                 </div>
               )}
             </div>
@@ -1088,7 +1088,7 @@ export function SportsAuction() {
               <div><div className="page-title">Auction Configuration</div><div className="page-sub">{sport.charAt(0).toUpperCase() + sport.slice(1)} · {seasonName} · Dynamically configurable rules</div></div>
               <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center sm:mr-3">
-                  <span className="text-xs sm:text-[13px] text-[var(--muted)]">Select Event:</span>
+                  <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Select Event:</span>
                   <select
                     className="fselect w-full sm:w-auto sm:min-w-[200px] py-1.5 px-3"
                     value={selectedEventId || ''}
@@ -1213,7 +1213,7 @@ export function SportsAuction() {
                         <div key={i} className="committee-chip flex items-center gap-1.5 bg-[rgba(212,160,23,0.15)] border border-[rgba(212,160,23,0.3)] py-1 px-2.5 rounded-md text-xs text-[var(--gold)]">
                           <span className="committee-avatar w-[18px] h-[18px] text-[10px]">{(c.name?.[0] || '?').toUpperCase()}</span>
                           {c.name || 'Unknown'}
-                          <span className="cursor-pointer text-base leading-none ml-1" onClick={(e) => { e.stopPropagation(); setCommittee(committee.filter(item => item.id !== c.id)); }}>×</span>
+                          <span className="text-[10px] cursor-pointer leading-none ml-1" onClick={(e) => { e.stopPropagation(); setCommittee(committee.filter(item => item.id !== c.id)); }}>×</span>
                         </div>
                       ))}
 
@@ -1246,7 +1246,7 @@ export function SportsAuction() {
                               }}
                             >
                               <div className="font-semibold text-[var(--text)]">{u.name}</div>
-                              <div className="text-[11px] text-[var(--muted)] mt-0.5">Community Member</div>
+                              <div className="text-xs text-[var(--muted)] mt-0.5">Community Member</div>
                             </div>
                           ))}
                         {communityUsers.filter(u => u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) && !committee.find(c => c.id === u.id)).length === 0 && (
@@ -1265,7 +1265,7 @@ export function SportsAuction() {
                     <option value="ROTATION_AUCTION">All players will be sold — rotation auction</option>
                     <option value="RESERVE_POOL">Unsold players enter reserve pool</option>
                   </select>
-                  <div className="text-[11px] text-[var(--muted)] leading-relaxed p-2 bg-[rgba(212,160,23,0.05)] rounded-md border border-[rgba(212,160,23,0.15)]">
+                  <div className="text-xs text-[var(--muted)] leading-relaxed p-2 bg-[rgba(212,160,23,0.05)] rounded-md border border-[rgba(212,160,23,0.15)]">
                     Current Rule: Teams must wait for their turn in the auction rotation. All players will be sold out.
                   </div>
                 </div>
@@ -1283,14 +1283,14 @@ export function SportsAuction() {
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 items-stretch sm:items-center">
-                  <span className="text-[11px] sm:text-xs text-[var(--muted)]">Select Event:</span>
+                  <span className="text-[10px] text-[var(--muted)]">Select Event:</span>
                   <select className="fselect w-full sm:w-auto sm:min-w-[150px] py-1 px-2 text-xs" value={selectedEventId || ''} onChange={e => { const eid = e.target.value ? Number(e.target.value) : null; setSelectedEventId(eid); if (eid) { const firstConfig = availableConfigs.find(c => c.eventId === eid); if (firstConfig) setSelectedConfigId(firstConfig.id); else setSelectedConfigId(null); } }}>
                     <option value="">All Events</option>
                     {auctionEventMap.map(ev => (<option key={ev.id} value={ev.id}>{ev.name}</option>))}
                   </select>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 items-stretch sm:items-center sm:ml-2">
-                  <span className="text-[11px] sm:text-xs text-[var(--muted)]">Auction:</span>
+                  <span className="text-[10px] text-[var(--muted)]">Auction:</span>
                   <select className="fselect w-full sm:w-auto sm:min-w-[150px] py-1 px-2 text-xs sm:mr-2" value={selectedConfigId || ''} onChange={e => setSelectedConfigId(Number(e.target.value))}>
                     {availableConfigs.filter(c => !selectedEventId || c.eventId === selectedEventId).map(c => (<option key={c.id} value={c.id}>{c.seasonName} ({c.status})</option>))}
                     {availableConfigs.filter(c => !selectedEventId || c.eventId === selectedEventId).length === 0 && (<option value="">No Auction Found</option>)}
@@ -1360,8 +1360,8 @@ export function SportsAuction() {
                       <div className="player-name-big mb-2">Setup Incomplete</div>
                       <div className="text-[12px] sm:text-[13px] text-[var(--muted)] max-w-[420px] mx-auto mb-3 sm:mb-4">Complete the following before starting the auction:</div>
                       <div className="inline-flex flex-col gap-2.5 text-left mb-5 sm:mb-6">
-                        <div className="flex items-center gap-2 text-[13px]"><span className={`text-base ${hasTeams ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{hasTeams ? '✅' : '❌'}</span><span className={hasTeams ? 'text-[var(--green)]' : 'text-slate-100'}>Teams — {teams.length} configured {!hasTeams && '(minimum 2 required)'}</span></div>
-                        <div className="flex items-center gap-2 text-[13px]"><span className={`text-base ${hasPlayers ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{hasPlayers ? '✅' : '❌'}</span><span className={hasPlayers ? 'text-[var(--green)]' : 'text-slate-100'}>Player Pool — {playerCount} players {!hasPlayers && '(at least 1 required)'}</span></div>
+                        <div className="flex items-center gap-2 text-[13px]"><span className={`text-[10px] ${hasTeams ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{hasTeams ? '✅' : '❌'}</span><span className={hasTeams ? 'text-[var(--green)]' : 'text-slate-100'}>Teams — {teams.length} configured {!hasTeams && '(minimum 2 required)'}</span></div>
+                        <div className="flex items-center gap-2 text-[13px]"><span className={`text-[10px] ${hasPlayers ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{hasPlayers ? '✅' : '❌'}</span><span className={hasPlayers ? 'text-[var(--green)]' : 'text-slate-100'}>Player Pool — {playerCount} players {!hasPlayers && '(at least 1 required)'}</span></div>
                       </div>
                       {(canEditAuctionConfig || canEditTeams || canEditPlayerPool) && (
                         <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center">
@@ -1415,7 +1415,7 @@ export function SportsAuction() {
                     <div className="flex justify-between items-center mb-3 sm:mb-4">
                       <div className="flex items-center gap-2">
                         <span className="tag tag-gold">{livePlayer.category || 'Player'}</span>
-                        <span className="text-[10px] sm:text-[11px] text-[var(--muted)]">Base ₹{livePlayer.basePrice.toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] text-[var(--muted)]">Base ₹{livePlayer.basePrice.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -1438,7 +1438,7 @@ export function SportsAuction() {
                           <button
                             type="button"
                             onClick={() => setSpotlightViewMode("stats")}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                            className={`px-2 py-0.5 rounded text-xs font-bold transition cursor-pointer ${
                               spotlightViewMode === "stats"
                                 ? "bg-indigo-600 text-white"
                                 : "text-slate-400 hover:text-white"
@@ -1449,7 +1449,7 @@ export function SportsAuction() {
                           <button
                             type="button"
                             onClick={() => setSpotlightViewMode("radar")}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold transition cursor-pointer flex items-center gap-0.5 ${
+                            className={`px-2 py-0.5 rounded text-xs font-bold transition cursor-pointer flex items-center gap-0.5 ${
                               spotlightViewMode === "radar"
                                 ? "bg-indigo-600 text-white"
                                 : "text-slate-400 hover:text-white"
@@ -1570,7 +1570,7 @@ export function SportsAuction() {
                           <span style={{ fontSize: 11, color: 'var(--muted)' }}>remaining</span>
                         </div>
                       )}
-                      <div className="text-[10px] sm:text-[11px] text-[var(--muted)] mb-2.5">Next bid: ₹{livePlayer.nextBid.toLocaleString('en-IN')} (increment: ₹{livePlayer.nextIncrement.toLocaleString('en-IN')})</div>
+                      <div className="text-xs text-[var(--muted)] mb-2.5">Next bid: ₹{livePlayer.nextBid.toLocaleString('en-IN')} (increment: ₹{livePlayer.nextIncrement.toLocaleString('en-IN')})</div>
                       {isAuctionAdmin ? (
                         <div className="bid-actions">
                           <button className="bid-sold" onClick={handleSoldPlayer} disabled={!biddingTeamId}>SOLD!</button>
@@ -1621,18 +1621,18 @@ export function SportsAuction() {
                             <div className={`team-name flex items-center gap-1.5 ${isBidding ? 'text-[var(--green)]' : 'text-[var(--text)]'}`}>
                               <span>{team.emoji}</span>
                               <span>{team.name}</span>
-                              <span className="text-[9px] px-1.5 py-0.2 rounded font-black bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Right to Match Cards Remaining">
+                              <span className="text-[10px] px-1.5 py-0.2 rounded font-black bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Right to Match Cards Remaining">
                                 ⚡ {teamRtmCards[team.id] ?? 2} RTM
                               </span>
                             </div>
-                            {isBidding && <span className="tag tag-green text-[8px]">Highest</span>}
+                            {isBidding && <span className="tag tag-green text-[10px]">Highest</span>}
                           </div>
                           <div className="team-budget text-[12px] sm:text-[13px] text-[var(--muted)] mt-1">
                             Remaining: <span className="text-[var(--text)] font-semibold">₹{remaining.toLocaleString('en-IN')}</span>
                           </div>
                           <div className="prog-bar my-1.5"><div className="prog-fill" style={{ width: `${pct}%`, background: isBidding ? 'var(--green)' : team.color || 'var(--amber)' }}></div></div>
                           <div className="flex justify-between items-center mt-1.5 gap-1">
-                            <div className="team-players text-[11px]">Spent: ₹{team.spent.toLocaleString('en-IN')}</div>
+                            <div className="team-players text-xs">Spent: ₹{team.spent.toLocaleString('en-IN')}</div>
                             <div className="flex items-center gap-1">
                               {!isBidding && (teamRtmCards[team.id] ?? 2) > 0 && livePlayer && biddingTeamId && isAuctionAdmin && (
                                 <button
@@ -1664,13 +1664,13 @@ export function SportsAuction() {
                                       },
                                     });
                                   }}
-                                  className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500 text-slate-950 hover:bg-amber-400 transition cursor-pointer"
+                                  className="px-1.5 py-0.5 rounded text-xs font-black bg-amber-500 text-slate-950 hover:bg-amber-400 transition cursor-pointer"
                                   title="Trigger Right to Match (RTM) Inquiry"
                                 >
                                   ⚡ RTM
                                 </button>
                               )}
-                              {canBid ? (<span className="tag tag-gold text-[9px]">BID ₹{livePlayer.nextBid.toLocaleString('en-IN')}</span>) : (<span className="tag tag-red text-[9px]">No Budget</span>)}
+                              {canBid ? (<span className="tag tag-gold text-[10px]">BID ₹{livePlayer.nextBid.toLocaleString('en-IN')}</span>) : (<span className="tag tag-red text-[10px]">No Budget</span>)}
                             </div>
                           </div>
                         </div>
@@ -1792,33 +1792,33 @@ export function SportsAuction() {
                       <div className="flex justify-between mb-2.5 sm:mb-3">
                         <div>
                            <div className="font-extrabold text-[15px] sm:text-base text-slate-900">{team.name}</div>
-                           <div className="text-[10px] sm:text-[11px] text-[var(--muted)] mt-0.5 font-medium">Captain: {team.ownerName || 'Not Assigned'}</div>
+                           <div className="text-xs text-[var(--muted)] mt-0.5 font-medium">Captain: {team.ownerName || 'Not Assigned'}</div>
                         </div>
                         <div className="tag tag-gold h-fit">Team #{idx + 1}</div>
                       </div>
                       <div className="flex flex-wrap gap-3 sm:gap-5 mb-2.5">
-                        <div><div className="font-extrabold text-base sm:text-lg text-slate-900">₹{(rem || 0).toLocaleString('en-IN')}</div><div className="text-[9px] text-[var(--muted)] uppercase font-bold">Remaining</div></div>
-                        <div><div className="font-extrabold text-base sm:text-lg text-amber-600">₹{(spent || 0).toLocaleString('en-IN')}</div><div className="text-[9px] text-[var(--muted)] uppercase font-bold">Spent</div></div>
-                        <div className="ml-auto text-right"><div className="font-extrabold text-base sm:text-lg text-emerald-600">{team.players?.length || 0}</div><div className="text-[9px] text-[var(--muted)] uppercase font-bold">Squad</div></div>
+                        <div><div className="font-extrabold text-base sm:text-lg text-slate-900">₹{(rem || 0).toLocaleString('en-IN')}</div><div className="text-xs text-[var(--muted)] uppercase font-bold">Remaining</div></div>
+                        <div><div className="font-extrabold text-base sm:text-lg text-amber-600">₹{(spent || 0).toLocaleString('en-IN')}</div><div className="text-xs text-[var(--muted)] uppercase font-bold">Spent</div></div>
+                        <div className="ml-auto text-right"><div className="font-extrabold text-base sm:text-lg text-emerald-600">{team.players?.length || 0}</div><div className="text-xs text-[var(--muted)] uppercase font-bold">Squad</div></div>
                       </div>
                       <div className="prog-bar mb-3"><div className="prog-fill" style={{ width: `${pct}%`, background: team.color || 'var(--gold)' }}></div></div>
 
                       {team.players && team.players.length > 0 ? (
                         <div className="mt-3 pt-3 border-t border-slate-100">
-                          <div className="text-[10px] font-bold text-[var(--muted)] uppercase mb-2 tracking-wide">Purchased Squad ({team.players.length})</div>
+                          <div className="text-xs font-bold text-[var(--muted)] uppercase mb-2 tracking-wide">Purchased Squad ({team.players.length})</div>
                           <div className="flex flex-wrap gap-1.5">
                             {team.players.map((pl, pIdx) => (
                               <div key={pIdx} className="flex items-center gap-1.5 bg-slate-50 py-1 px-2 rounded-lg border border-slate-200 text-xs">
                                 <span className="text-slate-900 font-semibold">{pl.name}</span>
                                 {(pl as any).id && cricHeroesProfiles[(pl as any).id] && <CheckCircle size={10} style={{ color: '#22c55e', flexShrink: 0 }} />}
                                 {pl.category && <span className="text-[10px] text-[var(--muted)] bg-slate-200 py-px px-1.5 rounded font-semibold">{pl.category}</span>}
-                                <span className="text-emerald-600 font-bold text-[11px]">₹{(pl.soldPrice || 0).toLocaleString('en-IN')}</span>
+                                <span className="text-emerald-600 font-bold text-[10px]">₹{(pl.soldPrice || 0).toLocaleString('en-IN')}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-3 pt-3 border-t border-slate-100 text-[11px] text-[var(--muted)] italic text-center">
+                        <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-[var(--muted)] italic text-center">
                           No players purchased yet
                         </div>
                       )}
@@ -1923,7 +1923,7 @@ export function SportsAuction() {
             <div className="page-hdr">
               <div><div className="page-title">Player Pool</div><div className="page-sub">{eventRegistrations.length} Confirmed Participants from Registration</div></div>
               <div className="flex gap-3 items-center">
-                 <span className="text-xs sm:text-[13px] text-[var(--muted)]">Pool for Event ID: {selectedEventId || 'None'}</span>
+                 <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Pool for Event ID: {selectedEventId || 'None'}</span>
                  {canEditPlayerPool && selectedConfigId && (
                    <label className="btn btn-outline btn-sm cursor-pointer flex items-center gap-1.5">
                      <Download size={14} style={{ transform: 'rotate(180deg)' }} /> Upload CSV
@@ -1979,7 +1979,7 @@ export function SportsAuction() {
                         <div className="player-avatar av-bat !bg-[var(--gold)] !text-black">{p.name[0].toUpperCase()}</div>
                         <div className="flex-1">
                           <div className="text-[12px] sm:text-[13px] font-semibold text-[var(--text)]">{p.name}</div>
-                          <div className="text-[10px] text-[var(--muted)]">Role: {p.role}</div>
+                          <div className="text-xs text-[var(--muted)]">Role: {p.role}</div>
                         </div>
                         <div className="text-right">
                           <span className="tag tag-green">Confirmed</span>
@@ -1989,7 +1989,7 @@ export function SportsAuction() {
                       <div className="text-center p-8 sm:p-10 text-[var(--muted)] bg-white/[0.02] rounded-lg">
                         <div className="text-3xl mb-3">📋</div>
                         <div>{playerSearchQuery ? 'No players match your search.' : 'No confirmed players found for this event.'}</div>
-                        <div className="text-[11px] mt-1">Players appear here after their registration is confirmed.</div>
+                        <div className="text-xs mt-1">Players appear here after their registration is confirmed.</div>
                       </div>
                     );
                   })()}
@@ -2038,7 +2038,7 @@ export function SportsAuction() {
             <div className="page-hdr">
               <div><div className="page-title">Event Registrations</div><div className="page-sub">View confirmed participants from registration database</div></div>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
-                <span className="text-xs sm:text-[13px] text-[var(--muted)]">Select Event:</span>
+                <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Select Event:</span>
                 <select
                   className="fselect w-full sm:w-auto sm:min-w-[250px] py-1.5 px-3"
                   value={selectedEventId || ""}
@@ -2070,7 +2070,7 @@ export function SportsAuction() {
                   <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
                   <input className="finput" placeholder="Search by name, role, flat..." value={registrationSearchQuery} onChange={e => setRegistrationSearchQuery(e.target.value)} style={{ paddingLeft: 32, fontSize: 12 }} />
                 </div>
-                <span className="text-xs text-[var(--muted)]">{eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).length} of {eventRegistrations.length}</span>
+                <span className="text-[10px] text-[var(--muted)]">{eventRegistrations.filter(r => !registrationSearchQuery || [r.playerName, r.user?.name, r.role, r.flatNumber, r.category?.name].some(f => f?.toLowerCase().includes(registrationSearchQuery.toLowerCase()))).length} of {eventRegistrations.length}</span>
               </div>
             )}
 
@@ -2082,10 +2082,10 @@ export function SportsAuction() {
                   <table className="w-full border-collapse min-w-[480px]">
                     <thead>
                       <tr className="border-b border-white/10 text-left">
-                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs text-[var(--gold)] uppercase">Player</th>
-                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs text-[var(--gold)] uppercase hidden sm:table-cell">Role/Category</th>
-                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs text-[var(--gold)] uppercase">Status</th>
-                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs text-[var(--gold)] uppercase">Action</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-xs text-[var(--gold)] uppercase">Player</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-xs text-[var(--gold)] uppercase hidden sm:table-cell">Role/Category</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-xs text-[var(--gold)] uppercase">Status</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-xs text-[var(--gold)] uppercase">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2093,11 +2093,11 @@ export function SportsAuction() {
                         <tr key={reg.id} className="border-b border-white/5">
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                             <div className="font-semibold text-[13px]">{reg.playerName || reg.user?.name}</div>
-                            <div className="text-[10px] sm:text-[11px] text-[var(--muted)]">Age: {reg.age || 'N/A'} · {reg.flatNumber || 'External'}</div>
+                            <div className="text-xs text-[var(--muted)]">Age: {reg.age || 'N/A'} · {reg.flatNumber || 'External'}</div>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-[13px] hidden sm:table-cell">
                             {reg.role || 'All-rounder'}
-                            <div className="text-[11px] text-[var(--muted)]">{reg.category?.name || 'General'}</div>
+                            <div className="text-xs text-[var(--muted)]">{reg.category?.name || 'General'}</div>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                             <span className={`tag ${reg.status === 'CONFIRMED' ? 'tag-green' : 'tag-blue'}`}>
@@ -2105,7 +2105,7 @@ export function SportsAuction() {
                             </span>
                           </td>
                           <td className="py-2.5 sm:py-3 px-3 sm:px-4">
-                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-[11px] min-h-[36px] sm:min-h-0" onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${reg.flatNumber || 'External'} · Status: ${reg.status}`)}>
+                            <button className="btn btn-outline btn-sm py-1 px-2.5 text-xs min-h-[36px] sm:min-h-0" onClick={() => toast.info(`${reg.playerName || reg.user?.name || 'Player'} · Age: ${reg.age || 'N/A'} · Role: ${reg.role || 'All-rounder'} · ${reg.flatNumber || 'External'} · Status: ${reg.status}`)}>
                               View Profile
                             </button>
                           </td>
@@ -2130,7 +2130,7 @@ export function SportsAuction() {
               <div><div className="page-title">Auction Results</div><div className="page-sub">Final Team Rosters & Budgets</div></div>
               <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-4 items-stretch sm:items-center w-full sm:w-auto">
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 items-stretch sm:items-center">
-                  <span className="text-xs sm:text-[13px] text-[var(--muted)]">Sports Event:</span>
+                  <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Sports Event:</span>
                   <select
                     className="fselect w-full sm:w-auto sm:min-w-[200px] py-1.5 px-3"
                     value={selectedEventId || ''}
@@ -2150,7 +2150,7 @@ export function SportsAuction() {
                   </select>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 items-stretch sm:items-center">
-                  <span className="text-xs sm:text-[13px] text-[var(--muted)]">Auction:</span>
+                  <span className="text-[10px] sm:text-[13px] text-[var(--muted)]">Auction:</span>
                   <select
                     className="fselect w-full sm:w-auto sm:min-w-[200px] py-1.5 px-3"
                     value={selectedConfigId || ''}
@@ -2374,11 +2374,11 @@ export function SportsAuction() {
                         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3 sm:mb-4">
                           <div>
                             <div className="sec-title !m-0 text-base sm:text-xl">{team.emoji} {team.name}</div>
-                            <div className="text-[11px] sm:text-xs text-[var(--muted)] mt-1">Spent: ₹{spent.toLocaleString('en-IN')}</div>
+                            <div className="text-xs text-[var(--muted)] mt-1">Spent: ₹{spent.toLocaleString('en-IN')}</div>
                           </div>
                           <div className="text-left sm:text-right">
                             <div className="text-lg sm:text-xl font-bold text-[var(--green)]">₹{remaining.toLocaleString('en-IN')}</div>
-                            <div className="text-[10px] text-[var(--muted)] uppercase tracking-wider">Remaining</div>
+                            <div className="text-xs text-[var(--muted)] uppercase tracking-wider">Remaining</div>
                           </div>
                         </div>
 

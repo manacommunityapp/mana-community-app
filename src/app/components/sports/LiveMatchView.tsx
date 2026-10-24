@@ -92,14 +92,14 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1">
               <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] sm:text-xs font-bold text-red-400 uppercase tracking-wider">LIVE</span>
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">LIVE</span>
             </div>
             {wsConnected ? (
               <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
             ) : (
               <div className="flex items-center gap-1">
                 <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
-                <span className="text-[8px] sm:text-[9px] text-amber-400 font-medium">Reconnecting...</span>
+                <span className="text-[10px] text-amber-400 font-medium">Reconnecting...</span>
               </div>
             )}
           </div>
@@ -112,7 +112,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
         {!wsConnected && wsDisconnectedAt && (
           <div className="bg-amber-50 border-b border-amber-200 px-3 py-1.5 sm:px-6 sm:py-2 flex items-center gap-2">
             <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span className="text-[10px] sm:text-xs text-amber-700 font-medium">
+            <span className="text-[10px] text-amber-700 font-medium">
               Live connection lost — auto-refreshing every 15s
             </span>
           </div>
@@ -122,31 +122,31 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
         <div className="bg-gradient-to-b from-slate-800 to-slate-700 px-3 py-2 sm:px-6 sm:py-5 text-white">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <div className="text-[10px] sm:text-sm font-bold" style={{ color: state.teamAColor }}>{state.teamAName}</div>
+              <div className="text-xs sm:text-sm font-bold" style={{ color: state.teamAColor }}>{state.teamAName}</div>
               <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings1.totalRuns}/{state.innings1.totalWickets}
-                <span className="text-[10px] sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings1.totalOvers} ov)</span>
+                <span className="text-[10px] font-normal text-slate-400 ml-1 sm:ml-2">({state.innings1.totalOvers} ov)</span>
               </div>
             </div>
-            <div className="text-[10px] sm:text-xs font-bold text-slate-500 px-2 sm:px-4">VS</div>
+            <div className="text-xs font-bold text-slate-500 px-2 sm:px-4">VS</div>
             <div className="flex-1 text-right">
-              <div className="text-[10px] sm:text-sm font-bold" style={{ color: state.teamBColor }}>{state.teamBName}</div>
+              <div className="text-xs sm:text-sm font-bold" style={{ color: state.teamBColor }}>{state.teamBName}</div>
               <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings2.totalRuns}/{state.innings2.totalWickets}
-                <span className="text-[10px] sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings2.totalOvers} ov)</span>
+                <span className="text-[10px] font-normal text-slate-400 ml-1 sm:ml-2">({state.innings2.totalOvers} ov)</span>
               </div>
             </div>
           </div>
 
           {state.target && state.currentInnings === 2 && (
             <div className="mt-2 sm:mt-3 text-center">
-              <span className="text-[9px] sm:text-xs bg-amber-500/20 text-amber-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-semibold">
+              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-semibold">
                 Need {state.target - state.innings2.totalRuns} runs from {remainingBalls(state.innings2.totalOvers, maxOvers)} balls
               </span>
             </div>
           )}
 
-          <div className="mt-2 sm:mt-3 flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-slate-400">
+          <div className="mt-2 sm:mt-3 flex items-center justify-center gap-3 sm:gap-4 text-xs text-slate-400">
             <span>CRR: {inn.runRate}</span>
             {state.target && state.currentInnings === 2 && (
               <span>RRR: {requiredRunRate(state.target, state.innings2.totalRuns, state.innings2.totalOvers, maxOvers)}</span>
@@ -157,12 +157,12 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
         {/* This Over */}
         {inn.thisOver.length > 0 && (
           <div className="px-3 py-1.5 sm:px-6 sm:py-3 bg-slate-50 border-b border-slate-100">
-            <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">This Over</div>
+            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">This Over</div>
             <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {inn.thisOver.map((ball, i) => (
                 <span
                   key={i}
-                  className={`w-5 h-5 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-[9px] sm:text-xs font-bold ${ballColor(ball)}`}
+                  className={`w-5 h-5 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}
                 >
                   {ball}
                 </span>
@@ -175,7 +175,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           {/* Current Batters */}
           {inn.batters.filter(b => !b.isOut).length > 0 && (
             <div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">At the Crease</div>
+              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">At the Crease</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -213,7 +213,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           {/* Current Bowler */}
           {inn.bowlers.length > 0 && (
             <div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Bowling</div>
+              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Bowling</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -244,7 +244,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           {/* Recent Balls */}
           {state.recentBalls.length > 0 && (
             <div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Ball-by-Ball</div>
+              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Ball-by-Ball</div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {[...state.recentBalls].reverse().map((b) => (
                   <div key={b.id} className="flex items-center gap-2 text-xs text-slate-600 py-1 border-b border-slate-50">
@@ -271,7 +271,7 @@ export function LiveMatchView({ matchId, maxOvers, onClose }: LiveMatchViewProps
           {/* Dismissed Batters */}
           {inn.batters.filter(b => b.isOut).length > 0 && (
             <div>
-              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Dismissed</div>
+              <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Dismissed</div>
               <div className="space-y-1">
                 {inn.batters.filter(b => b.isOut).map((b) => (
                   <div key={b.playerId} className="flex items-center justify-between text-xs py-1">

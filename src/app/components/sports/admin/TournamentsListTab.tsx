@@ -88,7 +88,7 @@ export function TournamentsListTab({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="text-left">
-          <h3 className="text-xl font-bold text-slate-800">Sports Event List</h3>
+          <h3 className="text-xs font-bold text-slate-800">Sports Event List</h3>
           <p className="text-sm text-slate-500 mt-1">Manage tournaments and venues for your community</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -117,7 +117,7 @@ export function TournamentsListTab({
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-4 text-2xl shadow-xs">
             🏆
           </div>
-          <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-1.5">No Sport Events Available</h3>
+          <h3 className="text-xs font-bold text-slate-800 mb-1.5">No Sport Events Available</h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-6">
             There are currently no sports events or tournaments created for your community. Get started by selecting a sport to configure your events.
           </p>

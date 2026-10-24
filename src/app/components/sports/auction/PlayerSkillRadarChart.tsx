@@ -208,7 +208,7 @@ export const PlayerSkillRadarChart: React.FC<PlayerSkillRadarChartProps> = ({
                 y={ly - 4}
                 textAnchor="middle"
                 dominantBaseline="central"
-                className="text-[10px] font-bold fill-slate-700 dark:fill-slate-300 uppercase tracking-wider"
+                className="text-xs font-bold fill-slate-700 dark:fill-slate-300 uppercase tracking-wider"
               >
                 {axis.label}
               </text>
@@ -217,7 +217,7 @@ export const PlayerSkillRadarChart: React.FC<PlayerSkillRadarChartProps> = ({
                 y={ly + 8}
                 textAnchor="middle"
                 dominantBaseline="central"
-                className="text-[9.5px] font-extrabold"
+                className="text-xs font-extrabold"
                 fill={primaryColor}
               >
                 {value}
