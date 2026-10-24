@@ -652,6 +652,63 @@ export function SportsDashboard() {
     }
   }, [getMemberProfileStatus, navigate]);
 
+  const handleTournamentMemberChange = useCallback((tournament: DashboardTournamentWithEvents, memberId: string | number) => {
+    const val = String(memberId);
+    setSelectedMemberByTournament(prev => ({
+      ...prev,
+      [tournament.id]: val,
+      [String(tournament.id)]: val,
+    }));
+
+    const status = getMemberProfileStatus(val);
+    if (!status.isValid) {
+      notifyIncompleteProfile(val);
+      return;
+    }
+
+    const isSelfMember = val === "self";
+    const member = isSelfMember
+      ? {
+          name: user?.fullName || "Self",
+          age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
+          gender: user?.gender || "Male",
+        }
+      : (() => {
+          const fm = familyMembers.find(m => String(m.id) === String(val));
+          const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+          const inferredGen = inferGender(fm, user?.gender);
+          return {
+            name: fm?.name || "Family Member",
+            age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+            gender: inferredGen || fm?.gender || "",
+          };
+        })();
+
+    const eligibleCount = tournament.mappedEvents.filter(ev => {
+      const elig = checkCategoryEligibility(ev, member.age, member.gender);
+      return elig.eligible;
+    }).length;
+
+    const genderLabel = member.gender
+      ? member.gender.toLowerCase().startsWith("m")
+        ? "Male"
+        : "Female"
+      : "unspecified gender";
+    const ageLabel = member.age > 0 ? `${member.age}y` : "unspecified age";
+
+    if (eligibleCount === 0) {
+      toast.warning(
+        `${member.name} (${genderLabel}, ${ageLabel}) is not eligible for categories in this tournament based on age/gender.`,
+        { duration: 5000 }
+      );
+    } else {
+      toast.success(
+        `Selected ${member.name} (${genderLabel}, ${ageLabel}) · ${eligibleCount} eligible ${eligibleCount === 1 ? "category" : "categories"}`,
+        { duration: 3000 }
+      );
+    }
+  }, [getMemberProfileStatus, notifyIncompleteProfile, user, familyMembers]);
+
   // Registration Modal State for mobile view / quick registration popup
   const [regModalState, setRegModalState] = useState<{
     open: boolean;
@@ -1235,7 +1292,7 @@ export function SportsDashboard() {
                         title={`Profile Ready (${upcomingTargetMember?.gender ? (upcomingTargetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}, ${upcomingTargetMember?.age}y)`}
                       >
                         <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span>Ready</span>
+                        <span>Ready ({upcomingTargetMember?.gender ? (upcomingTargetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{upcomingTargetMember?.age ? `, ${upcomingTargetMember.age}y` : ""})</span>
                       </span>
                     ) : (
                       <span className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
@@ -1630,12 +1687,8 @@ export function SportsDashboard() {
                     {/* Tournament Header with Details */}
                     <div className="p-2.5 sm:p-3 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <Trophy className="w-5 h-5 text-white" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            {/* Top Row: Tournament Name & Details Button */}
+                        <div className="min-w-0 flex-1">
+                          {/* Top Row: Tournament Name & Details Button */}
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-xs font-sans font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
 
@@ -1695,7 +1748,6 @@ export function SportsDashboard() {
                             </div>
                           </div>
                         </div>
-                      </div>
 
                       {/* Family member registration selector */}
                       {isExpanded && (
@@ -1708,15 +1760,7 @@ export function SportsDashboard() {
                               <div className="relative">
                                 <select
                                   value={selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self"}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSelectedMemberByTournament(prev => ({
-                                      ...prev,
-                                      [t.id]: val,
-                                      [String(t.id)]: val,
-                                    }));
-                                    notifyIncompleteProfile(val);
-                                  }}
+                                  onChange={(e) => handleTournamentMemberChange(t, e.target.value)}
                                   className="text-xs font-semibold pl-2.5 pr-7 py-1.5 rounded-lg bg-white border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all"
                                   title="Choose participant to register"
                                 >
@@ -1730,19 +1774,30 @@ export function SportsDashboard() {
                                 <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                               </div>
 
-                              {/* Profile readiness chip */}
-                              {memberProfileStatus.isValid ? (
+                              {/* Profile readiness & eligibility chip */}
+                              {!memberProfileStatus.isValid ? (
                                 <span
-                                  className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
-                                  title={`Profile Ready (${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""})`}
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}`}
                                 >
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                                  <span>Ready</span>
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                                </span>
+                              ) : totalEligibleCount === 0 ? (
+                                <span
+                                  className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`0 eligible categories in this tournament for ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "unspecified"}, ${targetMember.age > 0 ? `${targetMember.age}y` : "age unspecified"}`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>Ineligible ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : ""}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
-                                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                                <span
+                                  className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`Profile Ready & Verified: ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""} (${totalEligibleCount} eligible categories)`}
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
                                 </span>
                               )}
                             </div>
