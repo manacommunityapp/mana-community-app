@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -1670,6 +1670,27 @@ export function SportsDashboard() {
                                 </span>
                                 <button
                                   type="button"
+                                  onClick={async () => {
+                                    const regs = getMemberRegsForEvent(item);
+                                    if (regs.length === 0) return;
+                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
+                                    try {
+                                      for (const r of regs) {
+                                        await sportsService.withdraw(r.id);
+                                      }
+                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
+                                      fetchData();
+                                    } catch (err: any) {
+                                      toast.error(err?.message || "Failed to unregister");
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                  title="Unregister from this category"
+                                >
+                                  Unregister
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => {
                                     const isSelfMember = selectedMemberId === "self";
                                     handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
@@ -1764,11 +1785,12 @@ export function SportsDashboard() {
                                   </span>
                                 </span>
                               )}
-                              {/* Hidden as requested */}
-                              {/* <span className="inline-flex items-center gap-1">
-                                <Award className="w-3.5 h-3.5 text-indigo-500" />
-                                <span>{totalCount} Sports {totalCount === 1 ? "Group" : "Groups"}</span>
-                              </span> */}
+                              {t.mappedEvents.some(ev => isMemberRegisteredForEvent(ev)) && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>{t.mappedEvents.filter(ev => isMemberRegisteredForEvent(ev)).length} Registered</span>
+                                </span>
+                              )}
 
                               <button
                                 type="button"
@@ -2614,13 +2636,36 @@ export function SportsDashboard() {
                             )}
                           </div>
 
-                          <Link
-                            to="/sports/my-sports"
-                            onClick={() => setActiveStatsModal(null)}
-                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
-                          >
-                            Manage in My Sports →
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const evName = reg.event?.name || reg.eventName || "this event";
+                                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
+                                  try {
+                                    await sportsService.withdraw(reg.id);
+                                    toast.success(`Unregistered from ${evName}`);
+                                    fetchData();
+                                  } catch (err: any) {
+                                    toast.error(err?.message || "Failed to unregister");
+                                  }
+                                }}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"
+                                title="Unregister from this event"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Unregister</span>
+                              </button>
+                            )}
+                            <Link
+                              to="/sports/my-sports"
+                              onClick={() => setActiveStatsModal(null)}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                            >
+                              Manage →
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     );
