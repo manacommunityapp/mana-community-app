@@ -542,6 +542,7 @@ function getAvailableEventFormats(
   tournamentName?: string,
   metaList: any[] = []
 ): string[] {
+  const sName = (sportName || "").toLowerCase();
   const eName = (eventName || "").toLowerCase();
   const tName = (tournamentName || "").toLowerCase();
   const catName = (ev?.categoryName || ev?.category?.name || "").toLowerCase();

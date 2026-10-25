@@ -265,6 +265,9 @@ export interface SportsEvent {
   adminApprovalRequired?: boolean;
   /** When true, mixed doubles events enforce complementary genders (1 Male + 1 Female). */
   mandatoryMixedDoubles?: boolean;
+  minAge?: number | null;
+  maxAge?: number | null;
+  allowHigherAgeCategory?: boolean;
 }
 
 export interface SportsEventRequest {
