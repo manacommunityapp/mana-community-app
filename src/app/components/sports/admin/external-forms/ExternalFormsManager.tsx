@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Users,
+  Share2,
 } from "lucide-react";
 import {
   sportsExternalFormService,
@@ -22,6 +23,7 @@ import {
 import { CreateExternalFormModal } from "./CreateExternalFormModal";
 import { AppsScriptModal } from "./AppsScriptModal";
 import { ExternalResponsesReviewQueue } from "./ExternalResponsesReviewQueue";
+import { ShareExternalFormModal } from "./ShareExternalFormModal";
 import { showSuccess, showError } from "../../../../../utils/ToastUtils";
 
 interface ExternalFormsManagerProps {
@@ -41,6 +43,7 @@ export function ExternalFormsManager({
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [appsScriptForm, setAppsScriptForm] = useState<{ id: number; title: string } | null>(null);
+  const [shareModalForm, setShareModalForm] = useState<ExternalFormConfig | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const fetchForms = async () => {
@@ -260,6 +263,15 @@ export function ExternalFormsManager({
                       <span className="text-[10px]">Open</span>
                     </a>
 
+                    <button
+                      onClick={() => setShareModalForm(form)}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-800/40 transition flex items-center gap-1"
+                      title="Share to WhatsApp, QR flyer, Email"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span className="text-[10px]">Share</span>
+                    </button>
+
                     {isGoogle && (
                       <button
                         onClick={() => setAppsScriptForm({ id: form.id, title: form.title })}
@@ -304,6 +316,15 @@ export function ExternalFormsManager({
           onClose={() => setAppsScriptForm(null)}
           formId={appsScriptForm.id}
           formTitle={appsScriptForm.title}
+        />
+      )}
+
+      {shareModalForm && (
+        <ShareExternalFormModal
+          isOpen={!!shareModalForm}
+          onClose={() => setShareModalForm(null)}
+          form={shareModalForm}
+          event={event}
         />
       )}
     </div>

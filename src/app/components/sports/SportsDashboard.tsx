@@ -1763,7 +1763,7 @@ export function SportsDashboard() {
                       {isExpanded && (
                         <div className="mt-2 pt-2 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-nowrap shrink-0">
+                            <div className="flex items-center gap-2 flex-wrap shrink-0">
                               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
                                 Register For:
                               </label>
@@ -1891,6 +1891,20 @@ export function SportsDashboard() {
                             <p className="text-xs text-slate-500 mt-0.5">
                               Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
                             </p>
+                            {!memberProfileStatus.isValid && (
+                              <div className="mt-2.5 flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
+                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                                  <span className="font-semibold underline ml-0.5">· Update Profile →</span>
+                                </button>
+                              </div>
+                            )}
                             <button
                               type="button"
                               onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: false }))}
