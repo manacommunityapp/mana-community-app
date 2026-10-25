@@ -120,14 +120,14 @@ export function SportsExternalPublicRegister() {
     }
   })();
 
-  // Extract match format options from mappingRulesJson
+  // Extract match format options from mappingRulesJson (set by backend based on event's declared formats only)
   const formatOptions = (() => {
     const fmtMapping = formConfig?.fieldMappings?.find((m) => m.manaFieldKey === "matchFormat");
     if (!fmtMapping?.mappingRulesJson) {
+      // Minimal safe fallback — backend should always provide mappingRulesJson for MANA_FORM
       return [
         { label: "Singles", value: "SINGLES" },
         { label: "Doubles", value: "DOUBLES" },
-        { label: "Mixed Doubles", value: "MIXED_DOUBLES" },
       ];
     }
     try {

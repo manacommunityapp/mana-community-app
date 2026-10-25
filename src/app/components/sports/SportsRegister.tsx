@@ -414,7 +414,9 @@ export function getEventFormats(event: SportsEvent | null): string[] {
   const eName = (event.name || "").toLowerCase();
   const sName = (event.sport?.name || (event as any).sportName || "").toLowerCase();
   const tName = ((event as any).tournamentName || (event as any).tournament?.name || "").toLowerCase();
-  const combined = `${sName} ${tName} ${eName}`;
+  const catName = ((event as any).categoryName || (event as any).category?.name || "").toLowerCase();
+  const gender = ((event as any).gender || (event as any).genderCategory || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName} ${catName}`;
   const sKey = detectSport(combined);
 
   const isTeam =
@@ -422,10 +424,30 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     isTeamSport(sName || eName || combined) ||
     ["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball", "rugby", "soccer"].includes(sKey);
 
+  // Gender check: Men-only or Women-only events/categories CANNOT have MIXED_DOUBLES
+  const isGenderRestricted =
+    gender === "male" ||
+    gender === "female" ||
+    gender === "men" ||
+    gender === "women" ||
+    gender === "boys" ||
+    gender === "girls" ||
+    catName.includes("men") ||
+    catName.includes("women") ||
+    catName.includes("boys") ||
+    catName.includes("girls") ||
+    eName.includes("men") ||
+    eName.includes("women") ||
+    eName.includes("boys") ||
+    eName.includes("girls");
+
   // 1. Check if event explicitly specifies formats
   const rawExplicit =
     event.format ||
     (event as any).formats ||
+    (event as any).rawEvent?.formats ||
+    (event as any).rawEvent?.format ||
+    (event as any).rawEvent?.eventFormats ||
     event.sport?.formats ||
     (event.sport as any)?.format ||
     (event as any).tournament?.format ||
@@ -435,6 +457,10 @@ export function getEventFormats(event: SportsEvent | null): string[] {
   if (parsedExplicit.length > 0) {
     if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
       return ["MIXED_DOUBLES"];
+    }
+    // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
+    if (isGenderRestricted && parsedExplicit.includes("MIXED_DOUBLES") && parsedExplicit.length > 1) {
+      return parsedExplicit.filter(f => f !== "MIXED_DOUBLES");
     }
     return parsedExplicit;
   }
@@ -446,13 +472,16 @@ export function getEventFormats(event: SportsEvent | null): string[] {
 
   // 2. Check event name keywords for specific format
   if (eName.includes("singles") && eName.includes("doubles")) {
-    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
   if (eName.includes("mixed") || eName.includes("mixed doubles")) {
     return ["MIXED_DOUBLES"];
   }
   if (eName.includes("doubles") && !eName.includes("singles")) {
     return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
   }
 
   // 3. Default available formats based on sport type
@@ -465,7 +494,11 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     combined.includes("shuttle") ||
     combined.includes("tt")
   ) {
-    return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    const hasMixedKeyword = combined.includes("mixed") || combined.includes("co-ed");
+    if (hasMixedKeyword && !isGenderRestricted) {
+      return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    }
+    return ["SINGLES", "DOUBLES"];
   }
 
   if (
@@ -3302,6 +3335,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
+                eventId={event?.id}
+                minAge={categories.find(c => formData.categoryIds.includes(c.id))?.minAge ?? event?.minAge}
+                maxAge={categories.find(c => formData.categoryIds.includes(c.id))?.maxAge ?? event?.maxAge}
+                allowHigherAgeCategory={event?.allowHigherAgeCategory ?? true}
               />
             )}
 

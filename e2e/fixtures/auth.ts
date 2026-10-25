@@ -1401,6 +1401,52 @@ export async function mockSportsTeamRegistrationRoutes(page: Page): Promise<void
 // ── Mock partner selection routes ────────────────────────────────────────────
 
 export async function mockSportsPartnerRoutes(page: Page): Promise<void> {
+  await page.route("**/api/sports/partner-search**", async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      json: [
+        {
+          type: "USER",
+          id: 10,
+          name: "Rahul Verma",
+          occupancyLabel: "Owner · Flat B-201",
+          flatNo: "201",
+          block: "B",
+          gender: "MALE",
+          age: 28,
+          eligible: true,
+          ineligibilityReason: null,
+        },
+        {
+          type: "USER",
+          id: 11,
+          name: "Sneha Patel",
+          occupancyLabel: "Tenant · Flat C-102",
+          flatNo: "102",
+          block: "C",
+          gender: "FEMALE",
+          age: 26,
+          eligible: true,
+          ineligibilityReason: null,
+        },
+        {
+          type: "FAMILY_MEMBER",
+          id: 101,
+          primaryUserId: 10,
+          name: "Rohan Verma",
+          relation: "Son",
+          occupancyLabel: "Family (Son) · Flat B-201",
+          flatNo: "201",
+          block: "B",
+          gender: "MALE",
+          age: 16,
+          eligible: false,
+          ineligibilityReason: "Age 16 — min 19",
+        },
+      ],
+    });
+  });
+
   await page.route("**/api/users/search**", async (route: Route) => {
     await route.fulfill({ status: 200, json: MOCK_SEARCH_USERS });
   });

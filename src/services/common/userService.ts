@@ -77,6 +77,25 @@ export interface RoleDetailsItem {
   userCount: number;
 }
 
+/**
+ * A single candidate returned by GET /api/sports/partner-search.
+ * Covers both AppUser (type="USER") and FamilyMember (type="FAMILY_MEMBER") records.
+ */
+export interface PartnerCandidateResponse {
+  type: "USER" | "FAMILY_MEMBER";
+  id: number;
+  primaryUserId?: number | null;
+  name: string;
+  relation?: string | null;
+  occupancyLabel?: string | null;
+  flatNo?: string | null;
+  block?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  eligible: boolean;
+  ineligibilityReason?: string | null;
+}
+
 export const userService = {
   /** GET /api/users — returns full paginated response from DB with search, communityId, status, and kyc filters */
   async getUsersPaged(params: {
@@ -258,5 +277,31 @@ export const userService = {
   /** GET /api/users/kyc/stats */
   async getKycStats(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
     return apiClient.get<{ total: number; pending: number; approved: number; rejected: number }>("/users/kyc/stats");
-  }
+  },
+
+  /**
+   * GET /api/sports/partner-search — unified partner candidate search.
+   * Returns both AppUser and FamilyMember records from the community,
+   * with pre-computed age/gender eligibility flags from the target event.
+   */
+  async searchPartners(params: {
+    communityId: number;
+    query: string;
+    eventId?: number | string | null;
+    matchType?: string;
+    callerGender?: string | null;
+  }): Promise<PartnerCandidateResponse[]> {
+    const p = new URLSearchParams();
+    p.set("communityId", String(params.communityId));
+    p.set("query", params.query.trim());
+    if (params.eventId != null) p.set("eventId", String(params.eventId));
+    if (params.matchType) p.set("matchType", params.matchType);
+    if (params.callerGender) p.set("callerGender", params.callerGender);
+    try {
+      return await apiClient.get<PartnerCandidateResponse[]>(`/sports/partner-search?${p.toString()}`);
+    } catch (err) {
+      console.warn("Failed to search partners:", err);
+      return [];
+    }
+  },
 };

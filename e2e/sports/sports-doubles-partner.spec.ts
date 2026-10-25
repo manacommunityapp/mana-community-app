@@ -45,6 +45,22 @@ async function setupDoublesRoutes(page: import("@playwright/test").Page) {
   await mockSportsRegistrationRoutes(page);
 
   // Mock global/community user search for partner selector
+  await page.route("**/api/sports/partner-search**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      json: MOCK_NEIGHBORS.map((n) => ({
+        type: "USER",
+        id: n.id,
+        name: n.fullName,
+        flatNo: n.flatNo,
+        block: n.block,
+        gender: n.gender.toUpperCase(),
+        occupancyLabel: `Owner · Flat ${n.block}-${n.flatNo}`,
+        eligible: true,
+      })),
+    });
+  });
+
   await page.route("**/api/users/search**", async (route) => {
     await route.fulfill({
       status: 200,

@@ -50,6 +50,8 @@ export interface OpenRegistration {
   maxAge?: number | null;
   categories?: any[] | null;
   allowedGenders?: string[] | null;
+  formats?: string[] | null;
+  format?: string | string[] | null;
   rawEvent?: any;
 }
 
