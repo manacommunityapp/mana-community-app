@@ -699,8 +699,8 @@ export function Feed() {
   const [selectedSportsTournamentId, setSelectedSportsTournamentId] = useState("");
   const [sportsDate, setSportsDate] = useState("");
   const [sportsVenue, setSportsVenue] = useState("");
-  const [sportsCategory, setSportsCategory] = useState("Cricket");
-  const [sportsUpdateType, setSportsUpdateType] = useState("Match Fixture");
+  const [sportsCategory, setSportsCategory] = useState("");
+  const [sportsUpdateType, setSportsUpdateType] = useState("");
   const [sportsTeamsOrScore, setSportsTeamsOrScore] = useState("");
   const [activeCoverPickerMediaIndex, setActiveCoverPickerMediaIndex] = useState<number | null>(null);
 
@@ -993,13 +993,13 @@ export function Feed() {
       request.eventDate = sportsDate || undefined;
       request.eventVenue = sportsVenue || undefined;
 
-      const parts = [
-        sportsCategory,
-        sportsUpdateType,
-        sportsTeamsOrScore ? `(${sportsTeamsOrScore})` : null,
-      ].filter(Boolean);
-      if (parts.length > 0) {
-        request.location = parts.join(" • ");
+      const categoryPrefix = [sportsCategory, sportsUpdateType].filter(Boolean).join(" • ");
+      if (categoryPrefix && sportsTeamsOrScore) {
+        request.location = `${categoryPrefix} (${sportsTeamsOrScore})`;
+      } else if (categoryPrefix) {
+        request.location = categoryPrefix;
+      } else if (sportsTeamsOrScore) {
+        request.location = sportsTeamsOrScore;
       }
       request.linkUrl = selectedSportsTournamentId ? `/sports/tournaments` : `/sports`;
       const linkedTourn = sportsTournaments.find((t) => String(t.id) === selectedSportsTournamentId);
@@ -1032,8 +1032,8 @@ export function Feed() {
       setSelectedSportsTournamentId("");
       setSportsDate("");
       setSportsVenue("");
-      setSportsCategory("Cricket");
-      setSportsUpdateType("Match Fixture");
+      setSportsCategory("");
+      setSportsUpdateType("");
       setSportsTeamsOrScore("");
       setShowComposerTypes(false);
       setIsCreateModalOpen(false);
@@ -1709,12 +1709,13 @@ export function Feed() {
                       {/* Extended Sports Details: Sport, Category, Teams / Matchup / Score */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-emerald-100">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-600 uppercase">Sport</label>
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Sport (Optional)</label>
                           <select
                             className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                             value={sportsCategory}
                             onChange={(e) => setSportsCategory(e.target.value)}
                           >
+                            <option value="">Select sport (optional)</option>
                             <option value="Cricket">🏏 Cricket</option>
                             <option value="Badminton">🏸 Badminton</option>
                             <option value="Football">⚽ Football</option>
@@ -1733,12 +1734,13 @@ export function Feed() {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-600 uppercase">Update Category</label>
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Update Category (Optional)</label>
                           <select
                             className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                             value={sportsUpdateType}
                             onChange={(e) => setSportsUpdateType(e.target.value)}
                           >
+                            <option value="">Select category (optional)</option>
                             <option value="Tournament">🏆 Tournament Announcement</option>
                             <option value="Match Fixture">⚔️ Match Fixture / Schedule</option>
                             <option value="Match Result">📊 Match Result & Scores</option>
