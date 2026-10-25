@@ -9,6 +9,7 @@ import {
   calculateRemainingPurse,
   evaluateRegistrationStatus,
 } from "./sportsValidationUtils";
+import { checkCategoryEligibility } from "../app/components/sports/SportsRegister";
 
 describe("sportsValidationUtils Test Suite", () => {
   describe("1. Tournament & Event Date Range Boundaries", () => {
@@ -258,6 +259,81 @@ describe("sportsValidationUtils Test Suite", () => {
         now: fixedNow,
       });
       expect(status).toBe("OPEN");
+    });
+  });
+
+  describe("5. checkCategoryEligibility Integration Tests", () => {
+    it("blocks participant under minimum age (e.g. 15yo on 19+ event)", () => {
+      const event = {
+        id: 1,
+        name: "Men's Singles 19+",
+        minAge: 19,
+        maxAge: null,
+        gender: "MALE",
+        categories: [{ id: 101, name: "Singles" }],
+      };
+      const result = checkCategoryEligibility(event, 15, "Male");
+      expect(result.eligible).toBe(false);
+      expect(result.isUnderAge).toBe(true);
+      expect(result.warningMsg).toContain("below minimum age requirement (19+ yrs)");
+    });
+
+    it("blocks participant with unverified or 0 age when minimum age is required (e.g. 0yo on 19+ event)", () => {
+      const event = {
+        id: 2,
+        name: "Badminton 19+",
+        minAge: 19,
+        maxAge: null,
+        gender: "ALL",
+      };
+      const result = checkCategoryEligibility(event, 0, "Male");
+      expect(result.eligible).toBe(false);
+      expect(result.isUnderAge).toBe(true);
+      expect(result.warningMsg).toContain("Participant age/DOB is required");
+    });
+
+    it("blocks participant over maximum age limit (e.g. 25yo on Under 16 event)", () => {
+      const event = {
+        id: 3,
+        name: "Carrom Under 16",
+        minAge: null,
+        maxAge: 16,
+        gender: "ALL",
+      };
+      const result = checkCategoryEligibility(event, 25, "Female");
+      expect(result.eligible).toBe(false);
+      expect(result.isOverAge).toBe(true);
+      expect(result.warningMsg).toContain("exceeds maximum limit");
+    });
+
+    it("allows eligible participant (e.g. 25yo on 19+ event)", () => {
+      const event = {
+        id: 4,
+        name: "Tennis Men's Singles (19+)",
+        minAge: 19,
+        maxAge: null,
+        gender: "MALE",
+        categories: [{ id: 102, name: "Singles" }],
+      };
+      const result = checkCategoryEligibility(event, 25, "Male");
+      expect(result.eligible).toBe(true);
+      expect(result.isUnderAge).toBe(false);
+      expect(result.isOverAge).toBe(false);
+      expect(result.isGenderMismatch).toBe(false);
+    });
+
+    it("blocks gender mismatch (e.g. Female on Men Only category)", () => {
+      const event = {
+        id: 5,
+        name: "Badminton Men's Doubles",
+        minAge: 19,
+        maxAge: null,
+        gender: "MALE",
+      };
+      const result = checkCategoryEligibility(event, 25, "Female");
+      expect(result.eligible).toBe(false);
+      expect(result.isGenderMismatch).toBe(true);
+      expect(result.warningMsg).toContain("Category requires Male participant, but selected profile is Female");
     });
   });
 });

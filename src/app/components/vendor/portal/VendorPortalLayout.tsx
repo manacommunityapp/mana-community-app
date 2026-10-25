@@ -1,17 +1,36 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import {
-  LayoutDashboard, Package, Boxes, Users, Briefcase, CalendarCheck, Clock, Wallet,
-  FileText, ShieldCheck, Star, UserCircle, ChevronRight, Store,
+  LayoutDashboard, Package, Boxes, Briefcase, CalendarCheck, Clock, Wallet,
+  FileText, ShieldCheck, Star, UserCircle, ChevronRight, Store, ShoppingBag,
+  Tag, BadgeDollarSign, BarChart3, type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "../../../../contexts/AuthContext";
+import {
+  VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_INVENTORY, MANAGE_COMMERCE_ORDERS,
+  VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
+} from "../../../../constants/permissions";
 
-const portalNav = [
+type PortalNavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  permission?: string;
+  anyPermissions?: string[];
+};
+
+const portalNav: PortalNavItem[] = [
   { to: "/vendor-portal", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/vendor-portal/products", label: "Product Catalog", icon: Package },
-  { to: "/vendor-portal/inventory", label: "Inventory Ledger", icon: Boxes },
-  { to: "/vendor-portal/group-buying", label: "Group Buying", icon: Users },
+  { to: "/vendor-portal/products", label: "Product Catalog", icon: Package, permission: VIEW_COMMERCE_PRODUCTS },
+  { to: "/vendor-portal/inventory", label: "Inventory", icon: Boxes, permission: VIEW_COMMERCE_INVENTORY },
+  { to: "/vendor-portal/order-management", label: "Orders", icon: ShoppingBag, permission: MANAGE_COMMERCE_ORDERS },
+  { to: "/vendor-portal/grocery-orders", label: "Grocery Orders", icon: ShoppingBag, permission: MANAGE_COMMERCE_ORDERS },
   { to: "/vendor-portal/services", label: "My Services", icon: Briefcase },
   { to: "/vendor-portal/bookings", label: "Bookings", icon: CalendarCheck },
   { to: "/vendor-portal/availability", label: "Availability", icon: Clock },
+  { to: "/vendor-portal/flash-sales", label: "Offers", icon: Tag, permission: MANAGE_COMMERCE_ORDERS },
+  { to: "/vendor-portal/settlement-management", label: "Settlements", icon: BadgeDollarSign, permission: VIEW_COMMERCE_SETTLEMENTS },
+  { to: "/vendor-portal/commerce-analytics", label: "Analytics", icon: BarChart3, permission: VIEW_COMMERCE_ANALYTICS },
   { to: "/vendor-portal/payments", label: "Payments", icon: Wallet },
   { to: "/vendor-portal/merchant-payments", label: "Merchant Payments", icon: Store },
   { to: "/vendor-portal/verification", label: "Verification", icon: ShieldCheck },
@@ -22,8 +41,15 @@ const portalNav = [
 
 export function VendorPortalLayout() {
   const location = useLocation();
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const visibleNav = portalNav.filter((item) => {
+    if (isSuperAdmin) return true;
+    if (item.permission && !hasPermission(item.permission)) return false;
+    if (item.anyPermissions && !item.anyPermissions.some(hasPermission)) return false;
+    return true;
+  });
 
-  const activeItem = portalNav.find((item) =>
+  const activeItem = visibleNav.find((item) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)
   );
 
@@ -66,7 +92,7 @@ export function VendorPortalLayout() {
       {/* Navigation Tabs */}
       <div className="bg-white border-b border-slate-200 px-4 sm:px-6 shadow-xs">
         <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar -mb-px">
-          {portalNav.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

@@ -162,7 +162,7 @@ import { VendorProfile } from "./components/vendor/portal/VendorProfile";
 import { VendorMerchantPayments } from "./components/vendor/portal/VendorMerchantPayments";
 import { VendorProductCatalog } from "./components/vendor/portal/VendorProductCatalog";
 import { VendorInventoryLedger } from "./components/vendor/portal/VendorInventoryLedger";
-import { VendorGroupBuying } from "./components/vendor/portal/VendorGroupBuying";
+import { VendorGroceryOrders } from "./components/vendor/portal/VendorGroceryOrders";
 import { VendorVerification } from "./components/vendor/portal/VendorVerification";
 import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
 import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfilePublic";
@@ -178,7 +178,7 @@ import MyCommerceProfile from "./components/commerce/customer/MyCommerceProfile"
 import LoyaltyWallet from "./components/commerce/customer/LoyaltyWallet";
 import MyOrders from "./components/commerce/orders/MyOrders";
 import VendorOrderManagement from "./components/commerce/orders/VendorOrderManagement";
-import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
+import { VendorSettlements } from "./components/vendor/portal/VendorSettlements";
 import CommerceAnalyticsDashboard from "./components/commerce/vendors/CommerceAnalyticsDashboard";
 import FlashSaleManagement from "./components/commerce/vendors/FlashSaleManagement";
 import VendorRatingsDashboard from "./components/commerce/vendors/VendorRatingsDashboard";
@@ -256,6 +256,10 @@ import { HomeServiceAdminDashboard } from "./components/home-services/HomeServic
 import { HomeServicePayments } from "./components/home-services/HomeServicePayments";
 import { HomeServiceLeaves } from "./components/home-services/HomeServiceLeaves";
 import { HomeServiceSchedule } from "./components/home-services/HomeServiceSchedule";
+
+// Vehicle Care (Washcaro integration)
+import { VehicleCareAdminDashboard } from "./components/vehicle-care/VehicleCareAdminDashboard";
+import { VehicleCareVendorPortal } from "./components/vehicle-care/VehicleCareVendorPortal";
 
 // Community Ecosystem New Modules
 import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
@@ -379,6 +383,7 @@ import {
   VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
   VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
+  VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
@@ -669,6 +674,13 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: "vehicle-care",
+        children: [
+          { index: true, Component: VehicleCareAdminDashboard },
+          { path: "vendor", Component: VehicleCareVendorPortal },
+        ],
+      },
+      {
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
       },
@@ -815,6 +827,22 @@ export const router = createBrowserRouter([
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
+          {
+            path: "products",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <VendorProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "inventory",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_INVENTORY} requiredModule="COMMERCE">
+                <VendorInventoryLedger />
+              </PermissionGuard>
+            ),
+          },
           { path: "payments", Component: MyPayments },
           { path: "merchant-payments", Component: VendorMerchantPayments },
           { path: "documents", Component: MyDocuments },
@@ -869,17 +897,25 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "settlement-management",
+            path: "grocery-orders",
             element: (
               <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
-                <SettlementManagement />
+                <VendorGroceryOrders />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "settlement-management",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <VendorSettlements />
               </PermissionGuard>
             ),
           },
           {
             path: "commerce-analytics",
             element: (
-              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+              <PermissionGuard permission={VIEW_COMMERCE_ANALYTICS} requiredModule="COMMERCE">
                 <CommerceAnalyticsDashboard />
               </PermissionGuard>
             ),

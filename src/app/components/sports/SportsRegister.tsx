@@ -151,45 +151,15 @@ export function checkCategoryEligibility(
     };
   }
 
-  // If categoryOrEvent has an array of subcategories, check if any subcategory matches or if all are blocked
-  if (Array.isArray(categoryOrEvent.categories) && categoryOrEvent.categories.length > 0) {
-    const subCategories: any[] = categoryOrEvent.categories;
-    const subResults = subCategories.map(sub => checkCategoryEligibility(sub, participantAge, participantGender));
-    const anyEligible = subResults.some(r => r.eligible);
-    if (anyEligible) {
-      const matchingSub = subResults.find(r => r.eligible);
-      return matchingSub || {
-        eligible: true,
-        isGenderMismatch: false,
-        isOverAge: false,
-        isUnderAge: false,
-        minAge: null,
-        maxAge: null,
-        requiredGender: null,
-        warningMsg: "",
-      };
-    } else {
-      const isGenderMismatch = subResults.every(r => r.isGenderMismatch);
-      const isOverAge = subResults.every(r => r.isOverAge);
-      const isUnderAge = subResults.every(r => r.isUnderAge);
-      return {
-        eligible: false,
-        isGenderMismatch,
-        isOverAge,
-        isUnderAge,
-        minAge: subResults[0]?.minAge ?? null,
-        maxAge: subResults[0]?.maxAge ?? null,
-        requiredGender: subResults[0]?.requiredGender ?? null,
-        warningMsg: subResults[0]?.warningMsg || "No eligible category for selected participant",
-      };
-    }
-  }
-
   const text = `${categoryOrEvent.categoryName || ""} ${categoryOrEvent.name || ""}`.toLowerCase();
   
-  // 1. Parse Min & Max Age
-  let minAge: number | null = categoryOrEvent.minAge ?? null;
-  let maxAge: number | null = categoryOrEvent.maxAge ?? null;
+  // 1. Parse Min & Max Age (convert any string/number safely)
+  let minAge: number | null = categoryOrEvent.minAge != null && !isNaN(Number(categoryOrEvent.minAge))
+    ? Number(categoryOrEvent.minAge)
+    : null;
+  let maxAge: number | null = categoryOrEvent.maxAge != null && !isNaN(Number(categoryOrEvent.maxAge))
+    ? Number(categoryOrEvent.maxAge)
+    : null;
 
   if (minAge == null && maxAge == null) {
     const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
@@ -246,23 +216,77 @@ export function checkCategoryEligibility(
   let isUnderAge = false;
   let warningMsg = "";
 
-  if (participantAge > 0) {
-    if (maxAge != null && participantAge > maxAge) {
+  const pAge = Number(participantAge) || 0;
+
+  if (pAge > 0) {
+    if (maxAge != null && pAge > maxAge) {
       isOverAge = true;
-      warningMsg = `Participant age (${participantAge}y) exceeds maximum limit for this category (Max: ${maxAge} yrs).`;
-    } else if (minAge != null && participantAge < minAge) {
+      warningMsg = `Participant age (${pAge}y) exceeds maximum limit for this category (Max: ${maxAge} yrs).`;
+    } else if (minAge != null && pAge < minAge) {
       isUnderAge = true;
-      warningMsg = `Participant age (${participantAge}y) is below minimum age requirement (${minAge}+ yrs).`;
-    } else if (minAge == null && participantAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+      warningMsg = `Participant age (${pAge}y) is below minimum age requirement (${minAge}+ yrs).`;
+    } else if (minAge == null && pAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
       isUnderAge = true;
-      warningMsg = `Participant age (${participantAge}y) is below minimum sports participation age (4+ yrs).`;
+      warningMsg = `Participant age (${pAge}y) is below minimum sports participation age (4+ yrs).`;
     }
+  } else if (minAge != null && minAge > 0) {
+    // Participant age is 0 or unverified, but this category explicitly requires a minimum age (e.g. 19+)
+    isUnderAge = true;
+    warningMsg = `Participant age/DOB is required to meet the minimum age requirement (${minAge}+ yrs).`;
   }
 
   if (isGenderMismatch) {
     const requiredLabel = requiredGender === "FEMALE" ? "Female" : requiredGender === "MALE" ? "Male" : requiredGender;
     const currentLabel = pGender === "FEMALE" ? "Female" : pGender === "MALE" ? "Male" : participantGender || "unspecified";
     warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
+  }
+
+  // If this category or event itself has explicit restrictions that failed, it is ineligible!
+  if (isGenderMismatch || isOverAge || isUnderAge) {
+    return {
+      eligible: false,
+      isGenderMismatch,
+      isOverAge,
+      isUnderAge,
+      minAge,
+      maxAge,
+      requiredGender,
+      warningMsg,
+    };
+  }
+
+  // If categoryOrEvent has an array of subcategories and no direct restrictions, evaluate subcategories
+  if (Array.isArray(categoryOrEvent.categories) && categoryOrEvent.categories.length > 0 && minAge == null && maxAge == null && !requiredGender) {
+    const subCategories: any[] = categoryOrEvent.categories;
+    const subResults = subCategories.map(sub => checkCategoryEligibility(sub, participantAge, participantGender));
+    const anyEligible = subResults.some(r => r.eligible);
+    if (anyEligible) {
+      const matchingSub = subResults.find(r => r.eligible);
+      return matchingSub || {
+        eligible: true,
+        isGenderMismatch: false,
+        isOverAge: false,
+        isUnderAge: false,
+        minAge: null,
+        maxAge: null,
+        requiredGender: null,
+        warningMsg: "",
+      };
+    } else {
+      const isAllGenderMismatch = subResults.every(r => r.isGenderMismatch);
+      const isAllOverAge = subResults.every(r => r.isOverAge);
+      const isAllUnderAge = subResults.every(r => r.isUnderAge);
+      return {
+        eligible: false,
+        isGenderMismatch: isAllGenderMismatch,
+        isOverAge: isAllOverAge,
+        isUnderAge: isAllUnderAge,
+        minAge: subResults[0]?.minAge ?? null,
+        maxAge: subResults[0]?.maxAge ?? null,
+        requiredGender: subResults[0]?.requiredGender ?? null,
+        warningMsg: subResults[0]?.warningMsg || "No eligible category for selected participant",
+      };
+    }
   }
 
   const eligible = !isGenderMismatch && !isOverAge && !isUnderAge;

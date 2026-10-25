@@ -9,6 +9,7 @@ import { sportsDashboardService, type DashboardTournamentCard } from "../../../s
 import { auctionService } from "../../../services/sports/auctionService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats, inferGender } from "./SportsRegister";
+import { getStoredUser } from "../../../services/common/apiClient";
 import { isTeamSport } from "./utils/sportsConstants";
 import {
   VIEW_SPORTS_MAIN,
@@ -561,10 +562,11 @@ export function SportsDashboard() {
   const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
     const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
     if (isSelf) {
-      const rawDob = user?.dateOfBirth || (user as any)?.dob;
+      const stored = getStoredUser();
+      const rawDob = user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob;
       const parsedAge = calculateAge(rawDob);
-      const hasDob = Boolean(rawDob || (user as any)?.age > 0 || (parsedAge !== null && parsedAge > 0));
-      const hasGender = Boolean(user?.gender && String(user.gender).trim());
+      const hasDob = Boolean(rawDob || (user as any)?.age > 0 || (stored as any)?.age > 0 || (parsedAge !== null && parsedAge > 0));
+      const hasGender = Boolean((user?.gender && String(user.gender).trim()) || (stored?.gender && String(stored.gender).trim()));
       const missingFields: string[] = [];
       if (!hasDob) missingFields.push("Date of Birth / Age");
       if (!hasGender) missingFields.push("Gender");
@@ -572,7 +574,7 @@ export function SportsDashboard() {
         isValid: hasDob && hasGender,
         hasDob,
         hasGender,
-        memberName: user?.fullName || "Self",
+        memberName: user?.fullName || stored?.fullName || "Self",
         isSelf: true,
         missingFields,
       };
@@ -667,16 +669,17 @@ export function SportsDashboard() {
     }
 
     const isSelfMember = val === "self";
+    const stored = getStoredUser();
     const member = isSelfMember
       ? {
-          name: user?.fullName || "Self",
-          age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
-          gender: user?.gender || "Male",
+          name: user?.fullName || stored?.fullName || "Self",
+          age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
+          gender: user?.gender || stored?.gender || "Male",
         }
       : (() => {
           const fm = familyMembers.find(m => String(m.id) === String(val));
           const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
-          const inferredGen = inferGender(fm, user?.gender);
+          const inferredGen = inferGender(fm, user?.gender || stored?.gender);
           return {
             name: fm?.name || "Family Member",
             age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
@@ -826,8 +829,14 @@ export function SportsDashboard() {
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
           gender: e.gender ?? (e as any).genderCategory ?? (e as any).category?.gender ?? (e as any).playerCategory?.gender ?? (e as any).categories?.[0]?.gender ?? undefined,
-          minAge: e.minAge ?? (e as any).category?.minAge ?? (e as any).playerCategory?.minAge ?? (e as any).categories?.[0]?.minAge ?? undefined,
-          maxAge: e.maxAge ?? (e as any).category?.maxAge ?? (e as any).playerCategory?.maxAge ?? (e as any).categories?.[0]?.maxAge ?? undefined,
+          minAge: (() => {
+            const raw = e.minAge ?? (e as any).category?.minAge ?? (e as any).playerCategory?.minAge ?? (e as any).categories?.[0]?.minAge;
+            return raw != null && !isNaN(Number(raw)) ? Number(raw) : undefined;
+          })(),
+          maxAge: (() => {
+            const raw = e.maxAge ?? (e as any).category?.maxAge ?? (e as any).playerCategory?.maxAge ?? (e as any).categories?.[0]?.maxAge;
+            return raw != null && !isNaN(Number(raw)) ? Number(raw) : undefined;
+          })(),
           categories: e.categories ?? undefined,
           allowedGenders: e.allowedGenders ?? undefined,
           rawEvent: e,
@@ -1467,15 +1476,16 @@ export function SportsDashboard() {
                 const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
                 const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
                 const isSelf = selectedMemberId === "self";
+                const stored = getStoredUser();
                 const targetMember = isSelf
                   ? {
-                      age: calculateAge(user?.dateOfBirth || (user as any)?.dob) || (user as any)?.age || 0,
-                      gender: user?.gender || "Male",
+                      age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
+                      gender: user?.gender || stored?.gender || "Male",
                     }
                   : (() => {
                       const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
                       const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
-                      const inferredGen = inferGender(fm, user?.gender);
+                      const inferredGen = inferGender(fm, user?.gender || stored?.gender);
                       return {
                         age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
                         gender: inferredGen || fm?.gender || "",

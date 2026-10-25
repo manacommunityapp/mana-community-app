@@ -143,8 +143,8 @@ function checkCategoryEligibility(
   const text = `${cat.name || ""} ${cat.description || ""}`.toLowerCase();
 
   // Extract min/max age if not explicitly configured in DB
-  let minAge: number | null = cat.minAge ?? null;
-  let maxAge: number | null = cat.maxAge ?? null;
+  let minAge: number | null = cat.minAge != null && !isNaN(Number(cat.minAge)) ? Number(cat.minAge) : null;
+  let maxAge: number | null = cat.maxAge != null && !isNaN(Number(cat.maxAge)) ? Number(cat.maxAge) : null;
 
   if (minAge == null && maxAge == null) {
     const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
@@ -166,28 +166,35 @@ function checkCategoryEligibility(
   }
 
   // Age validation
-  if (age !== null && age > 0) {
-    if (minAge != null && age < minAge) {
+  const pAge = Number(age) || 0;
+  if (pAge > 0) {
+    if (minAge != null && pAge < minAge) {
       return {
         eligible: false,
-        reason: `Age ${age} yrs is below min required age (${minAge} yrs). Allowed: ${minAge}–${maxAge ?? 99} yrs.`,
+        reason: `Age ${pAge} yrs is below min required age (${minAge} yrs). Allowed: ${minAge}–${maxAge ?? 99} yrs.`,
         badgeText: `Ineligible: Min age ${minAge} yrs`,
       };
     }
-    if (maxAge != null && age > maxAge) {
+    if (maxAge != null && pAge > maxAge) {
       return {
         eligible: false,
-        reason: `Age ${age} yrs exceeds max allowed age (${maxAge} yrs). Allowed: ${minAge ?? 0}–${maxAge} yrs.`,
+        reason: `Age ${pAge} yrs exceeds max allowed age (${maxAge} yrs). Allowed: ${minAge ?? 0}–${maxAge} yrs.`,
         badgeText: `Ineligible: Max age ${maxAge} yrs`,
       };
     }
-    if (minAge == null && age < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+    if (minAge == null && pAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
       return {
         eligible: false,
-        reason: `Age ${age} yrs is below minimum sports participation age (4+ yrs).`,
+        reason: `Age ${pAge} yrs is below minimum sports participation age (4+ yrs).`,
         badgeText: `Ineligible: Min age 4 yrs`,
       };
     }
+  } else if (minAge != null && minAge > 0) {
+    return {
+      eligible: false,
+      reason: `Participant age/DOB is required to meet the minimum age requirement (${minAge}+ yrs).`,
+      badgeText: `Ineligible: Min age ${minAge} yrs`,
+    };
   }
 
   // Gender validation
