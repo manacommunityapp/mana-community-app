@@ -114,6 +114,7 @@ import { SportsMyTeams }      from "./components/sports/SportsMyTeams";
 import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
 import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
+import { SportsTrainers }        from "./components/sports/SportsTrainers";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -499,6 +500,10 @@ export const router = createBrowserRouter([
           {
             path: "schedule/:eventId",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
+          },
+          {
+            path: "trainers",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "auction",
