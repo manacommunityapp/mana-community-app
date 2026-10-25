@@ -30,6 +30,7 @@ const CATEGORY_TABS: { id: ProviderCategory | "ALL"; label: string; icon: string
   { id: "DIAGNOSTIC_CENTER", label: "Diagnostics & Labs", icon: "🧪" },
   { id: "PHARMACY", label: "Pharmacies", icon: "💊" },
   { id: "PHYSIOTHERAPIST", label: "Physiotherapists", icon: "🏃" },
+  { id: "FITNESS_TRAINER", label: "Gym & Fitness Trainers", icon: "🏋️" },
   { id: "HOME_CARE", label: "Home Care", icon: "🏡" }
 ];
 

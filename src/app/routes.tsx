@@ -178,7 +178,7 @@ import MyCommerceProfile from "./components/commerce/customer/MyCommerceProfile"
 import LoyaltyWallet from "./components/commerce/customer/LoyaltyWallet";
 import MyOrders from "./components/commerce/orders/MyOrders";
 import VendorOrderManagement from "./components/commerce/orders/VendorOrderManagement";
-import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
+import { VendorSettlements } from "./components/vendor/portal/VendorSettlements";
 import CommerceAnalyticsDashboard from "./components/commerce/vendors/CommerceAnalyticsDashboard";
 import FlashSaleManagement from "./components/commerce/vendors/FlashSaleManagement";
 import VendorRatingsDashboard from "./components/commerce/vendors/VendorRatingsDashboard";
@@ -383,7 +383,7 @@ import {
   VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
   VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
-  VIEW_COMMERCE_INVENTORY,
+  VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
@@ -907,15 +907,15 @@ export const router = createBrowserRouter([
           {
             path: "settlement-management",
             element: (
-              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
-                <SettlementManagement />
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <VendorSettlements />
               </PermissionGuard>
             ),
           },
           {
             path: "commerce-analytics",
             element: (
-              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+              <PermissionGuard permission={VIEW_COMMERCE_ANALYTICS} requiredModule="COMMERCE">
                 <CommerceAnalyticsDashboard />
               </PermissionGuard>
             ),
