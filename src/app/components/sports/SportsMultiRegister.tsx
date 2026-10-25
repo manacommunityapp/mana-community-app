@@ -544,9 +544,27 @@ function getAvailableEventFormats(
 ): string[] {
   const eName = (eventName || "").toLowerCase();
   const tName = (tournamentName || "").toLowerCase();
-  const sName = (sportName || "").toLowerCase();
-  const combined = `${sName} ${tName} ${eName} ${(ev?.name || "").toLowerCase()}`;
+  const catName = (ev?.categoryName || ev?.category?.name || "").toLowerCase();
+  const gender = (ev?.gender || ev?.genderCategory || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName} ${(ev?.name || "").toLowerCase()} ${catName}`;
   const sKey = detectSport(combined);
+
+  // Gender check: Men-only or Women-only events/categories CANNOT have MIXED_DOUBLES
+  const isGenderRestricted =
+    gender === "male" ||
+    gender === "female" ||
+    gender === "men" ||
+    gender === "women" ||
+    gender === "boys" ||
+    gender === "girls" ||
+    catName.includes("men") ||
+    catName.includes("women") ||
+    catName.includes("boys") ||
+    catName.includes("girls") ||
+    eName.includes("men") ||
+    eName.includes("women") ||
+    eName.includes("boys") ||
+    eName.includes("girls");
 
   // 1. Check if event or tournament explicitly specifies formats
   const rawExplicit =
@@ -555,6 +573,9 @@ function getAvailableEventFormats(
     ev?.matchFormat ||
     ev?.matchFormats ||
     ev?.matchTypes ||
+    ev?.rawEvent?.formats ||
+    ev?.rawEvent?.format ||
+    ev?.rawEvent?.eventFormats ||
     ev?.sport?.formats ||
     ev?.sport?.format ||
     (ev as any)?.tournament?.format ||
@@ -566,6 +587,10 @@ function getAvailableEventFormats(
     // Only restrict if the event name specifically targets ONLY a single sub-bracket (e.g. purely "Mixed Doubles")
     if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
       return ["MIXED_DOUBLES"];
+    }
+    // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
+    if (isGenderRestricted && parsedExplicit.includes("MIXED_DOUBLES") && parsedExplicit.length > 1) {
+      return parsedExplicit.filter(f => f !== "MIXED_DOUBLES");
     }
     return parsedExplicit;
   }
@@ -595,13 +620,16 @@ function getAvailableEventFormats(
 
   // 3. Check event name keywords if it explicitly says Singles & Doubles
   if (eName.includes("singles") && eName.includes("doubles")) {
-    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
   if (eName.includes("mixed") || eName.includes("mixed doubles")) {
     return ["MIXED_DOUBLES"];
   }
   if (eName.includes("doubles") && !eName.includes("singles")) {
     return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
   }
 
   // 4. Default available formats based on sport type (racket/court/table sports support singles & doubles)
@@ -614,7 +642,11 @@ function getAvailableEventFormats(
     combined.includes("shuttle") ||
     combined.includes("tt")
   ) {
-    return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    const hasMixedKeyword = combined.includes("mixed") || combined.includes("co-ed");
+    if (hasMixedKeyword && !isGenderRestricted) {
+      return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    }
+    return ["SINGLES", "DOUBLES"];
   }
 
   if (
@@ -662,6 +694,9 @@ interface SportEventSelection {
   partnerInfo?: SelectedPartnerInfo | null;
   captainNomination?: boolean;
   proposedTeamName?: string;
+  minAge?: number | null;
+  maxAge?: number | null;
+  allowHigherAgeCategory?: boolean;
 }
 
 export function SportsMultiRegister() {
@@ -1132,6 +1167,9 @@ export function SportsMultiRegister() {
               availableFormats: availableFormats,
               role: defaultRole,
               categoryId: matchedCategory?.id,
+              minAge: (ev as any).minAge ?? matchedCategory?.minAge ?? null,
+              maxAge: (ev as any).maxAge ?? matchedCategory?.maxAge ?? null,
+              allowHigherAgeCategory: (ev as any).allowHigherAgeCategory ?? true,
             };
           });
           setEventSelections(initialSelections);
@@ -2535,6 +2573,10 @@ export function SportsMultiRegister() {
                                       communityId={user?.communityId}
                                       familyMembers={savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
+                                      eventId={ev.eventId}
+                                      minAge={ev.minAge}
+                                      maxAge={ev.maxAge}
+                                      allowHigherAgeCategory={ev.allowHigherAgeCategory ?? true}
                                     />
                                   </div>
                                 )}

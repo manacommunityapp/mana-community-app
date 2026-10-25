@@ -839,6 +839,8 @@ export function SportsDashboard() {
           })(),
           categories: e.categories ?? undefined,
           allowedGenders: e.allowedGenders ?? undefined,
+          formats: e.formats ?? (e.format ? (Array.isArray(e.format) ? e.format : [e.format]) : undefined),
+          format: e.format ?? e.formats,
           rawEvent: e,
         };
       };
@@ -909,6 +911,9 @@ export function SportsDashboard() {
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
+          formats: e.formats ?? (e.format ? (Array.isArray(e.format) ? e.format : [e.format]) : undefined),
+          format: e.format ?? e.formats,
+          rawEvent: e,
         };
       };
 

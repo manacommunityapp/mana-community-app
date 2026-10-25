@@ -1687,6 +1687,7 @@ export function MySports() {
                 communityId={user?.communityId}
                 familyMembers={familyMembers}
                 disabled={partnerModalState.saving}
+                eventId={partnerModalState.registration?.eventId || (partnerModalState.registration as any)?.event?.id}
               />
 
               <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-3 border-t border-slate-100">
