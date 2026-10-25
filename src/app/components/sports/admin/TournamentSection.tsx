@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport } from "../utils/sportsConstants";
@@ -7,6 +7,7 @@ import { sportsRankingService } from "../../../../services/sports/sportsRankingS
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
 import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
+import { ShareTournamentModal } from "./ShareTournamentModal";
 
 interface TournamentSectionProps {
   title: string;
@@ -51,6 +52,7 @@ export function TournamentSection({
   const [savingSeeds, setSavingSeeds] = useState<Record<number, boolean>>({});
   const [exportDropdownEventId, setExportDropdownEventId] = useState<number | null>(null);
   const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
+  const [shareTournament, setShareTournament] = useState<any | null>(null);
 
   async function handleSeedSave(regId: number) {
     const raw = seedDrafts[regId];
@@ -436,6 +438,14 @@ export function TournamentSection({
                     >
                       Events ({item.sportsEvents.length})
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareTournament(item)}
+                      className="text-xs px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg transition-colors font-semibold cursor-pointer flex items-center gap-1 shadow-sm"
+                      title="Share Complete Tournament (Multi-Sport Registration Form)"
+                    >
+                      <Share2 className="w-3 h-3" /> Share Form
+                    </button>
                     {onAddEventToTournament && (
                       <button
                         type="button"
@@ -601,6 +611,14 @@ export function TournamentSection({
           <div className="text-center py-6 text-xs text-[#475569] italic">{emptyText}</div>
         )}
       </div>
+
+      {shareTournament && (
+        <ShareTournamentModal
+          isOpen={!!shareTournament}
+          onClose={() => setShareTournament(null)}
+          tournament={shareTournament}
+        />
+      )}
     </div>
   );
 }
