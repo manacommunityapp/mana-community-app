@@ -36,7 +36,22 @@ const CHECKLIST_ITEMS = [
   "Area cleaned up after service",
 ];
 
-const JOBS = [
+type Job = {
+  id: number;
+  bookingNumber: string;
+  status: string;
+  resident: string;
+  flat: string;
+  address: string;
+  service: string;
+  vehicle: string;
+  vehicleType: string;
+  time: string;
+  amount: string;
+  rating: number | null;
+};
+
+const JOBS: Job[] = [
   {
     id: 1, bookingNumber: "VC-20261025-A1B2C3", status: "IN_PROGRESS",
     resident: "Rahul M.", flat: "B-204", address: "Tower B, Flat 204",
@@ -57,7 +72,7 @@ const JOBS = [
   },
 ];
 
-const HISTORY = [
+const HISTORY: Job[] = [
   {
     id: 4, bookingNumber: "VC-20261025-G7H8I9", status: "COMPLETED",
     resident: "Anil T.", flat: "C-305", address: "Tower C, Flat 305",
@@ -71,8 +86,6 @@ const HISTORY = [
     time: "2:00 PM – 2:30 PM", amount: "₹249", rating: 4,
   },
 ];
-
-type Job = typeof JOBS[number] & { rating: number | null };
 
 function JobCard({ job, onStatusUpdate }: { job: Job; onStatusUpdate: (id: number, status: string) => void }) {
   const [expanded, setExpanded] = useState(false);
@@ -191,8 +204,8 @@ function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
 
 export function VehicleCareVendorPortal() {
   const [tab, setTab] = useState<Tab>("Today");
-  const [jobs, setJobs] = useState<Job[]>(JOBS as Job[]);
-  const historyJobs: Job[] = HISTORY as Job[];
+  const [jobs, setJobs] = useState<Job[]>(JOBS);
+  const historyJobs = HISTORY;
 
   const handleStatusUpdate = (id: number, newStatus: string) => {
     setJobs(prev => prev.map(j => j.id === id ? { ...j, status: newStatus } : j));
