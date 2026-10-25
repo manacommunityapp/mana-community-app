@@ -300,6 +300,7 @@ import { SplitBillPortal } from "../pages/split/SplitBillPortal";
 import { MoviePortal } from "../pages/entertainment/MoviePortal";
 import FDPortal from "../pages/investments/FDPortal";
 import LoanPortal from "../pages/finance/LoanPortal";
+import KhataBook from "../pages/finance/KhataBook";
 import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // New cross-module parity components
@@ -1197,6 +1198,7 @@ export const router = createBrowserRouter([
       },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "khatabook", element: <KhataBook /> },
       { path: "health", element: <HealthDashboard /> },
       {
         path: "wellness",
