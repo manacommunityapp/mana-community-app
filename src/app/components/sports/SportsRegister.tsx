@@ -3336,9 +3336,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
                 eventId={event?.id}
-                minAge={categories.find(c => formData.categoryIds.includes(c.id))?.minAge ?? event?.minAge}
-                maxAge={categories.find(c => formData.categoryIds.includes(c.id))?.maxAge ?? event?.maxAge}
-                allowHigherAgeCategory={event?.allowHigherAgeCategory ?? true}
+                minAge={categories.find(c => formData.categoryIds.includes(c.id))?.minAge ?? (event as any)?.minAge}
+                maxAge={categories.find(c => formData.categoryIds.includes(c.id))?.maxAge ?? (event as any)?.maxAge}
+                allowHigherAgeCategory={(event as any)?.allowHigherAgeCategory ?? true}
               />
             )}
 
