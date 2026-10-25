@@ -210,8 +210,9 @@ export const sportsEventService = {
   },
 
   /** DELETE /api/sports/register/{registrationId} — withdraw from a tournament */
-  async withdraw(registrationId: number): Promise<void> {
-    return apiClient.delete<void>(`/sports/register/${registrationId}`);
+  async withdraw(registrationId: number, reason?: string): Promise<void> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+    return apiClient.delete<void>(`/sports/register/${registrationId}${qs}`);
   },
 
   /** GET /api/sports/tournaments/{eventId}/registrations — list all registrations for a tournament */

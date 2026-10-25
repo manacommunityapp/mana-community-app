@@ -2097,19 +2097,24 @@ export function useSportsAdminState() {
   };
 
   const handleRejectRegistration = async (regId: number) => {
+    const isRemoval = registrations.find((r: any) => r.id === regId)?.status === "CONFIRMED";
     const { isConfirmed, value: reason } = await (await import("sweetalert2")).default.fire({
-      title: "Reject Registration",
+      title: isRemoval ? "Remove Player" : "Reject Registration",
       input: "text",
-      inputLabel: "Reason for rejection (optional)",
+      inputLabel: isRemoval ? "Reason for removal (optional)" : "Reason for rejection (optional)",
       showCancelButton: true,
       confirmButtonColor: "#2563EB",
       cancelButtonColor: "#EF4444",
-      confirmButtonText: "Reject",
+      confirmButtonText: isRemoval ? "Remove" : "Reject",
     });
     if (!isConfirmed) return;
     try {
-      await sportsService.rejectRegistration(regId, reason || undefined);
-      toast.success("Registration rejected");
+      if (isRemoval) {
+        await sportsService.withdraw(regId, reason || undefined);
+      } else {
+        await sportsService.rejectRegistration(regId, reason || undefined);
+      }
+      toast.success(isRemoval ? "Player removed" : "Registration rejected");
       if (viewingEventId && viewMode === "players") {
         const regs = await sportsService.getTournamentRegistrations(viewingEventId);
         setRegistrations(regs);
