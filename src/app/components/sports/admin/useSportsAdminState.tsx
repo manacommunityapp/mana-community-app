@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
-import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3, Dumbbell } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
 import { confirmAction } from "../../../../utils/AlertUtils";
@@ -67,7 +67,7 @@ export const RECIPIENT_OPTIONS = [
   "Referees"
 ] as const;
 
-export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard" | "notification-analytics" | "rankings";
+export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard" | "notification-analytics" | "rankings" | "trainers";
 
 export interface SportEventState {
   id: string;
@@ -2634,6 +2634,7 @@ export function useSportsAdminState() {
     { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
     { id: "notification-analytics", label: "Notifications", icon: <BarChart3 className="w-4 h-4" /> },
     { id: "rankings" as TabId, label: "Rankings", icon: <Trophy className="w-4 h-4" /> },
+    { id: "trainers", label: "Trainers", icon: <Dumbbell className="w-4 h-4" /> },
   ];
   if (isAdmin) {
     menuItems.push({ id: "sports-meta", label: "Sports Meta", icon: <Trophy className="w-4 h-4" /> });

@@ -56,6 +56,8 @@ export interface AcademyInstructor {
   communityId: string;
   residentUserId: string;
   fullName: string;
+  email?: string;
+  phone?: string;
   profession?: string;
   bio?: string;
   profilePicUrl?: string;

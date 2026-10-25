@@ -759,4 +759,17 @@ export const academyApi = {
     setStorage(STORAGE_KEY_REVIEWS, reviews);
     return newRev;
   },
+
+  async updateInstructorStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<void> {
+    try {
+      await apiClient.patch(`/academy/instructors/${id}/status`, { status });
+      return;
+    } catch {}
+    const instructors = getStorage<AcademyInstructor[]>(STORAGE_KEY_INSTRUCTORS, DEFAULT_INSTRUCTORS);
+    const idx = instructors.findIndex((i) => i.id === id);
+    if (idx !== -1) {
+      instructors[idx] = { ...instructors[idx], status };
+      setStorage(STORAGE_KEY_INSTRUCTORS, instructors);
+    }
+  },
 };

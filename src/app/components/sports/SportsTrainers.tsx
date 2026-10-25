@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Star, Award, Users, Calendar, Clock, MapPin, CheckCircle2, Loader2, ChevronRight, X, UserCheck, Filter, Dumbbell } from "lucide-react";
+import { Star, Award, Users, Calendar, Clock, MapPin, CheckCircle2, Loader2, ChevronRight, X, UserCheck, Filter, Dumbbell, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { academyApi } from "../../../services/academy/academyApi";
@@ -470,6 +470,155 @@ export function SportsTrainers() {
           onBook={handleBook}
           onClose={() => setSelectedTrainer(null)}
         />
+      )}
+
+      {/* ── Become a Trainer ─────────────────────────────────────────── */}
+      <BecomeATrainerSection />
+    </div>
+  );
+}
+
+// ─── Become a Trainer form ────────────────────────────────────────────────────
+
+function BecomeATrainerSection() {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [form, setForm] = useState({
+    sport: "",
+    certificationBody: "",
+    certificationNumber: "",
+    certifiedYear: "",
+    ageGroupsCoached: "",
+    bio: "",
+    yearsOfExperience: "",
+    phone: "",
+  });
+
+  const SPORTS = ["Badminton", "Cricket", "Tennis", "Football", "Basketball", "Volleyball", "Yoga", "Fitness", "Table Tennis", "Swimming", "Kabaddi", "Chess"];
+
+  function set(k: keyof typeof form) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm((p) => ({ ...p, [k]: e.target.value }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.sport) { toast.error("Please select a sport"); return; }
+    if (!form.bio.trim()) { toast.error("Please add a short bio"); return; }
+    setSubmitting(true);
+    try {
+      await academyApi.applyAsInstructor({
+        fullName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "",
+        email: user?.email ?? "",
+        phone: form.phone,
+        bio: form.bio,
+        experienceYears: form.yearsOfExperience ? parseInt(form.yearsOfExperience) : undefined,
+        isSportsTrainer: true,
+        sportSpecializations: [{
+          sport: form.sport,
+          certificationBody: form.certificationBody || undefined,
+          certificationNumber: form.certificationNumber || undefined,
+          certifiedYear: form.certifiedYear ? parseInt(form.certifiedYear) : undefined,
+          ageGroupsCoached: form.ageGroupsCoached || undefined,
+        }],
+        status: "APPLIED",
+      });
+      setSubmitted(true);
+      toast.success("Application submitted! The admin will review and approve.");
+    } catch {
+      toast.error("Could not submit application. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white";
+
+  return (
+    <div className="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/60 to-violet-50/40 shadow-sm overflow-hidden">
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="h-8 w-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
+          <PlusCircle className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-900">Become a Trainer</p>
+          <p className="text-[11px] text-slate-500">Share your expertise with the community</p>
+        </div>
+        <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+
+      {open && !submitted && (
+        <form onSubmit={handleSubmit} className="px-4 pb-5 space-y-3 border-t border-indigo-100">
+          <p className="text-[11px] text-slate-500 pt-3">Fill in the details below. An admin will review your application.</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Sport *</label>
+              <select value={form.sport} onChange={set("sport")} required className={inputCls}>
+                <option value="">Select sport</option>
+                {SPORTS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Years of Experience</label>
+              <input type="number" min="0" max="50" placeholder="e.g. 5" value={form.yearsOfExperience} onChange={set("yearsOfExperience")} className={inputCls} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Certification Body</label>
+              <input type="text" placeholder="e.g. BAI, BCCI, Yoga Alliance" value={form.certificationBody} onChange={set("certificationBody")} className={inputCls} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Certification Number</label>
+              <input type="text" placeholder="Optional" value={form.certificationNumber} onChange={set("certificationNumber")} className={inputCls} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Year Certified</label>
+              <input type="number" min="1990" max={new Date().getFullYear()} placeholder="e.g. 2019" value={form.certifiedYear} onChange={set("certifiedYear")} className={inputCls} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Age Groups Coached</label>
+              <input type="text" placeholder="e.g. 8–14, Adults" value={form.ageGroupsCoached} onChange={set("ageGroupsCoached")} className={inputCls} />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">Contact Phone</label>
+              <input type="tel" placeholder="+91 XXXXX XXXXX" value={form.phone} onChange={set("phone")} className={inputCls} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Bio *</label>
+            <textarea
+              rows={3}
+              placeholder="Describe your coaching style, achievements and what you can offer residents…"
+              value={form.bio}
+              onChange={set("bio")}
+              required
+              className={inputCls + " resize-none"}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-60"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Dumbbell className="w-4 h-4" />}
+            {submitting ? "Submitting…" : "Submit Application"}
+          </button>
+        </form>
+      )}
+
+      {open && submitted && (
+        <div className="px-4 pb-5 pt-3 text-center border-t border-indigo-100">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+          <p className="text-sm font-bold text-slate-800">Application Submitted!</p>
+          <p className="text-xs text-slate-500 mt-1">We'll notify you once the admin reviews your profile.</p>
+        </div>
       )}
     </div>
   );
