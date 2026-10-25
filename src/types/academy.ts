@@ -106,6 +106,7 @@ export interface TrainerSlotBooking {
   trainerId: string;
   userId: string;
   userName: string;
+  trainerName?: string;
   tower?: string;
   flatNumber?: string;
   status: 'CONFIRMED' | 'CANCELLED';

@@ -331,14 +331,14 @@ export function SportsTrainers() {
       ]);
       setTrainers(t);
       setAllSlots(s);
-      if (user?.id) {
-        const bookings = await academyApi.getMySlotBookings(String(user.id));
+      if (user?.userId) {
+        const bookings = await academyApi.getMySlotBookings(String(user.userId));
         setMyBookedSlotIds(new Set(bookings.map((b) => b.slotId)));
       }
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.userId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -359,8 +359,8 @@ export function SportsTrainers() {
     setBooking(true);
     try {
       await academyApi.bookTrainerSlot(slot.id, {
-        userId: String(user.id),
-        userName: user.name || user.email || "Resident",
+        userId: String(user.userId),
+        userName: user.fullName || user.email || "Resident",
         tower: user.tower ?? undefined,
         flatNumber: user.flatNumber ?? undefined,
       });
@@ -510,7 +510,7 @@ function BecomeATrainerSection() {
     setSubmitting(true);
     try {
       await academyApi.applyAsInstructor({
-        fullName: user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : "",
+        fullName: user?.fullName ?? "",
         email: user?.email ?? "",
         phone: form.phone,
         bio: form.bio,
