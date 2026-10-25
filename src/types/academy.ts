@@ -43,6 +43,14 @@ export interface AcademyCategory {
   active: boolean;
 }
 
+export interface SportSpecialization {
+  sport: string;
+  certificationBody?: string;
+  certificationNumber?: string;
+  certifiedYear?: number;
+  ageGroupsCoached?: string;
+}
+
 export interface AcademyInstructor {
   id: string;
   communityId: string;
@@ -62,6 +70,45 @@ export interface AcademyInstructor {
   reviewCount: number;
   approvedAt?: string;
   createdAt?: string;
+  // Sports trainer fields
+  sportSpecializations?: SportSpecialization[];
+  isSportsTrainer?: boolean;
+}
+
+export type SlotType = 'INDIVIDUAL' | 'GROUP';
+export type SlotStatus = 'OPEN' | 'BOOKED' | 'CANCELLED' | 'COMPLETED';
+
+export interface TrainerSlot {
+  id: string;
+  trainerId: string;
+  trainerName: string;
+  sport: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  slotType: SlotType;
+  maxCapacity: number;
+  bookedCount: number;
+  venueId?: number;
+  venueName?: string;
+  price: number;
+  status: SlotStatus;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface TrainerSlotBooking {
+  id: string;
+  slotId: string;
+  trainerId: string;
+  userId: string;
+  userName: string;
+  tower?: string;
+  flatNumber?: string;
+  status: 'CONFIRMED' | 'CANCELLED';
+  amountPaid: number;
+  bookedAt?: string;
 }
 
 export interface AcademyProgramSession {
