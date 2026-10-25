@@ -251,7 +251,7 @@ export function TournamentDetailsModal({
             {daysLeft !== null && daysLeft >= 0 && isOpenRegistration && (
               <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-300/30 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {daysLeft === 0 ? "Starts Today!" : `${daysLeft} days to start`}
+                {daysLeft === 0 ? "Starts Today!" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} to go`}
               </span>
             )}
 

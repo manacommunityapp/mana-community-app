@@ -1723,7 +1723,7 @@ export function SportsDashboard() {
                               {deadlineDays !== null && deadlineDays >= 0 && (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays}d to start`}
+                                  {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
                                 </span>
                               )}
                               {t.sponsors && t.sponsors.length > 0 && (

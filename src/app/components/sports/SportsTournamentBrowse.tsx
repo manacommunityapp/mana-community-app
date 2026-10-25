@@ -362,7 +362,7 @@ function TournamentCard({
               {daysLeft !== null && daysLeft >= 0 && isOpen && (
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {daysLeft === 0 ? "Starts Today!" : `${daysLeft}d left`}
+                  {daysLeft === 0 ? "Starts Today!" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} to go`}
                 </span>
               )}
             </div>
