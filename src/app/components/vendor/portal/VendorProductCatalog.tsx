@@ -4,6 +4,8 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { vendorCommerceService } from "../../../../services/vendor/vendorCommerceService";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { MANAGE_COMMERCE_PRODUCTS } from "../../../../constants/permissions";
 import type {
   VendorProductDto,
   VendorProductVariantDto,
@@ -11,6 +13,8 @@ import type {
 } from "../../../../services/vendor/vendorCommerceService";
 
 export function VendorProductCatalog() {
+  const { hasPermission, isSuperAdmin } = useAuth();
+  const canManageProducts = isSuperAdmin || hasPermission(MANAGE_COMMERCE_PRODUCTS);
   const [products, setProducts] = useState<VendorProductDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -27,10 +31,36 @@ export function VendorProductCatalog() {
   const [newMrp, setNewMrp] = useState<number>(0);
   const [newCostPrice, setNewCostPrice] = useState<number>(0);
   const [newCommunityPrice, setNewCommunityPrice] = useState<number>(0);
+  const [newUnitOfMeasure, setNewUnitOfMeasure] = useState("UNIT");
+  const [groceryStores, setGroceryStores] = useState<{ id: number; name: string }[]>([]);
+  const [selectedGroceryStoreId, setSelectedGroceryStoreId] = useState<number | null>(null);
+  const [groceryCategories, setGroceryCategories] = useState<{ id: number; name: string }[]>([]);
+  const [selectedGroceryCategoryId, setSelectedGroceryCategoryId] = useState<number | null>(null);
+  const [groceryContextError, setGroceryContextError] = useState("");
 
   useEffect(() => {
     loadProducts();
+    vendorCommerceService.getGroceryStores()
+      .then((stores) => {
+        setGroceryStores(stores);
+        setSelectedGroceryStoreId(stores[0]?.id ?? null);
+        if (stores.length === 0) setGroceryContextError("An active grocery store must be linked to your vendor account before you can publish marketplace products.");
+      })
+      .catch((error: unknown) => setGroceryContextError(error instanceof Error ? error.message : "Could not load your grocery stores."));
   }, []);
+
+  useEffect(() => {
+    setGroceryCategories([]);
+    setSelectedGroceryCategoryId(null);
+    if (selectedGroceryStoreId === null) return;
+    vendorCommerceService.getGroceryCategories(selectedGroceryStoreId)
+      .then((categories) => {
+        setGroceryCategories(categories);
+        setSelectedGroceryCategoryId(categories[0]?.id ?? null);
+        if (categories[0]) setNewCategory(categories[0].name);
+      })
+      .catch((error: unknown) => setGroceryContextError(error instanceof Error ? error.message : "Could not load grocery categories."));
+  }, [selectedGroceryStoreId]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -44,10 +74,13 @@ export function VendorProductCatalog() {
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProductName || !newSku) return;
+    if (!newProductName || !newSku || selectedGroceryStoreId === null || selectedGroceryCategoryId === null) return;
 
     const payload: CreateProductRequest = {
       productName: newProductName,
+      productType: "FOOD",
+      foodGroceryStoreId: selectedGroceryStoreId,
+      foodGroceryCategoryId: selectedGroceryCategoryId,
       brand: newBrand || "Generic",
       category: newCategory,
       description: newDescription,
@@ -57,7 +90,7 @@ export function VendorProductCatalog() {
           variantName: newPackSize || "Standard Pack",
           sku: newSku,
           packSize: newPackSize || "1 Unit",
-          unitOfMeasure: "UNIT",
+          unitOfMeasure: newUnitOfMeasure,
           mrp: Number(newMrp),
           costPrice: Number(newCostPrice),
           communityPrice: Number(newCommunityPrice || newMrp * 0.88),
@@ -73,6 +106,7 @@ export function VendorProductCatalog() {
     setNewDescription("");
     setNewSku("");
     setNewPackSize("");
+    setNewUnitOfMeasure("UNIT");
     setNewMrp(0);
     setNewCostPrice(0);
     setNewCommunityPrice(0);
@@ -96,19 +130,22 @@ export function VendorProductCatalog() {
         <div>
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
             <Package className="w-6 h-6 text-indigo-600" />
-            Product Catalog & Variants
+            Fresh Food & Grocery Catalog
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage your wholesale catalog, package sizes, SKUs, and community tier pricing.
+            <p className="text-xs text-slate-500 mt-0.5">
+            Manage fresh-food and grocery products, pack sizes, weight-based units, and community pricing.
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add New Product
-        </button>
+        {groceryContextError && <p role="status" className="max-w-md text-xs text-amber-700">{groceryContextError}</p>}
+        {canManageProducts && groceryStores.length > 0 && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Product
+          </button>
+        )}
       </div>
 
       {/* Filters & Search */}
@@ -255,6 +292,16 @@ export function VendorProductCatalog() {
 
             <form onSubmit={handleCreateProduct} className="space-y-3.5 text-xs">
               <div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Grocery Store *</label>
+                  <select required value={selectedGroceryStoreId ?? ""} onChange={(event) => setSelectedGroceryStoreId(Number(event.target.value) || null)} className="w-full p-2.5 border border-slate-200 rounded-xl bg-white">
+                    <option value="">Choose a store</option>
+                    {groceryStores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              {groceryStores.length > 0 && groceryCategories.length === 0 && <p className="text-amber-700">This store has no active categories. Ask your platform administrator to add one.</p>}
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">Product Name *</label>
                 <input
                   type="text"
@@ -281,13 +328,14 @@ export function VendorProductCatalog() {
                   <label className="block font-bold text-slate-700 mb-1">Category</label>
                   <select
                     value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    onChange={(e) => {
+                      setNewCategory(e.target.value);
+                      setSelectedGroceryCategoryId(groceryCategories.find((category) => category.name === e.target.value)?.id ?? null);
+                    }}
+                    disabled={!groceryCategories.length}
                     className="w-full p-2.5 border border-slate-200 rounded-xl focus:border-indigo-600 focus:outline-hidden bg-white"
                   >
-                    <option value="Grocery">Grocery</option>
-                    <option value="Fresh Produce">Fresh Produce</option>
-                    <option value="Dairy & Bakery">Dairy & Bakery</option>
-                    <option value="Household">Household</option>
+                    {groceryCategories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -305,7 +353,7 @@ export function VendorProductCatalog() {
 
               <div className="pt-2 border-t border-slate-100">
                 <h4 className="font-bold text-indigo-600 mb-2">Initial Variant & Pricing</h4>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">SKU *</label>
                     <input
@@ -326,6 +374,21 @@ export function VendorProductCatalog() {
                       onChange={(e) => setNewPackSize(e.target.value)}
                       className="w-full p-2.5 border border-slate-200 rounded-xl focus:border-indigo-600 focus:outline-hidden"
                     />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Price unit</label>
+                    <select
+                      value={newUnitOfMeasure}
+                      onChange={(e) => setNewUnitOfMeasure(e.target.value)}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-white focus:border-indigo-600 focus:outline-hidden"
+                    >
+                      <option value="UNIT">Unit</option>
+                      <option value="KG">Kilogram</option>
+                      <option value="G">Gram</option>
+                      <option value="LITRE">Litre</option>
+                      <option value="PACK">Pack</option>
+                      <option value="PIECE">Piece</option>
+                    </select>
                   </div>
                 </div>
 
@@ -373,7 +436,8 @@ export function VendorProductCatalog() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer"
+                  disabled={selectedGroceryStoreId === null || selectedGroceryCategoryId === null}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Create Product
                 </button>

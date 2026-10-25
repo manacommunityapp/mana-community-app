@@ -589,6 +589,8 @@ export function useSportsAdminState() {
   const hydratedTabs = useRef(new Set<TabId>());
   const tournamentsFetchedRef = useRef(false);
   const eventsFetchedRef = useRef(false);
+  const isSportSavingRef = useRef(false);
+  const isTournamentSavingRef = useRef(false);
 
   // Sports Event form state
   const [showSportForm, setShowSportForm] = useState(false);
@@ -1467,6 +1469,7 @@ export function useSportsAdminState() {
     setSelectedCats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSave = async () => {
+    if (isTournamentSavingRef.current) return;
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
     const dateCheck = validateEventDates(startDate, endDate);
@@ -1521,12 +1524,13 @@ export function useSportsAdminState() {
       }));
     };
 
+    isTournamentSavingRef.current = true;
     setSubmitting(true);
     try {
       if (editingEventId) {
         const singleSport = selectedSportsWithEvents[0];
         const singleEvent = singleSport?.events[0];
-        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); return; }
+        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); isTournamentSavingRef.current = false; return; }
         // Preserve the tournament's existing event links captured at edit time; fall
         // back to the form's configured events only if none were captured.
         const formEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
@@ -1605,6 +1609,7 @@ export function useSportsAdminState() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save tournament(s)");
     } finally {
+      isTournamentSavingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -1866,16 +1871,173 @@ export function useSportsAdminState() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Delete Tournament",
-      "Are you sure you want to delete this tournament?"
-    );
+  const getTournamentEvents = (tourneyId: number): any[] => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(tourneyId));
+    const eventsMap = new Map<number, any>();
+
+    if (Array.isArray(tourney?.sportsEvents)) {
+      tourney.sportsEvents.forEach((ev: any) => {
+        if (ev?.id != null) eventsMap.set(Number(ev.id), ev);
+      });
+    }
+    if (tourney?.event?.id != null) {
+      eventsMap.set(Number(tourney.event.id), tourney.event);
+    }
+    if (Array.isArray(activeEvents)) {
+      activeEvents.forEach((ev: any) => {
+        const parentId = ev.tournamentId ?? ev.tournament?.id;
+        if (Number(parentId) === Number(tourneyId) && ev?.id != null) {
+          eventsMap.set(Number(ev.id), ev);
+        }
+      });
+    }
+    return Array.from(eventsMap.values());
+  };
+
+  const checkEventRegistrations = async (eventId: number, cachedEvent?: any): Promise<number> => {
+    if (typeof cachedEvent?.registeredCount === "number" && cachedEvent.registeredCount > 0) {
+      return cachedEvent.registeredCount;
+    }
+    try {
+      const regs = await sportsService.getTournamentRegistrations(eventId);
+      if (Array.isArray(regs)) {
+        return regs.length;
+      }
+    } catch {
+      try {
+        const count = await sportsService.getConfirmedCount(eventId);
+        if (typeof count === "number") return count;
+      } catch {
+        // ignore
+      }
+    }
+    return cachedEvent?.registeredCount || 0;
+  };
+
+  const handleCloseTournament = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const name = tourney?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Close Tournament Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
+    try {
+      await sportsService.closeTournament(id);
+      const events = getTournamentEvents(id);
+      if (events.length > 0) {
+        await Promise.allSettled(
+          events.map(ev => sportsService.closeSportsEvent(ev.id))
+        );
+      }
+      toast.success("Tournament registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close tournament registration");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const events = getTournamentEvents(id);
+    const hasEvents = events.length > 0;
+
+    // Check if registrations exist across all events in this tournament
+    let totalRegistrations = 0;
+    if (hasEvents) {
+      const counts = await Promise.all(
+        events.map(ev => checkEventRegistrations(ev.id, ev))
+      );
+      totalRegistrations = counts.reduce((acc, c) => acc + c, 0);
+    } else {
+      totalRegistrations = await checkEventRegistrations(id, tourney);
+    }
+
+    // If registrations exist: DO NOT DELETE! Ask to close the tournament instead.
+    if (totalRegistrations > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Tournament",
+        text: `This tournament has ${hasEvents ? `${events.length} event(s) and ` : ""}${totalRegistrations} active registration${totalRegistrations > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close the tournament instead?`,
+        confirmButtonText: "Close Tournament",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament and registrations closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament");
+        }
+      }
+      return;
+    }
+
+    // If no registrations exist:
+    const status = tourney?.registrationStatus || tourney?.event?.registrationStatus;
+    const isOpen = status === "LIVE" || status === "REGISTRATION_OPEN";
+
+    if (isOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Tournament Registration?",
+        text: `This tournament is currently open for registration with ${hasEvents ? `${events.length} event(s)` : "no events"} (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Tournament",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament registration");
+        }
+        return;
+      }
+    }
+
+    // If draft or user chose to proceed with deleting 0-registration tournament:
+    const confirmed = await confirmAction({
+      title: "Delete Tournament",
+      text: hasEvents
+        ? `This tournament contains ${events.length} event(s) with no registrations. Are you sure you want to permanently delete this tournament and all its events? This action cannot be undone.`
+        : "Are you sure you want to delete this tournament? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
     try {
       await sportsService.deleteTournament(id);
       toast.success("Tournament deleted");
       refreshTournaments();
+      refreshEvents();
     } catch (err) {
       toast.error("Failed to delete tournament");
     }
@@ -2382,6 +2544,16 @@ export function useSportsAdminState() {
     if (firstCatId) {
       setSelectedTemplates(prev => ({ ...prev, [evId]: firstCatId }));
     }
+    const sportName = e.sport?.name || e.name || "";
+    let cleanEventName = e.name || "";
+    if (sportName && cleanEventName.toLowerCase().startsWith(sportName.toLowerCase())) {
+      cleanEventName = cleanEventName.substring(sportName.length).replace(/^[\s—\-:]+/, "").trim();
+    } else if (cleanEventName.includes(" — ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" — ") + 3).trim();
+    } else if (cleanEventName.includes(" - ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" - ") + 3).trim();
+    }
+
     const editEntry: SportFormEntry = {
       id: Math.random().toString(36).substring(2),
       name: e.sport?.name || e.name,
@@ -2392,7 +2564,7 @@ export function useSportsAdminState() {
       tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
       events: [{
         id: evId,
-        eventName: e.name.includes(" — ") ? e.name.split(" — ")[1] : e.name,
+        eventName: cleanEventName || e.name,
         startDate: e.eventDateStart || "",
         endDate: e.eventDateEnd || "",
         gender: e.gender || "ALL",
@@ -2420,15 +2592,116 @@ export function useSportsAdminState() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSportDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Cancel Event",
-      "Are you sure you want to delete/cancel this scheduled event?"
-    );
+  const handleCloseEvent = async (id: number) => {
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+    const name = targetEvent?.name || "this event";
+    const confirmed = await confirmAction({
+      title: "Close Event Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
     try {
-      await sportsService.deleteTournament(id);
+      await sportsService.closeSportsEvent(id);
+      toast.success("Event registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close event registration");
+    }
+  };
+
+  const handleSportDelete = async (id: number) => {
+    // 1. Find event in activeEvents or activeTournaments
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+
+    // 2. Check if registrations exist for this event
+    const regCount = await checkEventRegistrations(id, targetEvent);
+
+    // 3. If registrations exist: DO NOT DELETE! Ask to close registration instead
+    if (regCount > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Sports Event",
+        text: `This sports event has ${regCount} active registration${regCount > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close registration for this event instead?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+      }
+      return;
+    }
+
+    // 4. If no registrations exist:
+    const eventStatus = targetEvent?.registrationStatus || targetEvent?.status;
+    const isEventOpen = eventStatus === "LIVE" || eventStatus === "REGISTRATION_OPEN";
+
+    if (isEventOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Event Registration?",
+        text: `This sports event is currently open for registration (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Event",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+        return;
+      }
+    }
+
+    // 5. If draft or confirmed delete:
+    const confirmed = await confirmAction({
+      title: "Delete Sports Event",
+      text: "Are you sure you want to delete this sports event? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      await sportsService.deleteEvent(id);
       toast.success("Event deleted successfully");
+      refreshTournaments();
       refreshEvents();
     } catch {
       toast.error("Failed to delete event");
@@ -2436,6 +2709,7 @@ export function useSportsAdminState() {
   };
 
   const handleSportSave = async () => {
+    if (isSportSavingRef.current) return;
     for (const form of sportForms) {
       for (const ev of form.events) {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
@@ -2515,98 +2789,127 @@ export function useSportsAdminState() {
         }
       }
     }
+    isSportSavingRef.current = true;
     setSportSubmitting(true);
     let successCount = 0;
     let failCount = 0;
-    for (const form of sportForms) {
-      const isTeam = isTeamSport(form.name);
-      for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
-        const ev = form.events[eIdx];
-        let effectiveTourneyId = (ev as any).tournamentId !== undefined
-          ? (ev as any).tournamentId
-          : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+    const succeededEventIds = new Set<string>();
+    try {
+      for (const form of sportForms) {
+        const isTeam = isTeamSport(form.name);
+        for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
+          const ev = form.events[eIdx];
+          let effectiveTourneyId = (ev as any).tournamentId !== undefined
+            ? (ev as any).tournamentId
+            : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
 
-        // Guard 1: Never let tournamentId equal the event being edited
-        if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
-          const parent = activeTournaments.find(t =>
-            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
-          );
-          effectiveTourneyId = parent ? parent.id : undefined;
-        }
-
-        // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
-        if (effectiveTourneyId != null) {
-          const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
-          if (!isTournament) {
+          // Guard 1: Never let tournamentId equal the event being edited
+          if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
             const parent = activeTournaments.find(t =>
-              t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+            );
+            effectiveTourneyId = parent ? parent.id : undefined;
+          }
+
+          // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
+          if (effectiveTourneyId != null) {
+            const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
+            if (!isTournament) {
+              const parent = activeTournaments.find(t =>
+                t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+              );
+              if (parent) {
+                effectiveTourneyId = parent.id;
+              }
+            }
+          }
+
+          // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
+          if (!effectiveTourneyId && form.editingSportId) {
+            const parent = activeTournaments.find(t =>
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
             );
             if (parent) {
               effectiveTourneyId = parent.id;
             }
           }
-        }
 
-        // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
-        if (!effectiveTourneyId && form.editingSportId) {
-          const parent = activeTournaments.find(t =>
-            t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
-          );
-          if (parent) {
-            effectiveTourneyId = parent.id;
+          // Normalize eventName so sport prefix is never duplicated
+          let rawEventName = ev.eventName.trim();
+          const sportPrefix = form.name.trim();
+          if (rawEventName.toLowerCase().startsWith(sportPrefix.toLowerCase())) {
+            rawEventName = rawEventName.substring(sportPrefix.length).replace(/^[\s—\-:]+/, "").trim();
           }
-        }
+          const eventDisplayName = rawEventName ? `${form.name} — ${rawEventName}` : form.name;
 
-        const payload: SportsEventRequest = {
-          name: `${form.name} — ${ev.eventName}`,
-          sportId: form.sportId,
-          communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
-          eventDateStart: ev.startDate,
-          eventDateEnd: ev.endDate,
-          venueId: ev.venueId ? Number(ev.venueId) : undefined,
-          minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
-          maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
-          minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
-          maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
-          gender: ev.gender || "ALL",
-          playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
-          format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
-          tournamentType: ev.tournamentType || "KNOCKOUT",
-          categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
-          contactName: ev.contactName?.trim() || "",
-          contactNumber: ev.contactNumber?.trim() || "",
-          contactEmail: ev.contactEmail?.trim() || "",
-          otherContacts: JSON.stringify(
-            (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
-          ) as any,
-          auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
-          adminApprovalRequired: ev.adminApprovalRequired !== false,
-          mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
-          tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
-        };
-        try {
-          if (form.editingSportId && eIdx === 0) {
-            await sportsService.updateSportsEvent(form.editingSportId, payload);
-            toast.success(`Event "${payload.name}" updated successfully!`);
-          } else {
-            await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
+          const payload: SportsEventRequest = {
+            name: eventDisplayName,
+            sportId: form.sportId,
+            communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
+            eventDateStart: ev.startDate,
+            eventDateEnd: ev.endDate,
+            venueId: ev.venueId ? Number(ev.venueId) : undefined,
+            minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
+            maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
+            minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
+            maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
+            gender: ev.gender || "ALL",
+            playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
+            format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
+            tournamentType: ev.tournamentType || "KNOCKOUT",
+            categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
+            contactName: ev.contactName?.trim() || "",
+            contactNumber: ev.contactNumber?.trim() || "",
+            contactEmail: ev.contactEmail?.trim() || "",
+            otherContacts: JSON.stringify(
+              (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
+            ) as any,
+            auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+            adminApprovalRequired: ev.adminApprovalRequired !== false,
+            mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
+            tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
+          };
+          try {
+            if (form.editingSportId && eIdx === 0) {
+              await sportsService.updateSportsEvent(form.editingSportId, payload);
+              toast.success(`Event "${payload.name}" updated successfully!`);
+            } else {
+              await sportsService.createSportsEvent(payload);
+              toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
+            }
+            succeededEventIds.add(ev.id);
+            successCount++;
+          } catch (err) {
+            console.error(`Save event error:`, err);
+            toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
+            failCount++;
           }
-          successCount++;
-        } catch (err) {
-          console.error(`Save event error:`, err);
-          toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
-          failCount++;
         }
       }
+      if (successCount > 0) {
+        refreshEvents();
+        refreshTournaments();
+      }
+      if (failCount === 0) {
+        const wasEditing = sportForms.some(f => f.editingSportId);
+        resetSportForm();
+        if (wasEditing) clearTournamentContext();
+      } else if (succeededEventIds.size > 0) {
+        // Partial failure: remove successfully saved events from sportForms so retrying won't duplicate them
+        setSportForms(prev =>
+          prev
+            .map(f => ({
+              ...f,
+              events: f.events.filter(e => !succeededEventIds.has(e.id)),
+            }))
+            .filter(f => f.events.length > 0)
+        );
+        toast.warning(`${successCount} event(s) saved. ${failCount} failed — please review remaining events.`);
+      }
+    } finally {
+      isSportSavingRef.current = false;
+      setSportSubmitting(false);
     }
-    if (successCount > 0) refreshEvents();
-    if (failCount === 0) {
-      const wasEditing = sportForms.some(f => f.editingSportId);
-      resetSportForm();
-      if (wasEditing) clearTournamentContext();
-    }
-    setSportSubmitting(false);
   };
 
   // Derived data
@@ -2705,7 +3008,7 @@ export function useSportsAdminState() {
     // Tournament data
     activeTournaments, activeEvents,
     draftEvents, liveEvents, completedEvents,
-    handleEdit, handleDelete, handleActivate,
+    handleEdit, handleDelete, handleActivate, handleCloseTournament,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
     announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
@@ -2754,7 +3057,7 @@ export function useSportsAdminState() {
     sportForms, sportSubmitting,
     handleSportPickerSelect, handleCreateCustomSport,
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
-    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete,
+    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,

@@ -660,6 +660,25 @@ export const PreventiveWellnessHub: React.FC<PreventiveWellnessHubProps> = ({ fa
               );
             })}
           </div>
+
+          {/* Gym Personal Trainer Connection Card */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="text-3xl p-3 bg-white rounded-2xl shadow-2xs border border-amber-200">🏋️</div>
+              <div>
+                <h4 className="font-bold text-sm text-amber-950">Pair Your Health Goals with a Certified Coach</h4>
+                <p className="text-xs text-amber-800">
+                  Certified personal trainers at the Clubhouse Gymnasium (Tower A) provide customized workout splits, form analysis & InBody body-composition tests.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/health?tab=gym-trainers"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition whitespace-nowrap"
+            >
+              View Gym Trainers →
+            </a>
+          </div>
         </div>
       )}
 

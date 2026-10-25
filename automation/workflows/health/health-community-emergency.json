@@ -1,0 +1,75 @@
+{
+  "name": "Mana Health Immediate Emergency Guidance",
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.webhook",
+      "id": "1",
+      "typeVersion": 2,
+      "webhookId": "mana-health-community-emergency-webhook",
+      "parameters": {
+        "responseMode": "responseNode",
+        "options": {},
+        "path": "health-community-emergency",
+        "httpMethod": "POST"
+      },
+      "position": [
+        240,
+        300
+      ],
+      "name": "Emergency Request Webhook"
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "id": "2",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{ json: { status: \"immediate_escalation\", module: \"health\", workflow: \"health-community-emergency\", generatedAt: new Date().toISOString(), data: { summary: \"For a possible emergency, contact your local emergency number now. Do not wait for this service.\", findings: [], suggestedActions: [\"Call local emergency services immediately.\", \"Follow instructions from the emergency dispatcher.\"], reviewRequired: true, safetyNotice: \"This fixed response does not contact emergency services or dispatch responders.\" } } }];"
+      },
+      "position": [
+        500,
+        300
+      ],
+      "name": "Return Immediate Emergency Guidance"
+    },
+    {
+      "type": "n8n-nodes-base.respondToWebhook",
+      "id": "3",
+      "typeVersion": 1.1,
+      "parameters": {
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "respondWith": "json",
+        "options": {}
+      },
+      "position": [
+        760,
+        300
+      ],
+      "name": "Return Emergency Guidance"
+    }
+  ],
+  "connections": {
+    "Return Immediate Emergency Guidance": {
+      "main": [
+        {
+          "node": "Return Emergency Guidance",
+          "type": "main",
+          "index": 0
+        }
+      ]
+    },
+    "Emergency Request Webhook": {
+      "main": [
+        {
+          "node": "Return Immediate Emergency Guidance",
+          "type": "main",
+          "index": 0
+        }
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

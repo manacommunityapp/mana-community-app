@@ -108,9 +108,9 @@ export default function LeadTagsSection({ leadId, tags, onTagsChanged, readonly 
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        PaperProps={{ sx: { width: 240, p: 1.5, borderRadius: 2 } }}
+        slotProps={{ paper: { sx: { width: 240, p: 1.5, borderRadius: 2 } } }}
       >
-        <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mb: 1, display: 'block' }}>
           ADD TAG
         </Typography>
         {allTags.filter(t => !tags.some(lt => lt.id === t.id)).length === 0 && (
@@ -124,13 +124,13 @@ export default function LeadTagsSection({ leadId, tags, onTagsChanged, readonly 
             .map(tag => (
               <ListItemButton key={tag.id} onClick={() => handleAdd(tag)} sx={{ borderRadius: 1, py: 0.25 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: tag.color, mr: 1, flexShrink: 0 }} />
-                <ListItemText primary={tag.name} primaryTypographyProps={{ fontSize: 13 }} />
+                <ListItemText primary={tag.name} slotProps={{ primary: { sx: { fontSize: 13 } } }} />
               </ListItemButton>
             ))}
         </List>
 
         <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>
             CREATE NEW TAG
           </Typography>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>

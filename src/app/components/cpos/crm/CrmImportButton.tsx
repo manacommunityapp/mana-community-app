@@ -76,10 +76,10 @@ export default function CrmImportButton({ onImported }: Props) {
                 <Chip label={`${result.errors} errors`} color={result.errors > 0 ? 'error' : 'default'} size="small" />
               </Box>
               {result.errorMessages.length > 0 && (
-                <Box sx={{ bgcolor: 'error.main', bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
-                  <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.5 }}>Errors:</Typography>
+                <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>Errors:</Typography>
                   {result.errorMessages.slice(0, 5).map((msg, i) => (
-                    <Typography key={i} variant="caption" display="block" color="error.main">{msg}</Typography>
+                    <Typography key={i} variant="caption" sx={{ display: 'block' }} color="error.main">{msg}</Typography>
                   ))}
                   {result.errorMessages.length > 5 && (
                     <Typography variant="caption" color="text.secondary">+{result.errorMessages.length - 5} more</Typography>
@@ -87,7 +87,7 @@ export default function CrmImportButton({ onImported }: Props) {
                 </Box>
               )}
               <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
-                <Typography variant="caption" fontWeight={700} display="block" sx={{ mb: 0.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
                   Expected CSV columns:
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>

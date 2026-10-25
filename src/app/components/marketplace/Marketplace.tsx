@@ -24,6 +24,7 @@ import {
   MOCK_DISPUTES, MOCK_AUDIT_LOGS, MOCK_FESTIVAL_ITEMS, MOCK_COUPONS, paginate
 } from "./mockData";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import { automationService, type MarketplaceListingScreenResponse } from "../../../services/automation/automationService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -2398,6 +2399,34 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<MarketplaceListingScreenResponse['audit'] | null>(null);
+
+  const handleAiAudit = async () => {
+    if (!form.title.trim()) {
+      setError("Please provide an item title first to run AI audit.");
+      return;
+    }
+    setIsAuditing(true);
+    setError("");
+    try {
+      const res = await automationService.screenMarketplaceListing({
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        condition: form.condition,
+        price: form.price || 500,
+        priceUnit: form.priceUnit,
+        imageUrls: images,
+      });
+      setAuditResult(res.audit);
+      showSuccess("AI Valuation & Safety Audit completed!");
+    } catch {
+      setError("AI audit failed. Continuing with standard posting.");
+    } finally {
+      setIsAuditing(false);
+    }
+  };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -2585,22 +2614,85 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          {/* AI Audit Insights Preview */}
+          {auditResult && (
+            <div className="p-4 bg-gradient-to-br from-purple-50/80 to-indigo-50/80 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800 rounded-2xl space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  AI Fair Valuation & Policy Audit
+                </span>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  {auditResult.verdict.replace('_', ' ')}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 bg-white dark:bg-[#1E1E36] rounded-xl border border-purple-100 dark:border-purple-900">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Suggested Price Band</p>
+                  <p className="text-sm font-black text-indigo-700 dark:text-indigo-400">
+                    ₹{auditResult.fairPriceBand.low.toLocaleString('en-IN')} – ₹{auditResult.fairPriceBand.high.toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-[10px] font-medium text-slate-500 mt-0.5">Fair: ₹{auditResult.fairPriceBand.suggested.toLocaleString('en-IN')}</p>
+                  {form.price !== auditResult.fairPriceBand.suggested && (
+                    <button
+                      type="button"
+                      onClick={() => update("price", auditResult.fairPriceBand.suggested)}
+                      className="mt-1 text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+                    >
+                      Use ₹{auditResult.fairPriceBand.suggested} →
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-2.5 bg-white dark:bg-[#1E1E36] rounded-xl border border-purple-100 dark:border-purple-900">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Buyer Appeal Score</p>
+                  <p className="text-sm font-black text-emerald-600">
+                    {auditResult.buyerAppealScore} / 100
+                  </p>
+                  <p className="text-[10px] font-medium text-slate-500 mt-0.5">Rating: {auditResult.fairPriceBand.priceVerdict}</p>
+                </div>
+              </div>
+
+              {auditResult.policyCheck.safetyFlags.length > 0 && (
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
+                  {auditResult.policyCheck.safetyFlags.join(' ')}
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 italic">
+                💡 {auditResult.suggestions.sellerTips}
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-[#262644] rounded-xl transition-colors cursor-pointer"
+              onClick={handleAiAudit}
+              disabled={isAuditing}
+              className="px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              Cancel
+              {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+              AI Valuation & Audit
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-5 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-500/20"
-            >
-              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              {saving ? "Posting..." : "Post Advertisement"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-[#262644] rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-5 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2 shadow-md shadow-indigo-500/20"
+              >
+                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                {saving ? "Posting..." : "Post Advertisement"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

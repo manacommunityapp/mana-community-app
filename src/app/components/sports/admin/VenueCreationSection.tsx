@@ -114,7 +114,7 @@ export function VenueCreationSection({
       {/* Title section */}
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold" style={{ color: "#0d0d2b" }}>Venue Management</h3>
+          <h3 className="text-xs font-bold" style={{ color: "#0d0d2b" }}>Venue Management</h3>
           <p className="text-sm mt-1" style={{ color: "#6b7094" }}>Create, edit, and manage your community venues</p>
         </div>
         <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export function VenueCreationSection({
             boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
           }}
         >
-          <h3 className="text-sm font-bold uppercase tracking-wider border-b m-0 mb-0" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
+          <h3 className="text-xs font-bold uppercase tracking-wider border-b m-0 mb-0" style={{ color: "#4f46e5", borderColor: "rgba(99, 102, 241, 0.12)" }}>
             {editingVenueId ? "Edit Venue" : "Create New Venue"}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -269,7 +269,7 @@ export function VenueCreationSection({
               style={{ background: "rgba(99, 102, 241, 0.03)", borderColor: "rgba(99, 102, 241, 0.08)" }}>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                <span className="text-sm font-bold text-slate-800">Timings</span>
+                <span className="text-[10px] font-bold text-slate-800">Timings</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -302,7 +302,7 @@ export function VenueCreationSection({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
                 </div>
                 <button
                   type="button"
@@ -331,7 +331,7 @@ export function VenueCreationSection({
                     
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Name *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Name *</label>
                         <input
                           value={contact.name}
                           onChange={e => updateVenueContact(index, "name", e.target.value)}
@@ -341,7 +341,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Title (Role/Designation)</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Title (Role/Designation)</label>
                         <input
                           value={contact.title || ""}
                           onChange={e => updateVenueContact(index, "title", e.target.value)}
@@ -351,7 +351,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Number *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Number *</label>
                         <input
                           value={contact.number}
                           onChange={e => updateVenueContact(index, "number", e.target.value)}
@@ -361,7 +361,7 @@ export function VenueCreationSection({
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Email *</label>
+                        <label className="text-xs font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Email *</label>
                         <input
                           type="email"
                           value={contact.email}
@@ -382,7 +382,7 @@ export function VenueCreationSection({
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Plus className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Courts</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Courts</span>
                   {courts.length > 0 && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
@@ -393,7 +393,7 @@ export function VenueCreationSection({
                 <button
                   type="button"
                   onClick={addCourt}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
                   style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}
                   onMouseEnter={e => { e.currentTarget.style.background = "rgba(99,102,241,0.2)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "rgba(99,102,241,0.1)"; }}
@@ -414,7 +414,7 @@ export function VenueCreationSection({
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.08)"; }}
                     >
-                      <span className="text-xs font-semibold w-5 text-center" style={{ color: "#6b7094" }}>
+                      <span className="text-[10px] font-semibold w-5 text-center" style={{ color: "#6b7094" }}>
                         #{index + 1}
                       </span>
                       <div className="flex-1">
@@ -514,7 +514,7 @@ export function VenueCreationSection({
                     <div className="text-sm font-bold truncate" style={{ color: "#0d0d2b" }}>
                       {v.name}
                     </div>
-                    <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>
+                    <div className="text-xs mt-1" style={{ color: "#6b7094" }}>
                       {[v.area, v.city, v.pinCode].filter(Boolean).join(", ") || "No location details"}
                       {v.capacity ? ` · Capacity: ${v.capacity}` : ""}
                       {(v.openingTime || v.closingTime) && (
@@ -541,7 +541,7 @@ export function VenueCreationSection({
                       setSelectedTimingVenue(v);
                       setTimingModalOpen(true);
                     }}
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}
@@ -550,7 +550,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueEdit(v)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}
@@ -559,7 +559,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueHide(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(245, 158, 11, 0.2)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#f59e0b"; e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.background = "rgba(245, 158, 11, 0.05)"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.2)"; e.currentTarget.style.color = "#6b7094"; e.currentTarget.style.background = "white"; }}
@@ -568,7 +568,7 @@ export function VenueCreationSection({
                   </button>
                   <button 
                     onClick={() => handleVenueDelete(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-all flex items-center gap-1 cursor-pointer bg-white shadow-sm"
                     style={{ borderColor: "rgba(239, 68, 68, 0.2)", color: "#ef4444" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#ef4444"; e.currentTarget.style.background = "rgba(239, 68, 68, 0.05)"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.2)"; e.currentTarget.style.background = "white"; }}
@@ -600,11 +600,11 @@ export function VenueCreationSection({
                   ) : null}
                   {v.courts && v.courts.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                      <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
                       {v.courts.map((court, i) => (
                         <span
                           key={i}
-                          className="text-[9px] px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
+                          className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold text-white flex items-center gap-1 shadow-sm"
                           style={{ backgroundColor: court.color || "#6366f1" }}
                         >
                           {court.name || `Court ${i + 1}`}
@@ -618,7 +618,7 @@ export function VenueCreationSection({
           ))}
           {hiddenVenues.size > 0 && (
             <div className="border-t pt-4 mt-4" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
-              <div className="text-[10px] font-bold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>Hidden Venues ({hiddenVenues.size})</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: "#6b7094" }}>Hidden Venues ({hiddenVenues.size})</div>
               {venues.filter(v => hiddenVenues.has(v.id)).map(v => (
                 <div 
                   key={v.id} 
@@ -630,7 +630,7 @@ export function VenueCreationSection({
                   </div>
                   <button 
                     onClick={() => handleVenueHide(v.id)} 
-                    className="text-[10px] px-2.5 py-1.5 border rounded-lg transition-colors flex items-center gap-1 cursor-pointer bg-white"
+                    className="text-xs px-2.5 py-1.5 border rounded-lg transition-colors flex items-center gap-1 cursor-pointer bg-white"
                     style={{ borderColor: "rgba(99, 102, 241, 0.15)", color: "#6b7094" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f46e5"; e.currentTarget.style.color = "#4f46e5"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#6b7094"; }}

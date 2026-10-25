@@ -87,7 +87,7 @@ export default function CrmLeaderboardPage() {
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <EmojiEventsIcon sx={{ color: '#F59E0B', fontSize: 28 }} />
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Leaderboard & Targets
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
@@ -143,16 +143,16 @@ export default function CrmLeaderboardPage() {
                     <TableCell>
                       {row.rank <= 3
                         ? <EmojiEventsIcon sx={{ fontSize: 18, color: medalColors[row.rank - 1] }} />
-                        : <Typography variant="body2" fontWeight={600}>{row.rank}</Typography>}
+                        : <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.rank}</Typography>}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{row.agent}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{row.agent}</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Chip label={row.closedLeads} size="small" color="success" sx={{ fontWeight: 700 }} />
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" fontWeight={600}>₹{row.revenueLakhs}L</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{row.revenueLakhs}L</Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" color="text.secondary">
@@ -195,7 +195,7 @@ export default function CrmLeaderboardPage() {
       {/* Set target for agents not on leaderboard */}
       {agents.length > 0 && (
         <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             SET TARGET FOR:
           </Typography>
           {agents
@@ -219,14 +219,14 @@ export default function CrmLeaderboardPage() {
             type="number"
             value={dlgClosed}
             onChange={e => setDlgClosed(e.target.value)}
-            inputProps={{ min: 0 }}
+            slotProps={{ htmlInput: { min: 0 } }}
           />
           <TextField
             label="Target revenue (₹L)"
             type="number"
             value={dlgRevenue}
             onChange={e => setDlgRevenue(e.target.value)}
-            inputProps={{ min: 0 }}
+            slotProps={{ htmlInput: { min: 0 } }}
           />
         </DialogContent>
         <DialogActions>

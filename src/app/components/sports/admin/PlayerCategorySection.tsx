@@ -75,7 +75,7 @@ export function PlayerCategorySection({
       {/* Title section */}
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold text-slate-800">Player Categories</h3>
+          <h3 className="text-xs font-bold text-slate-800">Player Categories</h3>
           <p className="text-sm text-slate-500 mt-1">Manage player categories for events and tournaments</p>
         </div>
         <div className="flex items-center gap-3">
@@ -217,7 +217,7 @@ export function PlayerCategorySection({
                 <div className="text-sm font-semibold text-slate-800 truncate flex items-center gap-2">
                   <Users className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" /> {c.name}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-1 ml-5 flex flex-wrap items-center gap-2">
+                <div className="text-xs text-slate-500 mt-1 ml-5 flex flex-wrap items-center gap-2">
                   {c.description && <span>{c.description}</span>}
                   {c.description && (c.minAge != null || c.gender) && <span>·</span>}
                   {c.minAge != null && c.maxAge != null && <span>Age: {c.minAge}–{c.maxAge}</span>}
@@ -233,10 +233,10 @@ export function PlayerCategorySection({
                 )}
                 {(isSuper || (canManageCategories && c.type !== "DEFAULT")) && (
                   <>
-                    <button onClick={() => handleCategoryEdit(c)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
+                    <button onClick={() => handleCategoryEdit(c)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
                       <Edit2 className="w-3 h-3" /> Edit
                     </button>
-                    <button onClick={() => handleCategoryDelete(c.id)} className="text-[10px] px-2.5 py-1.5 border border-slate-200 text-red-500 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
+                    <button onClick={() => handleCategoryDelete(c.id)} className="text-xs px-2.5 py-1.5 border border-slate-200 text-red-500 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer bg-white shadow-sm">
                       <Trash2 className="w-3 h-3" /> Delete
                     </button>
                   </>

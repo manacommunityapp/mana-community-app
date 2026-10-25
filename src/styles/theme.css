@@ -57,6 +57,7 @@
 
 :root {
   /* Typography — Font Size Tokens */
+  --text-xs: 0.75rem;    /* 12px */
   --font-xs: 0.75rem;    /* 12px */
   --font-sm: 0.875rem;   /* 14px */
   --font-md: 1rem;       /* 16px */
@@ -237,6 +238,10 @@
 
   html {
     font-size: var(--font-size);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading, var(--font-sans));
   }
 
   h1 {
@@ -485,4 +490,26 @@ canvas {
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* Sports Module — Typography overrides (headings 12px / 0.75rem, spans reduced to 10px) */
+.sports-module,
+.sports-module * {
+  --text-xs: 0.75rem;
+  --text-10px: 10px;
+}
+
+.sports-module h1,
+.sports-module h2,
+.sports-module h3,
+.sports-module h4,
+.sports-module h5,
+.sports-module h6 {
+  font-size: var(--text-xs, 0.75rem) !important;
+}
+
+.sports-module span {
+  font-size: 10px !important;
+}
+
+
 

@@ -8,8 +8,8 @@ import AddIcon from '@mui/icons-material/Add';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useNavigate } from 'react-router';
 import {
-  Lead, Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
-  LeadSource, computeLeadScore, SCORE_FACTORS, isFollowUpDue, isFollowUpUpcoming,
+  type Lead, type Stage, STAGES, STAGE_LABELS, stageColors, sourceColors, scoreColor,
+  type LeadSource, computeLeadScore, SCORE_FACTORS, isFollowUpDue, isFollowUpUpcoming,
 } from './crmData';
 import { CRMNav } from './CRMNav';
 import { crmService } from '../../../../services/cpos/crmService';
@@ -266,7 +266,7 @@ const CRMPipelinePage: React.FC = () => {
                   <Tooltip
                     title={<ScoreTooltip lead={lead} />}
                     arrow placement="top"
-                    componentsProps={{ tooltip: { sx: { bgcolor: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: '12px', p: 1.5, maxWidth: 220 } }, arrow: { sx: { color: '#1A2540' } } }}
+                    slotProps={{ tooltip: { sx: { bgcolor: '#1A2540', border: '1px solid rgba(79,106,245,0.3)', borderRadius: '12px', p: 1.5, maxWidth: 220 } }, arrow: { sx: { color: '#1A2540' } } }}
                   >
                     <Box sx={{
                       minWidth: 30, height: 30, borderRadius: '8px', display: 'flex',
@@ -331,7 +331,7 @@ const CRMPipelinePage: React.FC = () => {
 
       {/* Add Lead Dialog */}
       <Dialog open={!!addDialogStage} onClose={() => setAddDialogStage(null)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)' } }}>
+        slotProps={{ paper: { sx: { borderRadius: '20px', bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)' } } }}>
         <DialogTitle sx={{ color: '#fff', fontWeight: 800 }}>
           Add New Lead
           {addDialogStage && (

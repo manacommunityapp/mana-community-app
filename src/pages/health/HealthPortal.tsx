@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   SEED_DOCTORS,
   SEED_LAB_PACKAGES,
@@ -28,11 +28,43 @@ import { PreventiveWellnessHub } from "../../app/components/health/PreventiveWel
 import { ProviderOperationsDashboard } from "../../app/components/health/provider/ProviderOperationsDashboard";
 import { PatientSecurityPrivacyModal } from "../../app/components/health/PatientSecurityPrivacyModal";
 
+export type HealthTab =
+  | "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness"
+  | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery"
+  | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold" | "physiotherapy" | "gym-trainers";
+
+export const VALID_HEALTH_TABS: HealthTab[] = [
+  "doctors", "camps", "family", "appointments", "records", "labs", "benefits", "wellness",
+  "provider", "emergency", "ai", "care-journey", "pharmacy", "ambulance", "ipd", "surgery",
+  "dental", "abha", "cancer", "mental-health", "hospitals", "gold", "physiotherapy", "gym-trainers"
+];
+
 export const HealthPortal: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<
-    "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness" | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery" | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold"
-  >("doctors");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab") as HealthTab | null;
+  const initialTab: HealthTab = (urlTab && VALID_HEALTH_TABS.includes(urlTab)) ? urlTab : "doctors";
+  const [activeTab, setActiveTab] = useState<HealthTab>(initialTab);
+
+  // Sync state if URL query param changes externally
+  useEffect(() => {
+    const tabFromUrl = searchParams.get("tab") as HealthTab | null;
+    if (tabFromUrl && VALID_HEALTH_TABS.includes(tabFromUrl) && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Sync URL when activeTab changes
+  useEffect(() => {
+    const currentUrlTab = searchParams.get("tab");
+    if (currentUrlTab !== activeTab) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", activeTab);
+        return next;
+      }, { replace: true });
+    }
+  }, [activeTab]);
 
   const [searchSpecialty, setSearchSpecialty] = useState("");
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorDto | null>(null);
@@ -142,6 +174,50 @@ export const HealthPortal: React.FC = () => {
     isEmergency: boolean;
   } | null>(null);
 
+  // State for Physiotherapy & Rehabilitation Hub
+  const [physioCategoryFilter, setPhysioCategoryFilter] = useState<"ALL" | "SPORTS" | "POST_OP" | "SPINE" | "GERIATRIC" | "HOME_CARE">("ALL");
+  const [selectedPainArea, setSelectedPainArea] = useState<"neck" | "back" | "knee" | "shoulder" | "ankle">("back");
+  const [painDuration, setPainDuration] = useState<"acute" | "subacute" | "chronic">("subacute");
+  const [painSeverity, setPainSeverity] = useState<number>(5);
+  const [physioBookingModal, setPhysioBookingModal] = useState<{
+    open: boolean;
+    physio: DoctorDto | null;
+    packageTitle?: string;
+    preselectedMode?: "CLINIC" | "HOME";
+  }>({ open: false, physio: null });
+  const [physioVisitMode, setPhysioVisitMode] = useState<"CLINIC" | "HOME">("CLINIC");
+  const [physioPatientId, setPhysioPatientId] = useState<string>("fam-1");
+  const [physioSlot, setPhysioSlot] = useState<string>("Today, 4:30 PM");
+  const [physioCondition, setPhysioCondition] = useState<string>("Back & Neck Pain");
+  const [physioFlatNo, setPhysioFlatNo] = useState<string>("Tower B - 604");
+  const [physioSuccessMsg, setPhysioSuccessMsg] = useState<string | null>(null);
+
+  // State for Gym Trainers & Personal Fitness Hub
+  const [trainerCategoryFilter, setTrainerCategoryFilter] = useState<
+    "ALL" | "STRENGTH" | "FAT_LOSS" | "HIIT" | "SENIOR" | "WOMEN_FITNESS"
+  >("ALL");
+  const [selectedFitnessGoal, setSelectedFitnessGoal] = useState<
+    "FAT_LOSS" | "MUSCLE_GAIN" | "ENDURANCE" | "SENIOR_FITNESS" | "POST_REHAB"
+  >("MUSCLE_GAIN");
+  const [selectedExperienceLevel, setSelectedExperienceLevel] = useState<
+    "BEGINNER" | "INTERMEDIATE" | "ADVANCED"
+  >("INTERMEDIATE");
+  const [selectedTimeSlotPref, setSelectedTimeSlotPref] = useState<
+    "EARLY_MORNING" | "MID_MORNING" | "EVENING"
+  >("EARLY_MORNING");
+  const [trainerBookingModal, setTrainerBookingModal] = useState<{
+    open: boolean;
+    trainer: DoctorDto | null;
+    packageTitle?: string;
+    preselectedVenue?: "CLUBHOUSE_GYM" | "HOME_LAWN";
+  }>({ open: false, trainer: null });
+  const [trainerVenue, setTrainerVenue] = useState<"CLUBHOUSE_GYM" | "HOME_LAWN">("CLUBHOUSE_GYM");
+  const [trainerPatientId, setTrainerPatientId] = useState<string>("fam-1");
+  const [trainerSlot, setTrainerSlot] = useState<string>("Tomorrow, 06:30 AM");
+  const [trainerGoalNote, setTrainerGoalNote] = useState<string>("Build Strength & Improve Form");
+  const [trainerFlatNo, setTrainerFlatNo] = useState<string>("Tower B - 604");
+  const [trainerSuccessMsg, setTrainerSuccessMsg] = useState<string | null>(null);
+
   const filteredDoctors = SEED_DOCTORS.filter(d =>
     d.name.toLowerCase().includes(searchSpecialty.toLowerCase()) ||
     d.specialty.toLowerCase().includes(searchSpecialty.toLowerCase()) ||
@@ -203,6 +279,18 @@ export const HealthPortal: React.FC = () => {
         precautionNotes: "Ensure regular hydration, monitor temperature every 3-4 hours, and avoid self-medicating antibiotics without prescription.",
         isEmergency: false
       });
+    } else if (
+      lower.includes("back") || lower.includes("neck") || lower.includes("spine") ||
+      lower.includes("knee") || lower.includes("joint") || lower.includes("sprain") ||
+      lower.includes("physio") || lower.includes("posture") || lower.includes("shoulder") ||
+      lower.includes("sciatica") || lower.includes("ligament") || lower.includes("muscle")
+    ) {
+      setAiAnalysisResult({
+        triageCategory: "🏃 Musculoskeletal & Mobility Care",
+        specialtyRecommendation: "Physiotherapy & Rehabilitation Specialist",
+        precautionNotes: "Avoid heavy lifting and sudden twisting. Apply cold compression for acute sprains (within 48 hrs) or warmth for chronic muscle stiffness. Book a clinical assessment at the Clubhouse Sports Pavilion or request a doorstep home visit.",
+        isEmergency: false
+      });
     } else {
       setAiAnalysisResult({
         triageCategory: "ℹ️ Routine Care Guidance",
@@ -253,6 +341,18 @@ export const HealthPortal: React.FC = () => {
             🚨 Medical SOS
           </button>
           <button
+            onClick={() => setActiveTab("physiotherapy")}
+            className="bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center gap-1.5 text-sm"
+          >
+            🏃 Physiotherapy
+          </button>
+          <button
+            onClick={() => setActiveTab("gym-trainers")}
+            className="bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center gap-1.5 text-sm"
+          >
+            🏋️ Gym Trainers
+          </button>
+          <button
             onClick={() => setActiveTab("camps")}
             className="bg-emerald-500 hover:bg-emerald-400 text-teal-950 font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center gap-2 text-sm"
           >
@@ -287,6 +387,8 @@ export const HealthPortal: React.FC = () => {
           { id: "ipd", label: "🏥 IPD Admission" },
           { id: "surgery", label: "🔪 Surgery Care" },
           { id: "dental", label: "🦷 Dental Care" },
+          { id: "physiotherapy", label: "🏃 Physiotherapy & Rehab" },
+          { id: "gym-trainers", label: "🏋️ Gym & Fitness Trainers" },
           { id: "abha", label: "🪪 ABHA Health ID" },
           { id: "cancer", label: "🎗️ Cancer Care" },
           { id: "mental-health", label: "🧠 Mental Health" },
@@ -1841,6 +1943,1565 @@ export const HealthPortal: React.FC = () => {
             ⭐ Get Mana Gold — ₹399/mo
           </button>
           <p className="text-xs text-center text-gray-400">Cancel anytime · No hidden charges · Instant activation</p>
+        </div>
+      )}
+
+      {/* ── Physiotherapy & Rehabilitation Center ────────────────────────────── */}
+      {activeTab === "physiotherapy" && (
+        <div className="space-y-6">
+          {/* Hero Banner */}
+          <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-emerald-700 text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
+            <div className="max-w-2xl space-y-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className="text-3xl">🏃</span>
+                <span className="bg-emerald-400 text-teal-950 font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+                  Clubhouse Rehab & Doorstep Home Care
+                </span>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Physiotherapy & Rehabilitation Center</h2>
+              <p className="text-teal-100 text-xs sm:text-sm leading-relaxed">
+                Certified sports & musculoskeletal physiotherapists, post-operative recovery, and doorstep home visits. Recover comfortably with dedicated clubhouse rehab facilities and IAP-certified practitioners.
+              </p>
+            </div>
+
+            {/* Quick Feature Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5 pt-4 border-t border-teal-600/60 relative z-10 text-xs">
+              <div className="bg-teal-900/40 backdrop-blur-xs rounded-xl p-2.5 border border-teal-500/30">
+                <div className="text-base mb-1">🏢</div>
+                <div className="font-bold text-white">Clubhouse Pavilion</div>
+                <div className="text-[10px] text-teal-200">Ground floor sports clinic</div>
+              </div>
+              <div className="bg-teal-900/40 backdrop-blur-xs rounded-xl p-2.5 border border-teal-500/30">
+                <div className="text-base mb-1">🏡</div>
+                <div className="font-bold text-white">Home Visits</div>
+                <div className="text-[10px] text-teal-200">Portable IFT & ultrasound</div>
+              </div>
+              <div className="bg-teal-900/40 backdrop-blur-xs rounded-xl p-2.5 border border-teal-500/30">
+                <div className="text-base mb-1">🏅</div>
+                <div className="font-bold text-white">IAP Certified</div>
+                <div className="text-[10px] text-teal-200">100% verified clinicians</div>
+              </div>
+              <div className="bg-teal-900/40 backdrop-blur-xs rounded-xl p-2.5 border border-teal-500/30">
+                <div className="text-base mb-1">💳</div>
+                <div className="font-bold text-white">15% Mana Discount</div>
+                <div className="text-[10px] text-teal-200">Cashless pass eligible</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Specialty Tracks Filter */}
+          <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-2xs flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <span className="text-xs font-bold text-gray-500 shrink-0 ml-1">Specialties:</span>
+            {[
+              { id: "ALL", label: "🌐 All Services" },
+              { id: "SPORTS", label: "🎾 Sports & Joints" },
+              { id: "POST_OP", label: "🩹 Post-Surgery Rehab" },
+              { id: "SPINE", label: "💻 Spine & Ergonomics" },
+              { id: "GERIATRIC", label: "👵 Senior Mobility" },
+              { id: "HOME_CARE", label: "🏡 In-Home Visits" },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setPhysioCategoryFilter(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  physioCategoryFilter === tab.id
+                    ? "bg-teal-700 text-white shadow-xs"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Interactive Pain & Mobility Self-Assessment Tool */}
+          <div className="bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white rounded-3xl border border-teal-200 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🩺</span>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Pain & Mobility Quick Self-Assessment</h3>
+                  <span className="text-[10px] font-bold bg-teal-200/80 text-teal-900 px-2 py-0.5 rounded-full">Interactive Guide</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Select your pain area and duration for instant clinical guidance and recommended therapy protocols.
+                </p>
+              </div>
+            </div>
+
+            {/* Selector Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pain Area */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-2">1. Where does it hurt or feel stiff?</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: "neck" as const, label: "Neck & Upper Back", icon: "🧣", note: "Tech-neck, stiffness" },
+                    { id: "back" as const, label: "Lower Back / Spine", icon: "🦴", note: "Sciatica, lifting strain" },
+                    { id: "knee" as const, label: "Knee & Meniscus", icon: "🦵", note: "Runner's knee, arthritis" },
+                    { id: "shoulder" as const, label: "Shoulder & Rotator", icon: "💪", note: "Frozen shoulder, impingement" },
+                    { id: "ankle" as const, label: "Ankle & Foot", icon: "👟", note: "Sprain, plantar fasciitis" },
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedPainArea(item.id)}
+                      className={`p-2.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        selectedPainArea === item.id
+                          ? "bg-teal-700 text-white border-teal-700 shadow-sm"
+                          : "bg-white text-gray-800 border-gray-200 hover:border-teal-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold">
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      <span className={`text-[10px] mt-1 ${selectedPainArea === item.id ? "text-teal-100" : "text-gray-400"}`}>
+                        {item.note}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration & Severity */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-2">2. How long have you experienced this?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "acute" as const, label: "Recent", time: "< 2 weeks", tag: "Acute" },
+                      { id: "subacute" as const, label: "Persistent", time: "2 - 6 weeks", tag: "Subacute" },
+                      { id: "chronic" as const, label: "Long-term", time: "> 6 weeks", tag: "Chronic" },
+                    ].map(d => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setPainDuration(d.id)}
+                        className={`p-2 rounded-xl border text-center transition cursor-pointer ${
+                          painDuration === d.id
+                            ? "bg-teal-700 text-white border-teal-700 font-bold shadow-xs"
+                            : "bg-white text-gray-800 border-gray-200 hover:border-teal-300"
+                        }`}
+                      >
+                        <div className="text-xs font-bold">{d.label}</div>
+                        <div className={`text-[10px] ${painDuration === d.id ? "text-teal-100" : "text-gray-400"}`}>{d.time}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold text-gray-700">3. Pain Intensity (1 to 10):</label>
+                    <span className="text-xs font-black text-teal-800 bg-teal-100 px-2 py-0.5 rounded-md">
+                      Level {painSeverity} / 10 · {painSeverity <= 3 ? "Mild" : painSeverity <= 7 ? "Moderate" : "Severe"}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={painSeverity}
+                    onChange={(e) => setPainSeverity(Number(e.target.value))}
+                    className="w-full accent-teal-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span>1: Mild Discomfort</span>
+                    <span>5: Interacting with Daily Tasks</span>
+                    <span>10: Severe / Immobile</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Assessment Output */}
+            {(() => {
+              const recommendationMap = {
+                neck: {
+                  condition: "Cervical Spondylosis & Postural Tech-Neck",
+                  protocol: "Cervical Traction, IFT Electrotherapy, Deep Muscle Trigger Release & Ergonomic Desk Calibration",
+                  specialist: "Dr. Varun Nair (ActiveLife Physio)",
+                  specId: "physio-1",
+                  mode: "In-Clinic or Doorstep Home Visit",
+                },
+                back: {
+                  condition: "Lumbar Strain, Disc Bulge or Sciatica Irritation",
+                  protocol: "Interferential Therapy (IFT), Lumbar Core Stabilization, McKenzie Extension & Warm Ultrasound Therapy",
+                  specialist: "Dr. Ananya Sen (ProMove Rehab)",
+                  specId: "physio-3",
+                  mode: "In-Clinic (Clubhouse) or Home Visit",
+                },
+                knee: {
+                  condition: "Patellofemoral Pain, Meniscus Strain or Early Osteoarthritis",
+                  protocol: "Cryo-compression, Dry Needling for VMO muscle, Joint Gliding & Quadriceps Strengthening Routine",
+                  specialist: "Dr. Varun Nair (ActiveLife Physio)",
+                  specId: "physio-1",
+                  mode: "Clubhouse Sports Pavilion Clinic",
+                },
+                shoulder: {
+                  condition: "Adhesive Capsulitis (Frozen Shoulder) or Rotator Cuff Tendonitis",
+                  protocol: "Glenohumeral Joint Mobilization, Therapeutic Ultrasound, Pendulum Exercises & Resistance Band Activation",
+                  specialist: "Dr. Ananya Sen (ProMove Rehab)",
+                  specId: "physio-3",
+                  mode: "In-Clinic or Doorstep Home Visit",
+                },
+                ankle: {
+                  condition: "Inversion Ankle Sprain, Achilles Tendonitis or Plantar Fasciitis",
+                  protocol: "Proprioception Wobble-Board Training, Kinesio Taping, Calf Muscle Release & Ultrasound Therapy",
+                  specialist: "Dr. Varun Nair (ActiveLife Physio)",
+                  specId: "physio-1",
+                  mode: "Clubhouse Sports Pavilion Clinic",
+                },
+              };
+              const rec = recommendationMap[selectedPainArea];
+              const matchedPhysio = SEED_DOCTORS.find(d => d.id === rec.specId) || SEED_DOCTORS.find(d => d.category === "PHYSIOTHERAPIST");
+
+              return (
+                <div className="bg-white rounded-2xl p-4 border border-teal-200/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200">
+                        Suggested Diagnosis: {rec.condition}
+                      </span>
+                      {painSeverity >= 7 && (
+                        <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                          ⚠️ Priority Care Recommended
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-700 font-medium">
+                      <strong>Recommended Protocol:</strong> {rec.protocol}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      Recommended Specialist: <strong className="text-gray-900">{rec.specialist}</strong> · {rec.mode}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhysioCondition(rec.condition);
+                      setPhysioBookingModal({
+                        open: true,
+                        physio: matchedPhysio || null,
+                        preselectedMode: painSeverity >= 8 ? "HOME" : "CLINIC"
+                      });
+                    }}
+                    className="shrink-0 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Book Session for this Issue</span>
+                    <span>→</span>
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Verified Community Physiotherapists List */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <span>👨‍⚕️</span>
+                  <span>Verified Community Physiotherapists</span>
+                </h3>
+                <p className="text-xs text-gray-500">IAP Certified clinicians available at the Clubhouse Sports Pavilion and for doorstep flat visits.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {SEED_DOCTORS.filter(d => {
+                if (d.category !== "PHYSIOTHERAPIST") return false;
+                if (physioCategoryFilter === "ALL") return true;
+                if (physioCategoryFilter === "SPORTS") return d.specialty.toLowerCase().includes("sport");
+                if (physioCategoryFilter === "POST_OP") return d.specialty.toLowerCase().includes("post-surgery") || d.specialty.toLowerCase().includes("orthopedic");
+                if (physioCategoryFilter === "SPINE") return d.specialty.toLowerCase().includes("spine") || d.specialty.toLowerCase().includes("rehab");
+                if (physioCategoryFilter === "GERIATRIC") return d.specialty.toLowerCase().includes("geriatric") || d.specialty.toLowerCase().includes("neuro");
+                if (physioCategoryFilter === "HOME_CARE") return Boolean(d.homeVisitAvailable);
+                return true;
+              }).map((physio) => (
+                <div
+                  key={physio.id}
+                  className="bg-white border border-gray-200 rounded-3xl p-5 hover:border-teal-300 transition-all shadow-2xs space-y-4"
+                >
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                    {/* Left: Avatar & Bio */}
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-base flex items-center justify-center shrink-0 shadow-xs">
+                        {physio.name.replace("Dr. ", "").split(" ")[0][0]}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-black text-base text-gray-900">{physio.name}</h4>
+                          {physio.verifiedBadge && (
+                            <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              ✓ Verified IAP
+                            </span>
+                          )}
+                          {physio.clinicAddress.includes("Clubhouse") && (
+                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">
+                              🏢 Clubhouse Pavilion
+                            </span>
+                          )}
+                          {physio.homeVisitAvailable && (
+                            <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                              🏡 Home Visits
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs font-semibold text-teal-700">{physio.specialty}</p>
+
+                        <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                          <span>{physio.qualifications.join(", ")}</span>
+                          <span>·</span>
+                          <span>{physio.experienceYears} yrs experience</span>
+                          <span>·</span>
+                          <span className="text-amber-600 font-bold">⭐ {physio.rating} ({physio.reviewCount} reviews)</span>
+                        </div>
+
+                        <div className="text-xs text-gray-600 flex items-center gap-2 pt-1 flex-wrap">
+                          <span>📍 {physio.clinicAddress}</span>
+                          <span>·</span>
+                          <span>🗣️ {physio.languages.join(", ")}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Pricing & CTA */}
+                    <div className="w-full sm:w-auto text-left sm:text-right flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t sm:border-t-0 pt-3 sm:pt-0">
+                      <div>
+                        <div className="flex items-baseline gap-1.5 justify-end">
+                          <span className="text-xs text-gray-400 line-through">₹{Math.round(physio.consultationFee * 1.18)}</span>
+                          <span className="text-xl font-black text-teal-900">₹{physio.consultationFee}</span>
+                        </div>
+                        <p className="text-[10px] font-semibold text-emerald-600">15% Mana Resident Discount</p>
+                        <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 sm:justify-end">
+                          <span>🕐 Slot:</span>
+                          <strong className="text-gray-800">{physio.nextAvailableSlot}</strong>
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPhysioVisitMode("CLINIC");
+                            setPhysioBookingModal({ open: true, physio, preselectedMode: "CLINIC" });
+                          }}
+                          className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition cursor-pointer"
+                        >
+                          Book Clinic
+                        </button>
+                        {physio.homeVisitAvailable && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPhysioVisitMode("HOME");
+                              setPhysioBookingModal({ open: true, physio, preselectedMode: "HOME" });
+                            }}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer"
+                          >
+                            Book Home Visit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Community Offer Strip if available */}
+                  {physio.communityOffer && (
+                    <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-2.5 flex items-center justify-between text-xs gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">🏷️</span>
+                        <span>
+                          <strong className="font-bold text-amber-900">{physio.communityOffer.title}:</strong>{" "}
+                          <span className="text-amber-800">{physio.communityOffer.description}</span>
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-amber-700 bg-amber-200 px-2 py-0.5 rounded-full shrink-0">
+                        {physio.communityOffer.badge}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Curated Therapy Packages */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <span>📦</span>
+                  <span>Specialized Rehabilitation Packages</span>
+                </h3>
+                <p className="text-xs text-gray-500">Multi-session structured recovery protocols with bundled community pricing.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {[
+                {
+                  title: "Back & Spine Relief Protocol",
+                  sessions: "5 Sessions",
+                  originalPrice: 3500,
+                  offerPrice: 2499,
+                  badge: "Most Popular",
+                  badgeColor: "bg-emerald-100 text-emerald-800",
+                  features: ["IFT Electrotherapy & Heat", "Lumbar Core Activation", "Spinal Decompression Traction", "Ergonomic Home Calibration"],
+                  mode: "In-Clinic / Home Visit"
+                },
+                {
+                  title: "Active Sports Recovery Pass",
+                  sessions: "3 Sessions",
+                  originalPrice: 2400,
+                  offerPrice: 1699,
+                  badge: "Athletes & Gym",
+                  badgeColor: "bg-indigo-100 text-indigo-800",
+                  features: ["Dry Needling & Cupping", "Deep Tissue Trigger Release", "Joint Mobilization & Floss Band", "Kinesio Athletic Taping"],
+                  mode: "Clubhouse Sports Pavilion"
+                },
+                {
+                  title: "Senior Balance & Fall Prevention",
+                  sessions: "10 Doorstep Visits",
+                  originalPrice: 7500,
+                  offerPrice: 5499,
+                  badge: "Elder Care",
+                  badgeColor: "bg-amber-100 text-amber-800",
+                  features: ["Proprioception & Gait Training", "Gentle Joint Mobilization", "Safe Sit-to-Stand Drills", "Home Fall-Hazard Audit"],
+                  mode: "Doorstep Flat Visit"
+                },
+                {
+                  title: "Post-Surgery Orthopedic Rehab",
+                  sessions: "12 Sessions",
+                  originalPrice: 9600,
+                  offerPrice: 6999,
+                  badge: "Post-Operative",
+                  badgeColor: "bg-purple-100 text-purple-800",
+                  features: ["Knee / Hip Replacement Care", "Range of Motion Expansion", "Scar Tissue Mobilization", "Weekly Surgeon Progress Report"],
+                  mode: "In-Clinic + Home Care"
+                },
+                {
+                  title: "WFH Tech-Neck & Posture Reset",
+                  sessions: "Workspace Audit + 2 Sessions",
+                  originalPrice: 1800,
+                  offerPrice: 1199,
+                  badge: "Remote Workers",
+                  badgeColor: "bg-blue-100 text-blue-800",
+                  features: ["1-on-1 Ergonomic Desk Calibration", "Cervical Spine Traction", "Postural Muscle Re-education", "Daily 5-Min Desk Stretch Guide"],
+                  mode: "In-Clinic / Home Visit"
+                },
+                {
+                  title: "Pediatric Ortho & Posture Check",
+                  sessions: "3 Sessions",
+                  originalPrice: 2100,
+                  offerPrice: 1499,
+                  badge: "Children & Teens",
+                  badgeColor: "bg-pink-100 text-pink-800",
+                  features: ["Schoolbag Strain & Scoliosis Screen", "Flat Foot & Gait Assessment", "Core Posture Conditioning", "Kids Sports Mobility Drills"],
+                  mode: "Clubhouse Sports Pavilion"
+                },
+              ].map((pkg, i) => (
+                <div
+                  key={i}
+                  className="bg-white border border-gray-200 rounded-3xl p-5 flex flex-col justify-between hover:shadow-md transition space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${pkg.badgeColor}`}>
+                        {pkg.badge}
+                      </span>
+                      <span className="text-[11px] font-bold text-gray-500">{pkg.sessions}</span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-black text-sm text-gray-900">{pkg.title}</h4>
+                      <p className="text-[11px] text-teal-700 font-semibold mt-0.5">📍 {pkg.mode}</p>
+                    </div>
+
+                    <ul className="space-y-1.5 text-xs text-gray-600">
+                      {pkg.features.map((f, fi) => (
+                        <li key={fi} className="flex items-center gap-1.5">
+                          <span className="text-teal-600 font-bold">✓</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-xs text-gray-400 line-through">₹{pkg.originalPrice}</span>
+                        <span className="text-lg font-black text-teal-900">₹{pkg.offerPrice}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-600">Save ₹{pkg.originalPrice - pkg.offerPrice}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matchedPhysio = SEED_DOCTORS.find(d => d.category === "PHYSIOTHERAPIST");
+                        setPhysioBookingModal({
+                          open: true,
+                          physio: matchedPhysio || null,
+                          packageTitle: pkg.title,
+                          preselectedMode: pkg.mode.includes("Flat") ? "HOME" : "CLINIC"
+                        });
+                      }}
+                      className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer"
+                    >
+                      Book Package
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Clubhouse Rehab & Group Classes Schedule */}
+          <div className="bg-white rounded-3xl border border-gray-200 p-5 sm:p-6 shadow-2xs space-y-4">
+            <div>
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <span>🗓️</span>
+                <span>Weekly Clubhouse Rehab & Mobility Group Sessions</span>
+              </h3>
+              <p className="text-xs text-gray-500">Free instructor-led corrective exercise workshops open to all community residents.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {[
+                {
+                  title: "Senior Morning Mobility & Joint Care",
+                  schedule: "Mon, Wed, Fri · 7:30 AM - 8:15 AM",
+                  venue: "Clubhouse Open Deck",
+                  instructor: "Dr. Kavitha Rao (Geriatric Rehab)",
+                  focus: "Gentle arthritis mobility, balance drills & fall prevention.",
+                  attendees: "18 residents enrolled"
+                },
+                {
+                  title: "Desk-Worker Spine & Core Ergonomics",
+                  schedule: "Every Saturday · 11:00 AM - 12:00 PM",
+                  venue: "Clubhouse Yoga Studio (Room 2)",
+                  instructor: "Dr. Varun Nair (Sports & Spine)",
+                  focus: "Neck decompression, thoracic mobility, core endurance for WFH.",
+                  attendees: "24 residents enrolled"
+                },
+                {
+                  title: "Sports Injury Taping & Knee Conditioning",
+                  schedule: "Every Sunday · 4:00 PM - 5:00 PM",
+                  venue: "Sports Pavilion Rehab Bay",
+                  instructor: "Dr. Ananya Sen (Ortho Rehab)",
+                  focus: "ACL prevention, knee stability, ankle strapping & recovery.",
+                  attendees: "14 residents enrolled"
+                },
+              ].map((cls, ci) => (
+                <div key={ci} className="bg-teal-50/50 border border-teal-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-900">{cls.title}</h4>
+                    <p className="text-xs font-semibold text-teal-800 mt-1">🕐 {cls.schedule}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">📍 {cls.venue}</p>
+                    <p className="text-xs text-gray-500 mt-2">{cls.focus}</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-teal-100 flex items-center justify-between text-xs">
+                    <span className="text-[10px] text-gray-500 font-semibold">{cls.attendees}</span>
+                    <button
+                      type="button"
+                      onClick={() => alert(`RSVP Confirmed for "${cls.title}"!\n\nInstructor: ${cls.instructor}\nVenue: ${cls.venue}\n\nSession pass saved to your Health Vault.`)}
+                      className="bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
+                    >
+                      RSVP Free Slot
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Clinical Modalities & Equipment Guide */}
+          <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 space-y-3">
+            <div>
+              <h4 className="font-bold text-sm text-slate-800">Available Modalities & Portable Equipment</h4>
+              <p className="text-xs text-slate-500">Hospital-grade electrotherapy & recovery modalities available both in-clinic and carried during home visits.</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-center text-xs">
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">⚡</div>
+                <div className="font-bold text-slate-900">IFT Therapy</div>
+                <div className="text-[10px] text-slate-500">Deep muscle spasm relief</div>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">🌊</div>
+                <div className="font-bold text-slate-900">Ultrasound</div>
+                <div className="text-[10px] text-slate-500">Ligament & tendon repair</div>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">🪡</div>
+                <div className="font-bold text-slate-900">Dry Needling</div>
+                <div className="text-[10px] text-slate-500">Myofascial trigger points</div>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">🎯</div>
+                <div className="font-bold text-slate-900">TENS Unit</div>
+                <div className="text-[10px] text-slate-500">Nerve pain modulation</div>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">📐</div>
+                <div className="font-bold text-slate-900">Spine Traction</div>
+                <div className="text-[10px] text-slate-500">Disc bulge decompression</div>
+              </div>
+              <div className="bg-white p-3 rounded-2xl border border-slate-200">
+                <div className="text-xl mb-1">🏋️</div>
+                <div className="font-bold text-slate-900">Mobility Gym</div>
+                <div className="text-[10px] text-slate-500">Resistance band conditioning</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Post-Rehab to Fitness Bridge */}
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="text-3xl p-3 bg-white rounded-2xl shadow-2xs border border-amber-200">🏋️</div>
+              <div>
+                <h4 className="font-bold text-sm text-amber-950">Completed Rehab & Looking to Build Strength?</h4>
+                <p className="text-xs text-amber-800">
+                  Transition smoothly from physical therapy to structured progressive fitness with certified Clubhouse Gym coaches.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab("gym-trainers")}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition whitespace-nowrap cursor-pointer"
+            >
+              Explore Gym Trainers →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mana Clubhouse Gymnasium & Personal Fitness Trainers ────────────── */}
+      {activeTab === "gym-trainers" && (
+        <div className="space-y-6">
+          {/* Hero Banner */}
+          <div className="bg-gradient-to-r from-amber-950 via-stone-900 to-amber-900 text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
+            <div className="max-w-2xl space-y-2 relative z-10">
+              <div className="flex items-center gap-2">
+                <span className="text-3xl">🏋️</span>
+                <span className="bg-amber-400 text-amber-950 font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+                  Clubhouse Gymnasium · Tower A Level 1
+                </span>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Gymnasium & Certified Personal Fitness Coaches</h2>
+              <p className="text-amber-100 text-xs sm:text-sm leading-relaxed">
+                Work 1-on-1 with certified trainers (ACE, ACSM, K11) stationed right at the Mana Clubhouse Gymnasium or book personalized doorstep fitness sessions. From fat loss & strength hypertrophy to senior mobility and post-rehab conditioning.
+              </p>
+            </div>
+
+            {/* Quick Feature Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5 pt-4 border-t border-amber-800/60 relative z-10 text-xs">
+              <div className="bg-stone-900/60 backdrop-blur-xs rounded-xl p-2.5 border border-amber-500/30">
+                <div className="text-base mb-1">🏢</div>
+                <div className="font-bold text-white">Clubhouse Gymnasium</div>
+                <div className="text-[10px] text-amber-200">Open 6:00 AM - 10:00 PM Daily</div>
+              </div>
+              <div className="bg-stone-900/60 backdrop-blur-xs rounded-xl p-2.5 border border-amber-500/30">
+                <div className="text-base mb-1">🏅</div>
+                <div className="font-bold text-white">Certified Personal Trainers</div>
+                <div className="text-[10px] text-amber-200">ACE, ACSM & CSCS Verified</div>
+              </div>
+              <div className="bg-stone-900/60 backdrop-blur-xs rounded-xl p-2.5 border border-amber-500/30">
+                <div className="text-base mb-1">📊</div>
+                <div className="font-bold text-white">Free InBody Analysis</div>
+                <div className="text-[10px] text-amber-200">Complimentary 1st PT assessment</div>
+              </div>
+              <div className="bg-stone-900/60 backdrop-blur-xs rounded-xl p-2.5 border border-amber-500/30">
+                <div className="text-base mb-1">🏡</div>
+                <div className="font-bold text-white">Flexible Venues</div>
+                <div className="text-[10px] text-amber-200">Gym Floor, Turf or Doorstep</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Training Focus / Category Filters */}
+          <div className="bg-white p-3 rounded-2xl border border-gray-200 shadow-2xs flex items-center gap-2 overflow-x-auto scrollbar-none">
+            <span className="text-xs font-bold text-gray-500 shrink-0 ml-1">Training Focus:</span>
+            {[
+              { id: "ALL", label: "🌐 All Coaches" },
+              { id: "STRENGTH", label: "💪 Strength & Hypertrophy" },
+              { id: "FAT_LOSS", label: "🔥 Fat Loss & Conditioning" },
+              { id: "HIIT", label: "⚡ Functional HIIT & Core" },
+              { id: "SENIOR", label: "👵 Senior Functional Strength" },
+              { id: "WOMEN_FITNESS", label: "👩 Women's & Postnatal" },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setTrainerCategoryFilter(tab.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  trainerCategoryFilter === tab.id
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Interactive Workout Goal & Split Matcher */}
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50/40 to-white rounded-3xl border border-amber-200 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🎯</span>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">Personalized Workout Split & Coach Matcher</h3>
+                  <span className="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full">Interactive Tool</span>
+                </div>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Select your primary fitness objective and weekly routine preference to get a scientifically tailored split and recommended community coach.
+                </p>
+              </div>
+            </div>
+
+            {/* Selector Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {/* Step 1: Goal */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700">1. Select Primary Objective:</label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {[
+                    { id: "MUSCLE_GAIN", label: "💪 Hypertrophy & Muscle Gain", desc: "Progressive overload, compound lifts" },
+                    { id: "FAT_LOSS", label: "🔥 Fat Loss & Body Toning", desc: "Calorie burn, metabolic conditioning" },
+                    { id: "ENDURANCE", label: "⚡ Functional HIIT & Core", desc: "Athletic agility, posture & stamina" },
+                    { id: "SENIOR_FITNESS", label: "👵 Senior Functional Strength", desc: "Joint health, balance, gentle weights" },
+                    { id: "POST_REHAB", label: "🩹 Post-Rehab Conditioning", desc: "Safely rebuilding after physical therapy" },
+                  ].map(g => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setSelectedFitnessGoal(g.id as any)}
+                      className={`text-left p-2.5 rounded-xl border text-xs transition cursor-pointer ${
+                        selectedFitnessGoal === g.id
+                          ? "bg-amber-100/90 border-amber-400 text-amber-950 font-bold shadow-2xs"
+                          : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="font-bold">{g.label}</div>
+                      <div className="text-[10px] text-gray-500 font-normal">{g.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 2: Experience Level */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-700">2. Training Experience Level:</label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {[
+                    { id: "BEGINNER", label: "🌱 Beginner (< 6 Months)", desc: "Focus on form, movement mechanics & safe habits" },
+                    { id: "INTERMEDIATE", label: "🏋️ Intermediate (6mo - 2yrs)", desc: "Breaking plateaus, periodization & heavier loads" },
+                    { id: "ADVANCED", label: "🏆 Advanced (2+ Years)", desc: "Powerlifting, athletic conditioning & peak output" },
+                  ].map(lvl => (
+                    <button
+                      key={lvl.id}
+                      type="button"
+                      onClick={() => setSelectedExperienceLevel(lvl.id as any)}
+                      className={`text-left p-2.5 rounded-xl border text-xs transition cursor-pointer ${
+                        selectedExperienceLevel === lvl.id
+                          ? "bg-amber-100/90 border-amber-400 text-amber-950 font-bold shadow-2xs"
+                          : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="font-bold">{lvl.label}</div>
+                      <div className="text-[10px] text-gray-500 font-normal">{lvl.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-2">
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">3. Preferred Workout Window:</label>
+                  <div className="grid grid-cols-3 gap-1 text-[11px]">
+                    {[
+                      { id: "EARLY_MORNING", label: "🌅 6 - 9 AM" },
+                      { id: "MID_MORNING", label: "☀️ 10 - 2 PM" },
+                      { id: "EVENING", label: "🌙 5 - 9 PM" },
+                    ].map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedTimeSlotPref(slot.id as any)}
+                        className={`p-2 rounded-lg border text-center transition cursor-pointer font-bold ${
+                          selectedTimeSlotPref === slot.id
+                            ? "bg-amber-600 border-amber-600 text-white"
+                            : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {slot.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Match Result */}
+              <div className="bg-white rounded-2xl border border-amber-200 p-4 flex flex-col justify-between space-y-3 shadow-2xs">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                    Recommended Routine Split
+                  </span>
+                  <h4 className="font-black text-sm text-gray-900 mt-2">
+                    {selectedFitnessGoal === "MUSCLE_GAIN" && "4-Day Upper / Lower Hypertrophy Split"}
+                    {selectedFitnessGoal === "FAT_LOSS" && "3-Day Full-Body Resistance + 2x Zone-2 Cardio"}
+                    {selectedFitnessGoal === "ENDURANCE" && "4-Day Athletic Functional Strength & HIIT Split"}
+                    {selectedFitnessGoal === "SENIOR_FITNESS" && "3-Day Gentle Strength, Balance & Mobility Protocol"}
+                    {selectedFitnessGoal === "POST_REHAB" && "3-Day Post-Rehab Stability & Isometric Progression"}
+                  </h4>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {selectedFitnessGoal === "MUSCLE_GAIN" && "Focus on compound barbell lifts, progressive overload, and adequate protein intake (1.6g/kg)."}
+                    {selectedFitnessGoal === "FAT_LOSS" && "High-volume circuit weights paired with post-workout 15-min incline treadmill walk in the clubhouse gym."}
+                    {selectedFitnessGoal === "ENDURANCE" && "Kettlebell flows, TRX core suspension, battle ropes, and functional rotational movement."}
+                    {selectedFitnessGoal === "SENIOR_FITNESS" && "Low-impact seated & standing dumbbell presses, glute bridges, and balance board stability."}
+                    {selectedFitnessGoal === "POST_REHAB" && "Controlled closed-chain exercises, rotator cuff / hip stabilizer activation under coach supervision."}
+                  </p>
+
+                  <div className="mt-3 p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-xs">
+                    <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                      <span>👤</span>
+                      <span>Best Matched Coach:</span>
+                      <span className="underline decoration-amber-500">
+                        {selectedFitnessGoal === "MUSCLE_GAIN" || selectedFitnessGoal === "POST_REHAB" ? "Coach Rajesh Sharma (Head Strength Coach)" :
+                         selectedFitnessGoal === "FAT_LOSS" || selectedFitnessGoal === "ENDURANCE" ? "Coach Sneha Kapoor (Functional & HIIT Specialist)" :
+                         "Coach Marcus D'Souza (Senior Mobility & Agility)"}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Stationed at Clubhouse Gym · Includes complimentary InBody Body-Fat Assessment
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const matchedTrainer = SEED_DOCTORS.find(d =>
+                      d.category === "FITNESS_TRAINER" &&
+                      (selectedFitnessGoal === "MUSCLE_GAIN" || selectedFitnessGoal === "POST_REHAB" ? d.id === "trainer-1" :
+                       selectedFitnessGoal === "FAT_LOSS" || selectedFitnessGoal === "ENDURANCE" ? d.id === "trainer-2" :
+                       d.id === "trainer-3")
+                    ) || SEED_DOCTORS.find(d => d.category === "FITNESS_TRAINER");
+                    
+                    setTrainerBookingModal({
+                      open: true,
+                      trainer: matchedTrainer || null,
+                      packageTitle: `Initial Assessment & ${selectedFitnessGoal.replace(/_/g, " ")} 1-on-1 Trial`,
+                      preselectedVenue: "CLUBHOUSE_GYM"
+                    });
+                  }}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>Book Trial with Matched Coach</span>
+                  <span>→</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Certified Community Gym Trainers List */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <span>🏅</span>
+                  <span>Certified Clubhouse Trainers & Fitness Coaches</span>
+                </h3>
+                <p className="text-xs text-gray-500">Vetted personal trainers with active certifications, background checks, and community reviews.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {SEED_DOCTORS.filter(d => {
+                if (d.category !== "FITNESS_TRAINER") return false;
+                if (trainerCategoryFilter === "ALL") return true;
+                if (trainerCategoryFilter === "STRENGTH") return d.specialty.toLowerCase().includes("strength") || d.qualifications.some(q => q.includes("CSCS") || q.includes("ACE"));
+                if (trainerCategoryFilter === "FAT_LOSS") return d.specialty.toLowerCase().includes("hiit") || d.specialty.toLowerCase().includes("strength");
+                if (trainerCategoryFilter === "HIIT") return d.specialty.toLowerCase().includes("hiit") || d.specialty.toLowerCase().includes("athletic");
+                if (trainerCategoryFilter === "SENIOR") return d.specialty.toLowerCase().includes("senior") || d.specialty.toLowerCase().includes("mobility");
+                if (trainerCategoryFilter === "WOMEN_FITNESS") return d.specialty.toLowerCase().includes("postural") || d.qualifications.some(q => q.toLowerCase().includes("natal"));
+                return true;
+              }).map(trainer => (
+                <div key={trainer.id} className="bg-white rounded-3xl border border-gray-200 p-5 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    {/* Header: Photo, Name, Verified */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-400 text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+                        🏋️
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-black text-sm text-gray-900 truncate">{trainer.name}</h4>
+                          {trainer.verifiedBadge && (
+                            <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-md">
+                              ✓ Mana Coach
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-amber-800">{trainer.specialty}</p>
+                        <p className="text-[11px] text-gray-500">{trainer.clinicAddress}</p>
+                      </div>
+                    </div>
+
+                    {/* Qualifications & Accreditations */}
+                    <div className="flex flex-wrap gap-1">
+                      {trainer.qualifications.map((q, qi) => (
+                        <span key={qi} className="text-[10px] bg-stone-100 text-stone-700 px-2 py-0.5 rounded-md font-semibold">
+                          {q}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Stats strip */}
+                    <div className="bg-gray-50 rounded-xl p-2.5 flex items-center justify-between text-xs text-gray-700">
+                      <div>
+                        <span className="font-black text-gray-900">⭐ {trainer.rating}</span>
+                        <span className="text-[10px] text-gray-400 ml-1">({trainer.reviewCount} reviews)</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500">
+                        {trainer.experienceYears} Years Exp
+                      </div>
+                      <div className="font-bold text-amber-900">
+                        ₹{trainer.consultationFee}<span className="text-[10px] font-normal text-gray-500">/session</span>
+                      </div>
+                    </div>
+
+                    {/* Next Slot */}
+                    <div className="text-xs flex items-center justify-between text-gray-600">
+                      <span>Next Slot:</span>
+                      <span className="font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                        {trainer.nextAvailableSlot}
+                      </span>
+                    </div>
+
+                    {/* Community Offer */}
+                    {trainer.communityOffer && (
+                      <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-2.5 flex items-center justify-between text-xs gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">🏷️</span>
+                          <span>
+                            <strong className="font-bold text-amber-900">{trainer.communityOffer.title}:</strong>{" "}
+                            <span className="text-amber-800">{trainer.communityOffer.description}</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-2 border-t border-gray-100 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrainerVenue("CLUBHOUSE_GYM");
+                        setTrainerBookingModal({
+                          open: true,
+                          trainer,
+                          preselectedVenue: "CLUBHOUSE_GYM"
+                        });
+                      }}
+                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 rounded-xl transition shadow-xs cursor-pointer text-center"
+                    >
+                      Book Gym PT
+                    </button>
+                    {trainer.homeVisitAvailable && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrainerVenue("HOME_LAWN");
+                          setTrainerBookingModal({
+                            open: true,
+                            trainer,
+                            preselectedVenue: "HOME_LAWN"
+                          });
+                        }}
+                        className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer"
+                      >
+                        Home PT
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Curated Personal Training Packages */}
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <span>📦</span>
+                  <span>Curated Personal Training Packages</span>
+                </h3>
+                <p className="text-xs text-gray-500">Discounted community multi-session training programs with dedicated coach support.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {[
+                {
+                  title: "12-Week Body Transformation",
+                  sessions: "36 1-on-1 Sessions",
+                  originalPrice: 18000,
+                  offerPrice: 14499,
+                  badge: "Best Value",
+                  badgeColor: "bg-amber-100 text-amber-900",
+                  features: ["3x / week coached sessions", "Weekly InBody body-fat check", "Custom calorie & macro targets", "Progressive overload tracking"],
+                  venue: "Clubhouse Gymnasium"
+                },
+                {
+                  title: "10-Session Monthly PT Pass",
+                  sessions: "10 Sessions",
+                  originalPrice: 5500,
+                  offerPrice: 4299,
+                  badge: "Most Flexible",
+                  badgeColor: "bg-indigo-100 text-indigo-900",
+                  features: ["Form & posture correction", "Core activation drills", "Access to training app log", "Valid across 45 days"],
+                  venue: "Gym Floor / Doorstep"
+                },
+                {
+                  title: "Senior Functional Strength Pass",
+                  sessions: "12 Sessions",
+                  originalPrice: 6600,
+                  offerPrice: 4999,
+                  badge: "Age 55+ Care",
+                  badgeColor: "bg-emerald-100 text-emerald-900",
+                  features: ["Gentle joint-friendly resistance", "Sit-to-stand balance drills", "Blood pressure monitored", "In-home or quiet gym hours"],
+                  venue: "Clubhouse Gym or Home"
+                },
+                {
+                  title: "Buddy / Couples Training",
+                  sessions: "12 Shared Sessions",
+                  originalPrice: 10000,
+                  offerPrice: 6999,
+                  badge: "Partner Pass",
+                  badgeColor: "bg-purple-100 text-purple-900",
+                  features: ["Train together with spouse/friend", "Fun partner workout challenges", "Shared coach guidance", "Save 30% per person"],
+                  venue: "Clubhouse Gymnasium"
+                },
+              ].map((pkg, pi) => (
+                <div key={pi} className="bg-white rounded-3xl border border-gray-200 p-5 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${pkg.badgeColor}`}>
+                        {pkg.badge}
+                      </span>
+                      <span className="text-[11px] font-semibold text-gray-500">📍 {pkg.venue}</span>
+                    </div>
+
+                    <div>
+                      <h4 className="font-black text-sm text-gray-900">{pkg.title}</h4>
+                      <p className="text-xs font-bold text-amber-800">{pkg.sessions}</p>
+                    </div>
+
+                    <ul className="space-y-1.5 text-xs text-gray-600">
+                      {pkg.features.map((f, fi) => (
+                        <li key={fi} className="flex items-center gap-1.5">
+                          <span className="text-amber-600 font-bold">✓</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-gray-400 line-through">₹{pkg.originalPrice}</span>
+                      <div className="text-base font-black text-gray-900">₹{pkg.offerPrice}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matchedTrainer = SEED_DOCTORS.find(d => d.category === "FITNESS_TRAINER");
+                        setTrainerBookingModal({
+                          open: true,
+                          trainer: matchedTrainer || null,
+                          packageTitle: pkg.title,
+                          preselectedVenue: pkg.venue.includes("Doorstep") ? "HOME_LAWN" : "CLUBHOUSE_GYM"
+                        });
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition cursor-pointer"
+                    >
+                      Book Package
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Clubhouse Gymnasium Amenities & Peak Hours Guide */}
+          <div className="bg-stone-900 text-stone-100 rounded-3xl p-5 sm:p-6 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-800 pb-3">
+              <div>
+                <h4 className="font-bold text-sm sm:text-base text-white flex items-center gap-2">
+                  <span>🏢</span>
+                  <span>Clubhouse Gymnasium Equipment & Peak Hours Guide</span>
+                </h4>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Located at Tower A Level 1 · Air-conditioned facility maintained by Mana Facility Management.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-xs font-bold text-emerald-400">Gym Currently Open</span>
+              </div>
+            </div>
+
+            {/* Equipments list */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 text-center text-xs">
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">🏋️‍♂️</div>
+                <div className="font-bold text-white">Power Racks</div>
+                <div className="text-[10px] text-stone-400">2x Olympic Squat Cages</div>
+              </div>
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">⚡</div>
+                <div className="font-bold text-white">Free Weights</div>
+                <div className="text-[10px] text-stone-400">Dumbbells 2.5kg - 40kg</div>
+              </div>
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">🏃</div>
+                <div className="font-bold text-white">Cardio Zone</div>
+                <div className="text-[10px] text-stone-400">6x Incline Treadmills</div>
+              </div>
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">🚣</div>
+                <div className="font-bold text-white">Rowers & Bikes</div>
+                <div className="text-[10px] text-stone-400">Concept2 Air Rowers</div>
+              </div>
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">🎯</div>
+                <div className="font-bold text-white">Cable Cross</div>
+                <div className="text-[10px] text-stone-400">Dual 8-stack Functional</div>
+              </div>
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700">
+                <div className="text-xl mb-1">🧘</div>
+                <div className="font-bold text-white">Turf & Stretch</div>
+                <div className="text-[10px] text-stone-400">Kettlebells & Foam Rollers</div>
+              </div>
+            </div>
+
+            {/* Hours Strip */}
+            <div className="bg-stone-800/60 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-300 gap-2 border border-stone-700">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🕐</span>
+                <span><strong>Quiet Hours (Recommended for Seniors & Beginners):</strong> 11:00 AM - 4:00 PM</span>
+              </div>
+              <div className="flex items-center gap-2 text-stone-400">
+                <span>⚠️ <strong>Peak Hours:</strong> 6:30 - 8:30 AM & 6:30 - 8:30 PM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Physiotherapy Dedicated Booking Modal */}
+      {physioBookingModal.open && physioBookingModal.physio && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            {physioSuccessMsg ? (
+              <div className="text-center space-y-3 py-6">
+                <div className="text-5xl">✅</div>
+                <h3 className="text-xl font-black text-teal-900">Physiotherapy Session Confirmed!</h3>
+                <p className="text-gray-600 text-xs sm:text-sm">
+                  {physioSuccessMsg}
+                </p>
+                <div className="bg-teal-50 border border-teal-200 text-teal-800 text-xs p-3.5 rounded-2xl space-y-1 text-left">
+                  <p><strong>Appointment ID:</strong> PHY-{Date.now().toString().slice(-6)}</p>
+                  <p><strong>Specialist:</strong> {physioBookingModal.physio.name}</p>
+                  <p><strong>Visit Mode:</strong> {physioVisitMode === "HOME" ? `🏡 Home Visit (${physioFlatNo})` : "🏢 Clubhouse Sports Pavilion (Ground Floor)"}</p>
+                  <p><strong>Scheduled Slot:</strong> {physioSlot}</p>
+                  <p className="text-[11px] text-teal-600 mt-1">✓ An assessment entry and invoice have been securely synced to your Private Health Vault.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhysioBookingModal({ open: false, physio: null });
+                    setPhysioSuccessMsg(null);
+                  }}
+                  className="bg-teal-700 hover:bg-teal-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs mt-2 cursor-pointer transition shadow-xs"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start border-b border-gray-100 pb-3">
+                  <div>
+                    <span className="text-xs font-bold text-teal-700 uppercase tracking-wider">Physiotherapy Booking</span>
+                    <h3 className="font-black text-lg text-gray-900">{physioBookingModal.physio.name}</h3>
+                    <p className="text-xs text-gray-500">{physioBookingModal.physio.specialty}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPhysioBookingModal({ open: false, physio: null })}
+                    className="text-gray-400 hover:text-gray-600 text-xl cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {physioBookingModal.packageTitle && (
+                  <div className="bg-indigo-50 border border-indigo-200 text-indigo-900 p-2.5 rounded-xl text-xs flex items-center gap-2">
+                    <span>📦</span>
+                    <span>Selected Package: <strong>{physioBookingModal.packageTitle}</strong></span>
+                  </div>
+                )}
+
+                <div className="space-y-3.5 text-xs">
+                  {/* Patient Selection */}
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Patient:</label>
+                    <select
+                      value={physioPatientId}
+                      onChange={(e) => setPhysioPatientId(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-teal-500"
+                    >
+                      {familyList.map(f => (
+                        <option key={f.id} value={f.id}>
+                          👤 {f.fullName} ({f.relationship}, {f.age}y)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Visit Mode: In-Clinic vs Home Visit */}
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Consultation Location:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPhysioVisitMode("CLINIC")}
+                        className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                          physioVisitMode === "CLINIC"
+                            ? "bg-teal-700 text-white border-teal-700 font-bold shadow-xs"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="text-sm mb-0.5">🏢</div>
+                        <div className="text-xs font-bold">Clubhouse Pavilion</div>
+                        <div className={`text-[10px] ${physioVisitMode === "CLINIC" ? "text-teal-100" : "text-gray-400"}`}>Sports Rehab Bay</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPhysioVisitMode("HOME")}
+                        className={`p-2.5 rounded-xl border text-center transition cursor-pointer ${
+                          physioVisitMode === "HOME"
+                            ? "bg-teal-700 text-white border-teal-700 font-bold shadow-xs"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="text-sm mb-0.5">🏡</div>
+                        <div className="text-xs font-bold">Doorstep Home Visit</div>
+                        <div className={`text-[10px] ${physioVisitMode === "HOME" ? "text-teal-100" : "text-gray-400"}`}>Physio visits your flat</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Flat No if Home Visit */}
+                  {physioVisitMode === "HOME" && (
+                    <div className="animate-in fade-in duration-200">
+                      <label className="font-bold text-gray-700 block mb-1">Apartment / Flat Number:</label>
+                      <input
+                        type="text"
+                        value={physioFlatNo}
+                        onChange={(e) => setPhysioFlatNo(e.target.value)}
+                        placeholder="e.g. Tower B - 604"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-teal-500"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Physiotherapist will carry portable electrotherapy & ultrasound kit.</span>
+                    </div>
+                  )}
+
+                  {/* Date & Time Slot */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Preferred Slot:</label>
+                      <select
+                        value={physioSlot}
+                        onChange={(e) => setPhysioSlot(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-teal-500"
+                      >
+                        <option value="Today, 04:30 PM">Today, 04:30 PM (Evening)</option>
+                        <option value="Today, 06:00 PM">Today, 06:00 PM (Evening)</option>
+                        <option value="Tomorrow, 09:30 AM">Tomorrow, 09:30 AM (Morning)</option>
+                        <option value="Tomorrow, 11:30 AM">Tomorrow, 11:30 AM (Morning)</option>
+                        <option value="Tomorrow, 05:00 PM">Tomorrow, 05:00 PM (Evening)</option>
+                        <option value="Day After Tomorrow, 10:00 AM">Day After Tomorrow, 10:00 AM</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Chief Issue / Condition:</label>
+                      <select
+                        value={physioCondition}
+                        onChange={(e) => setPhysioCondition(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-teal-500"
+                      >
+                        <option value="Back & Neck Pain">Back & Neck Pain</option>
+                        <option value="Sports Injury / Sprain">Sports Injury / Sprain</option>
+                        <option value="Knee / Joint Mobility">Knee / Joint Mobility</option>
+                        <option value="Post-Surgery Rehab">Post-Surgery Rehab</option>
+                        <option value="Shoulder / Frozen Shoulder">Shoulder / Frozen Shoulder</option>
+                        <option value="General Ergonomics Assessment">General Ergonomics Assessment</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pricing summary */}
+                  <div className="bg-teal-50/70 border border-teal-200/80 rounded-2xl p-3 space-y-1 text-xs">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Standard Session Fee:</span>
+                      <span className="line-through text-gray-400">₹{Math.round(physioBookingModal.physio.consultationFee * 1.18)}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700 font-semibold">
+                      <span>Mana Resident Discount (15%):</span>
+                      <span>- ₹{Math.round(physioBookingModal.physio.consultationFee * 0.18)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-900 font-black text-sm pt-1 border-t border-teal-200">
+                      <span>Amount Payable:</span>
+                      <span className="text-teal-900">₹{physioBookingModal.physio.consultationFee}</span>
+                    </div>
+                    <p className="text-[10px] text-teal-700 mt-1">✓ Cashless pass eligible · Pay after session via UPI or Cash</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPhysioBookingModal({ open: false, physio: null })}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const patient = familyList.find(f => f.id === physioPatientId);
+                      setPhysioSuccessMsg(
+                        `Your appointment with ${physioBookingModal.physio?.name} has been booked for ${patient?.fullName || "Resident"} on ${physioSlot}.`
+                      );
+                    }}
+                    className="flex-2 bg-teal-700 hover:bg-teal-800 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs cursor-pointer"
+                  >
+                    Confirm Booking →
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Gym Personal Trainer Booking Modal */}
+      {trainerBookingModal.open && trainerBookingModal.trainer && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            {trainerSuccessMsg ? (
+              <div className="text-center space-y-3 py-6">
+                <div className="text-5xl">💪</div>
+                <h3 className="text-xl font-black text-amber-950">Personal Training Session Confirmed!</h3>
+                <p className="text-gray-600 text-xs sm:text-sm">
+                  {trainerSuccessMsg}
+                </p>
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 text-xs p-3.5 rounded-2xl space-y-1 text-left">
+                  <p><strong>Session ID:</strong> PT-{Date.now().toString().slice(-6)}</p>
+                  <p><strong>Coach:</strong> {trainerBookingModal.trainer.name}</p>
+                  <p><strong>Training Venue:</strong> {trainerVenue === "HOME_LAWN" ? `🏡 Home / Lawn (${trainerFlatNo})` : "🏢 Clubhouse Gymnasium (Tower A Level 1)"}</p>
+                  <p><strong>Scheduled Slot:</strong> {trainerSlot}</p>
+                  <p><strong>Focus Goal:</strong> {trainerGoalNote}</p>
+                  <p className="text-[11px] text-amber-700 mt-1">✓ Your coach has been notified and initial InBody body composition scan is reserved.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrainerBookingModal({ open: false, trainer: null });
+                    setTrainerSuccessMsg(null);
+                  }}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs mt-2 cursor-pointer transition shadow-xs"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-start border-b border-gray-100 pb-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                      1-on-1 Personal Training Session
+                    </span>
+                    <h3 className="text-base font-black text-gray-900 mt-1">
+                      Book Session with {trainerBookingModal.trainer.name}
+                    </h3>
+                    <p className="text-xs text-gray-500">{trainerBookingModal.trainer.specialty}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTrainerBookingModal({ open: false, trainer: null })}
+                    className="text-gray-400 hover:text-gray-600 text-lg font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {trainerBookingModal.packageTitle && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-900 font-semibold flex items-center gap-2">
+                    <span>📦</span>
+                    <span>Package: {trainerBookingModal.packageTitle}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3 text-xs">
+                  {/* Select Member */}
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Participant (Resident / Family Member):</label>
+                    <select
+                      value={trainerPatientId}
+                      onChange={(e) => setTrainerPatientId(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-amber-500"
+                    >
+                      {familyList.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.fullName} ({m.relationship}) - {m.age}y
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Training Venue */}
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Training Location:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTrainerVenue("CLUBHOUSE_GYM")}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                          trainerVenue === "CLUBHOUSE_GYM"
+                            ? "bg-amber-600 border-amber-600 text-white font-bold shadow-xs"
+                            : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="text-sm mb-0.5">🏢</div>
+                        <div className="text-xs font-bold">Clubhouse Gym</div>
+                        <div className={`text-[10px] ${trainerVenue === "CLUBHOUSE_GYM" ? "text-amber-100" : "text-gray-400"}`}>Level 1 (Tower A)</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTrainerVenue("HOME_LAWN")}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer ${
+                          trainerVenue === "HOME_LAWN"
+                            ? "bg-amber-600 border-amber-600 text-white font-bold shadow-xs"
+                            : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="text-sm mb-0.5">🏡</div>
+                        <div className="text-xs font-bold">Doorstep / Lawn</div>
+                        <div className={`text-[10px] ${trainerVenue === "HOME_LAWN" ? "text-amber-100" : "text-gray-400"}`}>Coach visits flat/turf</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Flat No if Home Visit */}
+                  {trainerVenue === "HOME_LAWN" && (
+                    <div className="animate-in fade-in duration-200">
+                      <label className="font-bold text-gray-700 block mb-1">Apartment / Flat Number:</label>
+                      <input
+                        type="text"
+                        value={trainerFlatNo}
+                        onChange={(e) => setTrainerFlatNo(e.target.value)}
+                        placeholder="e.g. Tower B - 604"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-amber-500"
+                      />
+                      <span className="text-[10px] text-gray-400 mt-0.5 block">Trainer will bring resistance bands, mats & agility equipment.</span>
+                    </div>
+                  )}
+
+                  {/* Slot & Goal */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Preferred Time Slot:</label>
+                      <select
+                        value={trainerSlot}
+                        onChange={(e) => setTrainerSlot(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-amber-500"
+                      >
+                        <option value="Tomorrow, 06:30 AM">Tomorrow, 06:30 AM (Morning)</option>
+                        <option value="Tomorrow, 08:00 AM">Tomorrow, 08:00 AM (Morning)</option>
+                        <option value="Tomorrow, 11:00 AM">Tomorrow, 11:00 AM (Quiet Hours)</option>
+                        <option value="Tomorrow, 05:00 PM">Tomorrow, 05:00 PM (Evening)</option>
+                        <option value="Tomorrow, 06:30 PM">Tomorrow, 06:30 PM (Evening)</option>
+                        <option value="Tomorrow, 07:30 PM">Tomorrow, 07:30 PM (Evening)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Primary Fitness Goal:</label>
+                      <select
+                        value={trainerGoalNote}
+                        onChange={(e) => setTrainerGoalNote(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 outline-none focus:border-amber-500"
+                      >
+                        <option value="Build Strength & Improve Form">Strength & Form Check</option>
+                        <option value="Weight & Fat Loss Routine">Weight & Fat Loss</option>
+                        <option value="Core & Posture Correction">Core & Posture</option>
+                        <option value="Senior Mobility & Joint Stability">Senior Mobility & Balance</option>
+                        <option value="Post-Rehab Conditioning">Post-Rehab Conditioning</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pricing Breakdown */}
+                  <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 space-y-1 text-gray-700">
+                    <div className="flex justify-between items-center">
+                      <span>1-on-1 PT Session Fee:</span>
+                      <span className="font-bold">₹{trainerBookingModal.trainer.consultationFee}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-amber-800 font-semibold">
+                      <span>Resident InBody Scan:</span>
+                      <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.5 rounded-md font-bold">FREE (Worth ₹500)</span>
+                    </div>
+                    <p className="text-[10px] text-amber-800 mt-1">✓ Pay after session via UPI or Cash at Clubhouse Gym reception</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setTrainerBookingModal({ open: false, trainer: null })}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const patient = familyList.find(f => f.id === trainerPatientId);
+                      setTrainerSuccessMsg(
+                        `Personal training session with ${trainerBookingModal.trainer?.name} has been booked for ${patient?.fullName || "Resident"} on ${trainerSlot}.`
+                      );
+                    }}
+                    className="flex-2 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-xs cursor-pointer"
+                  >
+                    Confirm Booking →
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 

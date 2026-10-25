@@ -53,6 +53,7 @@ import { cn } from "../ui/utils";
 import { feedService, type CreatePostRequest, type UpdatePostRequest, type FeedSummaryCountsResponse } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
 import { sanitizeHref } from "../../../utils/sanitize";
@@ -116,6 +117,7 @@ const COMMENT_REACTION_CONFIG: { type: string; emoji: string; label: string; act
 
 const POST_TYPE_CONFIG: { id: PostTypeEnum; label: string; icon: string; color: string }[] = [
   { id: "GENERAL", label: "General", icon: "💬", color: "bg-slate-100 text-slate-700" },
+  { id: "SPORTS", label: "Sports", icon: "🏆", color: "bg-emerald-100 text-emerald-700" },
   { id: "ANNOUNCEMENT", label: "Announcement", icon: "📢", color: "bg-amber-100 text-amber-700" },
   { id: "QUESTION", label: "Question", icon: "❓", color: "bg-blue-100 text-blue-700" },
   { id: "POLL", label: "Poll", icon: "📊", color: "bg-violet-100 text-violet-700" },
@@ -136,6 +138,7 @@ const POST_TYPE_CONFIG: { id: PostTypeEnum; label: string; icon: string; color: 
 const FEED_FILTERS = [
   { id: "ALL", label: "All", shortLabel: "All" },
   { id: "OFFICIAL", label: "Official", shortLabel: "Official" },
+  { id: "SPORTS", label: "Sports", shortLabel: "Sports" },
   { id: "ANNOUNCEMENT", label: "Announcements", shortLabel: "Announce" },
   { id: "POLL", label: "Polls", shortLabel: "Polls" },
   { id: "EVENT", label: "Events", shortLabel: "Events" },
@@ -691,6 +694,14 @@ export function Feed() {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventVenue, setEventVenue] = useState("");
+  const [sportsTournaments, setSportsTournaments] = useState<DashboardTournamentCard[]>([]);
+  const [loadingSportsTournaments, setLoadingSportsTournaments] = useState(false);
+  const [selectedSportsTournamentId, setSelectedSportsTournamentId] = useState("");
+  const [sportsDate, setSportsDate] = useState("");
+  const [sportsVenue, setSportsVenue] = useState("");
+  const [sportsCategory, setSportsCategory] = useState("Cricket");
+  const [sportsUpdateType, setSportsUpdateType] = useState("Match Fixture");
+  const [sportsTeamsOrScore, setSportsTeamsOrScore] = useState("");
   const [activeCoverPickerMediaIndex, setActiveCoverPickerMediaIndex] = useState<number | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -772,6 +783,27 @@ export function Feed() {
 
     return () => { active = false; };
   }, [user?.communityId, canPost, isCreateModalOpen, createdEvents.length]);
+
+  useEffect(() => {
+    if (!user?.communityId || !canPost || !isCreateModalOpen) return;
+    if (sportsTournaments.length > 0) return;
+
+    let active = true;
+    setLoadingSportsTournaments(true);
+    sportsDashboardService.getOpenTournaments()
+      .then((tournaments) => {
+        if (!active) return;
+        setSportsTournaments(tournaments || []);
+      })
+      .catch(() => {
+        if (active) setSportsTournaments([]);
+      })
+      .finally(() => {
+        if (active) setLoadingSportsTournaments(false);
+      });
+
+    return () => { active = false; };
+  }, [user?.communityId, canPost, isCreateModalOpen, sportsTournaments.length]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -885,6 +917,35 @@ export function Feed() {
     setEventVenue(eventVenueLabel(selectedEvent));
   };
 
+  const handleSelectedSportsTournamentChange = (tournamentId: string) => {
+    setSelectedSportsTournamentId(tournamentId);
+    if (!tournamentId) return;
+
+    const foundTournament = sportsTournaments.find((t) => String(t.id) === tournamentId);
+    if (foundTournament) {
+      if (foundTournament.eventDateStart) {
+        const datePart = foundTournament.eventDateStart.slice(0, 10);
+        setSportsDate(`${datePart}T09:00`);
+      }
+      const firstEvent = foundTournament.events?.[0];
+      if (firstEvent?.venueName) {
+        setSportsVenue(firstEvent.venueName);
+      } else if (foundTournament.venueName) {
+        setSportsVenue(foundTournament.venueName);
+      }
+      if (firstEvent?.sportName) {
+        setSportsCategory(firstEvent.sportName);
+      }
+      return;
+    }
+
+    const foundEvent = createdEvents.find((e) => String(e.id) === tournamentId);
+    if (foundEvent) {
+      setSportsDate(eventStartToDateTimeLocal(foundEvent));
+      setSportsVenue(eventVenueLabel(foundEvent));
+    }
+  };
+
   const handleCreatePost = async (notify = false) => {
     if (!canPost) {
       toast.error("Posting is restricted to community administrators.");
@@ -926,6 +987,23 @@ export function Feed() {
       if (selectedEventId && !Number.isNaN(linkedEventId)) request.eventId = linkedEventId;
       request.eventDate = eventDate || undefined;
       request.eventVenue = eventVenue || undefined;
+    } else if (composerType === "SPORTS") {
+      const linkedTournamentId = Number(selectedSportsTournamentId);
+      if (selectedSportsTournamentId && !Number.isNaN(linkedTournamentId)) request.eventId = linkedTournamentId;
+      request.eventDate = sportsDate || undefined;
+      request.eventVenue = sportsVenue || undefined;
+
+      const parts = [
+        sportsCategory,
+        sportsUpdateType,
+        sportsTeamsOrScore ? `(${sportsTeamsOrScore})` : null,
+      ].filter(Boolean);
+      if (parts.length > 0) {
+        request.location = parts.join(" • ");
+      }
+      request.linkUrl = selectedSportsTournamentId ? `/sports/tournaments` : `/sports`;
+      const linkedTourn = sportsTournaments.find((t) => String(t.id) === selectedSportsTournamentId);
+      request.linkTitle = linkedTourn?.name || (sportsCategory ? `${sportsCategory} Sports` : "Community Sports");
     } else if (composerType === "EMERGENCY") {
       request.priority = "EMERGENCY";
     }
@@ -951,6 +1029,12 @@ export function Feed() {
       setSelectedEventId("");
       setEventDate("");
       setEventVenue("");
+      setSelectedSportsTournamentId("");
+      setSportsDate("");
+      setSportsVenue("");
+      setSportsCategory("Cricket");
+      setSportsUpdateType("Match Fixture");
+      setSportsTeamsOrScore("");
       setShowComposerTypes(false);
       setIsCreateModalOpen(false);
       toast.success(notify ? "Post published and notification sent!" : "Post published!");
@@ -1426,11 +1510,11 @@ export function Feed() {
                     </div>
                   </div>
 
-                  {/* Title input (for Articles / Announcements) */}
-                  {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT") && (
+                  {/* Title input (for Articles / Announcements / Sports) */}
+                  {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT" || composerType === "SPORTS") && (
                     <input
                       type="text"
-                      placeholder="Post title..."
+                      placeholder={composerType === "SPORTS" ? "Match / Tournament headline (optional)..." : "Post title..."}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                       value={newPostTitle}
                       onChange={(e) => setNewPostTitle(e.target.value)}
@@ -1445,6 +1529,7 @@ export function Feed() {
                       composerType === "POLL" ? "Provide context or details about this poll..."
                       : composerType === "QUESTION" ? "Ask your community a question..."
                       : composerType === "ANNOUNCEMENT" ? "Write your official announcement details..."
+                      : composerType === "SPORTS" ? "Share sports updates, match scores, practice sessions, or tournament news..."
                       : composerType === "EMERGENCY" ? "Describe the emergency situation and action needed..."
                       : composerType === "APPRECIATION" ? "Share who and what you are appreciating..."
                       : composerType === "SUGGESTION" ? "Share your idea or suggestion..."
@@ -1455,7 +1540,7 @@ export function Feed() {
                     value={newPostContent}
                     onChange={(e) => setNewPostContent(e.target.value)}
                     disabled={isPosting}
-                    autoFocus={composerType !== "ARTICLE" && composerType !== "ANNOUNCEMENT"}
+                    autoFocus={composerType !== "ARTICLE" && composerType !== "ANNOUNCEMENT" && composerType !== "SPORTS"}
                   />
 
                   {/* Dynamic Type-specific inputs */}
@@ -1554,6 +1639,131 @@ export function Feed() {
                     </div>
                   )}
 
+                  {composerType === "SPORTS" && (
+                    <div className="bg-emerald-50/70 p-3 sm:p-3.5 rounded-2xl border border-emerald-200/90 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                          <Trophy className="w-4 h-4 text-emerald-600" />
+                          <span>Sports & Tournament Card Details</span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Tournament Hub
+                        </span>
+                      </div>
+
+                      {/* Primary Sports Details: Date & Time, Link Created Event / Tournament, Venue */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Event Date & Time</label>
+                          <input
+                            type="datetime-local"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={sportsDate}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const target = e.target;
+                              setSportsDate(val);
+                              if (val && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) {
+                                setTimeout(() => target.blur(), 700);
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Link Created Event</label>
+                          <select
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-100 disabled:text-slate-400"
+                            value={selectedSportsTournamentId}
+                            onChange={(e) => handleSelectedSportsTournamentChange(e.target.value)}
+                            disabled={loadingSportsTournaments}
+                          >
+                            <option value="">{loadingSportsTournaments ? "Loading tournaments..." : "Select event"}</option>
+                            {sportsTournaments.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                🏆 {t.name}
+                              </option>
+                            ))}
+                            {createdEvents
+                              .filter((ev) => (ev.eventType || ev.type)?.toLowerCase().includes("sport") || ev.category?.toLowerCase().includes("sport") || ev.title?.toLowerCase().includes("sport"))
+                              .map((ev) => (
+                                <option key={`ev-${ev.id}`} value={ev.id}>
+                                  🏅 {eventOptionLabel(ev)}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Venue</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Cricket Ground, Court 2..."
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={sportsVenue}
+                            onChange={(e) => setSportsVenue(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Extended Sports Details: Sport, Category, Teams / Matchup / Score */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-emerald-100">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Sport</label>
+                          <select
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={sportsCategory}
+                            onChange={(e) => setSportsCategory(e.target.value)}
+                          >
+                            <option value="Cricket">🏏 Cricket</option>
+                            <option value="Badminton">🏸 Badminton</option>
+                            <option value="Football">⚽ Football</option>
+                            <option value="Tennis">🎾 Tennis</option>
+                            <option value="Table Tennis">🏓 Table Tennis</option>
+                            <option value="Basketball">🏀 Basketball</option>
+                            <option value="Volleyball">🏐 Volleyball</option>
+                            <option value="Swimming">🏊 Swimming</option>
+                            <option value="Running / Marathon">🏃 Running / Marathon</option>
+                            <option value="Chess">♟️ Chess</option>
+                            <option value="Pool / Snooker">🎱 Pool / Snooker</option>
+                            <option value="Pickleball">🏓 Pickleball</option>
+                            <option value="Squash">🎾 Squash</option>
+                            <option value="Other Sport">🎯 Other Sport</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Update Category</label>
+                          <select
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={sportsUpdateType}
+                            onChange={(e) => setSportsUpdateType(e.target.value)}
+                          >
+                            <option value="Tournament">🏆 Tournament Announcement</option>
+                            <option value="Match Fixture">⚔️ Match Fixture / Schedule</option>
+                            <option value="Match Result">📊 Match Result & Scores</option>
+                            <option value="Looking for Players">🤝 Looking for Players / Practice</option>
+                            <option value="Player Auction">🔨 Player Auction Update</option>
+                            <option value="Champions">🏅 Champion / Ceremony</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">
+                            {sportsUpdateType === "Match Result" ? "Final Score / Result" : "Teams / Matchup (Optional)"}
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={sportsUpdateType === "Match Result" ? "e.g. 145/6 vs 142/8 (Won by 3 runs)" : "e.g. Team Alpha vs Team Beta"}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={sportsTeamsOrScore}
+                            onChange={(e) => setSportsTeamsOrScore(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Media Attachments Preview Grid */}
                   {newPostMedia.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
@@ -1647,6 +1857,17 @@ export function Feed() {
                         title="Add Event Details"
                       >
                         <Calendar className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setComposerType(composerType === "SPORTS" ? "GENERAL" : "SPORTS")}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${
+                          composerType === "SPORTS" ? "text-emerald-600 bg-emerald-50" : "text-emerald-500 hover:bg-emerald-50"
+                        }`}
+                        title="Sports Post"
+                      >
+                        <Trophy className="w-5 h-5" />
                       </button>
 
                       <button
@@ -2273,7 +2494,7 @@ const PostCard = React.memo(function PostCard({
             <button onClick={() => setIsEditing(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
           </div>
 
-          {(post.postType === "ARTICLE" || post.postType === "ANNOUNCEMENT") && (
+          {(post.postType === "ARTICLE" || post.postType === "ANNOUNCEMENT" || post.postType === "SPORTS") && (
             <input
               type="text"
               placeholder="Title..."
@@ -2290,7 +2511,7 @@ const PostCard = React.memo(function PostCard({
             onChange={(e) => setEditContent(e.target.value)}
           />
 
-          {post.postType === "EVENT" && (
+          {(post.postType === "EVENT" || post.postType === "SPORTS") && (
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date</label>
@@ -2454,6 +2675,52 @@ const PostCard = React.memo(function PostCard({
           <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-pink-600 group-hover:text-pink-700">
             <span>View Event Dashboard</span>
             <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </div>
+        </button>
+      )}
+
+      {/* Sports tournament & match details – click to go to sports module */}
+      {post.postType === "SPORTS" && (
+        <button
+          onClick={() => navigate(post.linkUrl || "/sports")}
+          className="w-full mb-3 text-left bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/70 border border-emerald-200/80 rounded-xl p-3 hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {post.location && (
+              <span className="bg-emerald-600 text-white rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                <Trophy className="w-3.5 h-3.5" />
+                <span>{post.location}</span>
+              </span>
+            )}
+            {post.eventDate && (
+              <span className="bg-white text-emerald-800 border border-emerald-200 rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                <span>
+                  {new Date(post.eventDate).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </span>
+            )}
+            {post.eventVenue && (
+              <span className="bg-white text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold flex items-center gap-1 shadow-2xs">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                <span>{post.eventVenue}</span>
+              </span>
+            )}
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-emerald-100/70 flex items-center justify-between text-left">
+            <span className="text-[11px] font-semibold text-slate-500 truncate max-w-[70%]">
+              {post.linkTitle ? `🏆 ${post.linkTitle}` : "Community Sports League & Tournaments"}
+            </span>
+            <span className="text-xs font-bold text-emerald-700 group-hover:underline flex items-center gap-1 shrink-0">
+              <span>View Sports</span>
+              <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+            </span>
           </div>
         </button>
       )}

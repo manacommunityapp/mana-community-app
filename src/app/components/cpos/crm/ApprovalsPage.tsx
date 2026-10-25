@@ -52,7 +52,7 @@ export default function ApprovalsPage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <CRMNav />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="h5" fontWeight={700}>Approval Queue</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Approval Queue</Typography>
         <Chip label={leads.length} color="warning" size="small" sx={{ ml: 1 }} />
       </Box>
 
@@ -69,7 +69,7 @@ export default function ApprovalsPage() {
         <Paper key={lead.id} sx={{ p: 3, borderRadius: '16px' }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
             <Box sx={{ flex: 1, minWidth: 200 }}>
-              <Typography variant="subtitle1" fontWeight={700}>{lead.name}</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{lead.name}</Typography>
               <Typography variant="body2" color="text.secondary">{lead.phone} · {lead.email}</Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                 <Chip label={STAGE_LABELS[lead.stage as keyof typeof STAGE_LABELS] ?? lead.stage}

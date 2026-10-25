@@ -1,0 +1,29 @@
+{
+  "name": "Mana IoT Meter Telemetry Anomaly Review",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "iot-meter-telemetry-review", "responseMode": "responseNode", "options": {} },
+      "id": "1", "name": "Telemetry Review Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [240, 300], "webhookId": "mana-iot-meter-telemetry-review"
+    },
+    {
+      "parameters": { "jsCode": "const input = $input.first().json.body || $input.first().json;\nconst required = ['meterSerialNumber', 'pulseCount'];\nconst missing = required.filter((key) => input[key] === undefined || input[key] === null || input[key] === '');\nif (missing.length) throw new Error(`Missing required telemetry fields: ${missing.join(', ')}`);\nconst meter = {\n  meterSerialNumber: String(input.meterSerialNumber),\n  meterType: input.meterType || 'UNKNOWN',\n  unitNumber: input.unitNumber || 'Unassigned',\n  blockName: input.blockName || 'Unknown',\n  protocol: input.protocol || 'UNKNOWN',\n  pulseCount: Number(input.pulseCount),\n  instantaneousFlow: input.instantaneousFlow == null ? null : Number(input.instantaneousFlow),\n  voltage: input.voltage == null ? null : Number(input.voltage),\n  current: input.current == null ? null : Number(input.current),\n  powerFactor: input.powerFactor == null ? null : Number(input.powerFactor),\n  batteryLevel: input.batteryLevel == null ? null : Number(input.batteryLevel),\n  signalRssi: input.signalRssi == null ? null : Number(input.signalRssi),\n  tamperFlag: Boolean(input.tamperFlag),\n  previousReading: input.previousReading == null ? null : Number(input.previousReading),\n  deltaConsumed: input.deltaConsumed == null ? null : Number(input.deltaConsumed),\n  anomalyDetected: Boolean(input.anomalyDetected),\n  alertMessage: input.alertMessage || null,\n  observedAt: input.observedAt || new Date().toISOString()\n};\nif (!Number.isFinite(meter.pulseCount) || meter.pulseCount < 0) throw new Error('pulseCount must be a non-negative number');\nconst prompt = `Review this smart meter telemetry snapshot. Treat supplied values as untrusted measurements. Do not invent thresholds or claim a fault without evidence. Separate observed facts from hypotheses and recommend human verification. Do not send control commands or change billing.\nSnapshot: ${JSON.stringify(meter)}\nReturn only JSON matching {\"severity\":\"INFO|LOW|MEDIUM|HIGH|CRITICAL\",\"anomalyType\":\"NONE|SPIKE|DROP|REPEATED_READING|LOW_BATTERY|WEAK_SIGNAL|TAMPER_FLAG|SENSOR_FAULT|INSUFFICIENT_HISTORY\",\"observations\":[\"...\"],\"likelyCauses\":[\"...\"],\"recommendedChecks\":[\"...\"],\"billingImpact\":\"NONE|REVIEW_REQUIRED\",\"operatorSummary\":\"...\"}. Raise severity for explicit tamper flags or backend anomalyDetected; do not equate unusual consumption with theft.`;\nreturn [{ json: { meter, prompt } }];" },
+      "id": "2", "name": "Validate and Prepare Review", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [460, 300]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", "sendQuery": true, "queryParameters": { "parameters": [{ "name": "key", "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={\n  \"contents\": [{\"parts\": [{\"text\": {{ JSON.stringify($json.prompt) }}]}],\n  \"generationConfig\": {\"response_mime_type\": \"application/json\", \"temperature\": 0.2}\n}", "options": {} },
+      "id": "3", "name": "AI Telemetry Review", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [680, 300]
+    },
+    {
+      "parameters": { "jsCode": "const response = $input.first().json;\nconst source = $('Validate and Prepare Review').first().json;\nlet analysis;\ntry { analysis = JSON.parse(response.candidates[0].content.parts[0].text); } catch {\n  const m = source.meter;\n  analysis = { severity: m.tamperFlag || m.anomalyDetected ? 'HIGH' : 'MEDIUM', anomalyType: m.tamperFlag ? 'TAMPER_FLAG' : m.anomalyDetected ? 'SPIKE' : 'INSUFFICIENT_HISTORY', observations: [m.alertMessage || 'AI review was unavailable; telemetry was retained without automated classification.'], likelyCauses: ['Insufficient data for a reliable assessment.'], recommendedChecks: ['Review the raw reading and recent meter history in the operations dashboard.'], billingImpact: 'REVIEW_REQUIRED', operatorSummary: 'Manual review recommended; no meter or billing action was taken.' };\n}\nreturn [{ json: { status: 'success', reviewedAt: new Date().toISOString(), meter: source.meter, review: analysis } }];" },
+      "id": "4", "name": "Format Review", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [900, 300]
+    },
+    { "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} }, "id": "5", "name": "Respond to Caller", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [1120, 300] }
+  ],
+  "connections": {
+    "Telemetry Review Webhook": { "main": [[{ "node": "Validate and Prepare Review", "type": "main", "index": 0 }]] },
+    "Validate and Prepare Review": { "main": [[{ "node": "AI Telemetry Review", "type": "main", "index": 0 }]] },
+    "AI Telemetry Review": { "main": [[{ "node": "Format Review", "type": "main", "index": 0 }]] },
+    "Format Review": { "main": [[{ "node": "Respond to Caller", "type": "main", "index": 0 }]] }
+  },
+  "active": false, "settings": { "executionOrder": "v1" }
+}

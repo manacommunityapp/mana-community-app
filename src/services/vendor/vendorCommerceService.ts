@@ -34,6 +34,9 @@ export interface VendorProductDto {
 
 export interface CreateProductRequest {
   productName: string;
+  productType?: string;
+  foodGroceryStoreId?: number;
+  foodGroceryCategoryId?: number;
   brand: string;
   category: string;
   subCategory?: string;
@@ -72,6 +75,14 @@ export interface VendorCommerceStats {
 }
 
 export const vendorCommerceService = {
+  async getGroceryStores(): Promise<{ id: number; name: string }[]> {
+    return await apiClient.get<{ id: number; name: string }[]>('/vendor/commerce/grocery-stores');
+  },
+
+  async getGroceryCategories(storeId: number): Promise<{ id: number; name: string }[]> {
+    return await apiClient.get<{ id: number; name: string }[]>(`/vendor/commerce/grocery-stores/${storeId}/categories`);
+  },
+
   async getProducts(): Promise<VendorProductDto[]> {
     return await apiClient.get<VendorProductDto[]>('/vendor/commerce/products');
   },

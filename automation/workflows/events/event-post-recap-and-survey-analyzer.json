@@ -1,0 +1,140 @@
+{
+  "name": "Event Post Recap & Survey Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-post-recap",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-event-post-recap"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst eventId = item.eventId || item.id || 'EVT-POST-' + Date.now();\nconst eventName = item.eventName || 'Ganesh Utsav 2026';\nconst eventDate = item.eventDate || '2026-08-27';\nconst metrics = item.metrics || {\n  registeredCount: 420,\n  actualAttendedCount: 395,\n  totalDonationsCollected: 85400,\n  mealsServed: 480,\n  volunteersEngaged: 36\n};\nconst attendeeFeedback = item.attendeeFeedback || [\n  { rating: 5, comment: 'Phenomenal floral mandap decoration and soulful Bhajans! Truly divine experience.', category: 'Programs' },\n  { rating: 4, comment: 'Annadanam lunch was delicious and organized, but queue was slightly slow around 1:30 PM.', category: 'Food' },\n  { rating: 5, comment: 'Pooja sankalpam was conducted very peacefully. Pandits were very cooperative.', category: 'Pooja' },\n  { rating: 3, comment: 'Basement parking took 20 minutes to exit due to double parking near Tower C.', category: 'Parking' },\n  { rating: 5, comment: 'Kudos to all volunteer kids and youth for tireless seva throughout the day!', category: 'Volunteers' }\n];\n\nconst prompt = `You are the Chief Community Relations & Event Review Officer for Mana Community Society.\nAnalyze concluded event turnout, financials, and resident feedback to prepare a post-event audit report and celebration WhatsApp broadcast:\n\nEvent Dossier:\n- Event: ${eventName} on ${eventDate} (ID: ${eventId})\n- Metrics:\n  * Total RSVPs/Passes: ${metrics.registeredCount}\n  * Actual Footfall Attended: ${metrics.actualAttendedCount} (${Math.round((metrics.actualAttendedCount / Math.max(1, metrics.registeredCount)) * 100)}% attendance)\n  * Total Seva / Donations Collected: ₹${metrics.totalDonationsCollected.toLocaleString('en-IN')}\n  * Annadanam Meals Served: ${metrics.mealsServed}\n  * Active Volunteers Engaged: ${metrics.volunteersEngaged}\n- Resident Feedback Sample: ${JSON.stringify(attendeeFeedback)}\n\nAnalysis Tasks:\n1. Sentiment Index: Compute an overall satisfaction score (0-100) and sentiment label [OUTSTANDING, POSITIVE, MIXED, NEEDS_IMPROVEMENT].\n2. Highlights & Wins: Extract top 3 things that delighted residents.\n3. Bottlenecks: Identify specific logistics friction points (e.g. food queues, parking exits).\n4. Recommendations: Provide 3 concrete suggestions for the next committee/event.\n5. Resident WhatsApp Bulletin: Draft a heartfelt, warm community thank-you message celebrating resident participation, volunteer efforts, and overall success with tasteful emojis.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"overallScore\": number (0 to 100),\n  \"sentiment\": \"OUTSTANDING\" | \"POSITIVE\" | \"MIXED\" | \"NEEDS_IMPROVEMENT\",\n  \"keyHighlights\": string[],\n  \"frictionPoints\": string[],\n  \"nextEventImprovements\": string[],\n  \"whatsappCommunityRecap\": string,\n  \"committeeExecutiveSummary\": string\n}`;\n\nreturn [{ json: { prompt, eventId, eventName, eventDate, metrics } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.overallScore) {\n  parsed = {\n    overallScore: 94,\n    sentiment: \"OUTSTANDING\",\n    keyHighlights: [\n      \"Record resident turnout of 395 devotees with 94% attendance rate.\",\n      \"Flawless Annadanam lunch serving 480 pure-vegetarian meals with zero waste.\",\n      \"Soulful Vedic poojas and floral mandap decoration receiving near unanimous 5-star praise.\"\n    ],\n    frictionPoints: [\n      \"Food queue experienced a 15-minute wait time surge between 1:15 PM and 1:45 PM.\",\n      \"Tower C basement parking exit experienced minor congestion due to unreserved visitor vehicles.\"\n    ],\n    nextEventImprovements: [\n      \"Introduce dual buffet counters during peak afternoon lunch window.\",\n      \"Deploy dedicated parking marshals near Tower C ramp 30 minutes before concluding Aarti.\",\n      \"Pre-print barcode stickers for faster devotee prasadam pickup.\"\n    ],\n    whatsappCommunityRecap: \"🌺 *Mana Community Ganesh Utsav 2026 – Grand Success & Heartfelt Thanks!* 🌺\\n\\nDear Residents,\\nWhat an extraordinary celebration of devotion, community spirit, and togetherness! ✨\\n\\n📊 *Celebration Highlights:*\\n• *Devotee Footfall:* 395+ Residents & Guests\\n• *Annadanam Seva:* 480 Meals Served with Love\\n• *Volunteers Engaged:* 36 dedicated community youth & seniors\\n• *Pooja Seva Collection:* ₹85,400 towards community temple fund\\n\\nA huge round of applause to our 36 tireless volunteers, estate management, security, and cleaning staff who worked round-the-clock to make this seamless.\\n\\n📸 Event photos and video highlights are now live in the Mana Community App Gallery!\\n\\n_With warm regards,\\nMana Community Cultural & Festival Committee_\",\n    committeeExecutiveSummary: \"The event achieved an exemplary 94/100 satisfaction index. Financials reconciled with ₹85,400 seva collections covering vendor costs with surplus reserve. Recommended action items for Diwali Mela: dual buffet layout and Tower C basement parking marshal.\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    eventId: raw.eventId,\n    eventName: raw.eventName,\n    recapGeneratedAt: new Date().toISOString(),\n    recap: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

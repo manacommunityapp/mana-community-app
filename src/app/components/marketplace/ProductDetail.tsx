@@ -5,7 +5,7 @@ import { twMerge } from "tailwind-merge";
 import {
   ArrowLeft, Heart, MessageCircle, Star, MapPin, CheckCircle, Clock,
   Tag, ShoppingCart, ImagePlus, Send, Loader2, Package, ShieldCheck,
-  DollarSign, Flag, X, CheckCircle2, Share2
+  DollarSign, Flag, X, CheckCircle2, Share2, Sparkles,
 } from "lucide-react";
 import {
   listingService, reviewService, wishlistService, offerService, moderationService,
@@ -16,6 +16,7 @@ import { useChat } from "../../../contexts/ChatContext";
 import { useCart } from "../../../contexts/CartContext";
 import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS, MOCK_OFFERS, MOCK_REPORTS } from "./mockData";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
+import { automationService, type MarketplaceOfferArbitrateResponse } from "../../../services/automation/automationService";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -55,6 +56,8 @@ export function ProductDetail() {
   const [offerPrice, setOfferPrice] = useState<number | "">("");
   const [offerNote, setOfferNote] = useState("");
   const [submittingOffer, setSubmittingOffer] = useState(false);
+  const [isAnalyzingOffer, setIsAnalyzingOffer] = useState(false);
+  const [offerAdvice, setOfferAdvice] = useState<MarketplaceOfferArbitrateResponse["negotiation"] | null>(null);
 
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState("Inappropriate or Offensive Content");
@@ -167,6 +170,31 @@ export function ProductDetail() {
       showError("Failed to send offer. Please try again.");
     } finally {
       setSubmittingOffer(false);
+    }
+  };
+
+  const handleAnalyzeOffer = async () => {
+    if (!listing) return;
+    const proposed = typeof offerPrice === "number" && offerPrice > 0 ? offerPrice : Math.round(listing.price * 0.85);
+    setIsAnalyzingOffer(true);
+    try {
+      const res = await automationService.arbitrateMarketplaceOffer({
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingPrice: listing.price,
+        proposedPrice: proposed,
+        buyerMessage: offerNote,
+        category: listing.category,
+        condition: listing.condition,
+      });
+      if (res && res.negotiation) {
+        setOfferAdvice(res.negotiation);
+        showSuccess("AI Bargain Advisor generated neighborly deal guidance!");
+      }
+    } catch {
+      showError("Could not calculate bargain advice. Please try again.");
+    } finally {
+      setIsAnalyzingOffer(false);
     }
   };
 
@@ -498,9 +526,70 @@ export function ProductDetail() {
               </button>
             </div>
 
-            <div>
+            <div className="flex items-center justify-between">
               <p className="text-xs text-slate-400">Listing Listed Price: <span className="font-bold text-slate-900 dark:text-white">₹{listing.price}</span></p>
+              <button
+                type="button"
+                onClick={handleAnalyzeOffer}
+                disabled={isAnalyzingOffer}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 transition-all disabled:opacity-50"
+              >
+                {isAnalyzingOffer ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                {isAnalyzingOffer ? "Analyzing Deal..." : "AI Bargain Advisor"}
+              </button>
             </div>
+
+            {offerAdvice && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" /> AI Strategy:{" "}
+                    <span className={clsx(
+                      "px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide font-black",
+                      offerAdvice.dealFairness === "fair" && "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+                      offerAdvice.dealFairness === "lowball" && "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+                      offerAdvice.dealFairness === "extreme_lowball" && "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
+                      offerAdvice.dealFairness === "highball" && "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                    )}>
+                      {(offerAdvice.dealFairness || offerAdvice.offerAssessment || "").replace("_", " ")}
+                    </span>
+                  </span>
+                  {offerAdvice.recommendedCounterPrice && (
+                    <button
+                      type="button"
+                      onClick={() => setOfferPrice(offerAdvice.recommendedCounterPrice)}
+                      className="text-[10px] font-bold text-amber-700 dark:text-amber-400 underline hover:no-underline"
+                    >
+                      Use Rec: ₹{offerAdvice.recommendedCounterPrice}
+                    </button>
+                  )}
+                </div>
+                <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  {offerAdvice.justification}
+                </p>
+                {offerAdvice.suggestedNeighborMessage && (
+                  <div className="p-2 rounded-xl bg-white/70 dark:bg-[#1E1E36]/70 border border-amber-200/40 dark:border-amber-900/30">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-semibold text-slate-500">Drafted Courteous Note:</span>
+                      <button
+                        type="button"
+                        onClick={() => setOfferNote(offerAdvice.suggestedNeighborMessage || "")}
+                        className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        Insert Note
+                      </button>
+                    </div>
+                    <p className="text-[11px] italic text-slate-700 dark:text-slate-300">
+                      "{offerAdvice.suggestedNeighborMessage}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <form onSubmit={handleSendOffer} className="space-y-3">
               <div>

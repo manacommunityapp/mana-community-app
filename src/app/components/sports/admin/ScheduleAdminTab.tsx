@@ -92,7 +92,7 @@ export function ScheduleAdminTab() {
     return (
       <div className="flex items-center justify-center py-20">
         <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
-        <span className="ml-2 text-sm text-slate-500">Loading schedules…</span>
+        <span className="text-[10px] ml-2 text-slate-500">Loading schedules…</span>
       </div>
     );
   }
@@ -103,7 +103,7 @@ export function ScheduleAdminTab() {
         <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mx-auto">
           <CalendarIcon className="w-7 h-7" />
         </div>
-        <h3 className="text-base font-bold text-slate-800">No Tournament Schedules Yet</h3>
+        <h3 className="text-xs font-bold text-slate-800">No Tournament Schedules Yet</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
           Create a tournament configuration and generate match fixtures from the Sports Schedule page.
         </p>
@@ -150,10 +150,10 @@ export function ScheduleAdminTab() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-800 truncate">{cfg.tournamentName}</span>
+                  <span className="text-[10px] font-semibold text-slate-800 truncate">{cfg.tournamentName}</span>
                   <StatusBadge status={cfg.status} />
                 </div>
-                <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                   <span>{cfg.tournamentType?.replace(/_/g, " ")}</span>
                   <span>·</span>
                   <span>{cfg.totalTeams} teams</span>
@@ -168,7 +168,7 @@ export function ScheduleAdminTab() {
                 </div>
               </div>
               <div className="flex-shrink-0 text-right">
-                <div className="text-[10px] text-slate-400 uppercase tracking-wide">Event #{cfg.eventId}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Event #{cfg.eventId}</div>
               </div>
             </button>
 
@@ -177,7 +177,7 @@ export function ScheduleAdminTab() {
                 {isLoadingThis ? (
                   <div className="flex items-center justify-center py-8">
                     <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                    <span className="ml-2 text-xs text-slate-500">Loading matches…</span>
+                    <span className="ml-2 text-[10px] text-slate-500">Loading matches…</span>
                   </div>
                 ) : cfgMatches.length === 0 ? (
                   <div className="py-6 text-center text-xs text-slate-400">
@@ -188,7 +188,7 @@ export function ScheduleAdminTab() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        <tr className="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
                           <th className="px-4 py-2 text-left font-medium">#</th>
                           <th className="px-4 py-2 text-left font-medium">Round</th>
                           <th className="px-4 py-2 text-left font-medium">Match</th>
@@ -229,7 +229,7 @@ export function ScheduleAdminTab() {
                         ))}
                       </tbody>
                     </table>
-                    <div className="px-4 py-2 text-[10px] text-slate-400 text-right border-t border-slate-100">
+                    <div className="px-4 py-2 text-xs text-slate-400 text-right border-t border-slate-100">
                       {cfgMatches.length} match{cfgMatches.length !== 1 ? "es" : ""}
                     </div>
                   </div>

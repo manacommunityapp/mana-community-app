@@ -4,7 +4,7 @@ import {
   CircularProgress, LinearProgress, Chip,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -179,7 +179,7 @@ export function DocumentVaultSection({ leadId }: Props) {
               <Tooltip title="Delete">
                 <IconButton size="small" onClick={() => handleDelete(doc.id)}
                   sx={{ color: '#EF4444', opacity: 0.6, '&:hover': { opacity: 1 } }}>
-                  <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                  <DeleteIcon sx={{ fontSize: 16 }} />
                 </IconButton>
               </Tooltip>
             </Paper>

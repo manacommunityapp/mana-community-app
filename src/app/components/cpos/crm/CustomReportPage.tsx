@@ -10,7 +10,7 @@ import { crmService } from '../../../../services/cpos/crmService';
 import type { Lead } from './crmData';
 import { STAGES, STAGE_LABELS, stageColors } from './crmData';
 
-const COLUMNS: { key: keyof Lead | 'stageName'; label: string }[] = [
+const COLUMNS: { key: keyof Lead | 'stageName' | 'createdAt' | 'followUpDate'; label: string }[] = [
   { key: 'name',        label: 'Name' },
   { key: 'phone',       label: 'Phone' },
   { key: 'email',       label: 'Email' },
@@ -59,11 +59,11 @@ export default function CustomReportPage() {
       <CRMNav />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <BarChartIcon sx={{ color: '#4F6AF5' }} />
-        <Typography variant="h5" fontWeight={700}>Custom Report Builder</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Custom Report Builder</Typography>
       </Box>
 
       <Paper sx={{ p: 3, borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-        <Typography variant="subtitle2" fontWeight={700}>Configure Report</Typography>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Configure Report</Typography>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 320, flex: 1 }}>
             <InputLabel>Columns to Show</InputLabel>
@@ -120,7 +120,7 @@ export default function CustomReportPage() {
       {rows !== null && (
         <Paper sx={{ borderRadius: '16px', overflow: 'hidden' }}>
           <Box sx={{ px: 3, py: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="subtitle2" fontWeight={700}>{rows.length} lead{rows.length !== 1 ? 's' : ''}</Typography>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{rows.length} lead{rows.length !== 1 ? 's' : ''}</Typography>
             <Chip label={filterStages.length ? filterStages.map(s => STAGE_LABELS[s as keyof typeof STAGE_LABELS]).join(', ') : 'All Stages'} size="small" />
           </Box>
           <TableContainer>

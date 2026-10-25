@@ -1,4 +1,4 @@
-import { createBrowserRouter, useParams, useNavigate } from "react-router";
+import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
 import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
 import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
 import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
@@ -163,7 +163,7 @@ import { VendorProfile } from "./components/vendor/portal/VendorProfile";
 import { VendorMerchantPayments } from "./components/vendor/portal/VendorMerchantPayments";
 import { VendorProductCatalog } from "./components/vendor/portal/VendorProductCatalog";
 import { VendorInventoryLedger } from "./components/vendor/portal/VendorInventoryLedger";
-import { VendorGroupBuying } from "./components/vendor/portal/VendorGroupBuying";
+import { VendorGroceryOrders } from "./components/vendor/portal/VendorGroceryOrders";
 import { VendorVerification } from "./components/vendor/portal/VendorVerification";
 import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
 import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfilePublic";
@@ -179,7 +179,7 @@ import MyCommerceProfile from "./components/commerce/customer/MyCommerceProfile"
 import LoyaltyWallet from "./components/commerce/customer/LoyaltyWallet";
 import MyOrders from "./components/commerce/orders/MyOrders";
 import VendorOrderManagement from "./components/commerce/orders/VendorOrderManagement";
-import SettlementManagement from "./components/commerce/vendors/SettlementManagement";
+import { VendorSettlements } from "./components/vendor/portal/VendorSettlements";
 import CommerceAnalyticsDashboard from "./components/commerce/vendors/CommerceAnalyticsDashboard";
 import FlashSaleManagement from "./components/commerce/vendors/FlashSaleManagement";
 import VendorRatingsDashboard from "./components/commerce/vendors/VendorRatingsDashboard";
@@ -258,6 +258,10 @@ import { HomeServicePayments } from "./components/home-services/HomeServicePayme
 import { HomeServiceLeaves } from "./components/home-services/HomeServiceLeaves";
 import { HomeServiceSchedule } from "./components/home-services/HomeServiceSchedule";
 
+// Vehicle Care (Washcaro integration)
+import { VehicleCareAdminDashboard } from "./components/vehicle-care/VehicleCareAdminDashboard";
+import { VehicleCareVendorPortal } from "./components/vehicle-care/VehicleCareVendorPortal";
+
 // Community Ecosystem New Modules
 import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
 import { GroupBuyingHub } from "./components/group-buying/GroupBuyingHub";
@@ -297,6 +301,7 @@ import { SplitBillPortal } from "../pages/split/SplitBillPortal";
 import { MoviePortal } from "../pages/entertainment/MoviePortal";
 import FDPortal from "../pages/investments/FDPortal";
 import LoanPortal from "../pages/finance/LoanPortal";
+import KhataBook from "../pages/finance/KhataBook";
 import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // New cross-module parity components
@@ -309,6 +314,16 @@ import WaterTracker from "./components/wellness/WaterTracker";
 import WellnessChallenges from "./components/wellness/WellnessChallenges";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
+import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
+import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
+import { IncidentTracker } from "./components/healthguard/IncidentTracker";
+import { SosScreen } from "./components/healthguard/SosScreen";
+import { HealthProfile } from "./components/healthguard/HealthProfile";
+import ResponderHub from "./components/healthguard/ResponderHub";
+import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
+import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
+import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
+import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -317,6 +332,7 @@ import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDas
 import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
 import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
 import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
 
 // Mana Academy
 import { AcademyLayout } from "./components/academy/AcademyLayout";
@@ -369,9 +385,15 @@ import {
   VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
   VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
+  VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
 } from "../constants/permissions";
 
 import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
+
+function HealthSubRouteRedirect() {
+  const { tab } = useParams();
+  return <Navigate to={`/health?tab=${tab || 'doctors'}`} replace />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -658,6 +680,13 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: "vehicle-care",
+        children: [
+          { index: true, Component: VehicleCareAdminDashboard },
+          { path: "vendor", Component: VehicleCareVendorPortal },
+        ],
+      },
+      {
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
       },
@@ -804,6 +833,22 @@ export const router = createBrowserRouter([
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
+          {
+            path: "products",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <VendorProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "inventory",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_INVENTORY} requiredModule="COMMERCE">
+                <VendorInventoryLedger />
+              </PermissionGuard>
+            ),
+          },
           { path: "payments", Component: MyPayments },
           { path: "merchant-payments", Component: VendorMerchantPayments },
           { path: "documents", Component: MyDocuments },
@@ -858,17 +903,25 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "settlement-management",
+            path: "grocery-orders",
             element: (
               <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
-                <SettlementManagement />
+                <VendorGroceryOrders />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "settlement-management",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <VendorSettlements />
               </PermissionGuard>
             ),
           },
           {
             path: "commerce-analytics",
             element: (
-              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+              <PermissionGuard permission={VIEW_COMMERCE_ANALYTICS} requiredModule="COMMERCE">
                 <CommerceAnalyticsDashboard />
               </PermissionGuard>
             ),
@@ -1150,6 +1203,7 @@ export const router = createBrowserRouter([
       },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "khatabook", element: <KhataBook /> },
       { path: "health", element: <HealthDashboard /> },
       {
         path: "wellness",
@@ -1161,6 +1215,21 @@ export const router = createBrowserRouter([
           { path: "challenges", element: <WellnessChallenges /> },
           { path: "providers", element: <WellnessProviders /> },
           { path: "profile", element: <WellnessProfilePage /> },
+        ],
+      },
+      {
+        path: "healthguard",
+        children: [
+          { index: true, element: <HealthGuardDashboard /> },
+          { path: "contacts", element: <EmergencyContacts /> },
+          { path: "incidents", element: <IncidentTracker /> },
+          { path: "sos", element: <SosScreen /> },
+          { path: "profile", element: <HealthProfile /> },
+          { path: "responder", element: <ResponderHub /> },
+          { path: "ambulance", element: <AmbulanceBookingScreen /> },
+          { path: "admin/incidents", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminIncidentDashboard /></PermissionGuard> },
+          { path: "ambulance-dispatch", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AmbulanceDispatch /></PermissionGuard> },
+          { path: "admin/wearable-alerts", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><WearableAlertsDashboard /></PermissionGuard> },
         ],
       },
       { path: "commute", element: <CommuteDashboard /> },
@@ -1186,6 +1255,19 @@ export const router = createBrowserRouter([
           { path: "committee", element: <CommitteeAndElections /> },
         ],
       },
+      // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
+      { path: "recharge", element: <MobileRechargeHub /> },
+      { path: "facilities", element: <Navigate to="/bookings" replace /> },
+      { path: "offers", element: <Navigate to="/deals" replace /> },
+      { path: "trips/flights", element: <Navigate to="/trips?tab=flights" replace /> },
+      // ── Mobile Super-Set Harmonization Redirects ────────
+      { path: "health/:tab", element: <HealthSubRouteRedirect /> },
+      { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "guard/*", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "sports-admin", element: <Navigate to="/sports/admin" replace /> },
+      { path: "sports-admin/*", element: <Navigate to="/sports/admin" replace /> },
+      { path: "event-admin", element: <Navigate to="/events/operations" replace /> },
+      { path: "event-admin/*", element: <Navigate to="/events/operations" replace /> },
     ],
   },
 ]);

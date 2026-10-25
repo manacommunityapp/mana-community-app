@@ -68,19 +68,19 @@ export function CallLogDialog({ open, leadId, leadName, onClose, onSaved }: Prop
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth
-      PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } }}>
+      slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } } }}>
       <DialogTitle sx={{ color: '#fff', pb: 1 }}>
-        <Stack direction="row" alignItems="center" gap={1}>
+        <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1 }}>
           <CallIcon sx={{ color: '#4F6AF5' }} />
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Log Call</Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{leadName}</Typography>
           </Box>
-        </Stack>
+        </Box>
       </DialogTitle>
 
       <DialogContent sx={{ pt: 1 }}>
-        <Stack gap={2.5}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           {/* Outcome */}
           <Box>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', mb: 1, display: 'block' }}>
@@ -124,7 +124,7 @@ export function CallLogDialog({ open, leadId, leadName, onClose, onSaved }: Prop
               value={duration}
               onChange={e => setDuration(e.target.value)}
               size="small"
-              inputProps={{ min: 0, max: 999 }}
+              slotProps={{ htmlInput: { min: 0, max: 999 } }}
               sx={{ '& .MuiOutlinedInput-root': { color: '#fff' }, '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)' } }}
             />
           )}
@@ -190,7 +190,7 @@ export function CallLogDialog({ open, leadId, leadName, onClose, onSaved }: Prop
           {error && (
             <Typography variant="caption" sx={{ color: '#EF4444' }}>{error}</Typography>
           )}
-        </Stack>
+        </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>

@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety Visitor Screening & Overstay Auditor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-visitor-screening-auditor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Visitor Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-visitor-auditor-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst visitorName = item.visitorName || 'Unregistered Guest';\nconst visitorPhone = item.visitorPhone || 'N/A';\nconst visitorType = item.visitorType || 'GUEST'; // GUEST, CAB, DELIVERY, CONTRACTOR, SERVICE_TECHNICIAN, HOME_MAINTENANCE\nconst flatNumber = item.flatNumber || 'A-402';\nconst tower = item.tower || 'Tower A';\nconst passCode = item.passCode || 'NONE';\nconst vehicleNumber = item.vehicleNumber || 'NONE';\nconst entryTime = item.entryTime || new Date().toISOString();\nconst expectedDurationMinutes = item.expectedDurationMinutes || (visitorType === 'DELIVERY' ? 20 : visitorType === 'CAB' ? 15 : 180);\nconst actualStayMinutes = item.actualStayMinutes ?? 0;\nconst purpose = item.purpose || 'Visit';\nconst isPreApproved = item.isPreApproved ?? (passCode !== 'NONE');\nconst gateName = item.gateName || 'Main Gate 1';\n\nconst prompt = `You are the Chief Gatekeeper and Visitor Security Auditor for Mana Community Society.\nEvaluate the following visitor entry or active stay telemetry against security bylaws and overstay anomaly rules.\n\nVisitor Information:\n- Name: ${visitorName}\n- Phone: ${visitorPhone}\n- Type: ${visitorType}\n- Destination: ${tower}, Flat ${flatNumber}\n- Pass Code: ${passCode} (Pre-Approved: ${isPreApproved})\n- Vehicle: ${vehicleNumber}\n- Entry Time: ${entryTime} via ${gateName}\n- Expected Duration: ${expectedDurationMinutes} mins\n- Current Stay Duration: ${actualStayMinutes} mins\n- Stated Purpose: ${purpose}\n\nSecurity Audit Objectives:\n1. Classify Clearance Status (APPROVED, CONDITIONAL_ENTRY, DENIED, OVERSTAY_ALARM).\n2. Calculate Risk Score (0 = Completely Safe, 100 = Severe Security Hazard).\n3. Detect specific risk triggers (e.g. food/courier delivery lingering >40 mins inside residential tower, unauthorized late-night contractor entry, vehicle discrepancy).\n4. Define Gate Guard Action Directive (e.g. allow boom barrier lift, collect physical ID, escort to flat, call resident for verbal re-approval, dispatch patrol to locate overstayed vehicle).\n5. Draft instant 1-sentence WhatsApp notification for the hosting flat resident.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"clearanceStatus\": \"APPROVED\" | \"CONDITIONAL_ENTRY\" | \"DENIED\" | \"OVERSTAY_ALARM\",\n  \"riskScore\": number,\n  \"isOverstay\": boolean,\n  \"overstaySeverity\": \"NONE\" | \"MILD\" | \"MODERATE\" | \"CRITICAL\",\n  \"riskFactors\": [\"Reason 1\", \"Reason 2\"],\n  \"guardDirective\": \"Precise operational instruction for duty guard at the gate\",\n  \"residentNotification\": \"Draft WhatsApp alert for resident\",\n  \"autoCheckoutSuggested\": boolean\n}`;\n\nreturn [{\n  json: {\n    visitorName,\n    flatNumber,\n    visitorType,\n    actualStayMinutes,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Visitor Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Visitor Screener (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst meta = $('Prepare Visitor Audit Prompt').first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  const isOver = (meta.actualStayMinutes > 60 && meta.visitorType === 'DELIVERY');\n  parsed = {\n    clearanceStatus: isOver ? \"OVERSTAY_ALARM\" : \"APPROVED\",\n    riskScore: isOver ? 75 : 10,\n    isOverstay: isOver,\n    overstaySeverity: isOver ? \"MODERATE\" : \"NONE\",\n    riskFactors: isOver ? [\"Delivery personnel active duration exceeds standard society delivery window\"] : [\"Standard visitor entry verified\"],\n    guardDirective: isOver ? \"Contact flat resident to confirm parcel delivery completion and locate vehicle.\" : \"Verify entry pass code and permit entry.\",\n    residentNotification: `Visitor ${meta.visitorName} checked in for ${meta.flatNumber}. Contact security if unexpected.`,\n    autoCheckoutSuggested: false\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    auditedAt: new Date().toISOString(),\n    visitorSummary: {\n      visitorName: meta.visitorName,\n      flatNumber: meta.flatNumber,\n      visitorType: meta.visitorType\n    },\n    auditResult: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Visitor Security Audit",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Security Gate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Visitor Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Visitor Audit Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Visitor Audit Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Visitor Screener (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Visitor Screener (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Visitor Security Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Visitor Security Audit": {
+      "main": [
+        [
+          {
+            "node": "Respond to Security Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

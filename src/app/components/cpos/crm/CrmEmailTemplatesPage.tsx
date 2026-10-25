@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteIcon from '@mui/icons-material/Delete';
 import EmailIcon from '@mui/icons-material/Email';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router';
@@ -131,7 +131,7 @@ export const CrmEmailTemplatesPage: React.FC = () => {
                     sx={{ color: '#EF4444', opacity: 0.6, '&:hover': { opacity: 1 } }}>
                     {deleting === t.id
                       ? <CircularProgress size={16} sx={{ color: '#EF4444' }} />
-                      : <DeleteOutlineIcon sx={{ fontSize: 18 }} />}
+                      : <DeleteIcon sx={{ fontSize: 18 }} />}
                   </IconButton>
                 </Tooltip>
               </Box>
@@ -142,7 +142,7 @@ export const CrmEmailTemplatesPage: React.FC = () => {
 
       {/* Create / Edit dialog */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } }}>
+        slotProps={{ paper: { sx: { bgcolor: '#0D1526', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 2 } } }}>
         <DialogTitle sx={{ color: '#fff' }}>{editId ? 'Edit Template' : 'New Template'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField size="small" label="Template name" value={form.name}

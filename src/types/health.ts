@@ -257,7 +257,8 @@ export type ProviderCategory =
   | "DIAGNOSTIC_CENTER"
   | "PHARMACY"
   | "PHYSIOTHERAPIST"
-  | "HOME_CARE";
+  | "HOME_CARE"
+  | "FITNESS_TRAINER";
 
 export interface ClinicHourSlot {
   day: string;

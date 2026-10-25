@@ -144,7 +144,7 @@ export function SportsTournamentBrowse() {
             <Trophy className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight m-0 mb-0">Community Tournaments</h3>
+            <h3 className="text-xs font-bold text-slate-900 leading-tight m-0 mb-0">Community Tournaments</h3>
             <p className="text-xs text-slate-500 font-medium m-0">Browse active championships, view tournament details, and register sports groups</p>
           </div>
         </div>
@@ -180,9 +180,7 @@ export function SportsTournamentBrowse() {
               <span>{tab.label}</span>
               {tab.count > 0 && (
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
-                    active ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600"
-                  }`}
+                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${ active ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600" }`}
                 >
                   {tab.count}
                 </span>
@@ -350,19 +348,13 @@ function TournamentCard({
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 onClick={onViewDetails}
-                className="text-base sm:text-lg font-bold text-slate-900 hover:text-indigo-600 transition-colors cursor-pointer truncate"
+                className="text-xs font-bold text-slate-900 hover:text-indigo-600 transition-colors cursor-pointer truncate"
               >
                 {tournament.name}
               </h3>
 
               <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                  completed
-                    ? "bg-slate-100 text-slate-600 border border-slate-200"
-                    : isOpen
-                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    : "bg-blue-50 text-blue-700 border border-blue-200"
-                }`}
+                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${ completed ? "bg-slate-100 text-slate-600 border border-slate-200" : isOpen ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-blue-50 text-blue-700 border border-blue-200" }`}
               >
                 {completed ? "Completed" : isOpen ? "Open for Registration" : status}
               </span>
@@ -448,12 +440,12 @@ function TournamentCard({
               <span
                 key={ev.id}
                 onClick={onViewDetails}
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-slate-100/80 text-slate-700 border border-slate-200/60 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-slate-100/80 text-slate-700 border border-slate-200/60 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors cursor-pointer inline-flex items-center gap-1"
               >
                 <span>{emoji}</span>
                 <span>{ev.categoryName || ev.name}</span>
                 {ev.registeredCount != null && (
-                  <span className="text-[9px] text-slate-400">({ev.registeredCount})</span>
+                  <span className="text-[10px] text-slate-400">({ev.registeredCount})</span>
                 )}
               </span>
             );
@@ -461,7 +453,7 @@ function TournamentCard({
           {tournament.events.length > 5 && (
             <button
               onClick={onViewDetails}
-              className="text-[10px] font-bold text-indigo-600 hover:underline cursor-pointer"
+              className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
             >
               +{tournament.events.length - 5} more groups →
             </button>
@@ -533,14 +525,14 @@ function MyTournamentCard({
             className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
             onClick={onViewDetails}
           >
-            <span className="text-lg">{emoji}</span>
+            <span className="text-[10px]">{emoji}</span>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 onClick={onViewDetails}
-                className="text-base font-bold text-slate-900 hover:text-amber-700 transition-colors cursor-pointer truncate"
+                className="text-xs font-sans font-bold text-slate-900 hover:text-amber-700 transition-colors cursor-pointer truncate max-w-full"
               >
                 {event.name}
               </h3>

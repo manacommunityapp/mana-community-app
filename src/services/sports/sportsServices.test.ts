@@ -140,6 +140,27 @@ describe("Sports Services API Test Suite", () => {
       expect(apiClient.get).toHaveBeenCalledWith("/sports/schedule/stats");
       expect(res).toEqual(mockStats);
     });
+
+    it("deletes sports event via deleteSportsEvent / deleteEvent", async () => {
+      (apiClient.delete as any).mockResolvedValueOnce(undefined);
+
+      await sportsService.deleteSportsEvent(105);
+      expect(apiClient.delete).toHaveBeenCalledWith("/sports/events/105");
+
+      (apiClient.delete as any).mockResolvedValueOnce(undefined);
+      await sportsService.deleteEvent(106);
+      expect(apiClient.delete).toHaveBeenCalledWith("/sports/events/106");
+    });
+
+    it("closes tournament and sports event registration status", async () => {
+      (apiClient.put as any).mockResolvedValueOnce({ id: 50, status: "REGISTRATION_CLOSED" });
+      await sportsService.closeTournament(50);
+      expect(apiClient.put).toHaveBeenCalledWith("/tournaments/50/status?status=REGISTRATION_CLOSED");
+
+      (apiClient.put as any).mockResolvedValueOnce({ id: 51, status: "REGISTRATION_CLOSED" });
+      await sportsService.closeSportsEvent(51);
+      expect(apiClient.put).toHaveBeenCalledWith("/sports/events/51/status?status=REGISTRATION_CLOSED");
+    });
   });
 
   describe("3. auctionService", () => {

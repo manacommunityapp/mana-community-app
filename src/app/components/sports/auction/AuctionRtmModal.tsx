@@ -77,7 +77,7 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
               <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
               Right To Match (RTM) Card
             </span>
-            <h2 className="text-xl sm:text-2xl font-black text-white">
+            <h2 className="text-xs font-black text-white">
               Exercise RTM for {data.playerName}?
             </h2>
             <p className="text-xs text-slate-400">
@@ -102,12 +102,12 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
               Current Winning Bidder
             </span>
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">{bidderTeam.emoji || '🏆'}</span>
+              <span className="text-[10px]">{bidderTeam.emoji || '🏆'}</span>
               <div className="min-w-0">
                 <strong className="text-sm font-bold text-white truncate block">
                   {bidderTeam.name}
                 </strong>
-                <span className="text-xs font-black text-indigo-400">
+                <span className="text-[10px] font-black text-indigo-400">
                   Bid: ₹{data.bidAmount.toLocaleString('en-IN')}
                 </span>
               </div>
@@ -133,12 +133,12 @@ export const AuctionRtmModal: React.FC<AuctionRtmModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl">{rtmTeam.emoji || '⚡'}</span>
+              <span className="text-[10px]">{rtmTeam.emoji || '⚡'}</span>
               <div className="min-w-0">
                 <strong className="text-sm font-bold text-white truncate block">
                   {rtmTeam.name}
                 </strong>
-                <span className="text-[11px] text-slate-300">
+                <span className="text-[10px] text-slate-300">
                   Purse: ₹{rtmTeam.remainingBudget.toLocaleString('en-IN')} left
                 </span>
               </div>

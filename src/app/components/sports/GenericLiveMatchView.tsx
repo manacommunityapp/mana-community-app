@@ -122,7 +122,7 @@ export function GenericLiveMatchView({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               {sportType.replace(/_/g, " ")} - Live
             </h2>
             {!isCompleted && (
@@ -338,7 +338,7 @@ export function GenericLiveMatchView({
 
         {/* Recent events feed */}
         <div className="px-4 pb-4">
-          <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
             Match Events
           </h3>
           <div className="space-y-1.5 max-h-60 overflow-y-auto">
@@ -362,10 +362,10 @@ export function GenericLiveMatchView({
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                     {evt.teamName}
                   </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1.5">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1.5">
                     {evt.eventType.replace(/_/g, " ")}
                     {evt.playerName && ` - ${evt.playerName}`}
                     {evt.pointsAwarded > 0 && ` (+${evt.pointsAwarded})`}

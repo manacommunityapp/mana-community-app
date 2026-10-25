@@ -54,6 +54,8 @@ interface SportsEventTabProps {
   handleSportSave: () => void;
   handleSportEdit: (sport: any) => void;
   handleSportDelete: (id: number) => void;
+  handleCloseTournament?: (id: number) => void;
+  handleCloseEvent?: (id: number) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -88,6 +90,8 @@ export function SportsEventTab({
   handleEdit,
   handleDelete,
   handleActivate,
+  handleCloseTournament,
+  handleCloseEvent,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
@@ -238,6 +242,9 @@ export function SportsEventTab({
           clearTournamentContext={clearTournamentContext}
           onGoToConfigureEvents={() => setSportsEventSubTab("config")}
           handleSportEdit={onEditEventFromList}
+          handleSportDelete={handleSportDelete}
+          handleCloseTournament={handleCloseTournament}
+          handleCloseEvent={handleCloseEvent}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();

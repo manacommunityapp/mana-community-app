@@ -103,7 +103,7 @@ export function CreateExternalFormModal({
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Create External Registration Form</h3>
+              <h3 className="text-xs font-semibold text-white">Create External Registration Form</h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 {event?.name || event?.title} • Automated response synchronization
               </p>
@@ -123,7 +123,7 @@ export function CreateExternalFormModal({
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3">
               <CheckCircle className="w-6 h-6 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-semibold text-emerald-300">External Form Ready!</h4>
+                <h4 className="text-xs font-semibold text-emerald-300">External Form Ready!</h4>
                 <p className="text-xs text-emerald-200/80 mt-1">
                   Share the link below with participants. Incoming entries will be validated against tournament capacity, age & gender limits, and staged in your sports dashboard.
                 </p>
@@ -169,7 +169,7 @@ export function CreateExternalFormModal({
                 <p className="text-xs text-slate-400">
                   To stream responses directly into Mana the second someone submits Google Forms, use the pre-configured Apps Script snippet.
                 </p>
-                <div className="text-[11px] text-slate-500 font-mono break-all bg-slate-950 p-2 rounded-lg border border-slate-800">
+                <div className="text-xs text-slate-500 font-mono break-all bg-slate-950 p-2 rounded-lg border border-slate-800">
                   Webhook URL: {createdForm.webhookUrl}
                 </div>
               </div>
@@ -208,7 +208,7 @@ export function CreateExternalFormModal({
                   </div>
                   <div>
                     <div className="text-xs font-semibold">Google Forms</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Familiar Google Forms responder link with auto-sync webhook.
                     </div>
                   </div>
@@ -228,7 +228,7 @@ export function CreateExternalFormModal({
                   </div>
                   <div>
                     <div className="text-xs font-semibold">Mana Public Form</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Hosted branded form with real-time field validation.
                     </div>
                   </div>
@@ -280,7 +280,7 @@ export function CreateExternalFormModal({
                 <option value="AUTO">Auto-Confirm (Valid community entries are confirmed immediately)</option>
                 <option value="MANUAL">Manual Review (All external entries require organizer confirmation)</option>
               </select>
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-1">
                 Invalid age, over-capacity, or duplicate entries always route to the Review Queue regardless of setting.
               </p>
             </div>

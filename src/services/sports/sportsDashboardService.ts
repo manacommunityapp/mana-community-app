@@ -27,6 +27,11 @@ export interface DashboardEventCard {
   teamSport: boolean;
   myRegistrationId: number | null;
   myRegistrationStatus: string | null;
+  gender?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categories?: any[] | null;
+  allowedGenders?: string[] | null;
 }
 
 export interface DashboardUpcomingEvent {
@@ -71,6 +76,8 @@ export interface DashboardTournamentCard {
   registrationStatus: string | null;
   communityId: number | null;
   communityName: string | null;
+  venueName?: string | null;
+  sportName?: string | null;
   events: DashboardEventCard[];
   sponsors?: Sponsor[];
 }

@@ -5,7 +5,8 @@ import {
   Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone,
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
-  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart
+  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
+  Smartphone
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -383,6 +384,7 @@ export function Layout() {
     "Mana Academy": "ACADEMY",
     "Mana Health": "HEALTH",
     "Health Buddy": "WELLNESS",
+    "Mana HealthGuard": "HEALTH_GUARD",
     "Mana Insurance": "INSURANCE",
     "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
@@ -416,6 +418,7 @@ export function Layout() {
     "AI Chat": "AI_CHAT",
     "Calendar": "CALENDAR",
     "Commerce": "COMMERCE",
+    "Mobile Recharge": ["PAYMENTS", "MANA_PAY", "FINANCE_MGMT"],
   };
 
   const toggleSidebar = () => {
@@ -462,6 +465,7 @@ export function Layout() {
       title: "Living & Facilities",
       items: [
         { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI" },
+        { to: "/recharge", icon: Smartphone, label: "Mobile Recharge", badge: "NEW" },
         { to: "/bookings", icon: Building2, label: "Bookings" },
         { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
         { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
@@ -479,6 +483,7 @@ export function Layout() {
         { to: "/discover", icon: Sparkles, label: "Community Discover" },
         { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New" },
         { to: "/wellness", icon: HeartPulse, label: "Health Buddy", badge: "New" },
+        { to: "/healthguard", icon: ShieldAlert, label: "Mana HealthGuard", badge: "SOS" },
         { to: "/insurance", icon: ShieldCheck, label: "Mana Insurance", badge: "New" },
         { to: "/sports", icon: Trophy, label: "Sports" },
         { to: "/events", icon: CalendarDays, label: "Events" },
@@ -552,12 +557,14 @@ export function Layout() {
     if (label === "Mana Academy") return true;
     if (label === "Mana Health" || label === "Health Hub") return true;
     if (label === "Health Buddy") return true;
+    if (label === "Mana HealthGuard") return true;
     if (label === "Mana Insurance") return true;
     if (label === "Governance & Decisions") return true;
     if (label === "Pet Registry") return true;
     if (label === "Community Rides") return true;
     if (label === "My Money") return true;
     if (label === "Mana Split") return true;
+    if (label === "Mobile Recharge") return true;
     return false;
   };
 

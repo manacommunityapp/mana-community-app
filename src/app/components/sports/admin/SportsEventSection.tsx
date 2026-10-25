@@ -118,7 +118,7 @@ export function SportsEventSection({
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="text-left">
-          <h3 className="text-sm sm:text-base font-bold text-slate-800 tracking-tight">Sports Management</h3>
+          <h3 className="text-xs font-bold text-slate-800 tracking-tight">Sports Management</h3>
           <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">Configure and manage active sports metadata in the system</p>
         </div>
         <button
@@ -150,8 +150,8 @@ export function SportsEventSection({
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
               <div className="text-left">
-                <h2 className="text-sm sm:text-base font-bold text-slate-800">Select a Sport</h2>
-                <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
+                <h2 className="text-xs font-bold text-slate-800">Select a Sport</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
               </div>
               <button
                 type="button"
@@ -202,14 +202,14 @@ export function SportsEventSection({
                            <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
                          </div>
                        ) : (
-                         <span className="text-2xl leading-none">{sp.icon}</span>
+                         <span className="text-[10px] leading-none">{sp.icon}</span>
                        )}
-                      <span className="text-xs font-semibold leading-tight text-slate-800">{sp.name}</span>
+                      <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
                       {alreadyAdded && (
-                        <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
+                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
                       )}
                       {alreadyQueued && (
-                        <span className="text-[9px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
+                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
                       )}
                     </button>
                   );
@@ -285,11 +285,11 @@ export function SportsEventSection({
                          <img src={form.iconUrl} alt={form.name} className="w-6 h-6 object-cover rounded" />
                        </div>
                      ) : (
-                       <span className="text-xl leading-none">{form.icon || "🏆"}</span>
+                       <span className="text-[10px] leading-none">{form.icon || "🏆"}</span>
                      )}
                     <div className="flex-1 min-w-0">
-                      <label className="text-[9px] text-slate-400 block font-bold uppercase tracking-wider">Sport {idx + 1}</label>
-                      <h4 className="text-xs sm:text-[13px] font-bold text-slate-800 truncate">{form.name}</h4>
+                      <label className="text-xs text-slate-400 block font-bold uppercase tracking-wider">Sport {idx + 1}</label>
+                      <h4 className="text-xs font-bold text-slate-800 truncate">{form.name}</h4>
                     </div>
                   </div>
                   {!form.editingSportId && sportForms.length > 1 && (
@@ -313,7 +313,7 @@ export function SportsEventSection({
                     >
                       {/* Event header */}
                       <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                        <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Configuration #{eIdx + 1}</span>
+                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Configuration #{eIdx + 1}</span>
                         {form.events.length > 1 && (
                           <button
                             type="button"
@@ -611,7 +611,7 @@ export function SportsEventSection({
                           <div className="flex items-center justify-between mb-1.5">
                             <label className="text-xs text-slate-600 font-semibold">Participant Formats <span className="text-red-500">*</span></label>
                             <div className="flex items-center gap-3">
-                              <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-semibold cursor-pointer select-none">
+                              <label className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold cursor-pointer select-none">
                                 <span>Approval</span>
                                 <input
                                   type="checkbox"
@@ -621,7 +621,7 @@ export function SportsEventSection({
                                 />
                               </label>
                               {ev.formats && ev.formats.includes("MIXED_DOUBLES") && (
-                                <label className="flex items-center gap-1.5 text-[11px] text-slate-600 font-semibold cursor-pointer select-none" title="Strict Mixed Doubles (Requires 1 Male + 1 Female)">
+                                <label className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold cursor-pointer select-none" title="Strict Mixed Doubles (Requires 1 Male + 1 Female)">
                                   <span>Strict 1M+1F</span>
                                   <input
                                     type="checkbox"
@@ -707,7 +707,7 @@ export function SportsEventSection({
                             <div className="flex items-center gap-1.5 text-xs sm:text-[13px] font-bold text-amber-900">
                               <Gavel className="w-3.5 h-3.5 text-amber-700" /> Auction-based event
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">
+                            <p className="text-xs text-slate-500 mt-0.5 leading-tight">
                               Mark this team event for player auction. Teams, budget and bidding are configured on the Auction screen.
                             </p>
                           </div>
@@ -716,7 +716,7 @@ export function SportsEventSection({
 
                       {/* ─── Event Contact Information ─── */}
                       <div className="pt-3 mt-1 border-t border-slate-200/80">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Event Contact Information</div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Event Contact Information</div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           <div>
                             <label className="text-xs text-slate-600 font-semibold block mb-1">Contact Name <span className="text-red-500">*</span></label>
@@ -763,7 +763,7 @@ export function SportsEventSection({
                         {/* Other Information (multiple entries) */}
                         <div className="mt-3 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-600">Other Contacts / Volunteers</span>
+                            <span className="text-[10px] font-semibold text-slate-600">Other Contacts / Volunteers</span>
                             <button
                               type="button"
                               onClick={() => updateSportFormEvent(form.id, ev.id, "otherContacts", [...(ev.otherContacts || []), { title: "", name: "", detail: "" }])}
@@ -774,7 +774,7 @@ export function SportsEventSection({
                           </div>
 
                           {(ev.otherContacts || []).length === 0 ? (
-                            <div className="text-center py-2.5 bg-white border border-dashed border-slate-200 rounded-xl text-[11px] text-slate-400">
+                            <div className="text-center py-2.5 bg-white border border-dashed border-slate-200 rounded-xl text-xs text-slate-400">
                               No extra contact information added yet.
                             </div>
                           ) : (
@@ -782,7 +782,7 @@ export function SportsEventSection({
                               {(ev.otherContacts || []).map((contact, cIdx) => (
                                 <div key={cIdx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-2.5 bg-white border border-slate-200 rounded-xl text-left shadow-2xs">
                                   <div>
-                                    <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Title</label>
+                                    <label className="text-xs text-slate-400 block mb-1 font-semibold">Title</label>
                                     <input
                                       value={contact.title}
                                       onChange={e => updateSportFormEvent(form.id, ev.id, "otherContacts", (ev.otherContacts || []).map((c, i) => i === cIdx ? { ...c, title: e.target.value } : c))}
@@ -791,7 +791,7 @@ export function SportsEventSection({
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Name</label>
+                                    <label className="text-xs text-slate-400 block mb-1 font-semibold">Name</label>
                                     <input
                                       value={contact.name}
                                       onChange={e => updateSportFormEvent(form.id, ev.id, "otherContacts", (ev.otherContacts || []).map((c, i) => i === cIdx ? { ...c, name: e.target.value } : c))}
@@ -801,7 +801,7 @@ export function SportsEventSection({
                                   </div>
                                   <div className="flex gap-2 items-end">
                                     <div className="flex-1">
-                                      <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Number / Email</label>
+                                      <label className="text-xs text-slate-400 block mb-1 font-semibold">Number / Email</label>
                                       <input
                                         value={contact.detail}
                                         onChange={e => updateSportFormEvent(form.id, ev.id, "otherContacts", (ev.otherContacts || []).map((c, i) => i === cIdx ? { ...c, detail: e.target.value } : c))}
@@ -875,7 +875,7 @@ export function SportsEventSection({
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto mb-3 text-xl shadow-2xs">
               🏆
             </div>
-            <h4 className="text-sm sm:text-base font-bold text-slate-800 mb-1">No Sports Events Configured</h4>
+            <h4 className="text-xs font-bold text-slate-800 mb-1">No Sports Events Configured</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
               There are no sports events configured yet. Select a sport from the list to get started.
             </p>
@@ -914,10 +914,10 @@ export function SportsEventSection({
                         <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
                       </div>
                     ) : (
-                      <span className="text-2xl leading-none">{icon}</span>
+                      <span className="text-[10px] leading-none">{icon}</span>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-xs sm:text-[13px] font-bold text-slate-800 truncate leading-snug">
+                      <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
                         {e.name}
                         {e.tournament?.name && (
                           <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
@@ -926,17 +926,17 @@ export function SportsEventSection({
                       
                       <div className="flex flex-wrap items-center gap-1 mt-2">
                         {e.active !== false ? (
-                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                             Active
                           </span>
                         ) : (
-                          <span className="text-[9px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                          <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                             Closed
                           </span>
                         )}
                         {e.status && (
                           <span className={cn(
-                            "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
+                            "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
                             e.status === "REGISTRATION_OPEN"
                               ? "bg-blue-50 text-blue-700 border-blue-200"
                               : e.status === "LIVE"
@@ -950,14 +950,14 @@ export function SportsEventSection({
                             {e.status.replace(/_/g, ' ')}
                           </span>
                         )}
-                        <span className="text-[9px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                           {e.format || "SINGLES"}
                         </span>
-                        <span className="text-[9px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                        <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                           {e.tournamentType ? e.tournamentType.replace(/_/g, ' ') : "KNOCKOUT"}
                         </span>
                         {e.auctionEnabled && (
-                          <span className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                          <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
                             <Gavel className="w-2.5 h-2.5" /> Auction
                           </span>
                         )}

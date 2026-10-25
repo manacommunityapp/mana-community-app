@@ -1,0 +1,140 @@
+﻿{
+  "name": "Mana Admin Bulk Import Data Sanitizer & Risk Auditor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-bulk-import-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-admin-bulk-import-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst batchId = item.batchId || 'BATCH-' + Date.now();\nconst uploadedBy = item.uploadedBy || 'Admin';\nconst users = item.users || [];\nconst totalRows = users.length || item.totalRows || 0;\n\nconst prompt = `You are the Chief Data Architect & Security Gatekeeper for Community Bulk Onboarding in Mana Community App.\nAnalyze the following batch of ${totalRows} resident / member records submitted for bulk CSV/Excel database import.\nIdentify privilege escalation risks, flat occupancy collisions, malformed phone/email contacts, and data anomalies.\n\nImported Batch Sample (First 30 rows):\n${JSON.stringify(users.slice(0, 30), null, 2)}\n\nAudit Requirements:\n1. PRIVILEGE ESCALATION GUARD: Flag any row assigning elevated roles ('admin', 'superadmin', 'committee', 'security_lead') in a bulk file without explicit dual-approval flags.\n2. FLAT OCCUPANCY COLLISION: Detect if multiple unrelated families or conflicting roles are assigned to the exact same flat/unit in this batch.\n3. DATA FORMAT VALIDITY: Identify missing names, malformed phones (non-10 digit / missing international code), throwaway emails, or placeholder values (\"test\", \"asdf\").\n4. Provide clean counts and recommended automated sanitizations.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"batchStatus\": \"READY_TO_IMPORT\" | \"REQUIRES_APPROVAL\" | \"BLOCKED_HIGH_RISK\",\n  \"cleanRowsCount\": number,\n  \"flaggedRowsCount\": number,\n  \"escalationRisksDetected\": [\n    { \"row\": number, \"user\": string, \"assignedRole\": string, \"reason\": string }\n  ],\n  \"flatCollisions\": [\n    { \"flatUnit\": string, \"rows\": number[], \"users\": string[] }\n  ],\n  \"sanitizedSuggestions\": [\n    { \"row\": number, \"field\": string, \"original\": string, \"suggested\": string }\n  ],\n  \"executiveSummary\": \"Concise summary for the administrator before they commit this batch to the production database\"\n}`;\n\nreturn [{\n  json: {\n    batchId,\n    totalRows,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  parsed = {\n    batchStatus: \"REQUIRES_APPROVAL\",\n    cleanRowsCount: 0,\n    flaggedRowsCount: 0,\n    escalationRisksDetected: [],\n    flatCollisions: [],\n    sanitizedSuggestions: [],\n    executiveSummary: \"Batch parsing completed with standard rule checks; manual committee confirmation recommended.\"\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    batchId: meta.batchId,\n    totalRows: meta.totalRows,\n    evaluatedAt: new Date().toISOString(),\n    audit: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
