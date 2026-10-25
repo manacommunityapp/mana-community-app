@@ -1786,13 +1786,15 @@ export function SportsDashboard() {
 
                               {/* Profile readiness & eligibility chip */}
                               {!memberProfileStatus.isValid ? (
-                                <span
-                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
-                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}`}
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition"
+                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
                                 >
                                   <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
                                   <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
-                                </span>
+                                </button>
                               ) : totalEligibleCount === 0 ? (
                                 <span
                                   className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
@@ -1873,25 +1875,6 @@ export function SportsDashboard() {
                               </button>
                             </div>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Incomplete profile warning alert */}
-                      {isExpanded && !memberProfileStatus.isValid && (
-                        <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                            <span className="truncate text-[10px]">
-                              <strong className="font-semibold">{memberProfileStatus.memberName}</strong> missing {memberProfileStatus.missingFields.join(" & ")}. Update profile to register.
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
-                            className="text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer shrink-0"
-                          >
-                            Update Profile →
-                          </button>
                         </div>
                       )}
                     </div>
