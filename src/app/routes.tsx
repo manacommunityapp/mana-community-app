@@ -115,6 +115,7 @@ import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
 import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
 import { SportsTrainers }        from "./components/sports/SportsTrainers";
+import { SportsExternalPublicRegister } from "./components/sports/SportsExternalPublicRegister";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -431,6 +432,10 @@ export const router = createBrowserRouter([
   {
     path: "/event-register/:eventId?",
     Component: EventPublicRegistration,
+  },
+  {
+    path: "/sports/register/external/:token",
+    Component: SportsExternalPublicRegister,
   },
   {
     path: "/privacy",
