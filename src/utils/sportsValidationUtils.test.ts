@@ -288,8 +288,8 @@ describe("sportsValidationUtils Test Suite", () => {
       };
       const result = checkCategoryEligibility(event, 0, "Male");
       expect(result.eligible).toBe(false);
-      expect(result.isUnderAge).toBe(true);
-      expect(result.warningMsg).toContain("Participant age/DOB is required");
+      expect(result.isAgeUnknown).toBe(true);
+      expect(result.warningMsg).toContain("Age not set in profile");
     });
 
     it("blocks participant over maximum age limit (e.g. 25yo on Under 16 event)", () => {

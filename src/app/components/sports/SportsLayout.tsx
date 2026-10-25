@@ -31,8 +31,10 @@ const sportsNav = [
 ];
 
 export function SportsLayout() {
-  const { hasPermission, hasAnyPermission } = useAuth();
+  const { hasPermission, hasAnyPermission, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const location = useLocation();
+
+  const canAccessAdminSportsTabs = isAdmin || isSuperAdmin || isSportsAdmin;
 
   // Current sports sub-section, for the breadcrumb trail (Home › Sports › …).
   const activeItem = sportsNav.find((item) =>
@@ -46,15 +48,15 @@ export function SportsLayout() {
       case "My Sports":
         return hasPermission(VIEW_EVENT_REGISTRATIONS);
       case "Tournaments":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Schedule":
         return hasPermission(VIEW_SPORTS_MAIN);
       case "My Teams":
         return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
       case "Trainers":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Badges":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Auction":
         return hasAnyPermission(
           VIEW_AUCTION_CONFIG,
