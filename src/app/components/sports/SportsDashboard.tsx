@@ -1785,12 +1785,6 @@ export function SportsDashboard() {
                                   </span>
                                 </span>
                               )}
-                              {t.mappedEvents.some(ev => isMemberRegisteredForEvent(ev)) && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>{t.mappedEvents.filter(ev => isMemberRegisteredForEvent(ev)).length} Registered</span>
-                                </span>
-                              )}
 
                               <button
                                 type="button"
