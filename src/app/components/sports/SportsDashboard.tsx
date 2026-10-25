@@ -1636,10 +1636,33 @@ export function SportsDashboard() {
                           {/* Action / Registration button */}
                           <div className="shrink-0 ml-auto">
                             {isFullyReg ? (
-                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                <span>Registered</span>
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Registered</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const regs = getMemberRegsForEvent(item);
+                                    if (regs.length === 0) return;
+                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
+                                    try {
+                                      for (const r of regs) {
+                                        await sportsService.withdraw(r.id);
+                                      }
+                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
+                                      fetchData();
+                                    } catch (err: any) {
+                                      toast.error(err?.message || "Failed to unregister");
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                  title="Unregister from this category"
+                                >
+                                  Unregister
+                                </button>
+                              </div>
                             ) : isPartiallyReg ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">

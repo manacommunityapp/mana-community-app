@@ -268,6 +268,15 @@ export function TournamentSection({
                     <XCircle className="w-3 h-3" /> Reject
                   </button>
                 )}
+                {reg.status === "CONFIRMED" && onRejectRegistration && (
+                  <button
+                    onClick={() => onRejectRegistration(reg.id)}
+                    className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
+                    title="Remove / unregister this player"
+                  >
+                    <XCircle className="w-3 h-3" /> Remove
+                  </button>
+                )}
               </div>
             </div>
           ))}

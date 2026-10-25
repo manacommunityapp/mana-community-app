@@ -1040,13 +1040,14 @@ export function MySports() {
                                     >
                                       Draws & Fixtures
                                     </Link>
-                                    {["PENDING", "REGISTERED"].includes(reg.status) && (
+                                    {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
                                       <button
                                         onClick={() => handleWithdraw(reg.id)}
-                                        className="p-1.5 sm:p-1 min-h-[36px] sm:min-h-0 min-w-[36px] sm:min-w-0 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                                        title="Withdraw registration"
+                                        className="px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex items-center justify-center gap-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition cursor-pointer"
+                                        title="Unregister from this event"
                                       >
-                                        <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>Unregister</span>
                                       </button>
                                     )}
                                   </div>
