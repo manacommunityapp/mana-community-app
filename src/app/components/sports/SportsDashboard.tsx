@@ -1708,12 +1708,12 @@ export function SportsDashboard() {
                                   setDetailsModalTournament(t);
                                   setIsDetailsModalOpen(true);
                                 }}
-                                className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                                 title="View full tournament rules, venue, and description"
+                                aria-label="Tournament Details"
                               >
-                                <Info className="w-3.5 h-3.5 text-indigo-600" />
+                                <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                                 <span className="hidden sm:inline">Tournament Details</span>
-                                <span className="sm:hidden">Details</span>
                               </button>
 
                               {deadlineDays !== null && deadlineDays >= 0 && (
