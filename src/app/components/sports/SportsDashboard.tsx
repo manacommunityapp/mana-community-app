@@ -1572,11 +1572,11 @@ export function SportsDashboard() {
                   const isFullyReg = isReg && (isTeam || unregFormats.length === 0);
                   const isPartiallyReg = !isTeam && isReg && unregFormats.length > 0;
 
-                  const formatBadge = isTeam
-                    ? "Team Squad"
-                    : (item.categoryName || item.name || "").toLowerCase().includes("double")
-                    ? "Doubles"
-                    : "Singles";
+                  const displayFormats = isTeam
+                    ? ["TEAM"]
+                    : eventFormats && eventFormats.length > 0
+                    ? eventFormats
+                    : [(item.categoryName || item.name || "").toLowerCase().includes("double") ? "DOUBLES" : "SINGLES"];
 
                   const spotsText = item.spots || "";
                   const matchSpots = spotsText.match(/(\d+)\/(\d+)/);
@@ -1598,7 +1598,7 @@ export function SportsDashboard() {
                       }`}
                     >
                       <div>
-                        {/* Card Header: Emoji + Title + Format Badge */}
+                        {/* Card Header: Emoji + Title + Format Badge(s) */}
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="text-[10px] p-1 rounded-md bg-slate-50 border border-slate-100 shrink-0">
@@ -1621,11 +1621,40 @@ export function SportsDashboard() {
                               </div>
                             </div>
                           </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${ formatBadge === "Team Squad" ? "bg-purple-50 text-purple-700 border border-purple-200" : formatBadge === "Doubles" ? "bg-blue-50 text-blue-700 border border-blue-200" : "bg-indigo-50 text-indigo-700 border border-indigo-200" }`}
-                          >
-                            {formatBadge}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            {displayFormats.map(fmt => {
+                              const isTeamFmt = fmt === "TEAM";
+                              const isMixed = fmt === "MIXED_DOUBLES" || fmt.includes("MIXED");
+                              const isDbl = fmt === "DOUBLES" || (fmt.includes("DOUBLES") && !isMixed);
+                              const label =
+                                isTeamFmt
+                                  ? "Team Squad"
+                                  : isMixed
+                                  ? "Mixed"
+                                  : isDbl
+                                  ? "Doubles"
+                                  : fmt === "SINGLES"
+                                  ? "Singles"
+                                  : fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+                              return (
+                                <span
+                                  key={fmt}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                                    isTeamFmt
+                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      : isMixed
+                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      : isDbl
+                                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                      : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  }`}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         {/* Action row */}
