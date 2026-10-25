@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { X, CheckCircle, Copy, ExternalLink, Code, Sparkles, Check, AlertCircle } from "lucide-react";
+import { X, CheckCircle, Copy, ExternalLink, Code, Sparkles, Check, AlertCircle, Share2 } from "lucide-react";
 import { sportsExternalFormService, type ExternalFormConfig } from "../../../../../services/sports/sportsExternalFormService";
+import { ShareExternalFormModal } from "./ShareExternalFormModal";
 import { showSuccess, showError } from "../../../../../utils/ToastUtils";
 
 interface CreateExternalFormModalProps {
@@ -43,6 +44,7 @@ export function CreateExternalFormModal({
   const [loading, setLoading] = useState(false);
   const [createdForm, setCreatedForm] = useState<ExternalFormConfig | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   if (!isOpen) return null;
 
@@ -175,7 +177,15 @@ export function CreateExternalFormModal({
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-700/80">
+            <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-700/80">
+              <button
+                type="button"
+                onClick={() => setShowShareModal(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+              >
+                <Share2 className="w-4 h-4" />
+                Share & Get QR Flyer
+              </button>
               <button
                 type="button"
                 onClick={onClose}
@@ -184,6 +194,15 @@ export function CreateExternalFormModal({
                 Done
               </button>
             </div>
+
+            {showShareModal && createdForm && (
+              <ShareExternalFormModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                form={createdForm}
+                event={event}
+              />
+            )}
           </div>
         ) : (
           /* Form Setup Screen */
