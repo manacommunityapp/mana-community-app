@@ -114,6 +114,7 @@ import { SportsMyTeams }      from "./components/sports/SportsMyTeams";
 import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
 import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
+import { SportsTrainers }        from "./components/sports/SportsTrainers";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -300,6 +301,7 @@ import { SplitBillPortal } from "../pages/split/SplitBillPortal";
 import { MoviePortal } from "../pages/entertainment/MoviePortal";
 import FDPortal from "../pages/investments/FDPortal";
 import LoanPortal from "../pages/finance/LoanPortal";
+import KhataBook from "../pages/finance/KhataBook";
 import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
 
 // New cross-module parity components
@@ -498,6 +500,10 @@ export const router = createBrowserRouter([
           {
             path: "schedule/:eventId",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
+          },
+          {
+            path: "trainers",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "auction",
@@ -1197,6 +1203,7 @@ export const router = createBrowserRouter([
       },
       // ── New Modules (Web-Mobile Parity) ──────────────
       { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "khatabook", element: <KhataBook /> },
       { path: "health", element: <HealthDashboard /> },
       {
         path: "wellness",

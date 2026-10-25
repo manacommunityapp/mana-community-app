@@ -1660,9 +1660,13 @@ export function SportsDashboard() {
                             ) : isBlocked ? (
                               <span
                                 title={elig.warningMsg}
-                                className="text-[10px] font-bold px-2 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed"
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-not-allowed ${
+                                  elig.isAgeUnknown
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
                               >
-                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : "Under Age Limit"}
+                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : elig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
                               </span>
                             ) : !memberProfileStatus.isValid ? (
                               <button

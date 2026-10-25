@@ -9,6 +9,8 @@ import type {
   AcademyCertificate,
   LearningType,
   ProgramStatus,
+  TrainerSlot,
+  TrainerSlotBooking,
 } from "../../types/academy";
 
 const STORAGE_KEY_CATEGORIES = "mana_acad_categories_v1";
@@ -17,6 +19,8 @@ const STORAGE_KEY_INSTRUCTORS = "mana_acad_instructors_v1";
 const STORAGE_KEY_ENROLLMENTS = "mana_acad_enrollments_v1";
 const STORAGE_KEY_ATTENDANCE = "mana_acad_attendance_v1";
 const STORAGE_KEY_REVIEWS = "mana_acad_reviews_v1";
+const STORAGE_KEY_TRAINER_SLOTS = "mana_acad_trainer_slots_v1";
+const STORAGE_KEY_SLOT_BOOKINGS = "mana_acad_slot_bookings_v1";
 
 const DEFAULT_CATEGORIES: AcademyCategory[] = [
   { id: "cat-tech", name: "Technology & Coding", code: "TECH", description: "Software engineering, AI, cloud, web dev & coding workshops", icon: "💻", displayOrder: 1, active: true },
@@ -30,7 +34,142 @@ const DEFAULT_CATEGORIES: AcademyCategory[] = [
   { id: "cat-finance", name: "Financial Literacy", code: "FINANCE", description: "Personal budgeting, stock markets, mutual funds & tax planning", icon: "📊", displayOrder: 9, active: true },
 ];
 
+const DEFAULT_TRAINER_SLOTS: TrainerSlot[] = [
+  {
+    id: "slot-badminton-1",
+    trainerId: "instr-vikram",
+    trainerName: "Vikram Nair",
+    sport: "Badminton",
+    date: "2026-10-27",
+    startTime: "06:00",
+    endTime: "07:00",
+    durationMinutes: 60,
+    slotType: "GROUP",
+    maxCapacity: 6,
+    bookedCount: 3,
+    venueName: "Badminton Court A",
+    price: 0,
+    status: "OPEN",
+    notes: "Bring your own racket. Shuttlecocks provided.",
+  },
+  {
+    id: "slot-badminton-2",
+    trainerId: "instr-vikram",
+    trainerName: "Vikram Nair",
+    sport: "Badminton",
+    date: "2026-10-28",
+    startTime: "06:00",
+    endTime: "07:00",
+    durationMinutes: 60,
+    slotType: "INDIVIDUAL",
+    maxCapacity: 1,
+    bookedCount: 0,
+    venueName: "Badminton Court B",
+    price: 0,
+    status: "OPEN",
+    notes: "1-on-1 personal drill coaching.",
+  },
+  {
+    id: "slot-cricket-1",
+    trainerId: "instr-rajesh",
+    trainerName: "Rajesh Kumar",
+    sport: "Cricket",
+    date: "2026-10-27",
+    startTime: "07:00",
+    endTime: "08:30",
+    durationMinutes: 90,
+    slotType: "GROUP",
+    maxCapacity: 10,
+    bookedCount: 6,
+    venueName: "Cricket Net Pitch",
+    price: 0,
+    status: "OPEN",
+    notes: "Batting & bowling drills. Protective gear mandatory.",
+  },
+  {
+    id: "slot-cricket-2",
+    trainerId: "instr-rajesh",
+    trainerName: "Rajesh Kumar",
+    sport: "Cricket",
+    date: "2026-10-29",
+    startTime: "07:00",
+    endTime: "08:00",
+    durationMinutes: 60,
+    slotType: "INDIVIDUAL",
+    maxCapacity: 1,
+    bookedCount: 1,
+    venueName: "Cricket Net Pitch",
+    price: 0,
+    status: "BOOKED",
+  },
+  {
+    id: "slot-yoga-1",
+    trainerId: "instr-priya",
+    trainerName: "Priya Sharma",
+    sport: "Yoga & Fitness",
+    date: "2026-10-27",
+    startTime: "06:30",
+    endTime: "07:30",
+    durationMinutes: 60,
+    slotType: "GROUP",
+    maxCapacity: 15,
+    bookedCount: 8,
+    venueName: "Clubhouse Lawn",
+    price: 0,
+    status: "OPEN",
+    notes: "Bring your own mat.",
+  },
+];
+
 const DEFAULT_INSTRUCTORS: AcademyInstructor[] = [
+  {
+    id: "instr-vikram",
+    communityId: "comm-mana-1",
+    residentUserId: "user-vikram",
+    fullName: "Vikram Nair",
+    profession: "BAI Certified Badminton Coach — Level 2",
+    bio: "Former state-level player with 10+ years of coaching juniors and adults. Specialises in footwork drills, net game, and smash technique.",
+    profilePicUrl: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=200&auto=format&fit=crop&q=80",
+    tower: "Tower D",
+    flatNumber: "D-101",
+    skills: "Badminton, Footwork, Net Play, Smash Technique",
+    experienceYears: 10,
+    status: "APPROVED",
+    totalSessions: 42,
+    totalLearners: 185,
+    averageRating: 4.8,
+    reviewCount: 61,
+    isSportsTrainer: true,
+    sportSpecializations: [
+      { sport: "Badminton", certificationBody: "BAI", certificationNumber: "BAI-L2-2021-0847", certifiedYear: 2021, ageGroupsCoached: "Junior (U-14), Adult" },
+    ],
+    approvedAt: "2026-04-01",
+    createdAt: "2026-04-01",
+  },
+  {
+    id: "instr-rajesh",
+    communityId: "comm-mana-1",
+    residentUserId: "user-rajesh",
+    fullName: "Rajesh Kumar",
+    profession: "BCCI Level 1 Cricket Coach",
+    bio: "Former district cricketer turned dedicated grassroots coach. Focuses on batting fundamentals, bowling action, and fielding agility for all age groups.",
+    profilePicUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
+    tower: "Tower A",
+    flatNumber: "A-510",
+    skills: "Cricket, Batting, Bowling, Fielding, Wicket-keeping",
+    experienceYears: 8,
+    status: "APPROVED",
+    totalSessions: 31,
+    totalLearners: 140,
+    averageRating: 4.7,
+    reviewCount: 45,
+    isSportsTrainer: true,
+    sportSpecializations: [
+      { sport: "Cricket", certificationBody: "BCCI", certificationNumber: "BCCI-L1-2022-1134", certifiedYear: 2022, ageGroupsCoached: "Junior (U-12 to U-19), Adult" },
+    ],
+    approvedAt: "2026-03-01",
+    createdAt: "2026-03-01",
+  },
   {
     id: "instr-sandeep",
     communityId: "comm-mana-1",
@@ -68,6 +207,10 @@ const DEFAULT_INSTRUCTORS: AcademyInstructor[] = [
     totalLearners: 240,
     averageRating: 5.0,
     reviewCount: 92,
+    isSportsTrainer: true,
+    sportSpecializations: [
+      { sport: "Yoga & Fitness", certificationBody: "Yoga Alliance", certificationNumber: "RYS-500-2019-0392", certifiedYear: 2019, ageGroupsCoached: "All Ages" },
+    ],
     approvedAt: "2026-05-01",
     createdAt: "2026-05-01",
   },
@@ -522,6 +665,77 @@ export const academyApi = {
     return newAtt;
   },
 
+  // ── SPORTS TRAINER SLOTS ──
+  async getSportsTrainers(): Promise<AcademyInstructor[]> {
+    try {
+      const res = await apiClient.get<AcademyInstructor[]>("/academy/instructors/sports");
+      if (res && res.length > 0) return res;
+    } catch {}
+    const instructors = getStorage<AcademyInstructor[]>(STORAGE_KEY_INSTRUCTORS, DEFAULT_INSTRUCTORS);
+    return instructors.filter((i) => i.isSportsTrainer && i.status === "APPROVED");
+  },
+
+  async getTrainerSlots(trainerId?: string, sport?: string, date?: string): Promise<TrainerSlot[]> {
+    try {
+      const params = new URLSearchParams();
+      if (trainerId) params.append("trainerId", trainerId);
+      if (sport) params.append("sport", sport);
+      if (date) params.append("date", date);
+      const res = await apiClient.get<TrainerSlot[]>(`/academy/trainer-slots?${params}`);
+      if (res && res.length > 0) return res;
+    } catch {}
+    let slots = getStorage<TrainerSlot[]>(STORAGE_KEY_TRAINER_SLOTS, DEFAULT_TRAINER_SLOTS);
+    if (trainerId) slots = slots.filter((s) => s.trainerId === trainerId);
+    if (sport) slots = slots.filter((s) => s.sport.toLowerCase() === sport.toLowerCase());
+    if (date) slots = slots.filter((s) => s.date === date);
+    return slots;
+  },
+
+  async bookTrainerSlot(slotId: string, payload: { userId: string; userName: string; tower?: string; flatNumber?: string }): Promise<TrainerSlotBooking> {
+    try {
+      const res = await apiClient.post<TrainerSlotBooking>(`/academy/trainer-slots/${slotId}/book`, payload);
+      if (res) return res;
+    } catch {}
+    const slots = getStorage<TrainerSlot[]>(STORAGE_KEY_TRAINER_SLOTS, DEFAULT_TRAINER_SLOTS);
+    const slot = slots.find((s) => s.id === slotId);
+    if (!slot) throw new Error("Slot not found");
+    if (slot.status !== "OPEN") throw new Error("This slot is no longer available");
+    if (slot.bookedCount >= slot.maxCapacity) throw new Error("Slot is fully booked");
+
+    const bookings = getStorage<TrainerSlotBooking[]>(STORAGE_KEY_SLOT_BOOKINGS, []);
+    const existing = bookings.find((b) => b.slotId === slotId && b.userId === payload.userId && b.status === "CONFIRMED");
+    if (existing) return existing;
+
+    slot.bookedCount += 1;
+    if (slot.bookedCount >= slot.maxCapacity) slot.status = "BOOKED";
+    setStorage(STORAGE_KEY_TRAINER_SLOTS, slots);
+
+    const booking: TrainerSlotBooking = {
+      id: `sb-${Date.now()}`,
+      slotId,
+      trainerId: slot.trainerId,
+      userId: payload.userId,
+      userName: payload.userName,
+      tower: payload.tower,
+      flatNumber: payload.flatNumber,
+      status: "CONFIRMED",
+      amountPaid: slot.price,
+      bookedAt: new Date().toISOString(),
+    };
+    bookings.push(booking);
+    setStorage(STORAGE_KEY_SLOT_BOOKINGS, bookings);
+    return booking;
+  },
+
+  async getMySlotBookings(userId: string): Promise<TrainerSlotBooking[]> {
+    try {
+      const res = await apiClient.get<TrainerSlotBooking[]>(`/academy/trainer-slots/my-bookings?userId=${userId}`);
+      if (res) return res;
+    } catch {}
+    const bookings = getStorage<TrainerSlotBooking[]>(STORAGE_KEY_SLOT_BOOKINGS, []);
+    return bookings.filter((b) => b.userId === userId && b.status === "CONFIRMED");
+  },
+
   // ── REVIEWS ──
   async submitReview(programId: string, payload: { userId: string; userName: string; overallRating: number; reviewComment?: string }): Promise<AcademyReview> {
     try {
@@ -544,5 +758,18 @@ export const academyApi = {
     reviews.push(newRev);
     setStorage(STORAGE_KEY_REVIEWS, reviews);
     return newRev;
+  },
+
+  async updateInstructorStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<void> {
+    try {
+      await apiClient.patch(`/academy/instructors/${id}/status`, { status });
+      return;
+    } catch {}
+    const instructors = getStorage<AcademyInstructor[]>(STORAGE_KEY_INSTRUCTORS, DEFAULT_INSTRUCTORS);
+    const idx = instructors.findIndex((i) => i.id === id);
+    if (idx !== -1) {
+      instructors[idx] = { ...instructors[idx], status };
+      setStorage(STORAGE_KEY_INSTRUCTORS, instructors);
+    }
   },
 };

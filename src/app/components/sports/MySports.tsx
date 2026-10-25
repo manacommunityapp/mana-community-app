@@ -33,6 +33,7 @@ import {
   Compass,
   HeartHandshake,
   Crown,
+  Dumbbell,
   X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
@@ -49,6 +50,8 @@ import { venueService } from "../../../services/bookings/venueService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import type { SportMeta, AuctionTeam, CommunityResponse, Venue } from "../../../types/api";
+import { academyApi } from "../../../services/academy/academyApi";
+import type { TrainerSlot, TrainerSlotBooking, AcademyInstructor } from "../../../types/academy";
 
 const ALL_SPORTS = [
   { id: "cricket",     icon: "🏏", name: "Cricket",     roles: ["Top-order Batsman", "Middle-order Batsman", "All-Rounder", "Fast Bowler", "Spin Bowler", "Wicket-keeper"] },
@@ -74,6 +77,7 @@ const TABS = [
   { id: "community",   label: "My Community",    icon: Building2 },
   { id: "teams",       label: "My Teams",        icon: Users },
   { id: "matches",     label: "My Matches",      icon: Calendar },
+  { id: "my-training", label: "My Training",     icon: Dumbbell },
   { id: "settings",    label: "Settings",        icon: Settings },
 ] as const;
 
@@ -153,6 +157,11 @@ export function MySports() {
   const [respondingInviteId, setRespondingInviteId] = useState<number | null>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Training bookings state
+  const [mySlotBookings, setMySlotBookings] = useState<TrainerSlotBooking[]>([]);
+  const [slotDetails, setSlotDetails] = useState<Record<string, TrainerSlot>>({});
+  const [trainerMap, setTrainerMap] = useState<Record<string, AcademyInstructor>>({});
 
   // Partner Nomination Modal state
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -247,6 +256,23 @@ export function MySports() {
       if (user?.communityId) {
         venueService.getVenues(user.communityId).then(v => setVenues(v || [])).catch(() => {});
       }
+    }
+    if (activeTab === "my-training" && !hydratedRef.current.has("my-training")) {
+      hydratedRef.current.add("my-training");
+      const uid = String(user.userId);
+      Promise.all([
+        academyApi.getMySlotBookings(uid),
+        academyApi.getSportsTrainers(),
+        academyApi.getTrainerSlots(),
+      ]).then(([bookings, trainers, slots]) => {
+        setMySlotBookings(bookings);
+        const tMap: Record<string, AcademyInstructor> = {};
+        trainers.forEach(t => { tMap[t.id] = t; });
+        setTrainerMap(tMap);
+        const sMap: Record<string, TrainerSlot> = {};
+        slots.forEach(s => { sMap[s.id] = s; });
+        setSlotDetails(sMap);
+      }).catch(() => {});
     }
   }, [activeTab, user?.userId, user?.communityId]);
 
@@ -1281,6 +1307,64 @@ export function MySports() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* ════════════════════ MY TRAINING TAB ════════════════════ */}
+                  {activeTab === "my-training" && (
+                    <div className="space-y-4 text-left animate-fade-in-up">
+                      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                          <Dumbbell className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+                          <div>
+                            <h3 className="text-[13px] sm:text-base font-extrabold text-slate-900 m-0">My Trainer Bookings</h3>
+                            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 m-0">Upcoming coaching sessions you've booked</p>
+                          </div>
+                        </div>
+                        {mySlotBookings.length === 0 ? (
+                          <div className="text-center py-10 text-slate-400">
+                            <Dumbbell className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm font-medium">No training sessions booked yet</p>
+                            <p className="text-xs mt-1">Head to Sports → Trainers to find certified coaches</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {mySlotBookings.map((booking) => {
+                              const slot = slotDetails[booking.slotId];
+                              const trainer = trainerMap[booking.trainerId];
+                              return (
+                                <div key={booking.id} className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                                  {trainer?.profilePicUrl && (
+                                    <img src={trainer.profilePicUrl} alt={trainer.fullName} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-indigo-100" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-slate-800 truncate">{booking.trainerName || trainer?.fullName || "Trainer"}</p>
+                                    {slot && (
+                                      <>
+                                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                          <span className="text-[11px] text-slate-600 font-medium">{slot.sport}</span>
+                                          <span className="text-[10px] text-slate-400">
+                                            {new Date(slot.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                                            {" · "}{slot.startTime} – {slot.endTime}
+                                          </span>
+                                        </div>
+                                        {slot.venueName && (
+                                          <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-0.5">
+                                            <MapPin className="w-2.5 h-2.5" />{slot.venueName}
+                                          </p>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-700">
+                                    {booking.status}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
