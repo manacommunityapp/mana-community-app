@@ -3788,9 +3788,18 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
 
-            {/* Submit Actions — always visible inline at the bottom of the form on mobile, and desktop for page mode */}
-            <div className={`gap-2.5 pt-2 sm:pt-1 ${isModal ? "flex sm:hidden" : "flex"}`}>
-              {!isModal ? (
+            {/* Hidden native submit button for Enter key & form.requestSubmit() */}
+            <button
+              type="submit"
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+            />
+
+            {/* Submit Actions — desktop inline for page mode (in modal mode the pinned footer handles actions; on mobile in page mode the sticky bottom bar handles actions) */}
+            {!isModal && (
+              <div className="hidden sm:flex gap-2.5 pt-2 sm:pt-1">
                 <button
                   type="button"
                   onClick={handleClose}
@@ -3798,37 +3807,29 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 >
                   ← Go Back
                 </button>
-              ) : (
                 <button
-                  type="button"
-                  onClick={handleClose}
-                  className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer"
+                  type="submit"
+                  disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                  className={`flex-[2] py-2.5 px-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
+                    isAlreadyRegistered
+                      ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                  }`}
                 >
-                  Cancel
+                  {submitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                  ) : isAlreadyRegistered ? (
+                    <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                  ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                    <>Provide Gender &amp; DOB to Register</>
+                  ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                    <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
+                  ) : (
+                    <>Submit Registration <span className="text-[10px]">→</span></>
+                  )}
                 </button>
-              )}
-              <button
-                type="submit"
-                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className={`flex-[2] py-2.5 px-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
-                  isAlreadyRegistered
-                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-                }`}
-              >
-                {submitting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-                ) : isAlreadyRegistered ? (
-                  <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
-                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-                  <>Provide Gender &amp; DOB to Register</>
-                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
-                ) : (
-                  <>Submit Registration <span className="text-[10px]">→</span></>
-                )}
-              </button>
-            </div>
+              </div>
+            )}
           </form>
         </div>
 
@@ -3978,7 +3979,18 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             </button>
             <button
               type="button"
-              onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+              onClick={() => {
+                const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                if (form && typeof form.requestSubmit === "function") {
+                  try {
+                    form.requestSubmit();
+                    return;
+                  } catch {
+                    // fallback
+                  }
+                }
+                handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+              }}
               disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
               className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
                 isAlreadyRegistered
