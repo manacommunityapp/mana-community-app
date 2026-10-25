@@ -561,10 +561,13 @@ export function SportsDashboard() {
   const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
     const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
     if (isSelf) {
-      const hasDob = Boolean(user?.dateOfBirth || (user as any)?.dob);
+      const hasDob = Boolean(
+        user?.dateOfBirth || (user as any)?.dob ||
+        ((user as any)?.age !== undefined && Number((user as any)?.age) > 0)
+      );
       const hasGender = Boolean(user?.gender && String(user.gender).trim());
       const missingFields: string[] = [];
-      if (!hasDob) missingFields.push("Date of Birth (DOB)");
+      if (!hasDob) missingFields.push("Age / Date of Birth");
       if (!hasGender) missingFields.push("Gender");
       return {
         isValid: hasDob && hasGender,
@@ -588,10 +591,13 @@ export function SportsDashboard() {
       };
     }
 
-    const hasDob = Boolean(member.dob && String(member.dob).trim());
+    const hasDob = Boolean(
+      (member.dob && String(member.dob).trim()) ||
+      (member.age !== undefined && member.age > 0)
+    );
     const hasGender = Boolean(member.gender && String(member.gender).trim());
     const missingFields: string[] = [];
-    if (!hasDob) missingFields.push("Date of Birth (DOB)");
+    if (!hasDob) missingFields.push("Age / Date of Birth");
     if (!hasGender) missingFields.push("Gender");
 
     return {
@@ -1600,9 +1606,13 @@ export function SportsDashboard() {
                             ) : isBlocked ? (
                               <span
                                 title={elig.warningMsg}
-                                className="text-[10px] font-bold px-2 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 cursor-not-allowed"
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-not-allowed ${
+                                  elig.isAgeUnknown
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
                               >
-                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : "Under Age Limit"}
+                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : elig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
                               </span>
                             ) : !memberProfileStatus.isValid ? (
                               <button

@@ -47,6 +47,7 @@ export interface CategoryEligibilityResult {
   isGenderMismatch: boolean;
   isOverAge: boolean;
   isUnderAge: boolean;
+  isAgeUnknown: boolean;
   minAge: number | null;
   maxAge: number | null;
   requiredGender: "MALE" | "FEMALE" | "MIXED" | "ALL" | null;
@@ -72,6 +73,7 @@ export function checkCategoryEligibility(
       isGenderMismatch: false,
       isOverAge: false,
       isUnderAge: false,
+      isAgeUnknown: false,
       minAge: null,
       maxAge: null,
       requiredGender: null,
@@ -138,6 +140,7 @@ export function checkCategoryEligibility(
 
   let isOverAge = false;
   let isUnderAge = false;
+  let isAgeUnknown = false;
   let warningMsg = "";
 
   if (participantAge > 0) {
@@ -148,6 +151,12 @@ export function checkCategoryEligibility(
       isUnderAge = true;
       warningMsg = `Participant age (${participantAge}y) is below minimum age requirement (${minAge}+ yrs).`;
     }
+  } else if (minAge != null || maxAge != null) {
+    // Age is 0 (not set in profile) but this category has an age restriction — cannot verify eligibility
+    isAgeUnknown = true;
+    warningMsg = `Age not set in profile. Add date of birth or age to verify eligibility for this age group (${
+      minAge != null && maxAge != null ? `${minAge}–${maxAge} yrs` : minAge != null ? `${minAge}+ yrs` : `Under ${maxAge} yrs`
+    }).`;
   }
 
   if (isGenderMismatch) {
@@ -156,13 +165,14 @@ export function checkCategoryEligibility(
     warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
   }
 
-  const eligible = !isGenderMismatch && !isOverAge && !isUnderAge;
+  const eligible = !isGenderMismatch && !isOverAge && !isUnderAge && !isAgeUnknown;
 
   return {
     eligible,
     isGenderMismatch,
     isOverAge,
     isUnderAge,
+    isAgeUnknown,
     minAge,
     maxAge,
     requiredGender,
@@ -3165,7 +3175,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide">
-                      {currentElig.isGenderMismatch ? "Gender Mismatch" : currentElig.isOverAge ? "Over Age Limit" : "Under Age Limit"}
+                      {currentElig.isGenderMismatch ? "Gender Mismatch" : currentElig.isOverAge ? "Over Age Limit" : currentElig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
                     </p>
                     <p className="text-[9px] sm:text-[10px] text-rose-600 dark:text-rose-400 mt-0.5 leading-relaxed">
                       {currentElig.warningMsg}
