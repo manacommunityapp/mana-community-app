@@ -269,64 +269,67 @@ export function AdminCommunity() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3.5 sm:space-y-4">
       <Toaster position="top-center" richColors />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Building2 className="w-6 h-6 text-indigo-500" />
-            Community Management
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Create, edit and manage communities and database block configurations.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-card border border-border/80 rounded-xl p-3 sm:p-3.5 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-2xs">
+            <Building2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-xs sm:text-sm font-bold text-foreground leading-tight">
+              Community Management
+            </h2>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+              Create, edit and manage communities and database block configurations
+            </p>
+          </div>
         </div>
         <button
           onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm transition-all active:scale-95 self-start sm:self-auto"
-          style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-2xs transition-all active:scale-95 self-start sm:self-auto cursor-pointer bg-primary hover:bg-primary/90"
         >
-          <Plus className="w-4 h-4" /> New Community
+          <Plus className="w-3.5 h-3.5" /> New Community
         </button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="relative max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, city or code..."
-          className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground outline-none focus:border-indigo-500 transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 bg-input border border-border/80 rounded-lg text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/40 transition-colors shadow-2xs"
         />
       </div>
 
       {/* Body */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground">
-          <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading communities...
+        <div className="flex items-center justify-center py-16 text-muted-foreground text-xs">
+          <Loader2 className="w-5 h-5 animate-spin mr-2 text-primary" /> Loading communities...
         </div>
       ) : error ? (
-        <div className="text-center py-16">
-          <p className="text-destructive font-medium mb-3">{error}</p>
-          <button onClick={load} className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-accent transition-colors">
+        <div className="text-center py-12">
+          <p className="text-destructive font-semibold text-xs mb-2.5">{error}</p>
+          <button onClick={load} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-border/80 hover:bg-input transition-colors cursor-pointer">
             Retry
           </button>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Inbox className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="font-medium">{search ? "No communities match your search." : "No communities yet."}</p>
+        <div className="text-center py-12 text-muted-foreground bg-card border border-border/80 rounded-xl p-4">
+          <Inbox className="w-8 h-8 mx-auto mb-2 opacity-30 text-primary" />
+          <p className="font-bold text-xs">{search ? "No communities match your search." : "No communities yet."}</p>
           {!search && (
-            <button onClick={openCreate} className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors">
-              <Plus className="w-4 h-4" /> Create your first community
+            <button onClick={openCreate} className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-white bg-primary hover:bg-primary/90 transition-colors cursor-pointer shadow-2xs">
+              <Plus className="w-3.5 h-3.5" /> Create your first community
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
           {filtered.map((c) => {
             const blockCount = c.blockConfigs?.length || (c.type === "APARTMENT" ? 4 : 0);
             const flatTotal = c.blockConfigs?.reduce((a, b) => a + (b.totalFlats || (b.totalFloors * b.flatsPerFloor)), 0) || (c.type === "APARTMENT" ? 450 : 0);
@@ -334,66 +337,68 @@ export function AdminCommunity() {
             return (
               <div
                 key={c.id}
-                className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 transition-all hover:border-indigo-300 hover:shadow-md"
+                className="rounded-xl border border-border/80 bg-card p-3 sm:p-3.5 flex flex-col justify-between gap-2.5 transition-all hover:border-primary/40 hover:shadow-2xs"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="h-11 w-11 rounded-xl flex items-center justify-center text-white shrink-0"
-                      style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-                    >
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-foreground truncate">{c.name}</h3>
-                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                        <span className="inline-block text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                          {TYPE_LABEL[c.type] || c.type}
-                        </span>
-                        {c.type === "APARTMENT" && blockCount > 0 && (
-                          <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
-                            {blockCount} Blocks · {flatTotal} Flats (DB Configured)
+                <div>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="h-8 w-8 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs"
+                        style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                      >
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-xs sm:text-sm font-bold text-foreground truncate">{c.name}</h3>
+                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                          <span className="inline-block text-[9.5px] font-bold uppercase tracking-wide text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.2 rounded">
+                            {TYPE_LABEL[c.type] || c.type}
                           </span>
-                        )}
+                          {c.type === "APARTMENT" && blockCount > 0 && (
+                            <span className="inline-block text-[9.5px] font-bold text-success bg-success/10 border border-success/20 px-1.5 py-0.2 rounded">
+                              {blockCount} Blocks · {flatTotal} Flats
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-xs text-muted-foreground space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="truncate">
-                      {[c.area, c.city, c.state].filter(Boolean).join(", ") || "No location set"}
-                    </span>
+                  <div className="text-[11px] text-muted-foreground space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3 text-primary shrink-0" />
+                      <span className="truncate">
+                        {[c.area, c.city, c.state].filter(Boolean).join(", ") || "No location set"}
+                      </span>
+                    </div>
+                    {c.inviteCode && (
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3 h-3 text-primary shrink-0" />
+                        <span className="font-mono font-bold uppercase text-[10.5px] text-foreground">{c.inviteCode}</span>
+                      </div>
+                    )}
+                    {c.subtype && (
+                      <div className="flex items-center gap-1.5">
+                        <Globe className="w-3 h-3 text-primary shrink-0" />
+                        <span className="truncate">{c.subtype}</span>
+                      </div>
+                    )}
                   </div>
-                  {c.inviteCode && (
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                      <span className="font-mono uppercase">{c.inviteCode}</span>
-                    </div>
-                  )}
-                  {c.subtype && (
-                    <div className="flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                      <span className="truncate">{c.subtype}</span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-2 pt-1 mt-auto border-t border-border">
+                <div className="flex items-center gap-1.5 pt-2 border-t border-border/60">
                   <button
                     onClick={() => openEdit(c)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors"
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1 text-xs font-bold rounded-lg text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20 transition-colors cursor-pointer"
                   >
-                    <Pencil className="w-3.5 h-3.5" /> Edit
+                    <Pencil className="w-3 h-3" /> Edit
                   </button>
                   <button
                     onClick={() => handleDelete(c)}
                     disabled={deletingId === c.id}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-red-600 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="flex-1 inline-flex items-center justify-center gap-1 py-1 text-xs font-bold rounded-lg text-danger bg-danger/5 hover:bg-danger/10 border border-danger/20 transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {deletingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                     Delete
                   </button>
                 </div>
@@ -405,27 +410,27 @@ export function AdminCommunity() {
 
       {/* Create / Edit Modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeModal}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-2xs animate-in fade-in duration-200" onClick={closeModal}>
           <div
-            className="bg-card w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border shadow-2xl animate-in zoom-in-95 duration-200"
+            className="bg-card w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-xl border border-border shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
-              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-indigo-500" />
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border sticky top-0 bg-card z-10">
+              <h3 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-primary" />
                 {modal === "create" ? "New Community" : "Edit Community"}
               </h3>
-              <button onClick={closeModal} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <X className="w-5 h-5" />
+              <button onClick={closeModal} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-input transition-colors cursor-pointer">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 border-b border-border pb-2">
-                  <ShieldCheck className="w-4 h-4 text-indigo-500" /> General Information
+            <form onSubmit={handleSubmit} className="p-4 space-y-4 text-xs">
+              <section className="space-y-3">
+                <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 border-b border-border pb-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" /> General Information
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                   <Field label="Community Name *">
                     <input
                       required

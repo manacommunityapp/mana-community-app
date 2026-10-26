@@ -1,4 +1,5 @@
 import { apiClient } from "../common/apiClient";
+import type { Sponsor } from "../../types/api";
 
 // ── Lean dashboard payload (mirrors SportsDashboardResponse on the backend) ──
 
@@ -20,11 +21,19 @@ export interface DashboardEventCard {
   categoryName: string | null;
   venueName: string | null;
   maxParticipants: number | null;
+  registeredCount?: number | null;
   registrationStatus: string | null;
   auctionStatus: string | null;
   teamSport: boolean;
   myRegistrationId: number | null;
   myRegistrationStatus: string | null;
+  gender?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categories?: any[] | null;
+  allowedGenders?: string[] | null;
+  formats?: string[] | null;
+  format?: string | string[] | null;
 }
 
 export interface DashboardUpcomingEvent {
@@ -38,6 +47,9 @@ export interface DashboardUpcomingEvent {
   startTime: string | null;
   tournamentId?: number | null;
   tournamentName?: string | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardMyRegistration {
@@ -52,6 +64,9 @@ export interface DashboardMyRegistration {
   matchType: string | null;
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
 }
 
 export interface DashboardTournamentCard {
@@ -63,7 +78,10 @@ export interface DashboardTournamentCard {
   registrationStatus: string | null;
   communityId: number | null;
   communityName: string | null;
+  venueName?: string | null;
+  sportName?: string | null;
   events: DashboardEventCard[];
+  sponsors?: Sponsor[];
 }
 
 export interface SportsDashboardResponse {

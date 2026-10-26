@@ -52,6 +52,11 @@ export const notificationService = {
     return apiClient.get<NotificationPage>(`/notifications?page=${page}&size=${size}`);
   },
 
+  /** Dedicated lightweight retrieval endpoint for UI notification dropdowns and feed widgets */
+  async getNotificationsSummary(page = 0, size = 20): Promise<NotificationPage> {
+    return apiClient.get<NotificationPage>(`/notifications/summary?page=${page}&size=${size}`);
+  },
+
   async getUnreadCount(): Promise<NotificationCount> {
     return apiClient.get<NotificationCount>("/notifications/count");
   },

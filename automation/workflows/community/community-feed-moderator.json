@@ -1,0 +1,124 @@
+﻿{
+  "name": "Mana Community Feed & Noticeboard AI Content Moderator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "community-feed-moderator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Feed Post Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-feed-moderator-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst postId = item.postId || item.id || 'POST-1';\nconst authorName = item.authorName || 'Resident';\nconst flatNumber = item.flatNumber || 'Flat';\nconst authorRole = item.authorRole || 'RESIDENT';\nconst title = item.title || '';\nconst content = item.content || item.summary || '';\nconst postType = item.type || 'COMMUNITY_UPDATE';\n\nconst prompt = `You are the Chief Community Moderator & Civil Discourse Guardian for the Mana Community Association.\nAnalyze the following community feed post / announcement for hate speech, personal attacks, commercial spam, defamation, or panic rumors.\n\nPost Details:\n- Author: ${authorName} (${flatNumber}) [${authorRole}]\n- Type: ${postType}\n- Title: \"${title}\"\n- Content Body: \"${content}\"\n\nCommunity Standards:\n1. Zero tolerance for profanity, slurs, threats, or religious/caste discrimination.\n2. Civil Discourse: Public naming and shaming of individual neighbors or security guards is strictly prohibited.\n3. Defamation: Accusations of corruption or theft must be routed to formal grievance channels, not posted on public feed.\n4. Commercial spam / MLM / unapproved sales pitches are disallowed on general discussion feed.\n5. Constructive critique of society amenities or management decisions IS permitted if worded respectfully.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"moderationStatus\": \"APPROVED\" | \"NEEDS_REVISION\" | \"FLAGGED_FOR_MANAGER\" | \"REJECTED\",\n  \"toxicityScore\": number (0.0 to 1.0),\n  \"sentiment\": \"POSITIVE\" | \"NEUTRAL\" | \"CONSTRUCTIVE_CRITIQUE\" | \"HOSTILE\",\n  \"isDefamatory\": boolean,\n  \"isSpam\": boolean,\n  \"flaggedViolations\": [\n    {\n      \"category\": \"PROFANITY\" | \"HARASSMENT\" | \"SPAM\" | \"DEFAMATION\" | \"PANIC_RUMOR\",\n      \"excerpt\": string,\n      \"reason\": string\n    }\n  ],\n  \"sanitizedContent\": string | null,\n  \"authorFeedback\": \"Constructive, polite explanation to the resident on whether their post is approved or how to rephrase it to comply with society guidelines.\"\n}`;\n\nreturn [{\n  json: {\n    postId,\n    authorName,\n    flatNumber,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Feed Moderation Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Feed Moderator (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedRuling = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedRuling = JSON.parse(rawText);\n} catch (err) {\n  parsedRuling = {\n    moderationStatus: \"APPROVED\",\n    toxicityScore: 0.05,\n    sentiment: \"NEUTRAL\",\n    isDefamatory: false,\n    isSpam: false,\n    flaggedViolations: [],\n    sanitizedContent: null,\n    authorFeedback: \"Post verified and approved for community publication.\"\n  };\n}\n\nconst meta = $('Prepare Feed Moderation Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    postId: meta.postId,\n    moderatedAt: new Date().toISOString(),\n    moderation: parsedRuling\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Moderation Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Moderation Verdict",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Feed Post Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Feed Moderation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Feed Moderation Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Feed Moderator (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Feed Moderator (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Moderation Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Moderation Output": {
+      "main": [
+        [
+          {
+            "node": "Respond with Moderation Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

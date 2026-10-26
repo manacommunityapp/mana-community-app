@@ -48,39 +48,51 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
-    // Hydrate from localStorage on first render
     const stored = getStoredUser();
+    if (!stored) return null;
     const token = getToken();
-    if (stored && token) return stored as AuthUser;
+    if (token) return stored as AuthUser;
+    if (safeStorage.getItem("mana_last_activity")) return stored as AuthUser;
     return null;
   });
 
   const updateUser = useCallback((patch: Partial<StoredUser>) => {
     setUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, ...patch };
+      // Filter out undefined keys so we don't accidentally overwrite existing valid values (e.g. profilePicUrl)
+      const cleanPatch: Partial<StoredUser> = {};
+      (Object.keys(patch) as (keyof StoredUser)[]).forEach((key) => {
+        if (patch[key] !== undefined) {
+          (cleanPatch as any)[key] = patch[key];
+        }
+      });
+      const updated = { ...prev, ...cleanPatch };
       storeUser(updated);
       return updated;
     });
   }, []);
 
-  // Synchronize full profile and permissions on startup
   useEffect(() => {
-    const token = getToken();
-    if (token) {
+    if (user) {
       userService.getMe()
         .then((me) => {
+          const resolvedPic = me.profilePicUrl || (me as any).profilePic;
           updateUser({
             role: me.role,
             roles: me.roles,
             fullName: me.fullName,
             email: me.email,
+            phone: me.phone,
             communityId: me.communityId,
             roleId: me.roleId,
+            gender: me.gender,
+            dateOfBirth: me.dateOfBirth || (me as any).dob,
+            flatNo: me.flatNo,
+            block: me.block,
             permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
             menuPermissions: me.menuPermissions,
-            profilePicUrl: me.profilePicUrl || (me as any).profilePic,
+            ...(resolvedPic ? { profilePicUrl: resolvedPic } : {}),
             occupancyStatus: me.occupancyStatus,
             residentType: me.residentType,
             userType: me.userType || me.occupancyStatus,
@@ -94,17 +106,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await authService.login(data);
+    if (!response || !response.userId) {
+      throw new Error("Invalid response from authentication server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
-    setTokens(response.token, response.refreshToken);
+    if (response.token) {
+      setTokens(response.token, response.refreshToken);
+    }
 
-    // Try to use direct response fields first, fallback to JWT payload
-    const payload = decodeJwtPayload(response.token);
+    const payload = response.token ? decodeJwtPayload(response.token) : null;
     const newUser: AuthUser = {
       userId: response.userId,
       role: response.role ?? (payload?.role != null ? String(payload.role) : "MEMBER"),
       communityId: response.communityId ?? (payload?.communityId != null ? Number(payload.communityId) : undefined),
       fullName: response.fullName ?? (payload?.fullName != null ? String(payload.fullName) : payload?.sub != null ? String(payload.sub) : undefined),
       email: response.email ?? (payload?.email != null ? String(payload.email) : undefined),
+      gender: response.gender,
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
       occupancyStatus: response.occupancyStatus,
@@ -124,8 +141,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles: me.roles,
         fullName: me.fullName,
         email: me.email,
+        phone: me.phone,
         communityId: me.communityId,
         roleId: me.roleId,
+        gender: me.gender || newUser.gender,
+        dateOfBirth: me.dateOfBirth || (me as any).dob || newUser.dateOfBirth,
+        flatNo: me.flatNo,
+        block: me.block,
+        tower: me.tower,
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
@@ -143,16 +166,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authService.register(data);
+    if (!response || !response.userId) {
+      throw new Error("Invalid response from registration server. Please verify backend service connection.");
+    }
     safeStorage.setItem("mana_last_activity", String(Date.now()));
-    setTokens(response.token, response.refreshToken);
+    if (response.token) {
+      setTokens(response.token, response.refreshToken);
+    }
 
-    const payload = decodeJwtPayload(response.token);
+    const payload = response.token ? decodeJwtPayload(response.token) : null;
     const newUser: AuthUser = {
       userId: response.userId,
       role: response.role ?? (payload?.role != null ? String(payload.role) : "MEMBER"),
       communityId: response.communityId ?? (payload?.communityId != null ? Number(payload.communityId) : undefined),
       fullName: response.fullName ?? (payload?.fullName != null ? String(payload.fullName) : undefined),
       email: response.email ?? data.email,
+      gender: response.gender,
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
       occupancyStatus: response.occupancyStatus || data.occupancyStatus || data.userType,
@@ -238,7 +267,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextValue = {
     user,
-    isAuthenticated: !!user && !!getToken(),
+    isAuthenticated: !!user,
     isAdmin: userRoleSet.has("ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
     isSuperAdmin,
     isSportsAdmin: userRoleSet.has("SPORTS_ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),

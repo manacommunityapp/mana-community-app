@@ -6,11 +6,16 @@ import type { Asset } from "../../../services/inventory/assetService";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { DoubleEntryInventory } from "./DoubleEntryInventory";
+import { useAuth } from "../../../contexts/AuthContext";
 import { toast, Toaster } from "sonner";
 
 export function InventoryDashboard() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const subView = (searchParams.get("tab") as "stock-ledger" | "assets" | "upload" | "approve") || "stock-ledger";
+
+  const userName = user?.fullName || (user as any)?.name || (user?.email ? user.email.split("@")[0] : "Admin");
+  const userLocation = (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unit || "Management Office";
 
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -48,7 +53,7 @@ export function InventoryDashboard() {
     e.preventDefault();
     if (!selectedAsset) return;
     const finalDuration = duration === "Custom" ? customDuration || "Custom Time" : duration;
-    const updated = await assetService.checkoutAsset(selectedAsset.id, "Admin Staff", "Management Office", finalDuration);
+    const updated = await assetService.checkoutAsset(selectedAsset.id, userName, userLocation, finalDuration);
     if (updated) {
       toast.success(`${updated.name} checked out successfully!`);
       setSelectedAsset(null);
@@ -80,6 +85,32 @@ export function InventoryDashboard() {
           Inventory Management
         </h1>
         <p className="text-[#6b7094] text-xs mt-1">Manage physical community assets, warehouse operations, and double-entry stock transactions.</p>
+      </div>
+
+      {/* Primary Sub-Navigation Tabs */}
+      <div className="flex border-b border-slate-200 mb-6 gap-3">
+        <button
+          onClick={() => setSubView("stock-ledger")}
+          className={`pb-3 px-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 cursor-pointer ${
+            subView === "stock-ledger"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Double-Entry Stock Ledger & Operations
+        </button>
+        <button
+          onClick={() => setSubView("assets")}
+          className={`pb-3 px-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 cursor-pointer ${
+            subView === "assets"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4" />
+          Community Assets & Checkouts
+        </button>
       </div>
 
       {/* Sub views */}

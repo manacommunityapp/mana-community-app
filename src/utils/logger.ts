@@ -1,3 +1,5 @@
+import { safeStorage, STORAGE_KEYS } from "./storage";
+
 // Plain const object instead of an enum so the file is type-erasable
 // (tsconfig `erasableSyntaxOnly`); numeric values preserve level ordering.
 const LogLevel = {
@@ -84,21 +86,26 @@ function flush() {
   if (BUFFER.length === 0) return;
 
   const batch = BUFFER.splice(0);
-  const token = localStorage.getItem("mana_token");
-  if (!token) return;
+  const token = safeStorage.getItem(STORAGE_KEYS.TOKEN);
+  const hasSession = token || safeStorage.getItem(STORAGE_KEYS.LAST_ACTIVITY);
+  if (!hasSession) return;
 
   const body = JSON.stringify(batch);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Platform": "web",
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   if (navigator.sendBeacon) {
     const blob = new Blob([body], { type: "application/json" });
     navigator.sendBeacon("/api/frontend-logs", blob);
   } else {
     fetch("/api/frontend-logs", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
       body,
+      credentials: "include",
       keepalive: true,
     }).catch(() => {});
   }

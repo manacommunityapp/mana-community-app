@@ -80,10 +80,10 @@ export function Polling() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent flex items-center gap-2">
-            <BarChart3 className="w-7 h-7 text-indigo-600" />
+          <h4 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-indigo-600" />
             Polls & Voting
-          </h1>
+          </h4>
           <p className="text-sm text-slate-500 mt-1">Community decisions, made together</p>
         </div>
         <button

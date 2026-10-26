@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
-import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3, Dumbbell } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
 import { confirmAction } from "../../../../utils/AlertUtils";
@@ -23,6 +23,7 @@ import { ClipboardList } from "lucide-react";
 import { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS, SPORT_COLORS, DEFAULT_AVATAR_URL } from "../utils/sportsConstants";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
 import type { AnnouncementConfig } from "./TournamentAnnouncementModal";
+import { isValidIndianPhone, isValidEmail, validateEventDates } from "../sportsValidation";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -66,7 +67,7 @@ export const RECIPIENT_OPTIONS = [
   "Referees"
 ] as const;
 
-export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard" | "notification-analytics";
+export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard" | "notification-analytics" | "rankings" | "trainers";
 
 export interface SportEventState {
   id: string;
@@ -130,13 +131,16 @@ const DEFAULT_TRIGGER_STATES = {
   }
 };
 
-const createDefaultPlayerForm = (categoryId?: string) => ({
+import type { AddPlayerForm } from "./AddPlayerModal";
+
+const createDefaultPlayerForm = (categoryId?: string, familyMemberId?: number): AddPlayerForm => ({
   id: Math.random().toString(),
   playerName: "",
   playerEmail: "",
   categoryId: categoryId || "",
   avatarUrl: DEFAULT_AVATAR_URL,
   matchType: "SINGLES",
+  gender: "",
   age: 25,
   flatNumber: "",
   relation: "OTHER",
@@ -146,7 +150,18 @@ const createDefaultPlayerForm = (categoryId?: string) => ({
   wickets: 0,
   strikeRate: 0,
   avgScore: 0,
+  cricHeroesUrl: "",
+  familyMemberId: familyMemberId || undefined,
+  partnerUserId: null,
+  partnerFamilyMemberId: null,
+  partnerName: "",
+  partnerEmail: "",
+  partnerPhone: "",
+  partnerFlatNumber: "",
+  partnerGender: "",
+  partnerMode: "community",
 });
+
 
 const parseOtherContacts = (raw: any): { title: string; name: string; detail: string; }[] => {
   if (!raw) return [];
@@ -163,7 +178,7 @@ const parseOtherContacts = (raw: any): { title: string; name: string; detail: st
 };
 
 export function useSportsAdminState() {
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin: authIsSuperAdmin } = useAuth();
   const isAdmin = hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_EVENT_REGISTRATIONS, DELETE_SPORTS_MAIN);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
   const [playerCategories, setPlayerCategories] = useState<PlayerCategory[]>([]);
@@ -227,7 +242,7 @@ export function useSportsAdminState() {
     overrideChannels: string[];
   }>>(DEFAULT_TRIGGER_STATES);
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isSuperAdmin = authIsSuperAdmin || user?.role === "SUPER_ADMIN" || (user?.roles || []).includes("SUPER_ADMIN");
   const activeCommId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
 
   const getTournamentStartDateTime = useCallback(() => {
@@ -574,6 +589,8 @@ export function useSportsAdminState() {
   const hydratedTabs = useRef(new Set<TabId>());
   const tournamentsFetchedRef = useRef(false);
   const eventsFetchedRef = useRef(false);
+  const isSportSavingRef = useRef(false);
+  const isTournamentSavingRef = useRef(false);
 
   // Sports Event form state
   const [showSportForm, setShowSportForm] = useState(false);
@@ -660,27 +677,22 @@ export function useSportsAdminState() {
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
-  const [addPlayerForms, setAddPlayerForms] = useState<Array<{
-    id: string;
-    playerName: string;
-    playerEmail: string;
-    categoryId: string;
-    avatarUrl: string;
-    matchType: string;
-    age: number;
-    flatNumber: string;
-    relation: string;
-    role: string;
-    matches: number;
-    runs: number;
-    wickets: number;
-    strikeRate: number;
-    avgScore: number;
-  }>>([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
+  const [addPlayerForms, setAddPlayerForms] = useState<AddPlayerForm[]>([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
 
   const [communityUsers, setCommunityUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersTotalPages, setUsersTotalPages] = useState(0);
+  const [usersTotalElements, setUsersTotalElements] = useState(0);
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
+  const searchTimeoutRef = useRef<any>(null);
+  const [addPlayerSubmitResults, setAddPlayerSubmitResults] = useState<Array<{
+    formId: string;
+    playerName: string;
+    status: "success" | "error" | "duplicate";
+    message?: string;
+  }>>([]);
 
   const lastFetchedVenueCommIdRef = useRef<number | null>(null);
   const refreshVenues = useCallback((force?: boolean) => {
@@ -705,21 +717,66 @@ export function useSportsAdminState() {
   }, [selectedCommId, user?.communityId, user?.role, communities, (user as any)?.community]);
 
   useEffect(() => {
-    if (showAddPlayerModal) {
-      const commId = user?.communityId || selectedCommId;
-      if (commId) {
-        setLoadingUsers(true);
-        userService.getCommunityUsers(Number(commId))
-          .then(res => setCommunityUsers(res || []))
-          .catch(err => console.error("Failed to load community users", err))
-          .finally(() => setLoadingUsers(false));
+    refreshVenues();
+  }, [refreshVenues]);
+
+  const fetchCommunityUsers = useCallback(async (query: string, page = 0, append = false) => {
+    try {
+      if (page === 0 && !append) setLoadingUsers(true);
+      else setLoadingMoreUsers(true);
+
+      const isSuperAdmin = user?.role === "SUPER_ADMIN";
+      const commId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
+
+      if (!commId) {
+        setCommunityUsers([]);
+        setUsersTotalPages(0);
+        setUsersTotalElements(0);
+        return;
       }
+
+      const res = await userService.getCommunityUsersSummary(commId, { search: query.trim(), page, size: 50 });
+
+      setUsersPage(res.page ?? page);
+      setUsersTotalPages(res.totalPages ?? 1);
+      setUsersTotalElements(res.totalElements ?? (res.content ?? []).length);
+
+      setCommunityUsers(prev => append ? [...prev, ...(res.content ?? [])] : (res.content ?? []));
+    } catch (err) {
+      console.error("Failed to fetch community users summary", err);
+      if (!append) setCommunityUsers([]);
+    } finally {
+      setLoadingUsers(false);
+      setLoadingMoreUsers(false);
     }
-  }, [showAddPlayerModal, user?.communityId, selectedCommId]);
+  }, [user, selectedCommId]);
+
+  useEffect(() => {
+    if (!showAddPlayerModal) return;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchCommunityUsers(friendSearchQuery, 0, false);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [showAddPlayerModal, friendSearchQuery, fetchCommunityUsers]);
+
+  const loadMoreUsers = useCallback(() => {
+    if (loadingMoreUsers || loadingUsers || usersPage >= usersTotalPages - 1) return;
+    fetchCommunityUsers(friendSearchQuery, usersPage + 1, true);
+  }, [loadingMoreUsers, loadingUsers, usersPage, usersTotalPages, friendSearchQuery, fetchCommunityUsers]);
+
+  const goToUsersPage = useCallback((page: number) => {
+    if (loadingUsers || loadingMoreUsers || page < 0 || page >= usersTotalPages) return;
+    fetchCommunityUsers(friendSearchQuery, page, false);
+  }, [loadingUsers, loadingMoreUsers, usersTotalPages, friendSearchQuery, fetchCommunityUsers]);
 
   const handleSelectFriend = (friend: any) => {
     setAddPlayerForms(prev => {
-      if (prev.some(p => p.playerEmail === friend.email || p.playerName === friend.fullName)) {
+      if (prev.some(p => !p.familyMemberId && (p.playerEmail === friend.email || p.playerName === friend.fullName))) {
         toast.warning("Player is already in the list");
         return prev;
       }
@@ -730,6 +787,7 @@ export function useSportsAdminState() {
         categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
         avatarUrl: friend.avatarUrl || DEFAULT_AVATAR_URL,
         matchType: "SINGLES",
+        gender: friend.gender || "",
         age: friend.dateOfBirth ? new Date().getFullYear() - new Date(friend.dateOfBirth).getFullYear() : 25,
         flatNumber: friend.flatNo || "",
         relation: "SELF",
@@ -739,6 +797,15 @@ export function useSportsAdminState() {
         wickets: 0,
         strikeRate: 0,
         avgScore: 0,
+        familyMemberId: undefined,
+        partnerUserId: null,
+        partnerFamilyMemberId: null,
+        partnerName: "",
+        partnerEmail: "",
+        partnerPhone: "",
+        partnerFlatNumber: "",
+        partnerGender: "",
+        partnerMode: "community" as const,
       };
       if (prev.length === 1 && !prev[0].playerName.trim() && !prev[0].playerEmail.trim()) {
         return [newCard];
@@ -747,6 +814,59 @@ export function useSportsAdminState() {
     });
     toast.success(`Selected ${friend.fullName}`);
   };
+
+  const handleSelectFamilyMember = (familyMember: any, resident: any) => {
+    setAddPlayerForms(prev => {
+      if (prev.some(p => p.familyMemberId === familyMember.id || (p.playerName === familyMember.name && p.flatNumber === resident.flatNo))) {
+        toast.warning("Family member is already in the list");
+        return prev;
+      }
+      let memberAge = familyMember.age;
+      if (!memberAge && familyMember.dob) {
+        try {
+          const birth = new Date(familyMember.dob);
+          if (!isNaN(birth.getTime())) {
+            memberAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+          }
+        } catch {}
+      }
+      if (!memberAge) memberAge = 18;
+
+      const newCard = {
+        id: Math.random().toString(),
+        playerName: familyMember.name,
+        playerEmail: familyMember.email || resident.email || "",
+        categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
+        avatarUrl: DEFAULT_AVATAR_URL,
+        matchType: "SINGLES",
+        gender: familyMember.gender || "",
+        age: memberAge,
+        flatNumber: resident.flatNo || "",
+        relation: (familyMember.relation || "CHILD").toUpperCase(),
+        role: "",
+        matches: 0,
+        runs: 0,
+        wickets: 0,
+        strikeRate: 0,
+        avgScore: 0,
+        familyMemberId: familyMember.id,
+        partnerUserId: null,
+        partnerFamilyMemberId: null,
+        partnerName: "",
+        partnerEmail: "",
+        partnerPhone: "",
+        partnerFlatNumber: "",
+        partnerGender: "",
+        partnerMode: "community" as const,
+      };
+      if (prev.length === 1 && !prev[0].playerName.trim() && !prev[0].playerEmail.trim()) {
+        return [newCard];
+      }
+      return [...prev, newCard];
+    });
+    toast.success(`Selected family member: ${familyMember.name}`);
+  };
+
 
   const handleAddNewPlayerCard = () => {
     setAddPlayerForms(prev => [...prev, createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
@@ -771,66 +891,194 @@ export function useSportsAdminState() {
     }
   };
 
-  const filteredFriends = communityUsers.filter(u =>
-    u.fullName.toLowerCase().includes(friendSearchQuery.toLowerCase()) ||
-    (u.email && u.email.toLowerCase().includes(friendSearchQuery.toLowerCase()))
-  );
+  const filteredFriends = communityUsers;
+
 
   const handleAddPlayerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEventIdForAdd) return;
+
+    // ── 1. Comprehensive Client-side field & eligibility validation ─────────
     for (let idx = 0; idx < addPlayerForms.length; idx++) {
       const form = addPlayerForms[idx];
+      const cardLabel = `Card #${idx + 1} (${form.playerName.trim() || `Player ${idx + 1}`})`;
+
+      // Required fields
       if (!form.playerName.trim()) { toast.error(`Player Name is required for card #${idx + 1}`); return; }
       if (!form.playerEmail.trim()) { toast.error(`Player Email is required for card #${idx + 1}`); return; }
-      if (!form.categoryId) { toast.error(`Player Category is required for card #${idx + 1}`); return; }
+      if (!isValidEmail(form.playerEmail)) { toast.error(`Please enter a valid Player Email for card #${idx + 1}`); return; }
+      if (!form.categoryId) { toast.error(`Tournament Category is required for card #${idx + 1}`); return; }
+      if (isNaN(form.age) || Number(form.age) <= 0 || Number(form.age) > 120) {
+        toast.error(`Please enter a valid age (1-120) for ${cardLabel}`);
+        return;
+      }
+
+      // Category rules (Age & Gender)
+      const category = playerCategories.find(c => String(c.id) === String(form.categoryId));
+      if (category) {
+        // Age validation
+        if (category.minAge != null && category.minAge > 0 && Number(form.age) < category.minAge) {
+          toast.error(`${cardLabel}: Age ${form.age} is below the minimum required age (${category.minAge}) for category "${category.name}".`);
+          return;
+        }
+        if (category.maxAge != null && category.maxAge > 0 && Number(form.age) > category.maxAge) {
+          toast.error(`${cardLabel}: Age ${form.age} exceeds the maximum allowed age (${category.maxAge}) for category "${category.name}".`);
+          return;
+        }
+
+        // Gender validation
+        if (category.gender && category.gender.trim() && form.gender && form.gender.trim()) {
+          const catGen = category.gender.trim().toUpperCase();
+          const pGen = form.gender.trim().toUpperCase();
+          if (["MALE", "MEN", "BOYS"].includes(catGen) && ["FEMALE", "WOMEN", "GIRLS"].includes(pGen)) {
+            toast.error(`${cardLabel}: Category "${category.name}" is restricted to Male players, but player's profile is Female.`);
+            return;
+          }
+          if (["FEMALE", "WOMEN", "GIRLS"].includes(catGen) && ["MALE", "MEN", "BOYS"].includes(pGen)) {
+            toast.error(`${cardLabel}: Category "${category.name}" is restricted to Female players, but player's profile is Male.`);
+            return;
+          }
+        }
+      }
+
+      // Doubles & Mixed Doubles partner validation
+      const isDoublesFormat = form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES";
+      if (isDoublesFormat) {
+        const hasPartner = !!(form.partnerUserId || form.partnerFamilyMemberId || form.partnerName?.trim() || form.partnerMode === "open_pool");
+        if (!hasPartner) {
+          toast.error(`${cardLabel}: ${form.matchType === "MIXED_DOUBLES" ? "Mixed Doubles" : "Doubles"} format requires a partner. Please select a partner or choose "Open Pool".`);
+          return;
+        }
+
+        // Validate partner when not open pool
+        if (form.partnerMode !== "open_pool") {
+          // Cannot select self as partner
+          if (form.partnerEmail && form.playerEmail && form.partnerEmail.trim().toLowerCase() === form.playerEmail.trim().toLowerCase()) {
+            toast.error(`${cardLabel}: Primary player cannot be their own doubles partner.`);
+            return;
+          }
+          if (form.partnerName && form.playerName && form.partnerName.trim().toLowerCase() === form.playerName.trim().toLowerCase() && form.flatNumber === form.partnerFlatNumber) {
+            toast.error(`${cardLabel}: Primary player cannot be their own doubles partner.`);
+            return;
+          }
+
+          // Mixed Doubles gender validation
+          if (form.matchType === "MIXED_DOUBLES" && form.gender && form.partnerGender) {
+            const pGen = form.gender.trim().toUpperCase();
+            const partGen = form.partnerGender.trim().toUpperCase();
+            const isPMale = ["MALE", "MEN", "BOYS"].includes(pGen);
+            const isPFemale = ["FEMALE", "WOMEN", "GIRLS"].includes(pGen);
+            const isPartMale = ["MALE", "MEN", "BOYS"].includes(partGen);
+            const isPartFemale = ["FEMALE", "WOMEN", "GIRLS"].includes(partGen);
+
+            if ((isPMale && isPartMale) || (isPFemale && isPartFemale)) {
+              toast.error(`${cardLabel}: Mixed Doubles requires one Male and one Female player. Both selected players are ${isPMale ? "Male" : "Female"}.`);
+              return;
+            }
+          }
+        }
+      }
     }
+
+    // ── 2. Batch duplicate pre-checks (across cards in the same submit) ───────
+    const seenPlayerInBatch = new Map<string, number>();
+    const seenPartnerInBatch = new Map<string, number>();
+
+    for (let idx = 0; idx < addPlayerForms.length; idx++) {
+      const form = addPlayerForms[idx];
+      const playerKey = `${form.familyMemberId ? `fam-${form.familyMemberId}` : form.playerEmail.toLowerCase()}|${form.playerName.toLowerCase()}|${form.matchType}`;
+      if (seenPlayerInBatch.has(playerKey)) {
+        toast.error(`Card #${idx + 1} (${form.playerName}) duplicates card #${seenPlayerInBatch.get(playerKey)! + 1} — same participant & match format`);
+        return;
+      }
+      seenPlayerInBatch.set(playerKey, idx);
+
+      // Check partner uniqueness in batch
+      if ((form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES") && form.partnerMode !== "open_pool") {
+        const partnerKey = `${form.partnerFamilyMemberId ? `fam-${form.partnerFamilyMemberId}` : (form.partnerUserId ? `user-${form.partnerUserId}` : (form.partnerEmail || form.partnerName || "").toLowerCase())}|${form.matchType}`;
+        if (partnerKey && seenPartnerInBatch.has(partnerKey)) {
+          toast.error(`Card #${idx + 1}: Partner (${form.partnerName || "Selected partner"}) is already assigned in card #${seenPartnerInBatch.get(partnerKey)! + 1} for ${form.matchType}.`);
+          return;
+        }
+        seenPartnerInBatch.set(partnerKey, idx);
+      }
+    }
+
     setSubmitting(true);
-    let successCount = 0;
-    let failCount = 0;
+    const results: Array<{ formId: string; playerName: string; status: "success" | "error" | "duplicate"; message?: string }> = [];
+
     try {
       for (const form of addPlayerForms) {
         try {
+          const isDoubles = form.matchType === "DOUBLES" || form.matchType === "MIXED_DOUBLES";
+          const isOpenPool = form.partnerMode === "open_pool";
+
           await sportsService.registerForEvent({
             eventId: selectedEventIdForAdd,
             categoryId: Number(form.categoryId),
             matchType: form.matchType,
             role: form.role,
             age: Number(form.age),
+            gender: form.gender || undefined,
             matches: Number(form.matches),
             runs: Number(form.runs),
             wickets: Number(form.wickets),
             strikeRate: Number(form.strikeRate),
             avgScore: Number(form.avgScore),
             playerName: form.playerName,
+            email: form.playerEmail || undefined,
             relation: form.relation,
             flatNumber: form.flatNumber,
+            cricHeroesUrl: form.cricHeroesUrl?.trim() || undefined,
+            familyMemberId: form.familyMemberId ? Number(form.familyMemberId) : undefined,
+            // Partner fields for DOUBLES / MIXED_DOUBLES
+            partnerUserId: isDoubles && !isOpenPool && form.partnerUserId ? Number(form.partnerUserId) : (isOpenPool ? null : undefined),
+            partnerFamilyMemberId: isDoubles && !isOpenPool && form.partnerFamilyMemberId ? Number(form.partnerFamilyMemberId) : (isOpenPool ? null : undefined),
           });
-          successCount++;
+          results.push({ formId: form.id, playerName: form.playerName, status: "success", message: `Registered for ${form.matchType.replace('_', ' ')}` });
         } catch (err: any) {
+
+          const errCode: string = err?.response?.data?.error || err?.code || "";
+          const isAlreadyReg = errCode === "ALREADY_REGISTERED" || err?.response?.status === 409;
           console.error(`Failed to register player ${form.playerName}:`, err);
-          failCount++;
+          results.push({
+            formId: form.id,
+            playerName: form.playerName,
+            status: isAlreadyReg ? "duplicate" : "error",
+            message: isAlreadyReg
+              ? `Already registered for ${form.matchType.replace('_', ' ')}`
+              : (err?.response?.data?.message || err?.message || "Registration failed"),
+          });
         }
       }
-      if (successCount > 0) toast.success(`Successfully registered ${successCount} participant(s)!`);
-      if (failCount > 0) toast.error(`Failed to register ${failCount} participant(s)`);
-      setShowAddPlayerModal(false);
+
+      const successCount = results.filter(r => r.status === "success").length;
+      const failCount = results.filter(r => r.status !== "success").length;
+
+      if (successCount > 0) toast.success(`Successfully registered ${successCount} participant${successCount > 1 ? "s" : ""}!`);
+      if (failCount > 0) toast.warning(`${failCount} participant${failCount > 1 ? "s" : ""} could not be registered — see details.`);
+
+      // Show result summary inside the modal
+      setAddPlayerSubmitResults(results);
       setAddPlayerForms([createDefaultPlayerForm(playerCategories[0]?.id ? String(playerCategories[0].id) : "")]);
+
       if (viewingEventId) {
         const regs = await sportsService.getEventRegistrations(viewingEventId);
         setRegistrations(regs);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to add participants");
+      console.error("Batch player registration error:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to add players");
     } finally {
       setSubmitting(false);
     }
   };
 
+
   const handleDownloadSample = () => {
-    const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score\n" +
-      "Rahul Sharma,rahul.sharma@gmail.com,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5\n" +
-      "Priya Patel,priya.patel@gmail.com,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2";
+    const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score,CricHeroes URL\n" +
+      "Rahul Sharma,rahul.sharma@gmail.com,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5,https://cricheroes.com/player-profile/123456/rahul-sharma\n" +
+      "Priya Patel,priya.patel@gmail.com,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2,https://cricheroes.com/player-profile/789012/priya-patel";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -904,6 +1152,7 @@ export function useSportsAdminState() {
       const wickets = parseInt(getVal(["wickets", "assists", "totalWickets", "totalAssists"])) || 0;
       const strikeRate = parseFloat(getVal(["strikeRate", "strike_rate"])) || 0.0;
       const avgScore = parseFloat(getVal(["avgScore", "avg_score", "averageScore"])) || 0.0;
+      const cricHeroesUrl = getVal(["cricheroesurl", "cricheroes", "churl", "cricheroeslink", "profileurl"]) || undefined;
       try {
         await sportsService.registerForEvent({
           eventId: selectedEventIdForImport,
@@ -920,6 +1169,7 @@ export function useSportsAdminState() {
           email,
           relation,
           flatNumber: flat,
+          cricHeroesUrl,
         });
         successCount++;
       } catch (err) {
@@ -1026,6 +1276,7 @@ export function useSportsAdminState() {
       case "settings":
         break;
       case "sports-meta":
+      case "rankings":
         sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
         break;
       case "create-tournament":
@@ -1092,7 +1343,7 @@ export function useSportsAdminState() {
             id: Math.random().toString(),
             name: "",
             gender: "ALL",
-            playersBorn: "1900-01-01",
+            playersBorn: "",
             format: isTeam ? "TEAM" : "SINGLES",
             minPlayers: isTeam ? getDefaultMinPlayers(s.name) : undefined,
             maxPlayers: isTeam ? getDefaultMinPlayers(s.name) + 4 : undefined,
@@ -1133,8 +1384,8 @@ export function useSportsAdminState() {
             id: e.id.toString(),
             name: e.name || "",
             gender: e.gender || "ALL",
-            playersBorn: e.playersBorn || "1900-01-01",
-            format: e.format || (isTeam ? "TEAM" : "SINGLES"),
+            playersBorn: e.playersBorn || "",
+            format: Array.isArray(e.format) ? e.format.join(",") : (e.format || (isTeam ? "TEAM" : "SINGLES")),
             minPlayers: e.minPlayers || (isTeam ? getDefaultMinPlayers(e.sport?.name || "") : undefined),
             maxPlayers: e.maxPlayers || (isTeam ? getDefaultMinPlayers(e.sport?.name || "") + 4 : undefined),
             tournamentType: e.tournamentType || "",
@@ -1175,7 +1426,7 @@ export function useSportsAdminState() {
         id: Math.random().toString(),
         name: "",
         gender: "ALL",
-        playersBorn: "1900-01-01",
+        playersBorn: "",
         format: isTeam ? "TEAM" : "SINGLES",
         minPlayers: isTeam ? getDefaultMinPlayers(s.sportName) : undefined,
         maxPlayers: isTeam ? getDefaultMinPlayers(s.sportName) + 4 : undefined,
@@ -1218,13 +1469,16 @@ export function useSportsAdminState() {
     setSelectedCats(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSave = async () => {
+    if (isTournamentSavingRef.current) return;
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
+    const dateCheck = validateEventDates(startDate, endDate);
+    if (!dateCheck.valid) { toast.error(dateCheck.error!); return; }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
+    if (!isValidIndianPhone(eventContactNumber)) { toast.error("Tournament Contact Number must be a valid 10-digit Indian mobile number"); return; }
     if (!eventContactEmail.trim()) { toast.error("Tournament Contact Email is required"); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(eventContactEmail)) { toast.error("Please enter a valid Tournament Contact Email"); return; }
+    if (!isValidEmail(eventContactEmail)) { toast.error("Please enter a valid Tournament Contact Email"); return; }
     for (let i = 0; i < sponsors.length; i++) {
       const s = sponsors[i];
       if (!s.category.trim()) { toast.error(`Sponsor Category is required for sponsor #${i + 1}`); return; }
@@ -1270,12 +1524,13 @@ export function useSportsAdminState() {
       }));
     };
 
+    isTournamentSavingRef.current = true;
     setSubmitting(true);
     try {
       if (editingEventId) {
         const singleSport = selectedSportsWithEvents[0];
         const singleEvent = singleSport?.events[0];
-        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); return; }
+        if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); isTournamentSavingRef.current = false; return; }
         // Preserve the tournament's existing event links captured at edit time; fall
         // back to the form's configured events only if none were captured.
         const formEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
@@ -1354,6 +1609,7 @@ export function useSportsAdminState() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save tournament(s)");
     } finally {
+      isTournamentSavingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -1398,8 +1654,24 @@ export function useSportsAdminState() {
   };
 
   const setTournamentContext = (id: number, name: string) => {
-    setActiveTournamentId(id);
-    setActiveTournamentName(name);
+    let resolvedId = Number(id);
+    let resolvedName = name;
+
+    // Guard: Verify if id is an actual tournament
+    const isTournament = activeTournaments.some(t => Number(t.id) === resolvedId);
+    if (!isTournament) {
+      // Check if id is an event belonging to a tournament
+      const parent = activeTournaments.find(t =>
+        t.sportsEvents?.some((se: any) => Number(se.id) === resolvedId)
+      );
+      if (parent) {
+        resolvedId = parent.id;
+        resolvedName = parent.name || name;
+      }
+    }
+
+    setActiveTournamentId(resolvedId);
+    setActiveTournamentName(resolvedName);
   };
 
   const handleEdit = (tournamentOrEvent: any) => {
@@ -1411,14 +1683,15 @@ export function useSportsAdminState() {
     const linkedEvents: any[] = tournamentOrEvent.sportsEvents
       ?? (tournamentOrEvent.event ? [tournamentOrEvent.event] : []);
     const primaryEvent = linkedEvents[0] ?? tournamentOrEvent.event ?? null;
-    setEditingTournamentId(tournamentOrEvent.id ?? null);
+    const tourneyId = tournamentOrEvent.id != null ? Number(tournamentOrEvent.id) : null;
+    setEditingTournamentId(tourneyId);
     setEditingLinkedEventIds(
       linkedEvents.map((e: any) => e?.id).filter((x: any) => x != null).map(Number)
     );
     const ev = {
       ...tournamentOrEvent,
       ...(primaryEvent || {}),
-      id: primaryEvent?.id ?? tournamentOrEvent.id,
+      id: tournamentOrEvent.id ?? primaryEvent?.id,
       name: tournamentOrEvent.name || primaryEvent?.name || "",
       registrationDateStart: tournamentOrEvent.registrationDateStart || primaryEvent?.registrationDateStart,
       registrationDateEnd: tournamentOrEvent.registrationDateEnd || primaryEvent?.registrationDateEnd,
@@ -1449,12 +1722,12 @@ export function useSportsAdminState() {
       id: ev.id ? String(ev.id) : Math.random().toString(),
       name: ev.name || "",
       gender: ev.gender || "ALL",
-      playersBorn: ev.playersBorn || "1900-01-01",
-      format: ev.format || (isTeam ? "TEAM" : "SINGLES"),
+      playersBorn: ev.playersBorn || "",
+      format: Array.isArray(ev.format) ? ev.format.join(",") : (ev.format || (isTeam ? "TEAM" : "SINGLES")),
       minPlayers: ev.minPlayers,
       maxPlayers: ev.maxPlayers,
       tournamentType: ev.tournamentType || "",
-      eventId: ev.id,
+      eventId: primaryEvent?.id ?? ev.id,
     };
     setSelectedSportsWithEvents([{
       sportId: ev.sport?.id,
@@ -1509,8 +1782,12 @@ export function useSportsAdminState() {
       setTriggerStates(updatedDefaults);
       setCustomTriggers(custom);
     }
-    setEditingEventId(ev.id);
-    setSelectedEventIds(ev.id ? [ev.id] : []);
+    setEditingEventId(tourneyId ?? ev.id);
+    setSelectedEventIds(tourneyId ? [tourneyId] : (ev.id ? [ev.id] : []));
+    if (tourneyId) {
+      setActiveTournamentId(tourneyId);
+      setActiveTournamentName(tournamentOrEvent.name || ev.name || "");
+    }
     setActiveTab("create-tournament");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1594,16 +1871,173 @@ export function useSportsAdminState() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Delete Tournament",
-      "Are you sure you want to delete this tournament?"
-    );
+  const getTournamentEvents = (tourneyId: number): any[] => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(tourneyId));
+    const eventsMap = new Map<number, any>();
+
+    if (Array.isArray(tourney?.sportsEvents)) {
+      tourney.sportsEvents.forEach((ev: any) => {
+        if (ev?.id != null) eventsMap.set(Number(ev.id), ev);
+      });
+    }
+    if (tourney?.event?.id != null) {
+      eventsMap.set(Number(tourney.event.id), tourney.event);
+    }
+    if (Array.isArray(activeEvents)) {
+      activeEvents.forEach((ev: any) => {
+        const parentId = ev.tournamentId ?? ev.tournament?.id;
+        if (Number(parentId) === Number(tourneyId) && ev?.id != null) {
+          eventsMap.set(Number(ev.id), ev);
+        }
+      });
+    }
+    return Array.from(eventsMap.values());
+  };
+
+  const checkEventRegistrations = async (eventId: number, cachedEvent?: any): Promise<number> => {
+    if (typeof cachedEvent?.registeredCount === "number" && cachedEvent.registeredCount > 0) {
+      return cachedEvent.registeredCount;
+    }
+    try {
+      const regs = await sportsService.getTournamentRegistrations(eventId);
+      if (Array.isArray(regs)) {
+        return regs.length;
+      }
+    } catch {
+      try {
+        const count = await sportsService.getConfirmedCount(eventId);
+        if (typeof count === "number") return count;
+      } catch {
+        // ignore
+      }
+    }
+    return cachedEvent?.registeredCount || 0;
+  };
+
+  const handleCloseTournament = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const name = tourney?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Close Tournament Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
+    try {
+      await sportsService.closeTournament(id);
+      const events = getTournamentEvents(id);
+      if (events.length > 0) {
+        await Promise.allSettled(
+          events.map(ev => sportsService.closeSportsEvent(ev.id))
+        );
+      }
+      toast.success("Tournament registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close tournament registration");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    const tourney = activeTournaments.find(t => Number(t.id) === Number(id));
+    const events = getTournamentEvents(id);
+    const hasEvents = events.length > 0;
+
+    // Check if registrations exist across all events in this tournament
+    let totalRegistrations = 0;
+    if (hasEvents) {
+      const counts = await Promise.all(
+        events.map(ev => checkEventRegistrations(ev.id, ev))
+      );
+      totalRegistrations = counts.reduce((acc, c) => acc + c, 0);
+    } else {
+      totalRegistrations = await checkEventRegistrations(id, tourney);
+    }
+
+    // If registrations exist: DO NOT DELETE! Ask to close the tournament instead.
+    if (totalRegistrations > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Tournament",
+        text: `This tournament has ${hasEvents ? `${events.length} event(s) and ` : ""}${totalRegistrations} active registration${totalRegistrations > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close the tournament instead?`,
+        confirmButtonText: "Close Tournament",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament and registrations closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament");
+        }
+      }
+      return;
+    }
+
+    // If no registrations exist:
+    const status = tourney?.registrationStatus || tourney?.event?.registrationStatus;
+    const isOpen = status === "LIVE" || status === "REGISTRATION_OPEN";
+
+    if (isOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Tournament Registration?",
+        text: `This tournament is currently open for registration with ${hasEvents ? `${events.length} event(s)` : "no events"} (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Tournament",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeTournament(id);
+          if (events.length > 0) {
+            await Promise.allSettled(
+              events.map(ev => sportsService.closeSportsEvent(ev.id))
+            );
+          }
+          toast.success("Tournament registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close tournament registration");
+        }
+        return;
+      }
+    }
+
+    // If draft or user chose to proceed with deleting 0-registration tournament:
+    const confirmed = await confirmAction({
+      title: "Delete Tournament",
+      text: hasEvents
+        ? `This tournament contains ${events.length} event(s) with no registrations. Are you sure you want to permanently delete this tournament and all its events? This action cannot be undone.`
+        : "Are you sure you want to delete this tournament? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
     try {
       await sportsService.deleteTournament(id);
       toast.success("Tournament deleted");
       refreshTournaments();
+      refreshEvents();
     } catch (err) {
       toast.error("Failed to delete tournament");
     }
@@ -1663,19 +2097,24 @@ export function useSportsAdminState() {
   };
 
   const handleRejectRegistration = async (regId: number) => {
+    const isRemoval = registrations.find((r: any) => r.id === regId)?.status === "CONFIRMED";
     const { isConfirmed, value: reason } = await (await import("sweetalert2")).default.fire({
-      title: "Reject Registration",
+      title: isRemoval ? "Remove Player" : "Reject Registration",
       input: "text",
-      inputLabel: "Reason for rejection (optional)",
+      inputLabel: isRemoval ? "Reason for removal (optional)" : "Reason for rejection (optional)",
       showCancelButton: true,
       confirmButtonColor: "#2563EB",
       cancelButtonColor: "#EF4444",
-      confirmButtonText: "Reject",
+      confirmButtonText: isRemoval ? "Remove" : "Reject",
     });
     if (!isConfirmed) return;
     try {
-      await sportsService.rejectRegistration(regId, reason || undefined);
-      toast.success("Registration rejected");
+      if (isRemoval) {
+        await sportsService.withdraw(regId, reason || undefined);
+      } else {
+        await sportsService.rejectRegistration(regId, reason || undefined);
+      }
+      toast.success(isRemoval ? "Player removed" : "Registration rejected");
       if (viewingEventId && viewMode === "players") {
         const regs = await sportsService.getTournamentRegistrations(viewingEventId);
         setRegistrations(regs);
@@ -1774,9 +2213,11 @@ export function useSportsAdminState() {
       const c = venueContacts[i];
       if (!c.name?.trim()) { toast.error(`Contact #${i + 1} Name is required`); return; }
       if (!c.number?.trim()) { toast.error(`Contact #${i + 1} Number is required`); return; }
+      if (!isValidIndianPhone(c.number)) {
+        toast.error(`Contact #${i + 1} Number must be a valid 10-digit Indian mobile number`); return;
+      }
       if (!c.email?.trim()) { toast.error(`Contact #${i + 1} Email is required`); return; }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(c.email)) {
+      if (!isValidEmail(c.email)) {
         toast.error(`Please enter a valid email for Contact #${i + 1}`); return;
       }
     }
@@ -1847,9 +2288,14 @@ export function useSportsAdminState() {
     if (!categoryType) { toast.error("Category Type is required"); return; }
     if (!categoryGender) { toast.error("Gender is required"); return; }
     if (!categoryMinAge || !categoryMaxAge) { toast.error("Age range is required"); return; }
+    const minA = parseInt(categoryMinAge);
+    const maxA = parseInt(categoryMaxAge);
+    if (isNaN(minA) || minA < 0) { toast.error("Minimum age must be a valid non-negative number"); return; }
+    if (isNaN(maxA) || maxA < 0) { toast.error("Maximum age must be a valid non-negative number"); return; }
+    if (minA > maxA) { toast.error("Minimum age cannot be greater than maximum age"); return; }
     setCategorySubmitting(true);
     try {
-      const commId = categoryCommId ? Number(categoryCommId) : (user?.role === "SUPER_ADMIN" ? undefined : user?.communityId);
+      const commId = categoryCommId ? Number(categoryCommId) : (isSuperAdmin ? undefined : (user?.communityId ?? activeCommId));
       const payload = {
         name: categoryName, categoryType: categoryType, description: categoryDescription,
         minAge: parseInt(categoryMinAge), maxAge: parseInt(categoryMaxAge),
@@ -1893,10 +2339,14 @@ export function useSportsAdminState() {
       otherContacts: [],
       auctionEnabled: false,
       adminApprovalRequired: false,
+      mandatoryMixedDoubles: true,
     };
   };
 
   const resetSportForm = () => {
+    if (sportForms.some(f => f.editingSportId)) {
+      clearTournamentContext();
+    }
     setSportForms([]);
     setShowSportForm(false);
     setShowSportPicker(false);
@@ -2042,17 +2492,51 @@ export function useSportsAdminState() {
         events: f.events.map(ev => ev.id === eventId ? {
           ...ev,
           gender: category.gender || "ALL",
-          minAge: category.minAge != null ? String(category.minAge) : "10",
-          maxAge: category.maxAge != null ? String(category.maxAge) : "70",
+          minAge: category.minAge != null ? String(category.minAge) : "",
+          maxAge: category.maxAge != null ? String(category.maxAge) : "",
         } : ev),
       };
     }));
   };
 
   const handleSportEdit = (e: any) => {
-    if (e.tournament) {
-      setActiveTournamentId(e.tournament.id);
-      setActiveTournamentName(e.tournament.name || "");
+    setShowSportPicker(false);
+    setSportPickerSearch("");
+    let resolvedTourneyId = e.tournament?.id ?? e.tournamentId ?? e.sportsTournamentId ?? null;
+    let resolvedTourneyName = e.tournament?.name || e.tournamentName || "";
+
+    // Guard: An event ID can never be its own parent tournament ID
+    if (resolvedTourneyId != null && Number(resolvedTourneyId) === Number(e.id)) {
+      resolvedTourneyId = null;
+      resolvedTourneyName = "";
+    }
+
+    // Auto-resolve parent tournament from activeTournaments if missing or null
+    if (resolvedTourneyId == null && e.id) {
+      const parentTourney = activeTournaments.find((t: any) =>
+        t.sportsEvents?.some((se: any) => Number(se.id) === Number(e.id))
+      );
+      if (parentTourney) {
+        resolvedTourneyId = parentTourney.id;
+        resolvedTourneyName = parentTourney.name || "";
+      }
+    }
+
+    // If still null, check if activeTournamentId is already valid
+    if (resolvedTourneyId == null && activeTournamentId) {
+      const currentTourney = activeTournaments.find((t: any) => Number(t.id) === Number(activeTournamentId));
+      if (currentTourney) {
+        resolvedTourneyId = currentTourney.id;
+        resolvedTourneyName = currentTourney.name || activeTournamentName;
+      }
+    }
+
+    if (resolvedTourneyId != null) {
+      setActiveTournamentId(Number(resolvedTourneyId));
+      setActiveTournamentName(resolvedTourneyName);
+    } else {
+      setActiveTournamentId(null);
+      setActiveTournamentName("");
     }
     const resolvedFormats = Array.isArray(e.format)
       ? e.format
@@ -2065,6 +2549,16 @@ export function useSportsAdminState() {
     if (firstCatId) {
       setSelectedTemplates(prev => ({ ...prev, [evId]: firstCatId }));
     }
+    const sportName = e.sport?.name || e.name || "";
+    let cleanEventName = e.name || "";
+    if (sportName && cleanEventName.toLowerCase().startsWith(sportName.toLowerCase())) {
+      cleanEventName = cleanEventName.substring(sportName.length).replace(/^[\s—\-:]+/, "").trim();
+    } else if (cleanEventName.includes(" — ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" — ") + 3).trim();
+    } else if (cleanEventName.includes(" - ")) {
+      cleanEventName = cleanEventName.substring(cleanEventName.indexOf(" - ") + 3).trim();
+    }
+
     const editEntry: SportFormEntry = {
       id: Math.random().toString(36).substring(2),
       name: e.sport?.name || e.name,
@@ -2072,27 +2566,30 @@ export function useSportsAdminState() {
       iconUrl: e.sport?.iconUrl || e.iconUrl || undefined,
       sportId: e.sport?.id,
       editingSportId: e.id,
+      tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
       events: [{
         id: evId,
-        eventName: e.name.includes(" — ") ? e.name.split(" — ")[1] : e.name,
+        eventName: cleanEventName || e.name,
         startDate: e.eventDateStart || "",
         endDate: e.eventDateEnd || "",
         gender: e.gender || "ALL",
-        playersBorn: e.playersBorn || "1900-01-01",
+        playersBorn: e.playersBorn || "",
         format: Array.isArray(e.format) ? e.format.join(",") : (e.format || ""),
         formats: resolvedFormats,
         minPlayers: e.minPlayers != null ? String(e.minPlayers) : "",
         maxPlayers: e.maxPlayers != null ? String(e.maxPlayers) : "",
-        minAge: e.minAge != null ? String(e.minAge) : "10",
-        maxAge: e.maxAge != null ? String(e.maxAge) : "70",
+        minAge: e.minAge != null ? String(e.minAge) : "",
+        maxAge: e.maxAge != null ? String(e.maxAge) : "",
         tournamentType: e.tournamentType || "",
-        venueId: e.venue?.id ?? "",
+        tournamentId: resolvedTourneyId != null ? Number(resolvedTourneyId) : undefined,
+        venueId: e.venue?.id ?? e.venueId ?? "",
         contactName: e.contactName || "",
         contactNumber: e.contactNumber || "",
         contactEmail: e.contactEmail || "",
         otherContacts: parseOtherContacts(e.otherContacts),
         auctionEnabled: !!e.auctionEnabled,
         adminApprovalRequired: e.adminApprovalRequired !== false,
+        mandatoryMixedDoubles: e.mandatoryMixedDoubles !== false,
       }],
     };
     setSportForms([editEntry]);
@@ -2100,15 +2597,116 @@ export function useSportsAdminState() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleSportDelete = async (id: number) => {
-    const confirmed = await confirmAction(
-      "Cancel Event",
-      "Are you sure you want to delete/cancel this scheduled event?"
-    );
+  const handleCloseEvent = async (id: number) => {
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+    const name = targetEvent?.name || "this event";
+    const confirmed = await confirmAction({
+      title: "Close Event Registration",
+      text: `Are you sure you want to close registration for "${name}"? No more participants will be able to register.`,
+      confirmButtonText: "Close Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#f97316",
+      icon: "warning",
+    });
     if (!confirmed) return;
     try {
-      await sportsService.deleteTournament(id);
+      await sportsService.closeSportsEvent(id);
+      toast.success("Event registration closed successfully");
+      refreshTournaments();
+      refreshEvents();
+    } catch {
+      toast.error("Failed to close event registration");
+    }
+  };
+
+  const handleSportDelete = async (id: number) => {
+    // 1. Find event in activeEvents or activeTournaments
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+
+    // 2. Check if registrations exist for this event
+    const regCount = await checkEventRegistrations(id, targetEvent);
+
+    // 3. If registrations exist: DO NOT DELETE! Ask to close registration instead
+    if (regCount > 0) {
+      const shouldClose = await confirmAction({
+        title: "Cannot Delete Sports Event",
+        text: `This sports event has ${regCount} active registration${regCount > 1 ? "s" : ""}. Deletion is not allowed when registrations exist. Would you like to close registration for this event instead?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#f97316",
+        icon: "warning",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+      }
+      return;
+    }
+
+    // 4. If no registrations exist:
+    const eventStatus = targetEvent?.registrationStatus || targetEvent?.status;
+    const isEventOpen = eventStatus === "LIVE" || eventStatus === "REGISTRATION_OPEN";
+
+    if (isEventOpen) {
+      const shouldClose = await confirmAction({
+        title: "Close Event Registration?",
+        text: `This sports event is currently open for registration (0 registrations so far). Would you like to close registration instead of deleting?`,
+        confirmButtonText: "Close Registration",
+        cancelButtonText: "Delete Event",
+        confirmButtonColor: "#f97316",
+        cancelButtonColor: "#ef4444",
+        icon: "question",
+      });
+
+      if (shouldClose) {
+        try {
+          await sportsService.closeSportsEvent(id);
+          toast.success("Event registration closed successfully");
+          refreshTournaments();
+          refreshEvents();
+        } catch {
+          toast.error("Failed to close event registration");
+        }
+        return;
+      }
+    }
+
+    // 5. If draft or confirmed delete:
+    const confirmed = await confirmAction({
+      title: "Delete Sports Event",
+      text: "Are you sure you want to delete this sports event? This action cannot be undone.",
+      confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      icon: "warning",
+    });
+    if (!confirmed) return;
+
+    try {
+      await sportsService.deleteEvent(id);
       toast.success("Event deleted successfully");
+      refreshTournaments();
       refreshEvents();
     } catch {
       toast.error("Failed to delete event");
@@ -2116,6 +2714,7 @@ export function useSportsAdminState() {
   };
 
   const handleSportSave = async () => {
+    if (isSportSavingRef.current) return;
     for (const form of sportForms) {
       for (const ev of form.events) {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
@@ -2134,8 +2733,12 @@ export function useSportsAdminState() {
         let tourneyStartStr: string | undefined = undefined;
         let tourneyEndStr: string | undefined = undefined;
 
-        if (activeTournamentId) {
-          const currentTournament = activeTournaments.find((t: any) => t.id === activeTournamentId);
+        const effectiveTourneyId = (ev as any).tournamentId !== undefined
+          ? (ev as any).tournamentId
+          : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+        if (effectiveTourneyId) {
+          const currentTournament = activeTournaments.find((t: any) => t.id === Number(effectiveTourneyId));
           const tourneyObj = currentTournament?.event || currentTournament;
           tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
           tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
@@ -2184,64 +2787,134 @@ export function useSportsAdminState() {
         }
         if (!ev.contactName?.trim()) { toast.error("Contact Name is required"); return; }
         if (!ev.contactNumber?.trim()) { toast.error("Contact Number is required"); return; }
+        if (!isValidIndianPhone(ev.contactNumber)) { toast.error(`Contact Number for "${ev.eventName || 'Event'}" must be a valid 10-digit Indian mobile number`); return; }
         if (!ev.contactEmail?.trim()) { toast.error("Contact Email is required"); return; }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim())) {
-          toast.error("Please enter a valid Contact Email"); return;
+        if (!isValidEmail(ev.contactEmail)) {
+          toast.error(`Please enter a valid Contact Email for "${ev.eventName || 'Event'}"`); return;
         }
       }
     }
+    isSportSavingRef.current = true;
     setSportSubmitting(true);
     let successCount = 0;
     let failCount = 0;
-    for (const form of sportForms) {
-      const isTeam = isTeamSport(form.name);
-      for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
-        const ev = form.events[eIdx];
-        const payload: SportsEventRequest = {
-          name: `${form.name} — ${ev.eventName}`,
-          sportId: form.sportId,
-          communityId: Number(activeCommId) || 0,
-          eventDateStart: ev.startDate,
-          eventDateEnd: ev.endDate,
-          venueId: ev.venueId ? Number(ev.venueId) : undefined,
-          minAge: parseInt(ev.minAge) || 10,
-          maxAge: parseInt(ev.maxAge) || 70,
-          minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
-          maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
-          gender: ev.gender || "ALL",
-          playersBorn: ev.playersBorn || "1900-01-01",
-          format: isTeam ? "TEAM" : (ev.formats && ev.formats.length > 0 ? ev.formats.join(",") : "SINGLES"),
-          tournamentType: ev.tournamentType || "KNOCKOUT",
-          categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
-          contactName: ev.contactName?.trim() || "",
-          contactNumber: ev.contactNumber?.trim() || "",
-          contactEmail: ev.contactEmail?.trim() || "",
-          otherContacts: JSON.stringify(
-            (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
-          ) as any,
-          auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
-          adminApprovalRequired: ev.adminApprovalRequired !== false,
-          tournamentId: activeTournamentId ?? undefined,
-        };
-        try {
-          if (form.editingSportId && eIdx === 0) {
-            await sportsService.updateSportsEvent(form.editingSportId, payload);
-            toast.success(`Event "${payload.name}" updated successfully!`);
-          } else {
-            await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created${activeTournamentId ? ` under tournament` : ""}!`);
+    const succeededEventIds = new Set<string>();
+    try {
+      for (const form of sportForms) {
+        const isTeam = isTeamSport(form.name);
+        for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
+          const ev = form.events[eIdx];
+          let effectiveTourneyId = (ev as any).tournamentId !== undefined
+            ? (ev as any).tournamentId
+            : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+          // Guard 1: Never let tournamentId equal the event being edited
+          if (effectiveTourneyId != null && form.editingSportId && Number(effectiveTourneyId) === Number(form.editingSportId)) {
+            const parent = activeTournaments.find(t =>
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+            );
+            effectiveTourneyId = parent ? parent.id : undefined;
           }
-          successCount++;
-        } catch (err) {
-          console.error(`Save event error:`, err);
-          toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
-          failCount++;
+
+          // Guard 2: If effectiveTourneyId matches an event ID instead of a tournament ID in activeTournaments, resolve to parent tournament
+          if (effectiveTourneyId != null) {
+            const isTournament = activeTournaments.some(t => Number(t.id) === Number(effectiveTourneyId));
+            if (!isTournament) {
+              const parent = activeTournaments.find(t =>
+                t.sportsEvents?.some((se: any) => Number(se.id) === Number(effectiveTourneyId))
+              );
+              if (parent) {
+                effectiveTourneyId = parent.id;
+              }
+            }
+          }
+
+          // Guard 3: If still no tournamentId but this event belongs to a tournament in activeTournaments, bind it
+          if (!effectiveTourneyId && form.editingSportId) {
+            const parent = activeTournaments.find(t =>
+              t.sportsEvents?.some((se: any) => Number(se.id) === Number(form.editingSportId))
+            );
+            if (parent) {
+              effectiveTourneyId = parent.id;
+            }
+          }
+
+          // Normalize eventName so sport prefix is never duplicated
+          let rawEventName = ev.eventName.trim();
+          const sportPrefix = form.name.trim();
+          if (rawEventName.toLowerCase().startsWith(sportPrefix.toLowerCase())) {
+            rawEventName = rawEventName.substring(sportPrefix.length).replace(/^[\s—\-:]+/, "").trim();
+          }
+          const eventDisplayName = rawEventName ? `${form.name} — ${rawEventName}` : form.name;
+
+          const payload: SportsEventRequest = {
+            name: eventDisplayName,
+            sportId: form.sportId,
+            communityId: Number(activeCommId) || (user?.communityId ? Number(user.communityId) : 0),
+            eventDateStart: ev.startDate,
+            eventDateEnd: ev.endDate,
+            venueId: ev.venueId ? Number(ev.venueId) : undefined,
+            minAge: ev.minAge !== "" && ev.minAge != null && !isNaN(parseInt(ev.minAge, 10)) ? parseInt(ev.minAge, 10) : undefined,
+            maxAge: ev.maxAge !== "" && ev.maxAge != null && !isNaN(parseInt(ev.maxAge, 10)) ? parseInt(ev.maxAge, 10) : undefined,
+            minPlayers: isTeam ? parseInt(ev.minPlayers) : undefined,
+            maxPlayers: isTeam ? parseInt(ev.maxPlayers) : undefined,
+            gender: ev.gender || "ALL",
+            playersBorn: ev.playersBorn?.trim() ? ev.playersBorn.trim() : undefined,
+            format: isTeam ? ["TEAM"] : (ev.formats && ev.formats.length > 0 ? ev.formats : ["SINGLES"]),
+            tournamentType: ev.tournamentType || "KNOCKOUT",
+            categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
+            contactName: ev.contactName?.trim() || "",
+            contactNumber: ev.contactNumber?.trim() || "",
+            contactEmail: ev.contactEmail?.trim() || "",
+            otherContacts: JSON.stringify(
+              (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
+            ) as any,
+            auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+            adminApprovalRequired: ev.adminApprovalRequired !== false,
+            mandatoryMixedDoubles: ev.mandatoryMixedDoubles !== false,
+            tournamentId: effectiveTourneyId != null && effectiveTourneyId !== "" ? Number(effectiveTourneyId) : undefined,
+          };
+          try {
+            if (form.editingSportId && eIdx === 0) {
+              await sportsService.updateSportsEvent(form.editingSportId, payload);
+              toast.success(`Event "${payload.name}" updated successfully!`);
+            } else {
+              await sportsService.createSportsEvent(payload);
+              toast.success(`Event "${payload.name}" created${effectiveTourneyId ? ` under tournament` : ""}!`);
+            }
+            succeededEventIds.add(ev.id);
+            successCount++;
+          } catch (err) {
+            console.error(`Save event error:`, err);
+            toast.error(err instanceof Error ? err.message : `Failed to save ${payload.name}`);
+            failCount++;
+          }
         }
       }
+      if (successCount > 0) {
+        refreshEvents();
+        refreshTournaments();
+      }
+      if (failCount === 0) {
+        const wasEditing = sportForms.some(f => f.editingSportId);
+        resetSportForm();
+        if (wasEditing) clearTournamentContext();
+      } else if (succeededEventIds.size > 0) {
+        // Partial failure: remove successfully saved events from sportForms so retrying won't duplicate them
+        setSportForms(prev =>
+          prev
+            .map(f => ({
+              ...f,
+              events: f.events.filter(e => !succeededEventIds.has(e.id)),
+            }))
+            .filter(f => f.events.length > 0)
+        );
+        toast.warning(`${successCount} event(s) saved. ${failCount} failed — please review remaining events.`);
+      }
+    } finally {
+      isSportSavingRef.current = false;
+      setSportSubmitting(false);
     }
-    if (successCount > 0) refreshEvents();
-    if (failCount === 0) resetSportForm();
-    setSportSubmitting(false);
   };
 
   // Derived data
@@ -2268,6 +2941,8 @@ export function useSportsAdminState() {
     { id: "results", label: "Results", icon: <Trophy className="w-4 h-4" /> },
     { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
     { id: "notification-analytics", label: "Notifications", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "rankings" as TabId, label: "Rankings", icon: <Trophy className="w-4 h-4" /> },
+    { id: "trainers", label: "Trainers", icon: <Dumbbell className="w-4 h-4" /> },
   ];
   if (isAdmin) {
     menuItems.push({ id: "sports-meta", label: "Sports Meta", icon: <Trophy className="w-4 h-4" /> });
@@ -2338,7 +3013,7 @@ export function useSportsAdminState() {
     // Tournament data
     activeTournaments, activeEvents,
     draftEvents, liveEvents, completedEvents,
-    handleEdit, handleDelete, handleActivate,
+    handleEdit, handleDelete, handleActivate, handleCloseTournament,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
     announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
@@ -2356,10 +3031,20 @@ export function useSportsAdminState() {
     selectedEventIdForAdd, setSelectedEventIdForAdd,
     addPlayerForms, setAddPlayerForms,
     communityUsers, loadingUsers,
+    loadingMoreUsers,
+    hasMoreUsers: usersPage < usersTotalPages - 1,
+    loadMoreUsers,
+    goToUsersPage,
+    usersPage,
+    usersTotalPages,
+    usersTotalElements,
     friendSearchQuery, setFriendSearchQuery,
     filteredFriends,
-    handleSelectFriend, handleAddNewPlayerCard, handleDeletePlayerCard,
+    handleSelectFriend, handleSelectFamilyMember, handleAddNewPlayerCard, handleDeletePlayerCard,
     handleAddPlayerSubmit, formatDob,
+    addPlayerSubmitResults, setAddPlayerSubmitResults,
+
+
 
     // CSV Import
     showImportModal, setShowImportModal,
@@ -2377,7 +3062,7 @@ export function useSportsAdminState() {
     sportForms, sportSubmitting,
     handleSportPickerSelect, handleCreateCustomSport,
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
-    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete,
+    updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,

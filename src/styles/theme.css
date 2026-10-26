@@ -29,11 +29,54 @@
   --mana-danger: #dc2626;
   --mana-info: #06b6d4;
   --mana-warning: #f59e0b;
+
+  /* ─── Groww Clean Slate Design Tokens ───────────────────────────────── */
+  --groww-brand: #00D09C;
+  --groww-brand-dark: #008767;
+  --groww-brand-light: #E6FAF5;
+  --groww-brand-border: #A7F3D0;
+  --groww-loss: #EB5B5B;
+  --groww-loss-dark: #DC2626;
+  --groww-loss-light: #FEEFEF;
+  --groww-loss-border: #FECACA;
+  --groww-surface: #FFFFFF;
+  --groww-surface-subtle: #F9FAFC;
+  --groww-surface-muted: #F1F4F7;
+  --groww-border: #EBEFF2;
+  --groww-border-medium: #DFE4E8;
+  --groww-text-primary: #44475B;
+  --groww-text-secondary: #7C7E8C;
+  --groww-text-muted: #9CA3AF;
+  --groww-indigo: #5367FF;
+  --groww-indigo-light: #EEF2FF;
+  --groww-amber: #FFB800;
+  --groww-amber-light: #FFFBEB;
 }
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Typography — Font Size Tokens */
+  --text-xs: 0.75rem;    /* 12px */
+  --font-xs: 0.75rem;    /* 12px */
+  --font-sm: 0.875rem;   /* 14px */
+  --font-md: 1rem;       /* 16px */
+  --font-lg: 1.125rem;   /* 18px */
+  --font-xl: 1.25rem;    /* 20px */
+  --font-2xl: 1.5rem;    /* 24px */
+  --font-3xl: 1.75rem;   /* 28px */
+  --font-4xl: 2rem;      /* 32px */
+
+  /* Typography — Line Height Tokens */
+  --line-height-xs: 1rem;      /* 16px — tight for captions/badges */
+  --line-height-sm: 1.25rem;   /* 20px — labels, secondary text */
+  --line-height-md: 1.5rem;    /* 24px — body text, inputs */
+  --line-height-lg: 1.75rem;   /* 28px — section titles */
+  --line-height-xl: 1.75rem;   /* 28px — page headings */
+  --line-height-2xl: 2rem;     /* 32px — large headings */
+  --line-height-3xl: 2.25rem;  /* 36px — hero/kpi numbers */
+  --line-height-4xl: 2.5rem;   /* 40px — display text */
+
   --font-size: 16px;
   --background: #f0f4ff;
   --foreground: #0d0d2b;
@@ -112,6 +155,10 @@
 }
 
 @theme inline {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -181,7 +228,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    font-family: var(--font-sans);
   }
 
   /**
@@ -193,40 +240,44 @@
     font-size: var(--font-size);
   }
 
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading, var(--font-sans));
+  }
+
   h1 {
-    font-size: var(--text-2xl);
+    font-size: var(--font-2xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-2xl);
   }
 
   h2 {
-    font-size: var(--text-xl);
+    font-size: var(--font-xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-xl);
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: var(--font-lg);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-lg);
   }
 
   h4 {
-    font-size: var(--text-base);
+    font-size: var(--font-md);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-md);
   }
 
   label {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
   }
 
   button {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
     transition: transform 0.1s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -236,13 +287,15 @@
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: var(--font-sm);
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: var(--line-height-sm);
     color: var(--mana-text-primary);
   }
 
   select, textarea {
+    font-size: var(--font-sm);
+    line-height: var(--line-height-sm);
     color: var(--mana-text-primary);
   }
 }
@@ -332,5 +385,131 @@ canvas {
 .stagger-8 { animation-delay: 400ms; }
 
 .bg-sidebar {
-  background: linear-gradient(rgb(30, 27, 75) 0%, rgb(22, 20, 74) 60%, rgb(18, 16, 61) 100%) !important;
+  background: #0f172a !important; /* Refined Slate-900 / Groww Dark */
 }
+
+/* Groww Clean Slate Design System Utilities */
+.groww-card {
+  background-color: var(--groww-surface);
+  border: 1px solid var(--groww-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+}
+
+.groww-card-subtle {
+  background-color: var(--groww-surface-subtle);
+  border: 1px solid var(--groww-border);
+  border-radius: 0.75rem;
+}
+
+.groww-badge-mint {
+  background-color: var(--groww-brand-light);
+  color: var(--groww-brand-dark);
+  border: 1px solid var(--groww-brand-border);
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.groww-badge-subtle {
+  background-color: var(--groww-surface-muted);
+  color: var(--groww-text-secondary);
+  border: 1px solid var(--groww-border);
+  font-weight: 500;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.groww-nav-pill {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.groww-nav-pill:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Standard Mobile-First Typography Helpers ───────────────────────────── */
+.page-title {
+  font-size: var(--font-2xl);
+  line-height: var(--line-height-2xl);
+  font-weight: 700;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.section-title {
+  font-size: var(--font-lg);
+  line-height: var(--line-height-lg);
+  font-weight: 600;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.card-title {
+  font-size: var(--font-md);
+  line-height: var(--line-height-md);
+  font-weight: 600;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.body-text {
+  font-size: var(--font-md);
+  line-height: var(--line-height-md);
+  font-weight: 400;
+}
+
+.secondary-text {
+  font-size: var(--font-sm);
+  line-height: var(--line-height-sm);
+  font-weight: 400;
+  color: var(--mana-text-muted, #6b7094);
+}
+
+.caption-text {
+  font-size: var(--font-xs);
+  line-height: var(--line-height-xs);
+  font-weight: 400;
+  color: var(--mana-text-muted, #6b7094);
+}
+
+.input-label {
+  font-size: var(--font-sm);
+  line-height: var(--line-height-sm);
+  font-weight: 500;
+  color: var(--mana-text-primary, #0d0d2b);
+}
+
+.kpi-number {
+  font-size: var(--font-3xl);
+  line-height: var(--line-height-3xl);
+  font-weight: 700;
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Sports Module — Typography overrides (headings 12px / 0.75rem, spans reduced to 10px) */
+.sports-module,
+.sports-module * {
+  --text-xs: 0.75rem;
+  --text-10px: 10px;
+}
+
+.sports-module h1,
+.sports-module h2,
+.sports-module h3,
+.sports-module h4,
+.sports-module h5,
+.sports-module h6 {
+  font-size: var(--text-xs, 0.75rem) !important;
+}
+
+.sports-module span {
+  font-size: 10px !important;
+}
+
+
+

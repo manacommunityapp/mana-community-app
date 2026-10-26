@@ -1,4 +1,5 @@
 import { apiClient, getStoredUser } from "../common/apiClient";
+import { safeStorage, STORAGE_KEYS } from "../../utils/storage";
 import type {
   CommunityLeaderResponse,
   CommunityLeaderRequest,
@@ -18,26 +19,17 @@ export interface CommunityDesignationRequest {
   displayOrder?: number;
 }
 
-const LEADER_HISTORY_STORAGE_KEY = "mana_leader_history_log";
+const LEADER_HISTORY_STORAGE_KEY = STORAGE_KEYS.LEADER_HISTORY;
+const MAX_LEADER_HISTORY = 50;
 
 function getLocalLeaderHistory(): CommunityLeaderHistoryResponse[] {
-  try {
-    const raw = localStorage.getItem(LEADER_HISTORY_STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (e) {
-    console.error("Failed to parse leader history cache", e);
-  }
-  return [];
+  const list = safeStorage.getJSON<CommunityLeaderHistoryResponse[]>(LEADER_HISTORY_STORAGE_KEY, []);
+  return Array.isArray(list) ? list : [];
 }
 
 function saveLocalLeaderHistory(list: CommunityLeaderHistoryResponse[]) {
-  try {
-    localStorage.setItem(LEADER_HISTORY_STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.error("Failed to save leader history cache", e);
-  }
+  const trimmed = (Array.isArray(list) ? list : []).slice(0, MAX_LEADER_HISTORY);
+  safeStorage.setJSON(LEADER_HISTORY_STORAGE_KEY, trimmed);
 }
 
 export const communityDirectoryService = {

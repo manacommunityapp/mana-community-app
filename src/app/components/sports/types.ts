@@ -11,6 +11,8 @@ export interface SportEventState {
   tournamentType?: string;
   minAge?: number;
   maxAge?: number;
+  adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
 }
 
 export interface SportFormEvent {
@@ -28,6 +30,13 @@ export interface SportFormEvent {
   maxAge: string;
   tournamentType: string;
   venueId?: string | number;
+  contactName?: string;
+  contactNumber?: string;
+  contactEmail?: string;
+  otherContacts?: any[];
+  auctionEnabled?: boolean;
+  adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
 }
 
 export interface SportFormEntry {

@@ -41,6 +41,13 @@ export default defineConfig(({ mode }) => {
       babel({ presets: [reactCompilerPreset()] })
     ],
     server: {
+      headers: {
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:; object-src 'none'; base-uri 'self'; form-action 'self';",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      },
       proxy: {
         // Forward all /api/* requests to the Spring Boot backend
         "/api": {
@@ -54,6 +61,15 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           ws: true,
         },
+      },
+    },
+    preview: {
+      headers: {
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https: wss: ws:; object-src 'none'; base-uri 'self'; form-action 'self';",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
       },
     },
   };

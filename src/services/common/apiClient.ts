@@ -1,9 +1,18 @@
-import { safeStorage } from "../../utils/storage";
+import { safeStorage, STORAGE_KEYS, clearUserStorage } from "../../utils/storage";
 import { createLogger, setCorrelationId } from "../../utils/logger";
 import { canAccessEndpoint } from "../../utils/permissionUtils";
 
 const BASE_URL = "/api";
 const log = createLogger("ApiClient");
+const PLATFORM_HEADER = "X-Platform";
+const PLATFORM_VALUE = "web";
+const CSRF_HEADER = "X-XSRF-TOKEN";
+const CSRF_COOKIE = "XSRF-TOKEN";
+
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 function generateId(): string {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -13,9 +22,9 @@ function generateId(): string {
   });
 }
 
-const TOKEN_KEY = "mana_token";
-const REFRESH_TOKEN_KEY = "mana_refresh_token";
-const USER_KEY = "mana_user";
+const TOKEN_KEY = STORAGE_KEYS.TOKEN;
+const REFRESH_TOKEN_KEY = STORAGE_KEYS.REFRESH_TOKEN;
+const USER_KEY = STORAGE_KEYS.USER;
 
 export function getToken(): string | null {
   return safeStorage.getItem(TOKEN_KEY);
@@ -40,15 +49,13 @@ export function setTokens(token: string, refreshToken?: string | null): void {
 }
 
 export function removeToken(): void {
-  safeStorage.removeItem(TOKEN_KEY);
-  safeStorage.removeItem(REFRESH_TOKEN_KEY);
-  safeStorage.removeItem(USER_KEY);
-  safeStorage.removeItem("mana_last_activity");
+  clearUserStorage();
 }
 
 export interface StoredUser {
   userId: string;
   communityId?: number;
+  communityName?: string;
   roleId?: number;
   role?: string;
   /** All assigned roles as an array (backend may return multi-role users). */
@@ -59,7 +66,9 @@ export interface StoredUser {
   gender?: string;
   dateOfBirth?: string;
   flatNo?: string;
+  flatNumber?: string;
   block?: string;
+  tower?: string;
   status?: string;
   profilePicUrl?: string;
   profilePic?: string;
@@ -69,6 +78,8 @@ export interface StoredUser {
   occupancyStatus?: string;
   residentType?: string;
   userType?: string;
+  bio?: string;
+  skills?: string[];
 }
 
 export function getStoredUser(): StoredUser | null {
@@ -114,21 +125,25 @@ function ensureRefreshed(): Promise<boolean> {
 
 async function doRefresh(): Promise<boolean> {
   const rt = getRefreshToken();
-  if (!rt) return false;
   try {
-    // Raw fetch — must NOT go through the interceptor (avoids recursion).
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      [PLATFORM_HEADER]: PLATFORM_VALUE,
+    };
+    const csrf = getCsrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: rt }),
+      headers,
+      credentials: "include",
+      body: rt ? JSON.stringify({ refreshToken: rt }) : "{}",
     });
     if (!res.ok) return false;
     const data = (await res.json()) as { token?: string; refreshToken?: string };
     if (data?.token) {
       setTokens(data.token, data.refreshToken);
-      return true;
     }
-    return false;
+    return true;
   } catch {
     return false;
   }
@@ -136,15 +151,61 @@ async function doRefresh(): Promise<boolean> {
 
 /** Clears the session and bounces to /login. Exposed so the auth layer can reuse it. */
 export function forceLogout(): void {
+  const csrfVal = getCsrfToken();
+  const logoutHeaders: Record<string, string> = { [PLATFORM_HEADER]: PLATFORM_VALUE };
+  if (csrfVal) logoutHeaders[CSRF_HEADER] = csrfVal;
+  fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+    headers: logoutHeaders,
+    credentials: "include",
+  }).catch(() => {});
   removeToken();
   if (window.location.pathname !== "/login") {
     window.location.href = "/login";
   }
 }
 
+/**
+ * Strips Java package names, nested exception traces, and technical exception class prefixes
+ * so that clean backend messages (e.g. "A User with that email already exists.") are presented directly to users.
+ */
+export function stripExceptionPrefix(msg?: string): string {
+  if (!msg) return "";
+  let clean = msg.trim();
+
+  // Remove wrapping quotes if present
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+
+  // Strip nested exception wrapping prefixes
+  clean = clean.replace(/^(?:(?:NestedServletException|nested exception is|Request processing failed[;:]?)\s*)+/gi, "");
+
+  // Strip class name patterns like "com.manacommunity.api.exception.DuplicateResourceException: "
+  // or "org.springframework.dao.DataIntegrityViolationException: " or "DuplicateResourceException: "
+  const exceptionRegex = /(?:[a-zA-Z0-9_$]+\.)*([a-zA-Z0-9_$]+(?:Exception|Error)):\s*/g;
+  clean = clean.replace(exceptionRegex, "");
+
+  // Clean any leading colons, dashes or whitespace
+  clean = clean.replace(/^[:\s-]+/, "").trim();
+
+  return clean || msg.trim();
+}
+
 function sanitizeErrorMessage(status: number, rawText?: string): string {
   const text = (rawText || "").trim();
   const lower = text.toLowerCase();
+
+  // 429 Too Many Requests — parse retryAfter from response body or header
+  if (status === 429) {
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.message) return stripExceptionPrefix(parsed.message);
+      const retry = parsed?.retryAfter;
+      if (retry) return `Too many attempts. Please try again after ${retry} seconds.`;
+    } catch { /* fall through */ }
+    return "Too many attempts. Please slow down and try again shortly.";
+  }
 
   // Check for 502 / 503 / 504 / 520 / 521 / 522 / 524
   if (status === 502 || status === 503 || status === 504 || status === 520 || status === 521 || status === 522 || status === 524) {
@@ -171,23 +232,57 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
     try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed === "object") {
-        if (typeof parsed.message === "string" && parsed.message.trim()) {
-          const m = parsed.message.trim();
-          if (m.toLowerCase().includes("<html") || m.toLowerCase().includes("nginx") || m.toLowerCase().includes("502")) {
-            return "Our servers are temporarily unreachable. Please try again in a few moments.";
+        // 1. Check if backend returned fieldErrors array
+        if (Array.isArray(parsed.fieldErrors) && parsed.fieldErrors.length > 0) {
+          const fieldMsgs = parsed.fieldErrors
+            .map((fe: any) => stripExceptionPrefix(fe?.message || fe?.error || String(fe)))
+            .filter(Boolean);
+          if (fieldMsgs.length > 0) {
+            return fieldMsgs.join(". ");
           }
-          return m;
         }
-        if (typeof parsed.error === "string" && parsed.error.trim()) {
-          const e = parsed.error.trim();
-          if (e.toLowerCase().includes("<html") || e.toLowerCase().includes("nginx") || e.toLowerCase().includes("502")) {
-            return "Our servers are temporarily unreachable. Please try again in a few moments.";
+
+        // 2. Check message field
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          const m = stripExceptionPrefix(parsed.message);
+          if (m && !m.toLowerCase().includes("<html") && !m.toLowerCase().includes("502 bad")) {
+            return m;
           }
-          return e;
+        }
+
+        // 3. Check detail or details field
+        if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+          const d = stripExceptionPrefix(parsed.detail);
+          if (d && !d.toLowerCase().includes("<html")) {
+            return d;
+          }
+        }
+
+        // 4. Check error description / error message
+        if (typeof parsed.error_description === "string" && parsed.error_description.trim()) {
+          const ed = stripExceptionPrefix(parsed.error_description);
+          if (ed && !ed.toLowerCase().includes("<html")) {
+            return ed;
+          }
+        }
+
+        if (typeof parsed.error === "string" && parsed.error.trim()) {
+          const e = stripExceptionPrefix(parsed.error);
+          if (e && !e.toLowerCase().includes("<html") && e !== "INTERNAL_SERVER_ERROR") {
+            return e;
+          }
         }
       }
     } catch {
       // ignore
+    }
+  }
+
+  // If text is a raw string from backend (e.g. "com.manacommunity...DuplicateResourceException: A User with that email already exists.")
+  if (text && !text.includes("<") && !text.includes(">")) {
+    const clean = stripExceptionPrefix(text);
+    if (clean && clean.length < 500) {
+      return clean;
     }
   }
 
@@ -203,12 +298,12 @@ function sanitizeErrorMessage(status: number, rawText?: string): string {
     return "The requested service or resource was not found.";
   }
 
-  if (status >= 500) {
-    return "A server error occurred. Please try again in a few moments.";
+  if (status === 409) {
+    return "A resource with these details already exists.";
   }
 
-  if (text && text.length < 200 && !text.includes("<") && !text.includes(">")) {
-    return text;
+  if (status >= 500) {
+    return "A server error occurred. Please try again in a few moments.";
   }
 
   return `Request failed (${status}). Please try again later.`;
@@ -244,6 +339,7 @@ interface RequestInitLike {
   body?: BodyInit;
   /** When true, skip the JSON Content-Type header (used for FormData uploads). */
   form?: boolean;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -266,18 +362,36 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
 
   const headers: Record<string, string> = {
     "X-Correlation-Id": correlationId,
+    [PLATFORM_HEADER]: PLATFORM_VALUE,
+    ...(init.headers || {}),
   };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!init.form) headers["Content-Type"] = "application/json";
+  if (init.method !== "GET") {
+    const csrf = getCsrfToken();
+    if (csrf) headers[CSRF_HEADER] = csrf;
+  }
+
+  // Normalize path to prevent double /api prefix if path begins with /api
+  const normalizedPath = path.startsWith('/api/')
+    ? path.substring(4)
+    : path === '/api'
+    ? ''
+    : path.startsWith('api/')
+    ? '/' + path.substring(4)
+    : path.startsWith('/')
+    ? path
+    : '/' + path;
 
   const start = performance.now();
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await fetch(`${BASE_URL}${normalizedPath}`, {
       method: init.method,
       headers,
       body: init.body,
+      credentials: "include",
     });
   } catch (err) {
     log.error(`Network error: ${init.method} ${path}`, err, { correlationId });
@@ -315,33 +429,65 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
   return handleResponse<T>(res);
 }
 
-// In-flight GET requests, keyed by path. Coalesces concurrent requests for the
-// same resource (e.g. React StrictMode's double effect invocation, or two
-// components mounting at once) into a single network call.
-const inFlightGets = new Map<string, Promise<unknown>>();
+// Cached & In-flight GET requests, keyed by path. Coalesces concurrent and rapid repeated
+// requests for the same resource (e.g. React StrictMode's double effect invocation, multi-component
+// mounting, or rapid re-renders) into a single network call.
+interface GetCacheEntry {
+  promise: Promise<unknown>;
+  expiresAt: number;
+}
+
+const getCache = new Map<string, GetCacheEntry>();
+const DEDUPE_TTL_MS = 1000; // 1 second coalescing window for identical GET requests
+
+export interface RequestOptions {
+  bypassCache?: boolean;
+  headers?: Record<string, string>;
+}
 
 export const apiClient = {
-  async get<T>(path: string): Promise<T> {
-    const existing = inFlightGets.get(path);
-    if (existing) return existing as Promise<T>;
+  /**
+   * Fetch a GET resource with automatic 1-second deduplication and concurrent call coalescing.
+   * If `options.bypassCache` is true, forces a fresh network call.
+   */
+  async get<T>(path: string, options?: RequestOptions): Promise<T> {
+    const now = Date.now();
+    const existing = getCache.get(path);
 
-    const promise = request<T>(path, { method: "GET" });
-    inFlightGets.set(path, promise);
-    try {
-      return await promise;
-    } finally {
-      inFlightGets.delete(path);
+    if (!options?.bypassCache && existing && existing.expiresAt > now) {
+      return existing.promise as Promise<T>;
     }
+
+    const promise = request<T>(path, { method: "GET", headers: options?.headers }).catch((err) => {
+      // Remove immediately on error so failed requests aren't cached or blocking retries
+      getCache.delete(path);
+      throw err;
+    });
+
+    getCache.set(path, {
+      promise,
+      expiresAt: now + DEDUPE_TTL_MS,
+    });
+
+    return promise;
   },
 
-  async post<T>(path: string, body?: unknown): Promise<T> {
+  /** Clear all cached GET promises immediately. */
+  clearCache(): void {
+    getCache.clear();
+  },
+
+  async post<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "POST",
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers,
     });
   },
 
   async put<T>(path: string, body?: unknown): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "PUT",
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -349,6 +495,7 @@ export const apiClient = {
   },
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
+    getCache.clear();
     return request<T>(path, {
       method: "PATCH",
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -356,12 +503,15 @@ export const apiClient = {
   },
 
   async delete<T>(path: string): Promise<T> {
+    getCache.clear();
     return request<T>(path, { method: "DELETE" });
   },
 
   async postForm<T>(path: string, formData: FormData): Promise<T> {
+    getCache.clear();
     return request<T>(path, { method: "POST", body: formData, form: true });
   },
 };
 
 export { BASE_URL };
+

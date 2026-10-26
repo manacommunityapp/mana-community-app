@@ -37,13 +37,13 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
   return (
     <div className="space-y-6 animate-fade-in-up text-left">
       <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-3 mb-5 border-b border-slate-100 pb-3">
+        <div className="flex items-center gap-3 mb-5 border-b border-slate-100">
           <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
             <Settings className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Tournament Configuration</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">View and manage settings for each tournament</p>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">Tournament Configuration</h3>
+            <p className="text-xs text-slate-400 mt-0.5 m-0">View and manage settings for each tournament</p>
           </div>
         </div>
 
@@ -68,18 +68,14 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
                         <Trophy className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-slate-800">{t.name}</h4>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <h4 className="text-xs font-bold text-slate-800">{t.name}</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           {t.events.length} event{t.events.length !== 1 ? "s" : ""} configured
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                        isLive ? "bg-red-50 text-red-600 border border-red-100" :
-                        isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                        "bg-slate-50 text-slate-400 border border-slate-100"
-                      }`}>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${ isLive ? "bg-red-50 text-red-600 border border-red-100" : isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-50 text-slate-400 border border-slate-100" }`}>
                         {t.registrationStatus || "DRAFT"}
                       </span>
                       {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -90,28 +86,28 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
                     <div className="px-4 pb-4 space-y-4 border-t border-slate-100 bg-slate-50/50">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Start Date</span>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Start Date</span>
                           <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                             <CalendarIcon className="w-3 h-3 text-slate-400" />
                             {fmtDate(t.eventDateStart)}
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">End Date</span>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">End Date</span>
                           <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                             <CalendarIcon className="w-3 h-3 text-slate-400" />
                             {fmtDate(t.eventDateEnd)}
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Max Participants</span>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Max Participants</span>
                           <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                             <Users className="w-3 h-3 text-slate-400" />
                             {t.maxParticipants ?? "Unlimited"}
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider">Status</span>
+                          <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Status</span>
                           <div className="text-xs text-slate-700 font-medium">
                             {t.registrationStatus || "DRAFT"}
                           </div>
@@ -120,12 +116,12 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
 
                       {t.events.length > 0 && (
                         <div>
-                          <h5 className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Events</h5>
+                          <h5 className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-2">Events</h5>
                           <div className="space-y-2">
                             {t.events.map(e => (
                               <div key={e.id} className="flex items-center justify-between bg-white rounded-lg p-3 border border-slate-100">
                                 <div>
-                                  <span className="text-xs font-semibold text-slate-800">{e.name}</span>
+                                  <span className="text-[10px] font-semibold text-slate-800">{e.name}</span>
                                   <div className="flex items-center gap-2 mt-0.5">
                                     {e.sport?.name && (
                                       <span className="text-[10px] text-indigo-500 font-medium">{e.sport.icon} {e.sport.name}</span>
@@ -138,11 +134,7 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
                                     )}
                                   </div>
                                 </div>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                  e.registrationStatus === "REGISTRATION_OPEN" ? "bg-emerald-50 text-emerald-600" :
-                                  e.registrationStatus === "LIVE" ? "bg-red-50 text-red-600" :
-                                  "bg-slate-50 text-slate-400"
-                                }`}>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ e.registrationStatus === "REGISTRATION_OPEN" ? "bg-emerald-50 text-emerald-600" : e.registrationStatus === "LIVE" ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-400" }`}>
                                   {e.registrationStatus || "DRAFT"}
                                 </span>
                               </div>
@@ -177,14 +169,14 @@ export function SettingsTab({ setActiveTab }: SettingsTabProps) {
               className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-left hover:shadow-md transition group"
             >
               <h4 className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition">Venue Settings</h4>
-              <p className="text-[11px] text-slate-400 mt-1">Manage venues, courts, and booking configurations</p>
+              <p className="text-xs text-slate-400 mt-1">Manage venues, courts, and booking configurations</p>
             </button>
             <button
               onClick={() => setActiveTab("player-category")}
               className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-left hover:shadow-md transition group"
             >
               <h4 className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 transition">Player Categories</h4>
-              <p className="text-[11px] text-slate-400 mt-1">Configure age groups, tiers, and grading boundaries</p>
+              <p className="text-xs text-slate-400 mt-1">Configure age groups, tiers, and grading boundaries</p>
             </button>
           </>
         )}

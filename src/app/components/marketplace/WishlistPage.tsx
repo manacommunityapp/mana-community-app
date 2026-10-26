@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Heart, Trash2, Loader2, ImagePlus, Tag, ShoppingBag } from "lucide-react";
+import { Heart, Trash2, Loader2, ImagePlus, Tag, ShoppingBag, ShoppingCart } from "lucide-react";
 import { wishlistService, type WishlistResponse } from "../../../services/marketplace/listingService";
+import { useCart } from "../../../contexts/CartContext";
 import { USE_MOCK_DATA, MOCK_WISHLIST } from "./mockData";
 
 function formatPrice(price: number): string {
@@ -10,6 +11,7 @@ function formatPrice(price: number): string {
 
 export function WishlistPage() {
   const navigate = useNavigate();
+  const { addItem } = useCart();
   const [items, setItems] = useState<WishlistResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +32,18 @@ export function WishlistPage() {
       await wishlistService.remove(listingId);
       setItems((prev) => prev.filter((i) => i.listingId !== listingId));
     } catch {}
+  };
+
+  const handleAddToCart = (item: WishlistResponse) => {
+    addItem({
+      id: item.listingId,
+      title: item.listingTitle,
+      price: item.listingPrice,
+      category: item.listingCategory,
+      imageUrl: item.listingImageUrl || undefined,
+      sellerName: item.sellerName,
+      type: "PRODUCT",
+    });
   };
 
   if (loading) {
@@ -100,12 +114,12 @@ export function WishlistPage() {
                   <p className="text-xs text-slate-400 mt-0.5">Seller: {item.sellerName}</p>
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 gap-2">
                   <button
-                    onClick={() => navigate(`/marketplace/${item.listingId}`)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    onClick={() => handleAddToCart(item)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
                   >
-                    <ShoppingBag className="w-3.5 h-3.5" /> View Product
+                    <ShoppingCart className="w-3.5 h-3.5" /> Add to Cart
                   </button>
                   <button
                     onClick={() => handleRemove(item.listingId)}

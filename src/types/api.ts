@@ -12,7 +12,7 @@ export interface RegisterRequest {
   phone: string;
   inviteCode: string;
   password: string;
-  dateOfBirth: string; // yyyy-MM-dd
+  dateOfBirth?: string; // yyyy-MM-dd (optional)
   gender: string; // MALE | FEMALE | OTHER
   aadharNumber?: string;
   flatNo?: string;
@@ -52,10 +52,11 @@ export interface ChangePasswordResponse {
 export interface AuthResponse {
   userId: string;
   message: string;
-  token: string;
+  token?: string;
   refreshToken?: string;
   fullName?: string;
   email?: string;
+  gender?: string;
   role?: string;
   communityId?: number;
   dateOfBirth?: string;
@@ -220,15 +221,19 @@ export interface SportsEvent {
   /** Public, non-sequential id used in shareable registration links. */
   uuid?: string;
   name: string;
+  sportName?: string;
+  categoryName?: string;
+  venueName?: string;
   sport?: SportMeta;
   community?: Community;
   eventDateStart: string; // LocalDate → string
   eventDateEnd: string;
   venue?: Venue;
   maxParticipants?: number;
+  registeredCount?: number;
   registrationStatus?: EventStatus;
   tournament?: any;
-  format?: MatchFormat;
+  format?: MatchFormat[];
   tournamentType?: TournamentType;
   categories?: PlayerCategory[];
   sponsors?: Sponsor[];
@@ -258,6 +263,11 @@ export interface SportsEvent {
   status?: string;
   /** When true, self-registrations require organiser confirmation (land PENDING). */
   adminApprovalRequired?: boolean;
+  /** When true, mixed doubles events enforce complementary genders (1 Male + 1 Female). */
+  mandatoryMixedDoubles?: boolean;
+  minAge?: number | null;
+  maxAge?: number | null;
+  allowHigherAgeCategory?: boolean;
 }
 
 export interface SportsEventRequest {
@@ -268,7 +278,7 @@ export interface SportsEventRequest {
   eventDateEnd: string;
   venueId?: number;
   maxParticipants?: number;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   categoryIds?: number[];
   contactName?: string;
@@ -293,6 +303,7 @@ export interface SportsEventRequest {
   eventId?: number;
   sportsEventIds?: number[];
   adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
   tournamentId?: number;
 }
 
@@ -315,16 +326,23 @@ export interface RegistrationRequest {
   matchType: string;
   role?: string;
   age?: number;
+  gender?: string;
+  dateOfBirth?: string;
   matches?: number;
   runs?: number;
   wickets?: number;
   strikeRate?: number;
   avgScore?: number;
-  partnerUserId?: number;
+  partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
   playerName?: string;
   email?: string;
   relation?: string;
   flatNumber?: string;
+  familyMemberId?: number | string | null;
+  cricHeroesUrl?: string;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
 }
@@ -341,30 +359,80 @@ export interface EventRegistration {
   flatNumber?: string;
   age?: number;
   role?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
   /** Optional skill rating used for balanced knockout pairing (Rule 6). */
   rating?: number | null;
   captainNomination?: boolean;
   captainConfirmation?: boolean;
   proposedTeamName?: string;
+  seed?: number | null;
   registeredAt?: string;
+  phone?: string;
+  registrationSource?: "MANA_APP" | "GOOGLE_FORMS" | "ADMIN_IMPORT" | "OFFLINE";
+  externalResponseId?: string;
+  externalFormId?: number;
+  isExternalGuest?: boolean;
+  matchFormat?: string;
+  partnerName?: string;
+  partnerPhone?: string;
+}
+
+export interface SportsPlayerRanking {
+  id: number;
+  player: { id: number; fullName: string; email?: string; flatNo?: string; avatarUrl?: string };
+  sport: { id: number; name: string; icon?: string };
+  communityId: number;
+  rank?: number | null;
+  rating?: number | null;
+  source: "MANUAL" | "COMPUTED";
+  season: string;
+  notes?: string | null;
+}
+
+export interface SportsPlayerRankingRequest {
+  userId: number;
+  sportId: number;
+  communityId: number;
+  rank?: number | null;
+  rating?: number | null;
+  season?: string;
+  notes?: string | null;
 }
 
 export interface SportsTournament {
   id: number;
   name: string;
   event?: SportsEvent;
-  format?: string;
+  format?: string[];
   tournamentType?: string;
   createdAt?: string;
   updatedAt?: string;
   communityId?: number;
+  communityName?: string;
+  description?: string;
+  maxParticipants?: number;
+  eventDateStart?: string;
+  eventDateEnd?: string;
+  registrationDateStart?: string;
+  registrationDateEnd?: string;
+  startTime?: string;
+  dueTime?: string;
+  bannerImage?: string;
   contactId?: number;
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
   contactTitle?: string;
   contacts?: EventContact[];
+  otherContacts?: { title: string; name: string; detail: string; }[] | string;
+  allowAdminChat?: boolean;
+  registrationStatus?: string;
   sportsEvents?: SportsEvent[];
+  sponsors?: Sponsor[];
+  rules?: string;
+  venueName?: string;
+  venue?: Venue;
 }
 
 export type SportsTournamentRequest = SportsEventRequest;
@@ -374,6 +442,12 @@ export type SportsEventRegistration = EventRegistration;
 // ─── Auction ─────────────────────────────────────────────────────────────────
 
 export type PlayerStatus = "UNSOLD" | "SOLD" | "RETAINED" | "QUEUE" | "active" | "next" | "queue" | "SELLING" | "PASSED" | "QUEUED";
+
+export interface CricHeroesStats {
+  batting?: { innings: number; runs: number; average: number; strikeRate: number; highestScore: string; fifties: number; hundreds: number; fours: number; sixes: number };
+  bowling?: { innings: number; overs: number; wickets: number; economy: number; average: number; bestFigures: string; maidens: number; threeWickets: number; fiveWickets: number };
+  fielding?: { catches: number; stumpings: number; runOuts: number };
+}
 
 export interface AuctionPlayer {
   id: number;
@@ -385,15 +459,20 @@ export interface AuctionPlayer {
   basePrice?: number;
   statsJson?: string;
   matches?: number;
+  innings?: number;
   runs?: number;
   avgScore?: number;
   wickets?: number;
   strikeRate?: number;
   economy?: number;
+  bestBowling?: string;
   status: PlayerStatus;
   assignedTeam?: AuctionTeam;
   soldPrice?: number;
   queueOrder?: number;
+  cricHeroesId?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
 }
 
 export interface AuctionTeam {
@@ -433,6 +512,25 @@ export interface AuctionBid {
   createdAt?: string; // mapped from bidAt
 }
 
+export interface AuctionBidResponse {
+  id: number;
+  configId: number;
+  playerId: number;
+  teamId: number;
+  teamName: string;
+  bidAmount: number;
+  incrementUsed: number;
+  isRtm: boolean;
+  bidByUserId?: number;
+  bidAt: string;
+}
+
+export interface AuctionEvent {
+  type: 'BID_PLACED' | 'PLAYER_PICKED' | 'PLAYER_SOLD' | 'PLAYER_PASSED' | 'STATUS_CHANGED';
+  payload: any;
+  timestamp: string;
+}
+
 export interface AuctionTeamSummary {
   teamId: number;
   teamName: string;
@@ -449,6 +547,11 @@ export interface PlayerWithBidResponse {
   age: number;
   basePrice: number;
   statsJson: string;
+  innings?: number;
+  bestBowling?: string;
+  cricHeroesId?: string;
+  cricHeroesUrl?: string;
+  verifiedAt?: string;
   currentBid: number;
   nextBid: number;
   nextIncrement: number;
@@ -478,11 +581,14 @@ export interface AuctionPlayerRequest {
   age?: number;
   basePrice: number;
   matches?: number;
+  innings?: number;
   runs?: number;
   wickets?: number;
   strikeRate?: number;
   economy?: number;
   avgScore?: number;
+  bestBowling?: string;
+  cricHeroesUrl?: string;
 }
 
 export interface AuctionTeamRequest {
@@ -567,6 +673,11 @@ export interface UserResponse {
   occupancyStatus?: string;
   residentType?: string;
   userType?: string;
+  bio?: string;
+  skills?: string[] | string;
+  createdAt?: string;
+  createdDate?: string;
+  updatedAt?: string;
 }
 
 export type RolePermissionsMap = Record<string, string[]>;
@@ -603,6 +714,8 @@ export interface SportFormEvent {
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
   adminApprovalRequired?: boolean;
+  mandatoryMixedDoubles?: boolean;
+  tournamentId?: number;
 }
 
 export interface SportFormEntry {
@@ -612,6 +725,7 @@ export interface SportFormEntry {
   iconUrl?: string;
   sportId: number;
   editingSportId: number | null;
+  tournamentId?: number;
   events: SportFormEvent[];
 }
 
@@ -669,6 +783,16 @@ export interface UserProfileResponse {
   stats: UserStats;
   /** Earned achievement badges. Optional — empty/undefined until the backend provides them. */
   achievements?: Achievement[];
+}
+
+export interface UserActivityItem {
+  id: number;
+  type: string;
+  text: string;
+  time: string;
+  timestamp?: string;
+  iconType?: string;
+  color?: string;
 }
 
 export interface Achievement {
@@ -1121,7 +1245,7 @@ export interface MenuRolePermissionResponse {
 // ─── Vendor Management System ───────────────────────────────────────────────
 
 export type VendorStatus = "PENDING" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "REJECTED" | "BLACKLISTED";
-export type VendorRegistrationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "INCOMPLETE";
+export type VendorRegistrationStatus = "PENDING" | "APPROVED" | "REJECTED" | "CONVERTED";
 export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED";
 export type WorkOrderStatus = "DRAFT" | "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "ON_HOLD" | "COMPLETED" | "CLOSED" | "CANCELLED";
 export type WorkOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
@@ -1170,6 +1294,7 @@ export interface VendorDocument {
   fileSize?: number;
   expiryDate?: string;
   verified: boolean;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | string;
   verifiedAt?: string;
   verifiedBy?: string;
   uploadedAt: string;
@@ -1245,33 +1370,46 @@ export interface VendorRequest {
 export interface VendorRegistrationResponse {
   id: number;
   businessName: string;
-  ownerName: string;
-  ownerEmail: string;
-  ownerPhone: string;
-  categoryName: string;
-  categoryId: number;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  categoryName?: string;
+  categoryId?: number;
+  businessType?: string;
   status: VendorRegistrationStatus;
   description?: string;
   address?: string;
-  documents?: VendorDocument[];
-  submittedAt: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  applicantUserId?: number;
+  applicantUserName?: string;
+  applicantUserEmail?: string;
+  vendorId?: number;
+  communityId?: number;
+  createdAt: string;
+  updatedAt?: string;
   reviewedAt?: string;
-  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedById?: number;
   rejectionReason?: string;
   notes?: string;
 }
 
 export interface VendorRegistrationRequest {
   businessName: string;
-  ownerName: string;
-  ownerEmail: string;
-  ownerPhone: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
   categoryId: number;
+  businessType?: "INDIVIDUAL" | "COMPANY" | "PARTNERSHIP" | "PROPRIETORSHIP";
   description?: string;
   address?: string;
   city?: string;
   state?: string;
-  pinCode?: string;
+  pincode?: string;
   gstNumber?: string;
   panNumber?: string;
 }
@@ -1710,8 +1848,8 @@ export interface VendorDashboardStats {
   totalRevenue: number;
   monthlyRevenue: number;
   avgRating: number;
-  totalWorkOrders: number;
-  openWorkOrders: number;
+  totalWorkOrders?: number;
+  openWorkOrders?: number;
   overdueInvoices: number;
   expiringContracts: number;
   categoryDistribution: { category: string; count: number }[];
@@ -1762,7 +1900,7 @@ export interface VendorPortalStats {
   pendingPayments: number;
   avgRating: number;
   totalReviews: number;
-  openWorkOrders: number;
+  openWorkOrders?: number;
   upcomingBookings: VendorBookingResponse[];
   recentPayments: VendorPaymentResponse[];
   ratingBreakdown: { stars: number; count: number }[];

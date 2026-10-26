@@ -1,0 +1,124 @@
+﻿{
+  "name": "Mana Auth Anomaly & Brute Force Lockout Detector",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auth-anomaly-and-lockout",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Auth Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-auth-anomaly-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst identifier = item.identifier || 'unknown@resident.com';\nconst failedAttemptsCount = item.failedAttemptsCount || 1;\nconst ipAddress = item.ipAddress || '127.0.0.1';\nconst userAgent = item.userAgent || 'Unknown Browser';\nconst recentLocations = item.recentLocations || [];\nconst isKnownDevice = item.isKnownDevice ?? false;\n\nconst prompt = `You are the Chief Cyber-Security Officer & Resident Identity Protector for the Mana Community App.\nAnalyze the following authentication attempt for brute force, credential stuffing, impossible travel, or account takeover.\n\nLogin Telemetry:\n- Target Account: ${identifier}\n- Consecutive Failed Attempts: ${failedAttemptsCount}\n- Source IP: ${ipAddress}\n- User Agent / Device: ${userAgent}\n- Device Known / Recognized: ${isKnownDevice ? 'YES' : 'NO'}\n- Recent Locations History: ${JSON.stringify(recentLocations)}\n\nSecurity Rules:\n1. 3+ failed attempts in 5 minutes: Apply temporary 5-minute cooldown.\n2. 5+ failed attempts or unknown device spike: Require MFA challenge and flag account.\n3. 10+ failed attempts from anomalous IP: Apply immediate 30-minute lockout and notify resident.\n4. Avoid locking out legitimate residents who made a simple typo.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"riskLevel\": \"LOW\" | \"MEDIUM\" | \"HIGH\" | \"CRITICAL\",\n  \"riskScore\": number (0 to 100),\n  \"recommendedAction\": \"ALLOW\" | \"REQUIRE_MFA_CHALLENGE\" | \"TEMPORARY_COOLDOWN\" | \"ACCOUNT_LOCKOUT\",\n  \"cooldownMinutes\": number,\n  \"isAttackPattern\": boolean,\n  \"securityNotificationMessage\": \"Clear, calm SMS/WhatsApp security alert to the resident explaining the login protection status\",\n  \"securityAdminBrief\": \"Technical summary for the society cyber-security log\"\n}`;\n\nreturn [{\n  json: {\n    identifier,\n    failedAttemptsCount,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Security Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Security Analyst (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedRuling = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedRuling = JSON.parse(rawText);\n} catch (err) {\n  parsedRuling = {\n    riskLevel: \"MEDIUM\",\n    riskScore: 40,\n    recommendedAction: \"TEMPORARY_COOLDOWN\",\n    cooldownMinutes: 5,\n    isAttackPattern: false,\n    securityNotificationMessage: \"Multiple unsuccessful login attempts detected. For your security, please wait 5 minutes before trying again.\",\n    securityAdminBrief: \"Fallback protection triggered: cooldown enforced.\"\n  };\n}\n\nconst meta = $('Prepare Security Audit Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    identifier: meta.identifier,\n    evaluatedAt: new Date().toISOString(),\n    securityAudit: parsedRuling\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Security Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Security Verdict",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Auth Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Security Audit Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Security Audit Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Security Analyst (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Security Analyst (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Security Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Security Verdict": {
+      "main": [
+        [
+          {
+            "node": "Respond with Security Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

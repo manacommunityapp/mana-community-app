@@ -1,4 +1,11 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, useParams, useNavigate, Navigate } from "react-router";
+import { BiometricTurnstileMonitor } from "./components/access/BiometricTurnstileMonitor";
+import { OfflineSyncManager } from "./components/sync/OfflineSyncManager";
+import { SmartMeterDashboard } from "./components/iot/SmartMeterDashboard";
+import { NotificationPreferenceCenter } from "./components/notification/NotificationPreferenceCenter";
+import { AnprGateLiveMonitor } from "./components/parking/AnprGateLiveMonitor";
+import { EvChargingManagement } from "./components/parking/EvChargingManagement";
+
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
 import { Marketplace } from "./components/marketplace/Marketplace";
@@ -33,6 +40,7 @@ import { Signup } from "./components/commons/login/Signup";
 import { ForgotPassword } from "./components/commons/login/ForgotPassword";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
+import { TermsPage } from "./components/commons/privacy/TermsPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { SmartDashboard } from "./components/commons/SmartDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
@@ -55,6 +63,8 @@ import { InvoicesDashboard } from "./components/finance/InvoicesDashboard";
 import { BudgetDashboard } from "./components/finance/BudgetDashboard";
 import { FinancialReports } from "./components/finance/FinancialReports";
 import { LedgerFinance } from "./components/finance/LedgerFinance";
+import { MyMoneyDashboard } from "./components/finance/personal/MyMoneyDashboard";
+import { ManaSplitHub } from "./components/split/ManaSplitHub";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -62,10 +72,15 @@ import { AdminVenues } from "./components/admin/AdminVenues";
 import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { LogsDashboard } from "./components/admin/LogsDashboard";
+import { PlatformOperationsConsole } from "./components/admin/PlatformOperationsConsole";
 import { AuditTrail } from "./components/admin/AuditTrail";
 import { EmailTemplateBuilder } from "./components/admin/EmailTemplateBuilder";
 import { EmailTemplatesTab } from "./components/admin/EmailTemplatesTab";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
+import { PrivacyHub } from "./components/privacy/PrivacyHub";
+import { PrivacyAdminHub } from "./components/privacy/admin/PrivacyAdminHub";
+import { AdminDeletionRequests } from "./components/privacy/admin/AdminDeletionRequests";
+import { AdminRetentionPolicies } from "./components/privacy/admin/AdminRetentionPolicies";
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
@@ -76,6 +91,8 @@ import { CPNFeed } from "./components/cpn/CPNFeed";
 import { CPNJobs } from "./components/cpn/CPNJobs";
 import { CPNMentorship } from "./components/cpn/CPNMentorship";
 import { CPNAIAssistant } from "./components/cpn/CPNAIAssistant";
+import { MyProfessionalProfile } from "./components/cpn/MyProfessionalProfile";
+import { ProfessionalDirectory } from "./components/cpn/ProfessionalDirectory";
 import {
   CPNReferrals, CPNFreelance, CPNLearning, CPNCompanies,
   CPNBusiness, CPNStartups, CPNCollaborate, CPNResume,
@@ -85,15 +102,40 @@ import {
 // Sports pages
 import { SportsLayout }       from "./components/sports/SportsLayout";
 import { SportsDashboard }    from "./components/sports/SportsDashboard";
-import { SportsRegistration } from "./components/sports/SportsRegistration";
 import { SportsSchedule }     from "./components/sports/SportsSchedule";
 import { SportsAuction }      from "./components/sports/SportsAuction";
 import { SportsAdmin }        from "./components/sports/admin/SportsAdmin";
 import { SportsRegister }     from "./components/sports/SportsRegister";
+import { SportsMultiRegister }from "./components/sports/SportsMultiRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
+import { SportsTournamentBrowse } from "./components/sports/SportsTournamentBrowse";
+import { SportsMyTeams }      from "./components/sports/SportsMyTeams";
+import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
+import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
+import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
+import { SportsTrainers }        from "./components/sports/SportsTrainers";
+import { SportsExternalPublicRegister } from "./components/sports/SportsExternalPublicRegister";
+
+function TeamRegisterPage() {
+  const { eventId } = useParams();
+  const navigate = useNavigate();
+  return <SportsTeamRegistration eventId={Number(eventId)} onClose={() => navigate(-1)} />;
+}
+import {
+  MatchDetailPage,
+  MatchLivePage,
+  MatchScorePage,
+  GenericMatchLivePage,
+  GenericMatchScorePage,
+  LeaderboardPage,
+  RaceResultsPage,
+  RaceScorePage,
+} from "./components/sports/pages/SportsRoutePages";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
+import { ParkingManagement } from "./components/parking/ParkingManagement";
+import { GuardManagement } from "./components/guard/GuardManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
 import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
@@ -119,11 +161,37 @@ import { MyPayments } from "./components/vendor/portal/MyPayments";
 import { MyDocuments } from "./components/vendor/portal/MyDocuments";
 import { MyRatings } from "./components/vendor/portal/MyRatings";
 import { VendorProfile } from "./components/vendor/portal/VendorProfile";
+import { VendorMerchantPayments } from "./components/vendor/portal/VendorMerchantPayments";
+import { VendorProductCatalog } from "./components/vendor/portal/VendorProductCatalog";
+import { VendorInventoryLedger } from "./components/vendor/portal/VendorInventoryLedger";
+import { VendorGroceryOrders } from "./components/vendor/portal/VendorGroceryOrders";
+import { VendorVerification } from "./components/vendor/portal/VendorVerification";
 import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
 import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfilePublic";
 import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
+import { VendorApplication } from "./components/vendor/portal/VendorApplication";
+
+// Commerce pages
+import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
+import { CommerceVendorDirectory } from "./components/commerce/vendors/CommerceVendorDirectory";
+import CommerceProductCatalog from "./components/commerce/products/CommerceProductCatalog";
+import MyCommerceProfile from "./components/commerce/customer/MyCommerceProfile";
+import LoyaltyWallet from "./components/commerce/customer/LoyaltyWallet";
+import MyOrders from "./components/commerce/orders/MyOrders";
+import VendorOrderManagement from "./components/commerce/orders/VendorOrderManagement";
+import { VendorSettlements } from "./components/vendor/portal/VendorSettlements";
+import CommerceAnalyticsDashboard from "./components/commerce/vendors/CommerceAnalyticsDashboard";
+import FlashSaleManagement from "./components/commerce/vendors/FlashSaleManagement";
+import VendorRatingsDashboard from "./components/commerce/vendors/VendorRatingsDashboard";
+import DisputeManagement from "./components/commerce/vendors/DisputeManagement";
+import CommissionRulesManager from "./components/commerce/vendors/CommissionRulesManager";
+import SubscriptionManagement from "./components/commerce/customer/SubscriptionManagement";
+import ReturnExchangeManagement from "./components/commerce/orders/ReturnExchangeManagement";
+import WalletDashboard from "./components/commerce/customer/WalletDashboard";
+import BulkOrderManagement from "./components/commerce/orders/BulkOrderManagement";
+import CouponManagement from "./components/commerce/vendors/CouponManagement";
 
 // Food & Lifestyle OS pages
 import { FoodLayout } from "./components/food/FoodLayout";
@@ -156,6 +224,16 @@ import CPOSAIAdvisorPage from "./components/cpos/ai/AIAdvisorPage";
 import CPOSAnalyticsDashboard from "./components/cpos/analytics/AnalyticsDashboard";
 import CPOSDocumentVault from "./components/cpos/documents/DocumentVault";
 import CPOSCRMPipelinePage from "./components/cpos/crm/CRMPipelinePage";
+import CPOSLeadsPage from "./components/cpos/sales/LeadsPage";
+import CPOSLeadDetailPage from "./components/cpos/crm/LeadDetailPage";
+import CPOSCRMAnalyticsPage from "./components/cpos/crm/CRMAnalyticsPage";
+import CPOSBrokerCommissionPage from "./components/cpos/crm/BrokerCommissionPage";
+import CPOSPortalIntegrationsPage from "./components/cpos/crm/PortalIntegrationsPage";
+import { CrmEmailTemplatesPage as CPOSCrmEmailTemplatesPage } from "./components/cpos/crm/CrmEmailTemplatesPage";
+import CPOSCrmLeaderboardPage from "./components/cpos/crm/CrmLeaderboardPage";
+import CPOSApprovalsPage from "./components/cpos/crm/ApprovalsPage";
+import CPOSDripSequencesPage from "./components/cpos/crm/DripSequencesPage";
+import CPOSCustomReportPage from "./components/cpos/crm/CustomReportPage";
 
 // CPN (Community Professional Network) modules
 
@@ -166,6 +244,123 @@ import { ServiceBrowse } from "./components/services/ServiceBrowse";
 import { MyRequests } from "./components/services/MyRequests";
 import { ProviderDashboard } from "./components/services/ProviderDashboard";
 import { AdminServices } from "./components/services/AdminServices";
+import { InstaHelp } from "./components/services/InstaHelp";
+// Home Services (Community Help) pages
+import { HomeServicesLayout } from "./components/home-services/HomeServicesLayout";
+import { HomeServicesDashboard } from "./components/home-services/HomeServicesDashboard";
+import { FindHomeHelp } from "./components/home-services/FindHomeHelp";
+import { MyHomeHelp } from "./components/home-services/MyHomeHelp";
+import { MyHomeServiceBookings } from "./components/home-services/MyHomeServiceBookings";
+import { HomeServiceRequirements } from "./components/home-services/HomeServiceRequirements";
+import { WorkerPackagesView } from "./components/home-services/WorkerPackagesView";
+import { HomeServiceReviews } from "./components/home-services/HomeServiceReviews";
+import { HomeServiceReports } from "./components/home-services/HomeServiceReports";
+import { HomeServiceAdminDashboard } from "./components/home-services/HomeServiceAdminDashboard";
+import { HomeServicePayments } from "./components/home-services/HomeServicePayments";
+import { HomeServiceLeaves } from "./components/home-services/HomeServiceLeaves";
+import { HomeServiceSchedule } from "./components/home-services/HomeServiceSchedule";
+
+// Vehicle Care (Washcaro integration)
+import { VehicleCareAdminDashboard } from "./components/vehicle-care/VehicleCareAdminDashboard";
+import { VehicleCareVendorPortal } from "./components/vehicle-care/VehicleCareVendorPortal";
+
+// Community Ecosystem New Modules
+import { EmergencyCenter } from "./components/emergency/EmergencyCenter";
+import { GroupBuyingHub } from "./components/group-buying/GroupBuyingHub";
+import { GroupBuyingCatalog } from "./components/group-buying/GroupBuyingCatalog";
+import { DealsListing } from "./components/group-buying/DealsListing";
+import { DealDetail } from "./components/group-buying/DealDetail";
+import { DealCheckout } from "./components/group-buying/DealCheckout";
+import { AlmostUnlocked } from "./components/group-buying/AlmostUnlocked";
+import { FestivalDeals } from "./components/group-buying/FestivalDeals";
+import { MonthlyBaskets } from "./components/group-buying/MonthlyBaskets";
+import { BuyAgain } from "./components/group-buying/BuyAgain";
+import { BuyingGroups } from "./components/group-buying/BuyingGroups";
+import { CommunitySavingsDashboard } from "./components/group-buying/CommunitySavingsDashboard";
+import { AIDemandSearch } from "./components/group-buying/AIDemandSearch";
+import { MyOrders as GroupBuyingMyOrders } from "./components/group-buying/MyOrders";
+import { DemandBoard } from "./components/group-buying/DemandBoard";
+import { DemandDetail } from "./components/group-buying/DemandDetail";
+import { VendorProfilePage } from "./components/group-buying/VendorProfilePage";
+import { PickupPassPage } from "./components/group-buying/PickupPassPage";
+import { PickupScanner } from "./components/group-buying/PickupScanner";
+import { OrderReviewPage } from "./components/group-buying/OrderReviewPage";
+import { OrderDisputePage } from "./components/group-buying/OrderDisputePage";
+import { ExploreTrips } from "./components/trips/ExploreTrips";
+import { SmartHelpdeskDashboard } from "./components/helpdesk/SmartHelpdeskDashboard";
+import { PersonalizedFeed } from "./components/graph/PersonalizedFeed";
+import { MaintenanceDues } from "./components/finance/MaintenanceDues";
+import { AdminBillingDashboard } from "./components/finance/AdminBillingDashboard";
+import { BillsAndAutopayDashboard } from "./components/finance/bills/BillsAndAutopayDashboard";
+import { SafetyCommandCenter } from "./components/safety/SafetyCommandCenter";
+import { CommunityTrustAndSafetyDashboard } from "./components/safety/CommunityTrustAndSafetyDashboard";
+import { PetRegistryDashboard } from "./components/pets/PetRegistryDashboard";
+import { HealthPortal } from "../pages/health/HealthPortal";
+import { InsurancePortal } from "../pages/insurance/InsurancePortal";
+import { GoldPortal } from "../pages/gold/GoldPortal";
+import { MutualFundsPortal } from "../pages/investments/MutualFundsPortal";
+import { SplitBillPortal } from "../pages/split/SplitBillPortal";
+import { MoviePortal } from "../pages/entertainment/MoviePortal";
+import FDPortal from "../pages/investments/FDPortal";
+import LoanPortal from "../pages/finance/LoanPortal";
+import KhataBook from "../pages/finance/KhataBook";
+import { ManaPayHub } from "./components/payments/unified/ManaPayHub";
+
+// New cross-module parity components
+import { PersonalFinanceDashboard } from "./components/personal-finance/PersonalFinanceDashboard";
+import { HealthDashboard } from "./components/health/HealthDashboard";
+import WellnessDashboard from "./components/wellness/WellnessDashboard";
+import FoodJournal from "./components/wellness/FoodJournal";
+import MealLogger from "./components/wellness/MealLogger";
+import WaterTracker from "./components/wellness/WaterTracker";
+import WellnessChallenges from "./components/wellness/WellnessChallenges";
+import WellnessProviders from "./components/wellness/WellnessProviders";
+import WellnessProfilePage from "./components/wellness/WellnessProfile";
+import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
+import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
+import { IncidentTracker } from "./components/healthguard/IncidentTracker";
+import { SosScreen } from "./components/healthguard/SosScreen";
+import { HealthProfile } from "./components/healthguard/HealthProfile";
+import ResponderHub from "./components/healthguard/ResponderHub";
+import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
+import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
+import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
+import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
+import { CommuteDashboard } from "./components/commute/CommuteDashboard";
+import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
+import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
+import { AutomationDashboard } from "./components/automation/AutomationDashboard";
+import { IntelligenceDashboard } from "./components/intelligence/IntelligenceDashboard";
+import { AiChatDashboard } from "./components/ai-chat/AiChatDashboard";
+import { CalendarDashboard } from "./components/calendar/CalendarDashboard";
+import { CommerceDashboard } from "./components/commerce/CommerceDashboard";
+import { MobileRechargeHub } from "./components/recharge/MobileRechargeHub";
+
+// Mana Academy
+import { AcademyLayout } from "./components/academy/AcademyLayout";
+import { AcademyDashboard } from "./components/academy/AcademyDashboard";
+import { MyLearningView } from "./components/academy/MyLearningView";
+import { InstructorHubView } from "./components/academy/InstructorHubView";
+import { AcademyAdminHub } from "./components/academy/AcademyAdminHub";
+
+// Mana Deals & Community Commerce Network
+import { OffersLayout } from "./components/offers/OffersLayout";
+import { OffersDashboard } from "./components/offers/OffersDashboard";
+import { MyClaimsView } from "./components/offers/MyClaimsView";
+import { MarketEventsView } from "./components/offers/MarketEventsView";
+import { BusinessDirectoryView } from "./components/offers/BusinessDirectoryView";
+import { CommunityDemandView } from "./components/offers/CommunityDemandView";
+import { CommerceAdminHub } from "./components/offers/CommerceAdminHub";
+
+// Mana Governance (Community Decisions, Meetings & Voting)
+import { GovernanceLayout } from "./components/governance/GovernanceLayout";
+import { GovernanceDashboard } from "./components/governance/GovernanceDashboard";
+import { MeetingsManagement } from "./components/governance/MeetingsManagement";
+import { ProposalsHub } from "./components/governance/ProposalsHub";
+import { VotingCenter } from "./components/governance/VotingCenter";
+import { ResolutionsBoard } from "./components/governance/ResolutionsBoard";
+import { DigitalVault } from "./components/governance/DigitalVault";
+import { CommitteeAndElections } from "./components/governance/CommitteeAndElections";
 
 // Permission constants
 import {
@@ -177,7 +372,7 @@ import {
   VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
   VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY,
   VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD, MANAGE_EVENT_FORMS,
-  VIEW_VISITORS,
+  VIEW_VISITORS, VIEW_SAFETY, VIEW_PARKING, MANAGE_PARKING, VIEW_GUARDS, MANAGE_GUARDS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -189,9 +384,32 @@ import {
   VIEW_FOOD_CATERING, VIEW_FOOD_PROFILE, VIEW_FOOD_ANALYTICS,
   VIEW_FOOD_HOME_CHEFS,
   VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
+  VIEW_HOME_SERVICE, MANAGE_HOME_HELP, MANAGE_WORKER,
+  VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES,
+  VIEW_COMMERCE_VENDORS, VIEW_COMMERCE_PRODUCTS, VIEW_COMMERCE_ORDERS, MANAGE_COMMERCE_ORDERS,
+  VIEW_COMMERCE_INVENTORY, VIEW_COMMERCE_ANALYTICS, VIEW_COMMERCE_SETTLEMENTS,
 } from "../constants/permissions";
 
+import { ResidentAuthExperience } from "./components/auth/resident/ResidentAuthExperience";
+
+function HealthSubRouteRedirect() {
+  const { tab } = useParams();
+  return <Navigate to={`/health?tab=${tab || 'doctors'}`} replace />;
+}
+
 export const router = createBrowserRouter([
+  {
+    path: "/onboarding",
+    Component: ResidentAuthExperience,
+  },
+  {
+    path: "/auth/resident-onboarding",
+    Component: ResidentAuthExperience,
+  },
+  {
+    path: "/resident-auth",
+    Component: ResidentAuthExperience,
+  },
   {
     path: "/login",
     Component: Login,
@@ -217,8 +435,16 @@ export const router = createBrowserRouter([
     Component: EventPublicRegistration,
   },
   {
+    path: "/sports/register/external/:token",
+    Component: SportsExternalPublicRegister,
+  },
+  {
     path: "/privacy",
     Component: PrivacyPage,
+  },
+  {
+    path: "/terms",
+    Component: TermsPage,
   },
   {
     path: "/",
@@ -241,13 +467,37 @@ export const router = createBrowserRouter([
             path: "my-sports", 
             element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
           },
-          { 
-            path: "register", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
+          {
+            path: "tournaments",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTournamentBrowse /></PermissionGuard>
+          },
+          {
+            path: "my-teams",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMyTeams /></PermissionGuard>
+          },
+          {
+            path: "badges",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
+          },
+          {
+            path: "my-auctions",
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG]} requiredModule="SPORTS"><SportsMyAuctions /></PermissionGuard>
+          },
+          {
+            path: "team-register/:eventId",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><TeamRegisterPage /></PermissionGuard>
+          },
+          {
+            path: "register",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard>
           },
           {
             path: "register/:eventUuid",
             element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><SportsRegister /></PermissionGuard>
+          },
+          {
+            path: "register-tournament/:tournamentId",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><SportsMultiRegister /></PermissionGuard>
           },
           {
             path: "schedule",
@@ -256,6 +506,10 @@ export const router = createBrowserRouter([
           {
             path: "schedule/:eventId",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
+          },
+          {
+            path: "trainers",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "auction",
@@ -269,9 +523,45 @@ export const router = createBrowserRouter([
             path: "admin", 
             element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><SportsAdmin /></PermissionGuard> 
           },
-          { 
-            path: "analytics", 
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard> 
+          {
+            path: "analytics",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard>
+          },
+          {
+            path: "match/:matchId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><MatchDetailPage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/live",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><MatchLivePage /></PermissionGuard>,
+          },
+          {
+            path: "match/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><MatchScorePage /></PermissionGuard>,
+          },
+          {
+            path: "match/generic/:matchId/live",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><GenericMatchLivePage /></PermissionGuard>,
+          },
+          {
+            path: "match/generic/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><GenericMatchScorePage /></PermissionGuard>,
+          },
+          {
+            path: "leaderboard",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><LeaderboardPage /></PermissionGuard>,
+          },
+          {
+            path: "leaderboard/:tournamentId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><LeaderboardPage /></PermissionGuard>,
+          },
+          {
+            path: "race/:matchId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><RaceResultsPage /></PermissionGuard>,
+          },
+          {
+            path: "race/:matchId/score",
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><RaceScorePage /></PermissionGuard>,
           },
         ],
       },
@@ -326,6 +616,18 @@ export const router = createBrowserRouter([
             path: "email-templates",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><EmailTemplateBuilder /></PermissionGuard>
           },
+          {
+            path: "privacy",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PrivacyAdminHub /></PermissionGuard>
+          },
+          {
+            path: "deletion-requests",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminDeletionRequests /></PermissionGuard>
+          },
+          {
+            path: "retention-policies",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminRetentionPolicies /></PermissionGuard>
+          },
         ]
       },
       {
@@ -357,6 +659,7 @@ export const router = createBrowserRouter([
             path: "requests/:id",
             element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
           },
+          { path: "insta-help", Component: InstaHelp },
           { path: "provider", Component: ProviderDashboard },
           {
             path: "admin",
@@ -365,8 +668,41 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: "home-services",
+        element: <PermissionGuard permission={VIEW_HOME_SERVICE} requiredModule="HOME_SERVICES"><HomeServicesLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: HomeServicesDashboard },
+          { path: "find-help", Component: FindHomeHelp },
+          { path: "my-help", Component: MyHomeHelp },
+          { path: "bookings", Component: MyHomeServiceBookings },
+          { path: "requirements", Component: HomeServiceRequirements },
+          { path: "schedule", Component: HomeServiceSchedule },
+          { path: "payments", Component: HomeServicePayments },
+          { path: "leaves", Component: HomeServiceLeaves },
+          { path: "packages", Component: WorkerPackagesView },
+          { path: "reviews", Component: HomeServiceReviews },
+          { path: "reports", Component: HomeServiceReports },
+          { path: "admin", element: <PermissionGuard permission={MANAGE_WORKER} requiredModule="HOME_SERVICES"><HomeServiceAdminDashboard /></PermissionGuard> },
+        ],
+      },
+      {
+        path: "vehicle-care",
+        children: [
+          { index: true, Component: VehicleCareAdminDashboard },
+          { path: "vendor", Component: VehicleCareVendorPortal },
+        ],
+      },
+      {
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
+      },
+      {
+        path: "parking",
+        element: <PermissionGuard permission={VIEW_PARKING} requiredModule="PARKING"><ParkingManagement /></PermissionGuard>
+      },
+      {
+        path: "guards",
+        element: <PermissionGuard permission={VIEW_GUARDS} requiredModule="GUARDS"><GuardManagement /></PermissionGuard>
       },
       {
         path: "notices",
@@ -378,7 +714,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "helpdesk",
-        element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><Helpdesk /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard>
       },
       {
         path: "polls",
@@ -406,10 +742,6 @@ export const router = createBrowserRouter([
           { path: "create", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
           { path: ":id/edit", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
         ],
-      },
-      { 
-        path: "inventory", 
-        element: <InventoryDashboard /> 
       },
       {
         path: "community",
@@ -462,8 +794,12 @@ export const router = createBrowserRouter([
         ]
       },
       {
+        path: "vendor-apply",
+        Component: VendorApplication,
+      },
+      {
         path: "vendor-admin",
-        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
+        element: <PermissionGuard permission={MANAGE_VENDORS} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
         children: [
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },
@@ -473,6 +809,30 @@ export const router = createBrowserRouter([
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
           { path: "payments", element: <PermissionGuard permission={MANAGE_VENDOR_PAYMENTS}><PaymentsManagement /></PermissionGuard> },
           { path: "analytics", element: <PermissionGuard permission={VIEW_VENDOR_ANALYTICS}><VendorAnalytics /></PermissionGuard> },
+          {
+            path: "commerce-vendors",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_VENDORS} requiredModule="COMMERCE">
+                <CommerceVendorDirectory />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-catalog",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <CommerceProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-orders",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorOrderManagement />
+              </PermissionGuard>
+            ),
+          },
         ],
       },
       {
@@ -483,10 +843,155 @@ export const router = createBrowserRouter([
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
+          {
+            path: "products",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <VendorProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "inventory",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_INVENTORY} requiredModule="COMMERCE">
+                <VendorInventoryLedger />
+              </PermissionGuard>
+            ),
+          },
           { path: "payments", Component: MyPayments },
+          { path: "merchant-payments", Component: VendorMerchantPayments },
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
           { path: "profile", Component: VendorProfile },
+          {
+            path: "commerce-profile",
+            element: (
+              <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="COMMERCE">
+                <VendorCommerceProfile />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-products",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_PRODUCTS} requiredModule="COMMERCE">
+                <CommerceProductCatalog />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "my-commerce-profile",
+            element: (
+              <PermissionGuard requiredModule="COMMERCE">
+                <MyCommerceProfile />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "loyalty-wallet",
+            element: (
+              <PermissionGuard requiredModule="COMMERCE">
+                <LoyaltyWallet />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "my-orders",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <MyOrders />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "order-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorOrderManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "grocery-orders",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorGroceryOrders />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "settlement-management",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_SETTLEMENTS} requiredModule="COMMERCE">
+                <VendorSettlements />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commerce-analytics",
+            element: (
+              <PermissionGuard permission={VIEW_COMMERCE_ANALYTICS} requiredModule="COMMERCE">
+                <CommerceAnalyticsDashboard />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "flash-sales",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <FlashSaleManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "vendor-ratings",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <VendorRatingsDashboard />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "dispute-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <DisputeManagement />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "commission-rules",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <CommissionRulesManager />
+              </PermissionGuard>
+            ),
+          },
+          {
+            path: "subscriptions",
+            element: <SubscriptionManagement />,
+          },
+          {
+            path: "returns",
+            element: <ReturnExchangeManagement />,
+          },
+          {
+            path: "wallet",
+            element: <WalletDashboard />,
+          },
+          {
+            path: "bulk-orders",
+            element: <BulkOrderManagement />,
+          },
+          {
+            path: "coupon-management",
+            element: (
+              <PermissionGuard permission={MANAGE_COMMERCE_ORDERS} requiredModule="COMMERCE">
+                <CouponManagement />
+              </PermissionGuard>
+            ),
+          },
         ],
       },
       {
@@ -548,12 +1053,25 @@ export const router = createBrowserRouter([
         Component: ProfileDashboard
       },
       {
+        path: "privacy-settings",
+        Component: PrivacyHub
+      },
+      {
+        path: "privacy-hub",
+        Component: PrivacyHub
+      },
+      {
+        path: "my-data",
+        Component: PrivacyHub
+      },
+      {
         path: "cpn",
         element: <PermissionGuard permission={VIEW_JOBS} requiredModule="JOBS"><CPNHub /></PermissionGuard>,
         children: [
           { index: true, element: <CPNFeed /> },
           { path: "feed", element: <CPNFeed /> },
-          { path: "profile", element: <ProfileDashboard /> },
+          { path: "directory", element: <ProfessionalDirectory /> },
+          { path: "profile", element: <MyProfessionalProfile /> },
           { path: "network", element: <CPNNetwork /> },
           { path: "jobs", element: <CPNJobs /> },
           { path: "referrals", element: <CPNReferrals /> },
@@ -580,19 +1098,186 @@ export const router = createBrowserRouter([
         path: "architecture/logs",
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
+      {
+        path: "architecture/operations",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PlatformOperationsConsole /></PermissionGuard>
+      },
+      {
+        path: "admin/operations",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><PlatformOperationsConsole /></PermissionGuard>
+      },
       // ── CPOS (Community Property Operating System) Routes ─────────
-      { path: "cpos", element: <CPOSDashboardPage /> },
-      { path: "cpos/properties", element: <CPOSPropertyListPage /> },
-      { path: "cpos/properties/new", element: <CPOSPropertyCreatePage /> },
-      { path: "cpos/properties/:propertyCode", element: <CPOSPropertyDetailPage /> },
-      { path: "cpos/ownership", element: <CPOSOwnershipPage /> },
-      { path: "cpos/occupancy", element: <CPOSOccupancyPage /> },
-      { path: "cpos/residents", element: <CPOSResidentsPage /> },
-      { path: "cpos/finance", element: <CPOSFinanceDashboard /> },
-      { path: "cpos/ai", element: <CPOSAIAdvisorPage /> },
-      { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
-      { path: "cpos/documents", element: <CPOSDocumentVault /> },
-      { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
+      
+      // ── Access & Biometric Turnstiles ───────────────────────────
+      { path: "access/turnstiles", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><BiometricTurnstileMonitor /></PermissionGuard> },
+      // ── Offline Sync & Queuing ──────────────────────────────────
+      { path: "sync", element: <PermissionGuard><OfflineSyncManager /></PermissionGuard> },
+      // ── IoT Sub-Metering & Telemetry ────────────────────────────
+      { path: "iot/meters", element: <PermissionGuard requiredModule="COMMUNITY_MGMT"><SmartMeterDashboard /></PermissionGuard> },
+      // ── Notifications Preference Center ─────────────────────────
+      { path: "settings/notifications", element: <PermissionGuard><NotificationPreferenceCenter /></PermissionGuard> },
+      // ── Smart Parking & ANPR Live Gate ──────────────────────────
+      { path: "parking/anpr", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><AnprGateLiveMonitor /></PermissionGuard> },
+      { path: "parking/ev-charging", element: <PermissionGuard anyPermissions={[VIEW_PARKING, MANAGE_PARKING, VIEW_ADMIN]} requiredModule="VISITORS"><EvChargingManagement /></PermissionGuard> },
+      { path: "cpos", element: <PermissionGuard requiredModule="CPOS"><CPOSDashboardPage /></PermissionGuard> },
+      { path: "cpos/properties", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyListPage /></PermissionGuard> },
+      { path: "cpos/properties/new", element: <PermissionGuard requiredModule="CPOS" adminOnly><CPOSPropertyCreatePage /></PermissionGuard> },
+      { path: "cpos/properties/:propertyCode", element: <PermissionGuard requiredModule="CPOS"><CPOSPropertyDetailPage /></PermissionGuard> },
+      { path: "cpos/ownership", element: <PermissionGuard requiredModule="CPOS"><CPOSOwnershipPage /></PermissionGuard> },
+      { path: "cpos/occupancy", element: <PermissionGuard requiredModule="CPOS"><CPOSOccupancyPage /></PermissionGuard> },
+      { path: "cpos/residents", element: <PermissionGuard requiredModule="CPOS"><CPOSResidentsPage /></PermissionGuard> },
+      { path: "cpos/finance", element: <PermissionGuard requiredModule="CPOS"><CPOSFinanceDashboard /></PermissionGuard> },
+      { path: "cpos/ai", element: <PermissionGuard requiredModule="CPOS"><CPOSAIAdvisorPage /></PermissionGuard> },
+      { path: "cpos/analytics", element: <PermissionGuard requiredModule="CPOS"><CPOSAnalyticsDashboard /></PermissionGuard> },
+      { path: "cpos/documents", element: <PermissionGuard requiredModule="CPOS"><CPOSDocumentVault /></PermissionGuard> },
+      { path: "cpos/crm", element: <PermissionGuard requiredModule="CPOS"><CPOSCRMPipelinePage /></PermissionGuard> },
+      { path: "cpos/crm/leads", element: <PermissionGuard requiredModule="CPOS"><CPOSLeadsPage /></PermissionGuard> },
+      { path: "cpos/crm/leads/:leadId", element: <PermissionGuard requiredModule="CPOS"><CPOSLeadDetailPage /></PermissionGuard> },
+      { path: "cpos/crm/analytics", element: <PermissionGuard requiredModule="CPOS"><CPOSCRMAnalyticsPage /></PermissionGuard> },
+      { path: "cpos/crm/brokers", element: <PermissionGuard requiredModule="CPOS"><CPOSBrokerCommissionPage /></PermissionGuard> },
+      { path: "cpos/crm/integrations", element: <PermissionGuard requiredModule="CPOS"><CPOSPortalIntegrationsPage /></PermissionGuard> },
+      { path: "cpos/crm/email-templates", element: <PermissionGuard requiredModule="CPOS"><CPOSCrmEmailTemplatesPage /></PermissionGuard> },
+      { path: "cpos/crm/leaderboard", element: <PermissionGuard requiredModule="CPOS"><CPOSCrmLeaderboardPage /></PermissionGuard> },
+      { path: "cpos/crm/approvals", element: <PermissionGuard requiredModule="CPOS"><CPOSApprovalsPage /></PermissionGuard> },
+      { path: "cpos/crm/drip", element: <PermissionGuard requiredModule="CPOS"><CPOSDripSequencesPage /></PermissionGuard> },
+      { path: "cpos/crm/reports", element: <PermissionGuard requiredModule="CPOS"><CPOSCustomReportPage /></PermissionGuard> },
+      // ── New Community Ecosystem Modules ─────────────────────────
+      { path: "emergency", element: <PermissionGuard permission={VIEW_EMERGENCY} requiredModule="EMERGENCY"><EmergencyCenter /></PermissionGuard> },
+      { path: "group-buying", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingHub /></PermissionGuard> },
+      { path: "group-buying/deals", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealsListing /></PermissionGuard> },
+      { path: "group-buying/deal/:dealId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealDetail /></PermissionGuard> },
+      { path: "group-buying/checkout/:dealId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DealCheckout /></PermissionGuard> },
+      { path: "group-buying/almost-unlocked", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><AlmostUnlocked /></PermissionGuard> },
+      { path: "group-buying/festival-deals", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><FestivalDeals /></PermissionGuard> },
+      { path: "group-buying/monthly-baskets", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><MonthlyBaskets /></PermissionGuard> },
+      { path: "group-buying/buy-again", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><BuyAgain /></PermissionGuard> },
+      { path: "group-buying/buying-groups", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><BuyingGroups /></PermissionGuard> },
+      { path: "group-buying/savings", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><CommunitySavingsDashboard /></PermissionGuard> },
+      { path: "group-buying/ai-search", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><AIDemandSearch /></PermissionGuard> },
+      { path: "group-buying/my-orders", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingMyOrders /></PermissionGuard> },
+      { path: "group-buying/demand-board", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandBoard /></PermissionGuard> },
+      { path: "group-buying/demand/:demandId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><DemandDetail /></PermissionGuard> },
+      { path: "group-buying/vendor/:vendorId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><VendorProfilePage /></PermissionGuard> },
+      { path: "group-buying/pickup-pass/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><PickupPassPage /></PermissionGuard> },
+      { path: "group-buying/pickup-scanner", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><PickupScanner /></PermissionGuard> },
+      { path: "group-buying/review/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderReviewPage /></PermissionGuard> },
+      { path: "group-buying/dispute/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderDisputePage /></PermissionGuard> },
+      { path: "group-buying/catalog", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
+      { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
+      { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
+      { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
+      { path: "finance/maintenance", element: <PermissionGuard permission={VIEW_MAINTENANCE_DUES} requiredModule="FINANCE_MGMT"><MaintenanceDues /></PermissionGuard> },
+      { path: "finance/billing", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><AdminBillingDashboard /></PermissionGuard> },
+      { path: "finance/bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
+      { path: "bills", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} requiredModule="FINANCE_MGMT"><BillsAndAutopayDashboard /></PermissionGuard> },
+      { path: "pay", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} anyModules={["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"]}><ManaPayHub /></PermissionGuard> },
+      { path: "payments", element: <PermissionGuard anyPermissions={[VIEW_MAINTENANCE_DUES, PAY_MAINTENANCE_DUES, VIEW_ADMIN]} anyModules={["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"]}><ManaPayHub /></PermissionGuard> },
+      { path: "my-money", element: <MyMoneyDashboard /> },
+      { path: "split", element: <ManaSplitHub /> },
+      { path: "split/:groupId", element: <ManaSplitHub /> },
+      { path: "safety", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} anyModules={["VISITORS", "SAFETY"]}><SafetyCommandCenter /></PermissionGuard> },
+      { path: "safety/trust", element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} anyModules={["VISITORS", "SAFETY"]}><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
+      { path: "admin/trust-safety", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]} requiredModule="ADMIN_HUB"><CommunityTrustAndSafetyDashboard /></PermissionGuard> },
+      { path: "pets", element: <PermissionGuard requiredModule="HOME_SERVICES"><PetRegistryDashboard /></PermissionGuard> },
+      { path: "health", element: <HealthPortal /> },
+      { path: "insurance", element: <InsurancePortal /> },
+      { path: "gold", element: <GoldPortal /> },
+      { path: "mutual-funds", element: <MutualFundsPortal /> },
+      { path: "split-bill", element: <SplitBillPortal /> },
+      { path: "movies", element: <MoviePortal /> },
+      { path: "fd", element: <FDPortal /> },
+      { path: "loans", element: <LoanPortal /> },
+      // ── Mana Academy (Community Learning & Skill-Sharing) ────────
+      {
+        path: "academy",
+        element: <PermissionGuard requiredModule="ACADEMY"><AcademyLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <AcademyDashboard /> },
+          { path: "my-learning", element: <MyLearningView /> },
+          { path: "teaching", element: <InstructorHubView /> },
+          { path: "admin", element: <PermissionGuard adminOnly requiredModule="ACADEMY"><AcademyAdminHub /></PermissionGuard> },
+        ],
+      },
+      // ── Mana Deals & Community Commerce Network ──────────────
+      {
+        path: "deals",
+        element: <PermissionGuard requiredModule="COMMUNITY_OFFERS"><OffersLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <OffersDashboard /> },
+          { path: "market-days", element: <MarketEventsView /> },
+          { path: "partners", element: <BusinessDirectoryView /> },
+          { path: "demands", element: <CommunityDemandView /> },
+          { path: "my-claims", element: <MyClaimsView /> },
+          { path: "admin", element: <PermissionGuard adminOnly requiredModule="COMMUNITY_OFFERS"><CommerceAdminHub /></PermissionGuard> },
+        ],
+      },
+      // ── New Modules (Web-Mobile Parity) ──────────────
+      { path: "personal-finance", element: <PersonalFinanceDashboard /> },
+      { path: "khatabook", element: <KhataBook /> },
+      { path: "health", element: <HealthDashboard /> },
+      {
+        path: "wellness",
+        children: [
+          { index: true, element: <WellnessDashboard /> },
+          { path: "food-journal", element: <FoodJournal /> },
+          { path: "log-meal", element: <MealLogger /> },
+          { path: "water", element: <WaterTracker /> },
+          { path: "challenges", element: <WellnessChallenges /> },
+          { path: "providers", element: <WellnessProviders /> },
+          { path: "profile", element: <WellnessProfilePage /> },
+        ],
+      },
+      {
+        path: "healthguard",
+        children: [
+          { index: true, element: <HealthGuardDashboard /> },
+          { path: "contacts", element: <EmergencyContacts /> },
+          { path: "incidents", element: <IncidentTracker /> },
+          { path: "sos", element: <SosScreen /> },
+          { path: "profile", element: <HealthProfile /> },
+          { path: "responder", element: <ResponderHub /> },
+          { path: "ambulance", element: <AmbulanceBookingScreen /> },
+          { path: "admin/incidents", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminIncidentDashboard /></PermissionGuard> },
+          { path: "ambulance-dispatch", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AmbulanceDispatch /></PermissionGuard> },
+          { path: "admin/wearable-alerts", element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><WearableAlertsDashboard /></PermissionGuard> },
+        ],
+      },
+      { path: "commute", element: <CommuteDashboard /> },
+      { path: "mobility", element: <MobilityDashboard /> },
+      { path: "projects", element: <ProjectsDashboard /> },
+      { path: "automation", element: <AutomationDashboard /> },
+      { path: "intelligence", element: <IntelligenceDashboard /> },
+      { path: "ai-chat", element: <AiChatDashboard /> },
+      { path: "calendar", element: <CalendarDashboard /> },
+      { path: "commerce", element: <CommerceDashboard /> },
+      // ── Mana Governance (Community Decisions, Meetings & Voting) ────────
+      {
+        path: "governance",
+        element: <PermissionGuard requiredModule="GOVERNANCE"><GovernanceLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <GovernanceDashboard /> },
+          { path: "dashboard", element: <GovernanceDashboard /> },
+          { path: "meetings", element: <MeetingsManagement /> },
+          { path: "proposals", element: <ProposalsHub /> },
+          { path: "voting", element: <VotingCenter /> },
+          { path: "resolutions", element: <ResolutionsBoard /> },
+          { path: "vault", element: <DigitalVault /> },
+          { path: "committee", element: <CommitteeAndElections /> },
+        ],
+      },
+      // ── Mobile Recharge & Route Aliases / Parity Redirects ────────
+      { path: "recharge", element: <MobileRechargeHub /> },
+      { path: "facilities", element: <Navigate to="/bookings" replace /> },
+      { path: "offers", element: <Navigate to="/deals" replace /> },
+      { path: "trips/flights", element: <Navigate to="/trips?tab=flights" replace /> },
+      // ── Mobile Super-Set Harmonization Redirects ────────
+      { path: "health/:tab", element: <HealthSubRouteRedirect /> },
+      { path: "guard", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "guard/*", element: <Navigate to="/visitors?portal=guard" replace /> },
+      { path: "sports-admin", element: <Navigate to="/sports/admin" replace /> },
+      { path: "sports-admin/*", element: <Navigate to="/sports/admin" replace /> },
+      { path: "event-admin", element: <Navigate to="/events/operations" replace /> },
+      { path: "event-admin/*", element: <Navigate to="/events/operations" replace /> },
     ],
   },
 ]);

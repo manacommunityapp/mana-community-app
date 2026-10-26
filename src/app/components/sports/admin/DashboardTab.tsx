@@ -61,20 +61,20 @@ export function DashboardTab({
         </div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="text-xl md:text-2xl font-extrabold tracking-tight flex flex-wrap items-baseline gap-2">
+            <h2 className="text-xs font-extrabold tracking-tight flex flex-wrap items-baseline gap-2">
               <span>Overview</span>
-              <span className="text-xs md:text-sm font-normal text-indigo-200">
+              <span className="text-[10px] font-normal text-indigo-200">
                 Manage community sports events and rules
               </span>
             </h2>
           </div>
           
           <div className="text-left md:text-right space-y-1 max-w-md">
-            <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
               Control Panel
             </span>
-            <h3 className="text-sm md:text-base font-extrabold tracking-tight">Admin Command Center</h3>
-            <p className="text-[10px] md:text-[11px] text-indigo-200 leading-relaxed">
+            <h3 className="text-xs font-extrabold tracking-tight">Admin Command Center</h3>
+            <p className="text-xs text-indigo-200 leading-relaxed">
               Configure sports rules, approve pending teams, manage tournament categories, and overview active registrations.
             </p>
           </div>
@@ -82,69 +82,69 @@ export function DashboardTab({
       </div>
 
       {/* Quick Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <Trophy className="w-5 h-5" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
+            <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Events</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 uppercase tracking-wider">Events</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
-            <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
-              <CalendarCheck className="w-5 h-5" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
+            <div className="p-1 sm:p-1.5 bg-violet-50 text-violet-600 rounded-lg">
+              <CalendarCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">Scheduled</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 uppercase tracking-wider">Scheduled</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              <Users className="w-5 h-5" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
+            <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Approved</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 uppercase tracking-wider">Approved</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-              <ClipboardList className="w-5 h-5" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
+            <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+              <ClipboardList className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold animate-pulse">Pending</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 uppercase tracking-wider animate-pulse">Pending</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+        <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-              <MapPin className="w-5 h-5" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
+            <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Locations</span>
+          <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 uppercase tracking-wider">Locations</span>
           </div>
         </div>
       </div>
@@ -155,8 +155,8 @@ export function DashboardTab({
         <div className="lg:col-span-2 space-y-6">
           {/* Pending Approvals Widget */}
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <div className="flex items-center justify-between border-b border-slate-100">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 m-0 mb-0">
                 <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
                 Pending Registrations
               </h3>
@@ -175,8 +175,8 @@ export function DashboardTab({
                   {visiblePending.map((reg) => (
                     <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
                       <div className="text-left">
-                        <h4 className="text-sm font-bold text-slate-800">{reg.teamName}</h4>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <h4 className="text-xs font-bold text-slate-800">{reg.teamName}</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           Captain: {reg.captain} · Email: {reg.email}
                         </p>
                       </div>
@@ -214,7 +214,7 @@ export function DashboardTab({
 
           {/* Quick Navigation Cards */}
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
               Quick Navigation
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -226,7 +226,7 @@ export function DashboardTab({
                   <ClipboardList className="w-4 h-4" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-800">Event Rules</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">Configure rule descriptions, caps, and options.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Configure rule descriptions, caps, and options.</p>
               </div>
 
               <div
@@ -237,7 +237,7 @@ export function DashboardTab({
                   <MapPin className="w-4 h-4" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-800">Manage Venues</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">Define court locations and booking settings.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Define court locations and booking settings.</p>
               </div>
 
               <div
@@ -248,7 +248,7 @@ export function DashboardTab({
                   <Users className="w-4 h-4" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-800">Player Categories</h4>
-                <p className="text-[11px] text-slate-500 leading-relaxed">Set tier limits and register grading boundaries.</p>
+                <p className="text-xs text-slate-500 leading-relaxed">Set tier limits and register grading boundaries.</p>
               </div>
             </div>
           </div>
@@ -257,7 +257,7 @@ export function DashboardTab({
         {/* Right Column: Active Tournaments / Sports List */}
         <div className="space-y-6">
           <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
               Active Tournaments
             </h3>
             <div className="space-y-3.5">
@@ -274,15 +274,11 @@ export function DashboardTab({
                       <div key={t.id} className="text-left space-y-1 pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-bold text-slate-800">{t.name}</h4>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                            isLive ? "bg-red-50 text-red-600 border border-red-100" :
-                            isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                            "bg-slate-50 text-slate-400 border border-slate-100"
-                          }`}>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${ isLive ? "bg-red-50 text-red-600 border border-red-100" : isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-50 text-slate-400 border border-slate-100" }`}>
                             {t.registrationStatus || "DRAFT"}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 leading-snug">
+                        <p className="text-xs text-slate-400 leading-snug">
                           Sport: {t.sport?.name || "General"} · Max Teams: {t.maxTeams || "N/A"}
                         </p>
                       </div>
@@ -303,7 +299,7 @@ export function DashboardTab({
 
           <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-2">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Quick Hint</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-500 leading-relaxed">
               To schedule matches or update match results live, open the dedicated **Sports Schedule** page from the sidebar menu. Settings and sports rules are configurable in this dashboard.
             </p>
           </div>

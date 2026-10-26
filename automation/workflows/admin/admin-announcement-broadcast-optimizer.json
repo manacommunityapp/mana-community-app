@@ -1,0 +1,140 @@
+﻿{
+  "name": "Mana Admin Announcement & Multi-Channel Broadcast Optimizer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-announcement-optimize",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-admin-announcement-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst title = item.title || 'Society Notice';\nconst rawDraft = item.rawDraft || item.content || item.body || '';\nconst category = item.category || 'GENERAL_NOTICE';\nconst urgency = item.urgency || 'NORMAL';\nconst targetAudience = item.targetAudience || 'ALL_RESIDENTS';\nconst affectedBlocks = item.affectedBlocks || [];\nconst scheduledDate = item.scheduledDate || 'Immediate';\nconst contactPerson = item.contactPerson || 'Society Office';\n\nconst prompt = `You are the Director of Community Communications & Public Relations for the Mana Residential Community.\nReview, polish, and adapt the following society announcement for multi-channel broadcast (WhatsApp, SMS, Notice Board, Push Notification).\n\nDraft Notice:\n- Title: ${title}\n- Category: ${category} (MAINTENANCE, SAFETY_SECURITY, EVENT_FESTIVAL, BILLING_DUES, GENERAL_NOTICE, RULE_CHANGE)\n- Stated Urgency: ${urgency} (LOW, NORMAL, HIGH, URGENT)\n- Target Audience: ${targetAudience}\n- Affected Blocks: ${JSON.stringify(affectedBlocks)}\n- Scheduled Effective Date/Time: ${scheduledDate}\n- Escalation Contact: ${contactPerson}\n- Raw Message Draft:\n\"${rawDraft}\"\n\nTone, Legal & Clarity Guidelines:\n1. Ensure the tone is polite, professional, and reassuring. If it's a utility disruption (power, water, lift), ensure alternative measures and restore ETA are emphasized.\n2. In dues/rules announcements, eliminate accusatory or defamatory language to preserve community harmony.\n3. Generate distinct adaptations:\n   - whatsappBroadcast: Clean bullet points with bold highlights and emojis.\n   - smsSnippet: Under 160 characters, concise and actionable.\n   - formalNoticeBoard: Official letterhead circular format suitable for PDF / lobby bulletin.\n   - pushNotificationTitle & pushNotificationBody: Brief 1-line lockscreen notification.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"optimizationScore\": number (0 to 100),\n  \"recommendedUrgency\": \"LOW\" | \"NORMAL\" | \"HIGH\" | \"URGENT\",\n  \"toneAnalysis\": \"Assessment of clarity, empathy, and community impact\",\n  \"missingCriticalInfo\": string[],\n  \"channels\": {\n    \"whatsappBroadcast\": string,\n    \"smsSnippet\": string,\n    \"formalNoticeBoard\": string,\n    \"pushNotificationTitle\": string,\n    \"pushNotificationBody\": string\n  }\n}`;\n\nreturn [{\n  json: {\n    title,\n    category,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  const meta = $('Prepare AI Prompt').first().json;\n  parsed = {\n    optimizationScore: 75,\n    recommendedUrgency: \"NORMAL\",\n    toneAnalysis: \"Standard informative circular.\",\n    missingCriticalInfo: [],\n    channels: {\n      whatsappBroadcast: \"ðŸ“¢ *Mana Community Notice: \" + meta.title + \"*\\n\\nPlease review the latest society announcement in the Mana app.\",\n      smsSnippet: \"Mana Community Alert: \" + meta.title + \". Please check Mana App for details.\",\n      formalNoticeBoard: \"CIRCULAR\\n\\nSubject: \" + meta.title + \"\\n\\nDear Residents, please be advised of the upcoming society schedule.\",\n      pushNotificationTitle: meta.title,\n      pushNotificationBody: \"New society announcement published. Tap to read.\"\n    }\n  };\n}\n\nconst meta = $('Prepare AI Prompt').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    title: meta.title,\n    evaluatedAt: new Date().toISOString(),\n    broadcastPlan: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

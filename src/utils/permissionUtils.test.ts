@@ -7,7 +7,16 @@ import {
   canAccessEndpoint,
 } from "./permissionUtils";
 import type { StoredUser } from "../services/common/apiClient";
-import { VIEW_NOTICES, CREATE_NOTICE, VIEW_EVENTS } from "../constants/permissions";
+import {
+  VIEW_NOTICES,
+  CREATE_NOTICE,
+  VIEW_EVENTS,
+  VIEW_SPORTS_MAIN,
+  CREATE_EDIT_SPORTS_MAIN,
+  DELETE_SPORTS_MAIN,
+  VIEW_SPORTS_MENU,
+  ROLE_SPORTS_ADMIN,
+} from "../constants/permissions";
 
 describe("permissionUtils", () => {
   const superAdminUser: StoredUser = {
@@ -22,8 +31,8 @@ describe("permissionUtils", () => {
     userId: "2",
     role: "MEMBER",
     roles: ["MEMBER"],
-    permissions: [VIEW_EVENTS],
-    enabledModules: ["EVENTS", "COMMUNITY_FEED"],
+    permissions: [VIEW_EVENTS, VIEW_SPORTS_MENU],
+    enabledModules: ["EVENTS", "COMMUNITY_FEED", "SPORTS"],
   };
 
   const noticeAdminUser: StoredUser = {
@@ -32,6 +41,19 @@ describe("permissionUtils", () => {
     roles: ["COMMUNITY_ADMIN"],
     permissions: [VIEW_NOTICES, CREATE_NOTICE],
     enabledModules: ["NOTICES", "EVENTS"],
+  };
+
+  const sportsAdminUser: StoredUser = {
+    userId: "5",
+    role: ROLE_SPORTS_ADMIN,
+    roles: [ROLE_SPORTS_ADMIN],
+    permissions: [
+      VIEW_SPORTS_MAIN,
+      CREATE_EDIT_SPORTS_MAIN,
+      DELETE_SPORTS_MAIN,
+      VIEW_SPORTS_MENU,
+    ],
+    enabledModules: ["SPORTS"],
   };
 
   describe("isUserSuperAdmin", () => {
@@ -45,12 +67,15 @@ describe("permissionUtils", () => {
   describe("canAccessModule", () => {
     it("allows super admin to access any module", () => {
       expect(canAccessModule(superAdminUser, "NOTICES")).toBe(true);
+      expect(canAccessModule(superAdminUser, "SPORTS")).toBe(true);
     });
 
     it("checks enabledModules for normal users", () => {
       expect(canAccessModule(regularMemberUser, "EVENTS")).toBe(true);
+      expect(canAccessModule(regularMemberUser, "SPORTS")).toBe(true);
       expect(canAccessModule(regularMemberUser, "NOTICES")).toBe(false);
       expect(canAccessModule(noticeAdminUser, "NOTICES")).toBe(true);
+      expect(canAccessModule(sportsAdminUser, "SPORTS")).toBe(true);
     });
   });
 
@@ -58,12 +83,23 @@ describe("permissionUtils", () => {
     it("allows super admin all permissions", () => {
       expect(hasUserPermission(superAdminUser, VIEW_NOTICES)).toBe(true);
       expect(hasAnyUserPermission(superAdminUser, VIEW_NOTICES, "SOME_OTHER_PERM")).toBe(true);
+      expect(hasUserPermission(superAdminUser, CREATE_EDIT_SPORTS_MAIN)).toBe(true);
     });
 
     it("checks granted permissions for normal users", () => {
       expect(hasUserPermission(regularMemberUser, VIEW_EVENTS)).toBe(true);
+      expect(hasUserPermission(regularMemberUser, VIEW_SPORTS_MENU)).toBe(true);
+      expect(hasUserPermission(regularMemberUser, CREATE_EDIT_SPORTS_MAIN)).toBe(false);
       expect(hasUserPermission(regularMemberUser, VIEW_NOTICES)).toBe(false);
       expect(hasAnyUserPermission(regularMemberUser, VIEW_NOTICES, VIEW_EVENTS)).toBe(true);
+    });
+
+    it("validates sports admin permissions", () => {
+      expect(hasUserPermission(sportsAdminUser, VIEW_SPORTS_MAIN)).toBe(true);
+      expect(hasUserPermission(sportsAdminUser, CREATE_EDIT_SPORTS_MAIN)).toBe(true);
+      expect(hasUserPermission(sportsAdminUser, DELETE_SPORTS_MAIN)).toBe(true);
+      expect(hasUserPermission(sportsAdminUser, VIEW_SPORTS_MENU)).toBe(true);
+      expect(hasUserPermission(sportsAdminUser, VIEW_NOTICES)).toBe(false);
     });
   });
 
@@ -104,9 +140,43 @@ describe("permissionUtils", () => {
       expect(res.allowed).toBe(true);
     });
 
+    it("allows member with BOOKINGS module and VIEW_AMENITIES or VIEW_RESOURCE_BOOKING to access /resource-booking", () => {
+      const bookingUser: StoredUser = {
+        userId: "6",
+        role: "MEMBER",
+        roles: ["MEMBER"],
+        permissions: ["View Resource Booking"],
+        enabledModules: ["BOOKINGS"],
+      };
+      expect(canAccessEndpoint("/resource-booking/resources", "GET", bookingUser).allowed).toBe(true);
+      expect(canAccessEndpoint("/resource-booking/categories", "GET", bookingUser).allowed).toBe(true);
+    });
+
     it("allows super admin to call any endpoint", () => {
       expect(canAccessEndpoint("/notices", "GET", superAdminUser).allowed).toBe(true);
       expect(canAccessEndpoint("/notices", "POST", superAdminUser).allowed).toBe(true);
     });
+
+    it("evaluates canAccessModule correctly based on community enabledModules", () => {
+      const userWithoutFinance: StoredUser = {
+        userId: "10",
+        role: "MEMBER",
+        communityId: 1,
+        enabledModules: ["COMMUNITY_FEED", "EVENTS"],
+      };
+      const userWithFinance: StoredUser = {
+        userId: "11",
+        role: "MEMBER",
+        communityId: 1,
+        enabledModules: ["COMMUNITY_FEED", "FINANCE_MGMT", "VISITORS"],
+      };
+
+      expect(canAccessModule(userWithoutFinance, "FINANCE_MGMT")).toBe(false);
+      expect(canAccessModule(userWithoutFinance, "VISITORS")).toBe(false);
+
+      expect(canAccessModule(userWithFinance, "FINANCE_MGMT")).toBe(true);
+      expect(canAccessModule(userWithFinance, "VISITORS")).toBe(true);
+    });
   });
 });
+

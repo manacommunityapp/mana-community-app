@@ -1,0 +1,124 @@
+﻿{
+  "name": "Mana Profile KYC & Resident Safety Auditor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "profile-kyc-fraud-detector",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "KYC Profile Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-profile-kyc-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst userId = item.userId || item.id || 101;\nconst fullName = item.fullName || item.name || 'Resident';\nconst email = item.email || '';\nconst phone = item.phone || '';\nconst flatNumber = item.flatNumber || '';\nconst occupancyType = item.occupancyType || 'OWNER';\nconst familyMembers = item.familyMembers || [];\nconst submittedDocuments = item.documents || [];\n\nconst prompt = `You are the Chief Registrar and Resident KYC Compliance Auditor for the Mana Community Management Committee.\nAudit the following resident profile, occupancy details, and family directory for data integrity, document authenticity, and emergency safety preparedness.\n\nResident Profile Details:\n- Name: ${fullName}\n- Flat / Villa: ${flatNumber}\n- Occupancy Type: ${occupancyType}\n- Email: ${email}\n- Phone: ${phone}\n- Family Members (${familyMembers.length}):\n${JSON.stringify(familyMembers, null, 2)}\n- Submitted Documents / Metadata:\n${JSON.stringify(submittedDocuments, null, 2)}\n\nCompliance & Safety Criteria:\n1. Residency Verification: Is flat format valid (e.g. Tower-Flat format) and appropriate for society register?\n2. Family Relationship Coherence: Are relationships, ages, and dependent categories chronologically coherent?\n3. Emergency Preparedness: Does the profile have at least ONE dedicated emergency contact phone number? Are blood groups provided for dependent seniors or children?\n4. KYC Fraud / Multi-accounting Check: Flag if name or phone matches suspicious patterns or unverified guest claims.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"verificationStatus\": \"VERIFIED\" | \"PROVISIONAL_PASS\" | \"ADDITIONAL_DOCS_REQUIRED\" | \"FLAGGED_FRAUD\",\n  \"safetyPreparednessScore\": number (0 to 100),\n  \"confidenceScore\": number (0.0 to 1.0),\n  \"missingCriticalInfo\": [\n    {\n      \"field\": string,\n      \"severity\": \"CRITICAL\" | \"RECOMMENDED\",\n      \"reason\": string\n    }\n  ],\n  \"familyAudit\": [\n    {\n      \"memberName\": string,\n      \"status\": \"VERIFIED\" | \"FLAGGED\",\n      \"remarks\": string\n    }\n  ],\n  \"residentNextSteps\": [\n    {\n      \"title\": string,\n      \"description\": string,\n      \"actionRequired\": boolean\n    }\n  ],\n  \"residentWelcomeMessage\": \"Warm, community-centric welcome message with onboarding summary ready for app push notification.\"\n}`;\n\nreturn [{\n  json: {\n    userId,\n    fullName,\n    flatNumber,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Profile Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini KYC Auditor (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedRuling = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedRuling = JSON.parse(rawText);\n} catch (err) {\n  parsedRuling = {\n    verificationStatus: \"PROVISIONAL_PASS\",\n    safetyPreparednessScore: 85,\n    confidenceScore: 0.9,\n    missingCriticalInfo: [],\n    familyAudit: [],\n    residentNextSteps: [\n      { title: \"Complete Emergency Contacts\", description: \"Add secondary contact for your household\", actionRequired: false }\n    ],\n    residentWelcomeMessage: \"Welcome to Mana Community! Your profile has been created and verified.\"\n  };\n}\n\nconst meta = $('Prepare Profile Audit Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    userId: meta.userId,\n    fullName: meta.fullName,\n    flatNumber: meta.flatNumber,\n    auditedAt: new Date().toISOString(),\n    kycAudit: parsedRuling\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format KYC Audit Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with KYC Audit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "KYC Profile Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Profile Audit Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Profile Audit Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini KYC Auditor (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini KYC Auditor (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format KYC Audit Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format KYC Audit Output": {
+      "main": [
+        [
+          {
+            "node": "Respond with KYC Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

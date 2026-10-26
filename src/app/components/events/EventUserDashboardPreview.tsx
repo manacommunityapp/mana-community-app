@@ -61,6 +61,7 @@ import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
+import { escapeHtml } from "../../../utils/sanitize";
 
 interface FamilyMember {
   id: string;
@@ -68,7 +69,14 @@ interface FamilyMember {
   relation: string;
   age: number;
   dob?: string;
+  gender?: string;
+  gotram?: string;
+  phone?: string;
+  email?: string;
+  bloodGroup?: string;
   avatar: string;
+  emergencyContact?: boolean;
+  isDevotee?: boolean;
 }
 
 interface Activity {
@@ -509,7 +517,14 @@ export function EventUserDashboardPreview() {
     name: "",
     relation: "Son",
     dob: "",
+    gender: "Male",
+    gotram: "",
+    phone: "",
+    email: "",
+    bloodGroup: "",
     avatar: "👦",
+    emergencyContact: false,
+    isDevotee: true,
   });
 
   useEscapeKey(() => setMobileQuickActionModal(null), Boolean(mobileQuickActionModal));
@@ -706,7 +721,10 @@ export function EventUserDashboardPreview() {
   const fetchLiveDataFromBackend = async () => {
     try {
       setLoadingApiData(true);
-      const payload = await eventUserDashboardService.getDashboard();
+      const [payload, meals] = await Promise.all([
+        eventUserDashboardService.getDashboard(),
+        eventService.getLunchDinnerSummaries().catch(() => eventService.getLunchDinners()).catch(() => []),
+      ]);
 
       // ── Stats ────────────────────────────────────────────────────────────────
       setLiveStats({
@@ -731,9 +749,9 @@ export function EventUserDashboardPreview() {
 
       // ── Activities list (event cards grid) ───────────────────────────────────
       const fetchedActivities: Activity[] = payload.upcomingEvents.map((ev) => {
-        const avail = ev.maxAttendees != null
-          ? Math.max(0, ev.maxAttendees - ev.attendeeCount)
-          : 100;
+        const avail = ev.capacity != null
+          ? ev.capacity
+          : (ev.maxAttendees ?? 100);
         const typeUpper = (ev.type || "").toUpperCase();
         const category: Activity["category"] =
           typeUpper.includes("POOJA") || typeUpper.includes("SEVA") ? "Pooja"
@@ -767,7 +785,7 @@ export function EventUserDashboardPreview() {
           venue: ev.location || ev.city || "",
           fee: ev.price || 0,
           availableSeats: avail,
-          capacity: ev.maxAttendees || 100,
+          capacity: ev.capacity ?? ev.maxAttendees ?? 100,
           maxAttendees: ev.maxAttendees || undefined,
           image: imageEmoji,
           description: "",
@@ -793,7 +811,41 @@ export function EventUserDashboardPreview() {
           culturalCount: ev.activitySummary?.culturalCount,
         } as any;
       });
-      setActivitiesList(fetchedActivities);
+
+      // ── Sub-event meals / dining sessions with live headcount deduction ──────
+      const mealActivities: Activity[] = [];
+      if (Array.isArray(meals)) {
+        meals.forEach((m: any) => {
+          if (String(m.status || "").toUpperCase() === "CANCELLED") return;
+          const initialPlates = Number(m.targetPlates != null ? m.targetPlates : 500);
+          const bookedHeadcount = Number(m.attendeeHeadcount ?? 0);
+          const remainingPlates = Math.max(0, initialPlates - bookedHeadcount);
+          const formattedMealTime = m.startTime && m.endTime 
+            ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
+            : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
+
+          mealActivities.push({
+            id: `food-${m.id || Date.now()}`,
+            title: m.name || "Community Mahaprasadam",
+            category: "Food",
+            date: m.date ? String(m.date) : "Upcoming",
+            time: formattedMealTime,
+            venue: m.venue || m.diningHall || m.location || "",
+            fee: m.isFree ? 0 : Number(m.fee || 50),
+            isFree: m.isFree,
+            needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
+            availableSeats: remainingPlates,
+            capacity: initialPlates,
+            maxAttendees: initialPlates,
+            image: "🍲",
+            description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
+            mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
+            mealType: m.mealType ? String(m.mealType).toUpperCase() : undefined,
+          } as any);
+        });
+      }
+
+      setActivitiesList([...fetchedActivities, ...mealActivities]);
 
       // Fetch live scheduled activities (poojas, meals, culturals) across all upcoming events
       const eventsWithSubs = payload.upcomingEvents.filter(
@@ -903,7 +955,7 @@ export function EventUserDashboardPreview() {
         coverImageUrl: ev.imageUrl || undefined,
         imageUrl: ev.imageUrl || undefined,
         status: ev.status,
-        capacity: ev.maxAttendees || 100,
+        capacity: ev.capacity ?? ev.maxAttendees ?? 100,
         maxAttendees: ev.maxAttendees,
         attendees: ev.attendeeCount,
         registrationCount: ev.attendeeCount,
@@ -1033,7 +1085,14 @@ export function EventUserDashboardPreview() {
       age: user?.dateOfBirth
         ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
         : 30,
+      dob: user?.dateOfBirth,
+      gender: user?.gender || "Male",
+      gotram: (user as any)?.gotram || (user as any)?.gothram,
+      phone: user?.phone,
+      email: user?.email,
       avatar: user?.gender === "Female" ? "👩" : "👨",
+      emergencyContact: true,
+      isDevotee: true,
     };
 
     try {
@@ -1050,7 +1109,15 @@ export function EventUserDashboardPreview() {
             name: m.name,
             relation: m.relation || "Family",
             age: Number(m.age) || 25,
-            avatar: m.gender === "Female" ? "👩" : "👨",
+            dob: m.dob || m.dateOfBirth,
+            gender: m.gender || "Male",
+            gotram: m.gothram || m.gotram,
+            phone: m.phone,
+            email: m.email,
+            bloodGroup: m.bloodGroup,
+            avatar: m.avatar || "👤",
+            emergencyContact: Boolean(m.emergencyContact),
+            isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
           }));
 
         // Filter out any duplicate self/primary entries from DB
@@ -1745,6 +1812,14 @@ export function EventUserDashboardPreview() {
       name: newMember.name.trim(),
       relation: newMember.relation,
       dob: newMember.dob || undefined,
+      gender: newMember.gender || "Male",
+      gotram: newMember.gotram?.trim() || undefined,
+      gothram: newMember.gotram?.trim() || undefined,
+      phone: newMember.phone?.trim() || undefined,
+      email: newMember.email?.trim() || undefined,
+      bloodGroup: newMember.bloodGroup?.trim() || undefined,
+      emergencyContact: newMember.emergencyContact,
+      isDevotee: newMember.isDevotee !== undefined ? newMember.isDevotee : true,
       age: computedAge,
       avatar: newMember.avatar,
       status: "ACTIVE",
@@ -1757,6 +1832,7 @@ export function EventUserDashboardPreview() {
       if (saved && saved.id) {
         createdId = String(saved.id);
       }
+      showSuccess(`Family member ${payload.name} added successfully!`);
     } catch (err: any) {
       showError(err?.message || "Failed to add family member");
       return;
@@ -1767,6 +1843,13 @@ export function EventUserDashboardPreview() {
       name: payload.name,
       relation: payload.relation,
       dob: payload.dob,
+      gender: payload.gender,
+      gotram: payload.gotram,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
       age: payload.age,
       avatar: payload.avatar,
     };
@@ -1774,7 +1857,19 @@ export function EventUserDashboardPreview() {
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
     setSelectedMembers((prev) => [...prev, createdMember.id]);
-    setNewMember({ name: "", relation: "Son", dob: "", avatar: "👦" });
+    setNewMember({
+      name: "",
+      relation: "Son",
+      dob: "",
+      gender: "Male",
+      gotram: "",
+      phone: "",
+      email: "",
+      bloodGroup: "",
+      avatar: "👦",
+      emergencyContact: false,
+      isDevotee: true,
+    });
     setShowAddMemberModal(false);
   };
 
@@ -1994,7 +2089,7 @@ export function EventUserDashboardPreview() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>E-Pass Ticket - ${pass.regId}</title>
+  <title>E-Pass Ticket - ${escapeHtml(pass.regId)}</title>
   <style>
     @page { size: A4 portrait; margin: 12mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
@@ -2035,29 +2130,29 @@ export function EventUserDashboardPreview() {
       <div class="info-grid">
         <div class="info-box">
           <div class="label">Pass Category</div>
-          <div class="value highlight">${pass.passType}</div>
+          <div class="value highlight">${escapeHtml(pass.passType)}</div>
         </div>
         <div class="info-box">
           <div class="label">Event / Program</div>
-          <div class="value">${pass.title}</div>
+          <div class="value">${escapeHtml(pass.title)}</div>
         </div>
         <div class="info-box">
           <div class="label">Devotee / Attendee</div>
-          <div class="value">${pass.participantName}</div>
+          <div class="value">${escapeHtml(pass.participantName)}</div>
         </div>
         <div class="info-box">
           <div class="label">Date & Time</div>
-          <div class="value">${pass.date} • ${pass.time}</div>
+          <div class="value">${escapeHtml(pass.date)} • ${escapeHtml(pass.time)}</div>
         </div>
         <div class="info-box full">
           <div class="label">Assigned Venue & Entry Gate</div>
-          <div class="value">${pass.venue}</div>
+          <div class="value">${escapeHtml(pass.venue)}</div>
         </div>
       </div>
 
       <div class="qr-container">
-        <img src="${pass.qrCodeUrl}" class="qr-code" alt="Gate Verification QR Code" />
-        <div class="reg-code">${pass.regId}</div>
+        <img src="${escapeHtml(pass.qrCodeUrl)}" class="qr-code" alt="Gate Verification QR Code" />
+        <div class="reg-code">${escapeHtml(pass.regId)}</div>
         <div class="instructions">Present QR Code at Security Scanner Desk for instant entry & prasadam verification</div>
       </div>
     </div>
@@ -2389,7 +2484,7 @@ export function EventUserDashboardPreview() {
                                     <span className="text-white/70 truncate flex items-center gap-1">
                                       <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
                                       <span className="truncate max-w-[110px]">{subAct.venue || subAct.mandap || activeMainEvent?.location || "Mandap"}</span>
-                                      {subAct.availableSeats != null && (
+                                      {subAct.needsRegistration !== false && subAct.availableSeats != null && (
                                         <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
                                       )}
                                     </span>
@@ -2841,9 +2936,15 @@ export function EventUserDashboardPreview() {
                             <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className={`font-bold text-[10px] ${act.needsRegistration === false ? "text-emerald-600 dark:text-emerald-400" : act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                              {act.needsRegistration === false ? "Open Entry" : (act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`)}
-                            </span>
+                            {act.needsRegistration !== false ? (
+                              <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                {act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`}
+                              </span>
+                            ) : (
+                              <span className="font-bold text-[10px] text-emerald-600 dark:text-emerald-400">
+                                Open to All
+                              </span>
+                            )}
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
                             {act.title}
@@ -3681,7 +3782,9 @@ export function EventUserDashboardPreview() {
                           ? f.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
                           : formatIndianTime(f.time)
                         : "Scheduled";
-                      const slotsLabel = f.availableSeats != null ? `${f.availableSeats} slots` : (f.slots != null ? `${f.slots} slots` : "500 slots");
+                      const slotsLabel = f.needsRegistration === false
+                        ? null
+                        : (f.availableSeats != null ? `${f.availableSeats} slots` : (f.slots != null ? `${f.slots} slots` : "500 slots"));
 
                       return (
                         <div

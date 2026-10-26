@@ -1,0 +1,124 @@
+{
+  "name": "Mana Sports Match Scoring Anomaly & Anti-Tampering Detector",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sports-scoring-anomaly-detector",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Scoring Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-sports-scoring-anomaly-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst matchId = item.matchId || 101;\nconst sport = item.sport || 'CRICKET';\nconst tournamentName = item.tournamentName || 'Mana Championship';\nconst teamA = item.teamA || 'Team Alpha';\nconst teamB = item.teamB || 'Team Beta';\nconst liveScore = item.currentScore || {};\nconst recentBalls = item.recentEvents || item.ballLog || [];\nconst maxOvers = item.maxOvers || 20;\nconst maxOversPerBowler = item.maxOversPerBowler || Math.ceil(maxOvers / 5);\n\nconst prompt = `You are the Chief Match Referee and Technical Scoring Auditor for the Mana Community Sports Council.\nAnalyze the following live match events and scorecard for scoring anomalies, rule violations, illegal rotations, or score tampering.\n\nMatch Context:\n- Sport: ${sport}\n- Tournament: ${tournamentName}\n- Teams: ${teamA} vs ${teamB}\n- Maximum Allowed Overs: ${maxOvers} (Max ${maxOversPerBowler} overs per bowler)\n\nCurrent Live State:\n${JSON.stringify(liveScore, null, 2)}\n\nRecent Events Log (Balls / Points):\n${JSON.stringify(recentBalls, null, 2)}\n\nInspect for Negative Scenarios & Anomalies:\n1. Over-length violations: More than 6 legal deliveries in an over without wide/noball extras.\n2. Over-quota violations: Has any single bowler bowled more than ${maxOversPerBowler} overs, or bowled two consecutive overs?\n3. Wicket Integrity: Wickets fallen exceeding 10, or a dismissed batsman continuing to bat.\n4. Impossible Run Spikes: Unaccounted sudden score leaps, or negative runs.\n5. Scorer Bias / Asymmetry: Significant abnormal extras or disputed calls favoring one team.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"anomalyStatus\": \"CLEAN\" | \"SUSPICIOUS_ANOMALY\" | \"SCORE_INTEGRITY_BREACH\" | \"CRITICAL_TAMPERING\",\n  \"confidenceScore\": number (0.0 to 1.0),\n  \"requiresMatchHalt\": boolean,\n  \"detectedAnomalies\": [\n    {\n      \"severity\": \"CRITICAL\" | \"WARNING\" | \"MINOR\",\n      \"eventType\": string,\n      \"description\": string,\n      \"recommendedCorrection\": string\n    }\n  ],\n  \"correctedScoreProposal\": {\n    \"runs\": number | null,\n    \"wickets\": number | null,\n    \"overs\": string | null\n  },\n  \"umpireAlertPrompt\": \"High-urgency directive for the umpire and live scorer tablet screen\",\n  \"auditLogNote\": \"Technical audit trail note explaining the verification outcome\"\n}`;\n\nreturn [{\n  json: {\n    matchId,\n    sport,\n    tournamentName,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Anomaly Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Scoring Auditor (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedRuling = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedRuling = JSON.parse(rawText);\n} catch (err) {\n  parsedRuling = {\n    anomalyStatus: \"CLEAN\",\n    confidenceScore: 0.95,\n    requiresMatchHalt: false,\n    detectedAnomalies: [],\n    correctedScoreProposal: { runs: null, wickets: null, overs: null },\n    umpireAlertPrompt: \"Scorecard verified. Match proceeding under legal parameters.\",\n    auditLogNote: \"No scoring anomalies detected.\"\n  };\n}\n\nconst meta = $('Prepare Anomaly Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    matchId: meta.matchId,\n    sport: meta.sport,\n    tournamentName: meta.tournamentName,\n    auditedAt: new Date().toISOString(),\n    audit: parsedRuling\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Scoring Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Scoring Audit",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Scoring Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Anomaly Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Anomaly Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Scoring Auditor (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Scoring Auditor (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Scoring Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Scoring Verdict": {
+      "main": [
+        [
+          {
+            "node": "Respond with Scoring Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

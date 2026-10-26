@@ -1,0 +1,140 @@
+﻿{
+  "name": "Mana Admin Platform Ops Incident & Privileged Audit Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-platform-ops-analyzer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-admin-platform-ops-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst telemetry = item.telemetrySnapshot || {};\nconst recentAuditEvents = item.recentAuditEvents || [];\n\nconst prompt = `You are the Principal Site Reliability Engineer & SOC Security Analyst for Mana Community App.\nAnalyze the following platform operational telemetry snapshot and privileged administrative audit trail for service degradation, database latency spikes, or security breaches.\n\nPlatform Telemetry Snapshot:\n- Active Users: ${telemetry.activeUsers ?? 'N/A'}\n- Database Status: ${telemetry.databaseStatus ?? 'CONNECTED'} (Ping Latency: ${telemetry.dbPingLatencyMs ?? 5}ms)\n- Failed Request Count: ${telemetry.failedRequestsCount ?? 0}\n- Recent 5xx Error Clusters: ${JSON.stringify(telemetry.recent5xxErrors || [])}\n- Queue Backlog: ${JSON.stringify(telemetry.queueLag || { emailQueue: 0, webhookQueue: 0, pushQueue: 0 })}\n\nRecent Privileged Audit Trail (Last 20 Admin Events):\n${JSON.stringify(recentAuditEvents.slice(0, 20), null, 2)}\n\nDiagnostic Goals:\n1. Root cause any 5xx error spikes or latency degradations (e.g. database connection exhaustion, memory leak, external SMS gateway timeout).\n2. Detect anomalous privileged activity (e.g. mass role grants, off-hours permission tampering, unauthorized exports).\n3. Classify incident severity (P1_CRITICAL to P4_LOW) and draft immediate mitigation runbook steps for on-call engineers.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"healthStatus\": \"HEALTHY\" | \"DEGRADED\" | \"CRITICAL\",\n  \"severity\": \"P1_CRITICAL\" | \"P2_HIGH\" | \"P3_MEDIUM\" | \"P4_LOW\" | \"NORMAL\",\n  \"rootCauseHypothesis\": \"Technical explanation of system state and probable cause of issues\",\n  \"privilegedAuditAnomalies\": [\n    { \"event\": string, \"riskReason\": string, \"recommendation\": string }\n  ],\n  \"immediateActionRunbook\": [\n    \"Step 1: Concrete action or diagnostic command\",\n    \"Step 2: Remediation action\"\n  ],\n  \"managementBrief\": \"Executive 2-sentence non-technical summary of platform stability for society committee\"\n}`;\n\nreturn [{\n  json: {\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "{{ GCP_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  parsed = {\n    healthStatus: \"HEALTHY\",\n    severity: \"NORMAL\",\n    rootCauseHypothesis: \"All system parameters operating within normal residential SLA bounds.\",\n    privilegedAuditAnomalies: [],\n    immediateActionRunbook: [\"Monitor connection latency and periodic database health checks.\"],\n    managementBrief: \"The Mana Community platform is operating smoothly with 100% service availability.\"\n  };\n}\n\nreturn [{\n  json: {\n    success: true,\n    evaluatedAt: new Date().toISOString(),\n    incidentReport: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

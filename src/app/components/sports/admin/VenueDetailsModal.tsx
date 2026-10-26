@@ -32,7 +32,7 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Venue Specifications</h2>
+              <h2 className="text-xs font-bold text-slate-800">Venue Specifications</h2>
               <p className="text-xs text-slate-500 mt-0.5">Details, capacity, courts and contact information</p>
             </div>
           </div>
@@ -55,11 +55,11 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
           ) : selectedVenueDetails ? (
             <div className="space-y-6">
               {/* Header Details */}
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800">{selectedVenueDetails.name}</h3>
+                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">{selectedVenueDetails.name}</h3>
                   {selectedVenueDetails.area || selectedVenueDetails.city ? (
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 m-0">
                       {[selectedVenueDetails.area, selectedVenueDetails.city].filter(Boolean).join(", ")}
                     </p>
                   ) : null}
@@ -123,18 +123,18 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
                 {selectedVenueDetails.contactName ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-left">
                     <div>
-                      <span className="text-[9px] text-slate-400 uppercase font-bold block">Name</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold block">Name</span>
                       <p className="text-slate-800 font-semibold mt-0.5">{selectedVenueDetails.contactName}</p>
                     </div>
                     {selectedVenueDetails.contactNumber && (
                       <div>
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Phone</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Phone</span>
                         <p className="text-slate-600 mt-0.5 font-mono">{selectedVenueDetails.contactNumber}</p>
                       </div>
                     )}
                     {selectedVenueDetails.contactEmail && (
                       <div className="min-w-0">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold block">Email</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">Email</span>
                         <p className="text-slate-600 mt-0.5 truncate font-mono">{selectedVenueDetails.contactEmail}</p>
                       </div>
                     )}
@@ -152,7 +152,7 @@ export const VenueDetailsModal: React.FC<VenueDetailsModalProps> = ({
                     {selectedVenueDetails.courts.map((court, i) => (
                       <span 
                         key={court.id || i} 
-                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm"
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm"
                       >
                         <span 
                           className="w-2.5 h-2.5 rounded-full inline-block mr-2 shadow-sm" 

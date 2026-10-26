@@ -97,6 +97,10 @@ export interface ResourceBookingResponse {
   paymentStatus: PaymentStatus | null;
   paymentReference: string | null;
   isRecurring: boolean;
+  recurringPattern?: string | null;
+  refundAmount?: number | null;
+  refundPercentage?: number | null;
+  penaltyAmount?: number | null;
   rating: number | null;
   ratingComment: string | null;
   bookedById: number;
@@ -300,6 +304,9 @@ export interface ResourceBookingRequest {
   numberOfGuests?: number;
   equipmentIds?: number[];
   couponCode?: string;
+  isRecurring?: boolean;
+  recurringOccurrences?: number;
+  recurringFrequency?: string;
 }
 
 export interface BusinessRuleRequest {

@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
+import { stockService } from "../../../../services/inventory/stockService";
 
-interface OrderRow { id: string; date: string; vendor: string; amount: number; due: string; createdBy: string; status: string }
+interface OrderRow {
+  doc: FinanceDocument;
+  id: string;
+  date: string;
+  vendor: string;
+  amount: number;
+  due: string;
+  createdBy: string;
+  status: string;
+}
 
 /* Purchase Orders — list page (Expenses group). Converted from
    purchase_orders.html into the shared .ledger-app theme; loads
@@ -12,36 +22,126 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const [periodFilter, setPeriodFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [advOpen, setAdvOpen] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
 
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
 
+  const loadOrders = async () => {
+    try {
+      const docs = await ledgerFinanceService.getDocuments("PURCHASE_ORDER");
+      setAllOrders(docs.map((d) => ({
+        doc: d,
+        id: d.code || `#${d.id}`,
+        date: d.docDate || "",
+        vendor: d.customerName || "—",
+        amount: d.grandTotal ?? 0,
+        due: d.dueDate || "",
+        createdBy: "—",
+        status: d.status || "Open",
+      })));
+    } catch {
+      toast.error("Failed to load purchase orders.");
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const docs = await ledgerFinanceService.getDocuments("PURCHASE_ORDER");
-        setAllOrders(docs.map((d) => ({
-          id: d.code || `#${d.id}`,
-          date: d.docDate || "",
-          vendor: d.customerName || "—",
-          amount: d.grandTotal ?? 0,
-          due: d.dueDate || "",
-          createdBy: "—",
-          status: d.status || "Open",
-        })));
-      } catch {
-        toast.error("Failed to load purchase orders.");
-      }
-    })();
+    loadOrders();
   }, []);
 
+  const handleVerifyMatch = (_order: OrderRow) => {
+    toast.info("Three-way matching is unavailable for ledger purchase orders until they are linked to vendor procurement invoices and receipts.");
+  };
+
+  const handleReceiveGoods = async (row: OrderRow) => {
+    if (processingId) return;
+    setProcessingId(row.id);
+    try {
+      // 1. Fetch picking types, locations, and products
+      const [stats, locations, prods] = await Promise.all([
+        stockService.getPickingTypeStats(),
+        stockService.getLocations(),
+        stockService.getProducts(),
+      ]);
+
+      const incomingType = stats.find(s => s.code === "INCOMING") || stats[0];
+      const vendorLoc = locations.find(l => l.usage === "VENDOR") || locations[0];
+      const internalLoc = locations.find(l => l.usage === "INTERNAL" && l.completeName.includes("Stock")) || locations.find(l => l.usage === "INTERNAL") || locations[0];
+
+      if (!incomingType || !vendorLoc || !internalLoc) {
+        toast.error("Warehouse locations or picking types not configured.");
+        return;
+      }
+
+      // Map PO items to picking move lines without hardcoded fallback
+      const moveLines: Array<{ productId: number; productQty: number }> = [];
+      const missingItems: string[] = [];
+
+      for (const item of (row.doc.items || [])) {
+        const foundProd = prods.find(p => p.name.toLowerCase() === (item.item || "").toLowerCase());
+        if (foundProd && foundProd.id) {
+          moveLines.push({
+            productId: foundProd.id,
+            productQty: item.qty || 1,
+          });
+        } else {
+          missingItems.push(item.item || "Unknown item");
+        }
+      }
+
+      if (missingItems.length > 0) {
+        if (prods.length === 0) {
+          toast.error("No inventory products exist in warehouse catalog. Please create products first.");
+          return;
+        }
+        toast.error(`Products not found in warehouse master: ${missingItems.join(", ")}. Please register products first.`);
+        return;
+      }
+
+      if (moveLines.length === 0) {
+        toast.error("Purchase order contains no line items to receive.");
+        return;
+      }
+
+      // 2. Create incoming warehouse picking
+      await stockService.createPicking({
+        pickingTypeId: incomingType.id,
+        locationId: vendorLoc.id,
+        locationDestId: internalLoc.id,
+        origin: `PO: ${row.id}`,
+        scheduledDate: new Date().toISOString(),
+        moveLines,
+      });
+
+      // The stock picking is the persisted warehouse receipt for this finance PO.
+      // This ledger screen does not yet share IDs with VMS goods receipts.
+
+      // 4. Update PO status in finance to "Purchased"
+      if (row.doc.id) {
+        await ledgerFinanceService.updateDocument(row.doc.id, {
+          ...row.doc,
+          status: "Purchased",
+        });
+      }
+
+      toast.success(`Warehouse receipt created for ${row.id}; finance status updated to Purchased.`);
+      loadOrders();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create incoming goods receipt.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const metrics = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
     let total = 0, open = 0, purchased = 0, month = 0;
     let openCount = 0, purchasedCount = 0, monthCount = 0;
     for (const o of allOrders) {
       total += o.amount;
       if (o.status.toLowerCase() === "open") { open += o.amount; openCount++; }
       if (o.status.toLowerCase() === "purchased") { purchased += o.amount; purchasedCount++; }
-      if (o.date.startsWith("2026-07")) { month += o.amount; monthCount++; }
+      if (o.date.startsWith(currentMonth)) { month += o.amount; monthCount++; }
     }
     return { total, open, purchased, month, openCount, purchasedCount, monthCount };
   }, [allOrders]);
@@ -49,7 +149,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const orders = useMemo(() => allOrders.filter((o) => {
     if (statusFilter && o.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (search && !o.id.toLowerCase().includes(search.toLowerCase()) && !o.vendor.toLowerCase().includes(search.toLowerCase())) return false;
-    if (periodFilter === "month" && !o.date.startsWith("2026-07")) return false;
+    if (periodFilter === "month" && !o.date.startsWith(new Date().toISOString().slice(0, 7))) return false;
     return true;
   }), [allOrders, statusFilter, search, periodFilter]);
 
@@ -183,8 +283,35 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
                     <td className="amount">₹{o.amount.toFixed(2)}</td>
                     <td>{o.due}</td>
                     <td>{o.createdBy}</td>
-                    <td>{o.status}</td>
-                    <td></td>
+                    <td>
+                      <span className={`tag ${o.status.toLowerCase() === "purchased" ? "tag-green" : "tag-yellow"}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        {o.status.toLowerCase() === "open" && (
+                          <button
+                            type="button"
+                            onClick={() => handleReceiveGoods(o)}
+                            disabled={processingId === o.id}
+                            className="btn btn-sm btn-primary"
+                            style={{ fontSize: 11, padding: "3px 8px" }}
+                          >
+                            {processingId === o.id ? "Receiving..." : "Receive Goods"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleVerifyMatch(o)}
+                          className="btn btn-sm btn-ghost"
+                          style={{ fontSize: 11, padding: "3px 8px", color: "#64748b", border: "1px solid currentColor", borderRadius: "6px" }}
+                          title="Three-way matching is not wired to this finance ledger record yet"
+                        >
+                          Match unavailable
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -192,6 +319,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
           </div>
         </div>
       </div>
+
     </section>
   );
 }

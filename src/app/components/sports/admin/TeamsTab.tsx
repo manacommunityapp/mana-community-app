@@ -2,10 +2,11 @@ import React, { useEffect, useState, useCallback } from "react";
 import {
   Clock, Check, Search, Trophy, ChevronDown, ChevronUp,
   Users, Calendar, RefreshCw, AlertCircle, Shield, Star,
-  Hash, Wallet, CheckCircle2, XCircle, Loader2, X
+  Hash, Wallet, CheckCircle2, XCircle, Loader2, X, Sparkles, FileText
 } from "lucide-react";
 import { sportsService } from "../../../../services/sports/sportsService";
 import { auctionService } from "../../../../services/sports/auctionService";
+import { automationService } from "../../../../services/automation/automationService";
 import { showSuccess, showError, showInfo } from "../../../../utils/ToastUtils";
 import type { SportsTournament, AuctionTeam, EventRegistration, SportsEvent } from "../../../../types/api";
 
@@ -82,17 +83,17 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
               {team.teamName || team.name}
             </p>
             {team.captainConfirmation && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 flex items-center gap-0.5">
                 <CheckCircle2 className="w-2.5 h-2.5" /> Confirmed
               </span>
             )}
             {team.captainNomination && !team.captainConfirmation && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 flex items-center gap-0.5">
                 <Clock className="w-2.5 h-2.5" /> Nominated
               </span>
             )}
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: "#6b7094" }}>
+          <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
             {team.ownerName && <span>Owner: <strong>{team.ownerName}</strong> · </span>}
             {team.captainUser?.fullName && <span>Captain: <strong>{team.captainUser.fullName}</strong> · </span>}
             {memberCount} player{memberCount !== 1 ? "s" : ""}
@@ -102,7 +103,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
         <div className="flex items-center gap-3">
           {/* Budget mini bar */}
           <div className="hidden sm:block text-right">
-            <p className="text-[10px] font-bold" style={{ color: "#0d0d2b" }}>
+            <p className="text-xs font-bold" style={{ color: "#0d0d2b" }}>
               ₹{(budget - spent).toLocaleString()} left
             </p>
             <div className="w-20 h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
@@ -141,7 +142,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
               >
                 <Icon className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: c }} />
                 <p className="text-sm font-bold" style={{ color: c }}>{value}</p>
-                <p className="text-[9px] uppercase tracking-wider font-semibold mt-0.5" style={{ color: "#6b7094" }}>{label}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold mt-0.5" style={{ color: "#6b7094" }}>{label}</p>
               </div>
             ))}
           </div>
@@ -149,7 +150,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
           {/* Players list */}
           {team.players && team.players.length > 0 && (
             <div>
-              <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: "#6b7094" }}>
+              <p className="text-xs uppercase tracking-wider font-bold mb-2" style={{ color: "#6b7094" }}>
                 Players ({team.players.length})
               </p>
               <div className="space-y-1.5">
@@ -161,17 +162,17 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                         style={{ background: color }}
                       >
                         {i + 1}
                       </span>
-                      <span className="text-xs font-medium" style={{ color: "#0d0d2b" }}>{p.name}</span>
+                      <span className="text-[10px] font-medium" style={{ color: "#0d0d2b" }}>{p.name}</span>
                       {p.category && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{p.category}</span>
                       )}
                     </div>
-                    <span className="text-xs font-bold" style={{ color: "#4f46e5" }}>
+                    <span className="text-[10px] font-bold" style={{ color: "#4f46e5" }}>
                       ₹{p.soldPrice?.toLocaleString() ?? "-"}
                     </span>
                   </div>
@@ -182,7 +183,7 @@ function TeamCard({ team, eventName }: { team: AuctionTeam; eventName?: string }
 
           {eventName && (
             <div
-              className="flex items-center gap-2 pt-1 text-[10px] font-medium"
+              className="flex items-center gap-2 pt-1 text-xs font-medium"
               style={{ color: "#6b7094" }}
             >
               <Trophy className="w-3 h-3 text-indigo-400" />
@@ -200,56 +201,179 @@ function PendingRegistrationCard({
   onApprove,
   onReject,
   approving,
+  sportName = "Community Sports",
 }: {
   reg: EventRegistration;
   onApprove: (id: number) => void;
   onReject: (id: number) => void;
   approving: boolean;
+  sportName?: string;
 }) {
+  const [screening, setScreening] = useState(false);
+  const [screenAudit, setScreenAudit] = useState<{
+    eligibilityStatus: "APPROVED" | "FLAGGED_FOR_REVIEW" | "REJECTED";
+    confidenceScore: number;
+    auditNotes: string;
+    adminChecklist: Array<{ check: string; status: "PASS" | "FAIL" | "MANUAL_REVIEW" }>;
+    residentNotificationMessage: string;
+  } | null>(null);
+  const [showAuditDetails, setShowAuditDetails] = useState(false);
+
+  const handleScreenAI = async () => {
+    setScreening(true);
+    try {
+      const res = await automationService.screenRegistration({
+        registrationId: reg.id,
+        playerName: reg.playerName || reg.user?.fullName || "Resident Player",
+        flatNumber: reg.flatNumber || (reg.user as any)?.flatNumber,
+        sport: sportName,
+        category: (reg as any).categoryName || (reg as any).matchType || "Open",
+        age: (reg as any).age,
+        dateOfBirth: (reg as any).dateOfBirth,
+        gender: (reg as any).gender || (reg.user as any)?.gender,
+      });
+      if (res && res.status === "success" && res.audit) {
+        setScreenAudit(res.audit);
+        setShowAuditDetails(true);
+        if (res.audit.eligibilityStatus === "APPROVED") {
+          toast.success("AI Screener: Eligible & Verified!");
+        } else if (res.audit.eligibilityStatus === "FLAGGED_FOR_REVIEW") {
+          toast.info("AI Screener: Flagged for Review (Check notes)");
+        } else {
+          toast.error("AI Screener: Rejected / Ineligible");
+        }
+      } else {
+        toast.error("AI screening service unavailable.");
+      }
+    } catch {
+      toast.error("Failed to screen registration.");
+    } finally {
+      setScreening(false);
+    }
+  };
+
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-xl"
-      style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.18)" }}
+      className="p-3 rounded-xl space-y-2.5 transition"
+      style={{
+        background: screenAudit?.eligibilityStatus === "REJECTED"
+          ? "rgba(239,68,68,0.06)"
+          : screenAudit?.eligibilityStatus === "FLAGGED_FOR_REVIEW"
+          ? "rgba(245,158,11,0.08)"
+          : screenAudit?.eligibilityStatus === "APPROVED"
+          ? "rgba(16,185,129,0.06)"
+          : "rgba(245,158,11,0.04)",
+        border: screenAudit?.eligibilityStatus === "REJECTED"
+          ? "1px solid rgba(239,68,68,0.3)"
+          : screenAudit?.eligibilityStatus === "FLAGGED_FOR_REVIEW"
+          ? "1px solid rgba(245,158,11,0.35)"
+          : screenAudit?.eligibilityStatus === "APPROVED"
+          ? "1px solid rgba(16,185,129,0.3)"
+          : "1px solid rgba(245,158,11,0.18)",
+      }}
     >
-      <div
-        className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold text-white"
-        style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)" }}
-      >
-        {(reg.proposedTeamName || reg.playerName || "T")[0]?.toUpperCase()}
+      <div className="flex items-center gap-3">
+        <div
+          className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold text-white shadow-sm"
+          style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)" }}
+        >
+          {(reg.proposedTeamName || reg.playerName || "T")[0]?.toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold truncate" style={{ color: "#0d0d2b" }}>
+              {reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`}
+            </p>
+            {screenAudit && (
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5 ${ screenAudit.eligibilityStatus === "APPROVED" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : screenAudit.eligibilityStatus === "FLAGGED_FOR_REVIEW" ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-red-100 text-red-800 border border-red-300" }`}
+              >
+                <Sparkles className="w-2.5 h-2.5" />
+                {screenAudit.eligibilityStatus.replace(/_/g, " ")}
+              </span>
+            )}
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: "#6b7094" }}>
+            {reg.user?.fullName && <span>{reg.user.fullName} · </span>}
+            {reg.flatNumber && <span>Flat {reg.flatNumber} · </span>}
+            {reg.registeredAt && (
+              <span>{new Date(reg.registeredAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
+            )}
+            <StatusBadge status={reg.status} />
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleScreenAI}
+            disabled={screening || approving}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50 transition hover:opacity-90"
+            style={{ background: "rgba(99,102,241,0.12)", color: "#4f46e5" }}
+            title="Screen player with AI against age brackets, KYC & community rules"
+          >
+            {screening ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
+            AI Screen
+          </button>
+          <button
+            onClick={() => onReject(reg.id)}
+            disabled={approving}
+            className="p-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+            title="Reject"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onApprove(reg.id)}
+            disabled={approving}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors"
+            style={{ background: "rgba(16,185,129,0.1)", color: "#059669" }}
+          >
+            {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+            Approve
+          </button>
+        </div>
       </div>
-      <div className="flex-1 min-w-0 text-left">
-        <p className="text-sm font-bold truncate" style={{ color: "#0d0d2b" }}>
-          {reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`}
-        </p>
-        <p className="text-[11px] mt-0.5" style={{ color: "#6b7094" }}>
-          {reg.user?.fullName && <span>{reg.user.fullName} · </span>}
-          {reg.flatNumber && <span>Flat {reg.flatNumber} · </span>}
-          {reg.registeredAt && (
-            <span>{new Date(reg.registeredAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</span>
+
+      {/* Screen Audit Details Accordion */}
+      {screenAudit && (
+        <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-700 space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span className="font-medium text-slate-800">
+              AI Audit Notes: <span className="font-normal text-slate-600">{screenAudit.auditNotes}</span>
+            </span>
+            <button
+              onClick={() => setShowAuditDetails(!showAuditDetails)}
+              className="text-indigo-600 font-semibold hover:underline cursor-pointer ml-2 flex-shrink-0"
+            >
+              {showAuditDetails ? "Hide Checks ▲" : "View Checks ▼"}
+            </button>
+          </div>
+
+          {showAuditDetails && (
+            <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200 space-y-1.5 animate-in fade-in duration-150">
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                {screenAudit.adminChecklist?.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    {item.status === "PASS" ? (
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 flex-shrink-0" />
+                    ) : item.status === "FAIL" ? (
+                      <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                    )}
+                    <span className="truncate">{item.check}</span>
+                  </div>
+                ))}
+              </div>
+              {screenAudit.residentNotificationMessage && (
+                <p className="text-xs text-slate-500 italic pt-1 border-t border-slate-100">
+                  Notification: "{screenAudit.residentNotificationMessage}"
+                </p>
+              )}
+            </div>
           )}
-          <StatusBadge status={reg.status} />
-        </p>
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => onReject(reg.id)}
-          disabled={approving}
-          className="p-2 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
-          title="Reject"
-        >
-          <X className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => onApprove(reg.id)}
-          disabled={approving}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer disabled:opacity-50 transition-colors"
-          style={{ background: "rgba(16,185,129,0.1)", color: "#059669" }}
-        >
-          {approving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-          Approve
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -389,7 +513,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
       {/* Header bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-extrabold text-slate-800">Teams Management</h3>
+          <h3 className="text-xs font-extrabold text-slate-800">Teams Management</h3>
           <p className="text-xs text-slate-500 mt-0.5">
             {allTeamsCount} team{allTeamsCount !== 1 ? "s" : ""} across {groups.length} tournament{groups.length !== 1 ? "s" : ""}
             {allPendingCount > 0 && (
@@ -442,7 +566,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-800">Pending Approvals</p>
-                <p className="text-[11px] text-amber-600 font-semibold">{allPendingCount} registration{allPendingCount !== 1 ? "s" : ""} awaiting review</p>
+                <p className="text-xs text-amber-600 font-semibold">{allPendingCount} registration{allPendingCount !== 1 ? "s" : ""} awaiting review</p>
               </div>
             </div>
             {globalExpanded === "pending" ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -458,9 +582,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                     {/* Tournament label */}
                     <div className="flex items-center gap-2 mb-3">
                       <Trophy className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="text-xs font-bold text-indigo-700">{tournamentName}</span>
+                      <span className="text-[10px] font-bold text-indigo-700">{tournamentName}</span>
                       <span
-                        className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                         style={{ background: "rgba(245,158,11,0.12)", color: "#d97706" }}
                       >
                         {g.pendingRegs.length} pending
@@ -471,6 +595,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                         <PendingRegistrationCard
                           key={reg.id}
                           reg={reg}
+                          sportName={(g.tournament as any)?.sportName || g.tournament.event?.sport?.name || "Sports"}
                           onApprove={id => handleApprove(id, eventId)}
                           onReject={id => handleReject(id, eventId)}
                           approving={approvingIds.has(reg.id)}
@@ -554,7 +679,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   <Calendar className="w-2.5 h-2.5 inline mr-1" />
                   {g.tournament.event?.eventDateStart
                     ? new Date(g.tournament.event.eventDateStart).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
@@ -577,9 +702,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                 >
                   <div className="flex items-center gap-2">
                     <Shield className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-700">All Teams</span>
+                    <span className="text-[10px] font-bold text-slate-700">All Teams</span>
                     <span
-                      className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}
                     >
                       {g.teams.length}
@@ -610,9 +735,9 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                 >
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-xs font-bold text-amber-700">Pending Approvals</span>
+                    <span className="text-[10px] font-bold text-amber-700">Pending Approvals</span>
                     <span
-                      className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: "rgba(245,158,11,0.15)", color: "#d97706" }}
                     >
                       {g.pendingRegs.length}
@@ -627,6 +752,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
                       <PendingRegistrationCard
                         key={reg.id}
                         reg={reg}
+                        sportName={(g.tournament as any)?.sportName || g.tournament.event?.sport?.name || "Sports"}
                         onApprove={id => handleApprove(id, eventId)}
                         onReject={id => handleReject(id, eventId)}
                         approving={approvingIds.has(reg.id)}

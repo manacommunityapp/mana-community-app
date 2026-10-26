@@ -108,6 +108,11 @@ export const auctionService = {
     return apiClient.get<number>(`/auction/config/${configId}/registration-count`);
   },
 
+  /** GET /api/auction/live/bids/{playerId} — get bid history for a player */
+  async getBidHistory(playerId: number): Promise<import("../../types/api").AuctionBidResponse[]> {
+    return apiClient.get(`/auction/live/bids/${playerId}`);
+  },
+
   /** GET /api/auction/teams/nominated/{eventId} — get nominated captains */
   async getNominatedCaptains(eventId: number): Promise<AuctionTeam[]> {
     return apiClient.get<AuctionTeam[]>(`/auction/teams/nominated/${eventId}`);
@@ -130,5 +135,33 @@ export const auctionService = {
     return apiClient.get<AuctionTeam[]>("/auction/teams/captain/mine");
   },
 
+  /** POST /api/auction/watch/{configId} — add auction to watch list */
+  async watchAuction(configId: number): Promise<{ message: string; configId: number }> {
+    return apiClient.post(`/auction/watch/${configId}`, {});
+  },
 
+  /** DELETE /api/auction/watch/{configId} — remove auction from watch list */
+  async unwatchAuction(configId: number): Promise<{ message: string; configId: number }> {
+    return apiClient.delete(`/auction/watch/${configId}`);
+  },
+
+  /** GET /api/auction/watch — list user's watched auctions */
+  async getWatchList(): Promise<{ id: number; configId: number; seasonName: string; status: string; createdAt: string }[]> {
+    return apiClient.get("/auction/watch");
+  },
+
+  /** GET /api/auction/watch/{configId}/status — check if watching */
+  async getWatchStatus(configId: number): Promise<{ watching: boolean; watcherCount: number }> {
+    return apiClient.get(`/auction/watch/${configId}/status`);
+  },
+
+  /** DELETE /api/auction/teams/{teamId}/leave — leave a team */
+  async leaveTeam(teamId: number): Promise<void> {
+    return apiClient.delete(`/auction/teams/${teamId}/leave`);
+  },
+
+  /** DELETE /api/auction/teams/{teamId}/dissolve — dissolve a team (owner only) */
+  async dissolveTeam(teamId: number): Promise<void> {
+    return apiClient.delete(`/auction/teams/${teamId}/dissolve`);
+  },
 };

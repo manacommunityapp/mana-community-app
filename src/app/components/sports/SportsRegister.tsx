@@ -1,29 +1,529 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy } from "lucide-react";
-import { toast } from "sonner";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown, MapPin, Building2, Search } from "lucide-react";
+import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
+import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { isTeamSport } from "./utils/sportsConstants";
+import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { otpService } from "../../../services/common/otpService";
-import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
+import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import type { SportsEvent, PlayerCategory } from "../../../types/api";
+import { DatePicker } from "../ui/date-picker";
+import { format } from "date-fns";
+import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
+import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
+import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
+import { useCashfree } from "../../../hooks/useCashfree";
+import CashfreeCheckout from "../payments/CashfreeCheckout";
 
-function getEventFormats(event: SportsEvent | null): string[] {
-  if (!event) return ["SINGLES"];
-  let raw: any = event.format;
-  if (!raw && (event as any).formats) raw = (event as any).formats;
-  if (Array.isArray(raw)) return raw.length > 0 ? raw : ["SINGLES"];
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    return raw.split(",").map(s => s.trim()).filter(Boolean);
-  }
-  return ["SINGLES"];
+export function detectSport(name: string): string {
+  const n = (name || "").toLowerCase();
+  if (n.includes("cricket")) return "cricket";
+  if (n.includes("football") || n.includes("soccer")) return "football";
+  if (n.includes("volleyball")) return "volleyball";
+  if (n.includes("basketball")) return "basketball";
+  if (n.includes("badminton") || n.includes("shuttle")) return "badminton";
+  if (n.includes("table tennis") || n.includes("tt") || n.includes("ping pong")) return "table tennis";
+  if (n.includes("tennis")) return "tennis";
+  if (n.includes("pickleball")) return "pickleball";
+  if (n.includes("squash")) return "squash";
+  if (n.includes("padel")) return "padel";
+  if (n.includes("carrom")) return "carrom";
+  if (n.includes("chess")) return "chess";
+  if (n.includes("kabaddi")) return "kabaddi";
+  if (n.includes("hockey")) return "hockey";
+  if (n.includes("throwball")) return "throwball";
+  if (n.includes("rugby")) return "rugby";
+  return "generic";
 }
 
-// ─── Sport config ─────────────────────────────────────────────────────────────
+export interface CategoryEligibilityResult {
+  eligible: boolean;
+  isGenderMismatch: boolean;
+  isOverAge: boolean;
+  isUnderAge: boolean;
+  isAgeUnknown: boolean;
+  minAge: number | null;
+  maxAge: number | null;
+  requiredGender: "MALE" | "FEMALE" | "MIXED" | "ALL" | null;
+  warningMsg: string;
+}
+
+export function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
+  if (!gender) return "";
+  const g = String(gender).trim().toUpperCase();
+  if (g === "MALE" || g === "M" || g === "MEN" || g === "MAN" || g === "BOY" || g === "BOYS") return "MALE";
+  if (g === "FEMALE" || g === "F" || g === "WOMEN" || g === "WOMAN" || g === "GIRL" || g === "GIRLS" || g === "LADIES") return "FEMALE";
+  return "OTHER";
+}
+
+export function parseDobDate(dobString?: string | null): Date | null {
+  if (!dobString) return null;
+  const str = String(dobString).trim();
+  if (!str) return null;
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+export function inferGender(
+  member?: { gender?: string | null; relation?: string | null; name?: string | null } | null,
+  primaryUserGender?: string | null
+): string {
+  if (!member) return "";
+  const rel = (member.relation || "").trim().toLowerCase();
+  
+  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (femaleRelations.some(r => rel.includes(r))) {
+    return "Female";
+  }
+
+  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  if (maleRelations.some(r => rel.includes(r))) {
+    return "Male";
+  }
+
+  if (rel.includes("spouse") || rel.includes("partner")) {
+    const pGen = (primaryUserGender || "Male").toLowerCase();
+    return pGen.startsWith("m") ? "Female" : "Male";
+  }
+
+  if (member.gender && String(member.gender).trim()) {
+    const norm = normalizeGender(member.gender);
+    if (norm === "FEMALE") return "Female";
+    if (norm === "MALE") return "Male";
+    return String(member.gender).trim();
+  }
+
+  return "";
+}
+
+export function checkCategoryEligibility(
+  categoryOrEvent: {
+    name?: string | null;
+    categoryName?: string | null;
+    gender?: string | null;
+    minAge?: number | null;
+    maxAge?: number | null;
+    categories?: any[] | null;
+    allowedGenders?: string[] | null;
+  } | null | undefined,
+  participantAge: number,
+  participantGender: string
+): CategoryEligibilityResult {
+  if (!categoryOrEvent) {
+    return {
+      eligible: true,
+      isGenderMismatch: false,
+      isOverAge: false,
+      isUnderAge: false,
+      isAgeUnknown: false,
+      minAge: null,
+      maxAge: null,
+      requiredGender: null,
+      warningMsg: "",
+    };
+  }
+
+  const text = `${categoryOrEvent.categoryName || ""} ${categoryOrEvent.name || ""}`.toLowerCase();
+  
+  // 1. Parse Min & Max Age (convert any string/number safely)
+  let minAge: number | null = categoryOrEvent.minAge != null && !isNaN(Number(categoryOrEvent.minAge))
+    ? Number(categoryOrEvent.minAge)
+    : null;
+  let maxAge: number | null = categoryOrEvent.maxAge != null && !isNaN(Number(categoryOrEvent.maxAge))
+    ? Number(categoryOrEvent.maxAge)
+    : null;
+
+  if (minAge == null && maxAge == null) {
+    const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
+    const plusMatch = text.match(/(?:above|over|>|>=)\s*(\d+)|(\d+)\s*(?:\+|plus|above|and above|and over|over|>|>=)/i);
+    const rangeMatch = text.match(/(?:between\s*)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
+
+    if (rangeMatch) {
+      minAge = parseInt(rangeMatch[1], 10);
+      maxAge = parseInt(rangeMatch[2], 10);
+    } else if (underMatch) {
+      maxAge = parseInt(underMatch[1], 10);
+    } else if (plusMatch) {
+      minAge = parseInt(plusMatch[1] || plusMatch[2], 10);
+    } else if (/\b(kids?|childrens?)\b/i.test(text)) {
+      maxAge = 16;
+    } else if (/\b(seniors?|veterans?)\b/i.test(text)) {
+      minAge = 45;
+    }
+  }
+
+  // 2. Parse Required Gender
+  let requiredGender: "MALE" | "FEMALE" | "MIXED" | "ALL" | null = null;
+  const rawGender = normalizeGender(categoryOrEvent.gender);
+  if (rawGender === "MALE") {
+    requiredGender = "MALE";
+  } else if (rawGender === "FEMALE") {
+    requiredGender = "FEMALE";
+  } else {
+    // Check keywords in text — female FIRST to avoid 'men' matching inside 'women'
+    // Handles: women's, womens, woman, female, girl, girls, ladies
+    const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
+    // Handles: men's, mens, man, male, males, boy, boys, gentlemen
+    // Negative lookbehind prevents matching 'men' inside 'women'
+    const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
+    const isMixed = /\b(mixed|mix)\b/i.test(text);
+
+    if (isMixed) requiredGender = "MIXED";
+    else if (isFemale) requiredGender = "FEMALE";
+    else if (isMale) requiredGender = "MALE";
+    else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+  }
+
+  const pGender = normalizeGender(participantGender);
+  let isGenderMismatch = false;
+  if (pGender && requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
+    if (requiredGender === "MALE" && pGender !== "MALE") {
+      isGenderMismatch = true;
+    } else if (requiredGender === "FEMALE" && pGender !== "FEMALE") {
+      isGenderMismatch = true;
+    }
+  }
+
+  let isOverAge = false;
+  let isUnderAge = false;
+  let isAgeUnknown = false;
+  let warningMsg = "";
+
+  const pAge = Number(participantAge) || 0;
+
+  if (pAge > 0) {
+    if (maxAge != null && pAge > maxAge) {
+      isOverAge = true;
+      warningMsg = `Participant age (${pAge}y) exceeds maximum limit for this category (Max: ${maxAge} yrs).`;
+    } else if (minAge != null && pAge < minAge) {
+      isUnderAge = true;
+      warningMsg = `Participant age (${pAge}y) is below minimum age requirement (${minAge}+ yrs).`;
+    } else if (minAge == null && pAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+      isUnderAge = true;
+      warningMsg = `Participant age (${pAge}y) is below minimum sports participation age (4+ yrs).`;
+    }
+  } else if (minAge != null || maxAge != null) {
+    // Age is 0 (not set in profile) but this category has an age restriction — cannot verify eligibility
+    isAgeUnknown = true;
+    warningMsg = `Age not set in profile. Add date of birth or age to verify eligibility for this age group (${
+      minAge != null && maxAge != null ? `${minAge}–${maxAge} yrs` : minAge != null ? `${minAge}+ yrs` : `Under ${maxAge} yrs`
+    }).`;
+  }
+
+  if (isGenderMismatch) {
+    const requiredLabel = requiredGender === "FEMALE" ? "Female" : requiredGender === "MALE" ? "Male" : requiredGender;
+    const currentLabel = pGender === "FEMALE" ? "Female" : pGender === "MALE" ? "Male" : participantGender || "unspecified";
+    warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
+  }
+
+  // If this category or event itself has explicit restrictions that failed, it is ineligible!
+  if (isGenderMismatch || isOverAge || isUnderAge || isAgeUnknown) {
+    return {
+      eligible: false,
+      isGenderMismatch,
+      isOverAge,
+      isUnderAge,
+      isAgeUnknown,
+      minAge,
+      maxAge,
+      requiredGender,
+      warningMsg,
+    };
+  }
+
+  // If categoryOrEvent has an array of subcategories and no direct restrictions, evaluate subcategories
+  if (Array.isArray(categoryOrEvent.categories) && categoryOrEvent.categories.length > 0 && minAge == null && maxAge == null && !requiredGender) {
+    const subCategories: any[] = categoryOrEvent.categories;
+    const subResults = subCategories.map(sub => checkCategoryEligibility(sub, participantAge, participantGender));
+    const anyEligible = subResults.some(r => r.eligible);
+    if (anyEligible) {
+      const matchingSub = subResults.find(r => r.eligible);
+      return matchingSub || {
+        eligible: true,
+        isGenderMismatch: false,
+        isOverAge: false,
+        isUnderAge: false,
+        isAgeUnknown: false,
+        minAge: null,
+        maxAge: null,
+        requiredGender: null,
+        warningMsg: "",
+      };
+    } else {
+      const isAllGenderMismatch = subResults.every(r => r.isGenderMismatch);
+      const isAllOverAge = subResults.every(r => r.isOverAge);
+      const isAllUnderAge = subResults.every(r => r.isUnderAge);
+      const isAllAgeUnknown = subResults.every(r => r.isAgeUnknown);
+      return {
+        eligible: false,
+        isGenderMismatch: isAllGenderMismatch,
+        isOverAge: isAllOverAge,
+        isUnderAge: isAllUnderAge,
+        isAgeUnknown: isAllAgeUnknown,
+        minAge: subResults[0]?.minAge ?? null,
+        maxAge: subResults[0]?.maxAge ?? null,
+        requiredGender: subResults[0]?.requiredGender ?? null,
+        warningMsg: subResults[0]?.warningMsg || "No eligible category for selected participant",
+      };
+    }
+  }
+
+  const eligible = !isGenderMismatch && !isOverAge && !isUnderAge && !isAgeUnknown;
+
+  return {
+    eligible,
+    isGenderMismatch,
+    isOverAge,
+    isUnderAge,
+    isAgeUnknown,
+    minAge,
+    maxAge,
+    requiredGender,
+    warningMsg,
+  };
+}
+
+export function getCategoryMatchScore(
+  categoryOrEvent: { name?: string | null; categoryName?: string | null; gender?: string | null; minAge?: number | null; maxAge?: number | null } | null | undefined,
+  participantAge: number,
+  participantGender: string
+): number {
+  if (!categoryOrEvent) return -1;
+  const elig = checkCategoryEligibility(categoryOrEvent, participantAge, participantGender);
+  if (!elig.eligible) return -1;
+
+  let score = 10;
+
+  // Specific gender match bonus
+  if (elig.requiredGender === "MALE" || elig.requiredGender === "FEMALE") {
+    score += 25;
+  }
+
+  // Exact age bracket bonuses
+  if (elig.minAge != null && elig.maxAge != null) {
+    score += 45;
+    const span = Math.max(1, elig.maxAge - elig.minAge);
+    score += Math.max(0, 10 - span);
+  } else if (elig.maxAge != null) {
+    score += 35;
+    score += Math.max(0, 30 - elig.maxAge);
+  } else if (elig.minAge != null) {
+    score += 35;
+  }
+
+  return score;
+}
+
+export function findBestMatchingCategory<T extends { name?: string | null; categoryName?: string | null; gender?: string | null; minAge?: number | null; maxAge?: number | null }>(
+  categories: T[],
+  participantAge: number,
+  participantGender: string
+): T | undefined {
+  if (!categories || categories.length === 0) return undefined;
+
+  let bestItem: T | undefined;
+  let bestScore = -1;
+
+  for (const cat of categories) {
+    const score = getCategoryMatchScore(cat, participantAge, participantGender);
+    if (score > bestScore) {
+      bestScore = score;
+      bestItem = cat;
+    }
+  }
+
+  // Only return an item if it is actually eligible (score > -1)
+  return bestScore > -1 ? bestItem : undefined;
+}
+
+export function calculateAge(dobString?: string | null): number | null {
+  if (!dobString) return null;
+  const dob = parseDobDate(dobString);
+  if (!dob) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+    age--;
+  }
+  return age >= 0 ? age : null;
+}
+
+export function normalizeFormatList(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(s => {
+      if (typeof s === "object" && s !== null) {
+        return String(s.name || s.format || s.value || s.type || "").trim().toUpperCase().replace(/\s+/g, "_");
+      }
+      return String(s).trim().toUpperCase().replace(/\s+/g, "_");
+    }).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(s => {
+            if (typeof s === "object" && s !== null) {
+              return String(s.name || s.format || s.value || s.type || "").trim().toUpperCase().replace(/\s+/g, "_");
+            }
+            return String(s).trim().toUpperCase().replace(/\s+/g, "_");
+          }).filter(Boolean);
+        }
+      } catch {}
+    }
+    return trimmed.split(",").map(s => s.trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean);
+  }
+  return [];
+}
+
+export function getEventFormats(event: SportsEvent | null): string[] {
+  if (!event) return [];
+  const eName = (event.name || "").toLowerCase();
+  const sName = (event.sport?.name || (event as any).sportName || "").toLowerCase();
+  const tName = ((event as any).tournamentName || (event as any).tournament?.name || "").toLowerCase();
+  const catName = ((event as any).categoryName || (event as any).category?.name || "").toLowerCase();
+  const gender = ((event as any).gender || (event as any).genderCategory || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName} ${catName}`;
+  const sKey = detectSport(combined);
+
+  const isTeam =
+    Boolean((event as any).isTeamSport || (event as any).teamSport || (event as any).eventType === "TEAM" || (event as any).matchType === "TEAM") ||
+    isTeamSport(sName || eName || combined) ||
+    ["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball", "rugby", "soccer"].includes(sKey);
+
+  // Gender check: Men-only or Women-only events/categories CANNOT have MIXED_DOUBLES
+  const isGenderRestricted =
+    gender === "male" ||
+    gender === "female" ||
+    gender === "men" ||
+    gender === "women" ||
+    gender === "boys" ||
+    gender === "girls" ||
+    catName.includes("men") ||
+    catName.includes("women") ||
+    catName.includes("boys") ||
+    catName.includes("girls") ||
+    eName.includes("men") ||
+    eName.includes("women") ||
+    eName.includes("boys") ||
+    eName.includes("girls");
+
+  // 1. Check if event explicitly specifies formats
+  const rawExplicit =
+    event.format ||
+    (event as any).formats ||
+    (event as any).rawEvent?.formats ||
+    (event as any).rawEvent?.format ||
+    (event as any).rawEvent?.eventFormats ||
+    event.sport?.formats ||
+    (event.sport as any)?.format ||
+    (event as any).tournament?.format ||
+    (event as any).tournament?.formats;
+
+  const parsedExplicit = normalizeFormatList(rawExplicit);
+  if (parsedExplicit.length > 0) {
+    if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
+      return ["MIXED_DOUBLES"];
+    }
+    // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
+    if (isGenderRestricted && parsedExplicit.includes("MIXED_DOUBLES") && parsedExplicit.length > 1) {
+      return parsedExplicit.filter(f => f !== "MIXED_DOUBLES");
+    }
+    return parsedExplicit;
+  }
+
+  // If this is a team sport event, default to TEAM format
+  if (isTeam) {
+    return ["TEAM"];
+  }
+
+  // 2. Check event name keywords for specific format
+  if (eName.includes("singles") && eName.includes("doubles")) {
+    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+  }
+  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (eName.includes("doubles") && !eName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+
+  // 3. Default available formats based on sport type
+  if (
+    ["badminton", "table tennis", "tennis", "pickleball"].includes(sKey) ||
+    combined.includes("badminton") ||
+    combined.includes("tennis") ||
+    combined.includes("table tennis") ||
+    combined.includes("pickleball") ||
+    combined.includes("shuttle") ||
+    combined.includes("tt")
+  ) {
+    const hasMixedKeyword = combined.includes("mixed") || combined.includes("co-ed");
+    if (hasMixedKeyword && !isGenderRestricted) {
+      return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    }
+    return ["SINGLES", "DOUBLES"];
+  }
+
+  if (
+    ["squash", "padel", "carrom"].includes(sKey) ||
+    combined.includes("squash") ||
+    combined.includes("padel") ||
+    combined.includes("carrom")
+  ) {
+    return ["SINGLES", "DOUBLES"];
+  }
+
+  if (
+    ["swimming", "athletics"].includes(sKey) ||
+    combined.includes("swimming") ||
+    combined.includes("athletics")
+  ) {
+    return ["INDIVIDUAL", "RELAY"];
+  }
+
+  if (sKey === "chess" || combined.includes("chess")) {
+    return ["SINGLES"];
+  }
+
+  return ["SINGLES", "DOUBLES"];
+}
 
 interface StatField {
   name: "matches" | "runs" | "wickets" | "strikeRate" | "avgScore";
@@ -40,20 +540,6 @@ interface CategoryOption {
 interface SportConfig {
   categories: CategoryOption[];
   stats: StatField[];
-}
-
-function detectSport(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes("cricket")) return "cricket";
-  if (n.includes("football") || n.includes("soccer")) return "football";
-  if (n.includes("volleyball")) return "volleyball";
-  if (n.includes("basketball")) return "basketball";
-  if (n.includes("badminton")) return "badminton";
-  if (n.includes("kabaddi")) return "kabaddi";
-  if (n.includes("hockey")) return "hockey";
-  if (n.includes("throwball")) return "throwball";
-  if (n.includes("rugby")) return "rugby";
-  return "generic";
 }
 
 const SPORT_CONFIGS: Record<string, SportConfig> = {
@@ -237,6 +723,99 @@ const SPORT_CONFIGS: Record<string, SportConfig> = {
       { name: "avgScore", label: "Points Per Match", step: 0.01 },
     ],
   },
+  "table tennis": {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Titles" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Points Per Match", step: 0.01 },
+    ],
+  },
+  tennis: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Titles" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Points Per Match", step: 0.01 },
+    ],
+  },
+  pickleball: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Titles" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Points Per Match", step: 0.01 },
+    ],
+  },
+  squash: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Titles" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Points Per Match", step: 0.01 },
+    ],
+  },
+  padel: {
+    categories: [
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+      { value: "MIXED_DOUBLES", label: "Mixed Doubles", roles: ["Mixed Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Titles" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Points Per Match", step: 0.01 },
+    ],
+  },
+  carrom: {
+    categories: [
+      { value: "SINGLES", label: "Singles", roles: ["Men's Singles", "Women's Singles"] },
+      { value: "DOUBLES", label: "Doubles", roles: ["Men's Doubles", "Women's Doubles"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Boards Won" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "Avg Score", step: 0.01 },
+    ],
+  },
+  chess: {
+    categories: [
+      { value: "INDIVIDUAL", label: "Individual", roles: ["Player"] },
+    ],
+    stats: [
+      { name: "matches", label: "Matches" },
+      { name: "runs", label: "Wins" },
+      { name: "wickets", label: "Draws" },
+      { name: "strikeRate", label: "Win Rate (%)", step: 0.01 },
+      { name: "avgScore", label: "FIDE / Rating", step: 1 },
+    ],
+  },
   generic: {
     categories: [
       { value: "PLAYER", label: "Player", roles: ["Standard Player", "Captain", "Vice Captain"] },
@@ -259,18 +838,97 @@ const OTP_REQUIRED = import.meta.env.VITE_REGISTRATION_OTP_ENABLED === "true";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+interface RegistrationFormData {
+  categoryIds: number[];
+  matchTypes: string[];
+  matchType: string;
+  role: string;
+  gender: string;
+  dateOfBirth: string;
+  age: number;
+  matches: number;
+  runs: number;
+  wickets: number;
+  strikeRate: number;
+  avgScore: number;
+  regType: "self" | "family" | "other";
+  playerName: string;
+  relation: string;
+  flatNumber: string;
+  familyMemberId?: number | string;
+  partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
+  partnerInfo?: SelectedPartnerInfo | null;
+  captainNomination?: boolean;
+  proposedTeamName?: string;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function SportsRegister() {
-  const { eventUuid } = useParams();
+export interface SportsRegisterProps {
+  eventUuid?: string;
+  initialFor?: "self" | "family";
+  initialMemberId?: string | number;
+  isModal?: boolean;
+  familyMembers?: FamilyMember[];
+  onClose?: () => void;
+  onSuccess?: () => void;
+}
+
+export function SportsRegister(props: SportsRegisterProps = {}) {
+  const { eventUuid: routeEventUuid } = useParams();
+  const [activeEventUuid, setActiveEventUuid] = useState<string | undefined>(props.eventUuid || routeEventUuid);
+
+  useEffect(() => {
+    if (props.eventUuid || routeEventUuid) {
+      setActiveEventUuid(props.eventUuid || routeEventUuid);
+    }
+  }, [props.eventUuid, routeEventUuid]);
+
+  const eventUuid = activeEventUuid;
   const navigate = useNavigate();
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, updateUser } = useAuth();
   const isAnyAdmin = hasAnyPermission(CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
+  const isModal = Boolean(props.isModal);
+  const handleClose = props.onClose || (() => navigate(-1));
+
+  // Cashfree payment hook — used when the event has a registration fee.
+  const cashfree = useCashfree({
+    onSuccess: () => toast.success("Payment confirmed!"),
+    onError:   (msg) => toast.error(msg),
+  });
+  const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
+  // Pending registration payload saved until payment succeeds.
+  const pendingRegistrationRef = useRef<null | (() => Promise<void>)>(null);
 
   const [event, setEvent] = useState<SportsEvent | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showEventInfoModal, setShowEventInfoModal] = useState(false);
+  const [snackbarInfo, setSnackbarInfo] = useState<{
+    open: boolean;
+    title?: string;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (snackbarInfo?.open) {
+      const timer = setTimeout(() => {
+        setSnackbarInfo(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [snackbarInfo]);
+
+  // Sibling category events (same sport in same tournament)
+  const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
+
+  // Age proof & Out of age window override state
+  const [ageProofFile, setAgeProofFile] = useState<File | null>(null);
+  const [ageProofName, setAgeProofName] = useState<string>("");
+  const [ageProofError, setAgeProofError] = useState<string>("");
+  const ageProofInputRef = useRef<HTMLInputElement | null>(null);
 
   // Email-OTP verification state.
   const [email, setEmail] = useState(user?.email ?? "");
@@ -279,12 +937,20 @@ export function SportsRegister() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [isPlayerIdentityExpanded, setIsPlayerIdentityExpanded] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [liveUser, setLiveUser] = useState<any>(user);
+
+  const [formData, setFormData] = useState<RegistrationFormData>({
     categoryIds: [] as number[],
+    matchTypes: ["SINGLES"],
     matchType: "SINGLES",
     role: "",
-    age: user?.dateOfBirth ? new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear() : 25,
+    gender: (user as any)?.gender || "",
+    dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
+    age: (user as any)?.dateOfBirth || (user as any)?.dob
+      ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
+      : 25,
     matches: 0,
     runs: 0,
     wickets: 0,
@@ -293,12 +959,607 @@ export function SportsRegister() {
     regType: "self" as "self" | "family" | "other",
     playerName: user?.fullName || "",
     relation: "",
-    flatNumber: "",
+    flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
+    familyMemberId: undefined as number | string | undefined,
+    partnerUserId: null,
+    partnerInfo: null,
+    captainNomination: false,
+    proposedTeamName: "",
   });
+
+  useEffect(() => {
+    userService.getMe().then((me) => {
+      setLiveUser(me);
+      const userNameVal = me.fullName || "";
+      const userGenderVal = me.gender || "";
+      const userDobVal = me.dateOfBirth || (me as any).dob || "";
+      const rawUserBlock = me.block || (me as any).tower || (me as any).wing || "";
+      const rawUserFlatNum = me.flatNo || (me as any).flat_no || (me as any).flatNumber || (me as any).flat || (me as any).unitNumber || "";
+      let userFlatVal = rawUserFlatNum;
+      if (rawUserBlock && rawUserFlatNum) {
+        if (rawUserFlatNum.toUpperCase().startsWith(rawUserBlock.toUpperCase()) || rawUserFlatNum.toUpperCase().includes(rawUserBlock.toUpperCase())) {
+          userFlatVal = rawUserFlatNum;
+        } else {
+          userFlatVal = `Block ${rawUserBlock}, Flat ${rawUserFlatNum}`;
+        }
+      } else if (rawUserBlock) {
+        userFlatVal = `Block ${rawUserBlock}`;
+      }
+
+      updateUser({
+        fullName: me.fullName,
+        gender: me.gender,
+        dateOfBirth: me.dateOfBirth || (me as any).dob,
+        flatNo: me.flatNo,
+        block: me.block,
+      });
+
+      setFormData(prev => {
+        if (prev.regType === "self") {
+          const uName = userNameVal || prev.playerName;
+          const uGen = userGenderVal || prev.gender;
+          const uDob = userDobVal || prev.dateOfBirth;
+          const uFlat = userFlatVal || prev.flatNumber;
+          const uAge = uDob ? Math.max(0, new Date().getFullYear() - new Date(uDob).getFullYear()) : prev.age;
+          return {
+            ...prev,
+            playerName: uName,
+            gender: uGen,
+            dateOfBirth: uDob,
+            flatNumber: uFlat,
+            age: uAge,
+          };
+        }
+        return prev;
+      });
+    }).catch((err) => {
+      console.warn("Could not fetch latest user profile in SportsRegister:", err);
+    });
+  }, [updateUser]);
+
+  const userFullName = liveUser?.fullName || user?.fullName || "";
+  const userGender = liveUser?.gender || user?.gender || "";
+  const userDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || user?.dateOfBirth || (user as any)?.dob || "";
+  const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
+  const rawUserFlat =
+    liveUser?.flatNo ||
+    (liveUser as any)?.flat_no ||
+    (liveUser as any)?.flatNumber ||
+    (liveUser as any)?.flat ||
+    (liveUser as any)?.unitNumber ||
+    user?.flatNo ||
+    (user as any)?.flat_no ||
+    (user as any)?.flatNumber ||
+    (user as any)?.flat ||
+    (user as any)?.unitNumber ||
+    "";
+
+  const userFlat = useMemo(() => {
+    const b = userBlock?.trim() || "";
+    const f = (rawUserFlat?.trim() || formData.flatNumber?.trim()) || "";
+    if (b && f) {
+      if (f.toUpperCase().startsWith(b.toUpperCase()) || f.toUpperCase().includes(b.toUpperCase())) {
+        return f;
+      }
+      return `Block ${b}, Flat ${f}`;
+    }
+    if (f) return f;
+    if (b) return `Block ${b}`;
+    return "";
+  }, [userBlock, rawUserFlat, formData.flatNumber]);
+
+  const missingProfileFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!userFullName?.trim()) missing.push("Full Name");
+    if (!userGender?.trim()) missing.push("Gender");
+    if (!userDob?.trim()) missing.push("Date of Birth");
+    if (!userFlat?.trim()) missing.push("Block & Flat");
+    return missing;
+  }, [userFullName, userGender, userDob, userFlat]);
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
 
+  // Admin On-Behalf Community Player Search States
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerSearchResults, setPlayerSearchResults] = useState<UserResponse[]>([]);
+  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [selectedResident, setSelectedResident] = useState<UserResponse | null>(null);
+  const [residentFamilyMembers, setResidentFamilyMembers] = useState<FamilyMemberSlim[]>([]);
+  const [loadingResidentFamily, setLoadingResidentFamily] = useState(false);
+  const [isManualPlayerEntry, setIsManualPlayerEntry] = useState(false);
+
+  // Debounced search for community users when in "Community Person" mode
   useEffect(() => {
+    if (formData.regType !== "other" || !playerSearchQuery.trim()) {
+      setPlayerSearchResults([]);
+      setIsSearchingPlayers(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlayers(true);
+      try {
+        const results = await userService.searchUsersGlobal(playerSearchQuery.trim(), user?.communityId);
+        setPlayerSearchResults(results);
+      } catch (err) {
+        console.warn("Failed to search community players:", err);
+        setPlayerSearchResults([]);
+      } finally {
+        setIsSearchingPlayers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [playerSearchQuery, formData.regType, user?.communityId]);
+
+  const handleSelectResident = async (resident: UserResponse) => {
+    const rawBlock = resident.block || (resident as any).tower || (resident as any).wing || "";
+    const rawFlat = resident.flatNo || (resident as any).flatNumber || (resident as any).flat || "";
+    let formattedFlat = rawFlat;
+    if (rawBlock && rawFlat) {
+      if (rawFlat.toUpperCase().includes(rawBlock.toUpperCase())) {
+        formattedFlat = rawFlat;
+      } else {
+        formattedFlat = `Block ${rawBlock}, Flat ${rawFlat}`;
+      }
+    } else if (rawBlock) {
+      formattedFlat = `Block ${rawBlock}`;
+    }
+
+    const residentDob = resident.dateOfBirth || (resident as any).dob || "";
+    const calcAge = residentDob ? Math.max(0, new Date().getFullYear() - new Date(residentDob).getFullYear()) : 0;
+    const residentGender = resident.gender ? resident.gender.toUpperCase() : "";
+
+    setSelectedResident(resident);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setIsManualPlayerEntry(false);
+
+    if (resident.email) {
+      setEmail(resident.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: resident.fullName || (resident as any).name || "",
+      flatNumber: formattedFlat,
+      gender: residentGender,
+      dateOfBirth: residentDob,
+      age: calcAge,
+      familyMemberId: undefined,
+      relation: "SELF",
+    }));
+
+    setIsPlayerIdentityExpanded(true);
+
+    // Fetch family members of this selected resident
+    setLoadingResidentFamily(true);
+    try {
+      const fam = await familyService.getSlimFamilyMembers(resident.id);
+      setResidentFamilyMembers(fam || []);
+    } catch (err) {
+      console.warn("Could not load family members for resident:", err);
+      setResidentFamilyMembers([]);
+    } finally {
+      setLoadingResidentFamily(false);
+    }
+  };
+
+  const handleSelectResidentFamilyMember = (mem: FamilyMemberSlim) => {
+    let memberAge = mem.age;
+    if (!memberAge && mem.dob) {
+      try {
+        const birth = new Date(mem.dob);
+        if (!isNaN(birth.getTime())) {
+          memberAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      } catch {}
+    }
+
+    if (mem.email) {
+      setEmail(mem.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: mem.name,
+      familyMemberId: mem.id,
+      gender: mem.gender ? mem.gender.toUpperCase() : prev.gender,
+      dateOfBirth: mem.dob || prev.dateOfBirth,
+      age: memberAge ?? prev.age,
+      relation: (mem.relation || "CHILD").toUpperCase(),
+    }));
+
+    toast.info(`Selected family member: ${mem.name} (${mem.relation || "Member"})`);
+  };
+
+  const handleClearSelectedResident = () => {
+    setSelectedResident(null);
+    setResidentFamilyMembers([]);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setFormData(prev => ({
+      ...prev,
+      playerName: "",
+      flatNumber: "",
+      gender: "",
+      dateOfBirth: "",
+      age: 0,
+      familyMemberId: undefined,
+      relation: "",
+    }));
+  };
+
+  // Unified Edit / Add Details Modal State (Self or Family Member)
+  const [profileModalState, setProfileModalState] = useState<{
+    open: boolean;
+    mode: "self" | "family_edit" | "family_add";
+    memberId?: number | string;
+    name: string;
+    relation: string;
+    gender: string;
+    dob: string;
+    phone: string;
+    flatNo?: string;
+    gotram?: string;
+    bloodGroup?: string;
+  }>({
+    open: false,
+    mode: "self",
+    name: "",
+    relation: "Son",
+    gender: "Male",
+    dob: "",
+    phone: "",
+    flatNo: "",
+    gotram: "",
+    bloodGroup: "",
+  });
+
+  const [savingProfileModal, setSavingProfileModal] = useState(false);
+
+  const openUpdateDetailsModal = (mode: "self" | "family_edit" | "family_add", targetMemberId?: number | string) => {
+    if (mode === "self") {
+      setProfileModalState({
+        open: true,
+        mode: "self",
+        name: formData.playerName || userFullName || user?.fullName || "",
+        relation: "SELF",
+        gender: formData.gender || userGender || "",
+        dob: formData.dateOfBirth || userDob || "",
+        phone: (liveUser as any)?.phone || user?.phone || "",
+        flatNo: formData.flatNumber || userFlat || "",
+        gotram: "",
+        bloodGroup: "",
+      });
+    } else if (mode === "family_edit") {
+      const targetId = targetMemberId || formData.familyMemberId;
+      const mem = familyMembersOnly.find(m => String(m.id) === String(targetId)) || familyMembersOnly[0];
+      if (mem) {
+        setProfileModalState({
+          open: true,
+          mode: "family_edit",
+          memberId: mem.id,
+          name: mem.name || "",
+          relation: mem.relation || (mem as any).relationship || "Son",
+          gender: mem.gender || "",
+          dob: mem.dob || (mem as any).dateOfBirth || "",
+          phone: mem.phone || "",
+          flatNo: userFlat,
+          gotram: mem.gotram || "",
+          bloodGroup: mem.bloodGroup || "",
+        });
+      } else {
+        openUpdateDetailsModal("family_add");
+      }
+    } else {
+      setProfileModalState({
+        open: true,
+        mode: "family_add",
+        name: "",
+        relation: "Son",
+        gender: "Male",
+        dob: "",
+        phone: "",
+        flatNo: userFlat,
+        gotram: "",
+        bloodGroup: "",
+      });
+    }
+  };
+
+  const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
+
+  useEffect(() => {
+    sportsDashboardService.getMyRegistrations()
+      .then(regs => {
+        if (Array.isArray(regs)) setMyRegistrations(regs);
+      })
+      .catch(() => {});
+  }, []);
+
+  const isParticipantRegisteredForEvent = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    if (!targetEventId || !myRegistrations.length) return false;
+    return myRegistrations.some(r => {
+      const matchesEvent =
+        String(r.eventId) === String(targetEventId) ||
+        String(r.event?.id) === String(targetEventId);
+      if (!matchesEvent) return false;
+      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+
+      if (pType === "self") {
+        const regRelation = (r.relation || "").trim().toUpperCase();
+        const regFamilyId = r.familyMemberId;
+        const regPlayerName = (r.playerName || "").trim().toLowerCase();
+        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
+
+        return (
+          !regFamilyId ||
+          regFamilyId === "self" ||
+          regFamilyId === "member-self" ||
+          regRelation === "SELF" ||
+          regRelation === "HEAD" ||
+          (!regFamilyId && !regRelation) ||
+          (userFullNameLower && regPlayerName === userFullNameLower)
+        );
+      } else if (pType === "family") {
+        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
+          return true;
+        }
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    });
+  }, [myRegistrations, userFullName, user?.fullName]);
+
+  const getParticipantRegistrations = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    if (!targetEventId || !myRegistrations.length) return [];
+    return myRegistrations.filter(r => {
+      const matchesEvent =
+        String(r.eventId) === String(targetEventId) ||
+        String(r.event?.id) === String(targetEventId);
+      if (!matchesEvent) return false;
+      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+
+      if (pType === "self") {
+        const regRelation = (r.relation || "").trim().toUpperCase();
+        const regFamilyId = r.familyMemberId;
+        const regPlayerName = (r.playerName || "").trim().toLowerCase();
+        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
+
+        return (
+          !regFamilyId ||
+          regFamilyId === "self" ||
+          regFamilyId === "member-self" ||
+          regRelation === "SELF" ||
+          regRelation === "HEAD" ||
+          (!regFamilyId && !regRelation) ||
+          (userFullNameLower && regPlayerName === userFullNameLower)
+        );
+      } else if (pType === "family") {
+        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
+          return true;
+        }
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    });
+  }, [myRegistrations, userFullName, user?.fullName]);
+
+  const getParticipantRegistration = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    const list = getParticipantRegistrations(targetEventId, pType, pMemberId, pPlayerName);
+    return list[0];
+  }, [getParticipantRegistrations]);
+
+  const activeParticipantRegistrations = useMemo(() => {
+    return getParticipantRegistrations(
+      event?.id,
+      formData.regType,
+      formData.familyMemberId,
+      formData.playerName
+    );
+  }, [getParticipantRegistrations, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
+
+  const registeredFormats = useMemo(() => {
+    return activeParticipantRegistrations.map(r => (r.matchType || "SINGLES").toUpperCase());
+  }, [activeParticipantRegistrations]);
+
+  const selectedFormats = useMemo(() => {
+    return (formData.matchTypes && formData.matchTypes.length > 0)
+      ? formData.matchTypes
+      : [formData.matchType || "SINGLES"];
+  }, [formData.matchTypes, formData.matchType]);
+
+  const unregisteredSelectedFormats = useMemo(() => {
+    return selectedFormats.filter(fmt => !registeredFormats.includes(fmt.toUpperCase()));
+  }, [selectedFormats, registeredFormats]);
+
+  const isAlreadyRegistered = useMemo(() => {
+    if (selectedFormats.length === 0) return false;
+    return selectedFormats.every(fmt => registeredFormats.includes(fmt.toUpperCase()));
+  }, [selectedFormats, registeredFormats]);
+
+  const activeParticipantReg = useMemo(() => {
+    return activeParticipantRegistrations[0];
+  }, [activeParticipantRegistrations]);
+
+  const handleProfileModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileModalState.name.trim()) {
+      toast.error("Please enter full name");
+      return;
+    }
+    if (!profileModalState.gender) {
+      toast.error("Please select a gender");
+      return;
+    }
+    if (!profileModalState.dob) {
+      toast.error("Please select Date of Birth");
+      return;
+    }
+    if (profileModalState.phone?.trim() && !isValidIndianPhone(profileModalState.phone)) {
+      toast.error("Please enter a valid 10-digit Indian mobile number");
+      return;
+    }
+
+    setSavingProfileModal(true);
+    try {
+      const computedAge = calculateAge(profileModalState.dob) || 18;
+
+      if (profileModalState.mode === "self") {
+        if (user?.userId) {
+          try {
+            await userService.updateUser(Number(user.userId), {
+              gender: profileModalState.gender,
+              dateOfBirth: profileModalState.dob,
+              fullName: profileModalState.name.trim(),
+              flatNo: profileModalState.flatNo?.trim() || undefined,
+            });
+          } catch (apiErr) {
+            console.warn("Could not save to userService.updateUser directly, fallback to context sync:", apiErr);
+          }
+        }
+        updateUser({
+          gender: profileModalState.gender,
+          dateOfBirth: profileModalState.dob,
+          fullName: profileModalState.name.trim(),
+          flatNo: profileModalState.flatNo?.trim(),
+        });
+        familyService.syncUserProfile(
+          profileModalState.name.trim(),
+          profileModalState.dob,
+          profileModalState.gender,
+          profileModalState.phone?.trim() || user?.phone,
+          user?.email
+        );
+        setFormData(prev => ({
+          ...prev,
+          playerName: profileModalState.name.trim(),
+          gender: profileModalState.gender,
+          dateOfBirth: profileModalState.dob,
+          flatNumber: profileModalState.flatNo?.trim() || prev.flatNumber,
+          age: computedAge,
+        }));
+        toast.success("Profile details updated successfully!");
+      } else if (profileModalState.mode === "family_edit") {
+        const payload = {
+          name: profileModalState.name.trim(),
+          relation: profileModalState.relation,
+          dob: profileModalState.dob,
+          gender: profileModalState.gender,
+          phone: profileModalState.phone?.trim() || undefined,
+          gotram: profileModalState.gotram?.trim() || undefined,
+          bloodGroup: profileModalState.bloodGroup?.trim() || undefined,
+          age: computedAge,
+          status: "ACTIVE",
+        };
+        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        const refreshed = await familyService.getFamilyMembers(true);
+        setSavedFamilyMembers(refreshed);
+
+        const rel = payload.relation.toUpperCase();
+        const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+          ? "SPOUSE"
+          : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+          ? "CHILD"
+          : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+          ? "PARENT"
+          : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+          ? "SIBLING"
+          : "OTHER";
+
+        setFormData(prev => ({
+          ...prev,
+          playerName: payload.name,
+          gender: payload.gender,
+          dateOfBirth: payload.dob,
+          relation: mappedRel,
+          age: computedAge,
+        }));
+        toast.success(`Family member "${payload.name}" updated successfully!`);
+      } else {
+        const payload = {
+          name: profileModalState.name.trim(),
+          relation: profileModalState.relation,
+          dob: profileModalState.dob,
+          gender: profileModalState.gender,
+          phone: profileModalState.phone?.trim() || undefined,
+          gotram: profileModalState.gotram?.trim() || undefined,
+          bloodGroup: profileModalState.bloodGroup?.trim() || undefined,
+          age: computedAge,
+          status: "ACTIVE",
+        };
+        const saved = await familyService.addFamilyMember(payload);
+        const refreshed = await familyService.getFamilyMembers(true);
+        setSavedFamilyMembers(refreshed);
+
+        const rel = payload.relation.toUpperCase();
+        const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+          ? "SPOUSE"
+          : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+          ? "CHILD"
+          : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+          ? "PARENT"
+          : rel.includes("BROTHER") || rel.includes("SIBLING") || rel.includes("SISTER")
+          ? "SIBLING"
+          : "OTHER";
+
+        setFormData(prev => ({
+          ...prev,
+          playerName: payload.name,
+          familyMemberId: saved.id,
+          gender: payload.gender,
+          dateOfBirth: payload.dob,
+          relation: mappedRel,
+          age: computedAge,
+        }));
+        toast.success(`Family member "${payload.name}" added successfully!`);
+      }
+      setProfileModalState(prev => ({ ...prev, open: false }));
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save details");
+    } finally {
+      setSavingProfileModal(false);
+    }
+  };
+
+  const familyMembersOnly = savedFamilyMembers.filter((m) => {
+    const rel = (m.relation || "").toUpperCase().trim();
+    const isSelf =
+      rel === "SELF" ||
+      rel === "HEAD" ||
+      m.id === "self" ||
+      m.id === "member-self" ||
+      (user?.fullName && m.name.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+    return !isSelf;
+  });
+
+  useEffect(() => {
+    if (props.familyMembers && props.familyMembers.length > 0) {
+      setSavedFamilyMembers(props.familyMembers);
+      return;
+    }
     const fetchFamily = async () => {
       try {
         const members = await familyService.getFamilyMembers();
@@ -310,37 +1571,140 @@ export function SportsRegister() {
     fetchFamily();
     window.addEventListener("mana_family_updated", fetchFamily);
     return () => window.removeEventListener("mana_family_updated", fetchFamily);
-  }, []);
+  }, [props.familyMembers]);
+
+  const [searchParams] = useSearchParams();
+  const queryFor = props.initialFor || searchParams.get("for");
+  const queryMemberId = props.initialMemberId ? String(props.initialMemberId) : searchParams.get("memberId");
+
+  useEffect(() => {
+    if (queryFor === "family" && queryMemberId && savedFamilyMembers.length > 0) {
+      const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
+      if (targetMember) {
+        const calculatedAge = (targetMember.dob ? calculateAge(targetMember.dob) : null) ?? targetMember.age ?? 25;
+        const inferredGen = inferGender(targetMember, userGender);
+        setFormData(prev => ({
+          ...prev,
+          regType: "family",
+          playerName: targetMember.name,
+          familyMemberId: targetMember.id,
+          gender: inferredGen || targetMember.gender || "",
+          dateOfBirth: targetMember.dob || "",
+          flatNumber: userFlat,
+          age: calculatedAge,
+          relation: targetMember.relation || "OTHER",
+        }));
+      }
+    } else if (queryFor === "self") {
+      const computedUserAge = (userDob ? calculateAge(userDob) : null) ?? 25;
+      setFormData(prev => ({
+        ...prev,
+        regType: "self",
+        playerName: userFullName,
+        familyMemberId: undefined,
+        gender: userGender,
+        dateOfBirth: userDob,
+        flatNumber: userFlat,
+        age: computedUserAge,
+        relation: "SELF",
+      }));
+    }
+  }, [queryFor, queryMemberId, savedFamilyMembers, userFullName, userGender, userDob, userFlat]);
 
   // Derived sport config
-  const sportKey = detectSport(event?.sport?.name || "");
-  const sportConfig = SPORT_CONFIGS[sportKey];
+  const sportKey = detectSport(event?.sport?.name || (event as any)?.sportName || event?.name || "");
+  const sportConfig: SportConfig = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic || { categories: [], stats: [] };
 
   const eventCategories = event?.categories && event.categories.length > 0 ? event.categories : categories;
   const availableFormats = getEventFormats(event);
 
-  // Sync default matchType when event formats load
+  // Sync default matchTypes when event formats load
   useEffect(() => {
     if (event) {
       const formats = getEventFormats(event);
-      if (formats.length > 0 && !formats.includes(formData.matchType)) {
-        setFormData(prev => ({ ...prev, matchType: formats[0] }));
+      if (formats.length > 0) {
+        setFormData(prev => {
+          const unregFormats = formats.filter(f => !registeredFormats.includes(f.toUpperCase()));
+          const candidatePool = unregFormats.length > 0 ? unregFormats : formats;
+          const validTypes = prev.matchTypes.filter(f => candidatePool.includes(f));
+          const newTypes = validTypes.length > 0 ? validTypes : [candidatePool[0]];
+          return {
+            ...prev,
+            matchTypes: newTypes,
+            matchType: newTypes[0] || candidatePool[0],
+          };
+        });
       }
     }
-  }, [event]);
+  }, [event, registeredFormats]);
 
-  // Get all matching roles for the selected Participant Type + Selected Categories
+  // Auto-select category by default from event
+  useEffect(() => {
+    if (!eventCategories || eventCategories.length === 0) return;
+
+    setFormData(prev => {
+      // Check if current category selection is already eligible with a strong match
+      const currentSelectedCat = eventCategories.find(c => prev.categoryIds.includes(c.id));
+      const currentElig = currentSelectedCat ? checkCategoryEligibility(currentSelectedCat, prev.age, prev.gender) : null;
+
+      if (currentElig && currentElig.eligible && getCategoryMatchScore(currentSelectedCat, prev.age, prev.gender) >= 25) {
+        return prev;
+      }
+
+      // Otherwise, pick the exact best matching eligible category for this participant's age & gender
+      const pool = (event?.categories && event.categories.length > 0) ? event.categories : eventCategories;
+      const bestCat = findBestMatchingCategory(pool, prev.age, prev.gender);
+
+      if (bestCat) {
+        return { ...prev, categoryIds: [bestCat.id] };
+      }
+
+      return prev;
+    });
+  }, [event, eventCategories, formData.age, formData.gender]);
+
+  // Toggle format selection (allows selecting both Singles and Doubles, etc.)
+  const toggleFormat = (fmt: string) => {
+    setFormData(prev => {
+      const exists = prev.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+      let updated: string[];
+      if (exists) {
+        if (prev.matchTypes.length === 1) {
+          toast.info("At least one participation format must be selected");
+          return prev;
+        }
+        updated = prev.matchTypes.filter(f => f.toUpperCase() !== fmt.toUpperCase());
+      } else {
+        updated = [...prev.matchTypes, fmt];
+      }
+      return {
+        ...prev,
+        matchTypes: updated,
+        matchType: updated[0] || fmt,
+      };
+    });
+  };
+
+  // Get all matching roles for the selected Participant Types + Selected Categories
   const getRolesForSelectedTypeAndCategories = () => {
-    const currentFormat = formData.matchType.toUpperCase();
     const rolesSet = new Set<string>();
+    const selectedFormats = (formData.matchTypes && formData.matchTypes.length > 0)
+      ? formData.matchTypes
+      : [formData.matchType];
 
-    const formatCfgCat = sportConfig.categories.find(
-      c => c.value.toUpperCase() === currentFormat || currentFormat.includes(c.value.toUpperCase()) || c.value.toUpperCase().includes(currentFormat)
-    );
+    const configCategories = sportConfig?.categories || [];
 
-    if (formatCfgCat && formatCfgCat.roles.length > 0) {
-      formatCfgCat.roles.forEach(r => rolesSet.add(r));
-    }
+    selectedFormats.forEach(fmt => {
+      if (!fmt) return;
+      const currentFormat = fmt.toUpperCase();
+      const formatCfgCat = configCategories.find(
+        c => c.value.toUpperCase() === currentFormat || currentFormat.includes(c.value.toUpperCase()) || c.value.toUpperCase().includes(currentFormat)
+      );
+
+      if (formatCfgCat && Array.isArray(formatCfgCat.roles) && formatCfgCat.roles.length > 0) {
+        formatCfgCat.roles.forEach(r => rolesSet.add(r));
+      }
+    });
 
     if (formData.categoryIds && formData.categoryIds.length > 0) {
       formData.categoryIds.forEach(id => {
@@ -349,18 +1713,22 @@ export function SportsRegister() {
         
         const dbCatNameNormalized = dbCat.name.toUpperCase().replace(/[\s']/g, "_");
         
-        sportConfig.categories.forEach(cfgCat => {
+        configCategories.forEach(cfgCat => {
           const cfgValueNormalized = cfgCat.value.toUpperCase();
           if (dbCatNameNormalized.includes(cfgValueNormalized) || cfgValueNormalized.includes(dbCatNameNormalized)) {
-            cfgCat.roles.forEach(r => rolesSet.add(r));
+            if (Array.isArray(cfgCat.roles)) {
+              cfgCat.roles.forEach(r => rolesSet.add(r));
+            }
           }
         });
       });
     }
 
     if (rolesSet.size === 0) {
-      sportConfig.categories.forEach(cfgCat => {
-        cfgCat.roles.forEach(r => rolesSet.add(r));
+      configCategories.forEach(cfgCat => {
+        if (Array.isArray(cfgCat.roles)) {
+          cfgCat.roles.forEach(r => rolesSet.add(r));
+        }
       });
     }
     
@@ -372,6 +1740,26 @@ export function SportsRegister() {
   useEffect(() => {
     const load = async () => {
       try {
+        // Try single consolidated registration-details API first
+        if (eventUuid) {
+          try {
+            const regDetails = await sportsService.getRegistrationDetails(eventUuid);
+            if (regDetails && regDetails.event) {
+              setEvent(regDetails.event);
+              if (regDetails.categories && regDetails.categories.length > 0) {
+                setCategories(regDetails.categories);
+              }
+              if (regDetails.siblingCategories && regDetails.siblingCategories.length > 0) {
+                setSiblingEvents(regDetails.siblingCategories);
+              }
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // Fallback gracefully if registration-details endpoint is not yet supported
+          }
+        }
+
         // Links carry the event UUID; tolerate a legacy numeric id as a fallback.
         const fetchEvent = eventUuid && UUID_RE.test(eventUuid)
           ? sportsService.getEventByUuid(eventUuid)
@@ -391,6 +1779,46 @@ export function SportsRegister() {
     load();
   }, [eventUuid]);
 
+  // Fetch sibling category events (same sport, same tournament) - only if not already loaded from single API
+  useEffect(() => {
+    if (siblingEvents.length > 0) return;
+    const tournamentId = event?.tournament?.id || (event as any)?.tournamentId || (event as any)?.tournament?.id;
+    const sportName = event?.sport?.name || (event as any)?.sportName || (event as any)?.name || "";
+    if (!tournamentId) return;
+
+    sportsDashboardService.getOpenTournaments().then(tournaments => {
+      const t = tournaments.find(tr => String(tr.id) === String(tournamentId) || (tr as any).uuid === (event as any)?.tournamentUuid);
+      if (t) {
+        const currentSportKey = detectSport(sportName);
+        const siblings = currentSportKey && currentSportKey !== "generic"
+          ? t.events.filter(e => detectSport(e.sportName || e.categoryName || e.name || "") === currentSportKey)
+          : t.events.filter(e => e.sportName === sportName);
+        setSiblingEvents(siblings.length > 0 ? siblings : t.events);
+      }
+    }).catch(() => {});
+  }, [event?.tournament?.id, (event as any)?.tournamentId, event?.sport?.name, (event as any)?.sportName, siblingEvents.length]);
+
+  // Auto-switch sibling category when participant age/gender changes to find the exact eligible category
+  useEffect(() => {
+    if (!formData.age || !formData.gender || siblingEvents.length <= 1) return;
+    const currentElig = checkCategoryEligibility(event || {}, formData.age, formData.gender);
+    
+    // Find the best matching sibling category for this participant's age & gender
+    const bestSibling = findBestMatchingCategory(siblingEvents, formData.age, formData.gender);
+    if (bestSibling && bestSibling.id !== event?.id) {
+      const currentScore = getCategoryMatchScore(event || {}, formData.age, formData.gender);
+      const bestScore = getCategoryMatchScore(bestSibling, formData.age, formData.gender);
+
+      if (!currentElig.eligible || bestScore > currentScore) {
+        const targetUuid = String(bestSibling.uuid || bestSibling.id);
+        if (targetUuid !== String(activeEventUuid)) {
+          setActiveEventUuid(targetUuid);
+          setLoading(true);
+        }
+      }
+    }
+  }, [formData.age, formData.gender, siblingEvents, event, activeEventUuid]);
+
   // Load Google reCAPTCHA (v2 checkbox) only when a site key is configured.
   useEffect(() => {
     if (!RECAPTCHA_SITE_KEY) return;
@@ -409,21 +1837,66 @@ export function SportsRegister() {
   }, [formData.categoryIds]);
 
   useEffect(() => {
-    if (user?.dateOfBirth) {
-      const birthYear = new Date(user.dateOfBirth).getFullYear();
-      setFormData(prev => ({ ...prev, age: new Date().getFullYear() - birthYear }));
+    const effectiveDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob;
+    const effectiveGender = liveUser?.gender || (user as any)?.gender || "";
+    if (formData.regType === "self") {
+      let calculatedAge = formData.age;
+      if (effectiveDob) {
+        const birthDate = new Date(effectiveDob);
+        if (!isNaN(birthDate.getTime())) {
+          calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        dateOfBirth: effectiveDob || prev.dateOfBirth,
+        age: effectiveDob ? calculatedAge : prev.age,
+        gender: effectiveGender || prev.gender,
+        playerName: user?.fullName || prev.playerName,
+      }));
     }
-  }, [user]);
+  }, [liveUser, user, formData.regType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    if (name === "dateOfBirth") {
+      let calculatedAge = formData.age;
+      if (value) {
+        const birthDate = new Date(value);
+        if (!isNaN(birthDate.getTime())) {
+          calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        dateOfBirth: value,
+        age: calculatedAge,
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
     }));
   };
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const handleDobChange = (value: string) => {
+    let calculatedAge = formData.age;
+    if (value) {
+      const birthDate = new Date(value);
+      if (!isNaN(birthDate.getTime())) {
+        calculatedAge = Math.max(0, new Date().getFullYear() - birthDate.getFullYear());
+      }
+    }
+    setFormData(prev => ({
+      ...prev,
+      dateOfBirth: value,
+      age: calculatedAge,
+    }));
+  };
+
+  const emailValid = isValidEmail(email);
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
@@ -477,6 +1950,38 @@ export function SportsRegister() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isAlreadyRegistered) {
+      toast.error(`${formData.playerName || "This participant"} is already registered for this event.`);
+      return;
+    }
+
+    // Check user profile for Full Name, Gender, Date of Birth, Flat / Villa
+    if (formData.regType === "self") {
+      if (!formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.playerName?.trim()) {
+        toast.error("Please complete your Gender and Date of Birth to proceed with registration.");
+        openUpdateDetailsModal("self");
+        return;
+      }
+    } else if (formData.regType === "family") {
+      if (!formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.playerName?.trim()) {
+        toast.error("Please complete Gender and Date of Birth for this family member before registering.");
+        openUpdateDetailsModal("family_edit", formData.familyMemberId);
+        return;
+      }
+    } else if (formData.regType === "other") {
+      if (!formData.playerName?.trim() || !formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.flatNumber?.trim()) {
+        toast.error("Please complete all player identity details (Name, Gender, Date of Birth, Flat/Villa).");
+        setIsPlayerIdentityExpanded(true);
+        return;
+      }
+    }
+
+    if (!formData.dateOfBirth?.trim()) {
+      toast.error("Date of Birth is mandatory. Please provide your Date of Birth.");
+      openUpdateDetailsModal(formData.regType === "family" ? "family_edit" : "self");
+      return;
+    }
     if (formData.categoryIds.length === 0) {
       toast.error("Please select at least one category");
       return;
@@ -485,6 +1990,46 @@ export function SportsRegister() {
       toast.error("Event details are still loading");
       return;
     }
+    if (email.trim() && !isValidEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    // Check if participant is registering for an upper-age category requiring DOB proof
+    const currentCategoryName = `${event?.categoryName || ""} ${event?.name || ""}`.toLowerCase();
+    let currentMinAge: number | null = null;
+    let currentMaxAge: number | null = null;
+    const underMatch = currentCategoryName.match(/(?:under|u-?|below)\s*(\d+)/i);
+    const plusMatch = currentCategoryName.match(/(\d+)\s*(?:\+|plus|above)/i);
+    const rangeMatch = currentCategoryName.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+    if (underMatch) currentMaxAge = parseInt(underMatch[1], 10);
+    else if (plusMatch) currentMinAge = parseInt(plusMatch[1], 10);
+    else if (rangeMatch) {
+      currentMinAge = parseInt(rangeMatch[1], 10);
+      currentMaxAge = parseInt(rangeMatch[2], 10);
+    }
+
+    if (formData.age > 0) {
+      if (currentMaxAge != null && formData.age > currentMaxAge) {
+        toast.error(`Ineligible: Your age (${formData.age}y) exceeds the maximum allowed age (${currentMaxAge}y) for this category.`);
+        return;
+      }
+      if (currentMinAge != null && formData.age < currentMinAge && !ageProofFile) {
+        toast.error(`Please upload valid DOB Proof for upper-age category registration (${currentMinAge}+ yrs).`);
+        setAgeProofError("Valid Government/School ID with DOB proof is required for upper-age category participation.");
+        return;
+      }
+    }
+
+    // Check category eligibility for age and gender
+    const catToValidate = eventCategories.find(c => formData.categoryIds.includes(c.id)) || event;
+    if (catToValidate) {
+      const elig = checkCategoryEligibility(catToValidate, formData.age, formData.gender);
+      if (!elig.eligible) {
+        toast.error(`Ineligible for this category: ${elig.warningMsg}`);
+        return;
+      }
+    }
+
     if (OTP_REQUIRED && !emailVerified) {
       toast.error("Please verify your email before registering");
       return;
@@ -501,32 +2046,151 @@ export function SportsRegister() {
       }
     }
 
+    const formatsToSubmit = unregisteredSelectedFormats.length > 0 ? unregisteredSelectedFormats : selectedFormats;
+
+    if (formatsToSubmit.length === 0) {
+      toast.error("Selected format is already registered.");
+      return;
+    }
+
+    const isDoublesSelected = formatsToSubmit.some(f => f.toUpperCase().includes("DOUBLES")) || formData.matchTypes.some(f => f.toUpperCase().includes("DOUBLES"));
+    if (isDoublesSelected && !formData.partnerInfo && !formData.partnerUserId && !formData.partnerFamilyMemberId) {
+      toast.error("Doubles Partner is mandatory. Please choose a partner or select 'Looking for Partner (Open Pool)'.");
+      return;
+    }
+
+    // If this event has a registration fee, gate through Cashfree before submitting.
+    const registrationFee: number = Number((event as any).registrationFee ?? 0);
+    if (registrationFee > 0) {
+      // Save the registration call as a closure to run after payment confirmation.
+      pendingRegistrationRef.current = async () => {
+        setSubmitting(true);
+        try {
+          for (const catId of formData.categoryIds) {
+            for (const fmt of formatsToSubmit) {
+              const isDoubles = fmt.toUpperCase().includes("DOUBLES");
+              await sportsService.registerForEvent({
+                eventId: event!.id,
+                categoryId: catId,
+                matchType: fmt,
+                role: formData.role,
+                age: formData.age,
+                gender: formData.gender || undefined,
+                dateOfBirth: formData.dateOfBirth,
+                matches: formData.matches,
+                runs: formData.runs,
+                wickets: formData.wickets,
+                strikeRate: formData.strikeRate,
+                avgScore: formData.avgScore,
+                playerName: formData.playerName,
+                email: email.trim() || undefined,
+                relation: formData.relation,
+                flatNumber: formData.flatNumber,
+                familyMemberId: formData.familyMemberId
+                  ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId)
+                  : undefined,
+                partnerUserId:
+                  isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId)
+                    ? (formData.partnerInfo?.userId || formData.partnerUserId)
+                    : undefined,
+                partnerFamilyMemberId:
+                  isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    : undefined,
+                captainNomination: formData.captainNomination || undefined,
+                proposedTeamName:
+                  formData.captainNomination && formData.proposedTeamName
+                    ? formData.proposedTeamName.trim()
+                    : undefined,
+                recaptchaToken,
+              });
+            }
+          }
+          toast.success("You're registered! See you on the court.");
+          props.onSuccess?.();
+          if (!props.isModal) navigate(-1);
+        } catch (err: any) {
+          toast.error(err?.message || "Registration failed after payment. Please contact support.");
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      setShowPaymentOverlay(true);
+      const paid = await cashfree.initiatePayment({
+        amount: registrationFee,
+        referenceType: "SPORTS_REGISTRATION",
+        referenceId: event!.id,
+        description: `${event!.name ?? "Sports"} registration fee`,
+        customerPhone: (user as any)?.phone,
+      });
+
+      if (paid?.status === "PAID") {
+        await pendingRegistrationRef.current?.();
+        setShowPaymentOverlay(false);
+      } else {
+        setShowPaymentOverlay(cashfree.status === "failed");
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       for (const catId of formData.categoryIds) {
-        await sportsService.registerForEvent({
-          eventId: event.id,
-          categoryId: catId,
-          matchType: formData.matchType,
-          role: formData.role,
-          age: formData.age,
-          matches: formData.matches,
-          runs: formData.runs,
-          wickets: formData.wickets,
-          strikeRate: formData.strikeRate,
-          avgScore: formData.avgScore,
-          playerName: formData.playerName,
-          email: email.trim() || undefined,
-          relation: formData.relation,
-          flatNumber: formData.flatNumber,
-          recaptchaToken,
-        });
+        for (const fmt of formatsToSubmit) {
+          const isDoubles = fmt.toUpperCase().includes("DOUBLES");
+          await sportsService.registerForEvent({
+            eventId: event.id,
+            categoryId: catId,
+            matchType: fmt,
+            role: formData.role,
+            age: formData.age,
+            gender: formData.gender || undefined,
+            dateOfBirth: formData.dateOfBirth,
+            matches: formData.matches,
+            runs: formData.runs,
+            wickets: formData.wickets,
+            strikeRate: formData.strikeRate,
+            avgScore: formData.avgScore,
+            playerName: formData.playerName,
+            email: email.trim() || undefined,
+            relation: formData.relation,
+            flatNumber: formData.flatNumber,
+            familyMemberId: formData.familyMemberId ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId) : undefined,
+            partnerUserId: isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId) ? (formData.partnerInfo?.userId || formData.partnerUserId) : undefined,
+            partnerFamilyMemberId: isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) : undefined,
+            captainNomination: formData.captainNomination || undefined,
+            proposedTeamName: formData.captainNomination && formData.proposedTeamName ? formData.proposedTeamName.trim() : undefined,
+            recaptchaToken,
+          });
+        }
       }
 
+      // If user nominated as team captain, trigger the auction captain nomination hook
+      if (formData.captainNomination && event.id) {
+        try {
+          await auctionService.nominateCaptain(event.id, true, formData.proposedTeamName?.trim());
+        } catch (capErr) {
+          console.warn("Auction captain nomination hook error (non-fatal):", capErr);
+        }
+      }
+
+      const formatCount = formatsToSubmit.length;
+      const targetName = (formData.regType === "family" || formData.regType === "other") && formData.playerName ? ` for ${formData.playerName}` : "";
+      const formatLabels = formatsToSubmit.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ");
       toast.success(event.adminApprovalRequired === false
-        ? "Registration confirmed! Good luck."
-        : "Registration submitted! You'll be notified once it's approved.");
-      navigate("/sports");
+        ? `Registration confirmed${targetName} (${formatLabels})! Good luck.`
+        : `Registration submitted${targetName} (${formatLabels})! You'll be notified once it's approved.`);
+
+      if (formData.captainNomination) {
+        toast.info(`Captain nomination recorded${formData.proposedTeamName ? ` for team "${formData.proposedTeamName.trim()}"` : ""}.`);
+      }
+      if (props.onSuccess) props.onSuccess();
+      if (isModal) {
+        handleClose();
+      } else {
+        navigate("/sports");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -535,8 +2199,8 @@ export function SportsRegister() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] gap-4">
+    const loadingView = (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <div className="relative">
           <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
           <Loader2 className="w-10 h-10 text-primary animate-spin relative" />
@@ -544,6 +2208,27 @@ export function SportsRegister() {
         <p className="text-sm text-muted-foreground animate-pulse">Loading registration details…</p>
       </div>
     );
+    if (isModal) {
+      return (
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+          onClick={handleClose}
+        >
+          <div 
+            className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl p-6 border border-slate-200 dark:border-slate-800"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end mb-2">
+              <button type="button" onClick={handleClose} className="p-1 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {loadingView}
+          </div>
+        </div>
+      );
+    }
+    return loadingView;
   }
 
   const eventDate = event?.eventDateStart
@@ -553,49 +2238,442 @@ export function SportsRegister() {
 
   // Step indicator
   const completedSteps = [
-    formData.matchType.length > 0,
+    formData.playerName.trim().length > 0 && formData.dateOfBirth.trim().length > 0,
+    formData.matchTypes.length > 0,
     formData.categoryIds.length > 0,
-    formData.playerName.trim().length > 0,
     formData.role.length > 0,
   ];
   const currentStep = completedSteps.filter(Boolean).length;
 
-  return (
-    <div className="max-w-5xl mx-auto pb-10 space-y-4">
-      {/* ── Top Bar ────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all group shadow-sm"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back
-        </button>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
-            Event Registration
-          </span>
+  const mainContent = (
+    <div className={`${isModal ? "p-3 sm:p-6 space-y-3 sm:space-y-4" : "max-w-5xl mx-auto pb-24 sm:pb-10 space-y-3 sm:space-y-4"}`}>
+      {/* ── Top Bar (Page Mode) ────────────────────────────────── */}
+      {!isModal && (
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all group shadow-sm cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Back
+          </button>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
+              <Trophy className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">
+                {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
+                {eventDate ? ` - ${eventDate}` : ""}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowEventInfoModal(true)}
+              aria-label="View Event Details"
+              title="View Event Details"
+              className="p-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all flex items-center justify-center shrink-0 cursor-pointer shadow-xs active:scale-95"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Event Info Modal ────────────────────────────── */}
+      {showEventInfoModal && (
+        <div 
+          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-fade-in"
+          onClick={() => setShowEventInfoModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900 animate-scale-up max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEventInfoModal(false)}
+                  className="flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEventInfoModal(false)}
+                  className="w-6 h-6 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                    {event?.sport?.name && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                        {event.sport.name}
+                      </span>
+                    )}
+                    {event?.registrationStatus && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                        {event.registrationStatus}
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
+                    {event?.name ?? "Complete Registration"}
+                  </h4>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
+                    Fill in your details below to register for this event
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2.5 sm:p-3 overflow-y-auto max-h-[70vh] space-y-2">
+              {eventDate && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
+                  </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
+                  </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
+
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                                Current
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowEventInfoModal(false)}
+                className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg border border-slate-200 dark:border-slate-700 transition text-center cursor-pointer shadow-2xs"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── UNIFIED PROFILE / FAMILY MEMBER MODAL ─── */}
+      {profileModalState.open && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
+        >
+          <div
+            className="w-full max-w-md bg-card border border-border rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  {profileModalState.mode === "self" ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-foreground m-0 mb-0">
+                    {profileModalState.mode === "self"
+                      ? "Update Your Profile Details"
+                      : profileModalState.mode === "family_edit"
+                      ? "Update Family Member Details"
+                      : "Add New Family Member"}
+                  </h3>
+                  <p className="text-xs text-muted-foreground m-0">
+                    {profileModalState.mode === "self"
+                      ? "Required for tournament eligibility & category verification"
+                      : "Provide member details for age & category validation"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
+                className="w-7 h-7 rounded-lg bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                  Full Name <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileModalState.name}
+                  onChange={(e) => setProfileModalState({ ...profileModalState, name: e.target.value })}
+                  placeholder="Enter full name"
+                  className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                />
+              </div>
+
+              {profileModalState.mode !== "self" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Relationship <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={profileModalState.relation}
+                      onChange={(e) => {
+                        const rel = e.target.value;
+                        let autoGender = profileModalState.gender;
+                        if (rel === "Wife" || rel === "Mother" || rel === "Daughter" || rel === "Sister") {
+                          autoGender = "Female";
+                        } else if (rel === "Husband" || rel === "Father" || rel === "Son" || rel === "Brother") {
+                          autoGender = "Male";
+                        }
+                        setProfileModalState({ ...profileModalState, relation: rel, gender: autoGender });
+                      }}
+                      className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
+                    >
+                      <option value="Son">Son</option>
+                      <option value="Daughter">Daughter</option>
+                      <option value="Spouse">Spouse</option>
+                      <option value="Wife">Wife</option>
+                      <option value="Husband">Husband</option>
+                      <option value="Father">Father</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Brother">Brother</option>
+                      <option value="Sister">Sister</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Gender <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      value={profileModalState.gender}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
+                      className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    Gender <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    value={profileModalState.gender}
+                    onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
+                    className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                    Date of Birth <span className="text-destructive">*</span>
+                  </label>
+                  {profileModalState.dob && calculateAge(profileModalState.dob) !== null && (
+                    <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                      {calculateAge(profileModalState.dob)} yrs old
+                    </span>
+                  )}
+                </div>
+                <DatePicker
+                  value={profileModalState.dob}
+                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  max={new Date().toISOString().split("T")[0]}
+                  presets={false}
+                  placeholder="Select Date of Birth"
+                  className="h-10 text-sm rounded-xl px-2.5 bg-muted/40 border-border"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={profileModalState.phone}
+                    onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
+                    placeholder="10-digit mobile"
+                    className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                  />
+                </div>
+
+                {profileModalState.mode === "self" ? (
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Flat / Villa No.
+                    </label>
+                    <input
+                      type="text"
+                      value={profileModalState.flatNo || ""}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
+                      placeholder="e.g. A-402"
+                      className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                      Blood Group
+                    </label>
+                    <input
+                      type="text"
+                      value={profileModalState.bloodGroup || ""}
+                      onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}
+                      placeholder="e.g. O+, B+"
+                      className="w-full h-10 text-sm border border-border rounded-xl px-3 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border mt-4">
+                <button
+                  type="button"
+                  onClick={() => setProfileModalState(prev => ({ ...prev, open: false }))}
+                  className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfileModal}
+                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+                >
+                  {savingProfileModal ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>{profileModalState.mode === "self" ? "Save Profile" : "Save Details"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── 2-Column Responsive Layout ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-7 space-y-3 sm:space-y-3.5">
           {/* Step Indicator */}
-          <div className="bg-card border border-border rounded-xl p-3 shadow-sm">
+          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
             <div className="flex items-center gap-2">
-              {["Format", "Category", "Details", "Role"].map((label, i) => (
+              {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
-                  <div className={`h-1.5 rounded-full transition-all duration-500 ${
+                  <div className={`h-1 rounded-full transition-all duration-300 ${
                     i < currentStep
-                      ? "bg-gradient-to-r from-primary to-indigo-400"
+                      ? "bg-gradient-to-r from-indigo-500 to-violet-600"
                       : i === currentStep
-                        ? "bg-primary/40"
-                        : "bg-border"
+                        ? "bg-indigo-300 dark:bg-indigo-700"
+                        : "bg-slate-100 dark:bg-slate-800"
                   }`} />
-                  <p className={`text-[10px] mt-1.5 text-center font-medium transition-colors ${
-                    i < currentStep ? "text-primary" : i === currentStep ? "text-muted-foreground" : "text-muted-foreground/40"
+                  <p className={`text-xs mt-1 text-center font-semibold tracking-wider uppercase transition-colors ${
+                    i < currentStep ? "text-indigo-600 dark:text-indigo-400" : i === currentStep ? "text-slate-800 dark:text-slate-200" : "text-[#6b7094] dark:text-slate-500"
                   }`}>
                     {label}
                   </p>
@@ -604,313 +2682,1009 @@ export function SportsRegister() {
             </div>
           </div>
 
-          {/* Registration Type Selector */}
-          <div className="bg-card border border-border rounded-xl p-1 flex gap-1 shadow-sm">
-            {[
-              { key: "self" as const, label: "Register for Self", icon: "👤" },
-              { key: "family" as const, label: "Family Member", icon: "👨‍👩‍👧" },
-              ...(isAnyAdmin ? [{ key: "other" as const, label: "Community Person", icon: "🏘️" }] : []),
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFormData(prev => ({
-                  ...prev,
-                  regType: tab.key,
-                  playerName: tab.key === "self" ? (user?.fullName || "") : "",
-                }))}
-                className={`flex-1 py-2 px-2 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 ${
-                  formData.regType === tab.key
-                    ? "bg-gradient-to-r from-primary to-indigo-500 text-white shadow-md shadow-primary/25"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
-              >
-                <span className="text-base">{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
-          </div>
+          {/* Registration Type Selector (Shown only when multiple options exist, e.g. for admin) */}
+          {isAnyAdmin && (
+            <div className="bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 rounded-xl p-1 flex gap-1 shadow-2xs">
+              {[
+                { key: "self" as const, label: "Register for Self", icon: "👤" },
+                { key: "other" as const, label: "Community Person", icon: "🏘️" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    if (tab.key === "other") {
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "other",
+                        playerName: "",
+                        gender: "",
+                        dateOfBirth: "",
+                        flatNumber: "",
+                        age: 0,
+                        familyMemberId: undefined,
+                        relation: "",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
+                      setIsManualPlayerEntry(false);
+                      setIsPlayerIdentityExpanded(true);
+                    } else {
+                      setEmail(user?.email || "");
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "self",
+                        playerName: userFullName || user?.fullName || "",
+                        gender: userGender || "",
+                        dateOfBirth: userDob || "",
+                        flatNumber: userFlat,
+                        age: userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : 25,
+                        familyMemberId: undefined,
+                        relation: "SELF",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
+                    }
+                  }}
+                  className={`flex-1 py-1 sm:py-1.5 px-2 sm:px-2.5 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 min-h-[30px] sm:min-h-[32px] cursor-pointer ${
+                    formData.regType === tab.key
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs"
+                      : "text-[#6b7094] dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span className="text-[10px]">{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* 1. Participant Type (Format) */}
-            {availableFormats.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-                <div className="relative">
-                  <div className="flex items-center gap-2.5 mb-1">
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Trophy className="w-4 h-4 text-primary" />
-                    </div>
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Participant Type</h3>
+          {/* Tournament Sponsor Strip Banner */}
+          {event?.sponsors && event.sponsors.length > 0 && (
+            <TournamentSponsorBanner
+              sponsors={event.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, event.id))}
+              variant="strip"
+              className="mb-2"
+            />
+          )}
+
+          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
+            {/* Profile Incomplete Banner */}
+            {formData.regType === "self" && missingProfileFields.length > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-2.5 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-lg sm:rounded-xl flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-5 ml-[38px]">
-                    Choose your participation format
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    {availableFormats.map((fmt) => {
-                      const isSelected = formData.matchType.toUpperCase() === fmt.toUpperCase();
-                      const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, matchType: fmt }))}
-                          className={`group relative px-5 py-3 rounded-xl border-2 text-sm font-semibold transition-all duration-300 flex items-center gap-2.5 ${
-                            isSelected
-                              ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-lg shadow-primary/20 scale-[1.02]"
-                              : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-sm"
-                          }`}
-                        >
-                          <span>{formatLabel}</span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-white/80" />
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                      Profile Incomplete: {missingProfileFields.join(", ")} Required
+                    </h4>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                      Missing {missingProfileFields.join(", ")}. Update your profile to proceed.
+                    </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => openUpdateDetailsModal("self")}
+                  className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg sm:rounded-xl transition-all shadow-sm flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                >
+                  <span>Update Profile</span>
+                  <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
               </div>
             )}
-
-            {/* 2. Select Categories */}
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                  <span className="text-sm">🏷️</span>
-                </div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Select Categories</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-5 ml-[38px]">
-                Pick one or more categories for your registration
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {eventCategories.map((cat) => {
-                  const isChecked = formData.categoryIds.includes(cat.id);
-                  return (
-                    <label
-                      key={cat.id}
-                      className={`relative flex items-start gap-3.5 p-4 rounded-xl border-2 transition-all duration-300 cursor-pointer select-none group ${
-                        isChecked
-                          ? "bg-primary/5 border-primary shadow-sm shadow-primary/10"
-                          : "bg-card border-border hover:border-primary/30 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300 ${
-                        isChecked
-                          ? "bg-primary border-primary"
-                          : "border-border group-hover:border-primary/40"
-                      }`}>
-                        {isChecked && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                        )}
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {
-                          setFormData((prev) => {
-                            const newIds = prev.categoryIds.includes(cat.id)
-                              ? prev.categoryIds.filter((id) => id !== cat.id)
-                              : [...prev.categoryIds, cat.id];
-                            return { ...prev, categoryIds: newIds };
-                          });
-                        }}
-                        className="sr-only"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold transition-colors ${isChecked ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
-                          {cat.name}
-                        </p>
-                        {cat.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{cat.description}</p>
-                        )}
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground">
-                            Age: {cat.minAge}–{cat.maxAge}
-                          </span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-[10px] font-medium text-muted-foreground">
-                            {cat.gender}
-                          </span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3. Player Identity */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
-              <div className="relative">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                    <Info className="w-4 h-4 text-primary" />
-                  </div>
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
-                </div>
-
-                {formData.regType === "family" && savedFamilyMembers.length > 0 && (
-                  <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
-                    <p className="text-xs font-bold text-foreground flex items-center justify-between">
-                      <span>👨‍👩‍👧 Choose from My Family Directory</span>
-                      <span className="text-[10px] text-primary font-normal">Synced with Profile</span>
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {savedFamilyMembers.map((m) => {
-                        const isSelected = formData.playerName.trim().toLowerCase() === m.name.trim().toLowerCase();
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => {
-                              const rel = m.relation?.toUpperCase() || "";
-                              const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
-                                ? "SPOUSE"
-                                : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
-                                ? "CHILD"
-                                : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
-                                ? "PARENT"
-                                : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
-                                ? "SIBLING"
-                                : "OTHER";
-
-                              setFormData(prev => ({
-                                ...prev,
-                                playerName: m.name,
-                                age: m.age || prev.age,
-                                relation: mappedRel,
-                              }));
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                              isSelected
-                                ? "bg-primary text-white border-primary shadow-xs"
-                                : "bg-card text-foreground border-border hover:border-primary/50"
-                            }`}
-                          >
-                            <span>{m.name}</span>
-                            <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                              {m.relation} {m.age ? `(${m.age}y)` : ""}
-                            </span>
-                          </button>
-                        );
-                      })}
+            {/* 1. Player Identity */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div>
+                <div
+                  onClick={() => setIsPlayerIdentityExpanded(prev => !prev)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsPlayerIdentityExpanded(prev => !prev);
+                    }
+                  }}
+                  className={`flex items-center justify-between gap-2 flex-wrap cursor-pointer select-none transition-colors ${
+                    isPlayerIdentityExpanded || (formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth))
+                      ? "mb-2.5"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <UserCheck className="w-3.5 h-3.5" />
                     </div>
+                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                      Player Identity
+                    </h3>
+                    {!isPlayerIdentityExpanded && formData.playerName && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
+                        • {formData.playerName}
+                        {(userFlat || formData.flatNumber) ? ` (${userFlat || formData.flatNumber})` : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {formData.age > 0 && (
+                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                        Age: {formData.age} Yrs
+                      </span>
+                    )}
+                    {isAlreadyRegistered && (
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        ✓ Registered
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlayerIdentityExpanded(prev => !prev);
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                      aria-expanded={isPlayerIdentityExpanded}
+                    >
+                      <span>{isPlayerIdentityExpanded ? "Hide" : "Details"}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isPlayerIdentityExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
+                  <div className="mb-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 sm:p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                        Missing {(!formData.gender && !formData.dateOfBirth) ? "Gender & Date of Birth" : !formData.gender ? "Gender" : "Date of Birth"} for {formData.playerName}.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openUpdateDetailsModal("family_edit", formData.familyMemberId)}
+                      className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <span>Update Member</span>
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Player Name */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      Player Name
-                    </label>
-                    <input
-                      name="playerName"
-                      type="text"
-                      value={formData.playerName}
-                      onChange={handleInputChange}
-                      readOnly={formData.regType === "self"}
-                      placeholder={formData.regType === "self" ? "" : "Enter full name"}
-                      className={`w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                        formData.regType === "self"
-                          ? "text-muted-foreground cursor-not-allowed opacity-70"
-                          : "text-foreground"
-                      }`}
-                    />
-                  </div>
+                {/* Admin Community Person / Player Search Section */}
+                {formData.regType === "other" && (
+                  <div className="mb-3 p-2.5 sm:p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2.5 animate-in fade-in">
+                    <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-indigo-200">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <span>Search Community Resident / Player</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedResident && (
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" /> Selected
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsManualPlayerEntry(prev => !prev);
+                            if (!isManualPlayerEntry) {
+                              handleClearSelectedResident();
+                            }
+                          }}
+                          className="text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 underline cursor-pointer"
+                        >
+                          {isManualPlayerEntry ? "← Search Resident Directory" : "Manual / Guest Player"}
+                        </button>
+                      </div>
+                    </div>
 
-                  {/* Primary Role */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Primary Role {formData.matchType ? `(${formData.matchType.replace(/_/g, " ")})` : ""}
-                    </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                    >
-                      <option value="">Select Role</option>
-                      {availableRoles.map((r: string) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
+                    {!isManualPlayerEntry ? (
+                      <div className="space-y-2">
+                        {/* Search Input */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={playerSearchQuery}
+                            onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                            placeholder="Type name, flat number, phone, or email to search..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs"
+                          />
+                          {playerSearchQuery ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPlayerSearchQuery("");
+                                setPlayerSearchResults([]);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          ) : isSearchingPlayers ? (
+                            <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          ) : null}
+                        </div>
 
-                  {/* Relationship (family) */}
-                  {formData.regType === "family" && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Relationship</label>
-                      <select
-                        name="relation"
-                        value={formData.relation}
+                        {/* Search Results Dropdown */}
+                        {playerSearchResults.length > 0 && (
+                          <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in">
+                            {playerSearchResults.slice(0, 10).map((resident) => {
+                              const flatDisplay = resident.flatNo || resident.block
+                                ? `${resident.block ? `Block ${resident.block}` : ""}${resident.block && resident.flatNo ? ", " : ""}${resident.flatNo || ""}`
+                                : "";
+                              const isSelected = selectedResident?.id === resident.id;
+                              return (
+                                <button
+                                  key={resident.id}
+                                  type="button"
+                                  onClick={() => handleSelectResident(resident)}
+                                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between gap-2 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer ${
+                                    isSelected ? "bg-indigo-50 dark:bg-indigo-950/60 font-semibold text-indigo-600 dark:text-indigo-400" : "text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-xs truncate">
+                                      {resident.fullName || (resident as any).name || "Resident"}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                      {[flatDisplay, resident.phone, resident.email].filter(Boolean).join(" • ")}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {flatDisplay && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        {flatDisplay}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                      Select →
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {playerSearchQuery.trim().length >= 2 && !isSearchingPlayers && playerSearchResults.length === 0 && (
+                          <div className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
+                            No community resident found matching "{playerSearchQuery}".
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsManualPlayerEntry(true);
+                                setFormData(prev => ({ ...prev, playerName: playerSearchQuery.trim() }));
+                              }}
+                              className="ml-1 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+                            >
+                              Enter details manually →
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Selected Resident Profile Strip */}
+                        {selectedResident && (
+                          <div className="p-2 sm:p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {((selectedResident.fullName || (selectedResident as any).name || "U")[0]).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {selectedResident.fullName || (selectedResident as any).name}
+                                    {formData.flatNumber ? ` (${formData.flatNumber})` : ""}
+                                  </p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                    {[selectedResident.phone, selectedResident.email].filter(Boolean).join(" • ")}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleClearSelectedResident}
+                                className="px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 transition cursor-pointer"
+                              >
+                                Change / Clear
+                              </button>
+                            </div>
+
+                            {/* Family Member Quick-Selection Chips */}
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Register this player as:
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const rDob = selectedResident.dateOfBirth || (selectedResident as any).dob || "";
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      playerName: selectedResident.fullName || (selectedResident as any).name || "",
+                                      familyMemberId: undefined,
+                                      gender: selectedResident.gender ? selectedResident.gender.toUpperCase() : prev.gender,
+                                      dateOfBirth: rDob,
+                                      age: rDob ? Math.max(0, new Date().getFullYear() - new Date(rDob).getFullYear()) : prev.age,
+                                      relation: "SELF",
+                                    }));
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-xs font-semibold transition border cursor-pointer ${
+                                    !formData.familyMemberId
+                                      ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                  }`}
+                                >
+                                  👤 {selectedResident.fullName || "Resident"} (Self)
+                                </button>
+
+                                {loadingResidentFamily && (
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Loader2 className="w-3 h-3 animate-spin" /> Loading family...
+                                  </span>
+                                )}
+
+                                {!loadingResidentFamily && residentFamilyMembers.map((mem) => {
+                                  const isMemSelected = String(formData.familyMemberId) === String(mem.id);
+                                  return (
+                                    <button
+                                      key={mem.id}
+                                      type="button"
+                                      onClick={() => handleSelectResidentFamilyMember(mem)}
+                                      className={`px-2 py-1 rounded-md text-xs font-semibold transition border cursor-pointer ${
+                                        isMemSelected
+                                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                          : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                      }`}
+                                    >
+                                      {mem.relation ? `${mem.relation}: ` : ""}{mem.name} {mem.age ? `(${mem.age} Yrs)` : ""}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+                        <span>Manual Guest Entry: fill out the player details below.</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsManualPlayerEntry(false)}
+                          className="font-bold underline text-amber-900 dark:text-amber-100 hover:text-amber-700 cursor-pointer text-xs"
+                        >
+                          Use Directory Search
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isPlayerIdentityExpanded && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in duration-200">
+                    {/* Player Name */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
+                        Player Name
+                      </label>
+                      <input
+                        name="playerName"
+                        type="text"
+                        value={formData.playerName}
                         onChange={handleInputChange}
-                        required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                        readOnly={formData.regType === "self"}
+                        placeholder={formData.regType === "self" ? "" : selectedResident ? "Player name" : "Search resident above or enter full name"}
+                        className={`w-full bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
+                          formData.regType === "self"
+                            ? "text-slate-500 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-800/40 cursor-not-allowed"
+                            : "text-slate-800 dark:text-slate-100"
+                        }`}
+                      />
+                    </div>
+
+                    {/* Gender */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <UserCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                          Gender <span className="text-rose-500 font-bold">*</span>
+                        </span>
+                        {formData.regType === "self" && (
+                          <button
+                            type="button"
+                            onClick={() => openUpdateDetailsModal("self")}
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>{!userGender ? "⚠️ Add" : "Edit"}</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </label>
+                      {formData.regType === "self" ? (
+                        <div className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs flex items-center justify-between ${
+                          userGender ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                        }`}>
+                          <span className="font-medium truncate">{userGender ? userGender.toUpperCase() : "Missing"}</span>
+                          {!userGender && (
+                            <button
+                              type="button"
+                              onClick={() => openUpdateDetailsModal("self")}
+                              className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <select
+                          name="gender"
+                          value={formData.gender}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Primary Role */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
+                        Primary Role
+                      </label>
+                      <select
+                        name="role"
+                        value={formData.role}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                       >
-                        <option value="">Select Relation</option>
-                        <option value="SPOUSE">Spouse</option>
-                        <option value="CHILD">Child</option>
-                        <option value="PARENT">Parent</option>
-                        <option value="SIBLING">Sibling</option>
-                        <option value="OTHER">Other</option>
+                        <option value="">Select Role</option>
+                        {availableRoles.map((r: string) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
                       </select>
                     </div>
-                  )}
 
-                  {/* Flat Number (admin) */}
-                  {formData.regType === "other" && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Flat Number</label>
+                    {/* Date of Birth (Mandatory) */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span>DOB <span className="text-rose-500 font-bold">*</span></span>
+                        </span>
+                        {formData.regType === "self" && (
+                          <button
+                            type="button"
+                            onClick={() => openUpdateDetailsModal("self")}
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>{!userDob ? "⚠️ Add" : "Edit"}</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </label>
+                      {formData.regType === "self" ? (
+                        <div className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs flex items-center justify-between ${
+                          userDob ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                        }`}>
+                          <span className="font-medium truncate">
+                            {userDob ? format(new Date(userDob), "dd MMM yyyy") : "Missing"}
+                          </span>
+                          {!userDob && (
+                            <button
+                              type="button"
+                              onClick={() => openUpdateDetailsModal("self")}
+                              className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <DatePicker
+                          value={formData.dateOfBirth}
+                          onChange={handleDobChange}
+                          max={new Date().toISOString().split("T")[0]}
+                          presets={false}
+                          placeholder="Pick DOB"
+                        />
+                      )}
+                    </div>
+
+                    {/* Flat Number */}
+                    <div className="space-y-1 col-span-1 animate-in fade-in slide-in-from-top-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span>Block & Flat <span className="text-rose-500 font-bold">*</span></span>
+                        {!userFlat && (
+                          <button
+                            type="button"
+                            onClick={() => openUpdateDetailsModal("self")}
+                            className="text-xs font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>⚠️ Add</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </label>
                       <input
                         name="flatNumber"
                         type="text"
-                        value={formData.flatNumber}
+                        value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
                         onChange={handleInputChange}
-                        placeholder="e.g. A-101"
-                        required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                        readOnly={formData.regType === "self" || formData.regType === "family"}
+                        placeholder={formData.regType === "other" ? (formData.flatNumber || "e.g. Block A, Flat 101") : (userFlat || "Missing in Profile")}
+                        className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 ${
+                          formData.regType !== "other"
+                            ? userFlat
+                              ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                              : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                            : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        }`}
                       />
                     </div>
-                  )}
-
-                  {/* Age */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Age</label>
-                    <input
-                      name="age"
-                      type="number"
-                      value={formData.age}
-                      onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                    />
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
-            {/* 4. Career Statistics */}
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <span className="text-sm">📊</span>
+            {/* 2. Participant Type (Format) */}
+            {availableFormats.length === 1 ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Trophy className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[10px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                    Participant Type
+                  </span>
                 </div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Career Statistics</h3>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
+                  {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
+                </span>
+              </div>
+            ) : availableFormats.length > 1 ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
+                    </div>
+                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                      Participant Type
+                    </h3>
+                    <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
+                      — Choose format(s)
+                    </span>
+                  </div>
+                  {formData.matchTypes.length > 1 && (
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      {formData.matchTypes.length} Formats Selected
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {availableFormats.map((fmt) => {
+                    const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+                    const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
+                    const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => toggleFormat(fmt)}
+                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                          isSelected
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs"
+                            : isFmtRegistered
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300"
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
+                          isSelected ? "bg-white/20 text-white" : "border border-slate-300 dark:border-slate-600 group-hover:border-indigo-400"
+                        }`}>
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        <span>{formatLabel}</span>
+                        {isFmtRegistered && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${ isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300" }`}>
+                            Registered
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* 2b. Partner Nomination for Doubles / Mixed Doubles */}
+            {formData.matchTypes.some(f => f.toUpperCase().includes("DOUBLES")) && (
+              <SportsPartnerSelector
+                selectedPartner={formData.partnerInfo}
+                onChange={(partner) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    partnerInfo: partner,
+                    partnerUserId: partner?.userId || null,
+                    partnerFamilyMemberId: partner?.familyMemberId ? Number(partner.familyMemberId) : null,
+                  }));
+                }}
+                matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
+                currentGender={formData.gender}
+                currentUserId={user?.userId || (user as any)?.id}
+                currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
+                communityId={user?.communityId}
+                familyMembers={savedFamilyMembers}
+                disabled={submitting}
+                eventId={event?.id}
+                minAge={categories.find(c => formData.categoryIds.includes(c.id))?.minAge ?? (event as any)?.minAge}
+                maxAge={categories.find(c => formData.categoryIds.includes(c.id))?.maxAge ?? (event as any)?.maxAge}
+                allowHigherAgeCategory={(event as any)?.allowHigherAgeCategory ?? true}
+              />
+            )}
+
+            {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
+            {isTeamSport(event?.sport?.name || event?.name || "") && (
+              <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                        Team Captain Nomination
+                      </h4>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                        Optional
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSnackbarInfo({
+                            open: true,
+                            title: "Team Captain Nomination",
+                            message: "Are you interested in leading a team and participating in the player auction/draft?",
+                          });
+                        }}
+                        title="Team Captain Information"
+                        aria-label="Captain nomination information"
+                        className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.captainNomination ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {formData.captainNomination && (
+                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Royal Strikers"
+                      value={formData.proposedTeamName || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, proposedTeamName: e.target.value }))}
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <Info className="w-3 h-3 shrink-0" />
+                      Organizers review captain nominations and finalize teams before the auction.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Current Event Ineligibility Banner ── */}
+            {(() => {
+              if (!event || !formData.gender || !formData.age) return null;
+              const currentElig = checkCategoryEligibility(event, formData.age, formData.gender);
+              if (currentElig.eligible) return null;
+              return (
+                <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl p-2 sm:p-2.5 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide">
+                      {currentElig.isGenderMismatch ? "Gender Mismatch" : currentElig.isOverAge ? "Over Age Limit" : currentElig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
+                    </p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 leading-relaxed">
+                      {currentElig.warningMsg}
+                      {siblingEvents.length > 1 && " Please select an eligible category below."}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Sport Categories in Tournament */}
+            {siblingEvents.length > 1 && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                        Select Category
+                      </h3>
+                      <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
+                        {siblingEvents.length} categories available for {event?.sport?.name}
+                      </p>
+                    </div>
+                  </div>
+                  {formData.age > 0 && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                      Age: {formData.age} Yrs
+                    </span>
+                  )}
+                </div>
+
+                <div className={`space-y-1.5 sm:space-y-2 overflow-y-auto pr-1 overscroll-contain transition-all duration-300 ${
+                  formData.captainNomination
+                    ? "max-h-[11rem] sm:max-h-[14rem]"
+                    : "max-h-[15rem] sm:max-h-[18rem]"
+                }`}>
+                  {siblingEvents.map(sib => {
+                    const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
+                    const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
+                    const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+
+                    const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+                    const minAge = elig.minAge;
+                    const maxAge = elig.maxAge;
+                    const isBlocked = !elig.eligible;
+                    const warningMsg = elig.warningMsg;
+
+                    return (
+                      <div
+                        key={sib.id}
+                        className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
+                          isCurrentEvent && !isBlocked
+                            ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
+                            : isRegistered
+                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                              : isBlocked
+                                ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
+                        }`}
+                        onClick={() => {
+                          if ((isCurrentEvent && !isBlocked) || isRegistered) return;
+                          if (isBlocked) {
+                            toast.error(`Ineligible Category: ${warningMsg}`);
+                            return;
+                          }
+                          const targetUuid = String(sib.uuid || sib.id);
+                          if (isModal) {
+                            setActiveEventUuid(targetUuid);
+                            setLoading(true);
+                          } else {
+                            setActiveEventUuid(targetUuid);
+                            setLoading(true);
+                            window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+                          }
+                        }}
+                        role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
+                        tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${
+                              isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
+                                  {sib.categoryName || sib.name}
+                                </span>
+                                {minAge != null && maxAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                    {minAge}–{maxAge} Yrs
+                                  </span>
+                                ) : minAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                    {minAge}+ Yrs
+                                  </span>
+                                ) : maxAge != null ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                    Under {maxAge} Yrs
+                                  </span>
+                                ) : null}
+                                {elig.requiredGender && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                    {elig.requiredGender}
+                                  </span>
+                                )}
+                                {sib.maxParticipants && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                                  </span>
+                                )}
+                              </div>
+                              {sib.venueName && (
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            {isCurrentEvent && !isBlocked ? (
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
+                              </span>
+                            ) : isRegistered ? (
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
+                              </span>
+                            ) : isBlocked ? (
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
+                                ✓ Eligible
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ── DOB Proof Upload for Out-of-Age / Upper Age Category Selection ── */}
+                {(() => {
+                  const currentCategoryName = `${event?.categoryName || ""} ${event?.name || ""}`.toLowerCase();
+                  let currentMinAge: number | null = null;
+                  const plusMatch = currentCategoryName.match(/(\d+)\s*(?:\+|plus|above)/i);
+                  const rangeMatch = currentCategoryName.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  if (plusMatch) currentMinAge = parseInt(plusMatch[1], 10);
+                  else if (rangeMatch) currentMinAge = parseInt(rangeMatch[1], 10);
+
+                  const isUpperCategory = formData.age > 0 && currentMinAge != null && formData.age < currentMinAge;
+
+                  if (!isUpperCategory) return null;
+
+                  return (
+                    <div className="p-2.5 sm:p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2 animate-fade-in">
+                      <div className="flex items-start gap-2">
+                        <div className="p-1.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded-lg shrink-0 mt-0.5">
+                          <FileUp className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                            Valid DOB Proof Required for Upper Age Category
+                          </h4>
+                          <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                            Participant age ({formData.age} yrs) is under the standard age window ({currentMinAge}+ yrs). Please upload a valid Government/School ID with Date of Birth proof (Aadhaar, Passport, Birth Certificate, etc.) for tournament committee verification.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                        <input
+                          ref={ageProofInputRef}
+                          type="file"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error("File size must be under 5MB");
+                                setAgeProofError("File size must be under 5MB");
+                                return;
+                              }
+                              setAgeProofFile(file);
+                              setAgeProofName(file.name);
+                              setAgeProofError("");
+                              toast.success(`Attached DOB proof: ${file.name}`);
+                            }
+                          }}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => ageProofInputRef.current?.click()}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>{ageProofName ? "Change DOB Proof" : "Upload DOB Proof"}</span>
+                        </button>
+
+                        {ageProofName ? (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                            <FileText className="w-3 h-3 text-emerald-600" />
+                            <span className="font-semibold truncate max-w-[200px]">{ageProofName}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAgeProofFile(null);
+                                setAgeProofName("");
+                                if (ageProofInputRef.current) ageProofInputRef.current.value = "";
+                              }}
+                              className="text-slate-400 hover:text-slate-600 ml-1 cursor-pointer"
+                              title="Remove attachment"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-amber-700 font-medium">
+                            * Supported: PDF, JPG, PNG (Max 5MB)
+                          </span>
+                        )}
+                      </div>
+                      {ageProofError && (
+                        <p className="text-xs text-rose-600 font-semibold">{ageProofError}</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+
+
+            {/* 4. Career Statistics */}
+            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-[10px]">📊</span>
+                </div>
+                <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {sportConfig.stats.map(stat => (
-                  <div key={stat.name} className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{stat.label}</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {(sportConfig?.stats || []).map(stat => (
+                  <div key={stat.name} className="space-y-0.5">
+                    <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400">{stat.label}</label>
                     <input
                       name={stat.name}
                       type="number"
                       step={stat.step ?? 1}
                       value={formData[stat.name]}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                     />
                   </div>
                 ))}
@@ -919,19 +3693,19 @@ export function SportsRegister() {
 
             {/* 5. Email Verification (optional) */}
             {OTP_REQUIRED && (
-              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <ShieldCheck className="w-4 h-4 text-blue-500" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                   </div>
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Verify Email</h3>
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Verify Email</h4>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" /> Email Address
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
                         type="email"
@@ -939,7 +3713,7 @@ export function SportsRegister() {
                         onChange={(e) => handleEmailChange(e.target.value)}
                         readOnly={emailVerified}
                         placeholder="you@example.com"
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-60"
+                        className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 h-7.5 sm:h-8 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:opacity-60"
                       />
                     </div>
                     {!emailVerified && (
@@ -947,37 +3721,37 @@ export function SportsRegister() {
                         type="button"
                         onClick={sendOtp}
                         disabled={!emailValid || otpSending}
-                        className="h-[46px] px-5 bg-muted border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-muted/80 disabled:opacity-50 transition-all whitespace-nowrap"
+                        className="h-7.5 sm:h-8 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50 transition-all whitespace-nowrap cursor-pointer"
                       >
-                        {otpSending ? <Loader2 className="w-4 h-4 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
+                        {otpSending ? <Loader2 className="w-3 h-3 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
                       </button>
                     )}
                   </div>
 
                   {emailVerified ? (
-                    <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 rounded-xl">
-                      <CheckCircle2 className="w-4 h-4" /> Email verified successfully
+                    <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Email verified successfully
                     </div>
                   ) : otpSent && (
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end animate-in fade-in slide-in-from-top-1">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Enter Code</label>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end animate-in fade-in slide-in-from-top-1">
+                      <div className="space-y-0.5">
+                        <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value)}
                           placeholder="6-digit code"
-                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                          className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 h-7.5 sm:h-8 text-xs text-foreground tracking-[0.25em] focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={verifyOtp}
                         disabled={otpVerifying || !otpCode.trim()}
-                        className="h-[46px] px-6 bg-primary hover:bg-primary/90 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-sm shadow-primary/20"
+                        className="h-7.5 sm:h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-2xs cursor-pointer"
                       >
-                        {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
+                        {otpVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : "Verify"}
                       </button>
                     </div>
                   )}
@@ -992,106 +3766,481 @@ export function SportsRegister() {
               </div>
             )}
 
-            {/* Submit Actions */}
-            <div className="flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                className="flex-1 py-3 bg-card border border-border rounded-xl text-sm text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200"
-              >
-                ← Go Back
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || (OTP_REQUIRED && !emailVerified)}
-                className="flex-[2] py-3 bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 text-white font-bold rounded-xl shadow-lg shadow-primary/25 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 text-sm active:scale-[0.98]"
-              >
-                {submitting ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
-                ) : (
-                  <>Submit Registration <span className="text-lg">→</span></>
-                )}
-              </button>
-            </div>
+            {/* Missing Gender/DOB Alert */}
+            {(!formData.gender?.trim() || !formData.dateOfBirth?.trim()) && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-2 sm:p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+                    Registration is disabled. Please provide {(!formData.gender?.trim() && !formData.dateOfBirth?.trim()) ? "Gender and Date of Birth" : !formData.gender?.trim() ? "Gender" : "Date of Birth"} to proceed.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openUpdateDetailsModal(formData.regType === "family" ? (formData.familyMemberId ? "family_edit" : "family_add") : "self", formData.familyMemberId)}
+                  className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
+                >
+                  <span>Provide Details</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Already Registered Alert (When ALL selected formats are already registered) */}
+            {isAlreadyRegistered && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/80 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1 sm:p-1.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                    Already Registered ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})
+                  </h4>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-0.5 leading-relaxed">
+                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already registered for this format ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")}). Registration status: <span className="font-bold uppercase text-emerald-800 dark:text-emerald-200">{activeParticipantReg?.status || "CONFIRMED"}</span>.
+                    {availableFormats.length > selectedFormats.length && (
+                      <span className="block mt-1 text-primary font-bold">
+                        Tip: Select another format (like {availableFormats.filter(f => !registeredFormats.includes(f.toUpperCase())).map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ") || "other available formats"}) above to register.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Partial format alert (e.g. Registered for Singles, currently registering for Doubles) */}
+            {!isAlreadyRegistered && registeredFormats.length > 0 && unregisteredSelectedFormats.length > 0 && (
+              <div className="bg-sky-50 dark:bg-sky-950/40 border-2 border-sky-300 dark:border-sky-700/80 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1 sm:p-1.5 bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-400 rounded-lg shrink-0">
+                  <Info className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wide">
+                    Adding New Format Registration
+                  </h4>
+                  <p className="text-xs text-sky-700 dark:text-sky-300 font-medium mt-0.5 leading-relaxed">
+                    <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already confirmed for <span className="font-bold">{registeredFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>. You are now submitting registration for <span className="font-bold text-primary">{unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Hidden native submit button for Enter key & form.requestSubmit() */}
+            <button
+              type="submit"
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+            />
+
+            {/* Submit Actions — desktop inline for page mode (in modal mode the pinned footer handles actions; on mobile in page mode the sticky bottom bar handles actions) */}
+            {!isModal && (
+              <div className="hidden sm:flex gap-2.5 pt-2 sm:pt-1">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 py-2.5 px-3 bg-card border border-border rounded-xl text-xs sm:text-[13px] text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
+                >
+                  ← Go Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                  className={`flex-[2] py-2.5 px-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
+                    isAlreadyRegistered
+                      ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                  }`}
+                >
+                  {submitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                  ) : isAlreadyRegistered ? (
+                    <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                  ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                    <>Provide Gender &amp; DOB to Register</>
+                  ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                    <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
+                  ) : (
+                    <>Submit Registration <span className="text-[10px]">→</span></>
+                  )}
+                </button>
+              </div>
+            )}
           </form>
         </div>
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
-        <div className="lg:col-span-5 lg:sticky lg:top-6">
-          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-white/10">
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-90" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
+        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
+          <div className="rounded-xl overflow-hidden shadow-2xs border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            {/* Header with subtle gradient banner */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+              {!isModal && (
+                <button
+                  onClick={handleClose}
+                  className="mb-2 flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors group cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  <span>Back</span>
+                </button>
+              )}
 
-            <div className="relative p-4 md:p-5">
-              <button
-                onClick={() => navigate(-1)}
-                className="mb-3 flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors group"
-              >
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                Back
-              </button>
-
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-orange-400" />
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
                     {event?.name ?? "Complete Registration"}
-                  </h2>
-                  <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                  </h4>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
-                {eventDate && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📅</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
-                      <p className="font-semibold">{eventDate}</p>
-                    </div>
+            <div className="p-2.5 sm:p-3 space-y-2">
+              {eventDate && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
                   </div>
-                )}
-                {venueName && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📍</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
-                      <p className="font-semibold">{venueName}</p>
-                    </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
                   </div>
-                )}
-                {event?.community?.name && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">🏠</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
-                      <p className="font-semibold">{event.community.name}</p>
-                    </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
+
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                                Current
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Submit Bar (Page Mode) */}
+      {!isModal && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-3 py-2.5 safe-area-bottom">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex-shrink-0 min-h-[44px] px-3.5 bg-card border border-border rounded-xl text-[13px] text-muted-foreground font-semibold active:scale-95 transition-all cursor-pointer"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                if (form && typeof form.requestSubmit === "function") {
+                  try {
+                    form.requestSubmit();
+                    return;
+                  } catch {
+                    // fallback
+                  }
+                }
+                handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+              }}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+              className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
+                isAlreadyRegistered
+                  ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                  : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+              }`}
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+              ) : isAlreadyRegistered ? (
+                <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
+              ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                <>Add Gender & DOB</>
+              ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
+              ) : (
+                <>Submit Registration →</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+
+  const snackbarElement = snackbarInfo?.open && (
+    <div 
+      className="fixed top-5 sm:top-6 left-1/2 -translate-x-1/2 z-[150] w-[92%] max-w-md animate-in fade-in slide-in-from-top-4 duration-300 pointer-events-auto"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="bg-slate-900/95 dark:bg-slate-800/95 text-white backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl border border-white/15 flex items-start gap-3">
+        <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+          <Info className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {snackbarInfo.title && (
+            <p className="text-xs font-bold text-amber-400 mb-0.5">
+              {snackbarInfo.title}
+            </p>
+          )}
+          <p className="text-xs text-slate-200 leading-relaxed">
+            {snackbarInfo.message}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setSnackbarInfo(null);
+          }}
+          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer shrink-0"
+          title="Close"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+
+  if (isModal) {
+    return (
+      <>
+        <div 
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+          onClick={handleClose}
+        >
+          <div 
+            className="relative w-full max-w-5xl h-[92vh] max-h-[92dvh] sm:h-[88vh] sm:max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pull handle for mobile */}
+            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
+            {/* Pinned Modal Header */}
+            <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <span className="p-1.5 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Trophy className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
+                      {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
+                      {eventDate ? ` - ${eventDate}` : ""}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowEventInfoModal(true)}
+                      aria-label="View Complete Event Information"
+                      title="View Complete Event Information"
+                      className="p-0.5 rounded-full text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 truncate leading-tight mt-0.5">
+                    {event?.categoryName || event?.name || venueName || "Tournament Registration"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </button>
+            </div>
+
+            {/* Scrollable Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-3 sm:pb-0">
+              {mainContent}
+            </div>
+
+            {/* Pinned Modal Footer */}
+            <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="min-h-[42px] px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
+              >
+                Cancel
+              </button>
+
+              {/* Status / Selected formats summary on sm+ */}
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 min-w-0">
+                {formData.playerName && (
+                  <span className="truncate font-medium">
+                    Participant: <strong className="text-slate-900 dark:text-slate-100">{formData.playerName}</strong>
+                  </span>
+                )}
+                {selectedFormats.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
+                    {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
+                  </span>
+                )}
+                {formData.categoryIds.length > 0 && (
+                  <span className="text-[10px] text-slate-500">
+                    ({formData.categoryIds.length} {formData.categoryIds.length === 1 ? "category" : "categories"} selected)
+                  </span>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                  if (form && typeof form.requestSubmit === "function") {
+                    try {
+                      form.requestSubmit();
+                      return;
+                    } catch {
+                      // fallback
+                    }
+                  }
+                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+                }}
+                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className={`flex-1 sm:flex-initial min-h-[42px] px-4 sm:px-6 py-2 sm:py-2.5 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm shrink-0 ${
+                  isAlreadyRegistered
+                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                }`}
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                ) : isAlreadyRegistered ? (
+                  <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                  <>Provide Gender &amp; DOB to Register</>
+                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
+                ) : (
+                  <>Submit Registration <span className="text-[10px]">→</span></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+        {snackbarElement}
+        <CashfreeCheckout
+          visible={showPaymentOverlay}
+          status={cashfree.status}
+          order={cashfree.order}
+          error={cashfree.error}
+          onDismiss={() => {
+            setShowPaymentOverlay(false);
+            cashfree.reset();
+          }}
+        />
+        <Toaster richColors position="top-right" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {mainContent}
+      {snackbarElement}
+      <CashfreeCheckout
+        visible={showPaymentOverlay}
+        status={cashfree.status}
+        order={cashfree.order}
+        error={cashfree.error}
+        onDismiss={() => {
+          setShowPaymentOverlay(false);
+          cashfree.reset();
+        }}
+      />
+      <Toaster richColors position="top-right" />
+    </>
   );
 }

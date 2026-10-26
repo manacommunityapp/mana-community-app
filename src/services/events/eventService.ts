@@ -25,6 +25,7 @@ export interface EventResponse {
   title: string;
   description: string;
   type: string;
+  eventType?: string;
   category?: string | null;
   startDate: string;
   endDate: string | null;
@@ -442,6 +443,12 @@ export const eventService = {
     return apiClient.get<EventResponse[]>(`/events${qs}`);
   },
 
+  /** Dedicated method for lightweight dashboard & feed preview cards */
+  async getUpcomingEventsForDashboard(type?: string): Promise<EventResponse[]> {
+    const qs = type && type !== "All" ? `?type=${type}` : "";
+    return apiClient.get<EventResponse[]>(`/events/dashboard-preview${qs}`);
+  },
+
   async getAllEvents(forceRefresh = false): Promise<EventResponse[]> {
     const now = Date.now();
     if (!forceRefresh && cachedAllEvents && (now - cachedAllEventsTimestamp < EVENTS_CACHE_TTL_MS)) {
@@ -509,11 +516,19 @@ export const eventService = {
     await apiClient.delete<void>(`/events/${numericId}`);
   },
 
-  async register(id: number | string): Promise<EventResponse> {
+  async register(id: number | string, data?: {
+    ticketType?: string;
+    quantity?: number;
+    name?: string;
+    email?: string;
+    phone?: string;
+    notes?: string;
+    agreed?: boolean;
+  }): Promise<EventResponse> {
     clearEventsCache();
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid event ID: ${id}`);
-    return apiClient.post<EventResponse>(`/events/${numericId}/register`, {});
+    return apiClient.post<EventResponse>(`/events/${numericId}/register`, data ?? {});
   },
 
   async unregister(id: number | string): Promise<EventResponse> {

@@ -5,17 +5,27 @@ import { twMerge } from "tailwind-merge";
 import {
   LayoutDashboard, ShoppingBag, Store, Wrench, Home, Utensils, Zap,
   ShoppingCart, Package, Gift, Search as SearchIcon, Heart, User,
-  Sun, Moon
+  Sun, Moon, ShieldAlert, Users, Sparkles, HelpCircle, Scale, BarChart3
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { CREATE_LISTING } from "../../../constants/permissions";
+import { CREATE_LISTING, VIEW_ADMIN } from "../../../constants/permissions";
+import { CartProvider, useCart } from "../../../contexts/CartContext";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
 export function MarketplaceLayout() {
+  return (
+    <CartProvider>
+      <MarketplaceLayoutContent />
+    </CartProvider>
+  );
+}
+
+function MarketplaceLayoutContent() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isAnyAdmin } = useAuth();
+  const { totalItems } = useCart();
   const [isDark, setIsDark] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
 
@@ -33,20 +43,29 @@ export function MarketplaceLayout() {
   const allTabs = [
     { id: "dashboard", label: "Dashboard", path: "/marketplace", icon: LayoutDashboard, exact: true },
     { id: "products", label: "Products", path: "/marketplace?tab=products", icon: Store },
+    { id: "requests", label: "Buyer Requests", path: "/marketplace?tab=requests", icon: HelpCircle, badge: "New" },
+    { id: "group-buying", label: "Group Buying", path: "/marketplace?tab=group-buying", icon: Users },
+    { id: "festivals", label: "Festival Specials", path: "/marketplace?tab=festivals", icon: Sparkles },
     { id: "vendors", label: "Vendors", path: "/marketplace?tab=vendors", icon: ShoppingBag },
     { id: "services", label: "Services", path: "/marketplace?tab=services", icon: Wrench },
     { id: "rentals", label: "Rentals", path: "/marketplace?tab=rentals", icon: Home },
     { id: "food", label: "Homemade Food", path: "/marketplace?tab=food", icon: Utensils },
     { id: "deals", label: "Deals", path: "/marketplace?tab=deals", icon: Zap },
-    { id: "cart", label: "Cart", path: "/marketplace?tab=cart", icon: ShoppingCart },
+    { id: "cart", label: "Cart", path: "/marketplace?tab=cart", icon: ShoppingCart, badge: totalItems > 0 ? totalItems : undefined },
     { id: "orders", label: "Orders", path: "/marketplace/orders", icon: Package },
-    { id: "donate", label: "Donations", path: "/marketplace/donations", icon: Gift },
+    { id: "donate", label: "Donations & Sharing", path: "/marketplace/donations", icon: Gift },
     { id: "lostfound", label: "Lost & Found", path: "/marketplace/lost-found", icon: SearchIcon },
+    { id: "disputes", label: "Disputes & Support", path: "/marketplace?tab=disputes", icon: Scale },
     { id: "wishlist", label: "Wishlist", path: "/marketplace/wishlist", icon: Heart },
   ];
 
   if (hasPermission(CREATE_LISTING)) {
-    allTabs.splice(11, 0, { id: "my-listings", label: "My Listings", path: "/marketplace/my-listings", icon: User });
+    allTabs.splice(15, 0, { id: "my-listings", label: "My Listings", path: "/marketplace/my-listings", icon: User });
+  }
+
+  if (isAnyAdmin || hasPermission(VIEW_ADMIN)) {
+    allTabs.push({ id: "admin-hub", label: "Admin Hub", path: "/marketplace?tab=admin-hub", icon: BarChart3 });
+    allTabs.push({ id: "moderation", label: "Moderation Queue", path: "/marketplace?tab=moderation", icon: ShieldAlert, badge: 1 });
   }
 
   const isTabActive = (tab: typeof allTabs[0]) => {
@@ -58,10 +77,6 @@ export function MarketplaceLayout() {
     }
     return location.pathname.startsWith(tab.path);
   };
-
-  const initials = user?.fullName
-    ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-    : "RM";
 
   return (
     <div className={cn("min-h-screen font-sans bg-[#F8F7FC] text-[#1A1A2E] transition-colors duration-200", isDark && "dark bg-[#16162A] text-[#F0EFF5]")}>
@@ -93,6 +108,21 @@ export function MarketplaceLayout() {
           />
         </div>
 
+        {/* Quick Cart / Topbar Action */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/marketplace?tab=cart")}
+            className="relative p-2.5 rounded-xl bg-slate-100/80 dark:bg-[#262644] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-200 transition-all cursor-pointer"
+            title="Shopping Cart"
+          >
+            <ShoppingCart className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md animate-pulse">
+                {totalItems}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ── Single Main Navigation Menu Bar (HTML Mockup) ── */}
@@ -106,7 +136,7 @@ export function MarketplaceLayout() {
                 key={tab.id}
                 onClick={() => navigate(tab.path)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all cursor-pointer",
+                  "flex items-center gap-2 px-4 py-3.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all cursor-pointer relative",
                   active
                     ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20"
                     : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700"
@@ -114,6 +144,11 @@ export function MarketplaceLayout() {
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}
+                {typeof tab.badge === "number" && tab.badge > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             );
           })}

@@ -156,7 +156,7 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
 
     async function loadAlerts() {
       try {
-        const noticesRes = await notificationService.getNotifications(0, 5).catch(() => null);
+        const noticesRes = await notificationService.getNotificationsSummary(0, 5).catch(() => null);
 
         const combinedAlerts: AlertTickerItem[] = [];
 

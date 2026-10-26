@@ -68,69 +68,12 @@ const PIE_COLORS = ["#4F46E5", "#7C3AED", "#16A34A", "#2563EB", "#EC4899", "#F59
 
 // ── Static mock data (unchanged from original) ────────────────────────────────
 
-const MOCK_KPIS = [
-  { label: "Total Events",            value: "24",     sub: "8 active festivals",  icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",   trend: "+3 this month",   to: "/events/schedule?tab=events" },
-  { label: "Registrations",           value: "1,842",  sub: "↑ 14% vs last week",  icon: Ticket,       color: "#7C3AED", bg: "rgba(124,58,237,0.12)",  trend: "+204 this week",  to: "/events/registration" },
-  { label: "Budget Spent",            value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: IndianRupee,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left",     to: "/events/operations?tab=finance" },
-  { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
-  { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
-  { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
-];
 
-const MOCK_REG_TREND = [
-  { day: "Mon", count: 82,  vip: 12 }, { day: "Tue", count: 145, vip: 20 },
-  { day: "Wed", count: 203, vip: 35 }, { day: "Thu", count: 178, vip: 28 },
-  { day: "Fri", count: 267, vip: 45 }, { day: "Sat", count: 312, vip: 60 },
-  { day: "Sun", count: 225, vip: 40 },
-];
 
-const MOCK_BUDGET = [
-  { cat: "Stage & Venue",  budget: 1.8, spent: 1.5  },
-  { cat: "Food & Feast",   budget: 2.2, spent: 1.8  },
-  { cat: "Sound & Light",  budget: 1.0, spent: 0.75 },
-  { cat: "Security & Ops", budget: 0.8, spent: 0.5  },
-  { cat: "Marketing",      budget: 0.5, spent: 0.27 },
-];
 
-const MOCK_PIE = [
-  { name: "Family Passes", value: 520, color: "#4F46E5" },
-  { name: "Individual",    value: 680, color: "#7C3AED" },
-  { name: "VIP Guests",    value: 120, color: "#16A34A" },
-  { name: "Volunteers",    value: 318, color: "#2563EB" },
-  { name: "Performers",    value: 204, color: "#EC4899" },
-];
 
-const MOCK_BANNERS: BannerItem[] = [
-  {
-    id: "mock-1", title: "Ganesh Chaturthi Utsav 2026",
-    subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
-    location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
-    registered: "1,842 passes issued", category: "Grand Festival",
-    bgGradient: BANNER_GRADIENTS[0], targetDate: "2026-08-27", targetTime: null as string | null,
-    image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-  },
-  {
-    id: "mock-2", title: "Annual Sports Olympiad 2026",
-    subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
-    location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
-    registered: "412 athletes registered", category: "Sports Championship",
-    bgGradient: BANNER_GRADIENTS[1], targetDate: "2026-09-14", targetTime: null as string | null,
-    image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80",
-  },
-];
 
-const MOCK_ACTIVITIES = [
-  { time: "09:00 AM", title: "Morning Aarti & Prasadam Distribution", dept: "Rituals Team",  status: "Live",     count: "450 attendees" },
-  { time: "02:30 PM", title: "Children's Drawing Competition",        dept: "Cultural Wing", status: "Upcoming", count: "120 kids"      },
-  { time: "06:00 PM", title: "Volunteers Shift Briefing",            dept: "Ops Division",  status: "Planning", count: "45 volunteers" },
-];
 
-const MOCK_TASKS = [
-  { id: "m1", task: "Confirm catering vendor for Maha Prasadam",           priority: "high",   due: "2 days" },
-  { id: "m2", task: "Send QR pass reminder emails to pending registrants", priority: "medium", due: "Today"  },
-  { id: "m3", task: "Finalize stage sound & light layout diagram",         priority: "high",   due: "3 days" },
-  { id: "m4", task: "Collect pending sponsor payments from Apollo",        priority: "medium", due: "1 week" },
-];
 
 // ── Banner type ───────────────────────────────────────────────────────────────
 
@@ -143,13 +86,17 @@ interface BannerItem {
 }
 
 function eventToBanner(ev: EventResponse, idx: number): BannerItem {
+  const registered = ev.capacity != null
+    ? `${ev.attendees.toLocaleString()} registered (${ev.capacity} spots left)`
+    : `${ev.attendees.toLocaleString()} registered`;
+
   return {
     id: String(ev.id),
     title: ev.title,
     subtitle: ev.description || "",
     location: ev.venue || ev.location || ev.city || "—",
     date: ev.endDate ? `${ev.startDate} – ${ev.endDate}` : ev.startDate,
-    registered: `${ev.attendees.toLocaleString()} registered`,
+    registered,
     category: ev.category || ev.type || "Event",
     bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
     targetDate: ev.startDate,
@@ -200,7 +147,7 @@ const DEFAULT_PENDING_TASKS = [
 export function EventsDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { useMock } = useEventMock();
+  const useMock = false;
 
   // ── UI state ──
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -564,7 +511,6 @@ export function EventsDashboard() {
 
   // ── Derived: today's schedule ─────────────────────────────────────────────
   const todaySchedule = useMemo(() => {
-    if (useMock) return MOCK_ACTIVITIES;
     const today = new Date().toISOString().slice(0, 10);
     const filtered = events
       .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
@@ -594,7 +540,6 @@ export function EventsDashboard() {
 
   // ── Derived: pending tasks ────────────────────────────────────────────────
   const pendingTasks = useMemo(() => {
-    if (useMock) return MOCK_TASKS;
     if (pendingActionItems.length > 0) {
       return pendingActionItems.map((item: any) => ({
         id: item.id,
@@ -641,7 +586,6 @@ export function EventsDashboard() {
 
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
-    if (useMock) return MOCK_KPIS;
     const spent   = stats?.totalExpenses ?? 0;
     const revenue = stats?.totalRevenue  ?? 0;
     // Use backend-computed counts (accurate today-specific) with frontend list as fallback
@@ -763,7 +707,6 @@ export function EventsDashboard() {
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
-    if (useMock) return MOCK_BANNERS;
     const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
     if (runningEvents.length > 0) {
       return runningEvents.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
@@ -827,7 +770,6 @@ export function EventsDashboard() {
     if (!useMock && analytics?.dailyRegistrations && analytics.dailyRegistrations.some((d: any) => (d.count || 0) > 0 || (d.vip || 0) > 0)) {
       return analytics.dailyRegistrations;
     }
-    if (useMock) return MOCK_REG_TREND;
     const counts: Record<string, number> = {};
     const vipCounts: Record<string, number> = {};
     WEEK_DAYS.forEach(d => { counts[d] = 0; vipCounts[d] = 0; });
@@ -870,7 +812,6 @@ export function EventsDashboard() {
   // ── Derived: expense breakdown ────────────────────────────────────────────
   const budgetData = useMemo(() => {
     if (!useMock && analytics?.budgetVsExpenses) return analytics.budgetVsExpenses;
-    if (useMock) return MOCK_BUDGET;
     const byCategory: Record<string, number> = {};
     expenses.forEach(e => {
       const cat = e.category || "Other";
@@ -889,7 +830,6 @@ export function EventsDashboard() {
   // ── Derived: pie categories ───────────────────────────────────────────────
   const pieData = useMemo(() => {
     if (!useMock && analytics?.passCategories && analytics.passCategories.length > 0) return analytics.passCategories;
-    if (useMock) return MOCK_PIE;
     const byCat: Record<string, number> = {};
     allUnifiedRegs.forEach(r => {
       const cat = r.category || (r as any).passType || r.activityTitle || "Event Pass";
@@ -913,17 +853,7 @@ export function EventsDashboard() {
   const scheduleDutyChartData = useMemo(() => {
     if (!useMock && analytics?.todaysScheduleDuty) return analytics.todaysScheduleDuty;
     const timeSlots = ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"];
-    if (useMock) {
-      return [
-        { time: "08:00 AM", programs: 2, volunteers: 15 },
-        { time: "10:00 AM", programs: 4, volunteers: 32 },
-        { time: "12:00 PM", programs: 5, volunteers: 45 },
-        { time: "02:00 PM", programs: 3, volunteers: 28 },
-        { time: "04:00 PM", programs: 6, volunteers: 50 },
-        { time: "06:00 PM", programs: 7, volunteers: 62 },
-        { time: "08:00 PM", programs: 4, volunteers: 35 },
-      ];
-    }
+
     const todayStr = new Date().toISOString().slice(0, 10);
     const activeToday = events
       .filter(e => String(e.status || '').toUpperCase() !== "CANCELLED")

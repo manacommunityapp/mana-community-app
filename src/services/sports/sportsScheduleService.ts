@@ -24,6 +24,10 @@ export interface RegistrationListItem {
   eventName: string | null;
   sportName: string | null;
   categoryName: string | null;
+  matchType?: string | null;
+  partnerUserId?: number | null;
+  partnerName?: string | null;
+  partnerStatus?: string | null;
   age: number | null;
   flatNumber: string | null;
   registeredAt: string | null;

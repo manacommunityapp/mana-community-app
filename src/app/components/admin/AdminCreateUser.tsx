@@ -874,6 +874,7 @@ export function AdminCreateUser() {
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5">Username</label>
                       <input
                         type="text"
+                        autoComplete="off"
                         placeholder="e.g. priya.sharma"
                         value={form.username}
                         onChange={e => update("username", e.target.value)}
@@ -892,6 +893,7 @@ export function AdminCreateUser() {
                           <input
                             type={showPassword ? "text" : "password"}
                             maxLength={20}
+                            autoComplete="new-password"
                             placeholder="6–20 chars (letters & numbers)"
                             value={form.password}
                             onChange={e => update("password", e.target.value)}
@@ -929,6 +931,7 @@ export function AdminCreateUser() {
                           <input
                             type={showConfirmPassword ? "text" : "password"}
                             maxLength={20}
+                            autoComplete="new-password"
                             placeholder="Re-enter password"
                             value={form.confirmPassword}
                             onChange={e => update("confirmPassword", e.target.value)}

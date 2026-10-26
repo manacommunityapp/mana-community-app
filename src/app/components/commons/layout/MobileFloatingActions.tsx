@@ -3,10 +3,13 @@ import { useNavigate } from "react-router";
 import {
   Trophy, Bell, Users, Shield, X, ChevronRight,
   CalendarDays, Flame, Award, Sparkles, Search,
-  Store, Briefcase, Megaphone, Building2, Headphones, Vote, UserCircle
+  Store, Briefcase, Megaphone, Building2, Headphones, Vote, UserCircle,
+  ShieldCheck, Tag, GraduationCap, ShieldAlert, ShoppingBag, Compass, Landmark, Heart, Activity, WifiOff, Stethoscope, Wallet, Car, PieChart
 } from "lucide-react";
 import { CommunityDirectory } from "../../community/CommunityDirectory";
 import { NotificationBell } from "./NotificationBell";
+import { feedService, type FeedSummaryCountsResponse } from "../../../../services/community/feedService";
+import { useAuth } from "../../../../contexts/AuthContext";
 
 interface SearchResultItem {
   label: string;
@@ -18,6 +21,7 @@ interface SearchResultItem {
   category: string;
   color: string;
   bg: string;
+  requiredModule?: string | string[];
 }
 
 export function MenuListIcon({ className }: { className?: string }) {
@@ -44,8 +48,21 @@ export function MenuListIcon({ className }: { className?: string }) {
 
 export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
   const navigate = useNavigate();
+  const { user, isSuperAdmin } = useAuth();
+  const enabledModules = user?.enabledModules;
   const [activeModal, setActiveModal] = useState<"directory" | "search" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [directoryCount, setDirectoryCount] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    feedService.getSidebarSummary()
+      .then((res: FeedSummaryCountsResponse) => {
+        if (res && typeof res.directoryCount === "number") {
+          setDirectoryCount(res.directoryCount);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleOpenSearch = () => {
@@ -198,11 +215,172 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       color: "text-indigo-600",
       bg: "bg-indigo-50",
     },
+    {
+      label: "Safety & Security Command Center",
+      desc: "Live ANPR, boom barrier, patrols & staff passes",
+      icon: ShieldCheck,
+      path: "/safety",
+      keywords: "safety security gate guard barrier anpr vehicles staff incident",
+      category: "Safety",
+      color: "text-emerald-700",
+      bg: "bg-emerald-50",
+      requiredModule: ["VISITORS", "SAFETY"],
+    },
+    {
+      label: "Mana Deals & Offers",
+      desc: "Discounts, market events & community demands",
+      icon: Tag,
+      path: "/deals",
+      keywords: "deals offers discounts market business coupons",
+      category: "Commerce",
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+    },
+    {
+      label: "Mana Academy",
+      desc: "Skill workshops, courses & tutoring",
+      icon: GraduationCap,
+      path: "/academy",
+      keywords: "academy learning teaching instructor courses tutoring classes",
+      category: "Education",
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+    },
+    {
+      label: "Mana Health",
+      desc: "Doctors, appointments, clinic bookings & health records",
+      icon: Stethoscope,
+      path: "/health",
+      keywords: "health doctor clinic hospital appointment medicine prescription records lab test",
+      category: "Lifestyle",
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+    },
+    {
+      label: "My Money & Personal Finance",
+      desc: "Private personal accounts, budgets, goals & receipts vault",
+      icon: Wallet,
+      path: "/my-money",
+      keywords: "finance money budget personal accounts salary spending expense networth goals receipts",
+      category: "Finance",
+      color: "text-teal-600",
+      bg: "bg-teal-50",
+    },
+    {
+      label: "Smart Parking & Vehicles",
+      desc: "Slots, vehicle whitelist, spot marketplace & ANPR gate",
+      icon: Car,
+      path: "/parking",
+      keywords: "parking vehicle car slot basement ev charging spot anpr barrier sticker",
+      category: "Facilities",
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "Mana Split & Collections",
+      desc: "PhonePe-style expense splitting, debt minimization & community collections",
+      icon: PieChart,
+      path: "/split",
+      keywords: "split expense group trip food fuel settlements owe share collection phonepe",
+      category: "Finance",
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+    },
+    {
+      label: "Emergency SOS",
+      desc: "Medical, fire, lift & security emergency alarms",
+      icon: ShieldAlert,
+      path: "/emergency",
+      keywords: "emergency sos medical fire ambulance lift police alarm",
+      category: "Safety",
+      color: "text-red-600",
+      bg: "bg-red-50",
+    },
+    {
+      label: "Community Trips OS",
+      desc: "Curated weekend getaways, rosters & itineraries",
+      icon: Compass,
+      path: "/trips",
+      keywords: "trips travel itinerary getaway weekend tour trek bus",
+      category: "Activities",
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "Group Buying",
+      desc: "Collective purchasing power & bulk discounts",
+      icon: ShoppingBag,
+      path: "/group-buying",
+      keywords: "group buying bulk deals wholesale groceries collective",
+      category: "Commerce",
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+    },
+    {
+      label: "Community Discover",
+      desc: "Personalized recommendations & skill graph",
+      icon: Sparkles,
+      path: "/discover",
+      keywords: "discover graph recommendations skills neighbors matching",
+      category: "Network",
+      color: "text-violet-600",
+      bg: "bg-violet-50",
+    },
+    {
+      label: "Governance & Decisions",
+      desc: "Committee resolutions, proposals & digital vault",
+      icon: Landmark,
+      path: "/governance",
+      keywords: "governance meetings proposals voting resolutions agm elections committee",
+      category: "Governance",
+      color: "text-sky-600",
+      bg: "bg-sky-50",
+    },
+    {
+      label: "Pet Registry",
+      desc: "Vaccinations, lost pet alerts & pet community",
+      icon: Heart,
+      path: "/pets",
+      keywords: "pets dogs cats animals vaccination pet-friendly lost-pet",
+      category: "Community",
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+    },
+    {
+      label: "IoT Smart Metering",
+      desc: "Water & electricity telemetry & consumption",
+      icon: Activity,
+      path: "/iot/meters",
+      keywords: "iot meters water electricity telemetry smart consumption",
+      category: "Utilities",
+      color: "text-cyan-600",
+      bg: "bg-cyan-50",
+    },
+    {
+      label: "Offline Sync Manager",
+      desc: "Queued operations, storage status & network sync",
+      icon: WifiOff,
+      path: "/sync",
+      keywords: "sync offline queue storage network cache",
+      category: "Settings",
+      color: "text-slate-600",
+      bg: "bg-slate-50",
+    },
   ];
 
+  const isModuleAllowed = (moduleKeyOrKeys?: string | string[]) => {
+    if (!moduleKeyOrKeys) return true;
+    if (isSuperAdmin && !user?.communityId) return true;
+    if (!enabledModules || enabledModules.length === 0) return false;
+    const keys = Array.isArray(moduleKeyOrKeys) ? moduleKeyOrKeys : [moduleKeyOrKeys];
+    return keys.some((k) => enabledModules.includes(k));
+  };
+
+  const availableSearchItems = searchItems.filter((item) => isModuleAllowed(item.requiredModule));
+
   const filteredItems = searchQuery.trim() === ""
-    ? searchItems
-    : searchItems.filter(item =>
+    ? availableSearchItems
+    : availableSearchItems.filter(item =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.keywords.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -222,15 +400,15 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
   return (
     <>
       {/* ── Icon-Only Buttons inside Header (Visible on Mobile & Desktop) ────────── */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1 sm:gap-1.5">
         {/* Button 0: Search Button (Mobile View - placed right before Menu & Sports) */}
         <button
           type="button"
           onClick={() => setActiveModal("search")}
           title="Search Community"
-          className="p-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-600 hover:bg-sky-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden"
+          className="p-1.5 sm:p-2 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] text-[#44475B] hover:bg-[#F1F4F7] hover:border-[#DFE4E8] active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden shadow-2xs"
         >
-          <Search className="w-4 h-4 text-sky-600" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#7C7E8C]" />
         </button>
 
         {/* Menu Button (Mobile View - placed beside/after Search button) */}
@@ -239,51 +417,56 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
             type="button"
             onClick={onToggleSidebar}
             title="Open Navigation Menu"
-            className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200 active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] text-[#44475B] hover:bg-[#F1F4F7] active:scale-95 transition-all flex items-center justify-center cursor-pointer lg:hidden shadow-2xs"
           >
-            <MenuListIcon className="w-4 h-4 text-slate-700" />
+            <MenuListIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#44475B]" />
           </button>
         )}
 
-        {/* Button 1: Community Directory (Icon Only) */}
+        {/* Button 1: Community Directory (Icon with Count Badge) */}
         <button
           type="button"
           onClick={() => setActiveModal("directory")}
           title="Community Directory"
-          className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+          className="relative p-1.5 sm:p-2 rounded-xl bg-[#E6FAF5] border border-[#A7F3D0] text-[#008767] hover:bg-[#A7F3D0]/30 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
         >
-          <Users className="w-4 h-4 text-emerald-600" />
+          <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#008767]" />
+          {directoryCount !== undefined && directoryCount > 0 && (
+            <span className="absolute -top-1 -right-1 px-1.5 min-w-[16px] h-[16px] bg-[#00D09C] text-white text-[9px] font-bold rounded-full hidden sm:flex items-center justify-center shadow-xs">
+              {directoryCount > 99 ? "99+" : directoryCount}
+            </span>
+          )}
         </button>
       </div>
 
       {/* ── Modal Backdrop ──────────────────────────────────────────────────── */}
       {activeModal && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200"
           onClick={() => setActiveModal(null)}
         />
       )}
 
       {/* ── Modal 0: Search Modal (Mobile & Desktop) ─────────────────────────── */}
       {activeModal === "search" && (
-        <div className="fixed inset-x-3 top-12 bottom-6 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-14 lg:left-1/2 lg:-translate-x-1/2 lg:w-[560px] lg:max-h-[80vh] lg:rounded-2xl">
-          {/* Search Header */}
-          <div className="p-3 bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-600 text-white flex items-center gap-2">
-            <div className="flex-1 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-2 text-white">
-              <Search className="w-4 h-4 text-white/80 shrink-0" />
+        <div className="fixed inset-x-2.5 top-6 bottom-3 sm:inset-x-3 sm:top-10 sm:bottom-6 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-[#EBEFF2] overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-14 lg:left-1/2 lg:-translate-x-1/2 lg:w-[540px] lg:max-h-[80vh]">
+          {/* Search Header - Groww Clean Slate */}
+          <div className="p-3 bg-white border-b border-[#EBEFF2] flex items-center gap-2.5">
+            <div className="flex-1 flex items-center gap-2.5 bg-[#F9FAFC] border border-[#EBEFF2] rounded-xl px-3 py-2 text-[#44475B] focus-within:border-[#00D09C] focus-within:ring-2 focus-within:ring-[#00D09C]/20 transition-all">
+              <Search className="w-4 h-4 text-[#00D09C] shrink-0" />
               <input
                 type="text"
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search features, modules, pages..."
-                className="w-full bg-transparent border-none outline-none text-base sm:text-xs text-white placeholder:text-white/70"
+                className="w-full bg-transparent border-none outline-none text-xs font-medium text-[#44475B] placeholder:text-[#9CA3AF]"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="p-0.5 rounded-full hover:bg-white/20 text-white/80 transition-colors cursor-pointer"
+                  className="p-0.5 rounded-full hover:bg-slate-200 text-[#7C7E8C] transition-colors cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -291,54 +474,54 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="p-2 rounded-xl hover:bg-white/20 text-white transition-colors cursor-pointer"
+              className="p-2 rounded-xl hover:bg-[#F1F4F7] text-[#7C7E8C] hover:text-[#44475B] transition-colors cursor-pointer"
               title="Close"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Quick Categories / Search Results */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1 bg-[#F9FAFC]">
             {filteredItems.length === 0 ? (
               <div className="text-center py-10 px-4">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                  <Search className="w-6 h-6 text-slate-400" />
+                <div className="w-11 h-11 rounded-2xl bg-white border border-[#EBEFF2] flex items-center justify-center mx-auto mb-3 shadow-xs">
+                  <Search className="w-5 h-5 text-[#9CA3AF]" />
                 </div>
-                <p className="text-xs font-bold text-slate-700">No results found</p>
-                <p className="text-[11px] text-slate-500 mt-1">Try searching for events, sports, marketplace, notices, or bookings.</p>
+                <p className="text-xs font-bold text-[#44475B]">No results found</p>
+                <p className="text-[11px] text-[#7C7E8C] mt-0.5">Try searching for health, events, sports, marketplace, notices, or bookings.</p>
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between px-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <div className="flex items-center justify-between px-1.5 py-1 text-[10px] font-bold text-[#7C7E8C] uppercase tracking-wider">
                   <span>{searchQuery.trim() ? "Search Results" : "Quick Access & Features"}</span>
-                  <span className="text-[10px] font-normal lowercase">{filteredItems.length} destinations</span>
+                  <span className="text-[9px] font-medium lowercase bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0] px-2 py-0.5 rounded-full">{filteredItems.length} destinations</span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {filteredItems.map((item) => (
                     <button
                       key={item.label}
                       type="button"
                       onClick={() => handleSelectSearchItem(item)}
-                      className="w-full p-2.5 rounded-2xl border border-slate-100 bg-white hover:bg-slate-50/80 hover:border-sky-200 transition-all flex items-center gap-3 text-left group shadow-2xs cursor-pointer active:scale-[0.99]"
+                      className="w-full p-2 rounded-xl border border-[#EBEFF2] bg-white hover:bg-[#F9FAFC] hover:border-[#A7F3D0] transition-all flex items-center gap-2.5 text-left group shadow-xs cursor-pointer active:scale-[0.99]"
                     >
-                      <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-                        <item.icon className={`w-4.5 h-4.5 ${item.color}`} />
+                      <div className={`w-8 h-8 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                        <item.icon className={`w-4 h-4 ${item.color}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-800 group-hover:text-sky-600 transition-colors truncate">
+                          <p className="text-xs font-bold text-[#44475B] group-hover:text-[#008767] transition-colors truncate leading-tight">
                             {item.label}
                           </p>
-                          <span className="text-[9px] font-medium px-1.5 py-0.2 bg-slate-100 text-slate-500 rounded-md">
+                          <span className="text-[9px] font-semibold px-1.5 py-0.2 bg-[#F1F4F7] text-[#7C7E8C] rounded-full leading-none">
                             {item.category}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        <p className="text-[10px] text-[#7C7E8C] truncate mt-0.5 leading-tight">
                           {item.desc}
                         </p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      <ChevronRight className="w-3.5 h-3.5 text-[#DFE4E8] group-hover:text-[#00D09C] group-hover:translate-x-0.5 transition-all shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -350,29 +533,29 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
 
       {/* ── Modal 2: Community Directory Modal ────────────────────────────── */}
       {activeModal === "directory" && (
-        <div className="fixed inset-x-2 sm:inset-x-4 top-10 bottom-3 z-50 flex flex-col bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-12 lg:w-[720px] lg:max-h-[85vh] lg:rounded-2xl">
-          {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/15 rounded-xl border border-white/25 shadow-2xs">
-                <Users className="w-5 h-5 text-emerald-100" />
+        <div className="fixed inset-x-2.5 top-6 bottom-3 sm:inset-x-4 sm:top-10 sm:bottom-3 z-50 flex flex-col bg-white rounded-2xl shadow-2xl border border-[#EBEFF2] overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-12 lg:w-[680px] lg:max-h-[85vh]">
+          {/* Header - Groww Clean Emerald */}
+          <div className="px-3.5 py-2.5 bg-gradient-to-r from-[#008767] via-[#00A87D] to-[#00D09C] text-white flex items-center justify-between shrink-0 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-xl bg-white/20 border border-white/25 flex items-center justify-center shadow-2xs shrink-0">
+                <Users className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-white">Community Directory</h3>
-                <p className="text-[11px] text-white/80">Management committee, leaders & emergency contacts</p>
+                <h3 className="font-bold text-xs text-white leading-tight">Community Directory</h3>
+                <p className="text-[9.5px] text-white/90 leading-snug">Management committee, leaders & emergency contacts</p>
               </div>
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="w-5.5 h-5.5 rounded-lg hover:bg-white/20 text-white/80 hover:text-white transition-colors flex items-center justify-center cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* Directory Content */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-50/60">
-            <CommunityDirectory isModal={true} />
+          <div className="flex-1 overflow-y-auto p-1.5 sm:p-2.5 bg-slate-50/60">
+            <CommunityDirectory isModal={true} badgeCount={directoryCount} />
           </div>
         </div>
       )}

@@ -28,6 +28,7 @@ export interface EventCardItem {
   registered: boolean;
   attendeeCount: number;
   maxAttendees: number | null;
+  capacity?: number | null;
   registrationDeadline: string | null;
   needsRegistration?: boolean;
   requiresRegistration?: boolean;

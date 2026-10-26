@@ -31,6 +31,7 @@ import {
   type RetailOrderType,
   type RetailOrderStatus,
 } from "../../../services/inventory/retailInventoryService";
+import { stockService, type StockLevelReport } from "../../../services/inventory/stockService";
 
 export function InventoryManagement() {
   /* ============================= DATA STATE ============================= */
@@ -39,22 +40,32 @@ export function InventoryManagement() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<RetailOrder[]>([]);
   const [salesOrders, setSalesOrders] = useState<RetailOrder[]>([]);
+  const [stockQuantMap, setStockQuantMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     try {
-      const [prods, sups, custs, pos, sos] = await Promise.all([
+      const [prods, sups, custs, pos, sos, quants] = await Promise.all([
         retailInventoryService.getProducts(),
         retailInventoryService.getSuppliers(),
         retailInventoryService.getCustomers(),
         retailInventoryService.getOrders("PURCHASE"),
         retailInventoryService.getOrders("SALES"),
+        stockService.getStockLevelReport().catch(() => [] as StockLevelReport[]),
       ]);
       setProducts(prods);
       setSuppliers(sups);
       setCustomers(custs);
       setPurchaseOrders(pos);
       setSalesOrders(sos);
+
+      // Build authoritative stock map by product name (lowercase)
+      const qMap: Record<string, number> = {};
+      quants.forEach(q => {
+        const key = q.productName.trim().toLowerCase();
+        qMap[key] = (qMap[key] || 0) + (q.available || q.onHand || 0);
+      });
+      setStockQuantMap(qMap);
     } catch (err) {
       toast.error("Failed to load inventory data.");
     } finally {
@@ -85,7 +96,13 @@ export function InventoryManagement() {
   ];
 
   /* ============================= HELPER METHODS ============================= */
-  const inventoryOf = (p: RetailProduct) => p.unitsOrdered - p.unitsSold;
+  const inventoryOf = (p: RetailProduct) => {
+    const key = (p.name || "").trim().toLowerCase();
+    if (stockQuantMap[key] !== undefined) {
+      return stockQuantMap[key];
+    }
+    return Math.max(0, p.unitsOrdered - p.unitsSold);
+  };
 
   const stockState = (p: RetailProduct) => {
     const inv = inventoryOf(p);
@@ -399,7 +416,7 @@ export function InventoryManagement() {
       <Toaster position="top-center" richColors />
 
       {/* Breadcrumb + page header */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100">
         {/* Left: Breadcrumbs */}
         <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
@@ -414,8 +431,8 @@ export function InventoryManagement() {
         {/* Right: Page Header */}
         <div className="flex items-center gap-3 sm:text-right sm:justify-end">
           <div className="text-left sm:text-right">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Inventory Management</h2>
-            <p className="text-xs" style={{ color: "#6b7094" }}>Facility &amp; Stock Hub</p>
+            <h3 className="text-xl font-bold leading-tight m-0 mb-0" style={{ color: "#0d0d2b" }}>Inventory Management</h3>
+            <p className="text-xs m-0" style={{ color: "#6b7094" }}>Facility &amp; Stock Hub</p>
           </div>
           <div
             className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"

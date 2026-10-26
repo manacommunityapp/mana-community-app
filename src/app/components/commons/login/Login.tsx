@@ -20,7 +20,7 @@ import {
   Star,
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
@@ -92,15 +92,15 @@ export function Login() {
       const isMobile = /^\d{10}$/.test(id);
       const normalizedIdentifier = isMobile ? id : id.toLowerCase();
       await login({ identifier: normalizedIdentifier, password: data.password });
-      toast.success("Welcome back!");
+      toast.success("Welcome back!", { id: "login-toast" });
       navigate(redirectTo);
     } catch (err: any) {
       if (isNetworkOrServerError(err)) {
         setServiceError(true);
-        toast.error("Unable to connect to server. Please try again shortly.");
+        toast.error("Unable to connect to server. Please try again shortly.", { id: "login-toast" });
       } else {
         const message = err instanceof Error ? err.message : "Invalid credentials. Please verify and try again.";
-        toast.error(message);
+        toast.error(message, { id: "login-toast" });
       }
     }
   };
@@ -111,12 +111,12 @@ export function Login() {
       const res = await fetch("/api/auth/login", { method: "OPTIONS" }).catch(() => null);
       if (res && res.ok) {
         setServiceError(false);
-        toast.success("Connection restored!");
+        toast.success("Connection restored!", { id: "retry-toast" });
       } else {
-        toast.error("Service is still unavailable. Please try again later.");
+        toast.error("Service is still unavailable. Please try again later.", { id: "retry-toast" });
       }
     } catch {
-      toast.error("Service is still unavailable. Please try again later.");
+      toast.error("Service is still unavailable. Please try again later.", { id: "retry-toast" });
     } finally {
       setRetrying(false);
     }
@@ -124,8 +124,6 @@ export function Login() {
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
-      <Toaster position="top-center" richColors />
-
       {/* ── Left Brand Showcase Panel (Desktop Browser) ────────────────── */}
       <div
         className="hidden lg:flex flex-col justify-between relative overflow-hidden lg:w-[420px] xl:w-[480px] 2xl:w-[520px] shrink-0 text-white p-8 xl:p-10 select-none border-r border-white/10"

@@ -6,7 +6,7 @@
 // This file keeps only the shared types and the UI-state helpers that build the
 // generate request and post-process the returned draft (overrides, placeholders).
 
-export type PlayoffSeedingOrder = 'TRADITIONAL' | 'SEQUENTIAL' | 'RANDOM';
+export type PlayoffSeedingOrder = 'TRADITIONAL' | 'SEQUENTIAL' | 'RANDOM' | 'RANKING';
 
 export type PlayoffParticipantRef = {
   id: string;
@@ -48,6 +48,7 @@ export type PlayoffScheduleInput = {
   participants?: Array<{ id: string; name: string; flatNumber: string | null; rating?: number | null }>;
   /** Selected court IDs for parallel allocation (Rule 4). */
   courtIds?: number[];
+  matchDays?: number[];
 };
 
 export function parseBreakMinutes(breakTime: string): number {

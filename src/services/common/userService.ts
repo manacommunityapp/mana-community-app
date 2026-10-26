@@ -29,17 +29,127 @@ export interface AdminCreateUserPayload {
   prefPush?: boolean;
 }
 
+export interface UserStatsResponse {
+  totalUsers: number;
+  activeUsers: number;
+  pendingKyc: number;
+  approvedKyc: number;
+  rejectedKyc: number;
+  roleBreakdown: Record<string, number>;
+}
+
+export interface UserSummaryResponse {
+  id: number;
+  fullName: string;
+  email: string;
+  phone?: string;
+  profilePicUrl?: string;
+  avatarUrl?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  flatNo?: string;
+  block?: string;
+  communityId?: number;
+}
+
+export interface PagedUserSummaryResponse {
+  content: UserSummaryResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+
+export interface PagedUserResponse {
+  content: UserResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface RoleDetailsItem {
+  id: number;
+  name: string;
+  communityId?: number | null;
+  permissions: string[];
+  userCount: number;
+}
+
+/**
+ * A single candidate returned by GET /api/sports/partner-search.
+ * Covers both AppUser (type="USER") and FamilyMember (type="FAMILY_MEMBER") records.
+ */
+export interface PartnerCandidateResponse {
+  type: "USER" | "FAMILY_MEMBER";
+  id: number;
+  primaryUserId?: number | null;
+  name: string;
+  relation?: string | null;
+  occupancyLabel?: string | null;
+  flatNo?: string | null;
+  block?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  eligible: boolean;
+  ineligibilityReason?: string | null;
+}
+
 export const userService = {
+  /** GET /api/users — returns full paginated response from DB with search, communityId, status, and kyc filters */
+  async getUsersPaged(params: {
+    page?: number;
+    size?: number;
+    communityId?: number;
+    search?: string;
+    status?: string;
+    kycStatus?: string;
+  }): Promise<PagedUserResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.page !== undefined) queryParams.set("page", String(params.page));
+    if (params.size !== undefined) queryParams.set("size", String(params.size));
+    if (params.communityId) queryParams.set("communityId", String(params.communityId));
+    if (params.search && params.search.trim()) queryParams.set("search", params.search.trim());
+    if (params.status && params.status !== "all") queryParams.set("status", params.status);
+    if (params.kycStatus && params.kycStatus !== "all") queryParams.set("kycStatus", params.kycStatus);
+
+    const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+    const res = await apiClient.get<PagedUserResponse | UserResponse[]>(`/users${queryStr}`);
+    if (Array.isArray(res)) {
+      return {
+        content: res,
+        page: 0,
+        size: res.length,
+        totalElements: res.length,
+        totalPages: 1,
+      };
+    }
+    return {
+      content: res?.content ?? [],
+      page: res?.page ?? 0,
+      size: res?.size ?? (params.size || 25),
+      totalElements: res?.totalElements ?? (res?.content?.length || 0),
+      totalPages: res?.totalPages ?? 1,
+    };
+  },
+
+  /** GET /api/users/stats — fast indexed aggregation of user counts, active counts, kyc status, and roles */
+  async getUserStats(communityId?: number): Promise<UserStatsResponse> {
+    const query = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<UserStatsResponse>(`/users/stats${query}`);
+  },
+
   /** GET /api/users/search?communityId={id}&query={q} */
   async searchUsers(communityId: number, query: string): Promise<UserResponse[]> {
     return apiClient.get<UserResponse[]>(`/users/search?communityId=${communityId}&query=${encodeURIComponent(query)}`);
   },
 
-  /** Global / community-aware user search with fallback */
+  /** Global / community-aware user search */
   async searchUsersGlobal(query: string, communityId?: number): Promise<UserResponse[]> {
     const q = query.trim();
     if (!q) {
-      return communityId ? this.getCommunityUsers(communityId) : this.getAllUsers();
+      return [];
     }
     try {
       if (communityId) {
@@ -50,18 +160,9 @@ export const userService = {
       );
       if (Array.isArray(res)) return res;
       return res?.content ?? [];
-    } catch {
-      const all = communityId ? await this.getCommunityUsers(communityId) : await this.getAllUsers();
-      const lower = q.toLowerCase();
-      return all.filter((u) =>
-        (u.fullName || "").toLowerCase().includes(lower) ||
-        (u.email || "").toLowerCase().includes(lower) ||
-        (u.phone || "").toLowerCase().includes(lower) ||
-        (u.role || "").toLowerCase().includes(lower) ||
-        String(u.id).includes(lower.replace("#", "")) ||
-        (u.block || "").toLowerCase().includes(lower) ||
-        (u.flatNo || "").toLowerCase().includes(lower)
-      );
+    } catch (err) {
+      console.warn("Failed to search users:", err);
+      return [];
     }
   },
 
@@ -69,6 +170,20 @@ export const userService = {
   async getCommunityUsers(communityId: number): Promise<UserResponse[]> {
     return apiClient.get<UserResponse[]>(`/users/community/${communityId}`);
   },
+
+  /** GET /api/users/community/{id}/summary — paginated lightweight summary for player selection / mentions */
+  async getCommunityUsersSummary(
+    communityId: number,
+    params?: { search?: string; page?: number; size?: number }
+  ): Promise<PagedUserSummaryResponse> {
+    const searchParam = params?.search ? `&search=${encodeURIComponent(params.search)}` : "";
+    const page = params?.page ?? 0;
+    const size = params?.size ?? 20;
+    return apiClient.get<PagedUserSummaryResponse>(
+      `/users/community/${communityId}/summary?page=${page}&size=${size}${searchParam}`
+    );
+  },
+
 
   /** GET /api/users — unwraps the paginated response into a list.
    *  The backend returns a PagedResponse ({ content, totalElements, ... });
@@ -124,6 +239,11 @@ export const userService = {
     return apiClient.get<RoleResponse[]>("/roles");
   },
 
+  /** GET /api/roles/details — fetch roles with permissions and accurate community user counts */
+  async getRoleDetails(): Promise<RoleDetailsItem[]> {
+    return apiClient.get<RoleDetailsItem[]>("/roles/details");
+  },
+
   /** POST /api/roles */
   async createRole(name: string): Promise<RoleResponse> {
     return apiClient.post<RoleResponse>("/roles", { name });
@@ -157,5 +277,31 @@ export const userService = {
   /** GET /api/users/kyc/stats */
   async getKycStats(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
     return apiClient.get<{ total: number; pending: number; approved: number; rejected: number }>("/users/kyc/stats");
-  }
+  },
+
+  /**
+   * GET /api/sports/partner-search — unified partner candidate search.
+   * Returns both AppUser and FamilyMember records from the community,
+   * with pre-computed age/gender eligibility flags from the target event.
+   */
+  async searchPartners(params: {
+    communityId: number;
+    query: string;
+    eventId?: number | string | null;
+    matchType?: string;
+    callerGender?: string | null;
+  }): Promise<PartnerCandidateResponse[]> {
+    const p = new URLSearchParams();
+    p.set("communityId", String(params.communityId));
+    p.set("query", params.query.trim());
+    if (params.eventId != null) p.set("eventId", String(params.eventId));
+    if (params.matchType) p.set("matchType", params.matchType);
+    if (params.callerGender) p.set("callerGender", params.callerGender);
+    try {
+      return await apiClient.get<PartnerCandidateResponse[]>(`/sports/partner-search?${p.toString()}`);
+    } catch (err) {
+      console.warn("Failed to search partners:", err);
+      return [];
+    }
+  },
 };

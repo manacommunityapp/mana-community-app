@@ -171,10 +171,10 @@ export function NotificationSetupModal({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a3a5c] flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-[#f1f5f9] flex items-center gap-2">
+            <h3 className="text-xs font-bold text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">
               📡 Notification Setup
-            </h2>
-            <p className="text-xs text-[#64748b] mt-0.5">
+            </h3>
+            <p className="text-xs text-[#64748b] m-0">
               Configure multi-channel automated triggers relative to tournament kick-off
             </p>
           </div>
@@ -214,7 +214,7 @@ export function NotificationSetupModal({
               {/* DEFAULT DELIVERY CHANNELS */}
               <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-5">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] mb-2 text-left">📡 Default Global Delivery Channels</h2>
-                <p className="text-[10px] text-[#64748b] mb-4 font-medium text-left">Fires cross-platform unless customized per specific trigger below</p>
+                <p className="text-xs text-[#64748b] mb-4 font-medium text-left">Fires cross-platform unless customized per specific trigger below</p>
                 <div className="flex gap-2 flex-wrap">
                   {CHANNEL_META.map(ch => {
                     const isActive = globalChannels.includes(ch.id);
@@ -242,12 +242,12 @@ export function NotificationSetupModal({
                 <div className="px-5 py-4 border-b border-[#2a3a5c] flex justify-between items-center bg-[#0c1220]/40">
                   <div>
                     <h2 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] text-left">⚡ Execution Rules & Custom Templates</h2>
-                    <p className="text-[10px] text-[#64748b] font-medium text-left mt-0.5">Toggle rules, customize messages, and add custom schedules</p>
+                    <p className="text-xs text-[#64748b] font-medium text-left mt-0.5">Toggle rules, customize messages, and add custom schedules</p>
                   </div>
                   <button
                     type="button"
                     onClick={addCustomTrigger}
-                    className="px-3 py-1.5 bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 text-[#f97316] text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-[#f97316]/30 text-[#f97316] text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                   >
                     + Add Custom Rule
                   </button>
@@ -277,14 +277,14 @@ export function NotificationSetupModal({
 
                             <div className="min-w-0 flex-1 text-left">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-bold text-[#f1f5f9] truncate">
+                                <span className="text-[10px] font-bold text-[#f1f5f9] truncate">
                                   {triggerMeta.emoji} {triggerMeta.label}
                                 </span>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${triggerMeta.tagClass}`}>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${triggerMeta.tagClass}`}>
                                   {isCustom ? "Custom Schedule" : "System Template"}
                                 </span>
                                 {triggerMeta.priority === 'Critical' && (
-                                  <span className="text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 rounded">High Priority</span>
+                                  <span className="text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 rounded">High Priority</span>
                                 )}
                               </div>
                             </div>
@@ -294,7 +294,7 @@ export function NotificationSetupModal({
                             <button
                               type="button"
                               onClick={() => setPreviewTrigger(triggerMeta.id)}
-                              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors cursor-pointer border ${
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
                                 previewTrigger === triggerMeta.id
                                   ? "bg-[#f97316] border-[#f97316] text-white"
                                   : "bg-[#0c1220] border-[#2a3a5c] text-[#94a3b8] hover:text-[#f1f5f9] hover:border-[#475569]"
@@ -305,7 +305,7 @@ export function NotificationSetupModal({
                             <button
                               type="button"
                               onClick={() => setExpandedTrigger(isExpanded ? null : triggerMeta.id)}
-                              className="p-1 hover:bg-[#1a2540] rounded text-[#64748b] hover:text-white transition-colors cursor-pointer bg-transparent border-none text-[8px]"
+                              className="p-1 hover:bg-[#1a2540] rounded text-[#64748b] hover:text-white transition-colors cursor-pointer bg-transparent border-none text-xs"
                             >
                               {isExpanded ? "▲" : "▼"}
                             </button>
@@ -318,7 +318,7 @@ export function NotificationSetupModal({
                             {isCustom && (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Schedule Label name</label>
+                                  <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Schedule Label name</label>
                                   <input
                                     type="text"
                                     value={triggerMeta.label}
@@ -328,7 +328,7 @@ export function NotificationSetupModal({
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Trigger Kick-Off Offset</label>
+                                  <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Trigger Kick-Off Offset</label>
                                   <select
                                     value={triggerMeta.offset}
                                     onChange={e => handleTriggerFieldChange(triggerMeta.id, true, 'offset', parseInt(e.target.value))}
@@ -344,7 +344,7 @@ export function NotificationSetupModal({
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                                <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Target Recipients Group</label>
+                                <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Target Recipients Group</label>
                                 <div className="flex flex-wrap gap-1">
                                   {RECIPIENT_OPTIONS.map(role => {
                                     const isSelected = triggerMeta.recipients.includes(role);
@@ -353,7 +353,7 @@ export function NotificationSetupModal({
                                         key={role}
                                         type="button"
                                         onClick={() => toggleRecipient(triggerMeta.id, isCustom, role)}
-                                        className={`text-[9px] font-bold px-2.5 py-1 rounded transition border cursor-pointer ${
+                                        className={`text-xs font-bold px-2.5 py-1 rounded transition border cursor-pointer ${
                                           isSelected
                                             ? "bg-[#f97316]/15 border-[#f97316]/30 text-[#f97316]"
                                             : "bg-[#0c1220] border-[#2a3a5c]/60 text-[#475569] hover:text-[#94a3b8]"
@@ -367,7 +367,7 @@ export function NotificationSetupModal({
                               </div>
 
                               <div>
-                                <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Override Target Delivery Channels</label>
+                                <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Override Target Delivery Channels</label>
                                 <div className="flex flex-wrap gap-1">
                                   {CHANNEL_META.map(ch => {
                                     const isSelected = triggerMeta.overrideChannels.includes(ch.id);
@@ -376,7 +376,7 @@ export function NotificationSetupModal({
                                         key={ch.id}
                                         type="button"
                                         onClick={() => toggleTriggerChannel(triggerMeta.id, ch.id, isCustom)}
-                                        className={`text-[9px] font-bold px-2.5 py-1 rounded transition border cursor-pointer ${
+                                        className={`text-xs font-bold px-2.5 py-1 rounded transition border cursor-pointer ${
                                           isSelected
                                             ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                                             : "bg-[#0c1220] border-[#2a3a5c]/60 text-[#475569] hover:text-[#94a3b8]"
@@ -387,12 +387,12 @@ export function NotificationSetupModal({
                                     );
                                   })}
                                 </div>
-                                <span className="text-[8px] text-[#64748b] font-medium block mt-1">If blank, defaults to Global selection settings</span>
+                                <span className="text-[10px] text-[#64748b] font-medium block mt-1">If blank, defaults to Global selection settings</span>
                               </div>
                             </div>
 
                             <div>
-                              <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Custom Rules Priority</label>
+                              <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Custom Rules Priority</label>
                               <div className="flex gap-2">
                                 {['Normal', 'High', 'Critical'].map(level => {
                                   const isSelected = triggerMeta.priority === level;
@@ -409,7 +409,7 @@ export function NotificationSetupModal({
                                           }));
                                         }
                                       }}
-                                      className={`flex-1 py-1.5 rounded text-[10px] font-bold transition border cursor-pointer ${
+                                      className={`flex-1 py-1.5 rounded text-xs font-bold transition border cursor-pointer ${
                                         isSelected
                                           ? "bg-slate-700 border-slate-600 text-white font-black"
                                           : "bg-[#0c1220] border-[#2a3a5c]/60 text-[#64748b] hover:text-[#94a3b8]"
@@ -423,7 +423,7 @@ export function NotificationSetupModal({
                             </div>
 
                             <div>
-                              <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Title Payload Header</label>
+                              <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Title Payload Header</label>
                               <input
                                 type="text"
                                 value={triggerMeta.title}
@@ -442,7 +442,7 @@ export function NotificationSetupModal({
                             </div>
 
                             <div>
-                              <label className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Markdown Text Body Content Template</label>
+                              <label className="text-xs text-[#94a3b8] font-bold uppercase tracking-wider block mb-1.5">Markdown Text Body Content Template</label>
                               <textarea
                                 value={triggerMeta.body}
                                 onChange={e => {
@@ -465,7 +465,7 @@ export function NotificationSetupModal({
                                 <button
                                   type="button"
                                   onClick={() => removeCustomTrigger(triggerMeta.id)}
-                                  className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
                                 >
                                   Delete Trigger Rule
                                 </button>
@@ -484,10 +484,10 @@ export function NotificationSetupModal({
             <div className="space-y-6">
 
               <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-5 space-y-5 shadow-xl">
-                <div className="flex justify-between items-center border-b border-[#2a3a5c]/50 pb-3">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] flex items-center gap-2">👁️ Mock Device Preview</h2>
+                <div className="flex justify-between items-center border-b border-[#2a3a5c]/50">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#f1f5f9] flex items-center gap-2 m-0 mb-0">👁️ Mock Device Preview</h3>
                   <select
-                    className="bg-[#0c1220] border border-[#2a3a5c] rounded-lg p-1.5 text-[10px] font-bold text-[#f97316] outline-none cursor-pointer"
+                    className="bg-[#0c1220] border border-[#2a3a5c] rounded-lg p-1.5 text-xs font-bold text-[#f97316] outline-none cursor-pointer"
                     value={previewTrigger}
                     onChange={e => setPreviewTrigger(e.target.value)}
                   >
@@ -504,7 +504,7 @@ export function NotificationSetupModal({
 
                 {/* HIGH FIDELITY DEVICE OVERLAY MOCKUP */}
                 <div className="bg-black rounded-3xl p-4 border-4 border-zinc-800 shadow-2xl">
-                  <div className="flex justify-between text-[9px] text-[#475569] font-bold tracking-tight mb-3 px-2">
+                  <div className="flex justify-between text-xs text-[#475569] font-bold tracking-tight mb-3 px-2">
                     <span>9:41 AM</span>
                     <span className="text-emerald-500 font-mono">● CommuniSync Core</span>
                   </div>
@@ -513,23 +513,23 @@ export function NotificationSetupModal({
                       {previewTrigger.startsWith('custom_') ? '✨' : DEFAULT_TRIGGERS[previewTrigger as keyof typeof DEFAULT_TRIGGERS]?.emoji}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <span className="text-[9px] text-[#475569] font-bold uppercase tracking-wider block">COMMUNISYNC SPORTS</span>
+                      <span className="text-[10px] text-[#475569] font-bold uppercase tracking-wider block">COMMUNISYNC SPORTS</span>
                       <h4 className="text-xs font-bold text-white mt-0.5 leading-snug truncate">
                         {previewTrigger.startsWith('custom_')
                           ? (customTriggers.find(t => t.id === previewTrigger)?.title || 'Custom Title')
                           : triggerStates[previewTrigger]?.title}
                       </h4>
-                      <p className="text-[11px] text-[#94a3b8] mt-1 leading-relaxed break-words">
+                      <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed break-words">
                         {getCompiledPreviewBody()}
                       </p>
-                      <span className="text-[9px] text-zinc-600 block mt-2 font-medium">Just now</span>
+                      <span className="text-[10px] text-zinc-600 block mt-2 font-medium">Just now</span>
                     </div>
                   </div>
                 </div>
 
                 {/* ACTIVE ROUTING DELIVERY TIMELINE VERTICAL STREAM */}
                 <div>
-                  <h3 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-3 text-left">Live Processing Timeline Queue</h3>
+                  <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mb-3 text-left">Live Processing Timeline Queue</h3>
                   <div className="space-y-3.5 pl-1 border-l border-[#2a3a5c] ml-1.5 text-left">
                     {[...allTriggersToRender].sort((a, b) => a.offset - b.offset).map(t => {
                       const isActive = t.enabled;
@@ -541,12 +541,12 @@ export function NotificationSetupModal({
                               : 'bg-[#475569]'
                           }`} />
                           <div className="flex-1 min-w-0 leading-none">
-                            <span className={`text-xs font-bold block ${isActive ? 'text-[#f1f5f9]' : 'text-[#475569]'}`}>{t.label}</span>
-                            <span className="text-[9px] text-[#64748b] font-mono mt-1 block">
+                            <span className={`text-[10px] font-bold block ${isActive ? 'text-[#f1f5f9]' : 'text-[#475569]'}`}>{t.label}</span>
+                            <span className="text-[10px] text-[#64748b] font-mono mt-1 block">
                               {formatINRDate(getTournamentStartDateTime(), t.offset).split('·')[0]}
                             </span>
                           </div>
-                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#141c2e] text-[#475569]'}`}>
+                          <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#141c2e] text-[#475569]'}`}>
                             {isActive ? 'Active' : 'Muted'}
                           </span>
                         </div>
@@ -557,7 +557,7 @@ export function NotificationSetupModal({
 
                 {/* CHANNELS ACTIVE ON PREVIEW CARD MATRICES */}
                 <div className="pt-3 border-t border-[#2a3a5c]/50 text-left">
-                  <h3 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-2">Active Channels For Selection</h3>
+                  <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider mb-2">Active Channels For Selection</h3>
                   <div className="flex gap-1.5 flex-wrap">
                     {currentActiveChannels.map((chId: string) => {
                       const data = CHANNEL_META.find(c => c.id === chId);
@@ -573,12 +573,12 @@ export function NotificationSetupModal({
                 {/* ESTIMATED RECIPIENTS SECTION */}
                 <div className="pt-3 border-t border-[#2a3a5c]/50 flex justify-between items-center text-left">
                   <div>
-                    <h3 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">Estimated Audience</h3>
+                    <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Estimated Audience</h3>
                     <div className="text-2xl font-bold text-[#f97316] mt-1">{previewCount}</div>
-                    <span className="text-[9px] text-[#64748b] font-semibold">Across Selected Recipient Matrix Groups</span>
+                    <span className="text-[10px] text-[#64748b] font-semibold">Across Selected Recipient Matrix Groups</span>
                   </div>
                   <div className="w-12 h-12 rounded-full border-4 border-[#2a3a5c]/50 flex items-center justify-center relative bg-[#0c1220]">
-                    <span className="text-xs font-bold text-teal-400">{previewPercentage}%</span>
+                    <span className="text-[10px] font-bold text-teal-400">{previewPercentage}%</span>
                   </div>
                 </div>
               </div>

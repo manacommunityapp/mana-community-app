@@ -156,6 +156,10 @@ export const visitorService = {
     return apiClient.put<VisitorPassResponse>(`/visitors/${id}/check-out`, {});
   },
 
+  async leaveAtGate(id: number): Promise<VisitorPassResponse> {
+    return apiClient.put<VisitorPassResponse>(`/visitors/${id}/leave-at-gate`, {});
+  },
+
   async reject(id: number): Promise<VisitorPassResponse> {
     return apiClient.put<VisitorPassResponse>(`/visitors/${id}/reject`, {});
   },

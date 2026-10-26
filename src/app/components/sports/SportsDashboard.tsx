@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate, Link } from "react-router";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
-import { useAuth } from "../../../contexts/AuthContext";
+import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats, inferGender } from "./SportsRegister";
+import { getStoredUser } from "../../../services/common/apiClient";
+import { isTeamSport } from "./utils/sportsConstants";
 import {
   VIEW_SPORTS_MAIN,
   VIEW_EVENT_REGISTRATIONS,
@@ -21,9 +25,34 @@ import {
   CREATE_EDIT_PLAYER_POOL,
   CREATE_EDIT_EVENT_REGISTRATIONS,
 } from "../../../constants/permissions";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
+import { TournamentDetailsModal } from "./TournamentDetailsModal";
+import {
+  TournamentSponsorBanner,
+  TournamentSponsorShowcase,
+  TournamentSponsorBadge,
+  mapDbSponsorToTournamentSponsor,
+  type TournamentSponsor,
+} from "./sponsors";
+
+function getSportEmoji(sportName: string | null | undefined): string {
+  const n = (sportName || "").toLowerCase();
+  if (n.includes("cricket")) return "🏏";
+  if (n.includes("football") || n.includes("soccer")) return "⚽";
+  if (n.includes("badminton")) return "🏸";
+  if (n.includes("volleyball")) return "🏐";
+  if (n.includes("basketball")) return "🏀";
+  if (n.includes("kabaddi")) return "🤼";
+  if (n.includes("hockey")) return "🏑";
+  if (n.includes("throwball")) return "🏐";
+  if (n.includes("table tennis") || n.includes("tt")) return "🏓";
+  if (n.includes("tennis")) return "🎾";
+  if (n.includes("chess")) return "♟️";
+  if (n.includes("carrom")) return "🎯";
+  return "🏆";
+}
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
@@ -35,48 +64,125 @@ interface StatCardProps {
   badgeBg: string;
   badgeText: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  onClick?: () => void;
 }
 
-function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon }: StatCardProps) {
+function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon, onClick }: StatCardProps) {
   return (
-    <div className="rounded-2xl p-5 card-hover-lift flex items-center gap-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all duration-300 hover:border-indigo-500/20">
-      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm" style={{ background: badgeBg }}>
-        <Icon className="h-5 w-5" style={{ color }} />
+    <div
+      onClick={onClick}
+      className={`rounded-xl p-2 sm:p-2.5 card-hover-lift flex items-center gap-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_8px_rgba(99,102,241,0.04)] transition-all duration-300 hover:border-indigo-500/30 ${
+        onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.99]" : ""
+      }`}
+    >
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 shadow-xs" style={{ background: badgeBg }}>
+        <Icon className="h-4 w-4" style={{ color }} />
       </div>
       <div className="flex-1 min-w-0 text-left">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-2xl font-extrabold leading-none" style={{ color }}>{value}</div>
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider leading-none" style={{ background: badgeBg, color: badgeText }}>
+        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-[10px] font-bold leading-none shrink-0" style={{ color }}>
+              {value}
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium truncate" title={label}>
+              {label}
+            </span>
+          </div>
+          <span
+            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
+            style={{ background: badgeBg, color: badgeText }}
+          >
             {badge}
           </span>
         </div>
-        <div className="text-xs text-[#6b7094] mt-1.5 font-medium truncate" title={label}>{label}</div>
       </div>
     </div>
   );
 }
 
+// ─── Compact Match Timer ───────────────────────────────────────────────────
+
+function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
+  const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    if (!targetDate) return;
+    const calculateTime = () => {
+      const diff = targetDate.getTime() - new Date().getTime();
+      if (diff <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        s: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  if (!timeLeft) return null;
+
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+
+  return (
+    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] font-bold tabular-nums shrink-0 ml-1 sm:ml-1.5 shadow-2xs">
+      <span className="text-[10px] text-amber-600/70">⏱</span>
+      {timeLeft.d > 0 && <span>{timeLeft.d}d</span>}
+      <span>{pad(timeLeft.h)}h</span>
+      <span>:</span>
+      <span>{pad(timeLeft.m)}m</span>
+      <span>:</span>
+      <span className="text-amber-600">{pad(timeLeft.s)}s</span>
+    </span>
+  );
+}
+
 // ─── Event Row ───────────────────────────────────────────────────────────────
 
-interface EventRowProps { event: (typeof SPORTS_DATA.upcomingEvents)[number]; onClick: () => void; }
+interface EventRowProps {
+  event: (typeof SPORTS_DATA.upcomingEvents)[number] & {
+    targetDate?: Date;
+    registrantBadge?: string;
+  };
+  onClick: () => void;
+}
 
 function EventRow({ event, onClick }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse"
     : event.status === "COMPLETED" ? "bg-slate-500" : "bg-[#f97316]";
   return (
-    <div onClick={onClick} className="flex items-center justify-between gap-4 p-4 rounded-xl mb-3 cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
-        <div className="min-w-0 text-left">
-          <div className="text-sm font-bold text-[#0d0d2b] truncate">
-            {event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}
+    <div onClick={onClick} className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
+      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+        <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
+        <div className="min-w-0 text-left flex-1">
+          <div className="text-xs font-bold text-slate-900 flex items-center flex-wrap gap-1.5">
+            <span className="truncate">{event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}</span>
+            {event.targetDate && event.targetDate.getTime() > Date.now() && (
+              <CompactMatchBadge targetDate={event.targetDate} />
+            )}
+            {event.venue && (
+              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                <span>·</span>
+                <span>{event.venue}</span>
+              </span>
+            )}
+            {event.registrantBadge && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 font-semibold inline-flex items-center gap-1">
+                {event.registrantBadge}
+              </span>
+            )}
           </div>
-          <div className="text-xs text-[#6b7094] mt-1 font-medium">{event.venue} · {event.category}</div>
         </div>
       </div>
       <div className="text-right flex-shrink-0">
         <div className="text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
-        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">{event.statusSub}</div>
+        <div className="text-xs text-slate-500 mt-0.5 font-medium">{event.statusSub}</div>
       </div>
     </div>
   );
@@ -112,24 +218,32 @@ function RegCard({
   toggling
 }: RegCardProps) {
   return (
-    <div className="flex items-start gap-4 p-4 rounded-xl mb-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
-      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
+    <div className="flex items-start gap-3 p-3 rounded-lg mb-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
+      {item.sportEmoji ? (
+        <span className="text-[10px] flex-shrink-0 mt-0.5">{item.sportEmoji}</span>
+      ) : (
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
+      )}
       <div className="flex-1 min-w-0 text-left">
-        <div className="text-sm font-bold text-[#0d0d2b]">
-          {item.name} <span className="text-[#6b7094] font-medium">— {item.date}</span>
+        <div className="text-xs font-bold text-slate-900">
+          {item.name} <span className="text-slate-500 font-medium">— {item.date}</span>
         </div>
-        <div className="text-xs text-[#6b7094] mt-1 font-medium">{item.category}</div>
-        {item.spots && <div className="text-[10px] text-indigo-600 font-semibold mt-1.5">{item.spots}</div>}
-        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-3 border border-slate-200/50">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.progress}%`, background: item.progressColor }} />
+        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+          <span className="text-[10px] text-slate-500 font-medium">{item.category}</span>
+          {item.categoryName && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+              {item.categoryName}
+            </span>
+          )}
         </div>
+        {item.spots && <div className="text-xs text-indigo-600 font-semibold mt-1">{item.spots}</div>}
       </div>
-      <div className="flex flex-col gap-2 flex-shrink-0 min-w-[130px] items-stretch">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
+        <div className="flex gap-1.5 justify-end">
           {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
             <button
               disabled
-              className="text-xs w-full py-2 px-3 rounded-xl font-bold transition-all bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
+              className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
             >
               Closed
             </button>
@@ -142,23 +256,24 @@ function RegCard({
                 else onView(item);
               }}
               disabled={item.action === "Confirmed"}
-              className={`text-xs w-full py-2 px-3 rounded-xl font-bold border transition-all ${
+              className={`text-xs font-bold px-3 py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
                 item.action === "Register"
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white border-none shadow-md shadow-orange-500/10 hover:opacity-95 cursor-pointer"
+                  ? "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95"
                   : item.action === "Confirmed"
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
                     : item.action === "Withdraw"
-                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100/70 cursor-pointer"
-                      : "bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer"
+                      ? "bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer"
+                      : "bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
               }`}
             >
-              {item.action}
+              <span>{item.action}</span>
+              {item.action === "Register" && <ArrowUpRight className="w-3 h-3 stroke-[2.5]" />}
             </button>
           )}
           {secondaryActionLabel && onSecondaryAction && (
             <button
               onClick={() => onSecondaryAction(item)}
-              className="flex-1 text-xs py-2 px-3 rounded-xl font-bold border-none cursor-pointer transition-all bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md shadow-orange-500/10 hover:opacity-95"
+              className="text-xs font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-all bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xs hover:opacity-95"
             >
               {secondaryActionLabel}
             </button>
@@ -170,7 +285,7 @@ function RegCard({
               <button
                 onClick={() => onToggleStatus(item)}
                 disabled={toggling}
-                className={`text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent disabled:opacity-50 ${item.status === "REGISTRATION_OPEN"
+                className={`text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent disabled:opacity-50 ${item.status === "REGISTRATION_OPEN"
                   ? "border-red-500/30 text-red-500 hover:bg-red-500/5"
                   : "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/5"
                   }`}
@@ -184,21 +299,21 @@ function RegCard({
                 {item.auctionStatus === "COMPLETED" ? (
                   <button
                     disabled
-                    className="text-[10px] py-1 rounded-lg font-bold border transition-all bg-emerald-50 border-emerald-200 text-emerald-600 cursor-default"
+                    className="text-xs py-1 rounded-lg font-bold border transition-all bg-emerald-50 border-emerald-200 text-emerald-600 cursor-default"
                   >
                     Auction Completed
                   </button>
                 ) : (
                   <button
                     onClick={() => onStartAuction?.(item)}
-                    className="text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-indigo-500/30 text-indigo-600 hover:bg-indigo-50"
+                    className="text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-indigo-500/30 text-indigo-600 hover:bg-indigo-50"
                   >
                     {item.auctionStatus === "LIVE" ? "Resume Auction" : "Start Auction"}
                   </button>
                 )}
                 <button
                   onClick={() => onScheduleMatches?.(item)}
-                  className="text-[10px] py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-violet-500/30 text-violet-600 hover:bg-violet-50"
+                  className="text-xs py-1 rounded-lg font-bold border cursor-pointer transition-all bg-transparent border-violet-500/30 text-violet-600 hover:bg-violet-50"
                 >
                   Schedule Matches
                 </button>
@@ -220,56 +335,80 @@ interface NextMatchData {
 }
 
 function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
-  const [timeLeft, setTimeLeft] = useState<{ h: number, m: number, s: number }>({ h: 0, m: 0, s: 0 });
+  const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number }>({ d: 0, h: 0, m: 0, s: 0 });
 
   useEffect(() => {
     if (!nextMatch) return;
-    const interval = setInterval(() => {
+    const calculateTime = () => {
       const diff = nextMatch.targetDate.getTime() - new Date().getTime();
       if (diff <= 0) {
-        setTimeLeft({ h: 0, m: 0, s: 0 });
-        clearInterval(interval);
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0 });
         return;
       }
       setTimeLeft({
-        h: Math.floor(diff / (1000 * 60 * 60)),
+        d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        h: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
         m: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        s: Math.floor((diff % (1000 * 60)) / 1000)
+        s: Math.floor((diff % (1000 * 60)) / 1000),
       });
-    }, 1000);
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
   }, [nextMatch]);
 
   if (!nextMatch) return null;
 
-  const isUrgent = timeLeft.h === 0 && timeLeft.m < 60;
+  const isUrgent = timeLeft.d === 0 && timeLeft.h === 0 && timeLeft.m < 60;
   const accent = isUrgent ? "#ef4444" : "#f97316";
 
+  const timeUnits = [
+    { v: timeLeft.d, l: "DAYS" },
+    { v: timeLeft.h, l: "HOURS" },
+    { v: timeLeft.m, l: "MIN" },
+    { v: timeLeft.s, l: "SEC" },
+  ];
+
   return (
-    <div className="rounded-xl p-4"
+    <div
+      className="rounded-xl p-2.5 sm:p-3"
       style={{
         background: "white",
         border: "1px solid rgba(99, 102, 241, 0.12)",
         boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
-      <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Next Match Timer</div>
+      <div className="text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-500">
+        Next Match Timer
+      </div>
       <div className="text-center">
-        <div className="text-xs mb-3 font-semibold text-slate-800">{nextMatch.title}</div>
-        <div className="flex justify-center items-center gap-2">
-          {[{ v: timeLeft.h, l: "HRS" }, { v: timeLeft.m, l: "MIN" }, { v: timeLeft.s, l: "SEC" }].map(({ v, l }, i) => (
-            <div key={l} className="flex items-center gap-2">
+        <div className="text-xs mb-2 font-semibold text-slate-800 truncate px-1" title={nextMatch.title}>
+          {nextMatch.title}
+        </div>
+        <div className="flex justify-center items-center gap-1.5 sm:gap-2">
+          {timeUnits.map(({ v, l }, i) => (
+            <div key={l} className="flex items-center gap-1.5 sm:gap-2">
               <div className="text-center">
-                <div className="text-3xl font-semibold bg-slate-50 px-3 py-2 rounded-lg min-w-[52px] tabular-nums" style={{ color: accent, border: `1px solid ${accent}30` }}>
+                <div
+                  className="text-lg sm:text-2xl font-bold bg-slate-50 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg min-w-[40px] sm:min-w-[48px] tabular-nums"
+                  style={{ color: accent, border: `1px solid ${accent}30` }}
+                >
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-[10px] mt-1 tracking-widest" style={{ color: "#6b7094" }}>{l}</div>
+                <div className="text-xs mt-1 font-semibold tracking-wider text-slate-500">
+                  {l}
+                </div>
               </div>
-              {i < 2 && <div className="text-2xl text-[#334155] font-light mb-4">:</div>}
+              {i < timeUnits.length - 1 && (
+                <div className="text-base sm:text-xl text-slate-400 font-light mb-4 sm:mb-5 select-none">:</div>
+              )}
             </div>
           ))}
         </div>
-        <div className="text-xs mt-3 font-medium" style={{ color: "#6b7094" }}>{nextMatch.subtitle}</div>
+        <div className="text-xs mt-2 font-medium truncate px-1 text-slate-500" title={nextMatch.subtitle}>
+          {nextMatch.subtitle}
+        </div>
       </div>
     </div>
   );
@@ -277,15 +416,21 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
+type DashboardTournamentWithEvents = Omit<DashboardTournamentCard, "sponsors"> & {
+  mappedEvents: OpenRegistration[];
+  sponsors?: TournamentSponsor[];
+};
+
 export function SportsDashboard() {
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
-  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<DashboardTournamentWithEvents[]>([]);
   const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
+  const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
-  const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentWithEvents[]>([]);
   const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
@@ -307,6 +452,292 @@ export function SportsDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [nextMatch, setNextMatch] = useState<NextMatchData | null>(null);
 
+  // Family members for tournament registration selector
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [selectedMemberByTournament, setSelectedMemberByTournament] = useState<Record<string | number, string>>({});
+  // Upcoming Events Family Member Filter ("ALL" | "SELF" | memberId)
+  const [upcomingFamilyFilter, setUpcomingFamilyFilter] = useState<string>("ALL");
+  // Stats Card Modal State ("registrations" | "live_events" | null)
+  const [activeStatsModal, setActiveStatsModal] = useState<"registrations" | "live_events" | null>(null);
+  // Tournament Sponsors State (dynamic from database)
+  const [sponsors, setSponsors] = useState<TournamentSponsor[]>([]);
+  const [featuredTournamentName, setFeaturedTournamentName] = useState<string>("");
+  const [tournamentViewMode, setTournamentViewMode] = useState<Record<number, "groups" | "grid">>({});
+  const [tournamentEligibleOnly, setTournamentEligibleOnly] = useState<Record<number, boolean>>({});
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsModalTournament, setDetailsModalTournament] = useState<any>(null);
+  const [showOpenRegInfo, setShowOpenRegInfo] = useState(false);
+
+  useEffect(() => {
+    const loadFamily = async () => {
+      try {
+        const list = await familyService.getFamilyMembers();
+        setFamilyMembers(list);
+      } catch (err) {
+        console.warn("Could not load family members in SportsDashboard:", err);
+      }
+    };
+    loadFamily();
+    window.addEventListener("mana_family_updated", loadFamily);
+    return () => window.removeEventListener("mana_family_updated", loadFamily);
+  }, []);
+
+  const familyMembersOnly = useMemo(() => {
+    return familyMembers.filter((m) => {
+      const rel = (m.relation || (m as any).relationship || "").toUpperCase().trim();
+      const isSelf =
+        rel === "SELF" ||
+        rel === "HEAD" ||
+        m.id === "self" ||
+        m.id === "member-self" ||
+        (user?.fullName && m.name?.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+      return !isSelf;
+    });
+  }, [familyMembers, user?.fullName]);
+
+  const isRegistrationForMember = useCallback((
+    reg: any,
+    selectedMemberId: string | number | undefined,
+  ) => {
+    if (!reg) return false;
+    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || selectedMemberId === "SELF" || selectedMemberId === "member-self";
+
+    const regPlayerName = (reg.playerName || "").trim().toLowerCase();
+    const regRelation = (reg.relation || "").trim().toUpperCase();
+    const regFamilyMemberId = reg.familyMemberId;
+    const targetFullName = (user?.fullName || "").trim().toLowerCase();
+
+    const isExplicitFamily =
+      (regFamilyMemberId && regFamilyMemberId !== "self" && regFamilyMemberId !== "member-self") ||
+      (regRelation && regRelation !== "SELF" && regRelation !== "HEAD");
+
+    const isSelfReg = !isExplicitFamily || (targetFullName && regPlayerName === targetFullName && regRelation === "SELF");
+
+    if (isSelfTarget) {
+      return isSelfReg;
+    }
+
+    if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
+      return true;
+    }
+
+    const targetMember = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+    if (targetMember) {
+      const targetMemberName = (targetMember.name || "").trim().toLowerCase();
+      const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
+      if (targetMemberName && regPlayerName === targetMemberName) {
+        return true;
+      }
+      if (targetMemberRelation && regRelation === targetMemberRelation) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [familyMembers, user?.fullName]);
+
+  const filteredLiveEvents = useMemo(() => {
+    if (upcomingFamilyFilter === "ALL") return liveEvents;
+
+    return liveEvents.filter(ev => {
+      // Direct check on event's registrant details
+      return isRegistrationForMember(
+        {
+          familyMemberId: ev.familyMemberId,
+          playerName: ev.playerName,
+          relation: ev.relation,
+        },
+        upcomingFamilyFilter
+      );
+    });
+  }, [liveEvents, upcomingFamilyFilter, isRegistrationForMember]);
+
+  const selectedMemberDisplayName = useMemo(() => {
+    if (upcomingFamilyFilter === "ALL") return "";
+    if (upcomingFamilyFilter === "SELF") return user?.fullName || "Self";
+    const found = familyMembers.find(m => String(m.id) === upcomingFamilyFilter);
+    return found ? `${found.name} (${found.relation || "Family"})` : "Selected Member";
+  }, [upcomingFamilyFilter, familyMembers, user?.fullName]);
+
+  const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
+    const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
+    if (isSelf) {
+      const stored = getStoredUser();
+      const rawDob = user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob;
+      const parsedAge = calculateAge(rawDob);
+      const hasDob = Boolean(rawDob || (user as any)?.age > 0 || (stored as any)?.age > 0 || (parsedAge !== null && parsedAge > 0));
+      const hasGender = Boolean((user?.gender && String(user.gender).trim()) || (stored?.gender && String(stored.gender).trim()));
+      const missingFields: string[] = [];
+      if (!hasDob) missingFields.push("Date of Birth / Age");
+      if (!hasGender) missingFields.push("Gender");
+      return {
+        isValid: hasDob && hasGender,
+        hasDob,
+        hasGender,
+        memberName: user?.fullName || stored?.fullName || "Self",
+        isSelf: true,
+        missingFields,
+      };
+    }
+
+    const member = familyMembers.find(m => String(m.id) === String(memberId));
+    if (!member) {
+      return {
+        isValid: true,
+        hasDob: true,
+        hasGender: true,
+        memberName: "Family Member",
+        isSelf: false,
+        missingFields: [],
+      };
+    }
+
+    const rawDob = member.dob || (member as any)?.dateOfBirth;
+    const parsedAge = calculateAge(rawDob);
+    const hasDob = Boolean(rawDob || (member.age && Number(member.age) > 0) || (parsedAge !== null && parsedAge > 0));
+    const memberGen = inferGender(member, user?.gender);
+    const hasGender = Boolean((member.gender && String(member.gender).trim()) || memberGen);
+    const missingFields: string[] = [];
+    if (!hasDob) missingFields.push("Date of Birth / Age");
+    if (!hasGender) missingFields.push("Gender");
+
+    return {
+      isValid: hasDob && hasGender,
+      hasDob,
+      hasGender,
+      memberName: member.name || "Family Member",
+      isSelf: false,
+      missingFields,
+    };
+  }, [familyMembers, user]);
+
+  const upcomingMemberProfileStatus = useMemo(() => {
+    if (upcomingFamilyFilter === "ALL") return null;
+    return getMemberProfileStatus(upcomingFamilyFilter);
+  }, [upcomingFamilyFilter, getMemberProfileStatus]);
+
+  const upcomingTargetMember = useMemo(() => {
+    if (upcomingFamilyFilter === "ALL") return null;
+    const isSelf = upcomingFamilyFilter === "SELF" || upcomingFamilyFilter === "self";
+    if (isSelf) {
+      const computedAge = calculateAge(user?.dateOfBirth || (user as any)?.dob);
+      return {
+        age: (computedAge !== null && computedAge > 0 ? computedAge : Number((user as any)?.age)) || 0,
+        gender: user?.gender || "Male",
+      };
+    }
+    const fm = familyMembers.find(m => String(m.id) === String(upcomingFamilyFilter));
+    const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+    const inferredGen = inferGender(fm, user?.gender);
+    return {
+      age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+      gender: inferredGen || fm?.gender || "",
+    };
+  }, [upcomingFamilyFilter, user, familyMembers]);
+
+  const notifyIncompleteProfile = useCallback((memberId: string | number | undefined) => {
+    const status = getMemberProfileStatus(memberId);
+    if (!status.isValid) {
+      const missingText = status.missingFields.join(" and ");
+      toast.warning(
+        `Profile Incomplete for ${status.memberName}: Missing ${missingText}. Please update profile to register.`,
+        {
+          duration: 6000,
+          action: {
+            label: "Update Profile",
+            onClick: () => {
+              navigate(status.isSelf ? "/profile" : "/profile?tab=family");
+            },
+          },
+        }
+      );
+    }
+  }, [getMemberProfileStatus, navigate]);
+
+  const handleTournamentMemberChange = useCallback((tournament: DashboardTournamentWithEvents, memberId: string | number) => {
+    const val = String(memberId);
+    setSelectedMemberByTournament(prev => ({
+      ...prev,
+      [tournament.id]: val,
+      [String(tournament.id)]: val,
+    }));
+
+    const status = getMemberProfileStatus(val);
+    if (!status.isValid) {
+      notifyIncompleteProfile(val);
+      return;
+    }
+
+    const isSelfMember = val === "self";
+    const stored = getStoredUser();
+    const member = isSelfMember
+      ? {
+          name: user?.fullName || stored?.fullName || "Self",
+          age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
+          gender: user?.gender || stored?.gender || "Male",
+        }
+      : (() => {
+          const fm = familyMembers.find(m => String(m.id) === String(val));
+          const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+          const inferredGen = inferGender(fm, user?.gender || stored?.gender);
+          return {
+            name: fm?.name || "Family Member",
+            age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+            gender: inferredGen || fm?.gender || "",
+          };
+        })();
+
+    const eligibleCount = tournament.mappedEvents.filter(ev => {
+      const elig = checkCategoryEligibility(ev, member.age, member.gender);
+      return elig.eligible;
+    }).length;
+
+    const genderLabel = member.gender
+      ? member.gender.toLowerCase().startsWith("m")
+        ? "Male"
+        : "Female"
+      : "unspecified gender";
+    const ageLabel = member.age > 0 ? `${member.age}y` : "unspecified age";
+
+    if (eligibleCount === 0) {
+      toast.warning(
+        `${member.name} (${genderLabel}, ${ageLabel}) is not eligible for categories in this tournament based on age/gender.`,
+        { duration: 5000 }
+      );
+    } else {
+      toast.success(
+        `Selected ${member.name} (${genderLabel}, ${ageLabel}) · ${eligibleCount} eligible ${eligibleCount === 1 ? "category" : "categories"}`,
+        { duration: 3000 }
+      );
+    }
+  }, [getMemberProfileStatus, notifyIncompleteProfile, user, familyMembers]);
+
+  // Registration Modal State for mobile view / quick registration popup
+  const [regModalState, setRegModalState] = useState<{
+    open: boolean;
+    eventUuid?: string;
+    forType: "self" | "family";
+    memberId?: string | number;
+  }>({
+    open: false,
+    forType: "self",
+  });
+
+  const handleOpenRegistration = (eventUuidOrId: string | number, forType: "self" | "family" = "self", memberId?: string | number) => {
+    const targetId = forType === "self" ? "self" : memberId;
+    const status = getMemberProfileStatus(targetId);
+    if (!status.isValid) {
+      notifyIncompleteProfile(targetId);
+      return;
+    }
+    setRegModalState({
+      open: true,
+      eventUuid: String(eventUuidOrId),
+      forType,
+      memberId,
+    });
+  };
+
   const canManageCaptainNominations = hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN);
   const confirmedMyRegistrations = myRegistrations.filter(r => r.status === "CONFIRMED");
   const teamClosedRegs = closedRegs.filter(r => r.isTeamSport);
@@ -318,17 +749,39 @@ export function SportsDashboard() {
     setError(null);
     try {
       // Trigger parallel granular fetch requests
-      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData] = await Promise.all([
+      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData] = await Promise.all([
         sportsDashboardService.getStats(),
         sportsDashboardService.getUpcomingEvents(),
         sportsDashboardService.getOpenTournaments(),
         sportsDashboardService.getClosedTournaments(),
         sportsDashboardService.getMyRegistrations(),
-        sportsDashboardService.getNotifications()
+        sportsDashboardService.getNotifications(),
+        sportsService.getCommunityTournaments(user?.communityId).catch(() => [] as any[])
       ]);
 
       const fmtRange = (start: string | null, end: string | null) =>
         start && end ? `${format(new Date(start), "MMM d")} - ${format(new Date(end), "MMM d")}` : "TBD";
+
+      // Build tournament sponsors lookup from database response
+      const tournamentSponsorsMap = new Map<number, TournamentSponsor[]>();
+      if (communityTournamentsData && Array.isArray(communityTournamentsData)) {
+        communityTournamentsData.forEach((t: any) => {
+          if (t?.id && Array.isArray(t?.sponsors) && t.sponsors.length > 0) {
+            const mapped = t.sponsors.map((s: any) => mapDbSponsorToTournamentSponsor(s, t.id));
+            tournamentSponsorsMap.set(t.id, mapped);
+          }
+        });
+      }
+
+      const getSponsorsForTournament = (t: DashboardTournamentCard): TournamentSponsor[] => {
+        if (tournamentSponsorsMap.has(t.id)) {
+          return tournamentSponsorsMap.get(t.id)!;
+        }
+        if (t.sponsors && t.sponsors.length > 0) {
+          return t.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, t.id));
+        }
+        return [];
+      };
 
       // Map my registrations
       const fetchedMyRegs = myRegsData.map(r => ({
@@ -346,6 +799,9 @@ export function SportsDashboard() {
         matchType: r.matchType,
         captainNomination: r.captainNomination,
         captainConfirmation: r.captainConfirmation,
+        playerName: r.playerName || (r as any).user?.fullName,
+        relation: r.relation,
+        familyMemberId: r.familyMemberId,
       }));
       setMyRegistrations(fetchedMyRegs);
 
@@ -355,33 +811,87 @@ export function SportsDashboard() {
         if (e.myRegistrationId) {
           actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
         }
+        const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
           id: e.id,
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
-          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
-          spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
-          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 10,
-          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#3b82f6",
+          category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
+          spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "Unlimited spots",
+          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 0,
+          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
           registrationId: e.myRegistrationId ?? undefined,
-          isTeamSport: e.teamSport,
+          isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
+          sportEmoji: getSportEmoji(e.sportName),
+          categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
+          gender: e.gender ?? (e as any).genderCategory ?? (e as any).category?.gender ?? (e as any).playerCategory?.gender ?? (e as any).categories?.[0]?.gender ?? undefined,
+          minAge: (() => {
+            const raw = e.minAge ?? (e as any).category?.minAge ?? (e as any).playerCategory?.minAge ?? (e as any).categories?.[0]?.minAge;
+            return raw != null && !isNaN(Number(raw)) ? Number(raw) : undefined;
+          })(),
+          maxAge: (() => {
+            const raw = e.maxAge ?? (e as any).category?.maxAge ?? (e as any).playerCategory?.maxAge ?? (e as any).categories?.[0]?.maxAge;
+            return raw != null && !isNaN(Number(raw)) ? Number(raw) : undefined;
+          })(),
+          categories: e.categories ?? undefined,
+          allowedGenders: e.allowedGenders ?? undefined,
+          formats: e.formats ?? (e.format ? (Array.isArray(e.format) ? e.format : [e.format]) : undefined),
+          format: e.format ?? e.formats,
+          rawEvent: e,
         };
       };
 
-      // Grouped open tournaments
+      // Grouped open tournaments with real database sponsors
       if (openTournamentsData?.length) {
-        setOpenTournaments(openTournamentsData.map(t => ({
-          ...t,
-          mappedEvents: t.events.map(mapEventCard),
-        })));
+        setOpenTournaments(openTournamentsData.map(t => {
+          const commTourney = (communityTournamentsData as any[])?.find(ct => ct?.id === t.id);
+          return {
+            ...t,
+            description: commTourney?.description ?? (t as any).description,
+            contactName: commTourney?.contactName ?? (t as any).contactName,
+            contactNumber: commTourney?.contactNumber ?? (t as any).contactNumber,
+            contactEmail: commTourney?.contactEmail ?? (t as any).contactEmail,
+            contactTitle: commTourney?.contactTitle ?? (t as any).contactTitle,
+            contacts: commTourney?.contacts ?? (t as any).contacts,
+            otherContacts: commTourney?.otherContacts ?? (t as any).otherContacts,
+            tournamentType: commTourney?.tournamentType ?? (t as any).tournamentType,
+            format: commTourney?.format ?? (t as any).format,
+            mappedEvents: t.events.map(mapEventCard),
+            sponsors: getSponsorsForTournament(t),
+          };
+        }));
         setExpandedTournaments(new Set(openTournamentsData.map(t => t.id)));
       } else {
         setOpenTournaments([]);
       }
+
+      // Determine active tournament sponsors for the Hero banner & showcase
+      let activeSponsors: TournamentSponsor[] = [];
+      let activeTourneyName = "";
+
+      for (const t of openTournamentsData) {
+        const tSponsors = getSponsorsForTournament(t);
+        if (tSponsors.length > 0) {
+          activeSponsors = tSponsors;
+          activeTourneyName = t.name;
+          break;
+        }
+      }
+
+      if (activeSponsors.length === 0 && communityTournamentsData?.length) {
+        const tWithSponsors = (communityTournamentsData as any[]).find(t => t?.sponsors && t.sponsors.length > 0);
+        if (tWithSponsors && tWithSponsors.sponsors) {
+          activeSponsors = tWithSponsors.sponsors.map((s: any) => mapDbSponsorToTournamentSponsor(s, tWithSponsors.id));
+          activeTourneyName = tWithSponsors.name || "";
+        }
+      }
+
+      setSponsors(activeSponsors);
+      setFeaturedTournamentName(activeTourneyName);
 
       // Helper closed event mapping function
       const mapClosedEventCard = (e: any): OpenRegistration => {
@@ -390,24 +900,42 @@ export function SportsDashboard() {
           uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
-          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+          category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: "Registration closed",
           progress: 100,
           progressColor: "#ef4444",
           dotColor: "#ef4444",
           action: "View" as const,
+          sportEmoji: getSportEmoji(e.sportName),
+          categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
           status: e.registrationStatus ?? "REGISTRATION_CLOSED",
           auctionStatus: e.auctionStatus ?? "DRAFT",
-          isTeamSport: e.teamSport,
+          isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
+          formats: e.formats ?? (e.format ? (Array.isArray(e.format) ? e.format : [e.format]) : undefined),
+          format: e.format ?? e.formats,
+          rawEvent: e,
         };
       };
 
-      // Grouped closed tournaments
+      // Grouped closed tournaments with real database sponsors and metadata
       if (closedTournamentsData?.length) {
-        setClosedTournaments(closedTournamentsData.map(t => ({
-          ...t,
-          mappedEvents: t.events.map(mapClosedEventCard),
-        })));
+        setClosedTournaments(closedTournamentsData.map(t => {
+          const commTourney = (communityTournamentsData as any[])?.find(ct => ct?.id === t.id);
+          return {
+            ...t,
+            description: commTourney?.description ?? (t as any).description,
+            contactName: commTourney?.contactName ?? (t as any).contactName,
+            contactNumber: commTourney?.contactNumber ?? (t as any).contactNumber,
+            contactEmail: commTourney?.contactEmail ?? (t as any).contactEmail,
+            contactTitle: commTourney?.contactTitle ?? (t as any).contactTitle,
+            contacts: commTourney?.contacts ?? (t as any).contacts,
+            otherContacts: commTourney?.otherContacts ?? (t as any).otherContacts,
+            tournamentType: commTourney?.tournamentType ?? (t as any).tournamentType,
+            format: commTourney?.format ?? (t as any).format,
+            mappedEvents: t.events.map(mapClosedEventCard),
+            sponsors: getSponsorsForTournament(t),
+          };
+        }));
         setExpandedClosedTournaments(new Set(closedTournamentsData.map(t => t.id)));
       } else {
         setClosedTournaments([]);
@@ -425,19 +953,66 @@ export function SportsDashboard() {
       }
 
       // Map my upcoming events
-      const mappedMyEvents = upcomingData.map(e => ({
-        id: e.id,
-        name: e.name,
-        subtitle: e.tournamentName ? `${e.tournamentName} · ${e.sportName ?? ""}` : (e.sportName ?? ""),
-        venue: e.venueName ?? "TBD",
-        category: e.categoryName ?? "General",
-        status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
-        statusText: e.registrationStatus === "LIVE" ? "LIVE NOW" : (e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d, h:mm a") : "TBD"),
-        statusSub: e.registrationStatus === "LIVE" ? "In Progress" : "Confirmed ✓",
-        dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-        timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-        targetDate: e.eventDateStart ? new Date(e.eventDateStart) : new Date(),
-      }));
+      const mappedMyEvents = upcomingData.map(e => {
+        let exactTargetDate: Date | undefined;
+        if (e.eventDateStart) {
+          try {
+            if (e.startTime) {
+              const datePart = e.eventDateStart.includes("T") ? e.eventDateStart.split("T")[0] : e.eventDateStart;
+              const combined = new Date(`${datePart}T${e.startTime.length === 5 ? `${e.startTime}:00` : e.startTime}`);
+              if (!isNaN(combined.getTime())) {
+                exactTargetDate = combined;
+              }
+            }
+            if (!exactTargetDate) {
+              const parsed = new Date(e.eventDateStart);
+              if (!isNaN(parsed.getTime())) {
+                exactTargetDate = parsed;
+              }
+            }
+          } catch {
+            exactTargetDate = undefined;
+          }
+        }
+
+        const matchingReg = fetchedMyRegs.find(r =>
+          r.eventId === e.id &&
+          (e.familyMemberId == null || String(r.familyMemberId) === String(e.familyMemberId))
+        ) || fetchedMyRegs.find(r => r.eventId === e.id);
+        const regPlayerName = e.playerName || matchingReg?.playerName;
+        const regRelation = e.relation || matchingReg?.relation;
+        const regFamId = e.familyMemberId != null ? e.familyMemberId : matchingReg?.familyMemberId;
+
+        let registrantBadge: string | undefined;
+        if (regPlayerName && regRelation && regRelation.toUpperCase() !== "SELF") {
+          registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
+        } else if (regPlayerName && regPlayerName !== user?.fullName) {
+          registrantBadge = `👤 ${regPlayerName}`;
+        }
+
+        return {
+          id: e.id,
+          name: e.name,
+          subtitle: e.tournamentName ? `${e.tournamentName} · ${e.sportName ?? ""}` : (e.sportName ?? ""),
+          venue: e.venueName ?? "TBD",
+          category: e.categoryName ?? "General",
+          registrantBadge,
+          playerName: regPlayerName,
+          relation: regRelation,
+          familyMemberId: regFamId,
+          status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
+          statusText: e.registrationStatus === "LIVE" ? "LIVE NOW"
+            : e.registrationStatus === "COMPLETED" ? (exactTargetDate ? format(exactTargetDate, "MMM d, h:mm a") : "Completed")
+            : (exactTargetDate && exactTargetDate.getTime() <= Date.now()) ? format(exactTargetDate, "MMM d, h:mm a")
+            : "Upcoming",
+          statusSub: e.registrationStatus === "LIVE" ? "In Progress"
+            : e.registrationStatus === "COMPLETED" ? "Completed"
+            : "Confirmed ✓",
+          dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
+          timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
+          targetDate: exactTargetDate,
+        };
+      });
       setLiveEvents(mappedMyEvents);
 
       // Stats (server-computed counts)
@@ -450,15 +1025,17 @@ export function SportsDashboard() {
 
       // Next match
       const upcoming = mappedMyEvents
-        .filter(e => e.targetDate.getTime() > new Date().getTime())
-        .sort((a, b) => a.targetDate.getTime() - b.targetDate.getTime())[0];
+        .filter(e => e.targetDate && e.targetDate.getTime() > new Date().getTime())
+        .sort((a, b) => (a.targetDate?.getTime() ?? 0) - (b.targetDate?.getTime() ?? 0))[0];
 
-      if (upcoming) {
+      if (upcoming && upcoming.targetDate) {
         setNextMatch({
           title: upcoming.name,
           subtitle: upcoming.subtitle ? `${upcoming.subtitle} · ${upcoming.venue}` : `${upcoming.venue} · ${upcoming.category}`,
           targetDate: upcoming.targetDate
         });
+      } else {
+        setNextMatch(null);
       }
 
       // Database notifications
@@ -515,14 +1092,15 @@ export function SportsDashboard() {
       const regId = isAdminNomination ? selectedRegForNomination : nominatingRegId;
       if (!regId) return;
 
-      const eventId = isAdminNomination ? selectedCaptainEventId : myRegistrations.find(r => r.id === regId)?.event.id;
+      const foundReg = myRegistrations.find(r => r.id === regId);
+      const eventId = isAdminNomination ? selectedCaptainEventId : (foundReg?.eventId || foundReg?.event?.id || selectedCaptainEventId);
       if (!eventId) {
         toast.error("Event not found");
         return;
       }
 
-      await auctionService.nominateCaptain(eventId, true, nominateTeamName);
-      toast.success("Nominated successfully!");
+      await auctionService.nominateCaptain(eventId, true, nominateTeamName.trim());
+      toast.success(`Captain nomination submitted for team "${nominateTeamName.trim()}"!`);
       setIsNominateModalOpen(false);
       setNominateTeamName("");
       setNominatingRegId(null);
@@ -545,7 +1123,7 @@ export function SportsDashboard() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2">
 
       {error && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] w-[90%] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-red-200/80 dark:border-red-800/40 shadow-[0_15px_40px_rgba(220,38,38,0.15)] rounded-2xl p-4 flex items-center justify-between gap-3 text-left animate-in fade-in slide-in-from-top-4 duration-300">
@@ -555,7 +1133,7 @@ export function SportsDashboard() {
             </div>
             <div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Live Tracker Alert</h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-relaxed">{error}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-relaxed">{error}</p>
             </div>
           </div>
           <button 
@@ -569,272 +1147,956 @@ export function SportsDashboard() {
         </div>
       )}
 
-      {/* Hero Banner */}
-      <div 
-        className="rounded-2xl py-3 px-5 relative overflow-hidden text-left text-white"
-        style={{
-          background: "linear-gradient(135deg, #1e1b4b 0%, #4f46e5 60%, #7c3aed 100%)",
-          boxShadow: "0 10px 30px rgba(99, 102, 241, 0.15)",
-        }}
-      >
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_120%,#818cf8,transparent_60%)]" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
-              WELCOME TO THE SPORTS ARENA
-            </h2>
-            <p className="text-[11px] md:text-xs text-indigo-200 mt-1 max-w-xl font-medium leading-relaxed">
-              Track matches, check live auction rankings, register for upcoming leagues, and lead your community team to victory!
-            </p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => navigate("/sports/my-sports")}
-              className="px-3 py-1.5 bg-white text-indigo-700 font-bold text-[10px] rounded-lg shadow-sm transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
-            >
-              My Hub
-            </button>
-            <button
-              onClick={() => navigate("/sports/schedule")}
-              className="px-3 py-1.5 bg-indigo-500/30 text-white font-bold text-[10px] rounded-lg border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
-            >
-              View Schedule
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="shimmer-bg-light border border-slate-200/60 rounded-2xl p-5">
-              <div className="h-8 bg-slate-200/60 rounded w-1/3"></div>
-              <div className="h-4 bg-slate-200/60 rounded w-2/3 mt-2"></div>
-              <div className="h-4 bg-slate-200/60 rounded w-1/2 mt-3"></div>
+            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 ${idx >= 2 ? "hidden sm:flex" : ""}`}>
+              <div className="h-8 w-8 rounded-lg bg-slate-200/60 shrink-0"></div>
+              <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5 flex-1">
+                  <div className="h-5 bg-slate-200/60 rounded w-6"></div>
+                  <div className="h-3.5 bg-slate-200/60 rounded w-24"></div>
+                </div>
+                <div className="h-4 bg-slate-200/60 rounded-full w-14 shrink-0"></div>
+              </div>
             </div>
           ))
         ) : (
           stats.map((s, idx) => {
             const bc = badgeMap[s.badgeType as keyof typeof badgeMap] || { bg: "rgba(0,0,0,0.1)", text: "#94a3b8" };
+            const isHiddenOnMobile = s.label === "Open Registrations" || s.label === "Upcoming Tournaments" || s.id === 3 || s.id === 4;
+
+            const handleCardClick = () => {
+              if (s.id === 1 || s.label === "Your Registrations") {
+                setActiveStatsModal("registrations");
+              } else if (s.id === 2 || s.label === "Live Events") {
+                setActiveStatsModal("live_events");
+              }
+            };
+
             return (
-              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} icon={s.icon} />
+              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1} ${isHiddenOnMobile ? "hidden sm:block" : ""}`}>
+                <StatCard
+                  value={s.value}
+                  label={s.label}
+                  badge={s.badge}
+                  color={s.color}
+                  badgeBg={bc.bg}
+                  badgeText={bc.text}
+                  icon={s.icon}
+                  onClick={handleCardClick}
+                />
               </div>
             );
           })
         )}
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          {/* Upcoming events */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Your Upcoming Events</div>
-            {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
-              </div>
-            ) : liveEvents.length === 0 ? (
-              <div className="text-center py-4 text-xs font-semibold" style={{ color: "#6b7094" }}>No upcoming events</div>
-            ) : (
-              liveEvents.map((ev, idx) => {
-              const myReg = myRegistrations.find(r => r.event.id === ev.id);
-              const isConfirmed = myReg?.status === "CONFIRMED";
-              const isNominated = myReg?.captainNomination;
-              const isTeamReg = myReg?.matchType === "TEAM";
+      {/* Hero Sponsor Banner - Only shown when real sponsors exist in database */}
+      {sponsors.length > 0 && (
+        <TournamentSponsorBanner
+          sponsors={sponsors}
+          tournamentName={featuredTournamentName || "Community Tournament"}
+          variant="hero"
+          onExploreClick={() => {
+            const el = document.getElementById("sponsors-showcase");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth" });
+            } else {
+              toast.info("Discover our esteemed partners & sponsors below!");
+            }
+          }}
+        />
+      )}
 
-              return (
-                <div key={ev.id} className={`mb-3 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                  <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
-                  {isConfirmed && isTeamReg && (
-                    <div className="flex items-center justify-between px-3 py-2 rounded-b-lg border-x border-b -mt-2"
-                      style={{
-                        background: "rgba(99, 102, 241, 0.03)",
-                        borderColor: "rgba(99, 102, 241, 0.08)",
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px]" style={{ color: "#6b7094" }}>Captaincy Status:</span>
-                        <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
-                          {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
-                        </span>
-                      </div>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (myReg?.captainConfirmation) return;
-                          try {
-                            const newVal = !isNominated;
-                            await auctionService.nominateCaptain(ev.id, newVal);
-                            toast.success(newVal ? "Self-nominated for captaincy!" : "Nomination withdrawn");
-                            fetchData();
-                          } catch {
-                            toast.error("Failed to update nomination");
-                          }
-                        }}
-                        disabled={myReg?.captainConfirmation}
-                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
-                          : isNominated
-                            ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
-                            : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
-                          }`}
+      {/* Quick Actions Grid - Hidden temporarily */}
+      {false && (
+        <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 sm:gap-2.5">
+          {[
+            { label: "Tournaments", emoji: "🏆", to: "/sports/tournaments", color: "#f59e0b" },
+            { label: "Live Scores", emoji: "📡", to: "/sports/schedule", color: "#ef4444" },
+            { label: "My Teams", emoji: "🛡️", to: "/sports/my-teams", color: "#6366f1" },
+            { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
+            { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
+            { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
+            { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
+            { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
+          ].map(action => (
+            <Link
+              key={action.label}
+              to={action.to}
+              className="flex flex-col items-center gap-1 sm:gap-1.5 p-2 sm:p-3 rounded-xl bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] text-center no-underline"
+            >
+              <span className="text-[10px]">{action.emoji}</span>
+              <span className="text-[10px] font-semibold text-slate-600 leading-tight">{action.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Community Challenges - Only shown to Super Admin as of now */}
+      {isSuperAdmin && (
+        <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px]">🎯</span>
+              <span className="text-[10px] font-bold text-amber-900">Community Challenges</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-700 uppercase tracking-wider">Coming Soon</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { title: "Most Matches Played", desc: "Play the most matches this season", icon: "🏅" },
+              { title: "Century Maker", desc: "Score 100+ runs in a single match", icon: "💯" },
+              { title: "Hat-Trick Hero", desc: "Take 3 wickets in consecutive balls", icon: "🎩" },
+            ].map(ch => (
+              <div key={ch.title} className="bg-white/80 rounded-lg p-2.5 border border-amber-100/60 opacity-75">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px]">{ch.icon}</span>
+                  <span className="text-[10px] font-bold text-slate-800">{ch.title}</span>
+                </div>
+                <div className="text-xs text-slate-500">{ch.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="lg:col-span-2 space-y-2.5">
+          {/* Upcoming events */}
+          <div className={`rounded-xl bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all ${
+            filteredLiveEvents.length === 0 && !loading
+              ? "p-2 sm:px-3.5 sm:py-2"
+              : "p-2 sm:p-3"
+          }`}>
+            <div className={`flex items-center justify-between gap-2 flex-wrap ${
+              filteredLiveEvents.length === 0 && !loading
+                ? (familyMembersOnly.length > 0 ? "mb-1 sm:mb-1.5" : "")
+                : "mb-1.5 sm:mb-2"
+            }`}>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Your Upcoming Events
+              </div>
+              {/* Family Filter Dropdown */}
+              {familyMembersOnly.length > 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-slate-400 font-bold uppercase tracking-wider hidden sm:inline-block">Filter:</label>
+                  <select
+                    value={upcomingFamilyFilter}
+                    onChange={(e) => setUpcomingFamilyFilter(e.target.value)}
+                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 sm:px-2.5 py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
+                    title="Filter upcoming events by family member"
+                  >
+                    <option value="ALL">👥 All Registrations</option>
+                    <option value="SELF">👤 {user?.fullName || "Self"}</option>
+                    {familyMembersOnly.map(m => (
+                      <option key={m.id} value={String(m.id)}>
+                        👥 {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  {upcomingMemberProfileStatus && (
+                    upcomingMemberProfileStatus.isValid ? (
+                      <span
+                        className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                        title={`Profile Ready (${upcomingTargetMember?.gender ? (upcomingTargetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}, ${upcomingTargetMember?.age}y)`}
                       >
-                        {myReg?.captainConfirmation ? 'Confirmed' : isNominated ? 'Withdraw Nomination' : 'Nominate Me as Captain'}
-                      </button>
-                    </div>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Ready ({upcomingTargetMember?.gender ? (upcomingTargetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{upcomingTargetMember?.age ? `, ${upcomingTargetMember.age}y` : ""})</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0">
+                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span>Missing {upcomingMemberProfileStatus.missingFields.join(" & ")}</span>
+                      </span>
+                    )
                   )}
                 </div>
-              );
-            })
+              ) : (filteredLiveEvents.length === 0 && !loading) ? (
+                <div className="text-xs font-semibold text-slate-400">
+                  No upcoming events
+                </div>
+              ) : null}
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
+              </div>
+            ) : filteredLiveEvents.length === 0 ? (
+              familyMembersOnly.length > 0 ? (
+                <div className="text-center py-1 sm:py-1.5">
+                  <div className="text-xs font-semibold text-slate-500">
+                    {upcomingFamilyFilter !== "ALL"
+                      ? `No upcoming events for ${selectedMemberDisplayName}`
+                      : "No upcoming events"}
+                  </div>
+                </div>
+              ) : null
+            ) : (
+              <div className="max-h-[220px] sm:max-h-[240px] overflow-y-auto pr-1">
+                {filteredLiveEvents.map((ev, idx) => {
+                  const myReg = myRegistrations.find(r => {
+                    if (r.eventId !== ev.id && r.event?.id !== ev.id) return false;
+                    if (ev.familyMemberId != null) return String(r.familyMemberId) === String(ev.familyMemberId);
+                    if (ev.playerName) return r.playerName?.toLowerCase().trim() === ev.playerName.toLowerCase().trim();
+                    if (upcomingFamilyFilter !== "ALL") return isRegistrationForMember(r, upcomingFamilyFilter);
+                    return true;
+                  }) || myRegistrations.find(r => (r.eventId === ev.id || r.event?.id === ev.id));
+
+                  const isConfirmed = myReg?.status === "CONFIRMED";
+                  const isNominated = myReg?.captainNomination;
+                  const isTeamReg = myReg?.matchType === "TEAM";
+                  const regPersonName = myReg?.playerName || user?.fullName || "You";
+                  const isSelfNomination = !myReg?.familyMemberId && (!myReg?.relation || myReg?.relation?.toUpperCase() === "SELF" || myReg?.relation?.toUpperCase() === "HEAD");
+
+                  return (
+                    <div key={ev.id} className={`mb-1.5 sm:mb-2 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                      <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
+                      {isConfirmed && isTeamReg && (
+                        <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 rounded-b-lg border-x border-b -mt-1"
+                          style={{
+                            background: "rgba(99, 102, 241, 0.03)",
+                            borderColor: "rgba(99, 102, 241, 0.08)",
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
+                            <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
+                              {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
+                            </span>
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (myReg?.captainConfirmation) return;
+                              if (isNominated) {
+                                try {
+                                  await auctionService.nominateCaptain(ev.id, false);
+                                  toast.success("Nomination withdrawn");
+                                  fetchData();
+                                } catch {
+                                  toast.error("Failed to update nomination");
+                                }
+                              } else {
+                                setNominatingRegId(myReg?.id ?? null);
+                                setSelectedCaptainEventId(ev.id);
+                                setNominateTeamName(myReg?.proposedTeamName || myReg?.teamName || "");
+                                setIsAdminNomination(false);
+                                setIsNominateModalOpen(true);
+                              }
+                            }}
+                            disabled={myReg?.captainConfirmation}
+                            className={`text-xs px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
+                              : isNominated
+                                ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
+                                : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
+                              }`}
+                          >
+                            {myReg?.captainConfirmation
+                              ? 'Confirmed'
+                              : isNominated
+                                ? 'Withdraw Nomination'
+                                : isSelfNomination
+                                  ? 'Nominate Me as Captain'
+                                  : `Nominate ${regPersonName} as Captain`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-          {/* Open registrations — grouped by tournament */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
-              <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
-                {openTournaments.length > 0
-                  ? `${openTournaments.length} tournament${openTournaments.length !== 1 ? "s" : ""}`
-                  : `${openRegs.length} event${openRegs.length !== 1 ? "s" : ""}`}
-              </span>
+          {/* Open registrations — grouped by tournament with rich sports group view */}
+          <div id="open-registrations-section" className="rounded-2xl p-2.5 sm:p-3.5 bg-white border border-[#6366f1]/15 shadow-[0_4px_24px_rgba(99,102,241,0.06)]">
+            <div className="flex items-center justify-between mb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-xs">
+                  <Trophy className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="relative flex items-center gap-1.5">
+                    <h3 className="text-xs font-sans font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
+                    <div className="relative inline-flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowOpenRegInfo(prev => !prev)}
+                        className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer flex items-center justify-center"
+                        title="Select sports groups and categories to register yourself or family members"
+                        aria-label="Registration Info"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                      {showOpenRegInfo && (
+                        <div className="absolute left-0 sm:left-auto top-full mt-1.5 z-30 w-64 sm:w-72 p-2.5 bg-slate-900 text-white text-xs font-medium rounded-xl shadow-lg border border-slate-800 animate-in fade-in slide-in-from-top-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="leading-snug">Select sports groups and categories to register yourself or family members</p>
+                            <button
+                              type="button"
+                              onClick={() => setShowOpenRegInfo(false)}
+                              className="text-slate-400 hover:text-white p-0.5 shrink-0 cursor-pointer"
+                              title="Close"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {(openTournaments.length > 0 || openRegs.length > 0) && (
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  Active
+                </span>
+              )}
             </div>
+
             {loading ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
               </div>
             ) : openTournaments.length === 0 && openRegs.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <div className="text-2xl mb-2">🏅</div>
-                <p className="text-sm font-semibold text-slate-800">No events open for registration right now</p>
-                <p className="text-[10px] mt-1" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
+                <div className="text-3xl mb-2">🏅</div>
+                <p className="text-xs font-bold text-slate-800">No events open for registration right now</p>
+                <p className="text-xs text-slate-500 mt-1">Check back later or ask your sports admin to open registrations</p>
               </div>
             ) : openTournaments.length > 0 ? (
               openTournaments.map((t, tIdx) => {
                 const isExpanded = expandedTournaments.has(t.id);
-                return (
-                  <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
-                    {/* Tournament header */}
-                    <button
-                      type="button"
-                      onClick={() => setExpandedTournaments(prev => {
-                        const next = new Set(prev);
-                        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
-                        return next;
-                      })}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
+                const totalCount = t.mappedEvents.length;
+                const deadlineDays = t.eventDateStart ? differenceInDays(new Date(t.eventDateStart), new Date()) : null;
+                const viewMode = tournamentViewMode[t.id] || "grid";
+
+
+                const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
+                const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
+                const isSelf = selectedMemberId === "self";
+                const stored = getStoredUser();
+                const targetMember = isSelf
+                  ? {
+                      age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
+                      gender: user?.gender || stored?.gender || "Male",
+                    }
+                  : (() => {
+                      const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+                      const computedAge = calculateAge(fm?.dob || (fm as any)?.dateOfBirth);
+                      const inferredGen = inferGender(fm, user?.gender || stored?.gender);
+                      return {
+                        age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
+                        gender: inferredGen || fm?.gender || "",
+                      };
+                    })();
+
+                const getMemberRegsForEvent = (ev: OpenRegistration) => {
+                  return myRegistrations.filter(r =>
+                    (r.eventId === ev.id || r.event?.id === ev.id) &&
+                    isRegistrationForMember(r, selectedMemberId) &&
+                    r.status !== "CANCELLED" &&
+                    r.status !== "WITHDRAWN"
+                  );
+                };
+                const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
+                  return getMemberRegsForEvent(ev).length > 0;
+                };
+                const getMemberRegForEvent = (ev: OpenRegistration) => {
+                  return getMemberRegsForEvent(ev)[0];
+                };
+                const getMemberRegisteredFormats = (ev: OpenRegistration) => {
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  return getMemberRegsForEvent(ev).map(r => (r.matchType || (isEvTeam ? "TEAM" : "SINGLES")).toUpperCase());
+                };
+                const getUnregisteredFormats = (ev: OpenRegistration) => {
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  if (isEvTeam) {
+                    return isMemberRegisteredForEvent(ev) ? [] : ["TEAM"];
+                  }
+                  const regFormats = getMemberRegisteredFormats(ev);
+                  const allFormats = getEventFormats(ev as any);
+                  return allFormats.filter(f => !regFormats.includes(f.toUpperCase()));
+                };
+                const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
+                  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                  if (isEvTeam) return isMemberRegisteredForEvent(ev);
+                  const allFormats = getEventFormats(ev as any);
+                  if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
+                  return getUnregisteredFormats(ev).length === 0;
+                };
+
+                // Eligibility filter state: default selected (true)
+                const showEligibleOnly = tournamentEligibleOnly[t.id] ?? true;
+
+                const isCategoryEligibleOrRegistered = (item: OpenRegistration) => {
+                  const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
+                  return elig.eligible || isMemberRegisteredForEvent(item);
+                };
+
+                const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
+
+                // Group child events by sport (filtered when showEligibleOnly is active)
+                const sportGroupMap = new Map<string, { emoji: string; events: OpenRegistration[] }>();
+                t.mappedEvents.forEach(ev => {
+                  if (showEligibleOnly && !isCategoryEligibleOrRegistered(ev)) {
+                    return;
+                  }
+                  const sport = (ev.category?.split(" · ")[0]) || "Sport";
+                  if (!sportGroupMap.has(sport)) sportGroupMap.set(sport, { emoji: ev.sportEmoji || getSportEmoji(sport), events: [] });
+                  sportGroupMap.get(sport)!.events.push(ev);
+                });
+                const sportEntries = Array.from(sportGroupMap.entries());
+
+                const gridEvents = showEligibleOnly
+                  ? t.mappedEvents.filter(isCategoryEligibleOrRegistered)
+                  : t.mappedEvents;
+
+                const renderCategoryCard = (item: OpenRegistration) => {
+                  const sportName = (item.category?.split(" · ")[0]) || "Sport";
+                  const emoji = item.sportEmoji || getSportEmoji(sportName);
+                  const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
+                  const memberReg = getMemberRegForEvent(item);
+                  const isReg = Boolean(memberReg);
+                  const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
+                  const isBlocked = !elig.eligible;
+                  const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
+                  const regFormats = getMemberRegisteredFormats(item);
+                  const unregFormats = getUnregisteredFormats(item);
+                  const isFullyReg = isReg && (isTeam || unregFormats.length === 0);
+                  const isPartiallyReg = !isTeam && isReg && unregFormats.length > 0;
+
+                  const displayFormats = isTeam
+                    ? ["TEAM"]
+                    : eventFormats && eventFormats.length > 0
+                    ? eventFormats
+                    : [(item.categoryName || item.name || "").toLowerCase().includes("double") ? "DOUBLES" : "SINGLES"];
+
+                  const spotsText = item.spots || "";
+                  const matchSpots = spotsText.match(/(\d+)\/(\d+)/);
+                  const regCount = matchSpots ? parseInt(matchSpots[1], 10) : 0;
+                  const maxSpots = matchSpots ? parseInt(matchSpots[2], 10) : null;
+                  const percentFilled = maxSpots && maxSpots > 0 ? Math.min(100, Math.round((regCount / maxSpots) * 100)) : 0;
+                  const isNearlyFull = maxSpots && maxSpots > 0 && percentFilled >= 75 && regCount < maxSpots;
+                  const isFull = maxSpots && maxSpots > 0 && regCount >= maxSpots;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between gap-2 ${
+                        isFullyReg
+                          ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
+                          : isBlocked
+                          ? "border-slate-200 bg-slate-50/60 opacity-90"
+                          : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-xs"
+                      }`}
                     >
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <Trophy className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
-                        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
-                          {t.eventDateStart && t.eventDateEnd
-                            ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
-                            : "Dates TBD"}
-                          {" · "}
-                          {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
+                      <div>
+                        {/* Card Header: Emoji + Title + Format Badge(s) */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] p-1 rounded-md bg-slate-50 border border-slate-100 shrink-0">
+                              {emoji}
+                            </span>
+                            <div className="min-w-0">
+                              <h5 className="text-xs font-bold text-slate-900 truncate" title={item.name || item.categoryName}>
+                                {item.name || item.categoryName}
+                              </h5>
+                              <div className="text-xs text-slate-500 font-medium truncate flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span>{sportName} {item.date ? `· ${item.date}` : ""}</span>
+                                {item.categoryName && (
+                                  <span
+                                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100/80 shrink-0"
+                                    title={`Player Category: ${item.categoryName}`}
+                                  >
+                                    {item.categoryName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            {displayFormats.map(fmt => {
+                              const isTeamFmt = fmt === "TEAM";
+                              const isMixed = fmt === "MIXED_DOUBLES" || fmt.includes("MIXED");
+                              const isDbl = fmt === "DOUBLES" || (fmt.includes("DOUBLES") && !isMixed);
+                              const label =
+                                isTeamFmt
+                                  ? "Team Squad"
+                                  : isMixed
+                                  ? "Mixed"
+                                  : isDbl
+                                  ? "Doubles"
+                                  : fmt === "SINGLES"
+                                  ? "Singles"
+                                  : fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+                              return (
+                                <span
+                                  key={fmt}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${
+                                    isTeamFmt
+                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      : isMixed
+                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      : isDbl
+                                      ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                      : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  }`}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Action row */}
+                        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap mt-2">
+                          {isNearlyFull && !isFull ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                              ⚡ Filling Fast
+                            </span>
+                          ) : (
+                            <div />
+                          )}
+
+                          {/* Action / Registration button */}
+                          <div className="shrink-0 ml-auto">
+                            {isFullyReg ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Registered</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const regs = getMemberRegsForEvent(item);
+                                    if (regs.length === 0) return;
+                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
+                                    try {
+                                      for (const r of regs) {
+                                        await sportsService.withdraw(r.id);
+                                      }
+                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
+                                      fetchData();
+                                    } catch (err: any) {
+                                      toast.error(err?.message || "Failed to unregister");
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                  title="Unregister from this category"
+                                >
+                                  Unregister
+                                </button>
+                              </div>
+                            ) : isPartiallyReg ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  ✓ {regFormats.join(", ")}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const regs = getMemberRegsForEvent(item);
+                                    if (regs.length === 0) return;
+                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
+                                    try {
+                                      for (const r of regs) {
+                                        await sportsService.withdraw(r.id);
+                                      }
+                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
+                                      fetchData();
+                                    } catch (err: any) {
+                                      toast.error(err?.message || "Failed to unregister");
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                  title="Unregister from this category"
+                                >
+                                  Unregister
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const isSelfMember = selectedMemberId === "self";
+                                    handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                                  }}
+                                  className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
+                                >
+                                  <span>+ {unregFormats.join(", ")}</span>
+                                  <ArrowUpRight className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ) : isBlocked ? (
+                              <span
+                                title={elig.warningMsg}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-not-allowed ${
+                                  elig.isAgeUnknown
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
+                              >
+                                {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age Limit" : elig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
+                              </span>
+                            ) : !memberProfileStatus.isValid ? (
+                              <button
+                                type="button"
+                                onClick={() => notifyIncompleteProfile(selectedMemberId)}
+                                className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 cursor-pointer hover:bg-slate-200 transition-colors"
+                              >
+                                Complete Profile →
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const isSelfMember = selectedMemberId === "self";
+                                  handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
+                                }}
+                                className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
+                              >
+                                <span>Register Now</span>
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
-                          Open
-                        </span>
-                        {isExpanded
-                          ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                          : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
-                      </div>
-                    </button>
-                    {/* Child events */}
-                    {isExpanded && (
-                      <div className="mt-2 ml-4 pl-3 border-l-2 border-indigo-100 space-y-0">
-                        {t.mappedEvents.map((item, idx) => (
-                          <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                            <RegCard
-                              item={item}
-                              onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
-                              onView={() => navigate("/sports/auction")}
-                              onWithdraw={async (regItem) => {
-                                if (!regItem.registrationId) return;
-                                if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
-                                try {
-                                  await sportsService.withdraw(regItem.registrationId);
-                                  toast.success(`Successfully withdrawn from ${regItem.name}`);
-                                  fetchData();
-                                } catch (err: any) {
-                                  toast.error(err?.message || "Failed to withdraw registration");
-                                }
-                              }}
-                              isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                              toggling={togglingId === item.id}
-                              onToggleStatus={async (evt) => {
-                                setTogglingId(evt.id);
-                                try {
-                                  const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                                  await sportsService.updateEventStatus(evt.id, newStatus);
-                                  toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                                  fetchData();
-                                } catch {
-                                  toast.error("Failed to update status");
-                                } finally {
-                                  setTogglingId(null);
-                                }
-                              }}
-                            />
+                    </div>
+                  );
+                };
+
+                return (
+                  <div key={t.id} className="mb-2.5 last:mb-0 rounded-2xl border border-indigo-100/90 bg-white shadow-xs overflow-hidden transition-all text-left">
+                    {/* Tournament Header with Details */}
+                    <div className="p-2.5 sm:p-3 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {/* Top Row: Tournament Name & Details Button */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-xs font-sans font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDetailsModalTournament(t);
+                                  setIsDetailsModalOpen(true);
+                                }}
+                                className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                                title="View full tournament rules, venue, and description"
+                                aria-label="Tournament Details"
+                              >
+                                <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                <span className="hidden sm:inline">Tournament Details</span>
+                              </button>
+
+                              {deadlineDays !== null && deadlineDays >= 0 && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
+                                </span>
+                              )}
+                              {t.sponsors && t.sponsors.length > 0 && (
+                                <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
+                              )}
+                            </div>
+
+                            {/* Next Row: Tournament Meta Badges + Hide Groups Button */}
+                            <div className="flex items-center gap-2.5 mt-1 flex-wrap text-xs text-slate-500 font-medium">
+                              {t.eventDateStart && t.eventDateEnd && (
+                                <span className="inline-flex items-center gap-1">
+                                  <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>
+                                    {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
+                                  </span>
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedTournaments(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                                  return next;
+                                })}
+                                className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>{isExpanded ? "Hide" : "Show"}</span>
+                                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
                           </div>
-                        ))}
+                        </div>
+
+                      {/* Family member registration selector */}
+                      {isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap shrink-0">
+                              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
+                                Register For:
+                              </label>
+                              <div className="relative">
+                                <select
+                                  value={selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self"}
+                                  onChange={(e) => handleTournamentMemberChange(t, e.target.value)}
+                                  className="text-xs font-semibold pl-2.5 pr-7 py-1.5 rounded-lg bg-white border border-indigo-200 text-slate-800 shadow-2xs hover:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer appearance-none transition-all"
+                                  title="Choose participant to register"
+                                >
+                                  <option value="self">👤 {user?.fullName || "Self"}</option>
+                                  {familyMembersOnly.map(m => (
+                                    <option key={m.id} value={String(m.id)}>
+                                      👥 {m.name}{m.relation && m.relation !== "Family" ? ` (${m.relation})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+
+                              {/* Profile readiness & eligibility chip */}
+                              {!memberProfileStatus.isValid ? (
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition"
+                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                                </button>
+                              ) : totalEligibleCount === 0 ? (
+                                <span
+                                  className="text-[10px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`0 eligible categories in this tournament for ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "unspecified"}, ${targetMember.age > 0 ? `${targetMember.age}y` : "age unspecified"}`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>Ineligible ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : ""}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                  title={`Profile Ready & Verified: ${targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}${targetMember.age > 0 ? `, ${targetMember.age}y` : ""} (${totalEligibleCount} eligible categories)`}
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>Ready ({targetMember.gender ? (targetMember.gender.toLowerCase().startsWith("m") ? "Male" : "Female") : "Ready"}{targetMember.age > 0 ? `, ${targetMember.age}y` : ""})</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* View mode & eligibility filter toolbar */}
+                          <div className="w-full sm:w-auto flex items-center justify-between sm:justify-start gap-1 bg-slate-100/90 p-1 rounded-xl sm:rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60 shadow-2xs">
+                            {/* Eligible filter toggle: Default selected */}
+                            <button
+                              type="button"
+                              onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: !(prev[t.id] ?? true) }))}
+                              className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 select-none active:scale-[0.98] ${
+                                showEligibleOnly
+                                  ? "bg-white text-emerald-700 shadow-2xs font-bold border border-emerald-100/60"
+                                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                              }`}
+                              title={
+                                showEligibleOnly
+                                  ? "Showing eligible categories only. Click to view all categories (including ineligible)."
+                                  : "Showing all categories (eligible & ineligible). Click to show eligible only."
+                              }
+                            >
+                              <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${showEligibleOnly ? "text-emerald-600" : "text-slate-400"}`} />
+                              <span className="whitespace-nowrap">Eligible</span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${ showEligibleOnly ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-200 text-slate-600" }`}
+                              >
+                                {totalEligibleCount}
+                              </span>
+                            </button>
+
+                            <div className="w-px h-4 bg-slate-300 mx-0.5 shrink-0" />
+
+                            {/* View Switcher: Grid vs By Sport */}
+                            <div className="flex items-center gap-1 flex-1 sm:flex-initial">
+                              <button
+                                type="button"
+                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "grid" }))}
+                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                                  viewMode === "grid"
+                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                }`}
+                                title="View all categories in a grid"
+                              >
+                                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">
+                                  <span className="hidden sm:inline">All </span>Grid
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTournamentViewMode(prev => ({ ...prev, [t.id]: "groups" }))}
+                                className={`flex-1 sm:flex-initial min-h-[32px] sm:min-h-0 px-2 sm:px-2.5 py-1.5 sm:py-1 rounded-lg sm:rounded-md transition-all cursor-pointer flex items-center justify-center gap-1 select-none active:scale-[0.98] ${
+                                  viewMode === "groups"
+                                    ? "bg-white text-indigo-700 shadow-2xs font-bold border border-indigo-100/60"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                }`}
+                                title="Group categories by sport"
+                              >
+                                <ListTree className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">By Sport</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sports Group View - Body */}
+                    {isExpanded && (
+                      <div className="p-2.5 sm:p-3 bg-slate-50/30">
+                        {showEligibleOnly && (viewMode === "groups" ? sportEntries.length === 0 : gridEvents.length === 0) ? (
+                          <div className="py-8 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2 text-lg">
+                              🔍
+                            </div>
+                            <p className="text-xs font-semibold text-slate-700">No eligible categories found for this participant</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
+                            </p>
+                            {!memberProfileStatus.isValid && (
+                              <div className="mt-2.5 flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
+                                  title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
+                                >
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>Missing {memberProfileStatus.missingFields.join(" & ")}</span>
+                                  <span className="font-semibold underline ml-0.5">· Update Profile →</span>
+                                </button>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: false }))}
+                              className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span>Show All Categories ({t.mappedEvents.length})</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : viewMode === "groups" ? (
+                          <div className="space-y-2.5">
+                            {sportEntries.map(([sport, { emoji, events: sportEvents }]) => {
+                              const eligibleCount = sportEvents.filter(e => checkCategoryEligibility(e, targetMember.age, targetMember.gender).eligible).length;
+                              const regCount = sportEvents.filter(e => isMemberRegisteredForEvent(e)).length;
+
+                              return (
+                                <div key={sport} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 bg-white">
+                                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 flex-wrap gap-1.5">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-[10px] shrink-0">{emoji}</span>
+                                      <h3 className="text-xs font-bold text-slate-900 m-0 mb-0 truncate">{sport}</h3>
+                                      <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                        · {sportEvents.length} {sportEvents.length === 1 ? "category" : "categories"}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                      {eligibleCount > 0 && (
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                          {eligibleCount} eligible
+                                        </span>
+                                      )}
+                                      {regCount > 0 && (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                          ✓ {regCount} registered
+                                        </span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setDetailsModalTournament(t);
+                                          setIsDetailsModalOpen(true);
+                                        }}
+                                        className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition cursor-pointer flex items-center justify-center"
+                                        title="View tournament rules and details"
+                                        aria-label="Tournament rules and details"
+                                      >
+                                        <Info className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                                    {sportEvents.map(renderCategoryCard)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                            {gridEvents.map(renderCategoryCard)}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 );
               })
             ) : (
-              openRegs.map((item, idx) => (
-                <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                  <RegCard
-                     item={item}
-                     onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
-                     onView={() => navigate("/sports/auction")}
-                     onWithdraw={async (regItem) => {
-                       if (!regItem.registrationId) return;
-                       if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
-                       try {
-                         await sportsService.withdraw(regItem.registrationId);
-                         toast.success(`Successfully withdrawn from ${regItem.name}`);
-                         fetchData();
-                       } catch (err: any) {
-                         toast.error(err?.message || "Failed to withdraw registration");
-                       }
-                     }}
-                     isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                     toggling={togglingId === item.id}
-                     onToggleStatus={async (evt) => {
-                       setTogglingId(evt.id);
-                       try {
-                         const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                         await sportsService.updateEventStatus(evt.id, newStatus);
-                         toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                         fetchData();
-                       } catch {
-                         toast.error("Failed to update status");
-                       } finally {
-                         setTogglingId(null);
-                       }
-                     }}
-                   />
-                </div>
-              ))
+              <div className="max-h-[290px] overflow-y-auto pr-1">
+                {openRegs.map((item, idx) => (
+                  <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                    <RegCard
+                       item={item}
+                       onRegister={() => handleOpenRegistration(item.uuid ?? item.id)}
+                       onView={() => navigate("/sports/auction")}
+                       onWithdraw={async (regItem) => {
+                         if (!regItem.registrationId) return;
+                         if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
+                         try {
+                           await sportsService.withdraw(regItem.registrationId);
+                           toast.success(`Successfully withdrawn from ${regItem.name}`);
+                           fetchData();
+                         } catch (err: any) {
+                           toast.error(err?.message || "Failed to withdraw registration");
+                         }
+                       }}
+                       isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                       toggling={togglingId === item.id}
+                       onToggleStatus={async (evt) => {
+                         setTogglingId(evt.id);
+                         try {
+                           const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                           await sportsService.updateEventStatus(evt.id, newStatus);
+                           toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                           fetchData();
+                         } catch {
+                           toast.error("Failed to update status");
+                         } finally {
+                           setTogglingId(null);
+                         }
+                       }}
+                     />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
           {/* Closed registrations */}
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
-            <div className="rounded-2xl p-5 mt-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Closed Registrations</div>
+            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedTournaments.length > 0
                     ? `${closedTournaments.length} tournament${closedTournaments.length !== 1 ? "s" : ""}`
@@ -845,7 +2107,7 @@ export function SportsDashboard() {
                 closedTournaments.map((t, tIdx) => {
                   const isExpanded = expandedClosedTournaments.has(t.id);
                   return (
-                    <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                    <div key={t.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedClosedTournaments(prev => {
@@ -853,14 +2115,14 @@ export function SportsDashboard() {
                           if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                           return next;
                         })}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
+                        className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
                       >
-                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <div className="h-8 w-8 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
                           <Trophy className="h-4 w-4 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
-                          <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
+                          <div className="text-xs font-bold text-slate-900 truncate">{t.name}</div>
+                          <div className="text-xs text-slate-500 mt-0.5 font-medium">
                             {t.eventDateStart && t.eventDateEnd
                               ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
                               : "Dates TBD"}
@@ -868,17 +2130,17 @@ export function SportsDashboard() {
                             {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
                             Closed
                           </span>
                           {isExpanded
-                            ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
-                            : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                            ? <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />
+                            : <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 transition-colors shrink-0" strokeWidth={2.75} />}
                         </div>
                       </button>
                       {isExpanded && (
-                        <div className="mt-2 ml-4 pl-3 border-l-2 border-slate-200 space-y-0">
+                        <div className="mt-2 ml-3 pl-2.5 border-l-2 border-slate-200 space-y-0">
                           {t.mappedEvents.map((item, idx) => (
                             <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                               <RegCard
@@ -961,15 +2223,15 @@ export function SportsDashboard() {
 
           {/* Unified Captain Nominations Section — team sports only */}
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
-            <div className="rounded-2xl p-5 mt-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Captain Nominations</div>
+            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
                 </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* Admin View: team events only */}
                 {canManageCaptainNominations ? (
                   teamClosedRegs.map(item => (
@@ -1039,30 +2301,30 @@ export function SportsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {/* Notifications */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "#6b7094" }}>
+          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-2">
               <Bell className="w-3 h-3" /> Notifications
             </div>
             <div className="space-y-0">
               {loading ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
+                <div className="flex items-center justify-center py-5">
+                  <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-[10px] text-center py-4" style={{ color: "#6b7094" }}>No new notifications</p>
+                <p className="text-xs text-center py-3 text-slate-500">No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
+                  <div key={n.id} className={`flex items-start gap-2.5 py-1.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
                       {n.icon}
                     </div>
                     <div>
                       <div className="text-xs leading-relaxed text-slate-800">
                         {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
                       </div>
-                      <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>{n.time}</div>
+                      <div className="text-xs mt-0.5 text-slate-500">{n.time}</div>
                     </div>
                   </div>
                 ))
@@ -1074,17 +2336,17 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Season Stats */}
-          <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center gap-2 mb-3">
+          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+            <div className="flex items-center gap-2 mb-2">
               <Trophy className="w-4 h-4 text-[#f97316]" />
-              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Season Stats</div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Season Stats</div>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {(() => {
                   const total = myRegistrations.length;
                   const confirmed = confirmedMyRegistrations.length;
@@ -1097,7 +2359,7 @@ export function SportsDashboard() {
                   ];
                   return seasonData.map(([k, v]) => (
                     <div key={k} className="flex justify-between items-center text-xs">
-                      <span style={{ color: "#6b7094" }}>{k}</span>
+                      <span className="text-slate-500">{k}</span>
                       <span className="font-semibold text-slate-800">{v}</span>
                     </div>
                   ));
@@ -1105,95 +2367,472 @@ export function SportsDashboard() {
               </div>
             )}
           </div>
+
+          {/* Franchises & Squads Quick Card */}
+          <div className="rounded-xl p-2.5 sm:p-3 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-500/20 text-left relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
+              <Users className="w-16 h-16 text-indigo-400" />
+            </div>
+            <div className="relative z-10 space-y-1.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-300 px-2 py-0.5 rounded-md bg-white/10 inline-block">
+                Tournament Hub
+              </span>
+              <h4 className="text-xs font-bold text-white">Teams & Squad Rosters</h4>
+              <p className="text-xs text-indigo-200/80 leading-relaxed">
+                Explore franchise owners, captains, purse utilization, and full squad player lists.
+              </p>
+              <Link
+                to="/sports/schedule"
+                onClick={() => {
+                  // Navigate to schedule and activeTab will be ready
+                }}
+                className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <span>View All Squads</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
         </div>
+
+        {/* Tournament Sponsor Showcase Section - Only shown when real sponsors exist */}
+        {sponsors.length > 0 && (
+          <div className="lg:col-span-3">
+            <TournamentSponsorShowcase
+              sponsors={sponsors}
+              tournamentName={featuredTournamentName || "Community Tournament"}
+            />
+          </div>
+        )}
         {/* Captain Nomination Modal */}
         {isNominateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800">
-                    {isAdminNomination ? "Appoint Captain" : "Register as Captain"}
-                  </h3>
-                  <p className="text-xs mt-1" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Select a member and assign a team name" : "Propose a name for your future team"}
-                  </p>
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
+              {(() => {
+                const targetReg = myRegistrations.find(r => r.id === nominatingRegId);
+                const targetPersonName = targetReg?.playerName || user?.fullName || "Player";
+                const isTargetSelf = !targetReg?.familyMemberId && (!targetReg?.relation || targetReg?.relation?.toUpperCase() === "SELF" || targetReg?.relation?.toUpperCase() === "HEAD");
+                const targetRelation = isTargetSelf ? "Self" : (targetReg?.relation || "Family Member");
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                          <Crown className="w-5 h-5 text-amber-500" />
+                          {isAdminNomination ? "Appoint Captain" : `Nominate Captain: ${targetPersonName}`}
+                        </h3>
+                        <p className="text-xs mt-1 text-slate-500">
+                          {isAdminNomination
+                            ? "Select a confirmed registrant and assign a team name"
+                            : `Propose team name for ${targetPersonName} (${targetRelation})`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsNominateModalOpen(false);
+                          setIsAdminNomination(false);
+                        }}
+                        className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                          {isAdminNomination ? "Select Registrant" : "Nominated Person"}
+                        </label>
+                        {isAdminNomination ? (
+                          <select
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 text-xs font-semibold"
+                            value={selectedRegForNomination || ""}
+                            onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
+                          >
+                            <option value="">Choose a member...</option>
+                            {loadingCaptains ? (
+                              <option disabled>Loading members...</option>
+                            ) : captainRegs.map(reg => (
+                              <option key={reg.id} value={reg.id}>
+                                {reg.playerName || reg.user?.fullName} {reg.relation ? `(${reg.relation})` : ""} {reg.captainNomination ? " (Already Nominated)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                {isTargetSelf ? "👤" : "👥"}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 truncate">
+                                  {targetPersonName}
+                                </div>
+                                <div className="text-xs text-slate-500 font-medium truncate">
+                                  {targetRelation} {targetReg?.event?.name ? `· ${targetReg.event.name}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 whitespace-nowrap shrink-0">
+                              {isTargetSelf ? "Self" : "Family Member"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                          {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
+                        </label>
+                        <input
+                          type="text"
+                          autoFocus={!isAdminNomination}
+                          placeholder={`e.g. ${targetPersonName.split(' ')[0]}'s Warriors`}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all text-xs font-medium"
+                          value={nominateTeamName}
+                          onChange={(e) => setNominateTeamName(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleNominateSubmit()}
+                        />
+                      </div>
+
+                      <div className="pt-2 flex gap-3">
+                        <button
+                          onClick={() => {
+                            setIsNominateModalOpen(false);
+                            setIsAdminNomination(false);
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-200 transition-all border border-slate-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleNominateSubmit}
+                          disabled={isSubmittingNomination || !nominateTeamName.trim() || (isAdminNomination && !selectedRegForNomination)}
+                          className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {isSubmittingNomination ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            isAdminNomination ? "Confirm Appointment" : `Nominate ${targetPersonName.split(' ')[0]}`
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── Tournament Details & Rules Modal ── */}
+        <TournamentDetailsModal
+          isOpen={isDetailsModalOpen}
+          onClose={() => setIsDetailsModalOpen(false)}
+          tournament={detailsModalTournament}
+          onRegisterEvent={(eventIdOrUuid) => {
+            const memberVal = selectedMemberByTournament[detailsModalTournament?.id] ?? (detailsModalTournament?.id ? selectedMemberByTournament[String(detailsModalTournament.id)] : undefined) ?? "self";
+            const isSelf = memberVal === "self";
+            const memberId = isSelf ? undefined : memberVal;
+            handleOpenRegistration(eventIdOrUuid, isSelf ? "self" : "family", memberId);
+          }}
+          onViewSchedule={(tournamentId) => {
+            navigate(`/sports/schedule/${tournamentId}`);
+          }}
+        />
+
+        {/* ── Mobile Registration Modal Popup ── */}
+        {regModalState.open && regModalState.eventUuid && (
+          <SportsRegister
+            isModal={true}
+            eventUuid={regModalState.eventUuid}
+            initialFor={regModalState.forType}
+            initialMemberId={regModalState.memberId}
+            familyMembers={familyMembers}
+            onClose={() => setRegModalState({ open: false, forType: "self" })}
+            onSuccess={() => {
+              setRegModalState({ open: false, forType: "self" });
+              fetchData();
+            }}
+          />
+        )}
+
+        {/* ── Your Registrations Modal ── */}
+        {activeStatsModal === "registrations" && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full p-4 sm:p-6 space-y-4 max-h-[88vh] overflow-hidden flex flex-col text-left">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-[#f97316]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-slate-900 m-0 mb-0">
+                        Your Registrations
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
+                        {myRegistrations.length} Total
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 m-0">
+                      Sports tournaments & events you and your family are registered for
+                    </p>
+                  </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setIsNominateModalOpen(false);
-                    setIsAdminNomination(false);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
+                  type="button"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                 >
-                  <div className="w-5 h-5 flex items-center justify-center text-xl font-light">×</div>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Select Member" : "Logged In User"}
-                  </label>
-                  {isAdminNomination ? (
-                    <select
-                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
-                      value={selectedRegForNomination || ""}
-                      onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
-                    >
-                      <option value="">Choose a member...</option>
-                      {loadingCaptains ? (
-                        <option disabled>Loading members...</option>
-                      ) : captainRegs.map(reg => (
-                        <option key={reg.id} value={reg.id}>
-                          {reg.playerName || reg.user?.fullName} {reg.captainNomination ? " (Already Nominated)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed">
-                      {user?.fullName || user?.email || "Logged in user"}
+              {/* Modal Body - Registration List */}
+              <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
+                {myRegistrations.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center mx-auto mb-3">
+                      <Trophy className="w-6 h-6" />
                     </div>
-                  )}
-                </div>
+                    <p className="text-xs font-bold text-slate-800">No active registrations found</p>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto mt-1">
+                      You haven't registered for any sports events yet. Browse open registrations below to join!
+                    </p>
+                  </div>
+                ) : (
+                  myRegistrations.map((reg) => {
+                    const isConfirmed = reg.status === "CONFIRMED";
+                    const isPending = reg.status === "PENDING" || reg.status === "REGISTERED";
+                    const statusColor = isConfirmed
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : isPending
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-slate-50 text-slate-600 border-slate-200";
 
-                <div>
-                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
-                    {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus={!isAdminNomination}
-                    placeholder="e.g. Sector 12 Warriors"
-                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all"
-                    value={nominateTeamName}
-                    onChange={(e) => setNominateTeamName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleNominateSubmit()}
-                  />
-                </div>
+                    return (
+                      <div
+                        key={reg.id}
+                        className="p-3 sm:p-3.5 rounded-xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-white transition-all space-y-2 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-bold text-slate-900">
+                                {reg.event?.name || "Sports Event"}
+                              </span>
+                              {reg.event?.sport?.name && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                  {reg.event.sport.name}
+                                </span>
+                              )}
+                            </div>
+                            {reg.category?.name && (
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Category: <strong className="text-slate-700">{reg.category.name}</strong>
+                              </p>
+                            )}
+                          </div>
 
-                <div className="pt-4 flex gap-3">
-                  <button
-                    onClick={() => {
-                      setIsNominateModalOpen(false);
-                      setIsAdminNomination(false);
-                    }}
-                    className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-200 transition-all border border-slate-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleNominateSubmit}
-                    disabled={isSubmittingNomination || !nominateTeamName.trim() || (isAdminNomination && !selectedRegForNomination)}
-                    className="flex-1 px-4 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-xl text-sm font-medium shadow-lg shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center gap-2"
-                  >
-                    {isSubmittingNomination ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      isAdminNomination ? "Confirm Appointment" : "Register Now"
-                    )}
-                  </button>
+                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider ${statusColor}`}>
+                            {reg.status}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {reg.playerName && (
+                              <span className="text-[10px] font-semibold text-slate-700 inline-flex items-center gap-1">
+                                👤 <span>{reg.playerName}</span>
+                                {reg.relation && reg.relation.toUpperCase() !== "SELF" && (
+                                  <span className="text-[10px] text-slate-400">({reg.relation})</span>
+                                )}
+                              </span>
+                            )}
+                            {reg.matchType && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                                {reg.matchType.replace(/_/g, " ")}
+                              </span>
+                            )}
+                            {reg.captainNomination && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                👑 {reg.captainConfirmation ? "Confirmed Captain" : "Captain Nominee"}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const evName = reg.event?.name || reg.eventName || "this event";
+                                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
+                                  try {
+                                    await sportsService.withdraw(reg.id);
+                                    toast.success(`Unregistered from ${evName}`);
+                                    fetchData();
+                                  } catch (err: any) {
+                                    toast.error(err?.message || "Failed to unregister");
+                                  }
+                                }}
+                                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"
+                                title="Unregister from this event"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Unregister</span>
+                              </button>
+                            )}
+                            <Link
+                              to="/sports/my-sports"
+                              onClick={() => setActiveStatsModal(null)}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                            >
+                              Manage →
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 flex-shrink-0">
+                <Link
+                  to="/sports/my-sports"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  Go to My Sports Dashboard →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Live Events Modal ── */}
+        {activeStatsModal === "live_events" && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full p-4 sm:p-6 space-y-4 max-h-[88vh] overflow-hidden flex flex-col text-left">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-[#10b981]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-slate-900 m-0 mb-0">
+                        Live & Running Events
+                      </h3>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        {liveEvents.filter(e => e.status === "LIVE").length} Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 m-0">
+                      Live sports matches and upcoming event schedules
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body - Live Events List */}
+              <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
+                {liveEvents.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mx-auto mb-3">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800">No events running right now</p>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto mt-1">
+                      Check the tournaments schedule to see upcoming draws and fixtures.
+                    </p>
+                  </div>
+                ) : (
+                  liveEvents.map((ev) => {
+                    const isLive = ev.status === "LIVE";
+                    return (
+                      <div
+                        key={ev.id}
+                        className={`p-3.5 rounded-xl border transition-all space-y-2 shadow-2xs ${
+                          isLive
+                            ? "bg-emerald-50/40 border-emerald-200 hover:border-emerald-300"
+                            : "bg-slate-50/50 border-slate-100 hover:bg-white hover:border-indigo-100"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 flex-wrap">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-bold text-slate-900">{ev.name}</span>
+                              {ev.subtitle && (
+                                <span className="text-[10px] text-slate-500 font-medium">{ev.subtitle}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                              <span>📍 {ev.venue || "Community Arena"}</span>
+                              {ev.category && <span>· Category: {ev.category}</span>}
+                            </p>
+                          </div>
+
+                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider inline-flex items-center gap-1 ${ isLive ? "bg-emerald-100 text-emerald-800 border-emerald-300 animate-pulse" : "bg-orange-50 text-[#f97316] border-orange-200" }`}>
+                            {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />}
+                            {ev.statusText || (isLive ? "LIVE NOW" : "UPCOMING")}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs flex-wrap">
+                          <div className="text-xs text-slate-500">
+                            {ev.statusSub ? `Status: ${ev.statusSub}` : "Scheduled Match"}
+                          </div>
+                          <Link
+                            to="/sports/schedule"
+                            onClick={() => setActiveStatsModal(null)}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                          >
+                            View Draws & Schedule →
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 flex-shrink-0">
+                <Link
+                  to="/sports/schedule"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  View Full Schedule & Fixtures →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setActiveStatsModal(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

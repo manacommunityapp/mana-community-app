@@ -14,9 +14,11 @@ interface PermissionGuardProps {
   adminOnly?: boolean;
   /** Community module key required (e.g. "SPORTS", "MARKETPLACE"). Blocked if module is disabled for the user's community. */
   requiredModule?: string;
+  /** OR-based module check — community must have at least one of these enabled (e.g. ["FINANCE_MGMT", "PAYMENTS"]) */
+  anyModules?: string[];
 }
 
-export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, requiredModule }: PermissionGuardProps) {
+export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, requiredModule, anyModules }: PermissionGuardProps) {
   const { user, isSuperAdmin, isAdmin } = useAuth();
 
   if (!user) {
@@ -34,6 +36,9 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   const enabledModules = user.enabledModules || [];
   if (requiredModule && user.enabledModules !== undefined && !enabledModules.includes(requiredModule)) {
     return renderModuleDisabled(requiredModule);
+  }
+  if (anyModules && anyModules.length > 0 && user.enabledModules !== undefined && !anyModules.some((m) => enabledModules.includes(m))) {
+    return renderModuleDisabled(anyModules[0]);
   }
 
   const userPerms = user.permissions || [];
@@ -120,5 +125,9 @@ const MODULE_LABELS: Record<string, string> = {
   FINANCE_MGMT: "Finance Management",
   ADMIN_HUB: "Admin Hub",
   SERVICE_PLATFORM: "Service Platform",
+  COMMERCE: "Community Commerce",
+  SAFETY: "Safety & Security",
+  PAYMENTS: "Mana Pay",
+  MANA_PAY: "Mana Pay",
 };
 

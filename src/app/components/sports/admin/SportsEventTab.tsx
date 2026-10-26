@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Trophy, X } from "lucide-react";
 import { TournamentsListTab } from "./TournamentsListTab";
 import { ConfigureEventsTab } from "./ConfigureEventsTab";
@@ -54,6 +54,8 @@ interface SportsEventTabProps {
   handleSportSave: () => void;
   handleSportEdit: (sport: any) => void;
   handleSportDelete: (id: number) => void;
+  handleCloseTournament?: (id: number) => void;
+  handleCloseEvent?: (id: number) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -88,6 +90,8 @@ export function SportsEventTab({
   handleEdit,
   handleDelete,
   handleActivate,
+  handleCloseTournament,
+  handleCloseEvent,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
@@ -142,21 +146,13 @@ export function SportsEventTab({
   tournamentStartDate,
   tournamentEndDate,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">(
-    activeTournamentId ? "config" : "list"
-  );
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
 
   const onEditEventFromList = (ev: any) => {
+    setShowSportPicker(false);
     handleSportEdit(ev);
     setSportsEventSubTab("config");
   };
-
-  useEffect(() => {
-    if (activeTournamentId) {
-      setSportsEventSubTab("config");
-      setShowSportPicker(true);
-    }
-  }, [activeTournamentId, setShowSportPicker]);
 
   // Load each sub-tab's data only when it becomes active (initial "list" on mount,
   // and "config" when the user clicks Configure Events).
@@ -246,6 +242,14 @@ export function SportsEventTab({
           clearTournamentContext={clearTournamentContext}
           onGoToConfigureEvents={() => setSportsEventSubTab("config")}
           handleSportEdit={onEditEventFromList}
+          handleSportDelete={handleSportDelete}
+          handleCloseTournament={handleCloseTournament}
+          handleCloseEvent={handleCloseEvent}
+          onOpenSportPicker={() => {
+            setSportsEventSubTab("config");
+            resetSportForm();
+            setShowSportPicker(true);
+          }}
         />
       ) : (
         <ConfigureEventsTab

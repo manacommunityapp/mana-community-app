@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 
 interface MockToggleCtx {
   useMock: boolean;
@@ -9,28 +10,11 @@ interface MockToggleCtx {
 
 const Ctx = createContext<MockToggleCtx>({ useMock: false, toggle: () => {} });
 
-const STORAGE_KEY = "events_mock_mode";
+const STORAGE_KEY = STORAGE_KEYS.EVENT_MOCK_MODE;
 
 export function EventMockProvider({ children }: { children: ReactNode }) {
-  const { isSuperAdmin } = useAuth();
-  const [internalMock, setInternalMock] = useState(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  const toggle = useCallback(() => {
-    setInternalMock(prev => {
-      const next = !prev;
-      try { localStorage.setItem(STORAGE_KEY, String(next)); } catch {}
-      return next;
-    });
-  }, []);
-
-  // Strict restriction: only Super Admin can activate mock data. For all other roles, always force Live API (false).
-  const useMock = isSuperAdmin ? internalMock : false;
+  const toggle = useCallback(() => {}, []);
+  const useMock = false;
 
   return <Ctx.Provider value={{ useMock, toggle }}>{children}</Ctx.Provider>;
 }

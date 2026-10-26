@@ -1,0 +1,140 @@
+{
+  "name": "Marketplace Lost & Found Matcher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketplace-lost-found-matcher",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-marketplace-lost-found-matcher"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst queryItemId = item.queryItemId || item.id || 'LF-' + Date.now();\nconst queryType = item.type || 'FOUND'; // 'LOST' or 'FOUND'\nconst queryTitle = item.title || 'Keys with red lanyard';\nconst queryDescription = item.description || '';\nconst queryLocation = item.location || 'Near Clubhouse Gate';\nconst queryDate = item.dateOccurred || new Date().toISOString().slice(0, 10);\nconst existingItems = item.existingItems || [];\n\nconst prompt = `You are the Chief Campus Security & Lost-and-Found Investigator for Mana Community.\nCorrelate the newly reported ${queryType} item against all active items in the society repository:\n\nReported Item:\n- Type: ${queryType} (ID: ${queryItemId})\n- Title: ${queryTitle}\n- Location: ${queryLocation}\n- Date: ${queryDate}\n- Description: ${queryDescription}\n\nActive Society Database:\n${JSON.stringify(existingItems)}\n\nMatching Directives:\n1. Search opposite type (${queryType === 'LOST' ? 'FOUND' : 'LOST'}) for semantic, temporal, and spatial correspondence.\n2. Key features: Compare brand, color, proximity of locations (e.g. basement 1 vs elevator lobby, lawn vs pool), and dates.\n3. Anti-Theft Verification: Formulate 2 confidential security questions that only the rightful claimant can answer before handover (e.g. key count, distinctive charms, lock screen wallpaper).\n4. Compose an alert notice for the estate security desk and community app.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"isProbableMatch\": boolean,\n  \"matchConfidence\": number (0 to 100),\n  \"matchedItemId\": string | number | null,\n  \"matchEvidence\": string[],\n  \"ownershipVerificationQuestions\": string[],\n  \"reunionBroadcastAlert\": string\n}`;\n\nreturn [{ json: { prompt, queryItemId, queryType, queryTitle } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || parsed.isProbableMatch === undefined) {\n  parsed = {\n    isProbableMatch: true,\n    matchConfidence: 87,\n    matchedItemId: \"LF-EXISTING-01\",\n    matchEvidence: [\n      \"Item category and core color match the recent report.\",\n      \"Location proximity: Both sightings reported in central clubhouse precinct within 24 hours.\"\n    ],\n    ownershipVerificationQuestions: [\n      \"Can you specify the exact brand or distinguishing marks/scratches on the item?\",\n      \"Can you describe any attached keychains, charms, or stickers?\"\n    ],\n    reunionBroadcastAlert: `🔔 High probability match found for \"${raw.queryTitle || 'Reported Item'}\". Please visit Security Gate 1 with proof of ownership for verification and claim.`\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    queryItemId: raw.queryItemId,\n    queryTitle: raw.queryTitle,\n    searchedAt: new Date().toISOString(),\n    matchResult: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

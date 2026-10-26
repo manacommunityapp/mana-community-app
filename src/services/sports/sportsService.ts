@@ -46,8 +46,9 @@ export const sportsService = {
   },
 
   /** GET /api/tournaments/community?communityId= — all tournaments for a community (via TournamentController) */
-  async getCommunityTournaments(communityId: number): Promise<SportsTournament[]> {
-    return apiClient.get<SportsTournament[]>(`/tournaments/community?communityId=${communityId}`);
+  async getCommunityTournaments(communityId?: number): Promise<SportsTournament[]> {
+    const url = communityId ? `/tournaments/community?communityId=${communityId}` : `/tournaments/community`;
+    return apiClient.get<SportsTournament[]>(url);
   },
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */
   async getCommunityEvents(communityId: number, includeInactive = false): Promise<SportsEvent[]> {
@@ -59,6 +60,7 @@ export const sportsService = {
   getTournamentById: sportsEventService.getTournamentById,
   getEventById: sportsEventService.getEventById,
   getEventByUuid: sportsEventService.getEventByUuid,
+  getRegistrationDetails: sportsEventService.getRegistrationDetails,
   getTournamentMap: sportsEventService.getTournamentMap,
   getEventMap: sportsEventService.getEventMap,
   getConfirmedCount: sportsEventService.getConfirmedCount,
@@ -71,8 +73,11 @@ export const sportsService = {
   updateSportsEvent: sportsEventService.updateSportsEvent,
   deleteTournament: sportsEventService.deleteTournament,
   deleteEvent: sportsEventService.deleteEvent,
+  deleteSportsEvent: sportsEventService.deleteSportsEvent,
   updateTournamentStatus: sportsEventService.updateTournamentStatus,
   updateEventStatus: sportsEventService.updateEventStatus,
+  closeTournament: sportsEventService.closeTournament,
+  closeSportsEvent: sportsEventService.closeSportsEvent,
   getClosedTournaments: sportsEventService.getClosedTournaments,
   getClosedEvents: sportsEventService.getClosedEvents,
   registerForTournament: sportsEventService.registerForTournament,
@@ -85,6 +90,9 @@ export const sportsService = {
   rejectRegistration: sportsEventService.rejectRegistration,
   nominateCaptain: sportsEventService.nominateCaptain,
   confirmCaptain: sportsEventService.confirmCaptain,
+  respondToPartnerInvitation: sportsEventService.respondToPartnerInvitation,
+  getPartnerInvitations: sportsEventService.getPartnerInvitations,
+  nominatePartner: sportsEventService.nominatePartner,
   async getScheduleStats(): Promise<{ totalGames: number; liveNow: number; upcoming: number; completed: number }> {
     return apiClient.get<{ totalGames: number; liveNow: number; upcoming: number; completed: number }>("/sports/schedule/stats");
   },

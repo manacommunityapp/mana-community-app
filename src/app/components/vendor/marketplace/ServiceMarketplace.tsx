@@ -111,13 +111,18 @@ export function ServiceMarketplace() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">
-          Service Marketplace
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Browse and book services from verified vendors
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">
+            Service Marketplace
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Browse and book services from verified vendors
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => navigate("/vendor-apply")}>
+          <Store className="mr-2 h-4 w-4" /> Register your business
+        </Button>
       </div>
 
       {/* Search & Filters */}

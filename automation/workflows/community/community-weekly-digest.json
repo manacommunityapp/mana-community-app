@@ -1,0 +1,136 @@
+﻿{
+  "name": "Mana Weekly Community Digest Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 18,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "1",
+      "name": "Every Sunday 6 PM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.MANA_BACKEND_API_URL }}/notices/recent",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Fetch Recent Notices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const notices = $input.first().json || [];\n\nconst prompt = `You are the Editor of the Mana Community Weekly Newsletter.\nSummarize the following society updates, upcoming events, and maintenance schedules into an engaging 1-minute read for residents.\n\nNotices:\n${JSON.stringify(notices)}\n\nFormat your response as a structured markdown bulletin with sections:\n- ðŸŒŸ Society Highlights\n- ðŸ“… Upcoming Events & Tournaments\n- ðŸ”§ Scheduled Maintenance & Alerts\n- ðŸ’¡ Resident Tip of the Week`;\n\nreturn [{\n  json: {\n    prompt\n  }\n}];"
+      },
+      "id": "3",
+      "name": "Compose Digest Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }]\n}",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Generate AI Digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MANA_BACKEND_API_URL }}/notices/publish-digest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Mana Community Weekly Digest - \" + new Date().toLocaleDateString('en-GB'),\n  \"content\": $json.candidates[0].content.parts[0].text,\n  \"category\": \"COMMUNITY_BULLETIN\",\n  \"isPinned\": true\n}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Publish to Notice Board",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Every Sunday 6 PM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Notices": {
+      "main": [
+        [
+          {
+            "node": "Compose Digest Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Digest Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate AI Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate AI Digest": {
+      "main": [
+        [
+          {
+            "node": "Publish to Notice Board",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

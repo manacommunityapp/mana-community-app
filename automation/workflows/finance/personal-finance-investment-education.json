@@ -1,0 +1,25 @@
+{
+  "name": "Personal Finance and Investment Education Assistant",
+  "nodes": [
+    { "parameters": { "httpMethod": "POST", "path": "personal-finance-investment-education", "responseMode": "responseNode", "options": {} }, "id": "1", "name": "Finance Education Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [240, 300], "webhookId": "mana-personal-finance-education" },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\nconst budget = Array.isArray(input.budgetCategories) ? input.budgetCategories.map(x => ({ category: x.category, planned: Number(x.planned || 0), actual: Number(x.actual || 0) })) : [];\nconst holdings = Array.isArray(input.holdings) ? input.holdings.map(x => ({ assetType: x.assetType || 'unspecified', label: x.label || 'holding', value: Number(x.value || 0), allocationPercent: Number(x.allocationPercent || 0), asOfDate: x.asOfDate || null })) : [];\nconst cashflow = { income: Number(input.periodIncome || 0), expenses: Number(input.periodExpenses || 0), net: Number(input.periodIncome || 0) - Number(input.periodExpenses || 0) };\nconst prompt = `Provide a neutral, educational summary of this user's supplied aggregate budget and investment allocation. Explain observed budget variances and diversification concepts at a general level; identify missing or stale valuation dates. Do not recommend buying, selling, holding, specific products, or target allocations; do not forecast returns or imply guarantees. This is not financial advice. Avoid requesting identifiers, account numbers, credentials, or exact statements. Return JSON keys summary (string), budgetObservations (array), generalEducation (array), dataLimitations (array), consultQualifiedAdvisor (boolean).\n${JSON.stringify({ budget, holdings, cashflow })}`;\nreturn [{ json: { budget, holdings, cashflow, prompt } }];"
+      },
+      "id": "2", "name": "Prepare Anonymized Finance View", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [460, 300]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", "sendQuery": true, "queryParameters": { "parameters": [{ "name": "key", "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":{{ JSON.stringify($json.prompt) }} }]}],\"generationConfig\":{\"response_mime_type\":\"application/json\"}}", "options": {} },
+      "id": "3", "name": "Generate Educational Summary", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [680, 300]
+    },
+    {
+      "parameters": { "jsCode": "const response = $input.first().json;\nconst source = $('Prepare Anonymized Finance View').first().json;\nlet education;\ntry { education = JSON.parse(response.candidates[0].content.parts[0].text); } catch { education = { summary: 'Unable to generate a summary. Review your figures directly.', budgetObservations: [], generalEducation: [], dataLimitations: ['AI response could not be parsed.'], consultQualifiedAdvisor: true }; }\nreturn [{ json: { status: 'education_ready', cashflow: source.cashflow, budgetCategories: source.budget, holdingsSummary: source.holdings, education, financialAdvice: false, transactionsExecuted: false } }];" },
+      "id": "4", "name": "Format Finance Education", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [900, 300]
+    },
+    { "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} }, "id": "5", "name": "Return Finance Education", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [1120, 300] }
+  ],
+  "connections": { "Finance Education Webhook": { "main": [[{ "node": "Prepare Anonymized Finance View", "type": "main", "index": 0 }]] }, "Prepare Anonymized Finance View": { "main": [[{ "node": "Generate Educational Summary", "type": "main", "index": 0 }]] }, "Generate Educational Summary": { "main": [[{ "node": "Format Finance Education", "type": "main", "index": 0 }]] }, "Format Finance Education": { "main": [[{ "node": "Return Finance Education", "type": "main", "index": 0 }]] } },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1"
+}

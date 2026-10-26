@@ -34,6 +34,7 @@ import { isRegistrationClosed } from "../../../../utils/eventDeadlineUtils";
 import { fileUploadService } from "../../../../services/files/fileUploadService";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 import { showSuccess, showWarning } from "../../../../utils/ToastUtils";
+import { format } from "date-fns";
 
 export interface TicketCategoryItem {
   id?: string;
@@ -42,6 +43,7 @@ export interface TicketCategoryItem {
   qty?: string | number;
   seats?: string | number;
   capacity?: string | number;
+  maxAttendees?: string | number;
   availableSeats?: string | number;
   slots?: string | number;
   description?: string;
@@ -439,8 +441,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       if (ticketCategories && ticketCategories.length > 0) {
         cats = ticketCategories.map((cat, idx) => {
           const categorySeats =
-            cat.seats ??
             cat.capacity ??
+            cat.seats ??
             cat.qty ??
             (cat as any).quantity ??
             cat.slots ??
@@ -450,6 +452,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             id: cat.id || `cat-${idx}`,
             qty: categorySeats,
             seats: categorySeats,
+            capacity: cat.capacity ?? targetEvent?.capacity,
+            maxAttendees: (cat as any).maxAttendees ?? targetEvent?.maxAttendees,
           };
         });
       }
@@ -459,8 +463,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         if (Array.isArray(rawTypes) && rawTypes.length > 0) {
           cats = rawTypes.map((item: any, idx: number) => {
             const dynamicSeats =
-              item.seats ??
               item.capacity ??
+              item.seats ??
               item.qty ??
               item.quantity ??
               item.slots ??
@@ -479,6 +483,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 price: "0",
                 qty: dynamicSeats || 100,
                 seats: dynamicSeats || 100,
+                capacity: targetEvent?.capacity ?? dynamicSeats ?? 100,
+                maxAttendees: targetEvent?.maxAttendees ?? dynamicSeats ?? 100,
                 description: "General entry",
               };
             }
@@ -488,6 +494,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               price: item.price !== undefined ? item.price : item.fee !== undefined ? item.fee : 0,
               qty: dynamicSeats,
               seats: dynamicSeats,
+              capacity: item.capacity ?? targetEvent?.capacity ?? dynamicSeats,
+              maxAttendees: item.maxAttendees ?? targetEvent?.maxAttendees ?? dynamicSeats,
               description: item.description || item.desc,
             };
           });
@@ -496,9 +504,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
       if ((!cats || cats.length === 0) && (targetEvent?.price !== undefined || targetEvent?.title || targetEvent?.name)) {
         const dynamicSeats =
+          targetEvent?.capacity ??
           targetEvent?.seats ??
           targetEvent?.availableSeats ??
-          targetEvent?.capacity ??
+          targetEvent?.maxAttendees ??
           targetEvent?.slots ??
           targetEvent?.totalSeats ??
           targetEvent?.maxParticipants ??
@@ -511,6 +520,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             price: targetEvent.price || targetEvent.fee || 0,
             qty: dynamicSeats || 100,
             seats: dynamicSeats || 100,
+            capacity: targetEvent?.capacity ?? dynamicSeats ?? 100,
+            maxAttendees: targetEvent?.maxAttendees ?? dynamicSeats ?? 100,
             description: targetEvent.description || "Full event access pass",
           },
         ];
@@ -673,8 +684,16 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   const maxEventCapacity = (activeEvent as any)?.maxAttendees ?? activeEvent?.capacity;
-  const currentEventCount = (activeEvent as any)?.attendees ?? (activeEvent as any)?.registrationCount ?? (activeEvent?.registrations ? activeEvent.registrations.length : 0);
-  const isEventFull = !isUpdateMode && maxEventCapacity != null && Number(maxEventCapacity) > 0 && currentEventCount >= Number(maxEventCapacity) && !isAnyAdmin;
+  const currentEventCount = (() => {
+    if (activeEvent?.maxAttendees != null && activeEvent?.capacity != null && Number(activeEvent.maxAttendees) >= Number(activeEvent.capacity)) {
+      return Number(activeEvent.maxAttendees) - Number(activeEvent.capacity);
+    }
+    return (activeEvent as any)?.attendees ?? (activeEvent as any)?.registrationCount ?? (activeEvent?.registrations ? activeEvent.registrations.length : 0);
+  })();
+  const isEventFull = !isUpdateMode && (
+    (activeEvent?.capacity !== undefined && activeEvent?.capacity !== null && Number(activeEvent.capacity) <= 0) ||
+    (maxEventCapacity != null && Number(maxEventCapacity) > 0 && currentEventCount >= Number(maxEventCapacity))
+  ) && !isAnyAdmin;
 
   const handleNextStep = () => {
     if (isEventFull) {
@@ -1071,11 +1090,40 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   const selected = selectedCatId === catId;
                   const priceText = formatPrice(cat.price);
 
-                  const rawSeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
-                  const categorySeats = rawSeats != null && rawSeats !== "" ? Number(rawSeats) : null;
+                  const categoryMaxAttendees = activeEvent?.maxAttendees != null 
+                    ? Number(activeEvent.maxAttendees) 
+                    : ((cat as any)?.maxAttendees != null 
+                      ? Number((cat as any).maxAttendees) 
+                      : (cat.seats ?? cat.qty ?? (cat as any).capacity ?? activeEvent?.capacity ?? 100));
 
-                  // Calculate registered count for this category
+                  const capacityCountLeft = activeEvent?.capacity != null 
+                    ? Number(activeEvent.capacity) 
+                    : (cat.capacity != null 
+                      ? Number(cat.capacity) 
+                      : null);
+
+                  // Calculate registered user record count for this category
+                  // When maxAttendees and remaining capacity (from event_community database) are both available:
+                  // registered count = maxAttendees - capacity
                   const categoryRegisteredCount = (() => {
+                    if (categoryMaxAttendees != null && capacityCountLeft != null && categoryMaxAttendees >= capacityCountLeft) {
+                      const fromDiff = categoryMaxAttendees - capacityCountLeft;
+                      if (eventRegistrations.length > 0) {
+                        const matchingRegs = eventRegistrations.filter((r) => {
+                          const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
+                          if (isCancelled) return false;
+                          const regCat = (r.category || r.ticketCategory || r.passType || "").toLowerCase().trim();
+                          const thisCat = (cat.name || "").toLowerCase().trim();
+                          if (categories.length > 1 && regCat && thisCat) {
+                            return regCat === thisCat || regCat.includes(thisCat) || thisCat.includes(regCat);
+                          }
+                          return true;
+                        });
+                        return Math.max(matchingRegs.length, fromDiff);
+                      }
+                      return fromDiff;
+                    }
+
                     if (eventRegistrations.length > 0) {
                       const matchingRegs = eventRegistrations.filter((r) => {
                         const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
@@ -1087,16 +1135,16 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         }
                         return true;
                       });
-                      return matchingRegs.reduce((sum, r) => {
-                        const membersCount = Array.isArray(r.members) ? r.members.length : (r.devoteeCount || r.attendeesCount || r.membersCount || 1);
-                        return sum + (Number(membersCount) || 1);
-                      }, 0);
+                      return matchingRegs.length;
                     }
                     return Number((cat as any).registeredSeats ?? (cat as any).bookedSeats ?? (cat as any).registeredCount ?? (categories.length === 1 ? (activeEvent?.registeredAttendees ?? activeEvent?.totalRegistrations ?? activeEvent?.attendees ?? 0) : 0));
                   })();
 
-                  const availableSeats = categorySeats != null && categorySeats > 0 ? Math.max(0, categorySeats - categoryRegisteredCount) : null;
-                  const isSoldOut = categorySeats != null && categorySeats > 0 && availableSeats !== null && availableSeats <= 0;
+                  const effectiveCapacityLeft = capacityCountLeft !== null 
+                    ? capacityCountLeft 
+                    : (categoryMaxAttendees != null ? Math.max(0, categoryMaxAttendees - categoryRegisteredCount) : null);
+
+                  const isSoldOut = effectiveCapacityLeft !== null && effectiveCapacityLeft <= 0;
 
                   return (
                     <div
@@ -1148,24 +1196,31 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           )}
                         </h4>
                         <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-                          {cat.description || (categorySeats ? `${categorySeats} seats allocated` : "Standard event pass tier")}
+                          {cat.description || (categoryMaxAttendees ? `${categoryMaxAttendees} seats allocated` : "Standard event pass tier")}
                         </p>
                       </div>
 
-                      {categorySeats != null && (
+                      {categoryMaxAttendees != null && (
                         <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[9.5px] font-bold text-muted-foreground">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>
-                              <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
-                                {categoryRegisteredCount}/{categorySeats}
-                              </strong>{" "}
-                              registered
-                            </span>
-                            <span>·</span>
-                            <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : availableSeats !== null && availableSeats <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
-                              {isSoldOut ? "Sold out" : `${availableSeats} left`}
-                            </span>
-                          </div>
+                          {((cat as any)?.needsRegistration === false || (activeEvent as any)?.needsRegistration === false) ? (
+                            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                              <Sparkles className="w-3 h-3" />
+                              <span>Open to All</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
+                                  {categoryRegisteredCount}/{categoryMaxAttendees}
+                                </strong>{" "}
+                                registered
+                              </span>
+                              <span>·</span>
+                              <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : effectiveCapacityLeft !== null && effectiveCapacityLeft <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                                {isSoldOut ? "Sold out" : `${effectiveCapacityLeft} left`}
+                              </span>
+                            </div>
+                          )}
                           {selected && <span className="text-primary font-extrabold shrink-0">Selected ✓</span>}
                         </div>
                       )}
@@ -1492,32 +1547,42 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {availableSaved.map((sm, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => {
-                            const newMember = {
-                              name: sm.name,
-                              dob: sm.dob || undefined,
-                              age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
-                              gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
-                              relationship: sm.relation || "Family",
-                            };
-                            setFormData((prev) => ({
-                              ...prev,
-                              membersCount: prev.members.length + 1,
-                              members: [...prev.members, newMember],
-                            }));
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-background border border-border hover:border-primary text-foreground text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                        >
-                          <span>{sm.avatar || "👤"}</span>
-                          <span>{sm.name}</span>
-                          <span className="text-[9.5px] text-muted-foreground">({sm.relation})</span>
-                          <span className="text-primary font-bold ml-0.5">+</span>
-                        </button>
-                      ))}
+                      {availableSaved.map((sm, i) => {
+                        let formattedDob = "";
+                        if (sm.dob) {
+                          try {
+                            formattedDob = format(new Date(sm.dob), "dd MMM yyyy");
+                          } catch {
+                            formattedDob = String(sm.dob);
+                          }
+                        }
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              const newMember = {
+                                name: sm.name,
+                                dob: sm.dob || undefined,
+                                age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
+                                gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
+                                relationship: sm.relation || "Family",
+                              };
+                              setFormData((prev) => ({
+                                ...prev,
+                                membersCount: prev.members.length + 1,
+                                members: [...prev.members, newMember],
+                              }));
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-background border border-border hover:border-primary text-foreground text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <span>{sm.avatar || "👤"}</span>
+                            <span>{sm.name}</span>
+                            <span className="text-[9.5px] text-muted-foreground">({sm.relation}{formattedDob ? ` • DOB: ${formattedDob}` : ""})</span>
+                            <span className="text-primary font-bold ml-0.5">+</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );

@@ -26,6 +26,11 @@ export const authService = {
     return apiClient.post<{ success: boolean; message: string }>("/auth/send-signup-otp", { email, phone });
   },
 
+  /** POST /api/auth/verify-signup-otp — verify email + phone are not registered and OTP code is valid */
+  async verifySignupOtp(email: string, phone: string, code: string): Promise<{ success: boolean; verified: boolean; message: string }> {
+    return apiClient.post<{ success: boolean; verified: boolean; message: string }>("/auth/verify-signup-otp", { email, phone, code });
+  },
+
   /** POST /api/auth/forgot-password — send 6-digit OTP to user's registered email */
   async sendPasswordResetOtp(email: string): Promise<ResetPasswordResponse> {
     return apiClient.post<ResetPasswordResponse>("/auth/forgot-password", { email });

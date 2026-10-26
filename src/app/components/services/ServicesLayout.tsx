@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Search, ClipboardList, Wrench, Shield } from "lucide-react";
+import { Search, ClipboardList, Wrench, Shield, Zap } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SERVICE_REQUESTS,
@@ -22,6 +22,7 @@ export function ServicesLayout() {
     ...(hasPermission(VIEW_SERVICE_REQUESTS)
       ? [{ id: "requests", label: "My Requests", path: "/services/requests", icon: ClipboardList, exact: false }]
       : []),
+    { id: "insta-help", label: "⚡ Insta Help", path: "/services/insta-help", icon: Zap, exact: false },
     { id: "provider", label: "Provider", path: "/services/provider", icon: Wrench, exact: false },
     ...(hasPermission(MANAGE_SERVICE_CATALOG)
       ? [{ id: "admin", label: "Admin", path: "/services/admin", icon: Shield, exact: false }]

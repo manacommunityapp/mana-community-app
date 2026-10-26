@@ -85,6 +85,13 @@ export const resourceBookingService = {
   async rateBooking(id: number, rating: number, comment?: string): Promise<void> {
     await apiClient.put<void>(`/resource-booking/bookings/${id}/rate`, { rating, comment });
   },
+  async markNoShow(id: number, penaltyAmount?: number, reason?: string): Promise<ResourceBookingResponse> {
+    const params = new URLSearchParams();
+    if (penaltyAmount != null) params.set("penaltyAmount", String(penaltyAmount));
+    if (reason) params.set("reason", reason);
+    const queryString = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.put<ResourceBookingResponse>(`/resource-booking/bookings/${id}/no-show${queryString}`, {});
+  },
   async getBookingsByResource(resourceId: number, date: string): Promise<ResourceBookingResponse[]> {
     return apiClient.get<ResourceBookingResponse[]>(`/resource-booking/resources/${resourceId}/bookings?date=${date}`);
   },

@@ -15,6 +15,8 @@ import { VenueDetailsModal } from "./VenueDetailsModal";
 import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
+import { RankingsAdminTab } from "./RankingsAdminTab";
+import { TrainersAdminTab } from "./TrainersAdminTab";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
 import { TournamentAnnouncementModal } from "./TournamentAnnouncementModal";
 import "../SportsAuction.css";
@@ -45,17 +47,6 @@ export function SportsAdmin() {
 
       <main className="main-content">
         <div className="page active">
-          {s.activeTab !== "dashboard" && (
-            <div className="page-hdr">
-              <div>
-                <div className="page-title">
-                  {s.menuItems.find(m => m.id === s.activeTab)?.label || "Admin"}
-                </div>
-                <div className="page-sub">Manage community sports events and rules</div>
-              </div>
-            </div>
-          )}
-
           {s.activeTab === "dashboard" && (
             <DashboardTab
               activeTournaments={s.activeTournaments}
@@ -89,6 +80,8 @@ export function SportsAdmin() {
                 handleEdit={s.handleEdit}
                 handleDelete={s.handleDelete}
                 handleActivate={s.handleActivate}
+                handleCloseTournament={s.handleCloseTournament}
+                handleCloseEvent={s.handleCloseEvent}
                 handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
                 handleViewPlayers={s.handleViewPlayers}
                 handleViewCaptains={s.handleViewCaptains}
@@ -307,6 +300,17 @@ export function SportsAdmin() {
           {s.activeTab === "sports-meta" && s.isAdmin && (
             <SportsMetaSection isAdmin={s.isAdmin} />
           )}
+
+          {s.activeTab === "rankings" && (
+            <RankingsAdminTab
+              communityId={s.activeCommId}
+              sportsMeta={s.sportsMeta}
+            />
+          )}
+
+          {s.activeTab === "trainers" && (
+            <TrainersAdminTab />
+          )}
         </div>
       </main>
 
@@ -352,17 +356,30 @@ export function SportsAdmin() {
         setAddPlayerForms={s.setAddPlayerForms}
         communityUsers={s.communityUsers}
         loadingUsers={s.loadingUsers}
+        loadingMoreUsers={s.loadingMoreUsers}
+        hasMoreUsers={s.hasMoreUsers}
+        onLoadMoreUsers={s.loadMoreUsers}
+        totalUsersCount={s.usersTotalElements}
+        usersPage={s.usersPage}
+        usersTotalPages={s.usersTotalPages}
+        onGoToPage={s.goToUsersPage}
         friendSearchQuery={s.friendSearchQuery}
         setFriendSearchQuery={s.setFriendSearchQuery}
         filteredFriends={s.filteredFriends}
         handleSelectFriend={s.handleSelectFriend}
+        handleSelectFamilyMember={s.handleSelectFamilyMember}
         handleAddNewPlayerCard={s.handleAddNewPlayerCard}
         handleDeletePlayerCard={s.handleDeletePlayerCard}
         handleAddPlayerSubmit={s.handleAddPlayerSubmit}
         submitting={s.submitting}
         playerCategories={s.playerCategories}
         formatDob={s.formatDob}
+        registeredEmails={new Set(s.registrations.map((r: any) => (r.email || r.user?.email || "").toLowerCase()).filter(Boolean))}
+        submitResults={s.addPlayerSubmitResults}
+        onClearResults={() => s.setAddPlayerSubmitResults([])}
       />
+
+
 
       <ImportPlayersModal
         showImportModal={s.showImportModal}
