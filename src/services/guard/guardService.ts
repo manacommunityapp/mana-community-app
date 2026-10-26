@@ -102,4 +102,45 @@ export const guardService = {
   async deleteShift(id: number): Promise<void> {
     return apiClient.delete(`/guards/shifts/${id}`);
   },
+
+  // ── Shift Handovers ──────────────────────────────────────────
+  async getTodayHandovers(): Promise<ShiftHandover[]> {
+    return apiClient.get<ShiftHandover[]>("/guard/handovers/today");
+  },
+
+  async getHandoverHistory(): Promise<ShiftHandover[]> {
+    return apiClient.get<ShiftHandover[]>("/guard/handovers");
+  },
+
+  async createHandover(data: CreateHandoverRequest): Promise<ShiftHandover> {
+    return apiClient.post<ShiftHandover>("/guard/handovers", data);
+  },
+
+  async acknowledgeHandover(id: number): Promise<ShiftHandover> {
+    return apiClient.patch<ShiftHandover>(`/guard/handovers/${id}/acknowledge`, {});
+  },
 };
+
+export interface HandoverItem {
+  category: string;
+  description: string;
+  priority?: string;
+  resolvedBefore?: boolean;
+}
+
+export interface ShiftHandover {
+  id: number;
+  shiftDate: string;
+  shiftType: string;
+  status: string;
+  notes?: string;
+  items?: HandoverItem[];
+  acknowledgedBy?: string;
+  createdAt: string;
+}
+
+export interface CreateHandoverRequest {
+  shiftType: string;
+  notes?: string;
+  items?: HandoverItem[];
+}
