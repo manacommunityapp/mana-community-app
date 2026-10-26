@@ -655,6 +655,8 @@ export interface UserResponse {
   profilePicUrl?: string;
   gender?: string;
   dateOfBirth?: string;
+  createdAt?: string;
+  createdDate?: string;
   flatNo?: string;
   block?: string;
   tower?: string;
