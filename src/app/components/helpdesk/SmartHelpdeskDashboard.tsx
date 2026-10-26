@@ -259,7 +259,19 @@ export function SmartHelpdeskDashboard() {
         {/* TAB 1: Tickets List */}
         <TabsContent value="my-tickets" className="space-y-4 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredTickets.map((ticket) => {
+            {filteredTickets.length === 0 ? (
+              <div className="col-span-full py-12 text-center bg-white rounded-2xl border border-slate-100 p-8 shadow-xs">
+                <Wrench className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-800 mb-1">No Tickets Found</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+                  Everything looks quiet! There are no maintenance or service requests matching your criteria.
+                </p>
+                <Button size="sm" onClick={() => setIsCreateOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white">
+                  <Plus className="w-4 h-4" /> Raise a Request
+                </Button>
+              </div>
+            ) : (
+              filteredTickets.map((ticket) => {
               const pConf = PRIORITY_BADGES[ticket.priority] || PRIORITY_BADGES.MEDIUM;
               const sColor = STATUS_COLORS[ticket.status] || "bg-slate-100 text-slate-800";
 
@@ -325,7 +337,8 @@ export function SmartHelpdeskDashboard() {
                   </CardFooter>
                 </Card>
               );
-            })}
+            })
+          )}
           </div>
         </TabsContent>
 

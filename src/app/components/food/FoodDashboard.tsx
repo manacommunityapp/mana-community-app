@@ -12,25 +12,10 @@ import { Progress } from "../ui/progress";
 import { Skeleton } from "../ui/skeleton";
 import type { FoodDashboardStats, FoodOrder, FoodRestaurant } from "../../../types/food";
 
-const mockStats: FoodDashboardStats = {
-  totalRestaurants: 24, totalHomeChefs: 18, totalOrders: 156,
-  totalRevenue: 284500, activeSubscriptions: 42, totalRecipes: 320,
-  activeEvents: 5, totalDeliveryPartners: 12,
-};
-
-const mockRecentOrders: Partial<FoodOrder>[] = [
-  { id: 1, orderNumber: "ORD-1042", providerName: "Spice Garden", totalAmount: 450, status: "DELIVERED", placedAt: "2026-07-24T10:30:00Z", items: [{ id: 1, itemId: 1, itemName: "Butter Chicken", quantity: 1, unitPrice: 280, totalPrice: 280, isVeg: false }, { id: 2, itemId: 2, itemName: "Naan", quantity: 2, unitPrice: 40, totalPrice: 80, isVeg: true }] },
-  { id: 2, orderNumber: "ORD-1041", providerName: "Green Bowl", totalAmount: 320, status: "PREPARING", placedAt: "2026-07-24T09:15:00Z", items: [{ id: 3, itemId: 3, itemName: "Quinoa Salad", quantity: 1, unitPrice: 320, totalPrice: 320, isVeg: true }] },
-  { id: 3, orderNumber: "ORD-1040", providerName: "Desi Bites", totalAmount: 680, status: "OUT_FOR_DELIVERY", placedAt: "2026-07-24T08:00:00Z", items: [{ id: 4, itemId: 4, itemName: "Thali Special", quantity: 2, unitPrice: 340, totalPrice: 680, isVeg: true }] },
-  { id: 4, orderNumber: "ORD-1039", providerName: "Pizza Hub", totalAmount: 550, status: "DELIVERED", placedAt: "2026-07-23T19:30:00Z", items: [{ id: 5, itemId: 5, itemName: "Margherita Pizza", quantity: 1, unitPrice: 350, totalPrice: 350, isVeg: true }] },
-];
-
-const mockTrendingRestaurants: Partial<FoodRestaurant>[] = [
-  { id: 1, name: "Spice Garden", cuisineTypes: "North Indian, Mughlai", rating: 4.5, totalRatings: 230, avgDeliveryTime: 35, coverImageUrl: "", featured: true },
-  { id: 2, name: "Sushi Station", cuisineTypes: "Japanese, Asian", rating: 4.7, totalRatings: 180, avgDeliveryTime: 40, coverImageUrl: "", featured: true },
-  { id: 3, name: "Green Bowl", cuisineTypes: "Healthy, Salads", rating: 4.3, totalRatings: 145, avgDeliveryTime: 25, coverImageUrl: "", featured: false },
-  { id: 4, name: "Desi Bites", cuisineTypes: "South Indian, Street Food", rating: 4.6, totalRatings: 310, avgDeliveryTime: 30, coverImageUrl: "", featured: true },
-];
+import { foodAnalyticsService } from "../../../services/food/foodAnalyticsService";
+import { foodOrderService } from "../../../services/food/foodOrderService";
+import { foodRestaurantService } from "../../../services/food/foodRestaurantService";
+import { foodNutritionService } from "../../../services/food/foodNutritionService";
 
 const statusColors: Record<string, string> = {
   PLACED: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -50,13 +35,85 @@ export function FoodDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<FoodDashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<FoodOrder[]>([]);
+  const [trendingRestaurants, setTrendingRestaurants] = useState<FoodRestaurant[]>([]);
+  const [nutrition, setNutrition] = useState({
+    calories: { current: 0, goal: 2000 },
+    protein: { current: 0, goal: 100 },
+    carbs: { current: 0, goal: 250 },
+    fat: { current: 0, goal: 65 },
+  });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setStats(mockStats);
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const [statsRes, ordersRes, restRes, nutrRes] = await Promise.allSettled([
+          foodAnalyticsService.getDashboardStats(),
+          foodOrderService.getMyOrders(0, 5),
+          foodRestaurantService.getFeaturedRestaurants(),
+          foodNutritionService.getDailyNutrition(todayStr),
+        ]);
+
+        if (!isMounted) return;
+
+        if (statsRes.status === "fulfilled" && statsRes.value) {
+          setStats(statsRes.value);
+        } else {
+          setStats({
+            totalRestaurants: 0,
+            totalHomeChefs: 0,
+            totalOrders: 0,
+            totalRevenue: 0,
+            activeSubscriptions: 0,
+            totalRecipes: 0,
+            activeEvents: 0,
+            totalDeliveryPartners: 0,
+          });
+        }
+
+        if (ordersRes.status === "fulfilled" && ordersRes.value) {
+          const raw = ordersRes.value as any;
+          const items = Array.isArray(raw) ? raw : (raw.content || raw.items || []);
+          setRecentOrders(items);
+        }
+
+        if (restRes.status === "fulfilled" && restRes.value && (restRes.value as any[]).length > 0) {
+          setTrendingRestaurants(restRes.value as FoodRestaurant[]);
+        } else {
+          // fallback to general restaurants list
+          try {
+            const listRes = await foodRestaurantService.getRestaurants(0, 4);
+            if (isMounted && listRes) {
+              const raw = listRes as any;
+              setTrendingRestaurants(Array.isArray(raw) ? raw : (raw.content || raw.items || []));
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (nutrRes.status === "fulfilled" && nutrRes.value) {
+          const n = nutrRes.value;
+          setNutrition({
+            calories: { current: n.totalCalories ?? 0, goal: n.calorieGoal ?? 2000 },
+            protein: { current: n.totalProtein ?? 0, goal: n.proteinGoal ?? 100 },
+            carbs: { current: n.totalCarbs ?? 0, goal: n.carbsGoal ?? 250 },
+            fat: { current: n.totalFat ?? 0, goal: n.fatGoal ?? 65 },
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load food dashboard data:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const statCards = [
@@ -75,8 +132,6 @@ export function FoodDashboard() {
     { label: "Plan Meals", icon: Apple, path: "/food/nutrition", color: "bg-violet-600 hover:bg-violet-700" },
     { label: "Manage Pantry", icon: Package, path: "/food/pantry", color: "bg-pink-600 hover:bg-pink-700" },
   ];
-
-  const nutritionToday = { calories: { current: 1420, goal: 2000 }, protein: { current: 65, goal: 100 }, carbs: { current: 180, goal: 250 }, fat: { current: 45, goal: 65 } };
 
   if (loading) {
     return (
@@ -147,22 +202,32 @@ export function FoodDashboard() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockRecentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold truncate">{order.providerName}</p>
-                    <Badge variant="secondary" className={`text-[10px] ${statusColors[order.status ?? "PLACED"]}`}>
-                      {order.status?.replace(/_/g, " ")}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {order.orderNumber} - {order.items?.map((i) => i.itemName).join(", ")}
-                  </p>
-                </div>
-                <p className="text-sm font-bold ml-4">{formatPrice(order.totalAmount ?? 0)}</p>
+            {recentOrders.length === 0 ? (
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-40 text-orange-500" />
+                <p className="text-sm font-medium">No recent orders found</p>
+                <Button variant="outline" size="sm" className="mt-3 text-xs" onClick={() => navigate("/food/restaurants")}>
+                  Browse Restaurants
+                </Button>
               </div>
-            ))}
+            ) : (
+              recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold truncate">{order.providerName || "Restaurant Order"}</p>
+                      <Badge variant="secondary" className={`text-[10px] ${statusColors[order.status ?? "PLACED"]}`}>
+                        {order.status?.replace(/_/g, " ")}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      {order.orderNumber} {order.items && order.items.length > 0 ? ` - ${order.items.map((i) => i.itemName).join(", ")}` : ""}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold ml-4">{formatPrice(order.totalAmount ?? 0)}</p>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -176,13 +241,13 @@ export function FoodDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {[
-              { label: "Calories", icon: Flame, current: nutritionToday.calories.current, goal: nutritionToday.calories.goal, unit: "kcal", color: "bg-orange-500" },
-              { label: "Protein", icon: Beef, current: nutritionToday.protein.current, goal: nutritionToday.protein.goal, unit: "g", color: "bg-red-500" },
-              { label: "Carbs", icon: Wheat, current: nutritionToday.carbs.current, goal: nutritionToday.carbs.goal, unit: "g", color: "bg-amber-500" },
-              { label: "Fat", icon: Droplets, current: nutritionToday.fat.current, goal: nutritionToday.fat.goal, unit: "g", color: "bg-blue-500" },
+              { label: "Calories", icon: Flame, current: nutrition.calories.current, goal: nutrition.calories.goal, unit: "kcal", color: "bg-orange-500" },
+              { label: "Protein", icon: Beef, current: nutrition.protein.current, goal: nutrition.protein.goal, unit: "g", color: "bg-red-500" },
+              { label: "Carbs", icon: Wheat, current: nutrition.carbs.current, goal: nutrition.carbs.goal, unit: "g", color: "bg-amber-500" },
+              { label: "Fat", icon: Droplets, current: nutrition.fat.current, goal: nutrition.fat.goal, unit: "g", color: "bg-blue-500" },
             ].map((n) => {
               const Icon = n.icon;
-              const pct = Math.min(100, Math.round((n.current / n.goal) * 100));
+              const pct = n.goal > 0 ? Math.min(100, Math.round((n.current / n.goal) * 100)) : 0;
               return (
                 <div key={n.label}>
                   <div className="flex items-center justify-between mb-1">
@@ -217,32 +282,42 @@ export function FoodDashboard() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {mockTrendingRestaurants.map((r) => (
-              <div key={r.id} className="group cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md transition-all" onClick={() => navigate(`/food/restaurants/${r.id}`)}>
-                <div className="h-32 bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/20 dark:to-pink-900/20 flex items-center justify-center">
-                  <UtensilsCrossed className="w-10 h-10 text-orange-300 dark:text-orange-700" />
-                </div>
-                <div className="p-3">
-                  <p className="font-semibold text-sm group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">{r.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{r.cuisineTypes}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-semibold">{r.rating}</span>
-                      <span className="text-xs text-slate-400">({r.totalRatings})</span>
+          {trendingRestaurants.length === 0 ? (
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+              <UtensilsCrossed className="w-8 h-8 mx-auto mb-2 opacity-40 text-orange-500" />
+              <p className="text-sm font-medium">No restaurants available in this community yet</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {trendingRestaurants.map((r) => (
+                <div key={r.id} className="group cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md transition-all" onClick={() => navigate(`/food/restaurants/${r.id}`)}>
+                  <div className="h-32 bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/20 dark:to-pink-900/20 flex items-center justify-center">
+                    <UtensilsCrossed className="w-10 h-10 text-orange-300 dark:text-orange-700" />
+                  </div>
+                  <div className="p-3">
+                    <p className="font-semibold text-sm group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors truncate">{r.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{r.cuisineTypes || "Multi-Cuisine"}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span className="text-xs font-semibold">{r.rating ?? 0}</span>
+                        {r.totalRatings != null && <span className="text-xs text-slate-400">({r.totalRatings})</span>}
+                      </div>
+                      {r.avgDeliveryTime != null && (
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {r.avgDeliveryTime} min
+                        </span>
+                      )}
                     </div>
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {r.avgDeliveryTime} min
-                    </span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
+  );
   );
 }

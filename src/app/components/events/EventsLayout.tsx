@@ -28,26 +28,7 @@ const navItems = [
 ];
 
 function DataModeToggle() {
-  const { isSuperAdmin } = useAuth();
-  const { useMock, toggle } = useEventMock();
-
-  if (!isSuperAdmin) return null;
-
-  return (
-    <button
-      onClick={toggle}
-      title={useMock ? "Click to switch to Live API mode" : "Click to switch to Mock Data mode"}
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer select-none shadow-2xs hover:shadow-xs"
-      style={{
-        background: useMock ? "#fef3c7" : "#ecfdf5",
-        color: useMock ? "#92400e" : "#065f46",
-        borderColor: useMock ? "#fcd34d" : "#6ee7b7",
-      }}
-    >
-      {useMock ? <Database className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />}
-      <span>{useMock ? "Mock Data" : "Live API"}</span>
-    </button>
-  );
+  return null;
 }
 
 function EventsLayoutInner() {

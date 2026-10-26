@@ -171,6 +171,7 @@ import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfi
 import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
+import { VendorApplication } from "./components/vendor/portal/VendorApplication";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -793,8 +794,12 @@ export const router = createBrowserRouter([
         ]
       },
       {
+        path: "vendor-apply",
+        Component: VendorApplication,
+      },
+      {
         path: "vendor-admin",
-        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
+        element: <PermissionGuard permission={MANAGE_VENDORS} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
         children: [
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },

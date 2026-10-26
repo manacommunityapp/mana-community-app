@@ -90,9 +90,9 @@ export function PersonalizedFeed() {
   const loadData = async () => {
     try {
       const recs = await communityGraphService.getDiscoverRecommendations();
-      setFeed(recs);
-    } catch (e) {
-      setFeed(communityGraphService.getPersonalizedFeed());
+      setFeed(recs || []);
+    } catch {
+      setFeed([]);
     }
     setProfiles(communityGraphService.getProfiles());
   };
@@ -102,18 +102,11 @@ export function PersonalizedFeed() {
       const skills = await manaIntelligenceService.getTopSkills();
       if (skills && Array.isArray(skills)) {
         setTopSkills(skills);
+      } else {
+        setTopSkills([]);
       }
-    } catch (e) {
-      // Fallback skills cloud
-      setTopSkills([
-        { skill: "React", count: 12 },
-        { skill: "Badminton", count: 18 },
-        { skill: "Pediatrics", count: 4 },
-        { skill: "Tax Advisory", count: 7 },
-        { skill: "Yoga", count: 14 },
-        { skill: "Home Cooking", count: 9 },
-        { skill: "Mathematics", count: 6 },
-      ]);
+    } catch {
+      setTopSkills([]);
     }
   };
 
@@ -228,7 +221,16 @@ export function PersonalizedFeed() {
 
           {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredFeed.map((item) => {
+            {filteredFeed.length === 0 ? (
+              <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-100 p-8 shadow-xs">
+                <Sparkles className="w-12 h-12 text-purple-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-800 mb-1">No Recommendations Yet</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Your personalized community matches will appear here based on your profile interests, events, and activities.
+                </p>
+              </div>
+            ) : (
+              filteredFeed.map((item) => {
               const Icon = TYPE_ICONS[item.type] || Sparkles;
 
               return (
@@ -282,7 +284,8 @@ export function PersonalizedFeed() {
                   </CardFooter>
                 </Card>
               );
-            })}
+            })
+          )}
           </div>
         </TabsContent>
 
@@ -350,7 +353,16 @@ export function PersonalizedFeed() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {filteredProfiles.map((prof) => {
+            {filteredProfiles.length === 0 ? (
+              <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-100 p-8 shadow-xs">
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-800 mb-1">No Residents Found</h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  No community members matched your search or tower filter.
+                </p>
+              </div>
+            ) : (
+              filteredProfiles.map((prof) => {
               const isConnected = connectedIds.includes(prof.id);
 
               return (
@@ -419,7 +431,8 @@ export function PersonalizedFeed() {
                   </CardFooter>
                 </Card>
               );
-            })}
+            })
+          )}
           </div>
         </TabsContent>
 

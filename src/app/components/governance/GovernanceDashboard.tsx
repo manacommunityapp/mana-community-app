@@ -8,13 +8,13 @@ import { Link } from "react-router";
 
 export function GovernanceDashboard() {
   const [stats] = useState({
-    upcomingMeetings: 1,
-    activeProposals: 3,
-    openVotes: 1,
-    passedResolutions: 14,
-    actionItemsOpen: 4,
-    myMeetingsAttended: 4,
-    myVotesRecorded: 9,
+    upcomingMeetings: 0,
+    activeProposals: 0,
+    openVotes: 0,
+    passedResolutions: 0,
+    actionItemsOpen: 0,
+    myMeetingsAttended: 0,
+    myVotesRecorded: 0,
   });
 
   return (
@@ -22,10 +22,10 @@ export function GovernanceDashboard() {
       {/* ── Metric Cards Grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {[
-          { icon: Calendar,    label: "Upcoming Meetings", value: "1 (AGM)",      sub: "25 Oct · Hybrid",        color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-400" },
-          { icon: Vote,        label: "Active Voting",     value: "1 Open",       sub: "EV Fast Chargers",       color: "text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400" },
-          { icon: FileCheck,   label: "Open Proposals",    value: "3 Active",     sub: "Solar Grid & Gym",       color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400" },
-          { icon: CheckCircle2,label: "Action Items",      value: "4 Pending",    sub: "1 Overdue · Track SLA",  color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400" },
+          { icon: Calendar,    label: "Upcoming Meetings", value: "0", sub: "None Scheduled", color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 dark:text-indigo-400" },
+          { icon: Vote,        label: "Active Voting",     value: "0 Open", sub: "No active ballots", color: "text-amber-600 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400" },
+          { icon: FileCheck,   label: "Open Proposals",    value: "0 Active", sub: "No open proposals", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 dark:text-blue-400" },
+          { icon: CheckCircle2,label: "Action Items",      value: "0 Pending", sub: "All cleared", color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400" },
         ].map((s) => (
           <div key={s.label} className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-3.5 hover:shadow-md transition-all">
             <div className={`p-3 rounded-2xl ${s.color}`}>
@@ -183,11 +183,11 @@ export function GovernanceDashboard() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 rounded-2xl text-center border border-indigo-100 dark:border-indigo-900">
-                <div className="text-lg font-black text-indigo-700 dark:text-indigo-400">4 / 4</div>
+                <div className="text-lg font-black text-indigo-700 dark:text-indigo-400">0 / 0</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">Meetings Attended</div>
               </div>
               <div className="p-3 bg-purple-50/60 dark:bg-purple-950/30 rounded-2xl text-center border border-purple-100 dark:border-purple-900">
-                <div className="text-lg font-black text-purple-700 dark:text-purple-400">9 / 9</div>
+                <div className="text-lg font-black text-purple-700 dark:text-purple-400">0 / 0</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">Votes Recorded</div>
               </div>
             </div>

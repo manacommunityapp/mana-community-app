@@ -13,21 +13,8 @@ const Ctx = createContext<MockToggleCtx>({ useMock: false, toggle: () => {} });
 const STORAGE_KEY = STORAGE_KEYS.EVENT_MOCK_MODE;
 
 export function EventMockProvider({ children }: { children: ReactNode }) {
-  const { isSuperAdmin } = useAuth();
-  const [internalMock, setInternalMock] = useState(() => {
-    return safeStorage.getItem(STORAGE_KEY) === "true";
-  });
-
-  const toggle = useCallback(() => {
-    setInternalMock(prev => {
-      const next = !prev;
-      safeStorage.setItem(STORAGE_KEY, String(next));
-      return next;
-    });
-  }, []);
-
-  // Strict restriction: only Super Admin can activate mock data. For all other roles, always force Live API (false).
-  const useMock = isSuperAdmin ? internalMock : false;
+  const toggle = useCallback(() => {}, []);
+  const useMock = false;
 
   return <Ctx.Provider value={{ useMock, toggle }}>{children}</Ctx.Provider>;
 }

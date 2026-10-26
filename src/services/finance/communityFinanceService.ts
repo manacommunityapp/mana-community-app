@@ -309,26 +309,30 @@ export const communityFinanceService = {
     const totalCollected = bills.reduce((s, b) => s + b.paidAmount, 0);
     const totalDue = bills.reduce((s, b) => s + b.dueAmount, 0);
     const totalOverdue = bills.filter(b => b.status === "OVERDUE").reduce((s, b) => s + b.dueAmount, 0);
+    const totalAll = totalCollected + totalDue;
+    const collectionPercent = totalAll > 0 ? Math.round((totalCollected / totalAll) * 100) : 0;
+    const currentAmount = Math.max(0, totalDue - totalOverdue);
 
     return {
       totalCollected,
       totalDue,
       totalOverdue,
-      collectionPercent: Math.round((totalCollected / (totalCollected + totalDue || 1)) * 100) || 0,
-      activeFlats: 120,
+      collectionPercent,
+      activeFlats: bills.length,
       paidFlats: bills.filter(b => b.status === "PAID").length,
       overdueFlats: bills.filter(b => b.status === "OVERDUE").length,
       agingBuckets: [
-        { period: "0 - 30 Days (Current)", amount: totalDue - totalOverdue, count: 48, percentage: 65 },
-        { period: "31 - 60 Days", amount: 110000, count: 12, percentage: 18 },
-        { period: "61 - 90 Days", amount: 62000, count: 6, percentage: 10 },
-        { period: "90+ Days (Defaulters)", amount: 45000, count: 3, percentage: 7 },
+        { period: "0 - 30 Days (Current)", amount: currentAmount, count: bills.filter(b => b.status !== "OVERDUE" && b.dueAmount > 0).length, percentage: totalDue > 0 ? Math.round((currentAmount / totalDue) * 100) : 0 },
+        { period: "31 - 60 Days", amount: 0, count: 0, percentage: 0 },
+        { period: "61 - 90 Days", amount: 0, count: 0, percentage: 0 },
+        { period: "90+ Days (Defaulters)", amount: totalOverdue, count: bills.filter(b => b.status === "OVERDUE").length, percentage: totalDue > 0 ? Math.round((totalOverdue / totalDue) * 100) : 0 },
       ],
-      towerPerformance: [
-        { tower: "Tower A", billed: 320000, collected: 298000, percent: 93 },
-        { tower: "Tower B", billed: 280000, collected: 235000, percent: 84 },
-        { tower: "Tower C", billed: 240000, collected: 215000, percent: 90 },
-      ],
+      towerPerformance: Array.from(new Set(bills.map(b => b.tower))).map(t => {
+        const tbills = bills.filter(b => b.tower === t);
+        const billed = tbills.reduce((s, b) => s + b.totalAmount, 0);
+        const collected = tbills.reduce((s, b) => s + b.paidAmount, 0);
+        return { tower: `Tower ${t}`, billed, collected, percent: billed > 0 ? Math.round((collected / billed) * 100) : 0 };
+      }),
     };
   },
 

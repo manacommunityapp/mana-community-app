@@ -17,11 +17,7 @@ export function VotingCenter() {
   const [hasVoted, setHasVoted] = useState(false);
   const [digitalReceipt, setDigitalReceipt] = useState<string | null>(null);
 
-  const [options, setOptions] = useState<VotingOption[]>([
-    { id: "opt-1", label: "Approve Proposal (Procure 12 EV Fast Chargers)", votes: 412 },
-    { id: "opt-2", label: "Reject Proposal (Defer to next FY)", votes: 98 },
-    { id: "opt-3", label: "Abstain / Neutral", votes: 32 },
-  ]);
+  const [options, setOptions] = useState<VotingOption[]>([]);
 
   const totalVotes = options.reduce((sum, o) => sum + o.votes, 0);
 
@@ -58,6 +54,15 @@ export function VotingCenter() {
       </div>
 
       {/* ── Active Ballot Box ─────────────────────────────────────────────────── */}
+      {options.length === 0 ? (
+        <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center shadow-xs space-y-3">
+          <Vote className="w-12 h-12 text-indigo-400 mx-auto opacity-60" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-white">No Active Ballots</h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            There are currently no open secret ballots or voting resolutions for your community. Upcoming voting items from General Body or Committee meetings will appear here.
+          </p>
+        </div>
+      ) : (
       <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
           <div className="space-y-2">
@@ -185,6 +190,7 @@ export function VotingCenter() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

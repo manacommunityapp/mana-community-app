@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   UserCircle, Save, Loader2, AlertCircle, Building2,
-  Mail, Phone, Globe, MapPin, Camera, X,
+  Mail, Phone, Globe, MapPin, Camera,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { vendorService, vendorCategoryService } from "../../../../services/vendor/vendorService";
@@ -17,11 +17,9 @@ export function VendorProfile() {
   const [form, setForm] = useState<VendorRequest>({
     businessName: "",
     description: "",
-    shortDescription: "",
     categoryId: 0,
     email: "",
     phone: "",
-    alternatePhone: "",
     website: "",
     address: "",
     city: "",
@@ -29,11 +27,8 @@ export function VendorProfile() {
     pinCode: "",
     logoUrl: "",
     bannerUrl: "",
-    galleryUrls: [],
     gstNumber: "",
     panNumber: "",
-    licenseNumber: "",
-    tags: [],
   });
 
   useEffect(() => {
@@ -53,11 +48,9 @@ export function VendorProfile() {
       setForm({
         businessName: vendorData.businessName,
         description: vendorData.description || "",
-        shortDescription: vendorData.shortDescription || "",
         categoryId: vendorData.category.id,
         email: vendorData.email,
         phone: vendorData.phone,
-        alternatePhone: vendorData.alternatePhone || "",
         website: vendorData.website || "",
         address: vendorData.address,
         city: vendorData.city || "",
@@ -65,11 +58,8 @@ export function VendorProfile() {
         pinCode: vendorData.pinCode || "",
         logoUrl: vendorData.logoUrl || "",
         bannerUrl: vendorData.bannerUrl || "",
-        galleryUrls: vendorData.galleryUrls || [],
         gstNumber: vendorData.gstNumber || "",
         panNumber: vendorData.panNumber || "",
-        licenseNumber: vendorData.licenseNumber || "",
-        tags: vendorData.tags || [],
       });
     } catch (err) {
       console.error(err);
@@ -96,21 +86,6 @@ export function VendorProfile() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      const value = (e.target as HTMLInputElement).value.trim();
-      if (value && !(form.tags || []).includes(value)) {
-        setForm({ ...form, tags: [...(form.tags || []), value] });
-        (e.target as HTMLInputElement).value = "";
-      }
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setForm({ ...form, tags: (form.tags || []).filter((t) => t !== tag) });
   };
 
   if (loading) {
@@ -200,25 +175,6 @@ export function VendorProfile() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-bold text-[#6b7094] block mb-1">License Number</label>
-              <input
-                type="text"
-                value={form.licenseNumber || ""}
-                onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-[#6b7094] block mb-1">Short Description</label>
-              <input
-                type="text"
-                value={form.shortDescription || ""}
-                onChange={(e) => setForm({ ...form, shortDescription: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
-                placeholder="Brief tagline for your business"
-              />
-            </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-bold text-[#6b7094] block mb-1">Description</label>
               <textarea
@@ -257,15 +213,6 @@ export function VendorProfile() {
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
                 required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-[#6b7094] block mb-1">Alternate Phone</label>
-              <input
-                type="tel"
-                value={form.alternatePhone || ""}
-                onChange={(e) => setForm({ ...form, alternatePhone: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
               />
             </div>
             <div>
@@ -381,27 +328,6 @@ export function VendorProfile() {
               />
             </div>
           </div>
-        </div>
-
-        {/* Tags */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6">
-          <h3 className="text-sm font-black text-[#0d0d2b] mb-4">Tags</h3>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {(form.tags || []).map((tag) => (
-              <span key={tag} className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-full">
-                {tag}
-                <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors p-0.5" title="Remove tag">
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <input
-            type="text"
-            onKeyDown={handleTagInput}
-            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500"
-            placeholder="Type a tag and press Enter"
-          />
         </div>
 
         {/* Submit */}

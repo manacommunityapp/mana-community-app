@@ -3,8 +3,6 @@ import type {
   BusinessPartner,
   CommunityOffer,
   OfferClaim,
-  CommunityMarketEvent,
-  MarketBooth,
   CommunityDemand,
   CommerceAnalytics,
   DealType,
@@ -317,45 +315,6 @@ const SEED_OFFERS: CommunityOffer[] = [
   },
 ];
 
-const SEED_BOOTHS: MarketBooth[] = [
-  { id: 'bth-1', marketEventId: 'evt-fest-1', boothNumber: 'A-01', zone: 'Health & Wellness', packageType: 'PREMIUM_BOOTH', price: 3500, isOccupied: true, assignedBusinessId: 'biz-dental', assignedBusinessName: 'ABC Dental Clinic & Implant Centre', assignedCategory: 'Health & Medical', todaysSpecialOffer: 'Free Dental Checkup + Toothbrush Kit + 40% Off Voucher', displayRow: 1, displayCol: 1 },
-  { id: 'bth-2', marketEventId: 'evt-fest-1', boothNumber: 'A-02', zone: 'Beauty & Wellness', packageType: 'PREMIUM_BOOTH', price: 3500, isOccupied: true, assignedBusinessId: 'biz-salon', assignedBusinessName: 'Glow Unisex Luxury Salon & Spa', assignedCategory: 'Beauty & Salon', todaysSpecialOffer: 'Live Hair Styling Demo + 20% Spa Booking Discount', displayRow: 1, displayCol: 2 },
-  { id: 'bth-3', marketEventId: 'evt-fest-1', boothNumber: 'A-03', zone: 'Food & Beverages', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: true, assignedBusinessId: 'biz-grocery', assignedBusinessName: 'Fresh Basket Organic Supermarket', assignedCategory: 'Food & Dining', todaysSpecialOffer: 'Organic Mango Pulp Tasting & Flat 20% Off Farm Baskets', displayRow: 1, displayCol: 3 },
-  { id: 'bth-4', marketEventId: 'evt-fest-1', boothNumber: 'A-04', zone: 'Tech & Gadgets', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: true, assignedBusinessId: 'biz-tech', assignedBusinessName: 'TechFix Quick Laptop & Smart Care', assignedCategory: 'Tech & Electronics', todaysSpecialOffer: 'Free Screen Protector Fitting on all phones', displayRow: 1, displayCol: 4 },
-  { id: 'bth-5', marketEventId: 'evt-fest-1', boothNumber: 'A-05', zone: 'Fashion & Boutiques', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 1, displayCol: 5 },
-  { id: 'bth-6', marketEventId: 'evt-fest-1', boothNumber: 'A-06', zone: 'Kids & Games', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 1, displayCol: 6 },
-  { id: 'bth-7', marketEventId: 'evt-fest-1', boothNumber: 'B-01', zone: 'Home & Decor', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 2, displayCol: 1 },
-  { id: 'bth-8', marketEventId: 'evt-fest-1', boothNumber: 'B-02', zone: 'Food Court', packageType: 'FOOD_STALL', price: 2500, isOccupied: false, displayRow: 2, displayCol: 2 },
-  { id: 'bth-9', marketEventId: 'evt-fest-1', boothNumber: 'B-03', zone: 'Fitness & Sports', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 2, displayCol: 3 },
-  { id: 'bth-10', marketEventId: 'evt-fest-1', boothNumber: 'B-04', zone: 'Tech & Gaming', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 2, displayCol: 4 },
-  { id: 'bth-11', marketEventId: 'evt-fest-1', boothNumber: 'B-05', zone: 'Handmade Crafts', packageType: 'BASIC_BOOTH', price: 2000, isOccupied: false, displayRow: 2, displayCol: 5 },
-  { id: 'bth-12', marketEventId: 'evt-fest-1', boothNumber: 'B-06', zone: 'Bakery & Sweets', packageType: 'FOOD_STALL', price: 2500, isOccupied: false, displayRow: 2, displayCol: 6 },
-];
-
-const SEED_MARKET_EVENTS: CommunityMarketEvent[] = [
-  {
-    id: 'evt-fest-1',
-    communityId: 'comm-mana-residency',
-    communityName: 'Mana Residency',
-    title: 'Mana Family Shopping Fest & Market Day',
-    theme: 'Local Artisans, Food Carnival & Health Fair',
-    description: 'Join us for an exciting evening of hyperlocal shopping! 20+ local stalls featuring live food counters, gourmet bakeries, handmade jewelry, organic groceries, and free health checkups.',
-    eventDate: '2026-10-03',
-    startTime: '16:00',
-    endTime: '21:00',
-    venue: 'Community Clubhouse Lawn & Amphitheatre',
-    status: 'UPCOMING',
-    totalBooths: 12,
-    allocatedBooths: 4,
-    availableBooths: 8,
-    expectedVisitors: 1500,
-    eventGuidelines: '1. Eco-friendly packaging mandatory. 2. Low-decibel music only after 8 PM. 3. Security QR pass required for all vendor staff.',
-    entertainmentHighlights: 'Live Acoustic Music by Society Band (6 PM), Magic Show for Kids (7 PM), Lucky Draw Raffle (8:30 PM)',
-    booths: SEED_BOOTHS,
-    createdAt: '2026-09-20T10:00:00Z',
-  },
-];
-
 const SEED_DEMANDS: CommunityDemand[] = [
   {
     id: 'dem-1',
@@ -459,7 +418,6 @@ class OffersApiService {
   private offers = [...SEED_OFFERS];
   private businesses = [...SEED_BUSINESSES];
   private claims = [...SEED_CLAIMS];
-  private marketEvents = [...SEED_MARKET_EVENTS];
   private demands = [...SEED_DEMANDS];
 
   async getCategories(): Promise<CommerceCategory[]> {
@@ -621,16 +579,6 @@ class OffersApiService {
     });
   }
 
-  async getMarketEvents(communityId = 'comm-mana-residency'): Promise<CommunityMarketEvent[]> {
-    try {
-      const res = await fetch(`${OFFERS_API_URL}/market-events?communityId=${communityId}`);
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
-    return this.marketEvents;
-  }
-
   async getDemands(communityId = 'comm-mana-residency', userId = 'user-sandeep'): Promise<CommunityDemand[]> {
     try {
       const res = await fetch(`${OFFERS_API_URL}/demands?communityId=${communityId}&userId=${userId}`);
@@ -762,7 +710,7 @@ class OffersApiService {
     return {
       totalActiveBusinesses: this.businesses.length,
       totalActiveOffers: this.offers.length,
-      totalMarketEvents: this.marketEvents.length,
+      totalMarketEvents: 0,
       totalClaims: this.claims.length,
       totalRedemptions: this.claims.filter((c) => c.status === 'REDEEMED').length,
       redemptionRate: 64.5,

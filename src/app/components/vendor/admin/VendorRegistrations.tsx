@@ -48,10 +48,9 @@ import type {
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   PENDING: { label: "Pending", variant: "secondary" },
-  UNDER_REVIEW: { label: "Under Review", variant: "outline" },
   APPROVED: { label: "Approved", variant: "default" },
   REJECTED: { label: "Rejected", variant: "destructive" },
-  INCOMPLETE: { label: "Incomplete", variant: "outline" },
+  CONVERTED: { label: "Vendor Created", variant: "default" },
 };
 
 export function VendorRegistrations() {
@@ -87,8 +86,8 @@ export function VendorRegistrations() {
         ? result.content.filter(
             (r) =>
               r.businessName.toLowerCase().includes(search.toLowerCase()) ||
-              r.ownerName.toLowerCase().includes(search.toLowerCase()) ||
-              r.ownerEmail.toLowerCase().includes(search.toLowerCase()),
+              r.contactName.toLowerCase().includes(search.toLowerCase()) ||
+              r.contactEmail.toLowerCase().includes(search.toLowerCase()),
           )
         : result.content;
       setRegistrations(filtered);
@@ -106,14 +105,18 @@ export function VendorRegistrations() {
 
   async function handleAction() {
     if (!actionDialog.registration) return;
+    if (actionDialog.type === "reject" && !actionReason.trim()) {
+      showError("Enter a reason before rejecting this application");
+      return;
+    }
     setActionLoading(true);
     try {
       const id = actionDialog.registration.id;
       if (actionDialog.type === "approve") {
-        await vendorRegistrationService.approveRegistration(id, actionReason || undefined);
-        showSuccess("Registration approved");
+        await vendorRegistrationService.approveRegistration(id);
+        showSuccess("Registration approved and vendor access enabled");
       } else {
-        await vendorRegistrationService.rejectRegistration(id, actionReason);
+        await vendorRegistrationService.rejectRegistration(id, actionReason.trim());
         showSuccess("Registration rejected");
       }
       setActionDialog({ open: false, type: "approve", registration: null });
@@ -159,9 +162,9 @@ export function VendorRegistrations() {
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
                 <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CONVERTED">Vendor Created</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -203,17 +206,17 @@ export function VendorRegistrations() {
                               {r.businessName}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">
-                              {r.ownerEmail}
+                              {r.contactEmail}
                             </p>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-1 text-sm text-foreground">
-                              <User className="h-3 w-3 text-muted-foreground" /> {r.ownerName}
+                              <User className="h-3 w-3 text-muted-foreground" /> {r.contactName}
                             </div>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" /> {r.ownerPhone || "--"}
+                              <Phone className="h-3 w-3" /> {r.contactPhone || "--"}
                             </div>
                           </div>
                         </TableCell>
@@ -226,7 +229,7 @@ export function VendorRegistrations() {
                         <TableCell className="hidden md:table-cell">
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {new Date(r.submittedAt).toLocaleDateString()}
+                            {new Date(r.createdAt).toLocaleDateString()}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -239,7 +242,7 @@ export function VendorRegistrations() {
                             >
                               <Eye className="h-4 w-4 text-muted-foreground" />
                             </Button>
-                            {(r.status === "PENDING" || r.status === "UNDER_REVIEW") && (
+                            {r.status === "PENDING" && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -318,8 +321,8 @@ export function VendorRegistrations() {
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-muted-foreground">Owner</p>
-                  <p className="font-medium text-foreground">{detailDialog.registration.ownerName}</p>
+                  <p className="text-muted-foreground">Contact</p>
+                  <p className="font-medium text-foreground">{detailDialog.registration.contactName}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Status</p>
@@ -331,14 +334,14 @@ export function VendorRegistrations() {
                   <p className="text-muted-foreground">Email</p>
                   <div className="flex items-center gap-1">
                     <Mail className="h-3 w-3 text-muted-foreground" />
-                    <p className="font-medium text-foreground">{detailDialog.registration.ownerEmail}</p>
+                    <p className="font-medium text-foreground">{detailDialog.registration.contactEmail}</p>
                   </div>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Phone</p>
                   <div className="flex items-center gap-1">
                     <Phone className="h-3 w-3 text-muted-foreground" />
-                    <p className="font-medium text-foreground">{detailDialog.registration.ownerPhone}</p>
+                    <p className="font-medium text-foreground">{detailDialog.registration.contactPhone}</p>
                   </div>
                 </div>
                 <div>
@@ -348,7 +351,7 @@ export function VendorRegistrations() {
                 <div>
                   <p className="text-muted-foreground">Submitted</p>
                   <p className="font-medium text-foreground">
-                    {new Date(detailDialog.registration.submittedAt).toLocaleDateString()}
+                    {new Date(detailDialog.registration.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -361,7 +364,14 @@ export function VendorRegistrations() {
               {detailDialog.registration.address && (
                 <div>
                   <p className="text-muted-foreground">Address</p>
-                  <p className="font-medium text-foreground">{detailDialog.registration.address}</p>
+                  <p className="font-medium text-foreground">{[detailDialog.registration.address, detailDialog.registration.city, detailDialog.registration.state, detailDialog.registration.pincode].filter(Boolean).join(", ")}</p>
+                </div>
+              )}
+              {(detailDialog.registration.businessType || detailDialog.registration.gstNumber || detailDialog.registration.panNumber) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {detailDialog.registration.businessType && <div><p className="text-muted-foreground">Business type</p><p className="font-medium text-foreground">{detailDialog.registration.businessType}</p></div>}
+                  {detailDialog.registration.gstNumber && <div><p className="text-muted-foreground">GST</p><p className="font-medium text-foreground">{detailDialog.registration.gstNumber}</p></div>}
+                  {detailDialog.registration.panNumber && <div><p className="text-muted-foreground">PAN</p><p className="font-medium text-foreground">{detailDialog.registration.panNumber}</p></div>}
                 </div>
               )}
               {detailDialog.registration.rejectionReason && (
@@ -395,18 +405,21 @@ export function VendorRegistrations() {
             <DialogTitle className="capitalize">{actionDialog.type} Registration</DialogTitle>
             <DialogDescription>
               {actionDialog.type === "approve" &&
-                `Approve "${actionDialog.registration?.businessName}" registration? You may add optional notes.`}
+                `Approve "${actionDialog.registration?.businessName}"? This creates the vendor profile and enables vendor access for the applicant.`}
               {actionDialog.type === "reject" &&
                 `Reject "${actionDialog.registration?.businessName}"? Please provide a reason.`}
             </DialogDescription>
           </DialogHeader>
 
-          <Textarea
-            placeholder={actionDialog.type === "approve" ? "Notes (optional)..." : "Reason for rejection..."}
-            value={actionReason}
-            onChange={(e) => setActionReason(e.target.value)}
-            className="min-h-[80px]"
-          />
+          {actionDialog.type === "reject" && (
+            <Textarea
+              placeholder="Reason for rejection..."
+              maxLength={1000}
+              value={actionReason}
+              onChange={(e) => setActionReason(e.target.value)}
+              className="min-h-[80px]"
+            />
+          )}
 
           <DialogFooter>
             <Button
