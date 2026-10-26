@@ -44,7 +44,7 @@ export function AiChatDashboard() {
           <Bot size={22} style={{ color: "#3b82f6" }} />
         </div>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana AI Assistant</h1>
+          <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana AI Assistant</h4>
           <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, background: "rgba(59,130,246,0.08)", color: "#3b82f6" }}>Powered by Spring AI</span>
         </div>
       </div>

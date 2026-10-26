@@ -87,9 +87,9 @@ export function AcademyDashboard() {
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             Learn • Teach • Grow
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
+          <h4 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
             Learn From Your Community. Teach What You Love.
-          </h1>
+          </h4>
           <p className="text-xs sm:text-sm text-white/80 mt-2 font-medium leading-relaxed">
             Hands-on coding bootcamps, sunrise yoga, chess coaching, kids robotics, and career masterclasses conducted right inside your community.
           </p>
@@ -195,8 +195,23 @@ export function AcademyDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPrograms.map((prog) => {
+        {filteredPrograms.length === 0 ? (
+          <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+            <GraduationCap className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">No Programs Available</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+              There are currently no active community workshops or academy courses scheduled.
+            </p>
+            <button
+              onClick={() => setCreateProgramOpen(true)}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+            >
+              Host a Workshop
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredPrograms.map((prog) => {
             const capacityPct = Math.min(
               100,
               Math.round((prog.enrolledCount / prog.capacity) * 100)
@@ -295,6 +310,7 @@ export function AcademyDashboard() {
             );
           })}
         </div>
+      )}
       </div>
 
       {/* ── TEACH IN MANA ACADEMY BANNER ── */}

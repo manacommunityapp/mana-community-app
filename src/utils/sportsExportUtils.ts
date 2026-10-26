@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { escapeHtml } from "./sanitize";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,14 +171,14 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
       (p, idx) => `
     <tr>
       <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
-      <td style="font-weight:600; color:#0f172a;">${p.playerName || p.user?.fullName || "—"}</td>
-      <td>${p.categoryName || p.category?.name || "—"}</td>
-      <td style="font-weight:600;">${p.flatNumber || "—"}</td>
-      <td>${p.age ?? "—"}</td>
-      <td>${p.gender || p.category?.gender || "—"}</td>
-      <td>${p.role || "—"}</td>
-      <td style="text-align:center; font-weight:bold; color:#4f46e5;">${p.seed != null ? `#${p.seed}` : "—"}</td>
-      <td><span class="badge ${p.status === "CONFIRMED" ? "badge-confirmed" : "badge-pending"}">${p.status || "CONFIRMED"}</span></td>
+      <td style="font-weight:600; color:#0f172a;">${escapeHtml(p.playerName || p.user?.fullName || "—")}</td>
+      <td>${escapeHtml(p.categoryName || p.category?.name || "—")}</td>
+      <td style="font-weight:600;">${escapeHtml(p.flatNumber || "—")}</td>
+      <td>${escapeHtml(p.age ?? "—")}</td>
+      <td>${escapeHtml(p.gender || p.category?.gender || "—")}</td>
+      <td>${escapeHtml(p.role || "—")}</td>
+      <td style="text-align:center; font-weight:bold; color:#4f46e5;">${p.seed != null ? `#${escapeHtml(p.seed)}` : "—"}</td>
+      <td><span class="badge ${p.status === "CONFIRMED" ? "badge-confirmed" : "badge-pending"}">${escapeHtml(p.status || "CONFIRMED")}</span></td>
       <td style="border-bottom: 1px dotted #cbd5e1; width: 120px;"></td>
     </tr>`
     )
@@ -187,7 +188,7 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${title} — Player Roster</title>
+  <title>${escapeHtml(title)} — Player Roster</title>
   <style>
     @page { size: A4 portrait; margin: 12mm 15mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; }
@@ -217,8 +218,8 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
   </div>
   <div class="header">
     <div>
-      <h1>🏆 ${title}</h1>
-      <div class="subtitle">${communityName} · Official Player Verification Roster</div>
+      <h1>🏆 ${escapeHtml(title)}</h1>
+      <div class="subtitle">${escapeHtml(communityName)} · Official Player Verification Roster</div>
     </div>
     <div style="text-align:right; font-size:11px; color:#64748b;">
       Generated: <b>${format(new Date(), "dd-MMM-yyyy HH:mm")}</b>
@@ -257,7 +258,7 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
   </div>
 
   <div class="footer">
-    <div>${communityName} Sports Management Hub</div>
+    <div>${escapeHtml(communityName)} Sports Management Hub</div>
     <div>Page 1 of 1</div>
   </div>
 </body>
@@ -442,14 +443,14 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
 
       return `
       <tr>
-        <td style="text-align:center; font-weight:bold; color:#64748b;">#${matchNum}</td>
-        <td style="font-weight:600; color:#4f46e5;">${round}</td>
-        <td><b>${mDate}</b><br><span style="color:#64748b; font-size:10px;">${mTime}</span></td>
-        <td>${venue}</td>
-        <td style="text-align:right; font-weight:bold; font-size:12px;">${t1}</td>
-        <td style="text-align:center; font-weight:bold; color:#e11d48; background:#fff1f2; padding:4px 8px; border-radius:4px;">${score}</td>
-        <td style="text-align:left; font-weight:bold; font-size:12px;">${t2}</td>
-        <td style="text-align:center;"><span class="badge badge-scheduled">${m.status || "SCHEDULED"}</span></td>
+        <td style="text-align:center; font-weight:bold; color:#64748b;">#${escapeHtml(matchNum)}</td>
+        <td style="font-weight:600; color:#4f46e5;">${escapeHtml(round)}</td>
+        <td><b>${escapeHtml(mDate)}</b><br><span style="color:#64748b; font-size:10px;">${escapeHtml(mTime)}</span></td>
+        <td>${escapeHtml(venue)}</td>
+        <td style="text-align:right; font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
+        <td style="text-align:center; font-weight:bold; color:#e11d48; background:#fff1f2; padding:4px 8px; border-radius:4px;">${escapeHtml(score)}</td>
+        <td style="text-align:left; font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
+        <td style="text-align:center;"><span class="badge badge-scheduled">${escapeHtml(m.status || "SCHEDULED")}</span></td>
       </tr>`;
     })
     .join("");
@@ -458,7 +459,7 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${title} — Match Schedule</title>
+  <title>${escapeHtml(title)} — Match Schedule</title>
   <style>
     @page { size: A4 landscape; margin: 12mm 15mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; }
@@ -484,8 +485,8 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
   </div>
   <div class="header">
     <div>
-      <h1>📅 ${title}</h1>
-      <div class="subtitle">${communityName} · Official Tournament Schedule & Fixtures</div>
+      <h1>📅 ${escapeHtml(title)}</h1>
+      <div class="subtitle">${escapeHtml(communityName)} · Official Tournament Schedule & Fixtures</div>
     </div>
     <div style="text-align:right; font-size:11px; color:#64748b;">
       Generated: <b>${format(new Date(), "dd-MMM-yyyy HH:mm")}</b>
@@ -511,7 +512,7 @@ export function exportScheduleToPDF(matches: ExportableMatch[], title = "Tournam
   </table>
 
   <div class="footer">
-    <div>${communityName} Tournament Director</div>
+    <div>${escapeHtml(communityName)} Tournament Director</div>
     <div>Noticeboard Fixtures · Matches subject to weather conditions</div>
   </div>
 </body>
@@ -546,11 +547,11 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
       <div class="scorecard">
         <div class="scorecard-header">
           <div>
-            <span class="badge">MATCH #${matchNum}</span>
-            <span style="font-weight:bold; margin-left:8px; color:#4f46e5;">${round}</span>
+            <span class="badge">MATCH #${escapeHtml(matchNum)}</span>
+            <span style="font-weight:bold; margin-left:8px; color:#4f46e5;">${escapeHtml(round)}</span>
           </div>
           <div style="font-size:10px; color:#64748b;">
-            📅 ${mDate} at ${mTime} | 📍 ${venue}
+            📅 ${escapeHtml(mDate)} at ${escapeHtml(mTime)} | 📍 ${escapeHtml(venue)}
           </div>
         </div>
 
@@ -567,11 +568,11 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
           </thead>
           <tbody>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${t1}</td>
+              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t1)}</td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
             <tr>
-              <td style="font-weight:bold; font-size:12px;">${t2}</td>
+              <td style="font-weight:bold; font-size:12px;">${escapeHtml(t2)}</td>
               <td></td><td></td><td></td><td></td><td>[ &nbsp; ]</td>
             </tr>
           </tbody>
@@ -591,7 +592,7 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${title} — Referee Scorecards</title>
+  <title>${escapeHtml(title)} — Referee Scorecards</title>
   <style>
     @page { size: A4 portrait; margin: 10mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 15px; }
@@ -613,7 +614,7 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
   <div class="no-print" style="margin-bottom: 15px; text-align: right;">
     <button onclick="window.print()" style="padding: 8px 16px; background:#0f172a; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">🖨️ Print Referee Scorecards</button>
   </div>
-  <h2 style="margin:0 0 12px 0; font-size:16px; text-transform:uppercase;">📝 Official Referee / Umpire Match Scorecards — ${title}</h2>
+  <h2 style="margin:0 0 12px 0; font-size:16px; text-transform:uppercase;">📝 Official Referee / Umpire Match Scorecards — ${escapeHtml(title)}</h2>
   ${cardsHtml}
 </body>
 </html>`;

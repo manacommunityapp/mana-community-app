@@ -44,7 +44,7 @@ export function RegistrationOpenModal({ tournament, onConfirm, onClose }: Regist
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="text-left">
-            <h2 className="text-lg font-bold text-slate-800">Open for Registration</h2>
+            <h2 className="text-xs font-bold text-slate-800">Open for Registration</h2>
             <p className="text-sm text-slate-500 mt-0.5">{tournament.name}</p>
           </div>
           <button
@@ -182,7 +182,7 @@ function ChannelRow({ icon, label, sublabel, checked, onChange, activeColor, dis
           <div className={`text-sm font-semibold transition-colors ${checked ? "text-slate-800" : "text-slate-500"}`}>
             {label}
           </div>
-          <div className="text-[10px] text-slate-400 truncate mt-0.5">{sublabel}</div>
+          <div className="text-xs text-slate-400 truncate mt-0.5">{sublabel}</div>
         </div>
       </div>
       {/* Toggle pill */}

@@ -5,7 +5,8 @@ import {
   Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone,
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
-  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart
+  PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
+  Smartphone
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -16,6 +17,7 @@ import {
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_SAFETY, VIEW_NOTICES, VIEW_AMENITIES,
   VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY, VIEW_HOME_SERVICE,
   VIEW_EMERGENCY, VIEW_GROUP_BUYING, VIEW_TRIPS, VIEW_DISCOVER, VIEW_MAINTENANCE_DUES,
+  PAY_MAINTENANCE_DUES, VIEW_PARKING,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -374,11 +376,16 @@ export function Layout() {
   const enabledModules = user?.enabledModules;
   const loadingPermissions = !!user && !user.permissions;
 
-  const labelToModule: Record<string, string> = {
+  const labelToModule: Record<string, string | string[]> = {
     "Community Feed": "COMMUNITY_FEED",
+    "Safety & Security": ["VISITORS", "SAFETY"],
+    "Mana Pay": ["FINANCE_MGMT", "PAYMENTS", "MANA_PAY"],
     "Mana Deals": "COMMUNITY_OFFERS",
     "Mana Academy": "ACADEMY",
     "Mana Health": "HEALTH",
+    "Health Buddy": "WELLNESS",
+    "Mana HealthGuard": "HEALTH_GUARD",
+    "Mana Insurance": "INSURANCE",
     "Emergency SOS": "EMERGENCY",
     "Home Services": "HOME_SERVICES",
     "Group Buying": "GROUP_BUYING",
@@ -394,6 +401,10 @@ export function Layout() {
     "Helpdesk": "HELPDESK",
     "Smart Helpdesk": "HELPDESK",
     "Maintenance Dues": "FINANCE_MGMT",
+    "Bills & Autopay": "FINANCE_MGMT",
+    "My Money": ["PERSONAL_FINANCE", "FINANCE_MGMT"],
+    "Parking & Vehicles": ["PARKING", "VISITORS"],
+    "Mana Split": ["FINANCE_MGMT", "MANA_SPLIT"],
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
@@ -407,6 +418,7 @@ export function Layout() {
     "AI Chat": "AI_CHAT",
     "Calendar": "CALENDAR",
     "Commerce": "COMMERCE",
+    "Mobile Recharge": ["PAYMENTS", "MANA_PAY", "FINANCE_MGMT"],
   };
 
   const toggleSidebar = () => {
@@ -453,6 +465,7 @@ export function Layout() {
       title: "Living & Facilities",
       items: [
         { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI" },
+        { to: "/recharge", icon: Smartphone, label: "Mobile Recharge", badge: "NEW" },
         { to: "/bookings", icon: Building2, label: "Bookings" },
         { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
         { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
@@ -469,6 +482,9 @@ export function Layout() {
       items: [
         { to: "/discover", icon: Sparkles, label: "Community Discover" },
         { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New" },
+        { to: "/wellness", icon: HeartPulse, label: "Health Buddy", badge: "New" },
+        { to: "/healthguard", icon: ShieldAlert, label: "Mana HealthGuard", badge: "SOS" },
+        { to: "/insurance", icon: ShieldCheck, label: "Mana Insurance", badge: "New" },
         { to: "/sports", icon: Trophy, label: "Sports" },
         { to: "/events", icon: CalendarDays, label: "Events" },
         { to: "/trips", icon: Compass, label: "Community Trips" },
@@ -498,21 +514,29 @@ export function Layout() {
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 
+  const isModuleEnabled = (moduleKeyOrKeys: string | string[]): boolean => {
+    if (isSuperAdmin && !user?.communityId) return true;
+    if (!enabledModules || enabledModules.length === 0) return false;
+    const keys = Array.isArray(moduleKeyOrKeys) ? moduleKeyOrKeys : [moduleKeyOrKeys];
+    return keys.some((k) => enabledModules.includes(k));
+  };
+
   const isLinkVisible = (label: string) => {
-    if (isSuperAdmin) return true;
     if (loadingPermissions) return true;
 
-    const moduleKey = labelToModule[label];
-    if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
+    // Check community module availability
+    const moduleConfig = labelToModule[label];
+    if (moduleConfig) {
+      if (!isModuleEnabled(moduleConfig)) {
+        return false;
+      }
+    }
 
     if (label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
-    if (label === "Mana Deals") return true;
-    if (label === "Mana Academy") return true;
-    if (label === "Mana Health") return true;
-    if (label === "Governance & Decisions") return true;
-    if (label === "Pet Registry") return true;
-    if (label === "Mana Pay") return true;
+    if (label === "Mana Pay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || permissions.includes(VIEW_ADMIN) || isAnyAdmin;
+    if (label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES) || isAnyAdmin;
+    if (label === "Bills & Autopay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || isAnyAdmin;
     if (label === "Emergency SOS") return permissions.includes(VIEW_EMERGENCY);
     if (label === "Home Services") return permissions.includes(VIEW_HOME_SERVICE);
     if (label === "Group Buying") return permissions.includes(VIEW_GROUP_BUYING);
@@ -524,12 +548,23 @@ export function Layout() {
     if (label === "Notices") return permissions.includes(VIEW_NOTICES);
     if (label === "Bookings") return permissions.includes(VIEW_AMENITIES);
     if (label === "Helpdesk" || label === "Smart Helpdesk") return permissions.includes(VIEW_TICKETS);
-    if (label === "Maintenance Dues") return permissions.includes(VIEW_MAINTENANCE_DUES);
     if (label === "Polls") return permissions.includes(VIEW_POLLS);
     if (label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
+    if (label === "Parking & Vehicles") return permissions.includes(VIEW_PARKING) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
+    if (label === "Mana Deals") return true;
+    if (label === "Mana Academy") return true;
+    if (label === "Mana Health" || label === "Health Hub") return true;
+    if (label === "Health Buddy") return true;
+    if (label === "Mana HealthGuard") return true;
+    if (label === "Mana Insurance") return true;
+    if (label === "Governance & Decisions") return true;
+    if (label === "Pet Registry") return true;
     if (label === "Community Rides") return true;
+    if (label === "My Money") return true;
+    if (label === "Mana Split") return true;
+    if (label === "Mobile Recharge") return true;
     return false;
   };
 
@@ -633,7 +668,10 @@ export function Layout() {
               {/* On Desktop Collapsed: Avatar only */}
               <div
                 title={`${displayName} • ${roleLabel}`}
-                className={cn("cursor-pointer group flex items-center justify-center", !isSidebarCollapsed && "hidden", "hidden lg:flex")}
+                className={cn(
+                  "cursor-pointer group items-center justify-center",
+                  isSidebarCollapsed ? "hidden lg:flex" : "hidden"
+                )}
                 onClick={() => setIsSidebarCollapsed(false)}
               >
                 {userAvatar ? (
@@ -1068,7 +1106,7 @@ export function Layout() {
               {/* Admin Links */}
               {filteredAdminLinks.length > 0 && (
                 <>
-                  <div className={cn("my-2 h-px bg-white/10 mx-1", !isSidebarCollapsed && "hidden", "hidden lg:block")} />
+                  <div className={cn("my-2 h-px bg-white/10 mx-1", isSidebarCollapsed ? "hidden lg:block" : "hidden")} />
                   <div className={cn("py-2 px-3", isSidebarCollapsed && "lg:hidden")}>
                     <div className="h-px bg-white/10" />
                   </div>
@@ -1113,6 +1151,36 @@ export function Layout() {
                 </>
               )}
             </nav>
+
+            {/* Sidebar Footer — Grievance & Legal Links (DPDP Act 2023 s.13) */}
+            <div className={cn("mt-auto px-3 py-3 border-t border-white/10 shrink-0", isSidebarCollapsed && "lg:hidden")}>
+              <div className="flex flex-col gap-1">
+                <Link
+                  to="/account/privacy-settings"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <Shield className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Privacy Centre</span>
+                </Link>
+                <Link
+                  to="/terms"
+                  onClick={handleNavClick}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <FileText className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Terms of Use</span>
+                </Link>
+                <a
+                  href="mailto:dpo@manacommunity.app"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  <HeartHandshake className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Grievance Officer</span>
+                </a>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-1.5 px-2">DPDP Act 2023 Compliant</p>
+            </div>
           </div>
         </aside>
 

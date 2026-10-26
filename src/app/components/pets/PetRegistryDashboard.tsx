@@ -210,9 +210,9 @@ export function PetRegistryDashboard() {
               <Heart className="h-3.5 w-3.5 fill-rose-300 text-rose-300 animate-pulse" />
               <span>Community Pet Registry &amp; Care</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
+            <h4 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
               Paws, Whiskers &amp; Care Network
-            </h1>
+            </h4>
             <p className="text-white/80 text-sm sm:text-base leading-relaxed">
               Register community pets, ensure vaccination compliance, find society pet buddies, and book certified veterinary doctors, dog walkers, and pet groomers.
             </p>

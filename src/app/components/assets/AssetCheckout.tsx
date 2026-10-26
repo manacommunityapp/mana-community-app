@@ -17,9 +17,9 @@ export function AssetCheckout() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fallback to Sandeep if auth doesn't have flat/name
-  const userName = user?.fullName || "Sandeep K.";
-  const userFlat = (user as any)?.flatNo || (user as any)?.flatNumber || "A-402";
+  // Authenticated user resolution
+  const userName = user?.fullName || (user as any)?.name || (user?.email ? user.email.split("@")[0] : "Resident");
+  const userFlat = (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unit || "Unit N/A";
 
   useEffect(() => {
     if (id) {

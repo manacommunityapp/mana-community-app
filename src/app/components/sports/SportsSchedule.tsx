@@ -87,9 +87,9 @@ function TimelineItem({ item, isLast }: { item: ScheduleEntry; isLast: boolean }
         {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1" />}
       </div>
       <div className="flex-1 min-w-0 pb-1 text-left">
-        <div className="text-[11px] sm:text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
+        <div className="text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
         <div className="text-[13px] sm:text-sm font-bold mb-1 text-slate-800">{item.name}</div>
-        <div className="text-[11px] sm:text-xs mb-1.5 sm:mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
+        <div className="text-xs mb-1.5 sm:mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
         <div className="flex flex-wrap gap-2">
           {item.badges.map(b => (
             <span key={b.label} className="text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${b.color}15`, color: b.color }}>{b.label}</span>
@@ -129,8 +129,8 @@ function MatchCard({ match }: { match: BracketMatch }) {
     >
       <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 text-left">
         <div className="text-xs font-bold text-slate-800">{match.label}</div>
-        <div className="text-[10px] mt-0.5" style={{ color: "#6b7094" }}>{match.date} | {match.time}</div>
-        {isByeMatch && <div className="text-[9px] text-emerald-600 font-bold mt-1">BYE</div>}
+        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>{match.date} | {match.time}</div>
+        {isByeMatch && <div className="text-xs text-emerald-600 font-bold mt-1">BYE</div>}
       </div>
       <div className="px-3 py-3 space-y-2.5 text-left">
         {players.map((p, i) => (
@@ -140,7 +140,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
                 <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 shrink-0" />
               ) : (
                 <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-slate-500">{p.initials}</span>
+                  <span className="text-[10px] font-bold text-slate-500">{p.initials}</span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
@@ -148,7 +148,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
                   {p.fullName}
                 </div>
                 {p.flatNumber && !p.isTBD && (
-                  <div className="text-[9px] text-slate-500">{p.flatNumber}</div>
+                  <div className="text-xs text-slate-500">{p.flatNumber}</div>
                 )}
               </div>
             </div>
@@ -160,7 +160,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
       </div>
       <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-1.5 text-left bg-slate-50/50">
         <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
-          <span className="text-[9px] font-bold text-slate-500">{match.venue.initials}</span>
+          <span className="text-[10px] font-bold text-slate-500">{match.venue.initials}</span>
         </div>
         <span className="text-[10px] truncate" style={{ color: "#6b7094" }}>{match.venue.name}</span>
       </div>
@@ -258,7 +258,7 @@ function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournam
         <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1 min-w-0">
-              <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Select Tournament</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Tournament</label>
               <select
                 value={selectedConfigId ?? ""}
                 onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
@@ -270,7 +270,7 @@ function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournam
               </select>
             </div>
             {selectedConfigId && (
-              <div className="text-[10px] sm:text-xs text-slate-500 sm:pt-4">
+              <div className="text-xs text-slate-500 sm:pt-4">
                 {(() => {
                   const cfg = tournamentConfigs.find(c => c.id === selectedConfigId);
                   return cfg ? `${cfg.tournamentType} · ${cfg.totalTeams} teams` : "";
@@ -302,7 +302,7 @@ function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournam
           {rounds.map(round => (
             <div key={round.name}>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
+                <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
                 <div className="flex-1 h-px bg-slate-200" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -314,7 +314,7 @@ function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournam
           ))}
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">Results</span>
+              <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-wider">Results</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -329,7 +329,7 @@ function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournam
                     boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
                   }}
                 >
-                  <span className="text-2xl">{r.icon}</span>
+                  <span className="text-[10px]">{r.icon}</span>
                   <div>
                     <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
                     <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
@@ -677,7 +677,7 @@ export function SportsSchedule() {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
             <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs animate-fade-in-up">
-              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+              <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                 Fixtures & Scores ({targetMatches.length})
               </div>
               <button
@@ -941,11 +941,11 @@ export function SportsSchedule() {
               <Trophy className="w-12 h-12 sm:w-28 sm:h-28 rotate-12" />
             </div>
             <div className="max-w-xl relative z-10 space-y-0.5 sm:space-y-1">
-              <span className="px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
                 Tournament Hub
               </span>
-              <h2 className="text-[13px] sm:text-lg md:text-xl font-extrabold tracking-tight">Schedule & Live Center</h2>
-              <p className="text-[9px] sm:text-[11px] text-indigo-200 leading-relaxed max-w-lg">
+              <h2 className="text-xs font-extrabold tracking-tight">Schedule & Live Center</h2>
+              <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
                 Track tournament match scheduling, ongoing live scores, team brackets, and complete event results all in one place.
               </p>
             </div>
@@ -962,7 +962,7 @@ export function SportsSchedule() {
             <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
-                <h3 className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wider">Active Tournaments</h3>
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Active Tournaments</h3>
               </div>
               <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {tournamentConfigs.map(cfg => {
@@ -984,8 +984,8 @@ export function SportsSchedule() {
                         <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[9px] sm:text-[10px] font-bold text-slate-800 truncate max-w-[120px] sm:max-w-[180px]">{cfg.tournamentName}</div>
-                        <div className="text-[8px] sm:text-[9px] text-slate-500">{cfg.eventName} · {cfg.totalTeams} teams</div>
+                        <div className="text-xs font-bold text-slate-800 truncate max-w-[120px] sm:max-w-[180px]">{cfg.tournamentName}</div>
+                        <div className="text-xs text-slate-500">{cfg.eventName} · {cfg.totalTeams} teams</div>
                       </div>
                       {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />}
                     </button>
@@ -999,57 +999,57 @@ export function SportsSchedule() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Scheduled</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Scheduled</span>
                 <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                   <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Total</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Total</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
                 <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">
                   {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
                 </span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                 <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                   <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">
                   {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
                 </span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
                 <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
                   <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{venues.length || "—"}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{venues.length || "—"}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
               </div>
             </div>
           </div>
@@ -1060,19 +1060,19 @@ export function SportsSchedule() {
             <div className="lg:col-span-2 space-y-3 sm:space-y-6">
               {/* Ongoing Matches Section */}
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
-                  <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center justify-between border-b border-slate-100">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 m-0 mb-0">
                     <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500 animate-pulse"></span>
                     Live Matches
                   </h3>
-                  <button onClick={() => setActiveTab("All Events")} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-[0.95] transition">
+                  <button onClick={() => setActiveTab("All Events")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-[0.95] transition">
                     View All →
                   </button>
                 </div>
 
                 <div className="space-y-2 sm:space-y-3">
                   {fixturesList.filter(f => f.status === "LIVE").length === 0 ? (
-                    <div className="text-center py-5 sm:py-8 text-slate-400 text-[10px] sm:text-xs">
+                    <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
                       No live matches running at the moment.
                     </div>
                   ) : (
@@ -1086,12 +1086,12 @@ export function SportsSchedule() {
                               <IconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </div>
                             <div className="text-left">
-                              <p className="text-[9px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">{fixture.sport}</p>
-                              <h4 className="text-[11px] sm:text-sm font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
-                              <p className="text-[9px] sm:text-[11px] text-slate-400 mt-0.5 truncate max-w-[160px] sm:max-w-[220px]">{fixture.venue}</p>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{fixture.sport}</p>
+                              <h4 className="text-xs font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
+                              <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[160px] sm:max-w-[220px]">{fixture.venue}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200/60 shadow-sm font-mono text-[11px] sm:text-sm font-bold text-slate-800">
+                          <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200/60 shadow-sm font-mono text-xs sm:text-sm font-bold text-slate-800">
                             <span>{fixture.score1 || "0"}</span>
                             <span className="text-slate-300">-</span>
                             <span>{fixture.score2 || "0"}</span>
@@ -1105,7 +1105,7 @@ export function SportsSchedule() {
 
               {/* Quick Navigation Cards */}
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 sm:pb-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
                   Quick Navigation
                 </h3>
                 <div className="flex overflow-x-auto gap-2 sm:grid sm:grid-cols-3 sm:gap-4 pb-1 sm:pb-0 -mx-0.5 px-0.5 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide">
@@ -1116,8 +1116,8 @@ export function SportsSchedule() {
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
                       <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <h4 className="text-[10px] sm:text-xs font-bold text-slate-800">My Timeline</h4>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 leading-relaxed hidden sm:block">Check matches registered for your personal schedule.</p>
+                    <h4 className="text-xs font-bold text-slate-800">My Timeline</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Check matches registered for your personal schedule.</p>
                   </div>
 
                   <div
@@ -1127,8 +1127,8 @@ export function SportsSchedule() {
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
                       <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <h4 className="text-[10px] sm:text-xs font-bold text-slate-800">All Fixtures</h4>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 leading-relaxed hidden sm:block">Browse, search and configure overall match listings.</p>
+                    <h4 className="text-xs font-bold text-slate-800">All Fixtures</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Browse, search and configure overall match listings.</p>
                   </div>
 
                   <div
@@ -1138,8 +1138,8 @@ export function SportsSchedule() {
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
                       <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <h4 className="text-[10px] sm:text-xs font-bold text-slate-800">Brackets</h4>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
+                    <h4 className="text-xs font-bold text-slate-800">Brackets</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">View elimination rounds, quarter, and semifinals.</p>
                   </div>
                 </div>
               </div>
@@ -1148,12 +1148,12 @@ export function SportsSchedule() {
             {/* Right Column: Recent Results & Timeline */}
             <div className="space-y-3 sm:space-y-6">
               <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 sm:pb-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
                   Recent Results
                 </h3>
                 <div className="space-y-2.5 sm:space-y-3.5">
                   {fixturesList.filter(f => f.status === "COMPLETED").length === 0 ? (
-                    <div className="text-center py-5 sm:py-8 text-slate-400 text-[10px] sm:text-xs">
+                    <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
                       No completed matches found.
                     </div>
                   ) : (
@@ -1164,7 +1164,7 @@ export function SportsSchedule() {
                       const score2 = Number(fixture.score2 || 0);
                       return (
                         <div key={fixture.id} className="text-left space-y-1.5 sm:space-y-2 pb-2.5 sm:pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
-                          <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
                             <span className="flex items-center gap-1">
                               <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" style={{ color: colors.color }} />
                               {fixture.sport}
@@ -1173,12 +1173,12 @@ export function SportsSchedule() {
                           </div>
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className={`text-[10px] sm:text-xs ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
-                              <span className={`text-[10px] sm:text-xs font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
+                              <span className={`text-[10px] ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
+                              <span className={`text-[10px] font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className={`text-[10px] sm:text-xs ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
-                              <span className={`text-[10px] sm:text-xs font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
+                              <span className={`text-[10px] ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
+                              <span className={`text-[10px] font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
                             </div>
                           </div>
                         </div>
@@ -1190,8 +1190,8 @@ export function SportsSchedule() {
 
               {/* Quick Info Box */}
               <div className="bg-slate-50 rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 text-left space-y-1.5 sm:space-y-2">
-                <h4 className="text-[10px] sm:text-xs font-bold text-slate-800 uppercase tracking-wider">Administrative Note</h4>
-                <p className="text-[9px] sm:text-[11px] text-slate-500 leading-relaxed">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Administrative Note</h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
                   If you are an organizer, use the operations panel (Config, Setup Schedule, Manual) to run automated round robin schedulers or create custom matches. Match results are synchronized live.
                 </p>
               </div>
@@ -1212,7 +1212,7 @@ export function SportsSchedule() {
                   <button
                     key={s}
                     onClick={() => setSelectedSportFilter(s)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
                       isActive
                         ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm"
                         : "bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/60"
@@ -1267,53 +1267,53 @@ export function SportsSchedule() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
                 <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                   <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
                 <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
                   <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
                 <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
                   <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                 <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                   <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-base sm:text-xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
-                <span className="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
+                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
           </div>
@@ -1321,8 +1321,8 @@ export function SportsSchedule() {
           {/* Add / Edit Fixture Form (Inline Card) */}
           {isAdmin && showFixtureForm && (
             <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 className="text-base font-bold text-slate-800">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
+              <div className="flex items-center justify-between border-b border-slate-100">
+                <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
                 <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
@@ -1458,7 +1458,7 @@ export function SportsSchedule() {
           <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1 min-w-0">
-                <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
                 <select
                   value={selectedTournamentId ?? ""}
                   onChange={e => setSelectedTournamentId(e.target.value ? Number(e.target.value) : null)}
@@ -1471,7 +1471,7 @@ export function SportsSchedule() {
                 </select>
               </div>
               <div className="flex-1 min-w-0">
-                <label className="block text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sport</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Sport</label>
                 <select
                   value={selectedSportFilter}
                   onChange={e => { setSelectedSportFilter(e.target.value); setFixtureSportFilter(e.target.value); }}
@@ -1518,7 +1518,7 @@ export function SportsSchedule() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1" style={{ WebkitOverflowScrolling: "touch" }}>
               <button
                 onClick={() => setFixtureDateFilter(null)}
-                className={`px-2.5 py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   fixtureDateFilter === null
                     ? "bg-indigo-600 text-white shadow-sm"
                     : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
@@ -1533,13 +1533,13 @@ export function SportsSchedule() {
                   <button
                     key={d}
                     onClick={() => setFixtureDateFilter(isActive ? null : d)}
-                    className={`flex flex-col items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer min-w-[48px] ${
+                    className={`flex flex-col items-center px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer min-w-[48px] ${
                       isActive
                         ? "bg-indigo-600 text-white shadow-sm"
                         : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
                     }`}
                   >
-                    <span className="text-[9px] uppercase opacity-70">{format(dt, "EEE")}</span>
+                    <span className="text-[10px] uppercase opacity-70">{format(dt, "EEE")}</span>
                     <span className="font-bold">{format(dt, "d MMM")}</span>
                   </button>
                 );
@@ -1594,7 +1594,7 @@ export function SportsSchedule() {
                     {/* Card Header: Sport badge, Venue and Status */}
                     <div className="flex items-start justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                       <span
-                        className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-xs font-semibold"
+                        className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] font-semibold"
                         style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
                       >
                         <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
@@ -1602,28 +1602,28 @@ export function SportsSchedule() {
                       </span>
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         {isLive && (
-                          <span className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded bg-red-50 text-red-600 text-[8px] sm:text-[10px] font-bold animate-pulse border border-red-200">
+                          <span className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-bold animate-pulse border border-red-200">
                             <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-red-600 rounded-full"></span>
                             LIVE
                           </span>
                         )}
                         {isCompleted && (
-                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[8px] sm:text-[10px] font-semibold border border-emerald-100">
+                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-100">
                             COMPLETED
                           </span>
                         )}
                         {!isLive && !isCompleted && (
-                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[8px] sm:text-[10px] font-semibold border border-slate-200">
+                          <span className="px-1.5 sm:px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
                             SCHEDULED
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <h4 className="text-[11px] sm:text-sm font-bold text-slate-800 line-clamp-1">{fixture.name}</h4>
+                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1">{fixture.name}</h4>
 
                     {/* Venue, Date & Time info */}
-                    <div className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-slate-500 text-[10px] sm:text-xs">
+                    <div className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-slate-500 text-xs">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">{fixture.venue}</span>
@@ -1637,21 +1637,21 @@ export function SportsSchedule() {
                     {/* Teams and Scores Display */}
                     <div className="mt-2 sm:mt-4 bg-slate-50 rounded-lg sm:rounded-xl p-2 sm:p-3 border border-slate-100 space-y-1.5 sm:space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] sm:text-xs font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
                           {fixture.team1}
                         </span>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] sm:text-xs font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
                             {fixture.score1 || "0"}
                           </span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className={`text-[10px] sm:text-xs font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                        <span className={`text-[10px] font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
                           {fixture.team2}
                         </span>
                         {(isLive || isCompleted) && (
-                          <span className="text-[10px] sm:text-xs font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                          <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
                             {fixture.score2 || "0"}
                           </span>
                         )}
@@ -1664,7 +1664,7 @@ export function SportsSchedule() {
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
                         onClick={() => openLiveView(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
                       >
                         <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         Watch Live
@@ -1677,7 +1677,7 @@ export function SportsSchedule() {
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
                         onClick={() => openMatchDetail(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] sm:text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
                       >
                         <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         View Scorecard
@@ -1692,7 +1692,7 @@ export function SportsSchedule() {
                         {fixture.status === "SCHEDULED" && (
                           <button
                             onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
+                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
                             Go Live
@@ -1703,7 +1703,7 @@ export function SportsSchedule() {
                             {fixture.matchId && (
                               <button
                                 onClick={() => openLiveScoring(fixture)}
-                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
+                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
                               >
                                 <Activity className="w-3 h-3" />
                                 Live Score
@@ -1716,7 +1716,7 @@ export function SportsSchedule() {
                                 setFixtureScore2(fixture.score2 || "");
                                 setShowScoreModal(true);
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition"
                             >
                               <Trophy className="w-3 h-3" />
                               End Match
@@ -1747,7 +1747,7 @@ export function SportsSchedule() {
             {sortedFixtures.length === 0 && (
               <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-12 border border-slate-100 shadow-sm text-center">
                 <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h4 className="text-sm font-bold text-slate-700">No matching fixtures found</h4>
+                <h4 className="text-xs font-bold text-slate-700">No matching fixtures found</h4>
                 <p className="text-xs text-slate-500 mt-1">Try adjusting your filters or search keywords.</p>
               </div>
             )}
@@ -1759,8 +1759,8 @@ export function SportsSchedule() {
             return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
               <div className="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-[95vw] sm:max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-800">Update Match Score</h3>
+                <div className="flex items-center justify-between border-b border-slate-100 mb-4">
+                  <h3 className="text-xs font-bold text-slate-800 m-0 mb-0">Update Match Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="text-slate-400 hover:text-slate-600"
@@ -1898,14 +1898,14 @@ export function SportsSchedule() {
               <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                 <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
                   {/* Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center justify-between border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shadow-inner">
                         <Radio className="w-5 h-5 animate-pulse" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 leading-none">Confirm Go Live</h3>
-                        <p className="text-xs text-slate-400 mt-1">Check schedule & broadcast live match</p>
+                        <h3 className="text-xs font-bold text-slate-900 leading-none m-0 mb-0">Confirm Go Live</h3>
+                        <p className="text-xs text-slate-400 mt-1 m-0">Check schedule & broadcast live match</p>
                       </div>
                     </div>
                     <button
@@ -1919,16 +1919,16 @@ export function SportsSchedule() {
                   {/* Fixture Details Card */}
                   <div className="mt-4 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
                     <div className="flex items-center justify-between gap-2 mb-2">
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
                         {fixture.sport}
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 truncate max-w-[60%] justify-end">
+                      <span className="text-[10px] font-semibold text-slate-500 flex items-center gap-1 truncate max-w-[60%] justify-end">
                         <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                         <span className="truncate">{fixture.venue}</span>
                       </span>
                     </div>
 
-                    <h4 className="text-sm font-bold text-slate-800 leading-snug">
+                    <h4 className="text-xs font-bold text-slate-800 leading-snug">
                       {fixture.name}
                     </h4>
 
@@ -1943,13 +1943,13 @@ export function SportsSchedule() {
 
                   {/* Scheduled Dates Section */}
                   <div className="mt-4 space-y-2.5">
-                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Match Schedule
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase">
                           <Calendar className="w-3 h-3 text-indigo-500" />
                           Start Date & Time
                         </div>
@@ -1959,7 +1959,7 @@ export function SportsSchedule() {
                       </div>
 
                       <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase">
                           <Clock className="w-3 h-3 text-amber-500" />
                           End Date & Time
                         </div>
@@ -1975,7 +1975,7 @@ export function SportsSchedule() {
                         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold text-amber-800">Early Start Notice</p>
-                          <p className="text-[11px] text-amber-700 mt-0.5">
+                          <p className="text-xs text-amber-700 mt-0.5">
                             This match is scheduled to start later. Starting now will immediately notify community viewers that live scoring is underway.
                           </p>
                         </div>
@@ -1987,7 +1987,7 @@ export function SportsSchedule() {
                         <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold text-rose-800">Schedule Expired Notice</p>
-                          <p className="text-[11px] text-rose-700 mt-0.5">
+                          <p className="text-xs text-rose-700 mt-0.5">
                             The scheduled end date for this event has passed. Confirm if you still wish to broadcast live scoring.
                           </p>
                         </div>
@@ -1999,7 +1999,7 @@ export function SportsSchedule() {
                         <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-bold text-emerald-800">Ready to Go Live</p>
-                          <p className="text-[11px] text-emerald-700 mt-0.5">
+                          <p className="text-xs text-emerald-700 mt-0.5">
                             Current time is within the scheduled window. Ready to start live scoring.
                           </p>
                         </div>

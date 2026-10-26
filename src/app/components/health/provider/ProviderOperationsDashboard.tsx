@@ -22,6 +22,7 @@ import {
   Filter
 } from "lucide-react";
 import { healthService } from "../../../../services/healthService";
+import { sanitizeHref } from "../../../../utils/sanitize";
 import type {
   ProviderProfileDto,
   ProviderStaffMemberDto,
@@ -282,7 +283,7 @@ export const ProviderOperationsDashboard: React.FC = () => {
                 {appt.meetingLink && (
                   <div className="text-xs bg-teal-500/10 p-2.5 rounded-xl text-teal-800 dark:text-teal-300 flex items-center justify-between">
                     <span className="truncate">📹 Room: {appt.meetingLink}</span>
-                    <a href={appt.meetingLink} target="_blank" rel="noreferrer" className="underline font-bold shrink-0 ml-2">Join</a>
+                    <a href={sanitizeHref(appt.meetingLink)} target="_blank" rel="noreferrer" className="underline font-bold shrink-0 ml-2">Join</a>
                   </div>
                 )}
 

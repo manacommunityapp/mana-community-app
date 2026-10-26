@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import {
-  Search, Star, ChefHat, Leaf, Clock, Award, Filter,
-  Plus, MapPin, ShoppingBag
+  Search, Star, ChefHat, ShoppingBag
 } from "lucide-react";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
@@ -11,16 +10,8 @@ import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Skeleton } from "../ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
-import type { HomeChef } from "../../../types/food";
-
-const mockChefs: Partial<HomeChef>[] = [
-  { id: 1, kitchenName: "Amma's Kitchen", speciality: "Traditional Tamil Cuisine", cuisineTypes: "South Indian, Tamil", rating: 4.8, totalRatings: 95, availabilityStatus: "AVAILABLE", status: "APPROVED", totalOrders: 340, description: "Authentic home-cooked Tamil meals prepared with love and traditional recipes." },
-  { id: 2, kitchenName: "Chef Priya's Table", speciality: "Rajasthani Thali", cuisineTypes: "Rajasthani, North Indian", rating: 4.6, totalRatings: 78, availabilityStatus: "AVAILABLE", status: "APPROVED", totalOrders: 220, description: "Royal Rajasthani flavors brought to your doorstep." },
-  { id: 3, kitchenName: "Green Gourmet", speciality: "Vegan & Health Food", cuisineTypes: "Vegan, Continental", rating: 4.5, totalRatings: 62, availabilityStatus: "BUSY", status: "APPROVED", totalOrders: 180, description: "Plant-based meals that taste incredible and nourish your body." },
-  { id: 4, kitchenName: "Bengali Bites", speciality: "Bengali Fish Curry", cuisineTypes: "Bengali, Seafood", rating: 4.7, totalRatings: 110, availabilityStatus: "AVAILABLE", status: "APPROVED", totalOrders: 290, description: "Authentic Bengali recipes passed down through generations." },
-  { id: 5, kitchenName: "Nani's Nashta", speciality: "Gujarati Snacks", cuisineTypes: "Gujarati, Snacks", rating: 4.4, totalRatings: 85, availabilityStatus: "OFFLINE", status: "APPROVED", totalOrders: 150, description: "Crispy, crunchy Gujarati farsan and sweets made fresh daily." },
-  { id: 6, kitchenName: "Korean Kitchen", speciality: "Korean Home Food", cuisineTypes: "Korean, Asian", rating: 4.9, totalRatings: 45, availabilityStatus: "AVAILABLE", status: "APPROVED", totalOrders: 120, description: "Authentic Korean home-style meals with house-made kimchi." },
-];
+import { foodHomeChefService } from "../../../services/food/foodHomeChefService";
+import type { HomeChef, HomeChefRequest } from "../../../types/food";
 
 const cuisineOptions = ["All", "South Indian", "North Indian", "Bengali", "Gujarati", "Korean", "Vegan", "Continental"];
 const availabilityColors: Record<string, string> = {
@@ -29,42 +20,58 @@ const availabilityColors: Record<string, string> = {
   OFFLINE: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
 };
 
+const EMPTY_FORM: HomeChefRequest = { kitchenName: "", description: "", speciality: "", cuisineTypes: "", fssaiLicense: "" };
+
 export function HomeChefMarketplace() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [chefs, setChefs] = useState<Partial<HomeChef>[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState("All");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [showRegister, setShowRegister] = useState(false);
+  const [regForm, setRegForm] = useState<HomeChefRequest>(EMPTY_FORM);
+  const [allChefs, setAllChefs] = useState<HomeChef[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const fetchChefs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await foodHomeChefService.getHomeChefs(0, 50, undefined, searchQuery || undefined);
+      setAllChefs(data?.content ?? []);
+    } catch (err) {
+      console.error("Failed to fetch home chefs:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      let filtered = [...mockChefs];
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        filtered = filtered.filter((c) =>
-          c.kitchenName?.toLowerCase().includes(q) ||
-          c.speciality?.toLowerCase().includes(q) ||
-          c.cuisineTypes?.toLowerCase().includes(q)
-        );
-      }
-      if (cuisineFilter !== "All") {
-        filtered = filtered.filter((c) => c.cuisineTypes?.toLowerCase().includes(cuisineFilter.toLowerCase()));
-      }
-      if (ratingFilter === "4plus") {
-        filtered = filtered.filter((c) => (c.rating ?? 0) >= 4);
-      } else if (ratingFilter === "4.5plus") {
-        filtered = filtered.filter((c) => (c.rating ?? 0) >= 4.5);
-      }
-      setChefs(filtered);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery, cuisineFilter, ratingFilter]);
+    fetchChefs();
+  }, [fetchChefs]);
 
-  if (loading) {
+  const chefs = allChefs.filter((c) => {
+    if (cuisineFilter !== "All" && !c.cuisineTypes?.toLowerCase().includes(cuisineFilter.toLowerCase())) return false;
+    if (ratingFilter === "4plus" && (c.rating ?? 0) < 4) return false;
+    if (ratingFilter === "4.5plus" && (c.rating ?? 0) < 4.5) return false;
+    return true;
+  });
+
+  const handleRegister = async () => {
+    if (!regForm.kitchenName.trim()) return;
+    setIsRegistering(true);
+    try {
+      await foodHomeChefService.registerHomeChef(regForm);
+      setShowRegister(false);
+      setRegForm(EMPTY_FORM);
+      fetchChefs();
+    } catch (err) {
+      console.error("Failed to register home chef:", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 max-w-md rounded-lg" />
@@ -97,28 +104,34 @@ export function HomeChefMarketplace() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Kitchen Name</label>
-                <Input placeholder="e.g., Mom's Kitchen" />
+                <Input placeholder="e.g., Mom's Kitchen" value={regForm.kitchenName} onChange={(e) => setRegForm((f) => ({ ...f, kitchenName: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Speciality</label>
-                <Input placeholder="e.g., South Indian Meals" />
+                <Input placeholder="e.g., South Indian Meals" value={regForm.speciality ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, speciality: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Cuisine Types</label>
-                <Input placeholder="e.g., South Indian, Tamil" />
+                <Input placeholder="e.g., South Indian, Tamil" value={regForm.cuisineTypes ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, cuisineTypes: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
-                <Input placeholder="Tell us about your kitchen..." />
+                <Input placeholder="Tell us about your kitchen..." value={regForm.description ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">FSSAI License (if available)</label>
-                <Input placeholder="License number" />
+                <Input placeholder="License number" value={regForm.fssaiLicense ?? ""} onChange={(e) => setRegForm((f) => ({ ...f, fssaiLicense: e.target.value }))} />
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRegister(false)}>Cancel</Button>
-              <Button className="bg-pink-600 hover:bg-pink-700 text-white" onClick={() => setShowRegister(false)}>Submit Application</Button>
+              <Button variant="outline" onClick={() => { setShowRegister(false); setRegForm(EMPTY_FORM); }}>Cancel</Button>
+              <Button
+                className="bg-pink-600 hover:bg-pink-700 text-white"
+                disabled={!regForm.kitchenName.trim() || isRegistering}
+                onClick={handleRegister}
+              >
+                {isRegistering ? "Submitting…" : "Submit Application"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -128,7 +141,12 @@ export function HomeChefMarketplace() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="Search home chefs..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          <Input
+            placeholder="Search home chefs..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
         <Select value={cuisineFilter} onValueChange={setCuisineFilter}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Cuisine" /></SelectTrigger>
@@ -156,7 +174,11 @@ export function HomeChefMarketplace() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {chefs.map((chef) => (
-            <Card key={chef.id} className="border-0 shadow-sm overflow-hidden cursor-pointer group hover:shadow-lg transition-all">
+            <Card
+              key={chef.id}
+              className="border-0 shadow-sm overflow-hidden cursor-pointer group hover:shadow-lg transition-all"
+              onClick={() => navigate(`/food/home-chefs/${chef.id}`)}
+            >
               <CardContent className="p-0">
                 <div className="h-32 bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/20 dark:to-purple-900/20 flex items-center justify-center relative">
                   <div className="w-16 h-16 rounded-full bg-white dark:bg-slate-800 shadow-lg flex items-center justify-center">

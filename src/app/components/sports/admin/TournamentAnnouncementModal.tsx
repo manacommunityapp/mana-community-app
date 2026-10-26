@@ -247,7 +247,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
               <Megaphone className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Send Announcement</h2>
+              <h2 className="text-xs font-bold text-slate-800">Send Announcement</h2>
               <p className="text-sm text-slate-500 mt-0.5">{tournament.name}</p>
             </div>
           </div>
@@ -264,7 +264,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* Template Picker */}
           <div>
-            <label className="text-[11px] text-slate-500 uppercase tracking-widest font-bold block mb-1.5">
+            <label className="text-xs text-slate-500 uppercase tracking-widest font-bold block mb-1.5">
               Choose Template
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -283,12 +283,12 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="text-base leading-none">{t.icon}</span>
-                      <span className={`text-xs font-bold ${selected ? c.text : "text-slate-700"}`}>
+                      <span className="text-[10px] leading-none">{t.icon}</span>
+                      <span className={`text-[10px] font-bold ${selected ? c.text : "text-slate-700"}`}>
                         {t.label}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{t.description}</div>
+                    <div className="text-xs text-slate-400 truncate mt-0.5">{t.description}</div>
                   </button>
                 );
               })}
@@ -326,7 +326,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
 
           {/* Unified Controls & Actions Panel (Single DIV Container) */}
           <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 space-y-3 shadow-sm">
-            <label className="text-[11px] text-slate-500 uppercase tracking-widest font-extrabold block">
+            <label className="text-xs text-slate-500 uppercase tracking-widest font-extrabold block">
               Channels & Preview Options
             </label>
             
@@ -369,7 +369,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="font-bold text-xs truncate">Use Custom HTML Template</div>
-                    <div className={`text-[10px] truncate mt-0.5 ${useCustomHtml ? "text-slate-400" : "text-slate-400"}`}>
+                    <div className={`text-xs truncate mt-0.5 ${useCustomHtml ? "text-slate-400" : "text-slate-400"}`}>
                       Override layout with raw HTML markup
                     </div>
                   </div>
@@ -390,7 +390,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="font-extrabold text-xs">Preview Template</div>
-                    <div className="text-[10px] text-indigo-100/80 truncate mt-0.5">
+                    <div className="text-xs text-indigo-100/80 truncate mt-0.5">
                       Renders live database details
                     </div>
                   </div>
@@ -428,7 +428,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                   <div className="h-3.5 w-[1px] bg-slate-700 mx-1" />
                   <div className="flex items-center gap-2">
                     <Eye className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-[11px] font-extrabold tracking-wide uppercase text-slate-200">
+                    <span className="text-[10px] font-extrabold tracking-wide uppercase text-slate-200">
                       Live Email Preview
                     </span>
                   </div>
@@ -447,7 +447,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
               </div>
 
               {details?.name && (
-                <div className="px-4 py-2 bg-indigo-50/70 border-b border-indigo-100 flex items-center justify-between text-[11px] font-semibold text-indigo-900">
+                <div className="px-4 py-2 bg-indigo-50/70 border-b border-indigo-100 flex items-center justify-between text-xs font-semibold text-indigo-900">
                   <span className="flex items-center gap-1.5 truncate">
                     <span className="font-extrabold text-indigo-700">Tournament:</span> {details.name}
                   </span>
@@ -530,7 +530,7 @@ function ChannelToggle({
           <div className={`text-sm font-semibold transition-colors ${checked ? "text-slate-800" : "text-slate-500"}`}>
             {label}
           </div>
-          <div className="text-[10px] text-slate-400 truncate mt-0.5">{sub}</div>
+          <div className="text-xs text-slate-400 truncate mt-0.5">{sub}</div>
         </div>
       </div>
       <div className={`relative w-11 h-6 rounded-full flex-shrink-0 ml-3 transition-colors ${checked ? c.toggle : "bg-slate-200"}`}>

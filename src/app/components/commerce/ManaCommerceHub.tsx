@@ -96,7 +96,7 @@ export const ManaCommerceHub: React.FC = () => {
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               Mana Commerce Core • Unified 15-Capability Transaction Model
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold">Mana Commerce Platform</h1>
+            <h4 className="text-xl md:text-2xl font-bold">Mana Commerce Platform</h4>
             <p className="text-slate-300 text-sm mt-1 max-w-2xl">
               Unified lifecycle powering Group Buying, Home Food, Marketplace, Deals, and Vendor Commerce with single order, payment, escrow, and handover verification.
             </p>

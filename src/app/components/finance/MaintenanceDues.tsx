@@ -12,10 +12,16 @@ import { ManaPayCheckoutModal } from "../payments/unified/ManaPayCheckoutModal";
 import { manaPayService } from "../../../services/payments/manaPayService";
 import type { CreateManaPaymentIntentRequest, ManaPaymentRecord } from "../../../types/manaPay";
 
+import { useAuth } from "../../../contexts/AuthContext";
+
 export function MaintenanceDues() {
-  const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill("302"));
-  const [wallet, setWallet] = useState(communityFinanceService.getAdvanceWallet("302"));
-  const [history] = useState<MaintenanceBill[]>(communityFinanceService.getMyBillHistory("302"));
+  const { user } = useAuth();
+  const userFlat = user?.flatNumber || user?.flatNo || "302";
+  const userTower = user?.tower || user?.block || "A";
+
+  const [bill, setBill] = useState<MaintenanceBill>(communityFinanceService.getMyBill(userFlat));
+  const [wallet, setWallet] = useState(communityFinanceService.getAdvanceWallet(userFlat));
+  const [history] = useState<MaintenanceBill[]>(communityFinanceService.getMyBillHistory(userFlat));
   const [showPayModal, setShowPayModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<CommunityReceipt | null>(null);
@@ -56,11 +62,11 @@ export function MaintenanceDues() {
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
             Resident Financial Portal
           </span>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+          <h4 className="text-xl font-black text-slate-900 dark:text-white mt-1">
             My Maintenance Dues & Invoices
-          </h1>
+          </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Unit: <strong>Flat 302 · Tower A</strong> (1,200 sq.ft) · Account Ref: <span className="font-mono">BA-0001302A</span>
+            Unit: <strong>Flat {userFlat} · Tower {userTower}</strong> · Account Ref: <span className="font-mono">BA-{user?.userId ? String(user.userId).slice(0, 8) : "0001"}{userFlat}</span>
           </p>
         </div>
 
@@ -89,63 +95,75 @@ export function MaintenanceDues() {
         </div>
       </div>
 
-      {/* ── Current Active Bill Card ─────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-black text-slate-900 dark:text-white">{bill.billNumber}</span>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                bill.status === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
-                bill.status === "OVERDUE" ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300" :
-                "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-              }`}>
-                {bill.status}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Billing Period: <strong>{bill.month}/{bill.year}</strong> · Due Date: <strong>{new Date(bill.dueDate).toLocaleDateString()}</strong>
-            </p>
+      {/* ── Current Active Bill Card / Empty State ────────────────────────────── */}
+      {bill.status === "PAID" || bill.dueAmount === 0 ? (
+        <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center shadow-xs">
+          <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 className="w-7 h-7" />
           </div>
-
-          <div className="flex items-center gap-3">
-            {bill.status !== "PAID" ? (
-              <button
-                onClick={() => setShowPayModal(true)}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2"
-              >
-                <CreditCard className="w-4 h-4" />
-                Pay Now (₹{bill.dueAmount.toLocaleString("en-IN")})
-              </button>
-            ) : (
-              <button
-                onClick={() => handleOpenReceipt(bill.receiptNumber)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
-              >
-                <Download className="w-3.5 h-3.5" /> Download Receipt
-              </button>
-            )}
-          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white">All Maintenance Dues Paid!</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+            There are no outstanding dues for Flat {userFlat} · Tower {userTower}. You can review your past payment history and download receipts below.
+          </p>
         </div>
-
-        {/* Itemized Charges Breakdown Table */}
-        <div className="mt-5 space-y-3">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Itemized Charge Breakdown</h3>
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
-            {bill.charges.map((c, i) => (
-              <div key={i} className="p-3 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/30">
-                <span className="font-medium text-slate-800 dark:text-slate-200">{c.item}</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">₹{c.amount.toLocaleString("en-IN")}</span>
+      ) : (
+        <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black text-slate-900 dark:text-white">{bill.billNumber}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                  bill.status === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
+                  bill.status === "OVERDUE" ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300" :
+                  "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                }`}>
+                  {bill.status}
+                </span>
               </div>
-            ))}
+              <p className="text-xs text-slate-500 mt-1">
+                Billing Period: <strong>{bill.month}/{bill.year}</strong> · Due Date: <strong>{new Date(bill.dueDate).toLocaleDateString()}</strong>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {bill.status !== "PAID" ? (
+                <button
+                  onClick={() => setShowPayModal(true)}
+                  className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Pay Now (₹{bill.dueAmount.toLocaleString("en-IN")})
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleOpenReceipt(bill.receiptNumber)}
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download Receipt
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between">
-            <span className="text-xs font-black text-slate-700 dark:text-slate-300">Total Bill Amount</span>
-            <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">₹{bill.totalAmount.toLocaleString("en-IN")}</span>
+          {/* Itemized Charges Breakdown Table */}
+          <div className="mt-5 space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Itemized Charge Breakdown</h3>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+              {bill.charges.map((c, i) => (
+                <div key={i} className="p-3 flex items-center justify-between text-xs bg-slate-50/50 dark:bg-slate-900/30">
+                  <span className="font-medium text-slate-800 dark:text-slate-200">{c.item}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₹{c.amount.toLocaleString("en-IN")}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl flex items-center justify-between">
+              <span className="text-xs font-black text-slate-700 dark:text-slate-300">Total Bill Amount</span>
+              <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">₹{bill.totalAmount.toLocaleString("en-IN")}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Bill History ─────────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">

@@ -127,7 +127,7 @@ export function RaceScoringPanel({
             <Timer className="w-5 h-5 text-white" />
             <div>
               <div className="text-sm font-bold text-white">Race Scoring</div>
-              <div className="text-[10px] text-cyan-200">{sportType}</div>
+              <div className="text-xs text-cyan-200">{sportType}</div>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition">
@@ -174,7 +174,7 @@ export function RaceScoringPanel({
 
             {/* Time Entry */}
             <div>
-              <div className="text-[10px] font-medium text-slate-400 mb-1">Finish Time</div>
+              <div className="text-xs font-medium text-slate-400 mb-1">Finish Time</div>
               <div className="grid grid-cols-3 gap-1.5">
                 <div className="relative">
                   <input
@@ -185,7 +185,7 @@ export function RaceScoringPanel({
                     min={0}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">min</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">min</span>
                 </div>
                 <div className="relative">
                   <input
@@ -197,7 +197,7 @@ export function RaceScoringPanel({
                     max={59}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">sec</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">sec</span>
                 </div>
                 <div className="relative">
                   <input
@@ -209,7 +209,7 @@ export function RaceScoringPanel({
                     max={999}
                     className="w-full text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-cyan-300"
                   />
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400">ms</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400">ms</span>
                 </div>
               </div>
             </div>
@@ -258,7 +258,7 @@ export function RaceScoringPanel({
               </div>
               <button
                 onClick={handleRecalculate}
-                className="text-[10px] font-medium text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
+                className="text-xs font-medium text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
               >
                 <RefreshCw className="w-3 h-3" /> Recalculate
               </button>
@@ -277,7 +277,7 @@ export function RaceScoringPanel({
                     key={r.id}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600"
                   >
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                       r.overallRank === 1 ? "bg-amber-400 text-amber-900" :
                       r.overallRank === 2 ? "bg-slate-300 text-slate-700" :
                       r.overallRank === 3 ? "bg-orange-300 text-orange-800" :
@@ -289,7 +289,7 @@ export function RaceScoringPanel({
                       <div className="text-xs font-bold text-slate-800 dark:text-white truncate">
                         {r.playerName}
                       </div>
-                      <div className="text-[9px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {r.teamName}{r.heatNumber ? ` · Heat ${r.heatNumber}` : ""}{r.laneNumber ? ` · Lane ${r.laneNumber}` : ""}
                       </div>
                     </div>
@@ -298,7 +298,7 @@ export function RaceScoringPanel({
                         {r.raceStatus === "FINISHED" ? (r.formattedTime || "-") : r.raceStatus}
                       </div>
                       {r.isPersonalBest && (
-                        <div className="text-[8px] font-bold text-emerald-500">PB!</div>
+                        <div className="text-xs font-bold text-emerald-500">PB!</div>
                       )}
                     </div>
                   </div>

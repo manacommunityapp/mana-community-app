@@ -23,6 +23,7 @@ import {
   vendorRatingService,
   vendorFavoriteService,
 } from "../../../../services/vendor/vendorService";
+import { sanitizeHref } from "../../../../utils/sanitize";
 import { resolveImageUrl } from "../../../../utils/imageUrlUtils";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
@@ -258,7 +259,7 @@ export function VendorProfilePublic() {
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Globe className="h-4 w-4 shrink-0" />
                 <a
-                  href={vendor.website}
+                  href={sanitizeHref(vendor.website)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="truncate hover:text-foreground transition-colors"

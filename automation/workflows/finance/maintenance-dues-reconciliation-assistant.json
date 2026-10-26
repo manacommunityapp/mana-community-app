@@ -1,0 +1,68 @@
+{
+  "name": "Maintenance Dues Reconciliation Assistant",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "maintenance-dues-reconciliation", "responseMode": "responseNode", "options": {} },
+      "id": "1",
+      "name": "Dues Review Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-maintenance-dues-review"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\nconst invoices = Array.isArray(input.invoices) ? input.invoices : [];\nconst now = input.asOfDate ? new Date(input.asOfDate) : new Date();\nconst rows = invoices.map((x, i) => {\n  const due = x.dueDate ? new Date(x.dueDate) : null;\n  const amount = Number(x.totalAmount || 0);\n  const paid = String(x.status || '').toLowerCase() === 'paid';\n  return { ref: x.invoiceNumber || `invoice-${i + 1}`, amount, status: paid ? 'paid' : (due && due < now ? 'overdue' : 'open'), dueDate: x.dueDate || null, daysOverdue: !paid && due && due < now ? Math.floor((now - due) / 86400000) : 0 };\n});\nconst summary = { asOfDate: now.toISOString().slice(0, 10), count: rows.length, paidCount: rows.filter(x => x.status === 'paid').length, openCount: rows.filter(x => x.status === 'open').length, overdueCount: rows.filter(x => x.status === 'overdue').length, openBalance: rows.filter(x => x.status !== 'paid').reduce((s, x) => s + x.amount, 0), records: rows };\nconst prompt = `Review this anonymized maintenance-dues summary for a finance administrator. Identify data-quality issues, useful aggregate patterns, and neutral follow-up priorities. Do not decide penalties, waive dues, contact residents, or post payments. Do not infer ability or willingness to pay. Return concise JSON with keys observations (array), dataQualityFlags (array), suggestedHumanChecks (array).\n${JSON.stringify(summary)}`;\nreturn [{ json: { summary, prompt } }];"
+      },
+      "id": "2",
+      "name": "Calculate Dues Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "key", "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":{{ JSON.stringify($json.prompt) }} }]}],\"generationConfig\":{\"response_mime_type\":\"application/json\"}}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Generate Dues Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst summary = $('Calculate Dues Summary').first().json.summary;\nlet review;\ntry { review = JSON.parse(response.candidates[0].content.parts[0].text); } catch { review = { observations: [], dataQualityFlags: ['AI response could not be parsed; review source data manually.'], suggestedHumanChecks: [] }; }\nreturn [{ json: { status: 'review_ready', summary, aiReview: review, requiresHumanApproval: true, actionsTaken: [] } }];"
+      },
+      "id": "4",
+      "name": "Format Dues Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "5",
+      "name": "Return Dues Review",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Dues Review Webhook": { "main": [[{ "node": "Calculate Dues Summary", "type": "main", "index": 0 }]] },
+    "Calculate Dues Summary": { "main": [[{ "node": "Generate Dues Review", "type": "main", "index": 0 }]] },
+    "Generate Dues Review": { "main": [[{ "node": "Format Dues Review", "type": "main", "index": 0 }]] },
+    "Format Dues Review": { "main": [[{ "node": "Return Dues Review", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1"
+}

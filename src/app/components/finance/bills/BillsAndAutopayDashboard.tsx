@@ -42,6 +42,19 @@ import {
   type MandateProvider,
   type MandateStatus,
 } from "../../../../services/finance/manaBillsAutopayService";
+import {
+  billerService,
+  type Biller,
+  type BillerCategory,
+  type FetchedBill,
+} from "../../../../services/finance/billerService";
+import {
+  rechargeService,
+  OPERATORS,
+  type MobileOperator,
+  type RechargePlan,
+  type RechargeType,
+} from "../../../../services/finance/rechargeService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import { ManaPayUnifiedCheckoutModal } from "../../payments/ManaPayUnifiedCheckoutModal";
 import type { PaymentDomainSource } from "../../../../types/payment";
@@ -74,6 +87,151 @@ export function BillsAndAutopayDashboard() {
   const [mandateAuthMethod, setMandateAuthMethod] = useState<"UPI_PIN" | "NET_BANKING_OTP" | "DEBIT_CARD_PIN">("UPI_PIN");
   const [mandateAgreementChecked, setMandateAgreementChecked] = useState(false);
   const [isAuthorizingMandate, setIsAuthorizingMandate] = useState(false);
+
+  // ── BBPS State ────────────────────────────────────────────────────────────
+  const [showBbpsModal, setShowBbpsModal] = useState(false);
+  const [bbpsStep, setBbpsStep] = useState<"CATEGORY" | "BILLER" | "CONSUMER_ID" | "BILL_PREVIEW" | "PAYING">("CATEGORY");
+  const [bbpsCategory, setBbpsCategory] = useState<BillerCategory>("ELECTRICITY");
+  const [bbpsBillers, setBbpsBillers] = useState<Biller[]>([]);
+  const [bbpsBillerSearch, setBbpsBillerSearch] = useState("");
+  const [bbpsSelectedBiller, setBbpsSelectedBiller] = useState<Biller | null>(null);
+  const [bbpsConsumerId, setBbpsConsumerId] = useState("");
+  const [bbpsFetchedBill, setBbpsFetchedBill] = useState<FetchedBill | null>(null);
+  const [isBbpsFetching, setIsBbpsFetching] = useState(false);
+  const [isBbpsPaying, setIsBbpsPaying] = useState(false);
+  const [showBbpsCheckout, setShowBbpsCheckout] = useState(false);
+
+  const BBPS_CATEGORIES: { id: BillerCategory; icon: string; label: string; color: string; bg: string }[] = [
+    { id: "ELECTRICITY",   icon: "⚡",  label: "Electricity",   color: "#D97706", bg: "#FFFBEB" },
+    { id: "GAS",           icon: "🔥",  label: "Gas",           color: "#DC2626", bg: "#FEF2F2" },
+    { id: "WATER",         icon: "💧",  label: "Water",         color: "#0284C7", bg: "#F0F9FF" },
+    { id: "BROADBAND",     icon: "📡",  label: "Broadband",     color: "#7C3AED", bg: "#F5F3FF" },
+    { id: "DTH",           icon: "📺",  label: "DTH / Cable",   color: "#0891B2", bg: "#ECFEFF" },
+    { id: "FASTAG",        icon: "🚗",  label: "FASTag",        color: "#B45309", bg: "#FFFBEB" },
+    { id: "MUNICIPAL_TAX", icon: "🏛️", label: "Municipal Tax", color: "#5B21B6", bg: "#F5F3FF" },
+    { id: "CREDIT_CARD",   icon: "💳",  label: "Credit Card",   color: "#0369A1", bg: "#F0F9FF" },
+    { id: "EDUCATION",     icon: "🎓",  label: "Education",     color: "#7C3AED", bg: "#EDE9FE" },
+    { id: "LPG",           icon: "🟢",  label: "LPG Cylinder",  color: "#16A34A", bg: "#F0FDF4" },
+    { id: "LANDLINE",      icon: "☎️",  label: "Landline",      color: "#0284C7", bg: "#E0F2FE" },
+  ];
+
+  const handleOpenBbps = async () => {
+    setBbpsStep("CATEGORY");
+    setBbpsSelectedBiller(null);
+    setBbpsConsumerId("");
+    setBbpsFetchedBill(null);
+    setBbpsBillerSearch("");
+    setShowBbpsModal(true);
+    const billers = await billerService.getBillersByCategory("ELECTRICITY");
+    setBbpsBillers(billers);
+  };
+
+  const handleSelectBbpsCategory = async (cat: BillerCategory) => {
+    setBbpsCategory(cat);
+    setBbpsBillerSearch("");
+    const billers = await billerService.getBillersByCategory(cat);
+    setBbpsBillers(billers);
+    setBbpsStep("BILLER");
+  };
+
+  const handleSelectBbpsBiller = (biller: Biller) => {
+    setBbpsSelectedBiller(biller);
+    setBbpsConsumerId("");
+    setBbpsStep("CONSUMER_ID");
+  };
+
+  const handleFetchBbpsBill = async () => {
+    if (!bbpsSelectedBiller || !bbpsConsumerId.trim()) return;
+    setIsBbpsFetching(true);
+    try {
+      const bill = await billerService.fetchBill(bbpsSelectedBiller.id, bbpsSelectedBiller.name, bbpsConsumerId.trim());
+      setBbpsFetchedBill(bill);
+      setBbpsStep("BILL_PREVIEW");
+    } catch {
+      showError("Could not fetch bill. Please check your consumer ID and try again.");
+    } finally {
+      setIsBbpsFetching(false);
+    }
+  };
+
+  const handleBbpsPayViaManaPay = () => {
+    setBbpsStep("PAYING");
+    setShowBbpsCheckout(true);
+  };
+
+  const handleBbpsBack = () => {
+    if (bbpsStep === "PAYING") {
+      setBbpsStep("BILL_PREVIEW");
+    } else if (bbpsStep === "BILL_PREVIEW") {
+      setBbpsFetchedBill(null);
+      setBbpsStep("CONSUMER_ID");
+    } else if (bbpsStep === "CONSUMER_ID") {
+      setBbpsStep("BILLER");
+    } else if (bbpsStep === "BILLER") {
+      setBbpsStep("CATEGORY");
+    } else {
+      setShowBbpsModal(false);
+    }
+  };
+
+  // ── Recharge State ────────────────────────────────────────────────────────
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [rechargeType, setRechargeType] = useState<RechargeType>("PREPAID");
+  const [rechargeMobile, setRechargeMobile] = useState("");
+  const [rechargeDetectedOp, setRechargeDetectedOp] = useState<MobileOperator | null>(null);
+  const [rechargeSelectedOp, setRechargeSelectedOp] = useState<MobileOperator | null>(null);
+  const [rechargePlans, setRechargePlans] = useState<RechargePlan[]>([]);
+  const [rechargePlanFilter, setRechargePlanFilter] = useState<"ALL" | "POPULAR" | "DATA" | "UNLIMITED" | "VALIDITY">("POPULAR");
+  const [rechargeSelectedPlan, setRechargeSelectedPlan] = useState<RechargePlan | null>(null);
+  const [rechargeStep, setRechargeStep] = useState<"NUMBER" | "PLANS" | "CONFIRM">("NUMBER");
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [isRecharging, setIsRecharging] = useState(false);
+
+  const handleMobileChange = (val: string) => {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    setRechargeMobile(digits);
+    const detected = rechargeService.detectOperator(digits);
+    setRechargeDetectedOp(detected);
+    if (detected && !rechargeSelectedOp) setRechargeSelectedOp(detected);
+  };
+
+  const handleLoadPlans = async () => {
+    if (!rechargeSelectedOp) return;
+    setIsLoadingPlans(true);
+    const plans = await rechargeService.getPlans(rechargeSelectedOp.id);
+    setRechargePlans(plans);
+    setRechargeSelectedPlan(null);
+    setRechargeStep("PLANS");
+    setIsLoadingPlans(false);
+  };
+
+  const handleConfirmRecharge = async () => {
+    if (!rechargeSelectedPlan || !rechargeSelectedOp) return;
+    setIsRecharging(true);
+    try {
+      await rechargeService.initiateRecharge(rechargeMobile, rechargeSelectedOp.id, rechargeSelectedPlan);
+      showSuccess(`Recharge of ₹${rechargeSelectedPlan.price} initiated for +91-${rechargeMobile}! Complete in your UPI app.`);
+      setShowRechargeModal(false);
+      setRechargeMobile("");
+      setRechargeSelectedOp(null);
+      setRechargeSelectedPlan(null);
+      setRechargeStep("NUMBER");
+    } catch {
+      showError("Could not initiate recharge. Please try again.");
+    } finally {
+      setIsRecharging(false);
+    }
+  };
+
+  const handleRechargeBack = () => {
+    if (rechargeStep === "CONFIRM") setRechargeStep("PLANS");
+    else if (rechargeStep === "PLANS") setRechargeStep("NUMBER");
+    else setShowRechargeModal(false);
+  };
+
+  const filteredRechargePlans = rechargePlanFilter === "ALL"
+    ? rechargePlans
+    : rechargePlans.filter(p => p.category === rechargePlanFilter);
 
   // Admin New Schedule Form
   const [showAddScheduleModal, setShowAddScheduleModal] = useState(false);
@@ -251,7 +409,7 @@ export function BillsAndAutopayDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-[#44475B] tracking-tight">Mana Bills & Autopay</h1>
+                <h4 className="text-xl font-bold text-[#44475B] tracking-tight">Mana Bills & Autopay</h4>
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E6FAF5] text-[#008767] border border-[#A7F3D0]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00D09C] animate-pulse" />
                   CRED & PhonePe Mode
@@ -343,6 +501,64 @@ export function BillsAndAutopayDashboard() {
           </div>
           <p className="text-2xl font-bold text-[#44475B] mt-2">₹1,450</p>
           <p className="text-[11px] text-[#D97706] mt-1 font-medium">Saved via grace-period autopay</p>
+        </div>
+      </div>
+
+      {/* ── BBPS Utility Bill Payment Entry Point ────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#FFFBEB] to-[#FEF9EC] border border-[#FDE68A] rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#D97706]/10 border border-[#FDE68A] flex items-center justify-center text-xl">
+              ⚡
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-[#44475B]">Pay Utility Bills (BBPS)</h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#D97706]/10 text-[#D97706] border border-[#FDE68A]">
+                  Electricity · Gas · Water · DTH
+                </span>
+              </div>
+              <p className="text-xs text-[#7C7E8C] mt-0.5">
+                Fetch live bill & pay instantly via UPI · Powered by NPCI Bharat BillPay · 70+ billers
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleOpenBbps}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#D97706] hover:bg-[#B45309] text-white text-xs font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
+          >
+            <Zap className="w-4 h-4" />
+            Pay Utility Bill
+          </button>
+        </div>
+      </div>
+
+      {/* ── Mobile Recharge Entry Point ──────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#F0F9FF] to-[#E0F2FE] border border-[#BAE6FD] rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#0284C7]/10 border border-[#BAE6FD] flex items-center justify-center text-xl">
+              📱
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-[#44475B]">Mobile Recharge</h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0284C7]/10 text-[#0284C7] border border-[#BAE6FD]">
+                  Jio · Airtel · Vi · BSNL
+                </span>
+              </div>
+              <p className="text-xs text-[#7C7E8C] mt-0.5">
+                Prepaid recharge & postpaid bill payment · Instant UPI / PhonePe
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setShowRechargeModal(true); setRechargeStep("NUMBER"); }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-bold rounded-xl shadow-sm transition-all whitespace-nowrap"
+          >
+            <Smartphone className="w-4 h-4" />
+            Recharge Now
+          </button>
         </div>
       </div>
 
@@ -955,6 +1171,403 @@ export function BillsAndAutopayDashboard() {
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: BBPS Utility Bill Payment ────────────────────────────────── */}
+      {showBbpsModal && !showBbpsCheckout && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EBEFF2] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EBEFF2]">
+              <div className="flex items-center gap-2.5">
+                {bbpsStep !== "CATEGORY" && (
+                  <button onClick={handleBbpsBack} className="p-1.5 rounded-lg hover:bg-[#F9FAFC] text-[#7C7E8C] hover:text-[#44475B] transition-all">
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                  </button>
+                )}
+                <div className="w-9 h-9 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] flex items-center justify-center text-lg">⚡</div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#44475B]">
+                    {bbpsStep === "CATEGORY" && "Pay Utility Bill"}
+                    {bbpsStep === "BILLER" && `Select ${BBPS_CATEGORIES.find(c => c.id === bbpsCategory)?.label} Biller`}
+                    {bbpsStep === "CONSUMER_ID" && bbpsSelectedBiller?.shortName}
+                    {bbpsStep === "BILL_PREVIEW" && "Bill Summary"}
+                    {bbpsStep === "PAYING" && "Complete Payment"}
+                  </h3>
+                  <p className="text-[10px] text-[#7C7E8C]">Powered by NPCI Bharat BillPay · BBPS</p>
+                </div>
+              </div>
+              <button onClick={() => setShowBbpsModal(false)} className="text-[#7C7E8C] hover:text-[#44475B]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Step 1: Category Selection */}
+              {bbpsStep === "CATEGORY" && (
+                <div className="grid grid-cols-3 gap-3">
+                  {BBPS_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleSelectBbpsCategory(cat.id)}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[#EBEFF2] hover:border-[#D97706]/50 hover:bg-[#FFFBEB]/50 transition-all"
+                    >
+                      <span className="text-2xl">{cat.icon}</span>
+                      <span className="text-xs font-semibold text-[#44475B]">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Step 2: Biller Selection */}
+              {bbpsStep === "BILLER" && (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={bbpsBillerSearch}
+                    onChange={(e) => setBbpsBillerSearch(e.target.value)}
+                    placeholder="Search biller or state…"
+                    className="w-full px-3 py-2 bg-[#F9FAFC] border border-[#EBEFF2] rounded-xl text-xs text-[#44475B] focus:outline-none focus:border-[#D97706]"
+                    autoFocus
+                  />
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {bbpsBillers
+                      .filter((b) => {
+                        const q = bbpsBillerSearch.toLowerCase();
+                        return !q || b.name.toLowerCase().includes(q) || b.state.toLowerCase().includes(q);
+                      })
+                      .map((biller) => (
+                        <button
+                          key={biller.id}
+                          onClick={() => handleSelectBbpsBiller(biller)}
+                          className="w-full flex items-center justify-between p-3.5 rounded-xl border border-[#EBEFF2] hover:border-[#D97706]/50 hover:bg-[#FFFBEB]/50 transition-all text-left"
+                        >
+                          <div>
+                            <span className="text-xs font-semibold text-[#44475B] block">{biller.name}</span>
+                            <span className="text-[11px] text-[#7C7E8C]">{biller.state}</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-[#7C7E8C] flex-shrink-0" />
+                        </button>
+                      ))}
+                    {bbpsBillers.length === 0 && (
+                      <div className="text-center text-xs text-[#7C7E8C] py-8">No billers available for this category yet.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Consumer ID Entry */}
+              {bbpsStep === "CONSUMER_ID" && bbpsSelectedBiller && (
+                <div className="space-y-4">
+                  <div className="p-3.5 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2]">
+                    <span className="text-[10px] text-[#7C7E8C] uppercase tracking-wider">Selected Biller</span>
+                    <p className="text-sm font-bold text-[#44475B] mt-0.5">{bbpsSelectedBiller.name}</p>
+                    <p className="text-xs text-[#7C7E8C]">{bbpsSelectedBiller.state}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#44475B] mb-1.5">
+                      {bbpsSelectedBiller.consumerIdLabel}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={bbpsConsumerId}
+                      onChange={(e) => setBbpsConsumerId(e.target.value.replace(/\D/g, ""))}
+                      maxLength={bbpsSelectedBiller.consumerIdLength || 20}
+                      placeholder={bbpsSelectedBiller.consumerIdHint}
+                      className="w-full px-3 py-2.5 bg-[#F9FAFC] border border-[#EBEFF2] rounded-xl text-sm text-[#44475B] font-mono focus:outline-none focus:border-[#D97706]"
+                      autoFocus
+                    />
+                    <p className="text-[11px] text-[#7C7E8C] mt-1.5">Find this on your electricity bill or meter receipt.</p>
+                  </div>
+                  <button
+                    onClick={handleFetchBbpsBill}
+                    disabled={!bbpsConsumerId.trim() || isBbpsFetching}
+                    className="w-full py-2.5 bg-[#D97706] hover:bg-[#B45309] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isBbpsFetching ? (
+                      <><RefreshCw className="w-4 h-4 animate-spin" /> Fetching Live Bill…</>
+                    ) : (
+                      <>Fetch Live Bill <ArrowRight className="w-4 h-4" /></>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Step 4: Bill Preview */}
+              {bbpsStep === "BILL_PREVIEW" && bbpsFetchedBill && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF9EC] border border-[#FDE68A] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-[#D97706] uppercase tracking-wider">{bbpsFetchedBill.billNumber}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEEFEF] text-[#EB5B5B] border border-[#FCA5A5]">
+                        {bbpsFetchedBill.status}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#44475B]">{bbpsFetchedBill.billerName}</h4>
+                      <p className="text-xs text-[#7C7E8C]">Consumer ID: {bbpsFetchedBill.consumerId}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-[#7C7E8C]">
+                      <div><span className="block text-[10px] uppercase tracking-wider">Bill Date</span><strong className="text-[#44475B]">{bbpsFetchedBill.billDate}</strong></div>
+                      <div><span className="block text-[10px] uppercase tracking-wider">Due Date</span><strong className="text-[#EB5B5B]">{bbpsFetchedBill.dueDate}</strong></div>
+                      <div><span className="block text-[10px] uppercase tracking-wider">Period</span><strong className="text-[#44475B]">{bbpsFetchedBill.periodFrom} – {bbpsFetchedBill.periodTo}</strong></div>
+                      {bbpsFetchedBill.units !== undefined && (
+                        <div><span className="block text-[10px] uppercase tracking-wider">Units</span><strong className="text-[#44475B]">{bbpsFetchedBill.units} kWh</strong></div>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-[#FDE68A] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-[#7C7E8C] uppercase tracking-wider">Total Payable</span>
+                        <p className="text-2xl font-black text-[#44475B]">₹{bbpsFetchedBill.amount.toLocaleString("en-IN")}</p>
+                      </div>
+                      <button
+                        onClick={() => { setBbpsConsumerId(""); setBbpsStep("CONSUMER_ID"); setBbpsFetchedBill(null); }}
+                        className="text-xs text-[#7C7E8C] hover:text-[#44475B] underline"
+                      >
+                        Change ID
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleBbpsPayViaManaPay}
+                    className="w-full py-2.5 bg-[#00D09C] hover:bg-[#00b887] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    Pay ₹{bbpsFetchedBill.amount.toLocaleString("en-IN")} via Mana Pay
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: BBPS Mana Pay Checkout ───────────────────────────────────── */}
+      {showBbpsCheckout && bbpsFetchedBill && (
+        <ManaPayUnifiedCheckoutModal
+          isOpen={showBbpsCheckout}
+          onClose={() => { setShowBbpsCheckout(false); setBbpsStep("BILL_PREVIEW"); }}
+          domainSource="COMMUNITY_FINANCE"
+          referenceType="OTHER"
+          referenceId={bbpsFetchedBill.billNumber}
+          title={`${bbpsFetchedBill.billerName} — Utility Bill`}
+          subtitle={`Consumer ID: ${bbpsFetchedBill.consumerId} · Due: ${bbpsFetchedBill.dueDate}`}
+          amount={bbpsFetchedBill.amount}
+          onPaymentSuccess={() => {
+            showSuccess(`Utility bill of ₹${bbpsFetchedBill.amount.toLocaleString("en-IN")} paid successfully!`);
+            setShowBbpsCheckout(false);
+            setShowBbpsModal(false);
+            setBbpsFetchedBill(null);
+            setBbpsSelectedBiller(null);
+            setBbpsConsumerId("");
+          }}
+        />
+      )}
+
+      {/* ── MODAL: Mobile Recharge ───────────────────────────────────────────── */}
+      {showRechargeModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-[#EBEFF2] shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#EBEFF2]">
+              <div className="flex items-center gap-2.5">
+                {rechargeStep !== "NUMBER" && (
+                  <button onClick={handleRechargeBack} className="p-1.5 rounded-lg hover:bg-[#F9FAFC] text-[#7C7E8C] hover:text-[#44475B]">
+                    <ChevronRight className="w-4 h-4 rotate-180" />
+                  </button>
+                )}
+                <div className="w-9 h-9 rounded-xl bg-[#F0F9FF] border border-[#BAE6FD] flex items-center justify-center text-lg">📱</div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#44475B]">
+                    {rechargeStep === "NUMBER" && "Mobile Recharge"}
+                    {rechargeStep === "PLANS" && `${rechargeSelectedOp?.shortName} Plans`}
+                    {rechargeStep === "CONFIRM" && "Confirm Recharge"}
+                  </h3>
+                  <p className="text-[10px] text-[#7C7E8C]">Prepaid · Postpaid · Instant UPI</p>
+                </div>
+              </div>
+              <button onClick={() => setShowRechargeModal(false)} className="text-[#7C7E8C] hover:text-[#44475B]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Step 1: Number + Operator */}
+              {rechargeStep === "NUMBER" && (
+                <div className="space-y-4">
+                  {/* Prepaid / Postpaid */}
+                  <div className="flex rounded-xl border border-[#EBEFF2] overflow-hidden">
+                    {(["PREPAID", "POSTPAID"] as RechargeType[]).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setRechargeType(t)}
+                        className={`flex-1 py-2.5 text-xs font-bold transition-all ${rechargeType === t ? "bg-[#44475B] text-white" : "text-[#7C7E8C] hover:bg-[#F9FAFC]"}`}
+                      >
+                        {t === "PREPAID" ? "Prepaid" : "Postpaid"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mobile Input */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#44475B] mb-1.5">Mobile Number</label>
+                    <div className="flex items-center border border-[#EBEFF2] rounded-xl overflow-hidden">
+                      <span className="px-3 py-2.5 bg-[#F9FAFC] border-r border-[#EBEFF2] text-xs font-semibold text-[#44475B]">🇮🇳 +91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={rechargeMobile}
+                        onChange={(e) => handleMobileChange(e.target.value)}
+                        maxLength={10}
+                        placeholder="Enter 10-digit number"
+                        className="flex-1 px-3 py-2.5 text-sm font-semibold text-[#44475B] tracking-widest focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    {rechargeDetectedOp && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E6FAF5] border border-[#A7F3D0] rounded-lg text-xs font-semibold text-[#008767]">
+                        {rechargeDetectedOp.icon} Detected: {rechargeDetectedOp.name}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Operator Grid */}
+                  <div>
+                    <label className="block text-xs font-semibold text-[#44475B] mb-2">Select Operator</label>
+                    <div className="flex flex-wrap gap-2">
+                      {OPERATORS.map((op) => (
+                        <button
+                          key={op.id}
+                          onClick={() => setRechargeSelectedOp(op)}
+                          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 text-xs font-semibold transition-all ${
+                            rechargeSelectedOp?.id === op.id
+                              ? "border-[#0284C7] bg-[#F0F9FF] text-[#0284C7]"
+                              : "border-[#EBEFF2] text-[#44475B] hover:border-[#BAE6FD]"
+                          }`}
+                        >
+                          <span className="text-base">{op.icon}</span>
+                          {op.shortName}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleLoadPlans}
+                    disabled={rechargeMobile.length < 10 || !rechargeSelectedOp || isLoadingPlans}
+                    className="w-full py-2.5 bg-[#0284C7] hover:bg-[#0369A1] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoadingPlans ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading Plans…</> : <>Browse Plans <ArrowRight className="w-4 h-4" /></>}
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2: Plan Selection */}
+              {rechargeStep === "PLANS" && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#EBEFF2] flex items-center justify-between text-xs">
+                    <span className="text-[#7C7E8C]">+91 {rechargeMobile} · {rechargeSelectedOp?.name}</span>
+                    <button onClick={() => setRechargeStep("NUMBER")} className="text-[#0284C7] font-semibold">Change</button>
+                  </div>
+
+                  {/* Category filters */}
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {(["POPULAR", "DATA", "UNLIMITED", "VALIDITY", "ALL"] as const).map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setRechargePlanFilter(cat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                          rechargePlanFilter === cat ? "bg-[#44475B] text-white" : "bg-white border border-[#EBEFF2] text-[#7C7E8C]"
+                        }`}
+                      >
+                        {cat === "POPULAR" ? "🔥 Popular" : cat === "DATA" ? "📶 Data" : cat === "UNLIMITED" ? "♾️ Unlimited" : cat === "VALIDITY" ? "📅 Validity" : "All"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {filteredRechargePlans.map((plan) => (
+                      <button
+                        key={plan.id}
+                        onClick={() => { setRechargeSelectedPlan(plan); setRechargeStep("CONFIRM"); }}
+                        className={`w-full p-3.5 rounded-xl border text-left transition-all ${
+                          rechargeSelectedPlan?.id === plan.id
+                            ? "border-[#0284C7] bg-[#F0F9FF]"
+                            : "border-[#EBEFF2] bg-white hover:border-[#BAE6FD]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-black text-[#44475B]">₹{plan.price}</span>
+                              <span className="text-[10px] text-[#7C7E8C]">{plan.validity}</span>
+                              {plan.isBestSeller && <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-1.5 py-0.5 rounded">🔥 Best Seller</span>}
+                              {plan.isRecommended && <span className="text-[10px] font-bold text-[#008767] bg-[#E6FAF5] px-1.5 py-0.5 rounded">⭐ Recommended</span>}
+                            </div>
+                            <p className="text-[11px] text-[#7C7E8C] mt-0.5">{plan.description}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-[11px] text-[#44475B] font-semibold">{plan.data}</div>
+                            <div className="text-[10px] text-[#7C7E8C]">{plan.calls}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Confirm */}
+              {rechargeStep === "CONFIRM" && rechargeSelectedPlan && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-[#F0F9FF] to-[#E0F2FE] border border-[#BAE6FD] space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{rechargeSelectedOp?.icon}</span>
+                      <div>
+                        <p className="text-sm font-bold text-[#44475B]">{rechargeSelectedOp?.name}</p>
+                        <p className="text-xs text-[#7C7E8C]">+91 {rechargeMobile} · {rechargeType}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📶</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Data</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.data}</strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📞</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Calls</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.calls}</strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-lg border border-[#EBEFF2]">
+                        <span className="block text-base">📅</span>
+                        <span className="text-[#7C7E8C] block mt-0.5">Validity</span>
+                        <strong className="text-[#44475B]">{rechargeSelectedPlan.validity}</strong>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-[#BAE6FD] flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-[#7C7E8C] uppercase tracking-wider">Total Payable</span>
+                        <p className="text-2xl font-black text-[#44475B]">₹{rechargeSelectedPlan.price}</p>
+                      </div>
+                      <button onClick={() => setRechargeStep("PLANS")} className="text-xs text-[#7C7E8C] hover:text-[#44475B] underline">Change Plan</button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleConfirmRecharge}
+                    disabled={isRecharging}
+                    className="w-full py-2.5 bg-[#0284C7] hover:bg-[#0369A1] disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isRecharging ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing…</> : <><Smartphone className="w-4 h-4" /> Pay ₹{rechargeSelectedPlan.price} via Mana Pay</>}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

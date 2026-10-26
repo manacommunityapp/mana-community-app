@@ -199,12 +199,12 @@ export const ManaSplitHub: React.FC = () => {
                   <PieChart className="w-5 h-5" />
                 </span>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 flex items-center gap-2">
+                  <h4 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 flex items-center gap-2">
                     Mana Split & Collections
                     <Badge className="bg-purple-100 text-purple-800 border-none font-semibold text-xs">
                       PhonePe-Grade Split Engine
                     </Badge>
-                  </h1>
+                  </h4>
                   <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                     Split trip, fuel, food, and community expenses. Optimized debt transfers with zero lost paise.
                   </p>

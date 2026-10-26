@@ -1,0 +1,125 @@
+{
+  "name": "Mana Safety ANPR Barrier & Parking Enforcer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safety-anpr-parking-enforcer",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound ANPR & Parking Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-safety-anpr-parking-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst licensePlate = item.licensePlate || item.vehicleNumber || 'KA01MJ4521';\nconst rfidTag = item.rfidTag || item.rfidTagNumber || 'N/A';\nconst direction = item.direction || 'IN'; // IN, OUT\nconst triggerSource = item.triggerSource || 'ANPR'; // ANPR, RFID, MANUAL, PATROL\nconst isResidentVehicle = item.isResidentVehicle ?? false;\nconst registeredResident = item.registeredResident || 'Unknown';\nconst assignedSlot = item.assignedSlot || 'NONE';\nconst detectedSlot = item.detectedSlot || item.parkingSlotNumber || 'UNKNOWN';\nconst violationType = item.violationType || (detectedSlot !== 'UNKNOWN' && assignedSlot !== 'NONE' && detectedSlot !== assignedSlot ? 'UNAUTHORIZED_SLOT' : 'NONE');\n// UNAUTHORIZED_SLOT, DOUBLE_PARKING, FIRE_LANE_BLOCK, EV_BAY_MISUSE, VISITOR_OVERSTAY, SPEEDING\nconst pastViolationsCount = item.pastViolationsCount ?? 0;\nconst gateName = item.gateName || 'North Gate ANPR Boom Barrier';\n\nconst prompt = `You are the Automated Parking Marshal and ANPR Barrier Controller for Mana Community Society.\nEvaluate this real-time vehicle entry or parking violation telemetry against society traffic and parking bylaws.\n\nVehicle & Event Telemetry:\n- License Plate: ${licensePlate}\n- RFID Tag: ${rfidTag}\n- Event Direction: ${direction} via ${gateName}\n- Trigger Source: ${triggerSource}\n- Resident Affiliation: ${isResidentVehicle ? `Yes (${registeredResident}, Assigned: ${assignedSlot})` : 'Unregistered / Visitor Vehicle'}\n- Detected Parking Location: ${detectedSlot}\n- Reported Violation: ${violationType}\n- Prior Parking Offenses: ${pastViolationsCount}\n\nAutomated Enforcement Mandates:\n1. Determine Barrier Action (OPEN_BARRIER, KEEP_LOCKED_FLAG_GUARD, MANUAL_PASS_REQUIRED).\n2. Adjudicate Parking Violation Severity (CRITICAL_SAFETY_HAZARD for fire lanes, REPEAT_ENCROACHMENT, MINOR_FIRST_TIME, NO_VIOLATION).\n3. Progressive Penalty Escalation: If violation present, assign exact action ('OFFICIAL_WARNING', 'FINE_500_INR', 'FINE_1000_INR_WHEEL_CLAMP', 'VEHICLE_TOWING_ESCALATION').\n4. Draft immediate SMS/WhatsApp notification for the vehicle owner / resident.\n5. Security Patrol instruction (e.g. place violation sticker, apply physical clamp, clear fire access route).\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"barrierDecision\": \"OPEN_BARRIER\" | \"KEEP_LOCKED_FLAG_GUARD\" | \"MANUAL_PASS_REQUIRED\",\n  \"isViolation\": boolean,\n  \"violationClassification\": \"NO_VIOLATION\" | \"MINOR_FIRST_TIME\" | \"REPEAT_ENCROACHMENT\" | \"CRITICAL_SAFETY_HAZARD\",\n  \"penaltyEnforcement\": \"NONE\" | \"OFFICIAL_WARNING\" | \"FINE_500_INR\" | \"FINE_1000_INR_WHEEL_CLAMP\" | \"VEHICLE_TOWING_ESCALATION\",\n  \"fineAmount\": number,\n  \"patrolInstructions\": \"Direct task for parking warden / security patrol\",\n  \"ownerNotificationMessage\": \"Text message for resident or driver explaining the issue\",\n  \"systemLogNotes\": \"Audit entry note for Society Command Center\"\n}`;\n\nreturn [{\n  json: {\n    licensePlate,\n    violationType,\n    direction,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare ANPR Enforcement Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Parking Controller (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst meta = $('Prepare ANPR Enforcement Prompt').first().json;\nlet parsed = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsed = JSON.parse(rawText);\n} catch (err) {\n  const hasViol = (meta.violationType && meta.violationType !== 'NONE');\n  parsed = {\n    barrierDecision: hasViol ? \"KEEP_LOCKED_FLAG_GUARD\" : \"OPEN_BARRIER\",\n    isViolation: hasViol,\n    violationClassification: hasViol ? \"REPEAT_ENCROACHMENT\" : \"NO_VIOLATION\",\n    penaltyEnforcement: hasViol ? \"FINE_500_INR\" : \"NONE\",\n    fineAmount: hasViol ? 500 : 0,\n    patrolInstructions: hasViol ? \"Verify unauthorized parking slot and place official notice citation.\" : \"Allow entry without delay.\",\n    ownerNotificationMessage: hasViol ? `Vehicle ${meta.licensePlate} parked in unauthorized bay. Please relocate immediately to avoid wheel clamping.` : `Vehicle ${meta.licensePlate} authorized.`,\n    systemLogNotes: \"Automated fallback rule evaluated.\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    evaluatedAt: new Date().toISOString(),\n    vehicle: meta.licensePlate,\n    enforcementResult: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format Enforcement Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Barrier Gate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Inbound ANPR & Parking Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare ANPR Enforcement Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare ANPR Enforcement Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Parking Controller (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Parking Controller (AI)": {
+      "main": [
+        [
+          {
+            "node": "Format Enforcement Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Enforcement Action": {
+      "main": [
+        [
+          {
+            "node": "Respond to Barrier Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

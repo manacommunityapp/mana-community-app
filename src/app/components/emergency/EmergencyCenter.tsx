@@ -451,9 +451,9 @@ export function EmergencyCenter() {
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#44475B] dark:text-white flex items-center gap-3">
+              <h4 className="text-xl sm:text-2xl font-extrabold tracking-tight text-[#44475B] dark:text-white flex items-center gap-3">
                 Emergency &amp; SOS Command Center
-              </h1>
+              </h4>
               <p className="text-xs sm:text-sm text-[#7C7E8C] dark:text-slate-400 mt-1 max-w-2xl">
                 Immediate incident escalation, automatic tower marshal dispatch, live ambulance liaison, and smart gate lockdown protocols.
               </p>

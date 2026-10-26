@@ -24,6 +24,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const [advOpen, setAdvOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
 
   const loadOrders = async () => {
@@ -48,39 +49,19 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
     loadOrders();
   }, []);
 
-  const metrics = useMemo(() => {
-    let total = 0, open = 0, purchased = 0, month = 0;
-    let openCount = 0, purchasedCount = 0, monthCount = 0;
-    for (const o of allOrders) {
-      total += o.amount;
-      if (o.status.toLowerCase() === "open") { open += o.amount; openCount++; }
-      if (o.status.toLowerCase() === "purchased") { purchased += o.amount; purchasedCount++; }
-      if (o.date.startsWith("2026-07")) { month += o.amount; monthCount++; }
-    }
-    return { total, open, purchased, month, openCount, purchasedCount, monthCount };
-  }, [allOrders]);
-
-  const orders = useMemo(() => allOrders.filter((o) => {
-    if (statusFilter && o.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
-    if (search && !o.id.toLowerCase().includes(search.toLowerCase()) && !o.vendor.toLowerCase().includes(search.toLowerCase())) return false;
-    if (periodFilter === "month" && !o.date.startsWith("2026-07")) return false;
-    return true;
-  }), [allOrders, statusFilter, search, periodFilter]);
-
-  const onCardClick = (filter: "all" | "open" | "purchased" | "month") => {
-    setStatusFilter(filter === "open" || filter === "purchased" ? filter : "");
-    if (filter === "month") setPeriodFilter("month");
+  const handleVerifyMatch = (_order: OrderRow) => {
+    toast.info("Three-way matching is unavailable for ledger purchase orders until they are linked to vendor procurement invoices and receipts.");
   };
 
   const handleReceiveGoods = async (row: OrderRow) => {
     if (processingId) return;
     setProcessingId(row.id);
     try {
-      // 1. Fetch picking types and locations
+      // 1. Fetch picking types, locations, and products
       const [stats, locations, prods] = await Promise.all([
         stockService.getPickingTypeStats(),
         stockService.getLocations(),
-        stockService.getProducts()
+        stockService.getProducts(),
       ]);
 
       const incomingType = stats.find(s => s.code === "INCOMING") || stats[0];
@@ -92,17 +73,34 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
         return;
       }
 
-      // Map PO items to picking move lines
-      const moveLines = (row.doc.items || []).map((item) => {
+      // Map PO items to picking move lines without hardcoded fallback
+      const moveLines: Array<{ productId: number; productQty: number }> = [];
+      const missingItems: string[] = [];
+
+      for (const item of (row.doc.items || [])) {
         const foundProd = prods.find(p => p.name.toLowerCase() === (item.item || "").toLowerCase());
-        return {
-          productId: foundProd?.id || 1,
-          productQty: item.qty || 1
-        };
-      });
+        if (foundProd && foundProd.id) {
+          moveLines.push({
+            productId: foundProd.id,
+            productQty: item.qty || 1,
+          });
+        } else {
+          missingItems.push(item.item || "Unknown item");
+        }
+      }
+
+      if (missingItems.length > 0) {
+        if (prods.length === 0) {
+          toast.error("No inventory products exist in warehouse catalog. Please create products first.");
+          return;
+        }
+        toast.error(`Products not found in warehouse master: ${missingItems.join(", ")}. Please register products first.`);
+        return;
+      }
 
       if (moveLines.length === 0) {
-        moveLines.push({ productId: 1, productQty: 1 });
+        toast.error("Purchase order contains no line items to receive.");
+        return;
       }
 
       // 2. Create incoming warehouse picking
@@ -112,24 +110,52 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
         locationDestId: internalLoc.id,
         origin: `PO: ${row.id}`,
         scheduledDate: new Date().toISOString(),
-        moveLines
+        moveLines,
       });
 
-      // 3. Update PO status in finance to "Purchased"
+      // The stock picking is the persisted warehouse receipt for this finance PO.
+      // This ledger screen does not yet share IDs with VMS goods receipts.
+
+      // 4. Update PO status in finance to "Purchased"
       if (row.doc.id) {
         await ledgerFinanceService.updateDocument(row.doc.id, {
           ...row.doc,
-          status: "Purchased"
+          status: "Purchased",
         });
       }
 
-      toast.success(`Incoming warehouse receipt created for ${row.id}. Status updated to Purchased!`);
+      toast.success(`Warehouse receipt created for ${row.id}; finance status updated to Purchased.`);
       loadOrders();
     } catch (err: any) {
       toast.error(err?.message || "Failed to create incoming goods receipt.");
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const metrics = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    let total = 0, open = 0, purchased = 0, month = 0;
+    let openCount = 0, purchasedCount = 0, monthCount = 0;
+    for (const o of allOrders) {
+      total += o.amount;
+      if (o.status.toLowerCase() === "open") { open += o.amount; openCount++; }
+      if (o.status.toLowerCase() === "purchased") { purchased += o.amount; purchasedCount++; }
+      if (o.date.startsWith(currentMonth)) { month += o.amount; monthCount++; }
+    }
+    return { total, open, purchased, month, openCount, purchasedCount, monthCount };
+  }, [allOrders]);
+
+  const orders = useMemo(() => allOrders.filter((o) => {
+    if (statusFilter && o.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
+    if (search && !o.id.toLowerCase().includes(search.toLowerCase()) && !o.vendor.toLowerCase().includes(search.toLowerCase())) return false;
+    if (periodFilter === "month" && !o.date.startsWith(new Date().toISOString().slice(0, 7))) return false;
+    return true;
+  }), [allOrders, statusFilter, search, periodFilter]);
+
+  const onCardClick = (filter: "all" | "open" | "purchased" | "month") => {
+    setStatusFilter(filter === "open" || filter === "purchased" ? filter : "");
+    if (filter === "month") setPeriodFilter("month");
   };
 
   return (
@@ -263,17 +289,28 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
                       </span>
                     </td>
                     <td>
-                      {o.status.toLowerCase() === "open" && (
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        {o.status.toLowerCase() === "open" && (
+                          <button
+                            type="button"
+                            onClick={() => handleReceiveGoods(o)}
+                            disabled={processingId === o.id}
+                            className="btn btn-sm btn-primary"
+                            style={{ fontSize: 11, padding: "3px 8px" }}
+                          >
+                            {processingId === o.id ? "Receiving..." : "Receive Goods"}
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleReceiveGoods(o)}
-                          disabled={processingId === o.id}
-                          className="btn btn-sm btn-primary"
-                          style={{ fontSize: 11, padding: "3px 8px" }}
+                          onClick={() => handleVerifyMatch(o)}
+                          className="btn btn-sm btn-ghost"
+                          style={{ fontSize: 11, padding: "3px 8px", color: "#64748b", border: "1px solid currentColor", borderRadius: "6px" }}
+                          title="Three-way matching is not wired to this finance ledger record yet"
                         >
-                          {processingId === o.id ? "Receiving..." : "Receive Goods"}
+                          Match unavailable
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -282,6 +319,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
           </div>
         </div>
       </div>
+
     </section>
   );
 }

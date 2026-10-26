@@ -1,4 +1,5 @@
 import { apiClient } from "../common/apiClient";
+import type { Sponsor } from "../../types/api";
 
 // ── Lean dashboard payload (mirrors SportsDashboardResponse on the backend) ──
 
@@ -26,6 +27,13 @@ export interface DashboardEventCard {
   teamSport: boolean;
   myRegistrationId: number | null;
   myRegistrationStatus: string | null;
+  gender?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categories?: any[] | null;
+  allowedGenders?: string[] | null;
+  formats?: string[] | null;
+  format?: string | string[] | null;
 }
 
 export interface DashboardUpcomingEvent {
@@ -70,7 +78,10 @@ export interface DashboardTournamentCard {
   registrationStatus: string | null;
   communityId: number | null;
   communityName: string | null;
+  venueName?: string | null;
+  sportName?: string | null;
   events: DashboardEventCard[];
+  sponsors?: Sponsor[];
 }
 
 export interface SportsDashboardResponse {

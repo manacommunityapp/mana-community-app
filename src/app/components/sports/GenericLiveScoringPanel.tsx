@@ -192,7 +192,7 @@ export function GenericLiveScoringPanel({
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+            <h2 className="text-xs font-bold text-slate-800 dark:text-slate-100">
               {sportType.replace(/_/g, " ")} - Live Scoring
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -264,7 +264,7 @@ export function GenericLiveScoringPanel({
               {state.periods.map((p) => (
                 <div
                   key={p.periodNumber}
-                  className={`text-[10px] px-2 py-1 rounded-lg font-semibold ${
+                  className={`text-xs px-2 py-1 rounded-lg font-semibold ${
                     p.periodNumber === state.currentPeriod
                       ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-300"
                       : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
@@ -279,7 +279,7 @@ export function GenericLiveScoringPanel({
           {/* Point-to-win progress bar for set-based sports */}
           {isSetBased(sportType) && state.scoringConfig?.pointsToWinPeriod && (
             <div className="mb-3">
-              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1">
+              <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                 <span>
                   {state.scoreTeamA} / {state.scoringConfig.pointsToWinPeriod}
                 </span>
@@ -322,7 +322,7 @@ export function GenericLiveScoringPanel({
         {/* Match minute input for timed sports */}
         {isTimedSport(sportType) && !isCompleted && (
           <div className="px-4 pb-3">
-            <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Match Minute
             </label>
             <input
@@ -346,7 +346,7 @@ export function GenericLiveScoringPanel({
           <div className="px-4 pb-3 grid grid-cols-2 gap-3">
             {playersA.length > 0 && (
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   {teamA.name} Player
                 </label>
                 <div className="relative mt-1">
@@ -372,7 +372,7 @@ export function GenericLiveScoringPanel({
             )}
             {playersB.length > 0 && (
               <div>
-                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   {teamB.name} Player
                 </label>
                 <div className="relative mt-1">
@@ -406,7 +406,7 @@ export function GenericLiveScoringPanel({
               {/* Team A column */}
               <div className="space-y-2">
                 <p
-                  className="text-[10px] font-bold uppercase tracking-wider text-center py-1 rounded-md"
+                  className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
                   style={{
                     color: teamA.color || "#6366f1",
                     backgroundColor: `${teamA.color || "#6366f1"}15`,
@@ -441,7 +441,7 @@ export function GenericLiveScoringPanel({
               {/* Team B column */}
               <div className="space-y-2">
                 <p
-                  className="text-[10px] font-bold uppercase tracking-wider text-center py-1 rounded-md"
+                  className="text-xs font-bold uppercase tracking-wider text-center py-1 rounded-md"
                   style={{
                     color: teamB.color || "#f97316",
                     backgroundColor: `${teamB.color || "#f97316"}15`,
@@ -503,7 +503,7 @@ export function GenericLiveScoringPanel({
 
         {/* Recent events feed */}
         <div className="px-4 pb-4">
-          <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+          <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
             Recent Events
           </h3>
           <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -527,10 +527,10 @@ export function GenericLiveScoringPanel({
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                     {evt.teamName}
                   </span>
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 ml-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-1">
                     {evt.eventType.replace(/_/g, " ")}
                     {evt.playerName && ` - ${evt.playerName}`}
                     {evt.pointsAwarded > 0 && ` (+${evt.pointsAwarded})`}

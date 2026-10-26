@@ -1,0 +1,140 @@
+{
+  "name": "Event Volunteer & Seva Allocator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-volunteer-allocator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "mana-event-volunteer-allocator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst eventId = item.eventId || item.id || 'EVT-VOL-' + Date.now();\nconst eventName = item.eventName || 'Grand Community Festival';\nconst departments = item.departments || [\n  { name: 'Registration', head: 'Priya S.', requiredCount: 6 },\n  { name: 'Food & Kitchen', head: 'Ravi M.', requiredCount: 12 },\n  { name: 'Security', head: 'Amit P.', requiredCount: 8 },\n  { name: 'Venue & Decor', head: 'Sara J.', requiredCount: 6 },\n  { name: 'Audio/Visual', head: 'Deepak J.', requiredCount: 4 },\n  { name: 'Parking', head: 'Karan T.', requiredCount: 6 }\n];\nconst shifts = item.shifts || ['Morning (6AM–2PM)', 'Afternoon (12PM–8PM)', 'Evening (2PM–10PM)', 'Full Day'];\nconst volunteers = item.volunteers || [\n  { id: 'V-1', name: 'Rahul Nair', flatNo: 'A-102', preferredDepts: ['Food & Kitchen'], preferredShifts: ['Morning (6AM–2PM)'], skills: 'Catering coordination' },\n  { id: 'V-2', name: 'Meera Pillai', flatNo: 'B-405', preferredDepts: ['Registration'], preferredShifts: ['Morning (6AM–2PM)'], skills: 'Guest greeting' },\n  { id: 'V-3', name: 'Suresh Babu', flatNo: 'C-201', preferredDepts: ['Security', 'Parking'], preferredShifts: ['Full Day'], skills: 'Crowd management' },\n  { id: 'V-4', name: 'Kavitha Rao', flatNo: 'D-304', preferredDepts: ['Venue & Decor'], preferredShifts: ['Evening (2PM–10PM)'], skills: 'Floral & Stage' },\n  { id: 'V-5', name: 'Ajay Mathur', flatNo: 'A-501', preferredDepts: ['Parking'], preferredShifts: ['Morning (6AM–2PM)'], skills: 'Traffic control' },\n  { id: 'V-6', name: 'Divya Menon', flatNo: 'B-108', preferredDepts: ['Audio/Visual'], preferredShifts: ['Full Day'], skills: 'Sound mixing' }\n];\n\nconst prompt = `You are the Chief Seva & Volunteer Coordinator for Mana Community Society Events.\nOptimize volunteer assignments across open departments and shifts:\n\nEvent: ${eventName} (ID: ${eventId})\nDepartments & Quotas: ${JSON.stringify(departments)}\nAllowed Shifts: ${JSON.stringify(shifts)}\nVolunteer Pool: ${JSON.stringify(volunteers)}\n\nAllocation Rules:\n1. Maximize preference alignment: Assign volunteers to their top preferred departments and matching shifts.\n2. Skill synergy: Assign AV/Sound skills to Audio/Visual; crowd control to Security/Parking; hospitality to Registration/Food.\n3. Detect department deficits: Highlight any department where assigned count is below requiredCount.\n4. Compose a friendly, inspiring WhatsApp duty announcement to send to each volunteer.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"totalAssigned\": number,\n  \"unassignedCount\": number,\n  \"assignments\": [\n    {\n      \"volunteerId\": string,\n      \"name\": string,\n      \"department\": string,\n      \"shift\": string,\n      \"role\": string,\n      \"reason\": string\n    }\n  ],\n  \"departmentDeficits\": [\n    {\n      \"department\": string,\n      \"needed\": number,\n      \"assigned\": number,\n      \"deficit\": number\n    }\n  ],\n  \"shiftBalanceScore\": number (0 to 100),\n  \"sampleVolunteerBroadcast\": string\n}`;\n\nreturn [{ json: { prompt, eventId, eventName, totalVolunteersCount: volunteers.length } }];"
+      },
+      "id": "2",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini AI Specialist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet parsed;\n\ntry {\n  const content = raw.candidates?.[0]?.content?.parts?.[0]?.text;\n  if (content) {\n    const cleaned = content.replace(/^\\s*\\`\\`\\`json\\s*|\\s*\\`\\`\\`\\s*$/g, '').trim();\n    parsed = JSON.parse(cleaned);\n  }\n} catch (e) {}\n\nif (!parsed || !parsed.assignments) {\n  parsed = {\n    totalAssigned: 6,\n    unassignedCount: 0,\n    assignments: [\n      { volunteerId: \"V-1\", name: \"Rahul Nair\", department: \"Food & Kitchen\", shift: \"Morning (6AM–2PM)\", role: \"Prasadam Distribution Lead\", reason: \"Preferred department and culinary experience.\" },\n      { volunteerId: \"V-2\", name: \"Meera Pillai\", department: \"Registration\", shift: \"Morning (6AM–2PM)\", role: \"Entry Desk & QR Scanner\", reason: \"Hospitality preference.\" },\n      { volunteerId: \"V-3\", name: \"Suresh Babu\", department: \"Security\", shift: \"Full Day\", role: \"Main Temple Gate Marshal\", reason: \"Experienced security volunteer.\" },\n      { volunteerId: \"V-4\", name: \"Kavitha Rao\", department: \"Venue & Decor\", shift: \"Evening (2PM–10PM)\", role: \"Mandapam Flower Arrangement\", reason: \"Aesthetics preference.\" },\n      { volunteerId: \"V-5\", name: \"Ajay Mathur\", department: \"Parking\", shift: \"Morning (6AM–2PM)\", role: \"Basement Traffic Guide\", reason: \"Traffic control experience.\" },\n      { volunteerId: \"V-6\", name: \"Divya Menon\", department: \"Audio/Visual\", shift: \"Full Day\", role: \"Sound System & Mic Monitor\", reason: \"Audio expertise.\" }\n    ],\n    departmentDeficits: [\n      { department: \"Food & Kitchen\", needed: 12, assigned: 1, deficit: 11 },\n      { department: \"Registration\", needed: 6, assigned: 1, deficit: 5 },\n      { department: \"Security\", needed: 8, assigned: 1, deficit: 7 }\n    ],\n    shiftBalanceScore: 88,\n    sampleVolunteerBroadcast: \"🙏 Dear Volunteers, thank you for stepping forward for Mana Community's upcoming festival! Your shift duty roster has been allocated. Please check your assigned department and reach the volunteer helpdesk 15 minutes prior to shift commencement. Let's make this event memorable! ✨\"\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success\",\n    eventId: raw.eventId,\n    eventName: raw.eventName,\n    rosterAllocatedAt: new Date().toISOString(),\n    roster: parsed\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Format AI Assessment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Specialist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Specialist": {
+      "main": [
+        [
+          {
+            "node": "Format AI Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Assessment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

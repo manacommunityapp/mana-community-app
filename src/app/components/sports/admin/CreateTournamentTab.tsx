@@ -123,7 +123,7 @@ export function CreateTournamentTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-left">
-          <h3 className="text-xl font-bold text-slate-800">
+          <h3 className="text-xs font-bold text-slate-800">
             {editingEventId ? "Edit Tournament" : "CREATE TOURNAMENT"}
           </h3>
           <p className="text-sm text-slate-500 mt-1">{editingEventId ? "Update tournament details" : "Step 1: Create your tournament, then add sports events to it"}</p>
@@ -138,12 +138,12 @@ export function CreateTournamentTab({
 
       <div className="max-w-5xl mx-auto">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Tournament Details</div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 m-0 mb-0">Tournament Details</h3>
 
           {editingEventId && onAddEvents && (
             <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 text-left">
               <div>
-                <span className="text-xs font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
+                <span className="text-[10px] font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
                 <span className="text-[10px] text-indigo-500 mt-0.5">Manage, add, or edit the sports events associated with this tournament.</span>
               </div>
               <button
@@ -249,7 +249,7 @@ export function CreateTournamentTab({
 
           {/* Tournament Level & Branding */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Level & Branding</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Level & Branding</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-xs text-slate-500 font-semibold block mb-2">Tournament Type</label>
@@ -276,20 +276,20 @@ export function CreateTournamentTab({
                   <div className="relative h-[42px] w-full rounded-lg overflow-hidden border border-slate-200 group flex items-center justify-between px-3 bg-slate-50">
                     <div className="flex items-center gap-2 min-w-0">
                       <img src={bannerImage} alt="Banner Preview" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                      <span className="text-xs text-slate-700 truncate font-medium">Banner Uploaded</span>
+                      <span className="text-[10px] text-slate-700 truncate font-medium">Banner Uploaded</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setBannerImage("")}
-                      className="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-200 hover:border-red-600 text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-200 hover:border-red-600 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3" /> Remove
                     </button>
                   </div>
                 ) : (
                   <label className="flex items-center justify-between border border-dashed border-slate-200 hover:border-indigo-500 rounded-lg px-3 py-1.5 bg-slate-50 transition-colors cursor-pointer group h-[42px]">
-                    <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">Upload banner image (Max 2MB)</span>
-                    <div className="px-2.5 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-semibold group-hover:border-indigo-400 transition-colors flex items-center gap-1 shadow-sm">
+                    <span className="text-[10px] text-slate-400 group-hover:text-slate-600 transition-colors">Upload banner image (Max 2MB)</span>
+                    <div className="px-2.5 py-1 bg-white border border-slate-200 rounded text-xs text-indigo-600 font-semibold group-hover:border-indigo-400 transition-colors flex items-center gap-1 shadow-sm">
                       Browse
                     </div>
                     <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
@@ -301,7 +301,7 @@ export function CreateTournamentTab({
 
           {/* Contact Information */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Contact Information</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
               <div>
                 <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Name *</label>
@@ -330,7 +330,7 @@ export function CreateTournamentTab({
             {/* Other Contacts */}
             <div className="space-y-3 mt-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Other Information (Multiple entries)</span>
+                <span className="text-[10px] font-semibold text-slate-500">Other Information (Multiple entries)</span>
                 <button type="button" onClick={addOtherContact} className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold">
                   <Plus className="w-3.5 h-3.5" /> Add Contact
                 </button>
@@ -345,16 +345,16 @@ export function CreateTournamentTab({
                   {otherContacts.map((contact, index) => (
                     <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg relative group text-left">
                       <div>
-                        <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Title (Contact Title)</label>
+                        <label className="text-xs text-slate-400 block mb-1 font-semibold">Title (Contact Title)</label>
                         <input value={contact.title} onChange={e => updateOtherContact(index, "title", e.target.value)} placeholder="e.g. Organizer" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                       </div>
                       <div>
-                        <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Name (Full Name)</label>
+                        <label className="text-xs text-slate-400 block mb-1 font-semibold">Name (Full Name)</label>
                         <input value={contact.name} onChange={e => updateOtherContact(index, "name", e.target.value)} placeholder="e.g. John Doe" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                       </div>
                       <div className="flex gap-2 items-end">
                         <div className="flex-1">
-                          <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Detail (Number/Email)</label>
+                          <label className="text-xs text-slate-400 block mb-1 font-semibold">Detail (Number/Email)</label>
                           <input value={contact.detail} onChange={e => updateOtherContact(index, "detail", e.target.value)} placeholder="e.g. john@mail.com" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                         </div>
                         <button type="button" onClick={() => removeOtherContact(index)} className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors border border-red-200 cursor-pointer mb-0.5" title="Remove Contact">
@@ -370,10 +370,10 @@ export function CreateTournamentTab({
 
           {/* Sponsors */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Sponsors</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Tournament Sponsors</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
+                <span className="text-[10px] font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
                 <button type="button" onClick={addSponsor} className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold">
                   <Plus className="w-3.5 h-3.5" /> Add Sponsor
                 </button>
@@ -388,7 +388,7 @@ export function CreateTournamentTab({
                   {sponsors.map((sponsor, index) => (
                     <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg relative group text-left">
                       <div>
-                        <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor Category *</label>
+                        <label className="text-xs text-slate-400 block mb-1 font-semibold">Sponsor Category *</label>
                         <input value={sponsor.category} onChange={e => updateSponsor(index, "category", e.target.value)} placeholder="e.g. Title Sponsor" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {["Title Sponsor", "Gold Sponsor", "Silver Sponsor", "Associate Sponsor"].map(suggestion => (
@@ -397,7 +397,7 @@ export function CreateTournamentTab({
                               type="button"
                               onClick={() => updateSponsor(index, "category", suggestion)}
                               className={cn(
-                                "px-1.5 py-0.5 rounded text-[9px] border transition-all cursor-pointer font-semibold",
+                                "px-1.5 py-0.5 rounded text-xs border transition-all cursor-pointer font-semibold",
                                 sponsor.category === suggestion
                                   ? "bg-indigo-50 border-indigo-200 text-indigo-600"
                                   : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
@@ -409,12 +409,12 @@ export function CreateTournamentTab({
                         </div>
                       </div>
                       <div>
-                        <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor Name *</label>
+                        <label className="text-xs text-slate-400 block mb-1 font-semibold">Sponsor Name *</label>
                         <input value={sponsor.name} onChange={e => updateSponsor(index, "name", e.target.value)} placeholder="e.g. Google DeepMind" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                       </div>
                       <div className="flex gap-2 items-end">
                         <div className="flex-1">
-                          <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor URL (Optional)</label>
+                          <label className="text-xs text-slate-400 block mb-1 font-semibold">Sponsor URL (Optional)</label>
                           <input type="url" value={sponsor.url || ""} onChange={e => updateSponsor(index, "url", e.target.value)} placeholder="e.g. https://deepmind.google" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                         </div>
                         <button type="button" onClick={() => removeSponsor(index)} className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors border border-red-200 cursor-pointer mb-0.5 h-[34px] flex items-center justify-center" title="Remove Sponsor">
@@ -430,10 +430,10 @@ export function CreateTournamentTab({
 
           {/* Chat Configuration */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Chat Configuration</div>
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-3 m-0">Chat Configuration</h3>
             <div className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 opacity-65 cursor-not-allowed">
               <div>
-                <span className="text-xs font-semibold text-slate-800 block">Chat With Administrator</span>
+                <span className="text-[10px] font-semibold text-slate-800 block">Chat With Administrator</span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">Allow applicants to chat with Administrator? (Presently disabled)</span>
               </div>
               <label className="relative inline-flex items-center cursor-not-allowed">
@@ -447,20 +447,20 @@ export function CreateTournamentTab({
 
           {/* Notification Settings */}
           <div className="pt-2 text-left">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4">Notification Settings</div>
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 mb-4 m-0">Notification Settings</h3>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left shadow-sm">
               <div>
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2 flex-wrap m-0 mb-0">
                   📡 Automated Notification Scheduler
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full font-bold">
                     {totalEnabledCount} Active Triggers
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-xl">
+                <p className="text-xs text-slate-500 m-0 leading-relaxed max-w-xl">
                   Configure multi-channel automated triggers (Email, Push, WhatsApp, SMS) relative to tournament kick-off. Customize delivery channels, custom templates, and analyze audience reach metrics.
                 </p>
-                <div className="flex gap-4 mt-3 flex-wrap text-[10px] font-mono text-slate-400">
+                <div className="flex gap-4 mt-3 flex-wrap text-xs font-mono text-slate-400">
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span>Active Channels: {globalChannels.join(", ").toUpperCase()}</span>

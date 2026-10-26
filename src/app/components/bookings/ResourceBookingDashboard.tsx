@@ -320,7 +320,7 @@ export function ResourceBookingDashboard() {
       {/* Header */}
       <div className="mb-6">
         <span className="text-xs text-primary font-bold uppercase tracking-wider">Community</span>
-        <h1 className="text-2xl md:text-3xl font-black text-foreground mt-1">Resource Booking</h1>
+        <h4 className="text-xl md:text-2xl font-black text-foreground mt-1">Resource Booking</h4>
         <p className="text-muted-foreground text-sm mt-1">
           Reserve amenities, rooms, and facilities for your community.
         </p>

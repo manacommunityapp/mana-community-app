@@ -30,14 +30,14 @@ export function AcademyLayout() {
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white m-0 mb-0">
                   Mana Academy
-                </h1>
+                </h3>
                 <span className="px-2 py-0.2 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase border border-indigo-200 dark:border-indigo-800">
                   Skill Hub
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium m-0">
                 Learn from your community. Teach your community. Grow together.
               </p>
             </div>

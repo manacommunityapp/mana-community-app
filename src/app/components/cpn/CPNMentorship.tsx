@@ -23,39 +23,7 @@ interface Mentor {
   isCommunity: boolean;
 }
 
-const MOCK_MENTORS: Mentor[] = [
-  {
-    id: 1, name: "Dr. Kavitha Rao", avatar: "KR", flat: "B-301",
-    headline: "Engineering Director @ Microsoft | Ex-Amazon",
-    expertise: ["System Design", "Career Growth", "FAANG Prep", "Leadership"],
-    rating: 4.9, reviews: 87, sessions: 312, isFree: false, rate: "₹800/hr",
-    freeSessionsLeft: 0, isAvailable: true, responseTime: "< 1 hr",
-    languages: ["English", "Telugu", "Hindi"], isVerified: true, isCommunity: true,
-  },
-  {
-    id: 2, name: "Arjun Mehta", avatar: "AM", flat: "Villa 5",
-    headline: "Product Manager @ Razorpay | IIM-A Alumni",
-    expertise: ["Product Management", "Interview Prep", "VC Funding", "Startups"],
-    rating: 4.7, reviews: 43, sessions: 156, isFree: true, rate: null,
-    freeSessionsLeft: 2, isAvailable: true, responseTime: "Same day",
-    languages: ["English", "Hindi"], isVerified: true, isCommunity: true,
-  },
-  {
-    id: 3, name: "Sneha Nair", avatar: "SN", flat: "A-102",
-    headline: "Senior UX Designer @ Swiggy | 8 yrs experience",
-    expertise: ["UX Design", "Portfolio Review", "Design Thinking", "Figma"],
-    rating: 4.8, reviews: 29, sessions: 94, isFree: false, rate: "₹600/hr",
-    freeSessionsLeft: 0, isAvailable: false, responseTime: "< 4 hrs",
-    languages: ["English", "Malayalam"], isVerified: false, isCommunity: true,
-  },
-];
-
-const SESSION_TYPES = [
-  { icon: Video, label: "1-on-1 Video", desc: "Private 45-min session" },
-  { icon: Users, label: "Group Session", desc: "Up to 5 mentees" },
-  { icon: BookOpen, label: "Resume Review", desc: "Async feedback" },
-  { icon: MessageCircle, label: "Quick Chat", desc: "15-min check-in" },
-];
+const MOCK_MENTORS: Mentor[] = [];
 
 function MentorCard({ mentor, onBook }: { mentor: Mentor; onBook: (mentor: Mentor) => void }) {
   return (
@@ -272,7 +240,7 @@ export function CPNMentorship() {
             Learn from experienced industry professionals living right in your gated community.
           </p>
           <div className="flex gap-4 mt-3 text-xs">
-            {[["50+", "Mentors"], ["1K+", "Sessions"], ["4.8★", "Avg Rating"]].map(([v, l]) => (
+            {[["0", "Mentors"], ["0", "Sessions"], ["—", "Avg Rating"]].map(([v, l]) => (
               <div key={l}><span className="font-black">{v}</span> <span className="text-violet-300 font-semibold">{l}</span></div>
             ))}
           </div>
@@ -312,9 +280,19 @@ export function CPNMentorship() {
 
       {/* Mentor Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((mentor) => (
-          <MentorCard key={mentor.id} mentor={mentor} onBook={handleBook} />
-        ))}
+        {filtered.length === 0 ? (
+          <div className="col-span-full py-16 text-center bg-white dark:bg-[#1E1E36] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+            <GraduationCap className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">No Mentors Listed Yet</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Be the first to share your industry experience and help fellow residents with career guidance.
+            </p>
+          </div>
+        ) : (
+          filtered.map((mentor) => (
+            <MentorCard key={mentor.id} mentor={mentor} onBook={handleBook} />
+          ))
+        )}
       </div>
 
       {showBooking && (

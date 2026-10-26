@@ -1,0 +1,25 @@
+{
+  "name": "Utility Bill and Autopay Review Assistant",
+  "nodes": [
+    { "parameters": { "httpMethod": "POST", "path": "utility-bill-autopay-review", "responseMode": "responseNode", "options": {} }, "id": "1", "name": "Utility Review Webhook", "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [240, 300], "webhookId": "mana-utility-autopay-review" },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\nconst bills = Array.isArray(input.bills) ? input.bills : [];\nconst records = bills.map((b, i) => {\n  const amount = Number(b.amount || 0);\n  const cap = b.maxAmountCap == null ? null : Number(b.maxAmountCap);\n  const priorAmount = b.priorAmount == null ? null : Number(b.priorAmount);\n  const due = b.dueDate ? new Date(b.dueDate) : null;\n  const hours = Number(b.preDebitNotificationHours || 0);\n  return { ref: b.referenceNumber || `bill-${i + 1}`, category: b.category || 'unknown', amount, priorAmount, amountChangePercent: priorAmount && priorAmount !== 0 ? Math.round(((amount - priorAmount) / priorAmount) * 10000) / 100 : null, dueDate: b.dueDate || null, mandateStatus: b.mandateStatus || 'unknown', cap, exceedsCap: cap !== null && amount > cap, notificationHours: hours, notificationConfigured: hours > 0, gracePeriodDays: Number(b.gracePeriodDays || 0), dueDateValid: !due || !Number.isNaN(due.getTime()) };\n});\nconst prompt = `Review these bill and recurring-payment metadata records for exceptions: amount-cap exceedance, missing notification configuration, invalid/missing dates, inactive mandates, and material changes from prior amounts. Give flags and suggested verification steps only. Never initiate, approve, cancel, or change a payment or mandate. Do not request account numbers, credentials, UPI PINs, or OTPs. Return JSON keys exceptions (array), checks (array), needsHumanReview (boolean).\n${JSON.stringify(records)}`;\nreturn [{ json: { records, prompt } }];"
+      },
+      "id": "2", "name": "Prepare Bill Exceptions", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [460, 300]
+    },
+    {
+      "parameters": { "method": "POST", "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", "sendQuery": true, "queryParameters": { "parameters": [{ "name": "key", "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}" }] }, "sendBody": true, "specifyBody": "json", "jsonBody": "={\"contents\":[{\"parts\":[{\"text\":{{ JSON.stringify($json.prompt) }} }]}],\"generationConfig\":{\"response_mime_type\":\"application/json\"}}", "options": {} },
+      "id": "3", "name": "Generate Bill Review", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [680, 300]
+    },
+    {
+      "parameters": { "jsCode": "const response = $input.first().json;\nconst records = $('Prepare Bill Exceptions').first().json.records;\nlet review;\ntry { review = JSON.parse(response.candidates[0].content.parts[0].text); } catch { review = { exceptions: [], checks: ['AI response could not be parsed; inspect the bill metadata manually.'], needsHumanReview: true }; }\nreturn [{ json: { status: 'review_ready', records, aiReview: review, requiresHumanApproval: true, paymentActionsTaken: [] } }];" },
+      "id": "4", "name": "Format Bill Review", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [900, 300]
+    },
+    { "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} }, "id": "5", "name": "Return Bill Review", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.1, "position": [1120, 300] }
+  ],
+  "connections": { "Utility Review Webhook": { "main": [[{ "node": "Prepare Bill Exceptions", "type": "main", "index": 0 }]] }, "Prepare Bill Exceptions": { "main": [[{ "node": "Generate Bill Review", "type": "main", "index": 0 }]] }, "Generate Bill Review": { "main": [[{ "node": "Format Bill Review", "type": "main", "index": 0 }]] }, "Format Bill Review": { "main": [[{ "node": "Return Bill Review", "type": "main", "index": 0 }]] } },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1"
+}

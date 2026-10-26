@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import {
   Compass,
   Calendar,
@@ -21,11 +22,13 @@ import {
   Bed,
   Phone,
   Wallet,
+  Plane,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { FlightSearchTab } from "./FlightSearchTab";
 import {
   Dialog,
   DialogContent,
@@ -60,11 +63,17 @@ const CATEGORY_ICONS: Record<TripCategory, React.ComponentType<{ className?: str
 
 export function ExploreTrips() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [myBookings, setMyBookings] = useState<TripBooking[]>([]);
   const [hostTrips, setHostTrips] = useState<Trip[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [activeTab, setActiveTab] = useState("explore");
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "explore");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   // Modals state
   const [selectedTripDetails, setSelectedTripDetails] = useState<Trip | null>(null);
@@ -124,7 +133,7 @@ export function ExploreTrips() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Compass className="w-8 h-8 text-blue-200 animate-spin-slow" />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Mana Community Trips OS</h1>
+            <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Mana Community Trips OS</h4>
           </div>
           <p className="text-blue-100 text-sm sm:text-base max-w-2xl">
             Curated weekend getaways, passenger rosters, transport logistics, and digital boarding passes hosted by verified neighbors.
@@ -142,10 +151,14 @@ export function ExploreTrips() {
 
       {/* Primary Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 w-full max-w-md h-auto p-1 bg-slate-100 rounded-xl">
+        <TabsList className="grid grid-cols-4 w-full max-w-xl h-auto p-1 bg-slate-100 rounded-xl">
           <TabsTrigger value="explore" className="py-2.5 font-semibold text-xs gap-1.5">
             <Compass className="w-3.5 h-3.5 text-blue-600" />
             Explore ({trips.length})
+          </TabsTrigger>
+          <TabsTrigger value="flights" className="py-2.5 font-semibold text-xs gap-1.5">
+            <Plane className="w-3.5 h-3.5 text-sky-600" />
+            Flights
           </TabsTrigger>
           <TabsTrigger value="my-trips" className="py-2.5 font-semibold text-xs gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-purple-600" />
@@ -530,6 +543,11 @@ export function ExploreTrips() {
             </div>
           )}
         </TabsContent>
+
+        {/* ── TAB 4: Flights (EaseMyTrip / MakeMyTrip) ── */}
+        <TabsContent value="flights" className="space-y-6 pt-4">
+          <FlightSearchTab />
+        </TabsContent>
       </Tabs>
 
       {/* ── Dialog: Trip Full Details ── */}
@@ -565,6 +583,17 @@ export function ExploreTrips() {
                     <p className="text-slate-700"><strong>Type:</strong> {selectedTripDetails.transport}</p>
                     {selectedTripDetails.transportDetails?.driverName && (
                       <p className="text-slate-700"><strong>Driver:</strong> {selectedTripDetails.transportDetails.driverName} ({selectedTripDetails.transportDetails.driverPhone})</p>
+                    )}
+                    {(selectedTripDetails.flightOriginIata || selectedTripDetails.flightDestIata) && (
+                      <p className="text-slate-700">
+                        <strong>Route:</strong> {selectedTripDetails.flightOriginIata} → {selectedTripDetails.flightDestIata}
+                      </p>
+                    )}
+                    {selectedTripDetails.groupPnr && (
+                      <p className="text-sky-700 font-medium">
+                        ✈ Group PNR: {selectedTripDetails.groupPnr}
+                        {selectedTripDetails.farePerPerson ? ` · ₹${selectedTripDetails.farePerPerson.toLocaleString('en-IN')}/seat locked` : ''}
+                      </p>
                     )}
                   </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Search, Users, User, Heart, Sparkles, Check, X, AlertCircle, Loader2 } from "lucide-react";
+import { Search, Users, User, Heart, Sparkles, Check, X, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { userService } from "../../../services/common/userService";
-import type { UserResponse } from "../../../types/api";
+import type { PartnerCandidateResponse } from "../../../services/common/userService";
 import type { FamilyMember } from "../../../services/common/familyService";
 
 export interface SelectedPartnerInfo {
@@ -21,9 +21,18 @@ interface SportsPartnerSelectorProps {
   matchType?: string; // "DOUBLES" | "MIXED_DOUBLES" | string
   currentGender?: string;
   currentUserId?: number;
+  currentFamilyMemberId?: number | string;
   communityId?: number;
   familyMembers?: FamilyMember[];
   disabled?: boolean;
+  /** Event ID used to compute server-side age/gender eligibility (optional). */
+  eventId?: number | string | null;
+  /** Minimum age of the event category — used for local family member eligibility display. */
+  minAge?: number | null;
+  /** Maximum age of the event category — used for local family member eligibility display. */
+  maxAge?: number | null;
+  /** When true, younger players can play up (only lower-bound enforced). Default true. */
+  allowHigherAgeCategory?: boolean;
 }
 
 export function SportsPartnerSelector({
@@ -32,15 +41,20 @@ export function SportsPartnerSelector({
   matchType = "DOUBLES",
   currentGender,
   currentUserId,
+  currentFamilyMemberId,
   communityId,
   familyMembers = [],
   disabled = false,
+  eventId,
+  minAge,
+  maxAge,
+  allowHigherAgeCategory = true,
 }: SportsPartnerSelectorProps) {
   const [partnerMode, setPartnerMode] = useState<"community" | "family" | "open_pool">(
-    selectedPartner?.mode || (selectedPartner?.userId ? "community" : "community")
+    selectedPartner?.mode || "community"
   );
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<UserResponse[]>([]);
+  const [searchResults, setSearchResults] = useState<PartnerCandidateResponse[]>([]);
   const [searching, setSearching] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,7 +71,50 @@ export function SportsPartnerSelector({
     return null;
   }, [isMixedDoubles, currentGender]);
 
-  // Debounced search for community users
+  // ── Local family member eligibility check ─────────────────────────────────
+  const checkFamilyMemberEligibility = (fm: FamilyMember): { eligible: boolean; reason?: string } => {
+    // Gender check for mixed doubles
+    if (targetPartnerGender && fm.gender && fm.gender.toUpperCase() !== targetPartnerGender) {
+      return { eligible: false, reason: `Need ${targetPartnerGender.toLowerCase()} partner` };
+    }
+    // Age check
+    if (minAge != null || maxAge != null) {
+      let fmAge: number | null = null;
+      if (fm.dob) {
+        const parsed = parseDobClient(fm.dob);
+        if (parsed) {
+          const today = new Date();
+          let age = today.getFullYear() - parsed.getFullYear();
+          if (
+            today.getMonth() < parsed.getMonth() ||
+            (today.getMonth() === parsed.getMonth() && today.getDate() < parsed.getDate())
+          ) age--;
+          fmAge = age >= 0 ? age : null;
+        }
+      }
+      if (fmAge == null && fm.age != null) fmAge = fm.age;
+      if (fmAge != null) {
+        if (minAge != null && fmAge < minAge) {
+          return { eligible: false, reason: `Age ${fmAge} — min ${minAge}` };
+        }
+        if (!allowHigherAgeCategory && maxAge != null && fmAge > maxAge) {
+          return { eligible: false, reason: `Age ${fmAge} — max ${maxAge}` };
+        }
+      }
+    }
+    return { eligible: true };
+  };
+
+  const availableFamilyMembers = useMemo(() => {
+    return familyMembers.filter(fm => {
+      if (currentFamilyMemberId && String(fm.id) === String(currentFamilyMemberId)) {
+        return false;
+      }
+      return true;
+    });
+  }, [familyMembers, currentFamilyMemberId]);
+
+  // ── Debounced unified partner search ─────────────────────────────────────
   useEffect(() => {
     if (partnerMode !== "community" || !searchQuery.trim()) {
       setSearchResults([]);
@@ -68,12 +125,22 @@ export function SportsPartnerSelector({
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const results = await userService.searchUsersGlobal(searchQuery.trim(), communityId);
-        // Exclude current user from search results
-        const filtered = results.filter(u => u.id !== currentUserId);
+        const results = await userService.searchPartners({
+          communityId: communityId!,
+          query: searchQuery.trim(),
+          eventId: eventId ?? null,
+          matchType,
+          callerGender: currentGender,
+        });
+        // Exclude the currently registering user from results
+        const filtered = results.filter(r => {
+          if (r.type === "USER" && r.id === currentUserId) return false;
+          if (r.type === "FAMILY_MEMBER" && currentFamilyMemberId && r.id === Number(currentFamilyMemberId)) return false;
+          return true;
+        });
         setSearchResults(filtered);
       } catch (err) {
-        console.warn("Failed to search community users:", err);
+        console.warn("Failed to search partners:", err);
         setSearchResults([]);
       } finally {
         setSearching(false);
@@ -81,9 +148,9 @@ export function SportsPartnerSelector({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, partnerMode, communityId, currentUserId]);
+  }, [searchQuery, partnerMode, communityId, currentUserId, currentFamilyMemberId, eventId, matchType, currentGender]);
 
-  // Close dropdown on outside click
+  // ── Close dropdown on outside click ──────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -94,22 +161,42 @@ export function SportsPartnerSelector({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelectCommunityUser = (u: UserResponse) => {
-    const flat = u.flatNo || u.block ? `${u.block ? `Block ${u.block}, ` : ""}${u.flatNo || ""}` : "";
-    onChange({
-      userId: u.id,
-      name: u.fullName || (u as any).name || "Resident",
-      flatNumber: flat.trim() || undefined,
-      gender: u.gender || undefined,
-      email: u.email || undefined,
-      phone: u.phone || undefined,
-      mode: "community",
-    });
+  const handleSelectCandidate = (candidate: PartnerCandidateResponse) => {
+    const isGenderMismatch = !!(targetPartnerGender && candidate.gender && candidate.gender.toUpperCase() !== targetPartnerGender);
+    if (!candidate.eligible || isGenderMismatch) return;
+    const flat = candidate.block && candidate.flatNo
+      ? `${candidate.block}-${candidate.flatNo}`
+      : candidate.flatNo || candidate.block || undefined;
+
+    const formattedGender = candidate.gender
+      ? candidate.gender.charAt(0).toUpperCase() + candidate.gender.slice(1).toLowerCase()
+      : undefined;
+
+    if (candidate.type === "FAMILY_MEMBER") {
+      onChange({
+        userId: candidate.primaryUserId ?? null,
+        familyMemberId: candidate.id,
+        name: candidate.name,
+        flatNumber: flat,
+        gender: formattedGender,
+        mode: "family",
+      });
+    } else {
+      onChange({
+        userId: candidate.id,
+        name: candidate.name,
+        flatNumber: flat,
+        gender: formattedGender,
+        mode: "community",
+      });
+    }
     setSearchQuery("");
     setIsDropdownOpen(false);
   };
 
   const handleSelectFamilyMember = (fm: FamilyMember) => {
+    const elig = checkFamilyMemberEligibility(fm);
+    if (!elig.eligible) return;
     onChange({
       userId: null,
       familyMemberId: fm.id,
@@ -138,31 +225,33 @@ export function SportsPartnerSelector({
   return (
     <div ref={containerRef} className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 sm:p-4 space-y-3 text-left">
       {/* Header with Title and Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h4 className="text-[13px] sm:text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
-                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[9px] font-extrabold rounded uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
-            </h4>
-            <p className="text-[11px] sm:text-[10px] text-slate-500">
+            </h3>
+            <p className="text-xs text-slate-500 m-0">
               {isMixedDoubles
-                ? "Mixed Doubles requires one Male and one Female player."
-                : "Choose a teammate or request auto-pairing from the open pool."}
+                ? targetPartnerGender
+                  ? `Mixed Doubles requires a ${targetPartnerGender.toLowerCase()} partner (1 Male + 1 Female).`
+                  : "Mixed Doubles requires one Male and one Female player."
+                : "Choose a teammate from your community or request auto-pairing."}
             </p>
           </div>
         </div>
 
         {/* Mode Selector Tabs */}
         {!selectedPartner && (
-          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-[11px] sm:text-[10px] font-semibold">
+          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-xs font-semibold">
             <button
               type="button"
               onClick={() => { setPartnerMode("community"); onChange(null); }}
@@ -172,7 +261,7 @@ export function SportsPartnerSelector({
             >
               Neighbor
             </button>
-            {familyMembers.length > 0 && (
+            {availableFamilyMembers.length > 0 && (
               <button
                 type="button"
                 onClick={() => { setPartnerMode("family"); onChange(null); }}
@@ -211,23 +300,23 @@ export function SportsPartnerSelector({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[13px] sm:text-xs font-bold text-slate-900 truncate">{selectedPartner.name}</span>
+                <span className="text-[13px] text-[10px] font-bold text-slate-900 truncate">{selectedPartner.name}</span>
                 {selectedPartner.gender && (
-                  <span className="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
                     {selectedPartner.gender}
                   </span>
                 )}
                 {selectedPartner.mode === "open_pool" && (
-                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                     Open Pairing Pool
                   </span>
                 )}
               </div>
               {selectedPartner.flatNumber && (
-                <p className="text-[10px] text-slate-500 truncate">{selectedPartner.flatNumber}</p>
+                <p className="text-xs text-slate-500 truncate">{selectedPartner.flatNumber}</p>
               )}
               {selectedPartner.mode !== "open_pool" && (
-                <p className="text-[9.5px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                <p className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
                   <Check className="w-3 h-3 stroke-[2.5]" />
                   An invite will be dispatched upon registration
                 </p>
@@ -248,7 +337,7 @@ export function SportsPartnerSelector({
       ) : (
         /* Partner Selection Views */
         <div>
-          {/* Mode 1: Community Search */}
+          {/* Mode 1: Community Search (unified — includes family members of neighbors) */}
           {partnerMode === "community" && (
             <div className="relative">
               <div className="relative">
@@ -272,52 +361,78 @@ export function SportsPartnerSelector({
 
               {/* Autocomplete Dropdown */}
               {isDropdownOpen && searchQuery.trim().length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-30 divide-y divide-slate-100">
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto z-30 divide-y divide-slate-100">
                   {searching ? (
                     <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching residents...
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching community members…
                     </div>
                   ) : searchResults.length === 0 ? (
                     <div className="p-3 text-center text-xs text-slate-500">
-                      No matching neighbors found. Try searching by flat number (e.g. A-102).
+                      No matching community members found. Try a different name or flat number.
                     </div>
                   ) : (
-                    searchResults.map((u) => {
-                      const fullName = u.fullName || (u as any).name || "Resident";
-                      const flatInfo = u.flatNo || u.block ? `${u.block ? `Block ${u.block}, ` : ""}Flat ${u.flatNo || ""}` : "";
-                      const isGenderMismatch = targetPartnerGender && u.gender && u.gender.toUpperCase() !== targetPartnerGender;
+                    searchResults.map((candidate) => {
+                      const isGenderMismatch = !!(targetPartnerGender && candidate.gender && candidate.gender.toUpperCase() !== targetPartnerGender);
+                      const isIneligible = !candidate.eligible || isGenderMismatch;
+                      const isFamilyMember = candidate.type === "FAMILY_MEMBER";
 
                       return (
                         <button
-                          key={u.id}
+                          key={`${candidate.type}-${candidate.id}`}
                           type="button"
-                          onClick={() => handleSelectCommunityUser(u)}
-                          className="w-full p-2.5 min-h-[44px] sm:min-h-0 text-left hover:bg-indigo-50/50 flex items-center justify-between gap-2 transition cursor-pointer group"
+                          disabled={disabled || isIneligible}
+                          onClick={() => handleSelectCandidate(candidate)}
+                          className={`w-full p-2.5 min-h-[44px] sm:min-h-0 text-left flex items-center justify-between gap-2 transition ${
+                            isIneligible
+                              ? "opacity-55 cursor-not-allowed bg-slate-50/70"
+                              : "hover:bg-indigo-50/50 cursor-pointer group"
+                          }`}
+                          title={isGenderMismatch ? `Mixed Doubles requires a ${targetPartnerGender?.toLowerCase()} partner` : isIneligible ? candidate.ineligibilityReason || "Ineligible" : undefined}
                         >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[13px] sm:text-xs font-semibold text-slate-900 group-hover:text-indigo-600 transition truncate">
-                                {fullName}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Family member icon */}
+                              {isFamilyMember && (
+                                <Heart className="w-3 h-3 text-rose-400 shrink-0" />
+                              )}
+                              <span className={`text-[13px] sm:text-[11px] font-semibold truncate ${isIneligible ? "text-slate-500" : "text-slate-900 group-hover:text-indigo-600"}`}>
+                                {candidate.name}
                               </span>
-                              {u.gender && (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                                  isGenderMismatch ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
+                              {/* Age badge */}
+                              {candidate.age != null && (
+                                <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
+                                  {candidate.age}y
+                                </span>
+                              )}
+                              {/* Gender badge */}
+                              {candidate.gender && (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                  isIneligible ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"
                                 }`}>
-                                  {u.gender}
+                                  {candidate.gender === "MALE" ? "M" : candidate.gender === "FEMALE" ? "F" : candidate.gender}
                                 </span>
                               )}
                             </div>
-                            {flatInfo && (
-                              <p className="text-[10px] text-slate-400 truncate">{flatInfo}</p>
+                            {/* Occupancy label (Owner · Flat A-402 / Family (Son) · Flat B-201) */}
+                            {candidate.occupancyLabel && (
+                              <p className="text-[10px] text-slate-400 truncate mt-0.5">{candidate.occupancyLabel}</p>
                             )}
                           </div>
+
+                          {/* Right badge: eligible / ineligible */}
                           {isGenderMismatch ? (
-                            <span className="text-[9px] text-amber-600 font-bold shrink-0 flex items-center gap-0.5">
-                              <AlertCircle className="w-3 h-3" /> Gender Mismatch
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                              Need {targetPartnerGender}
+                            </span>
+                          ) : isIneligible ? (
+                            <span className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                              {candidate.ineligibilityReason || "Ineligible"}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0">
-                              Select →
+                            <span className="text-[10px] text-indigo-600 font-bold opacity-0 group-hover:opacity-100 transition shrink-0 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" /> Select →
                             </span>
                           )}
                         </button>
@@ -326,31 +441,79 @@ export function SportsPartnerSelector({
                   )}
                 </div>
               )}
+
+              {/* Hint below search */}
+              {!isDropdownOpen && (
+                <p className="text-[10px] text-slate-400 mt-1.5 leading-tight">
+                  Searches flat owners, tenants, and their family members · Age and gender eligibility checked automatically
+                </p>
+              )}
             </div>
           )}
 
-          {/* Mode 2: Family Members Picker */}
+          {/* Mode 2: Family Members Picker (current user's own family members) */}
           {partnerMode === "family" && (
             <div className="space-y-1.5">
-              {familyMembers.length === 0 ? (
-                <p className="text-xs text-slate-500 italic">No family members registered yet.</p>
+              {availableFamilyMembers.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">
+                  {familyMembers.length > 0 ? "No other family members available." : "No family members registered yet."}
+                </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {familyMembers.map((fm) => (
-                    <button
-                      key={fm.id}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => handleSelectFamilyMember(fm)}
-                      className="p-2.5 sm:p-2 min-h-[44px] sm:min-h-0 bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 rounded-lg text-left transition flex items-center justify-between gap-2 cursor-pointer shadow-2xs"
-                    >
-                      <div className="min-w-0">
-                        <span className="text-[13px] sm:text-xs font-semibold text-slate-800 block truncate">{fm.name}</span>
-                        <span className="text-[10px] sm:text-[9px] text-slate-400 capitalize">{fm.relation} {fm.gender ? `• ${fm.gender}` : ""}</span>
-                      </div>
-                      <span className="text-[11px] sm:text-[10px] text-indigo-600 font-bold">Pick</span>
-                    </button>
-                  ))}
+                  {availableFamilyMembers.map((fm) => {
+                    const elig = checkFamilyMemberEligibility(fm);
+                    const isIneligible = !elig.eligible;
+
+                    // Compute display age
+                    let displayAge: number | null = null;
+                    if (fm.dob) {
+                      const parsed = parseDobClient(fm.dob);
+                      if (parsed) {
+                        const today = new Date();
+                        let age = today.getFullYear() - parsed.getFullYear();
+                        if (today.getMonth() < parsed.getMonth() || (today.getMonth() === parsed.getMonth() && today.getDate() < parsed.getDate())) age--;
+                        if (age >= 0) displayAge = age;
+                      }
+                    }
+                    if (displayAge == null && fm.age != null) displayAge = fm.age;
+
+                    return (
+                      <button
+                        key={fm.id}
+                        type="button"
+                        disabled={disabled || isIneligible}
+                        onClick={() => !isIneligible && handleSelectFamilyMember(fm)}
+                        className={`p-2.5 sm:p-2 min-h-[44px] sm:min-h-0 bg-white border rounded-lg text-left transition flex items-center justify-between gap-2 shadow-2xs ${
+                          isIneligible
+                            ? "border-slate-200 opacity-55 cursor-not-allowed bg-slate-50/70"
+                            : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30 cursor-pointer"
+                        }`}
+                        title={isIneligible ? elig.reason : undefined}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[13px] sm:text-[11px] font-semibold block truncate ${isIneligible ? "text-slate-500" : "text-slate-800"}`}>
+                              {fm.name}
+                            </span>
+                            {displayAge != null && (
+                              <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{displayAge}y</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 capitalize">
+                            {fm.relation} {fm.gender ? `• ${fm.gender}` : ""}
+                          </span>
+                        </div>
+                        {isIneligible ? (
+                          <span className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded font-bold shrink-0 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-rose-500" />
+                            <span className="hidden sm:inline">{elig.reason}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-indigo-600 font-bold">Pick</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -360,7 +523,7 @@ export function SportsPartnerSelector({
           {partnerMode === "open_pool" && (
             <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <p className="text-[12px] sm:text-[11px] text-amber-800 leading-tight">
+              <p className="text-[12px] sm:text-xs text-amber-800 leading-tight">
                 You will register solo. The tournament organizers or auto-pairing system will pair you with another solo player before match draws are finalized.
               </p>
             </div>
@@ -369,4 +532,23 @@ export function SportsPartnerSelector({
       )}
     </div>
   );
+}
+
+// ── Client-side DOB parser (mirrors backend parseDob logic) ─────────────────
+function parseDobClient(dob: string): Date | null {
+  if (!dob) return null;
+  // yyyy-MM-dd
+  const ymd = dob.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymd) {
+    const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  // dd-MM-yyyy or dd/MM/yyyy
+  const dmy = dob.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmy) {
+    const d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  const fallback = new Date(dob);
+  return !isNaN(fallback.getTime()) ? fallback : null;
 }

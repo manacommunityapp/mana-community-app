@@ -23,4 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 package-lock.json
-package-lock.json
+
+# Playwright & Test Artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+*.webm

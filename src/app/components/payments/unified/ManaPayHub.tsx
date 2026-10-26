@@ -269,7 +269,7 @@ export const ManaPayHub: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Unified Payment Infrastructure</span>
             </div>
-            <h1 className="text-3xl font-black tracking-tight mt-2">Mana Pay</h1>
+            <h4 className="text-2xl font-black tracking-tight mt-2">Mana Pay</h4>
             <p className="text-sm text-indigo-200/80 mt-1 max-w-xl">
               Your community payments, in one place. One consistent checkout and payment-history experience across Maintenance, Events, Sports, Marketplace, Trips, and Healthcare.
             </p>

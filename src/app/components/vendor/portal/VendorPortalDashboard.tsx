@@ -77,10 +77,10 @@ export function VendorPortalDashboard() {
       {/* Header */}
       <div>
         <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Vendor Portal</span>
-        <h1 className="text-3xl font-black text-[#0d0d2b] flex items-center gap-2 mt-1">
-          <TrendingUp className="h-8 w-8 text-indigo-600" />
+        <h4 className="text-2xl font-black text-[#0d0d2b] flex items-center gap-2 mt-1">
+          <TrendingUp className="h-7 w-7 text-indigo-600" />
           Dashboard
-        </h1>
+        </h4>
         <p className="text-[#6b7094] text-sm mt-1">
           Overview of your business performance and upcoming bookings.
         </p>

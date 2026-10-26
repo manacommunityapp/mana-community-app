@@ -26,13 +26,13 @@ export const foodGroceryService = {
 
   // ── Products ──
   async getProducts(storeId: number, page = 0, size = 20, categoryId?: number, search?: string): Promise<FoodPageResponse<GroceryProduct>> {
-    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    const params = new URLSearchParams({ storeId: String(storeId), page: String(page), size: String(size) });
     if (categoryId) params.set("categoryId", String(categoryId));
     if (search) params.set("search", search);
-    return apiClient.get<FoodPageResponse<GroceryProduct>>(`/food/grocery/stores/${storeId}/products?${params}`);
+    return apiClient.get<FoodPageResponse<GroceryProduct>>(`/food/grocery/products?${params}`);
   },
-  async getProductById(storeId: number, productId: number): Promise<GroceryProduct> {
-    return apiClient.get<GroceryProduct>(`/food/grocery/stores/${storeId}/products/${productId}`);
+  async getProductById(_storeId: number, productId: number): Promise<GroceryProduct> {
+    return apiClient.get<GroceryProduct>(`/food/grocery/products/${productId}`);
   },
   async createProduct(storeId: number, data: Partial<GroceryProduct>): Promise<GroceryProduct> {
     return apiClient.post<GroceryProduct>(`/food/grocery/stores/${storeId}/products`, data);
@@ -55,10 +55,18 @@ export const foodGroceryService = {
   async updateGroceryOrderStatus(id: number, status: string): Promise<GroceryOrder> {
     return apiClient.patch<GroceryOrder>(`/food/grocery/orders/${id}/status`, { status });
   },
+  async getVendorGroceryOrders(page = 0, size = 20): Promise<FoodPageResponse<GroceryOrder>> {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    return apiClient.get<FoodPageResponse<GroceryOrder>>(`/food/grocery/vendor/orders?${params}`);
+  },
+  async updateVendorGroceryOrderStatus(id: number, status: string): Promise<GroceryOrder> {
+    return apiClient.patch<GroceryOrder>(`/food/grocery/vendor/orders/${id}/status`, { status });
+  },
 
   // ── Delivery Slots ──
   async getDeliverySlots(storeId: number, date: string): Promise<unknown[]> {
-    return apiClient.get<unknown[]>(`/food/grocery/stores/${storeId}/delivery-slots?date=${date}`);
+    const params = new URLSearchParams({ storeId: String(storeId), date });
+    return apiClient.get<unknown[]>(`/food/grocery/delivery-slots?${params}`);
   },
 
   // ── Wishlist ──

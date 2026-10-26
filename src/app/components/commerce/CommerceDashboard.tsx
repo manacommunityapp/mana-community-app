@@ -50,7 +50,7 @@ export function CommerceDashboard() {
           <ShoppingCart size={22} style={{ color: "#10b981" }} />
         </div>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana Commerce</h1>
+          <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Mana Commerce</h4>
           <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>All your orders in one place</p>
         </div>
       </div>

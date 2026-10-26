@@ -4,11 +4,12 @@ import {
   Search, Calendar, Eye, Printer, CheckCircle2,
   RefreshCw, Sparkles, Utensils, Shield, ChevronRight, X,
   Tag, Award, Layers, ChevronLeft, Store, Copy, MessageSquare,
-  FileSpreadsheet, ClipboardList, MapPin,
+  FileSpreadsheet, ClipboardList, MapPin, Check, Loader2, BrainCircuit, TrendingUp, Car,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import { ErrorBanner, LoadingSpinner } from "./shared/index";
+import { automationService, type EventCrowdForecastResponse, type EventPostRecapResponse } from "../../../services/automation/automationService";
 import {
   eventReportService,
   type EventReportResponse,
@@ -19,6 +20,7 @@ import {
   Tooltip, PieChart, Pie, Cell, Legend, ResponsiveContainer
 } from "recharts";
 import { DatePicker } from "../ui/date-picker";
+import { escapeHtml } from "../../../utils/sanitize";
 
 // ── Category Config ────────────────────────────────────────────────────────────
 const CATEGORY_REPORT_CARDS = [
@@ -210,6 +212,75 @@ export function EventsReports() {
   const [selectedRowDetails, setSelectedRowDetails] = useState<EventRegistrationReportRow | null>(null);
   const reportReqRef = useRef(0);
 
+  // ── AI Intelligence State ──
+  const [aiForecasting, setAiForecasting] = useState(false);
+  const [crowdForecastResult, setCrowdForecastResult] = useState<EventCrowdForecastResponse['forecast'] | null>(null);
+  const [showForecastModal, setShowForecastModal] = useState(false);
+
+  const [aiRecapping, setAiRecapping] = useState(false);
+  const [postRecapResult, setPostRecapResult] = useState<EventPostRecapResponse['recap'] | null>(null);
+  const [showRecapModal, setShowRecapModal] = useState(false);
+  const [copiedAiText, setCopiedAiText] = useState<string | null>(null);
+
+  const handleRunCrowdForecast = async () => {
+    setAiForecasting(true);
+    try {
+      const activeRows = useMock ? MOCK_ROWS : registrations;
+      const totalDevotees = activeRows.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
+      const res = await automationService.forecastEventCrowd({
+        eventId: selectedEventId || 101,
+        eventName: selectedEvent?.title || "Community Festival",
+        totalRsvps: activeRows.length,
+        totalDevoteesCount: totalDevotees,
+        mealRegistrations: {
+          lunch: activeRows.filter(r => r.category.toLowerCase().includes("meal") || (r.activityTitle && r.activityTitle.toLowerCase().includes("lunch"))).length,
+          dinner: 0,
+          prasadamTakeaway: activeRows.filter(r => r.prasadamMode && r.prasadamMode.toLowerCase().includes("delivery")).length,
+        },
+      });
+      setCrowdForecastResult(res.forecast);
+      setShowForecastModal(true);
+    } catch (e: any) {
+      setError(e?.message || "Failed to generate crowd forecast");
+    } finally {
+      setAiForecasting(false);
+    }
+  };
+
+  const handleRunPostRecap = async () => {
+    setAiRecapping(true);
+    try {
+      const activeRows = useMock ? MOCK_ROWS : registrations;
+      const attended = activeRows.filter(r => r.checkedIn).length;
+      const totalDevotees = activeRows.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
+      const totalRev = activeRows.reduce((sum, r) => sum + (r.bookingFee || 0), 0);
+      const res = await automationService.generateEventPostRecap({
+        eventId: selectedEventId || 101,
+        eventName: selectedEvent?.title || "Community Festival",
+        eventDate: selectedEvent?.startDate || new Date().toISOString().slice(0, 10),
+        metrics: {
+          registeredCount: activeRows.length,
+          actualAttendedCount: attended > 0 ? attended : Math.round(activeRows.length * 0.9),
+          totalDonationsCollected: totalRev,
+          mealsServed: Math.round(totalDevotees * 0.95),
+          volunteersEngaged: 28,
+        },
+        attendeeFeedback: [
+          { rating: 5, comment: "Pooja arrangements and temple decor were marvelous!", category: "Pooja" },
+          { rating: 4, comment: "Annadanam lunch was very tasty, though line moved slightly slow.", category: "Food" },
+          { rating: 5, comment: "Classical dance performers were world class. Great sound system.", category: "Cultural" },
+          { rating: 4, comment: "Parking marshals guided smoothly in the basement.", category: "Parking" },
+        ],
+      });
+      setPostRecapResult(res.recap);
+      setShowRecapModal(true);
+    } catch (e: any) {
+      setError(e?.message || "Failed to generate post-event recap");
+    } finally {
+      setAiRecapping(false);
+    }
+  };
+
   // ── Load Events ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (useMock) { setRegistrations(MOCK_ROWS); return; }
@@ -338,7 +409,7 @@ ${dataRows}
   function handlePrintRoster(title: string, rows: EventRegistrationReportRow[]) {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
     <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;color:#1e293b}
     h1{font-size:18px;margin:0 0 4px 0;color:#4338ca}p.meta{font-size:11px;color:#64748b;margin:0 0 16px 0}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
@@ -346,10 +417,10 @@ ${dataRows}
     .chip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:bold}
     .paid{background:#dcfce7;color:#15803d}.free{background:#f1f5f9;color:#475569}
     @media print{body{padding:10mm}}</style></head><body>
-    <h1>${title}</h1>
-    <p class="meta">Event: ${selectedEvent?.title||"Community Event"} | Date: ${new Date().toLocaleDateString()} | Total: ${rows.length}</p>
+    <h1>${escapeHtml(title)}</h1>
+    <p class="meta">Event: ${escapeHtml(selectedEvent?.title || "Community Event")} | Date: ${escapeHtml(new Date().toLocaleDateString())} | Total: ${rows.length}</p>
     <table><thead><tr><th>#</th><th>Reg Code</th><th>Category</th><th>Activity / Seva</th><th>Name</th><th>Phone</th><th>Gotram</th><th>Devotees</th><th>Date</th><th>Fee</th><th>Status</th></tr></thead>
-    <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.regCode||"—"}</strong></td><td>${r.category}</td><td>${r.activityTitle}</td><td>${r.participantName}</td><td>${r.phone||"—"}</td><td>${r.gotram||"—"}</td><td>${r.devoteeCount||1}</td><td>${r.eventDate||""}</td><td>₹${(r.bookingFee||0).toLocaleString("en-IN")}</td><td><span class="chip ${r.paymentStatus==="PAID"?"paid":"free"}">${r.status||"CONFIRMED"}</span></td></tr>`).join("")}
+    <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${escapeHtml(r.regCode || "—")}</strong></td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.activityTitle)}</td><td>${escapeHtml(r.participantName)}</td><td>${escapeHtml(r.phone || "—")}</td><td>${escapeHtml(r.gotram || "—")}</td><td>${r.devoteeCount || 1}</td><td>${escapeHtml(r.eventDate || "")}</td><td>₹${(r.bookingFee || 0).toLocaleString("en-IN")}</td><td><span class="chip ${r.paymentStatus === "PAID" ? "paid" : "free"}">${escapeHtml(r.status || "CONFIRMED")}</span></td></tr>`).join("")}
     </tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   }
@@ -357,17 +428,17 @@ ${dataRows}
   function handlePrintAttendanceSheet(title: string, rows: EventRegistrationReportRow[]) {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${title} – Attendance</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)} – Attendance</title>
     <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;color:#1e293b}
     h1{font-size:18px;margin:0 0 4px 0;color:#4338ca}p.meta{font-size:11px;color:#64748b;margin:0 0 16px 0}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
     th{background:#f1f5f9;font-weight:700;color:#334155}.check{width:28px;text-align:center;font-size:16px}
     tr:nth-child(even){background:#f8fafc}
     @media print{body{padding:10mm}}</style></head><body>
-    <h1>${title} – Attendance Sheet</h1>
-    <p class="meta">Event: ${selectedEvent?.title||"Community Event"} | ${new Date().toLocaleDateString()} | Total: ${rows.length} | In: ${rows.filter(r=>r.checkedIn).length} | Out: ${rows.filter(r=>!r.checkedIn).length}</p>
+    <h1>${escapeHtml(title)} – Attendance Sheet</h1>
+    <p class="meta">Event: ${escapeHtml(selectedEvent?.title || "Community Event")} | ${escapeHtml(new Date().toLocaleDateString())} | Total: ${rows.length} | In: ${rows.filter(r=>r.checkedIn).length} | Out: ${rows.filter(r=>!r.checkedIn).length}</p>
     <table><thead><tr><th class="check">✓</th><th>#</th><th>Reg Code</th><th>Name</th><th>Activity / Seva</th><th>Phone</th><th>Gotram</th><th>Dev.</th><th>Date &amp; Time</th><th>Venue</th></tr></thead>
-    <tbody>${rows.map((r,i)=>`<tr><td class="check">${r.checkedIn?"✅":"☐"}</td><td>${i+1}</td><td><strong>${r.regCode||"—"}</strong></td><td>${r.participantName}</td><td>${r.activityTitle}</td><td>${r.phone||"—"}</td><td>${r.gotram||"—"}</td><td>${r.devoteeCount||1}</td><td>${r.eventDate||""} ${r.eventTime||""}</td><td>${r.venue||r.mandap||"—"}</td></tr>`).join("")}
+    <tbody>${rows.map((r,i)=>`<tr><td class="check">${r.checkedIn?"✅":"☐"}</td><td>${i+1}</td><td><strong>${escapeHtml(r.regCode || "—")}</strong></td><td>${escapeHtml(r.participantName)}</td><td>${escapeHtml(r.activityTitle)}</td><td>${escapeHtml(r.phone || "—")}</td><td>${escapeHtml(r.gotram || "—")}</td><td>${r.devoteeCount || 1}</td><td>${escapeHtml(r.eventDate || "")} ${escapeHtml(r.eventTime || "")}</td><td>${escapeHtml(r.venue || r.mandap || "—")}</td></tr>`).join("")}
     </tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   }
@@ -525,6 +596,22 @@ ${dataRows}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleRunCrowdForecast}
+              disabled={aiForecasting}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              {aiForecasting ? <Loader2 className="w-3 h-3 animate-spin" /> : <TrendingUp className="w-3 h-3 text-amber-300" />}
+              AI Crowd Forecast
+            </button>
+            <button
+              onClick={handleRunPostRecap}
+              disabled={aiRecapping}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              {aiRecapping ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-200" />}
+              AI Post-Event Recap
+            </button>
             <button
               onClick={() => handleDownloadCategory("all", "All Event Registrations", "csv")}
               disabled={downloadingCategory === "all"}
@@ -1029,6 +1116,181 @@ ${dataRows}
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Crowd & Meal Forecast Modal ── */}
+      {showForecastModal && crowdForecastResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={e => { if (e.target === e.currentTarget) setShowForecastModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-purple-50 via-indigo-50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                  <TrendingUp className="w-4 h-4 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">AI Crowd, Catering & Parking Forecaster</h3>
+                  <p className="text-[11px] text-slate-500">{selectedEvent?.title || "Community Festival"}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowForecastModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* KPIs */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-center">
+                  <p className="text-xl font-black text-purple-700">{crowdForecastResult.forecastedTurnout}</p>
+                  <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wide">Expected Turnout</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{crowdForecastResult.expectedShowUpRatePercent}% show-up</p>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
+                  <p className="text-xl font-black text-emerald-700">{crowdForecastResult.mealBuffer.recommendedPortions}</p>
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">Meal Portions Buffer</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">+{crowdForecastResult.mealBuffer.bufferPercentage}% safety</p>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-center">
+                  <p className="text-xl font-black text-amber-700">{crowdForecastResult.parkingForecast.estimatedVehicles}</p>
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Vehicle Influx</p>
+                  <p className="text-[10px] text-amber-600 font-semibold mt-0.5">{crowdForecastResult.parkingForecast.overflowRisk} Risk</p>
+                </div>
+              </div>
+
+              {/* Peak Window & Alert */}
+              <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-600" /> Peak Rush Window: {crowdForecastResult.peakWindow}
+                </p>
+                <p className="text-[11px] text-indigo-700">{crowdForecastResult.organizerAlert}</p>
+              </div>
+
+              {/* Parking Mitigation */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Car className="w-3.5 h-3.5 text-slate-600" /> Parking Plan & Gate Marshals
+                </p>
+                <p className="text-[11px] text-slate-600">{crowdForecastResult.parkingForecast.mitigation}</p>
+                <p className="text-[10px] font-bold text-slate-500 mt-1">
+                  Recommended scanning & usher staff at main entry: {crowdForecastResult.gateStaffRecommendation} volunteers
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowForecastModal(false)}
+                className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Post-Event Recap Modal ── */}
+      {showRecapModal && postRecapResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={e => { if (e.target === e.currentTarget) setShowRecapModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-teal-50 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">AI Post-Event Recap & Bulletin</h3>
+                  <p className="text-[11px] text-slate-500">{selectedEvent?.title || "Community Festival"}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecapModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              {/* Satisfaction Index */}
+              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Community Satisfaction Index</p>
+                  <p className="text-2xl font-black text-emerald-700">{postRecapResult.overallScore} / 100</p>
+                  <p className="text-[11px] font-semibold text-emerald-600">Sentiment: {postRecapResult.sentiment}</p>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                  ⭐
+                </div>
+              </div>
+
+              {/* Highlights & Improvements */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                  <p className="text-xs font-bold text-slate-800">🌟 Top Delighters</p>
+                  <ul className="text-[11px] text-slate-600 space-y-1 list-disc list-inside">
+                    {postRecapResult.keyHighlights.map((h, i) => <li key={i}>{h}</li>)}
+                  </ul>
+                </div>
+                <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1.5">
+                  <p className="text-xs font-bold text-amber-900">💡 Next Edition Improvements</p>
+                  <ul className="text-[11px] text-amber-800 space-y-1 list-disc list-inside">
+                    {postRecapResult.nextEventImprovements.map((imp, i) => <li key={i}>{imp}</li>)}
+                  </ul>
+                </div>
+              </div>
+
+              {/* WhatsApp Community Bulletin */}
+              {postRecapResult.whatsappCommunityRecap && (
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
+                      💬 WhatsApp & Notice Board Community Bulletin
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(postRecapResult.whatsappCommunityRecap);
+                        setCopiedAiText("recap");
+                        setTimeout(() => setCopiedAiText(null), 2500);
+                      }}
+                      className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300 transition cursor-pointer"
+                    >
+                      {copiedAiText === "recap" ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      {copiedAiText === "recap" ? "Copied!" : "Copy Broadcast"}
+                    </button>
+                  </div>
+                  <pre className="text-[11px] text-slate-700 font-sans whitespace-pre-wrap bg-white/80 p-2.5 rounded-lg border border-emerald-100 max-h-40 overflow-y-auto">
+                    {postRecapResult.whatsappCommunityRecap}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowRecapModal(false)}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

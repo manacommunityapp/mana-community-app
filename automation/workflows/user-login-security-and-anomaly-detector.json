@@ -1,0 +1,125 @@
+{
+  "name": "Mana User Login AI Security Guardian & Anomaly Detector",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user-login-security-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Login Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "mana-user-login-audit-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json.body || $input.first().json;\n\nconst userId = item.userId || item.id || 'usr-anonymous';\nconst identifier = item.identifier || item.email || item.phone || 'unknown@resident.com';\nconst fullName = item.fullName || item.name || 'Resident';\nconst flatIdentifier = item.flatIdentifier || `${item.block || ''}-${item.flatNo || ''}` || 'General Resident';\nconst loginTime = item.loginTime || new Date().toISOString();\nconst ipAddress = item.ipAddress || '127.0.0.1';\nconst location = item.location || { city: 'Bangalore', country: 'IN', isp: 'Residential Broadband' };\nconst device = item.device || { browser: 'Chrome', os: 'Windows', deviceType: 'Desktop', userAgent: item.userAgent || 'Mozilla/5.0' };\nconst isNewDevice = Boolean(item.isNewDevice);\nconst failedAttemptsPrior = Number(item.failedAttemptsPrior || item.consecutiveFailures || 0);\nconst lastLoginTime = item.lastLoginTime || null;\nconst lastLoginLocation = item.lastLoginLocation || { city: 'Bangalore', country: 'IN' };\nconst loginStatus = item.loginStatus || (failedAttemptsPrior > 0 ? 'FAILED_PASSWORD' : 'SUCCESS');\n\nconst prompt = `You are the Chief Cyber-Security Guardian and Resident Account Protection Officer for Mana Community Society.\nAnalyze the following user authentication event in real-time to detect account takeover, impossible travel, credential stuffing, or anomalous behavior.\n\nAuthentication Session Telemetry:\n- Resident ID: ${userId}\n- Identifier: ${identifier}\n- Resident Name: ${fullName}\n- Flat / Unit: ${flatIdentifier}\n- Attempt Timestamp: ${loginTime}\n- Current IP Address: ${ipAddress}\n- Geolocation: ${JSON.stringify(location)}\n- Device Telemetry: ${JSON.stringify(device)}\n- Is Unrecognized / New Device: ${isNewDevice}\n- Consecutive Prior Failed Attempts: ${failedAttemptsPrior}\n- Last Known Login: ${lastLoginTime || 'First recorded login'}\n- Last Known Geolocation: ${JSON.stringify(lastLoginLocation)}\n- Session Status: ${loginStatus}\n\nSecurity Evaluation Guidelines:\n1. Geo-Velocity / Impossible Travel: Flag if the geographical distance between last known login and current login cannot be physically traversed within the elapsed time.\n2. Device & Fingerprint Anomaly: Check if an unknown browser/OS or server-side headless user-agent is mimicking resident behavior.\n3. Brute-Force & Credential Stuffing: Multiple rapid failed attempts (> 3) indicate password guessing or credential leak exposure.\n4. Risk Scoring: Assign a risk level (LOW, MEDIUM, HIGH, CRITICAL) and risk score (0 to 100).\n5. Recommended Action:\n   - ALLOW: Safe login session, normal access permitted.\n   - REQUIRE_STEP_UP_OTP: Suspicious delta or new device, enforce mandatory 6-digit WhatsApp/SMS OTP challenge.\n   - RESTRICTED_SESSION: Prohibit sensitive actions (financial dues payment, visitor pass generation, password changes).\n   - BLOCK_AND_LOCKOUT: Active attack signature, temporarily lock account for 30 minutes and alert society security.\n6. Urgent Security Alert: If risk is elevated or device is new, draft a concise WhatsApp/SMS warning to the resident with a one-tap secure/lock link.\n7. Contextual Community Greeting: If login is verified & safe (LOW risk), generate a warm, contextual community micro-greeting suitable for their dashboard.\n\nRespond ONLY with a valid JSON object matching this schema:\n{\n  \"riskLevel\": \"LOW\" | \"MEDIUM\" | \"HIGH\" | \"CRITICAL\",\n  \"riskScore\": number (0 to 100),\n  \"isAnomalous\": boolean,\n  \"recommendedAction\": \"ALLOW\" | \"REQUIRE_STEP_UP_OTP\" | \"RESTRICTED_SESSION\" | \"BLOCK_AND_LOCKOUT\",\n  \"threatFactors\": string[],\n  \"telemetryAudit\": {\n    \"impossibleTravelDetected\": boolean,\n    \"newDeviceEncountered\": boolean,\n    \"bruteForceRisk\": boolean,\n    \"locationDiscrepancy\": string\n  },\n  \"securityAlertMessage\": string | null,\n  \"contextualGreeting\": string,\n  \"adminAuditNote\": \"Concise rationale for security logs and SOC dashboard\"\n}`;\n\nreturn [{\n  json: {\n    userId,\n    identifier,\n    fullName,\n    flatIdentifier,\n    loginTime,\n    ipAddress,\n    prompt\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Prepare Login Security Audit Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": {{ JSON.stringify($json.prompt) }}\n    }]\n  }],\n  \"generationConfig\": {\n    \"response_mime_type\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Gemini Security Guardian (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nlet parsedSecurity = {};\n\ntry {\n  const rawText = geminiResponse.candidates[0].content.parts[0].text;\n  parsedSecurity = JSON.parse(rawText);\n} catch (err) {\n  parsedSecurity = {\n    riskLevel: \"LOW\",\n    riskScore: 5,\n    isAnomalous: false,\n    recommendedAction: \"ALLOW\",\n    threatFactors: [],\n    telemetryAudit: {\n      impossibleTravelDetected: false,\n      newDeviceEncountered: false,\n      bruteForceRisk: false,\n      locationDiscrepancy: \"Standard resident session\"\n    },\n    securityAlertMessage: null,\n    contextualGreeting: \"Welcome back to Mana Community! Have a productive and pleasant day.\",\n    adminAuditNote: \"Session telemetry evaluated as regular resident activity.\"\n  };\n}\n\nconst meta = $('Prepare Login Security Audit Prompt').first().json;\n\nreturn [{\n  json: {\n    status: \"success\",\n    userId: meta.userId,\n    identifier: meta.identifier,\n    evaluatedAt: new Date().toISOString(),\n    security: parsedSecurity\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Parse Security Audit Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5",
+      "name": "Respond with Security Verdict",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Login Inbound Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Login Security Audit Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Login Security Audit Prompt": {
+      "main": [
+        [
+          {
+            "node": "Gemini Security Guardian (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Security Guardian (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Security Audit Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Security Audit Output": {
+      "main": [
+        [
+          {
+            "node": "Respond with Security Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -93,12 +93,12 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                   {team.shortName || 'SQUAD'}
                 </span>
                 {team.tournamentName && (
-                  <span className="text-xs text-white/80 font-medium">
+                  <span className="text-[10px] text-white/80 font-medium">
                     • {team.tournamentName} {team.season ? `(${team.season})` : ''}
                   </span>
                 )}
               </div>
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight truncate">
+              <h2 className="text-xs font-black tracking-tight truncate">
                 {team.name}
               </h2>
               {team.motto && (
@@ -140,7 +140,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                 <Crown className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-white/60 block">Team Captain</span>
+                <span className="text-[10px] uppercase font-bold text-white/60 block">Team Captain</span>
                 <strong className="text-xs font-bold text-white truncate block">
                   {team.captainName}
                 </strong>
@@ -154,7 +154,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                 <Award className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-white/60 block">Team Owner / Franchise</span>
+                <span className="text-[10px] uppercase font-bold text-white/60 block">Team Owner / Franchise</span>
                 <strong className="text-xs font-bold text-white truncate block">
                   {team.ownerName} {team.ownerCompany ? `(${team.ownerCompany})` : ''}
                 </strong>
@@ -192,9 +192,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                 {Icon && <Icon className="w-3 h-3" />}
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                    isActive ? 'bg-white/20 dark:bg-black/20 text-current' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
-                  }`}
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${ isActive ? 'bg-white/20 dark:bg-black/20 text-current' : 'bg-slate-200 dark:bg-slate-700 text-slate-500' }`}
                 >
                   {tab.count}
                 </span>
@@ -223,7 +221,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
             No players found matching your criteria
           </p>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs text-slate-400">
             Try adjusting your role filter or search query.
           </p>
         </div>
@@ -255,18 +253,18 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                           {player.name}
                         </strong>
                         {isCaptain && (
-                          <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-2xs">
+                          <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center gap-0.5 shadow-2xs">
                             <Crown className="w-2.5 h-2.5" /> C
                           </span>
                         )}
                         {isViceCaptain && (
-                          <span className="px-1.5 py-0.2 rounded bg-indigo-500 text-white text-[9px] font-black uppercase tracking-wider">
+                          <span className="px-1.5 py-0.2 rounded bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider">
                             VC
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
                         {player.flatNumber && (
                           <span>Flat {player.flatNumber}</span>
                         )}
@@ -289,7 +287,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                 </div>
 
                 {/* Role Pill & Acquisition Status */}
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wider">
                     {player.role === 'BATSMAN' && '🏏 Batsman'}
                     {player.role === 'BOWLER' && '🎯 Bowler'}
@@ -305,7 +303,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
 
                 {/* Player Key Stats (if present) */}
                 {player.stats && (
-                  <div className="grid grid-cols-3 gap-1 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg text-center text-[10px]">
+                  <div className="grid grid-cols-3 gap-1 bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg text-center text-xs">
                     {player.stats.runs !== undefined && (
                       <div>
                         <span className="text-slate-400 block font-semibold">Runs</span>

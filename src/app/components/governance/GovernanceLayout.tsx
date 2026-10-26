@@ -33,12 +33,12 @@ export function GovernanceLayout() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black tracking-tight">Mana Governance</h1>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight m-0 mb-0">Mana Governance</h3>
                 <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-black rounded-full">
                   Verified Democratic Operating System
                 </span>
               </div>
-              <p className="text-indigo-200 text-xs mt-1 font-medium max-w-xl">
+              <p className="text-indigo-200 text-xs mt-1 font-medium max-w-xl m-0">
                 Transparent community meetings (AGM/EGM), proposals, secret voting, quorum calculation, resolutions, and digital vault.
               </p>
             </div>

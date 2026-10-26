@@ -30,6 +30,7 @@ const CATEGORY_TABS: { id: ProviderCategory | "ALL"; label: string; icon: string
   { id: "DIAGNOSTIC_CENTER", label: "Diagnostics & Labs", icon: "🧪" },
   { id: "PHARMACY", label: "Pharmacies", icon: "💊" },
   { id: "PHYSIOTHERAPIST", label: "Physiotherapists", icon: "🏃" },
+  { id: "FITNESS_TRAINER", label: "Gym & Fitness Trainers", icon: "🏋️" },
   { id: "HOME_CARE", label: "Home Care", icon: "🏡" }
 ];
 
@@ -64,6 +65,7 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [homeVisitOnly, setHomeVisitOnly] = useState(false);
   const [selectedMode, setSelectedMode] = useState<"ALL" | ConsultationMode>("ALL");
+  const [selectedDept, setSelectedDept] = useState("All");
 
   // Modals state
   const [selectedDoctorForDetails, setSelectedDoctorForDetails] = useState<DoctorDto | null>(null);
@@ -162,6 +164,12 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
         return false;
       }
 
+      // Department filter
+      if (selectedDept && selectedDept !== "All") {
+        const match = doc.specialty?.toLowerCase().includes(selectedDept.toLowerCase());
+        if (!match) return false;
+      }
+
       return true;
     });
   }, [
@@ -174,7 +182,8 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
     availableTodayOnly,
     openNowOnly,
     homeVisitOnly,
-    selectedMode
+    selectedMode,
+    selectedDept
   ]);
 
   // Provider Category count helper
@@ -404,6 +413,23 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
           )}
         </div>
 
+        {/* Department Quick-Filter Chips */}
+        <div className="flex flex-wrap gap-2">
+          {["All", "Cardiology", "Pediatrics", "Orthopedics", "Dermatology", "Neurology", "Gynecology", "Ophthalmology", "ENT", "Psychiatry", "Oncology", "General Medicine"].map(dept => (
+            <button
+              key={dept}
+              onClick={() => setSelectedDept(dept)}
+              className={`px-3 py-1 text-xs font-semibold rounded-full border transition-colors ${
+                selectedDept === dept
+                  ? "bg-teal-600 text-white border-teal-600"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-teal-400 hover:text-teal-700"
+              }`}
+            >
+              {dept === "All" ? "All Depts" : dept}
+            </button>
+          ))}
+        </div>
+
         {/* Dropdowns Row: Specialty, Distance, Language, Fee, Mode */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {/* Specialty Dropdown */}
@@ -629,6 +655,17 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
                   </div>
                 )}
 
+                {/* Accreditation Badges */}
+                {(provider as any).accreditations && (provider as any).accreditations.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(provider as any).accreditations.map((a: string, i: number) => (
+                      <span key={i} className="flex items-center gap-1 bg-teal-50 border border-teal-200 text-teal-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        🏅 {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {/* Next Slot & Modes */}
                 <div className="flex justify-between items-center text-xs text-gray-600 pt-1">
                   <span>
@@ -667,6 +704,17 @@ export const HealthcareDirectory: React.FC<HealthcareDirectoryProps> = ({
                 </div>
 
                 <div className="flex gap-2">
+                  {(provider as any).mapsUrl && (
+                    <a
+                      href={(provider as any).mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 font-bold py-2.5 px-3 rounded-xl transition text-xs flex items-center justify-center"
+                      title="Get Directions"
+                    >
+                      📍
+                    </a>
+                  )}
                   {provider.phone && (
                     <a
                       href={`tel:${provider.phone.replace(/[^0-9+]/g, "")}`}

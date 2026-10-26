@@ -140,17 +140,44 @@ export const sportsEventService = {
   async deleteTournament(id: number): Promise<void> {
     return apiClient.delete<void>(`/sports/tournaments/${id}`);
   },
+
+  /** DELETE /api/sports/events/{id} — delete a specific sports event */
+  async deleteSportsEvent(id: number): Promise<void> {
+    return apiClient.delete<void>(`/sports/events/${id}`);
+  },
+
   async deleteEvent(id: number): Promise<void> {
-    return this.deleteTournament(id);
+    return apiClient.delete<void>(`/sports/events/${id}`).catch((err: any) => {
+      // Fallback for legacy single-event tournaments mapped under tournaments endpoint
+      if (err?.response?.status === 404 || err?.status === 404) {
+        return this.deleteTournament(id);
+      }
+      throw err;
+    });
   },
 
   /** PUT /api/tournaments/{id}/status — update tournament status */
   async updateTournamentStatus(id: number, status: string): Promise<any> {
-    return apiClient.put<any>(`/tournaments/${id}/status?status=${status}`);
+    return apiClient.put<any>(`/tournaments/${id}/status?status=${status}`).catch((err: any) => {
+      if (err?.response?.status === 404 || err?.status === 404) {
+        return apiClient.put<any>(`/sports/tournaments/${id}/status?status=${status}`);
+      }
+      throw err;
+    });
   },
   async updateEventStatus(id: number, status: string): Promise<SportsEvent> {
     return apiClient.put<SportsEvent>(`/sports/events/${id}/status?status=${status}`)
       .then((x: any) => this.mapEvent(x));
+  },
+
+  /** Close tournament registration: set status to REGISTRATION_CLOSED */
+  async closeTournament(id: number): Promise<any> {
+    return this.updateTournamentStatus(id, "REGISTRATION_CLOSED");
+  },
+
+  /** Close sports event registration: set status to REGISTRATION_CLOSED */
+  async closeSportsEvent(id: number): Promise<SportsEvent> {
+    return this.updateEventStatus(id, "REGISTRATION_CLOSED");
   },
 
   /** GET /api/sports/tournaments/closed — all REGISTRATION_CLOSED tournaments */
@@ -183,8 +210,9 @@ export const sportsEventService = {
   },
 
   /** DELETE /api/sports/register/{registrationId} — withdraw from a tournament */
-  async withdraw(registrationId: number): Promise<void> {
-    return apiClient.delete<void>(`/sports/register/${registrationId}`);
+  async withdraw(registrationId: number, reason?: string): Promise<void> {
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+    return apiClient.delete<void>(`/sports/register/${registrationId}${qs}`);
   },
 
   /** GET /api/sports/tournaments/{eventId}/registrations — list all registrations for a tournament */
@@ -238,11 +266,16 @@ export const sportsEventService = {
   },
 
   /** PUT /api/sports/registrations/{id}/nominate-partner — nominate or update partner */
-  async nominatePartner(registrationId: number, partnerUserId?: number | null): Promise<EventRegistration> {
-    const url = partnerUserId != null
-      ? `/sports/registrations/${registrationId}/nominate-partner?partnerUserId=${partnerUserId}`
-      : `/sports/registrations/${registrationId}/nominate-partner`;
-    return apiClient.put<EventRegistration>(url);
+  async nominatePartner(
+    registrationId: number,
+    partnerUserId?: number | null,
+    partnerFamilyMemberId?: number | null
+  ): Promise<EventRegistration> {
+    const params = new URLSearchParams();
+    if (partnerUserId != null) params.set("partnerUserId", String(partnerUserId));
+    if (partnerFamilyMemberId != null) params.set("partnerFamilyMemberId", String(partnerFamilyMemberId));
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/nominate-partner${qs}`);
   },
 
   /** POST /api/sports/register-team — register a team with multiple members */

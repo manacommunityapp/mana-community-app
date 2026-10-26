@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
-import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy, Calendar, AlertTriangle, ArrowUpRight, UserCheck, Check, X, Plus, UserPlus, Upload, FileUp, AlertCircle, FileText, Crown, Users, ChevronDown, MapPin, Building2, Search } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsDashboardService, type DashboardEventCard } from "../../../services/sports/sportsDashboardService";
@@ -8,7 +8,7 @@ import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
 import { otpService } from "../../../services/common/otpService";
-import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -18,8 +18,10 @@ import {
 import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
-import type { SportsEvent, PlayerCategory } from "../../../types/api";
-import { TournamentSponsorBanner, DEFAULT_TOURNAMENT_SPONSORS } from "./sponsors";
+import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
+import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
+import { useCashfree } from "../../../hooks/useCashfree";
+import CashfreeCheckout from "../payments/CashfreeCheckout";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -47,6 +49,7 @@ export interface CategoryEligibilityResult {
   isGenderMismatch: boolean;
   isOverAge: boolean;
   isUnderAge: boolean;
+  isAgeUnknown: boolean;
   minAge: number | null;
   maxAge: number | null;
   requiredGender: "MALE" | "FEMALE" | "MIXED" | "ALL" | null;
@@ -61,8 +64,78 @@ export function normalizeGender(gender: string | null | undefined): "MALE" | "FE
   return "OTHER";
 }
 
+export function parseDobDate(dobString?: string | null): Date | null {
+  if (!dobString) return null;
+  const str = String(dobString).trim();
+  if (!str) return null;
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+export function inferGender(
+  member?: { gender?: string | null; relation?: string | null; name?: string | null } | null,
+  primaryUserGender?: string | null
+): string {
+  if (!member) return "";
+  const rel = (member.relation || "").trim().toLowerCase();
+  
+  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  if (femaleRelations.some(r => rel.includes(r))) {
+    return "Female";
+  }
+
+  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  if (maleRelations.some(r => rel.includes(r))) {
+    return "Male";
+  }
+
+  if (rel.includes("spouse") || rel.includes("partner")) {
+    const pGen = (primaryUserGender || "Male").toLowerCase();
+    return pGen.startsWith("m") ? "Female" : "Male";
+  }
+
+  if (member.gender && String(member.gender).trim()) {
+    const norm = normalizeGender(member.gender);
+    if (norm === "FEMALE") return "Female";
+    if (norm === "MALE") return "Male";
+    return String(member.gender).trim();
+  }
+
+  return "";
+}
+
 export function checkCategoryEligibility(
-  categoryOrEvent: { name?: string | null; categoryName?: string | null; gender?: string | null; minAge?: number | null; maxAge?: number | null } | null | undefined,
+  categoryOrEvent: {
+    name?: string | null;
+    categoryName?: string | null;
+    gender?: string | null;
+    minAge?: number | null;
+    maxAge?: number | null;
+    categories?: any[] | null;
+    allowedGenders?: string[] | null;
+  } | null | undefined,
   participantAge: number,
   participantGender: string
 ): CategoryEligibilityResult {
@@ -72,6 +145,7 @@ export function checkCategoryEligibility(
       isGenderMismatch: false,
       isOverAge: false,
       isUnderAge: false,
+      isAgeUnknown: false,
       minAge: null,
       maxAge: null,
       requiredGender: null,
@@ -81,9 +155,13 @@ export function checkCategoryEligibility(
 
   const text = `${categoryOrEvent.categoryName || ""} ${categoryOrEvent.name || ""}`.toLowerCase();
   
-  // 1. Parse Min & Max Age
-  let minAge: number | null = categoryOrEvent.minAge ?? null;
-  let maxAge: number | null = categoryOrEvent.maxAge ?? null;
+  // 1. Parse Min & Max Age (convert any string/number safely)
+  let minAge: number | null = categoryOrEvent.minAge != null && !isNaN(Number(categoryOrEvent.minAge))
+    ? Number(categoryOrEvent.minAge)
+    : null;
+  let maxAge: number | null = categoryOrEvent.maxAge != null && !isNaN(Number(categoryOrEvent.maxAge))
+    ? Number(categoryOrEvent.maxAge)
+    : null;
 
   if (minAge == null && maxAge == null) {
     const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
@@ -138,16 +216,28 @@ export function checkCategoryEligibility(
 
   let isOverAge = false;
   let isUnderAge = false;
+  let isAgeUnknown = false;
   let warningMsg = "";
 
-  if (participantAge > 0) {
-    if (maxAge != null && participantAge > maxAge) {
+  const pAge = Number(participantAge) || 0;
+
+  if (pAge > 0) {
+    if (maxAge != null && pAge > maxAge) {
       isOverAge = true;
-      warningMsg = `Participant age (${participantAge}y) exceeds maximum limit for this category (Max: ${maxAge} yrs).`;
-    } else if (minAge != null && participantAge < minAge) {
+      warningMsg = `Participant age (${pAge}y) exceeds maximum limit for this category (Max: ${maxAge} yrs).`;
+    } else if (minAge != null && pAge < minAge) {
       isUnderAge = true;
-      warningMsg = `Participant age (${participantAge}y) is below minimum age requirement (${minAge}+ yrs).`;
+      warningMsg = `Participant age (${pAge}y) is below minimum age requirement (${minAge}+ yrs).`;
+    } else if (minAge == null && pAge < 4 && !/\b(baby|infant|toddler)\b/i.test(text)) {
+      isUnderAge = true;
+      warningMsg = `Participant age (${pAge}y) is below minimum sports participation age (4+ yrs).`;
     }
+  } else if (minAge != null || maxAge != null) {
+    // Age is 0 (not set in profile) but this category has an age restriction — cannot verify eligibility
+    isAgeUnknown = true;
+    warningMsg = `Age not set in profile. Add date of birth or age to verify eligibility for this age group (${
+      minAge != null && maxAge != null ? `${minAge}–${maxAge} yrs` : minAge != null ? `${minAge}+ yrs` : `Under ${maxAge} yrs`
+    }).`;
   }
 
   if (isGenderMismatch) {
@@ -156,13 +246,66 @@ export function checkCategoryEligibility(
     warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
   }
 
-  const eligible = !isGenderMismatch && !isOverAge && !isUnderAge;
+  // If this category or event itself has explicit restrictions that failed, it is ineligible!
+  if (isGenderMismatch || isOverAge || isUnderAge || isAgeUnknown) {
+    return {
+      eligible: false,
+      isGenderMismatch,
+      isOverAge,
+      isUnderAge,
+      isAgeUnknown,
+      minAge,
+      maxAge,
+      requiredGender,
+      warningMsg,
+    };
+  }
+
+  // If categoryOrEvent has an array of subcategories and no direct restrictions, evaluate subcategories
+  if (Array.isArray(categoryOrEvent.categories) && categoryOrEvent.categories.length > 0 && minAge == null && maxAge == null && !requiredGender) {
+    const subCategories: any[] = categoryOrEvent.categories;
+    const subResults = subCategories.map(sub => checkCategoryEligibility(sub, participantAge, participantGender));
+    const anyEligible = subResults.some(r => r.eligible);
+    if (anyEligible) {
+      const matchingSub = subResults.find(r => r.eligible);
+      return matchingSub || {
+        eligible: true,
+        isGenderMismatch: false,
+        isOverAge: false,
+        isUnderAge: false,
+        isAgeUnknown: false,
+        minAge: null,
+        maxAge: null,
+        requiredGender: null,
+        warningMsg: "",
+      };
+    } else {
+      const isAllGenderMismatch = subResults.every(r => r.isGenderMismatch);
+      const isAllOverAge = subResults.every(r => r.isOverAge);
+      const isAllUnderAge = subResults.every(r => r.isUnderAge);
+      const isAllAgeUnknown = subResults.every(r => r.isAgeUnknown);
+      return {
+        eligible: false,
+        isGenderMismatch: isAllGenderMismatch,
+        isOverAge: isAllOverAge,
+        isUnderAge: isAllUnderAge,
+        isAgeUnknown: isAllAgeUnknown,
+        minAge: subResults[0]?.minAge ?? null,
+        maxAge: subResults[0]?.maxAge ?? null,
+        requiredGender: subResults[0]?.requiredGender ?? null,
+        warningMsg: subResults[0]?.warningMsg || "No eligible category for selected participant",
+      };
+    }
+  }
+
+  const eligible = !isGenderMismatch && !isOverAge && !isUnderAge && !isAgeUnknown;
 
   return {
     eligible,
     isGenderMismatch,
     isOverAge,
     isUnderAge,
+    isAgeUnknown,
     minAge,
     maxAge,
     requiredGender,
@@ -223,10 +366,10 @@ export function findBestMatchingCategory<T extends { name?: string | null; categ
   return bestScore > -1 ? bestItem : undefined;
 }
 
-export function calculateAge(dobString: string): number | null {
+export function calculateAge(dobString?: string | null): number | null {
   if (!dobString) return null;
-  const dob = new Date(dobString);
-  if (isNaN(dob.getTime())) return null;
+  const dob = parseDobDate(dobString);
+  if (!dob) return null;
   const today = new Date();
   let age = today.getFullYear() - dob.getFullYear();
   const m = today.getMonth() - dob.getMonth();
@@ -271,13 +414,40 @@ export function getEventFormats(event: SportsEvent | null): string[] {
   const eName = (event.name || "").toLowerCase();
   const sName = (event.sport?.name || (event as any).sportName || "").toLowerCase();
   const tName = ((event as any).tournamentName || (event as any).tournament?.name || "").toLowerCase();
-  const combined = `${sName} ${tName} ${eName}`;
+  const catName = ((event as any).categoryName || (event as any).category?.name || "").toLowerCase();
+  const gender = ((event as any).gender || (event as any).genderCategory || "").toLowerCase();
+  const combined = `${sName} ${tName} ${eName} ${catName}`;
   const sKey = detectSport(combined);
+
+  const isTeam =
+    Boolean((event as any).isTeamSport || (event as any).teamSport || (event as any).eventType === "TEAM" || (event as any).matchType === "TEAM") ||
+    isTeamSport(sName || eName || combined) ||
+    ["cricket", "football", "volleyball", "basketball", "kabaddi", "hockey", "throwball", "rugby", "soccer"].includes(sKey);
+
+  // Gender check: Men-only or Women-only events/categories CANNOT have MIXED_DOUBLES
+  const isGenderRestricted =
+    gender === "male" ||
+    gender === "female" ||
+    gender === "men" ||
+    gender === "women" ||
+    gender === "boys" ||
+    gender === "girls" ||
+    catName.includes("men") ||
+    catName.includes("women") ||
+    catName.includes("boys") ||
+    catName.includes("girls") ||
+    eName.includes("men") ||
+    eName.includes("women") ||
+    eName.includes("boys") ||
+    eName.includes("girls");
 
   // 1. Check if event explicitly specifies formats
   const rawExplicit =
     event.format ||
     (event as any).formats ||
+    (event as any).rawEvent?.formats ||
+    (event as any).rawEvent?.format ||
+    (event as any).rawEvent?.eventFormats ||
     event.sport?.formats ||
     (event.sport as any)?.format ||
     (event as any).tournament?.format ||
@@ -288,18 +458,30 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
       return ["MIXED_DOUBLES"];
     }
+    // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
+    if (isGenderRestricted && parsedExplicit.includes("MIXED_DOUBLES") && parsedExplicit.length > 1) {
+      return parsedExplicit.filter(f => f !== "MIXED_DOUBLES");
+    }
     return parsedExplicit;
+  }
+
+  // If this is a team sport event, default to TEAM format
+  if (isTeam) {
+    return ["TEAM"];
   }
 
   // 2. Check event name keywords for specific format
   if (eName.includes("singles") && eName.includes("doubles")) {
-    return eName.includes("mixed") ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
+    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
   if (eName.includes("mixed") || eName.includes("mixed doubles")) {
     return ["MIXED_DOUBLES"];
   }
   if (eName.includes("doubles") && !eName.includes("singles")) {
     return ["DOUBLES"];
+  }
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
   }
 
   // 3. Default available formats based on sport type
@@ -312,7 +494,11 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     combined.includes("shuttle") ||
     combined.includes("tt")
   ) {
-    return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    const hasMixedKeyword = combined.includes("mixed") || combined.includes("co-ed");
+    if (hasMixedKeyword && !isGenderRestricted) {
+      return ["SINGLES", "DOUBLES", "MIXED_DOUBLES"];
+    }
+    return ["SINGLES", "DOUBLES"];
   }
 
   if (
@@ -330,6 +516,10 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     combined.includes("athletics")
   ) {
     return ["INDIVIDUAL", "RELAY"];
+  }
+
+  if (sKey === "chess" || combined.includes("chess")) {
+    return ["SINGLES"];
   }
 
   return ["SINGLES", "DOUBLES"];
@@ -702,6 +892,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const isModal = Boolean(props.isModal);
   const handleClose = props.onClose || (() => navigate(-1));
 
+  // Cashfree payment hook — used when the event has a registration fee.
+  const cashfree = useCashfree({
+    onSuccess: () => toast.success("Payment confirmed!"),
+    onError:   (msg) => toast.error(msg),
+  });
+  const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
+  // Pending registration payload saved until payment succeeds.
+  const pendingRegistrationRef = useRef<null | (() => Promise<void>)>(null);
+
   const [event, setEvent] = useState<SportsEvent | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -738,6 +937,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const [otpSending, setOtpSending] = useState(false);
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [isPlayerIdentityExpanded, setIsPlayerIdentityExpanded] = useState(false);
 
   const [liveUser, setLiveUser] = useState<any>(user);
 
@@ -858,6 +1058,137 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [userFullName, userGender, userDob, userFlat]);
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+
+  // Admin On-Behalf Community Player Search States
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerSearchResults, setPlayerSearchResults] = useState<UserResponse[]>([]);
+  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [selectedResident, setSelectedResident] = useState<UserResponse | null>(null);
+  const [residentFamilyMembers, setResidentFamilyMembers] = useState<FamilyMemberSlim[]>([]);
+  const [loadingResidentFamily, setLoadingResidentFamily] = useState(false);
+  const [isManualPlayerEntry, setIsManualPlayerEntry] = useState(false);
+
+  // Debounced search for community users when in "Community Person" mode
+  useEffect(() => {
+    if (formData.regType !== "other" || !playerSearchQuery.trim()) {
+      setPlayerSearchResults([]);
+      setIsSearchingPlayers(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlayers(true);
+      try {
+        const results = await userService.searchUsersGlobal(playerSearchQuery.trim(), user?.communityId);
+        setPlayerSearchResults(results);
+      } catch (err) {
+        console.warn("Failed to search community players:", err);
+        setPlayerSearchResults([]);
+      } finally {
+        setIsSearchingPlayers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [playerSearchQuery, formData.regType, user?.communityId]);
+
+  const handleSelectResident = async (resident: UserResponse) => {
+    const rawBlock = resident.block || (resident as any).tower || (resident as any).wing || "";
+    const rawFlat = resident.flatNo || (resident as any).flatNumber || (resident as any).flat || "";
+    let formattedFlat = rawFlat;
+    if (rawBlock && rawFlat) {
+      if (rawFlat.toUpperCase().includes(rawBlock.toUpperCase())) {
+        formattedFlat = rawFlat;
+      } else {
+        formattedFlat = `Block ${rawBlock}, Flat ${rawFlat}`;
+      }
+    } else if (rawBlock) {
+      formattedFlat = `Block ${rawBlock}`;
+    }
+
+    const residentDob = resident.dateOfBirth || (resident as any).dob || "";
+    const calcAge = residentDob ? Math.max(0, new Date().getFullYear() - new Date(residentDob).getFullYear()) : 0;
+    const residentGender = resident.gender ? resident.gender.toUpperCase() : "";
+
+    setSelectedResident(resident);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setIsManualPlayerEntry(false);
+
+    if (resident.email) {
+      setEmail(resident.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: resident.fullName || (resident as any).name || "",
+      flatNumber: formattedFlat,
+      gender: residentGender,
+      dateOfBirth: residentDob,
+      age: calcAge,
+      familyMemberId: undefined,
+      relation: "SELF",
+    }));
+
+    setIsPlayerIdentityExpanded(true);
+
+    // Fetch family members of this selected resident
+    setLoadingResidentFamily(true);
+    try {
+      const fam = await familyService.getSlimFamilyMembers(resident.id);
+      setResidentFamilyMembers(fam || []);
+    } catch (err) {
+      console.warn("Could not load family members for resident:", err);
+      setResidentFamilyMembers([]);
+    } finally {
+      setLoadingResidentFamily(false);
+    }
+  };
+
+  const handleSelectResidentFamilyMember = (mem: FamilyMemberSlim) => {
+    let memberAge = mem.age;
+    if (!memberAge && mem.dob) {
+      try {
+        const birth = new Date(mem.dob);
+        if (!isNaN(birth.getTime())) {
+          memberAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      } catch {}
+    }
+
+    if (mem.email) {
+      setEmail(mem.email);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      playerName: mem.name,
+      familyMemberId: mem.id,
+      gender: mem.gender ? mem.gender.toUpperCase() : prev.gender,
+      dateOfBirth: mem.dob || prev.dateOfBirth,
+      age: memberAge ?? prev.age,
+      relation: (mem.relation || "CHILD").toUpperCase(),
+    }));
+
+    toast.info(`Selected family member: ${mem.name} (${mem.relation || "Member"})`);
+  };
+
+  const handleClearSelectedResident = () => {
+    setSelectedResident(null);
+    setResidentFamilyMembers([]);
+    setPlayerSearchQuery("");
+    setPlayerSearchResults([]);
+    setFormData(prev => ({
+      ...prev,
+      playerName: "",
+      flatNumber: "",
+      gender: "",
+      dateOfBirth: "",
+      age: 0,
+      familyMemberId: undefined,
+      relation: "",
+    }));
+  };
 
   // Unified Edit / Add Details Modal State (Self or Family Member)
   const [profileModalState, setProfileModalState] = useState<{
@@ -1251,12 +1582,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
       if (targetMember) {
         const calculatedAge = (targetMember.dob ? calculateAge(targetMember.dob) : null) ?? targetMember.age ?? 25;
+        const inferredGen = inferGender(targetMember, userGender);
         setFormData(prev => ({
           ...prev,
           regType: "family",
           playerName: targetMember.name,
           familyMemberId: targetMember.id,
-          gender: targetMember.gender || "",
+          gender: inferredGen || targetMember.gender || "",
           dateOfBirth: targetMember.dob || "",
           flatNumber: userFlat,
           age: calculatedAge,
@@ -1637,6 +1969,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         openUpdateDetailsModal("family_edit", formData.familyMemberId);
         return;
       }
+    } else if (formData.regType === "other") {
+      if (!formData.playerName?.trim() || !formData.gender?.trim() || !formData.dateOfBirth?.trim() || !formData.flatNumber?.trim()) {
+        toast.error("Please complete all player identity details (Name, Gender, Date of Birth, Flat/Villa).");
+        setIsPlayerIdentityExpanded(true);
+        return;
+      }
     }
 
     if (!formData.dateOfBirth?.trim()) {
@@ -1721,6 +2059,81 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       return;
     }
 
+    // If this event has a registration fee, gate through Cashfree before submitting.
+    const registrationFee: number = Number((event as any).registrationFee ?? 0);
+    if (registrationFee > 0) {
+      // Save the registration call as a closure to run after payment confirmation.
+      pendingRegistrationRef.current = async () => {
+        setSubmitting(true);
+        try {
+          for (const catId of formData.categoryIds) {
+            for (const fmt of formatsToSubmit) {
+              const isDoubles = fmt.toUpperCase().includes("DOUBLES");
+              await sportsService.registerForEvent({
+                eventId: event!.id,
+                categoryId: catId,
+                matchType: fmt,
+                role: formData.role,
+                age: formData.age,
+                gender: formData.gender || undefined,
+                dateOfBirth: formData.dateOfBirth,
+                matches: formData.matches,
+                runs: formData.runs,
+                wickets: formData.wickets,
+                strikeRate: formData.strikeRate,
+                avgScore: formData.avgScore,
+                playerName: formData.playerName,
+                email: email.trim() || undefined,
+                relation: formData.relation,
+                flatNumber: formData.flatNumber,
+                familyMemberId: formData.familyMemberId
+                  ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId)
+                  : undefined,
+                partnerUserId:
+                  isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId)
+                    ? (formData.partnerInfo?.userId || formData.partnerUserId)
+                    : undefined,
+                partnerFamilyMemberId:
+                  isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId)
+                    : undefined,
+                captainNomination: formData.captainNomination || undefined,
+                proposedTeamName:
+                  formData.captainNomination && formData.proposedTeamName
+                    ? formData.proposedTeamName.trim()
+                    : undefined,
+                recaptchaToken,
+              });
+            }
+          }
+          toast.success("You're registered! See you on the court.");
+          props.onSuccess?.();
+          if (!props.isModal) navigate(-1);
+        } catch (err: any) {
+          toast.error(err?.message || "Registration failed after payment. Please contact support.");
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      setShowPaymentOverlay(true);
+      const paid = await cashfree.initiatePayment({
+        amount: registrationFee,
+        referenceType: "SPORTS_REGISTRATION",
+        referenceId: event!.id,
+        description: `${event!.name ?? "Sports"} registration fee`,
+        customerPhone: (user as any)?.phone,
+      });
+
+      if (paid?.status === "PAID") {
+        await pendingRegistrationRef.current?.();
+        setShowPaymentOverlay(false);
+      } else {
+        setShowPaymentOverlay(cashfree.status === "failed");
+      }
+      return;
+    }
+
     setSubmitting(true);
     try {
       for (const catId of formData.categoryIds) {
@@ -1743,7 +2156,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             email: email.trim() || undefined,
             relation: formData.relation,
             flatNumber: formData.flatNumber,
-            familyMemberId: formData.regType === "family" && formData.familyMemberId ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId) : undefined,
+            familyMemberId: formData.familyMemberId ? (!isNaN(Number(formData.familyMemberId)) ? Number(formData.familyMemberId) : formData.familyMemberId) : undefined,
             partnerUserId: isDoubles && (formData.partnerInfo?.userId || formData.partnerUserId) ? (formData.partnerInfo?.userId || formData.partnerUserId) : undefined,
             partnerFamilyMemberId: isDoubles && (formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) ? Number(formData.partnerInfo?.familyMemberId || formData.partnerFamilyMemberId) : undefined,
             captainNomination: formData.captainNomination || undefined,
@@ -1763,7 +2176,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
 
       const formatCount = formatsToSubmit.length;
-      const targetName = formData.regType === "family" && formData.playerName ? ` for ${formData.playerName}` : "";
+      const targetName = (formData.regType === "family" || formData.regType === "other") && formData.playerName ? ` for ${formData.playerName}` : "";
       const formatLabels = formatsToSubmit.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ");
       toast.success(event.adminApprovalRequired === false
         ? `Registration confirmed${targetName} (${formatLabels})! Good luck.`
@@ -1834,44 +2247,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const mainContent = (
     <div className={`${isModal ? "p-3 sm:p-6 space-y-3 sm:space-y-4" : "max-w-5xl mx-auto pb-24 sm:pb-10 space-y-3 sm:space-y-4"}`}>
-      {/* ── Top Bar ────────────────────────────────────────────── */}
-      {isModal ? (
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
-              <Trophy className="w-5 h-5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                  {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
-                  {eventDate ? ` - ${eventDate}` : ""}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowEventInfoModal(true)}
-                  aria-label="View Complete Event Information"
-                  title="View Complete Event Information"
-                  className="p-1 rounded-full text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition cursor-pointer shrink-0 active:scale-95"
-                >
-                  <Info className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-500 truncate">
-                {event?.categoryName || event?.name || venueName || "Tournament Registration"}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer shrink-0"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      ) : (
+      {/* ── Top Bar (Page Mode) ────────────────────────────────── */}
+      {!isModal && (
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -1882,7 +2259,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             Back
           </button>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
+            <span className="px-3.5 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider truncate border border-primary/20 flex items-center gap-1.5 shadow-2xs">
               <Trophy className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">
                 {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
@@ -1905,162 +2282,156 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       {/* ── Event Info Modal ────────────────────────────── */}
       {showEventInfoModal && (
         <div 
-          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-fade-in"
           onClick={() => setShowEventInfoModal(false)}
         >
           <div 
-            className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white/20 animate-scale-up max-h-[90vh] flex flex-col"
+            className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900 animate-scale-up max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-95" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
-
-            <div className="relative p-4 sm:p-5 overflow-y-auto max-h-[85vh]">
-              <div className="flex items-center justify-between mb-3.5">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="flex items-center gap-1.5 text-xs text-white/70 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+                  className="w-6 h-6 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 w-11 h-11 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-inner">
-                  <Trophy className="w-5 h-5 text-orange-400" />
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2.5 py-0.5 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider border border-orange-500/30">
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base font-bold text-white tracking-tight leading-snug">
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
                     {event?.name ?? "Complete Registration"}
-                  </h2>
-                  <p className="text-[11px] text-white/70 mt-1 leading-relaxed">
+                  </h4>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2.5">
-                {eventDate && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📅</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
-                      <p className="font-semibold">{eventDate}</p>
-                    </div>
+            <div className="p-2.5 sm:p-3 overflow-y-auto max-h-[70vh] space-y-2">
+              {eventDate && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
                   </div>
-                )}
-                {venueName && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📍</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
-                      <p className="font-semibold">{venueName}</p>
-                    </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
                   </div>
-                )}
-                {event?.community?.name && (
-                  <div className="flex items-center gap-3 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">🏠</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
-                      <p className="font-semibold">{event.community.name}</p>
-                    </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* All Sport Categories & Age Details */}
-                {siblingEvents.length > 0 && (
-                  <div className="pt-2 border-t border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
-                        <Trophy className="w-3.5 h-3.5 text-orange-400" />
-                        <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                      </p>
-                    </div>
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {siblingEvents.map(sib => {
-                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
-                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
-                        let ageLabel = "All Ages";
-                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
-                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
-                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
 
-                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
-                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
-                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
 
-                        return (
-                          <div
-                            key={sib.id}
-                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
-                              isCurrent
-                                ? "bg-white/15 border-white/30 text-white shadow-xs"
-                                : "bg-white/5 border-white/10 text-white/85"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-white text-xs truncate">
-                                {sib.categoryName || sib.name}
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                                Current
                               </span>
-                              {isCurrent && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
-                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
-                              {sib.venueName && <span>📍 {sib.venueName}</span>}
-                              {sib.eventDateStart && (
-                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
-                              )}
-                              {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="mt-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEventInfoModal(false)}
-                  className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl border border-white/20 transition-all text-center cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowEventInfoModal(false)}
+                className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg border border-slate-200 dark:border-slate-700 transition text-center cursor-pointer shadow-2xs"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -2077,20 +2448,20 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex items-center justify-between border-b border-border">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                   {profileModalState.mode === "self" ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                  <h3 className="text-xs font-bold text-foreground m-0 mb-0">
                     {profileModalState.mode === "self"
                       ? "Update Your Profile Details"
                       : profileModalState.mode === "family_edit"
                       ? "Update Family Member Details"
                       : "Add New Family Member"}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground m-0">
                     {profileModalState.mode === "self"
                       ? "Required for tournament eligibility & category verification"
                       : "Provide member details for age & category validation"}
@@ -2195,7 +2566,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     Date of Birth <span className="text-destructive">*</span>
                   </label>
                   {profileModalState.dob && calculateAge(profileModalState.dob) !== null && (
-                    <span className="text-[11px] font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                    <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
                       {calculateAge(profileModalState.dob)} yrs old
                     </span>
                   )}
@@ -2288,21 +2659,21 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       {/* ── 2-Column Responsive Layout ─────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-7 space-y-3 sm:space-y-3.5">
           {/* Step Indicator */}
-          <div className="hidden sm:block bg-card border border-border rounded-xl p-3 shadow-sm">
+          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
             <div className="flex items-center gap-2">
               {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
-                  <div className={`h-1.5 rounded-full transition-all duration-500 ${
+                  <div className={`h-1 rounded-full transition-all duration-300 ${
                     i < currentStep
-                      ? "bg-gradient-to-r from-primary to-indigo-400"
+                      ? "bg-gradient-to-r from-indigo-500 to-violet-600"
                       : i === currentStep
-                        ? "bg-primary/40"
-                        : "bg-border"
+                        ? "bg-indigo-300 dark:bg-indigo-700"
+                        : "bg-slate-100 dark:bg-slate-800"
                   }`} />
-                  <p className={`text-[10px] mt-1.5 text-center font-medium transition-colors ${
-                    i < currentStep ? "text-primary" : i === currentStep ? "text-muted-foreground" : "text-muted-foreground/40"
+                  <p className={`text-xs mt-1 text-center font-semibold tracking-wider uppercase transition-colors ${
+                    i < currentStep ? "text-indigo-600 dark:text-indigo-400" : i === currentStep ? "text-slate-800 dark:text-slate-200" : "text-[#6b7094] dark:text-slate-500"
                   }`}>
                     {label}
                   </p>
@@ -2313,7 +2684,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
           {/* Registration Type Selector (Shown only when multiple options exist, e.g. for admin) */}
           {isAnyAdmin && (
-            <div className="bg-card border border-border rounded-xl p-1 flex gap-1 shadow-sm">
+            <div className="bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 rounded-xl p-1 flex gap-1 shadow-2xs">
               {[
                 { key: "self" as const, label: "Register for Self", icon: "👤" },
                 { key: "other" as const, label: "Community Person", icon: "🏘️" },
@@ -2321,22 +2692,51 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setFormData(prev => ({
-                    ...prev,
-                    regType: tab.key,
-                    playerName: tab.key === "self" ? (userFullName || user?.fullName || "") : "",
-                    gender: tab.key === "self" ? (userGender || "") : "",
-                    dateOfBirth: tab.key === "self" ? (userDob || "") : "",
-                    flatNumber: tab.key === "other" ? "" : userFlat,
-                    age: tab.key === "self" && userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : prev.age,
-                  }))}
-                  className={`flex-1 py-2 px-2 text-[13px] sm:text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 min-h-[38px] ${
+                  onClick={() => {
+                    if (tab.key === "other") {
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "other",
+                        playerName: "",
+                        gender: "",
+                        dateOfBirth: "",
+                        flatNumber: "",
+                        age: 0,
+                        familyMemberId: undefined,
+                        relation: "",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
+                      setIsManualPlayerEntry(false);
+                      setIsPlayerIdentityExpanded(true);
+                    } else {
+                      setEmail(user?.email || "");
+                      setFormData(prev => ({
+                        ...prev,
+                        regType: "self",
+                        playerName: userFullName || user?.fullName || "",
+                        gender: userGender || "",
+                        dateOfBirth: userDob || "",
+                        flatNumber: userFlat,
+                        age: userDob ? Math.max(0, new Date().getFullYear() - new Date(userDob).getFullYear()) : 25,
+                        familyMemberId: undefined,
+                        relation: "SELF",
+                      }));
+                      setSelectedResident(null);
+                      setResidentFamilyMembers([]);
+                      setPlayerSearchQuery("");
+                      setPlayerSearchResults([]);
+                    }
+                  }}
+                  className={`flex-1 py-1 sm:py-1.5 px-2 sm:px-2.5 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 min-h-[30px] sm:min-h-[32px] cursor-pointer ${
                     formData.regType === tab.key
-                      ? "bg-gradient-to-r from-primary to-indigo-500 text-white shadow-md shadow-primary/25"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-2xs"
+                      : "text-[#6b7094] dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  <span className="text-base">{tab.icon}</span>
+                  <span className="text-[10px]">{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               ))}
@@ -2344,25 +2744,27 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           )}
 
           {/* Tournament Sponsor Strip Banner */}
-          <TournamentSponsorBanner
-            sponsors={DEFAULT_TOURNAMENT_SPONSORS}
-            variant="strip"
-            className="mb-2"
-          />
+          {event?.sponsors && event.sponsors.length > 0 && (
+            <TournamentSponsorBanner
+              sponsors={event.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, event.id))}
+              variant="strip"
+              className="mb-2"
+            />
+          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
             {/* Profile Incomplete Banner */}
             {formData.regType === "self" && missingProfileFields.length > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-1.5 sm:p-2 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-lg sm:rounded-xl flex-shrink-0 mt-0.5">
-                    <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
+              <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-2.5 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start gap-2 sm:gap-2.5">
+                  <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 rounded-lg sm:rounded-xl flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
                   </div>
                   <div>
-                    <h4 className="text-[11px] sm:text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
+                    <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
                       Profile Incomplete: {missingProfileFields.join(", ")} Required
                     </h4>
-                    <p className="text-[10px] sm:text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
+                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mt-0.5 leading-relaxed">
                       Missing {missingProfileFields.join(", ")}. Update your profile to proceed.
                     </p>
                   </div>
@@ -2370,7 +2772,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <button
                   type="button"
                   onClick={() => openUpdateDetailsModal("self")}
-                  className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] sm:text-xs rounded-lg sm:rounded-xl transition-all shadow-sm flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer active:scale-95"
+                  className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg sm:rounded-xl transition-all shadow-sm flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer active:scale-95"
                 >
                   <span>Update Profile</span>
                   <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -2378,37 +2780,72 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
             {/* 1. Player Identity */}
-            <div className="bg-card border border-border rounded-xl md:rounded-2xl p-2.5 sm:p-4 md:p-6 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-indigo-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 hidden sm:block" />
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2 sm:gap-2.5 mb-0 md:mb-3 flex-wrap">
-                  <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                      <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div>
+                <div
+                  onClick={() => setIsPlayerIdentityExpanded(prev => !prev)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setIsPlayerIdentityExpanded(prev => !prev);
+                    }
+                  }}
+                  className={`flex items-center justify-between gap-2 flex-wrap cursor-pointer select-none transition-colors ${
+                    isPlayerIdentityExpanded || (formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth))
+                      ? "mb-2.5"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <UserCheck className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
-                    {formData.playerName && (
-                      <span className="text-[11px] sm:text-xs font-semibold text-foreground/80 bg-muted px-2 sm:px-2.5 py-0.5 rounded-full border border-border">
-                        {formData.playerName}
+                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                      Player Identity
+                    </h3>
+                    {!isPlayerIdentityExpanded && formData.playerName && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
+                        • {formData.playerName}
+                        {(userFlat || formData.flatNumber) ? ` (${userFlat || formData.flatNumber})` : ""}
                       </span>
                     )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {formData.age > 0 && (
-                      <span className="text-[11px] sm:text-xs font-bold text-primary bg-primary/10 px-2 sm:px-2.5 py-0.5 rounded-full border border-primary/20">
+                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                         Age: {formData.age} Yrs
                       </span>
                     )}
                     {isAlreadyRegistered && (
-                      <span className="text-[11px] sm:text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 sm:px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                        ✓ Already Registered
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                        ✓ Registered
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPlayerIdentityExpanded(prev => !prev);
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                      aria-expanded={isPlayerIdentityExpanded}
+                    >
+                      <span>{isPlayerIdentityExpanded ? "Hide" : "Details"}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                          isPlayerIdentityExpanded ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
                 {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
-                  <div className="mt-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
+                  <div className="mb-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 sm:p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
                         Missing {(!formData.gender && !formData.dateOfBirth) ? "Gender & Date of Birth" : !formData.gender ? "Gender" : "Date of Birth"} for {formData.playerName}.
                       </p>
@@ -2416,7 +2853,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <button
                       type="button"
                       onClick={() => openUpdateDetailsModal("family_edit", formData.familyMemberId)}
-                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
+                      className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-md transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95"
                     >
                       <span>Update Member</span>
                       <ArrowUpRight className="w-3 h-3" />
@@ -2424,249 +2861,457 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 )}
 
-                <div className="hidden md:grid grid-cols-2 gap-2.5 sm:gap-3">
-                  {/* Player Name */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 truncate">
-                      Player Name
-                    </label>
-                    <input
-                      name="playerName"
-                      type="text"
-                      value={formData.playerName}
-                      onChange={handleInputChange}
-                      readOnly={formData.regType === "self"}
-                      placeholder={formData.regType === "self" ? "" : "Enter full name"}
-                      className={`w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                        formData.regType === "self"
-                          ? "text-muted-foreground cursor-not-allowed opacity-70"
-                          : "text-foreground"
-                      }`}
-                    />
-                  </div>
-
-                  {/* Gender */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
-                      <span className="flex items-center gap-1.5 truncate">
-                        <UserCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-                        Gender <span className="text-destructive font-bold">*</span>
-                      </span>
-                      {formData.regType === "self" && (
+                {/* Admin Community Person / Player Search Section */}
+                {formData.regType === "other" && (
+                  <div className="mb-3 p-2.5 sm:p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 space-y-2.5 animate-in fade-in">
+                    <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-900 dark:text-indigo-200">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <span>Search Community Resident / Player</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedResident && (
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" /> Selected
+                          </span>
+                        )}
                         <button
                           type="button"
-                          onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+                          onClick={() => {
+                            setIsManualPlayerEntry(prev => !prev);
+                            if (!isManualPlayerEntry) {
+                              handleClearSelectedResident();
+                            }
+                          }}
+                          className="text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-300 underline cursor-pointer"
                         >
-                          <span>{!userGender ? "⚠️ Add" : "Edit"}</span>
-                          <ArrowUpRight className="w-3 h-3" />
+                          {isManualPlayerEntry ? "← Search Resident Directory" : "Manual / Guest Player"}
                         </button>
-                      )}
-                    </label>
-                    {formData.regType === "self" ? (
-                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
-                        userGender ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                      }`}>
-                        <span className="font-medium truncate">{userGender ? userGender.toUpperCase() : "Missing"}</span>
-                        {!userGender && (
-                          <button
-                            type="button"
-                            onClick={() => openUpdateDetailsModal("self")}
-                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
-                          >
-                            Add
-                          </button>
+                      </div>
+                    </div>
+
+                    {!isManualPlayerEntry ? (
+                      <div className="space-y-2">
+                        {/* Search Input */}
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={playerSearchQuery}
+                            onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                            placeholder="Type name, flat number, phone, or email to search..."
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs"
+                          />
+                          {playerSearchQuery ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPlayerSearchQuery("");
+                                setPlayerSearchResults([]);
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          ) : isSearchingPlayers ? (
+                            <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          ) : null}
+                        </div>
+
+                        {/* Search Results Dropdown */}
+                        {playerSearchResults.length > 0 && (
+                          <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in">
+                            {playerSearchResults.slice(0, 10).map((resident) => {
+                              const flatDisplay = resident.flatNo || resident.block
+                                ? `${resident.block ? `Block ${resident.block}` : ""}${resident.block && resident.flatNo ? ", " : ""}${resident.flatNo || ""}`
+                                : "";
+                              const isSelected = selectedResident?.id === resident.id;
+                              return (
+                                <button
+                                  key={resident.id}
+                                  type="button"
+                                  onClick={() => handleSelectResident(resident)}
+                                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between gap-2 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer ${
+                                    isSelected ? "bg-indigo-50 dark:bg-indigo-950/60 font-semibold text-indigo-600 dark:text-indigo-400" : "text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-xs truncate">
+                                      {resident.fullName || (resident as any).name || "Resident"}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                      {[flatDisplay, resident.phone, resident.email].filter(Boolean).join(" • ")}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {flatDisplay && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        {flatDisplay}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                      Select →
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {playerSearchQuery.trim().length >= 2 && !isSearchingPlayers && playerSearchResults.length === 0 && (
+                          <div className="p-2.5 rounded-lg bg-white/70 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
+                            No community resident found matching "{playerSearchQuery}".
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsManualPlayerEntry(true);
+                                setFormData(prev => ({ ...prev, playerName: playerSearchQuery.trim() }));
+                              }}
+                              className="ml-1 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer"
+                            >
+                              Enter details manually →
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Selected Resident Profile Strip */}
+                        {selectedResident && (
+                          <div className="p-2 sm:p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs space-y-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {((selectedResident.fullName || (selectedResident as any).name || "U")[0]).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {selectedResident.fullName || (selectedResident as any).name}
+                                    {formData.flatNumber ? ` (${formData.flatNumber})` : ""}
+                                  </p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                    {[selectedResident.phone, selectedResident.email].filter(Boolean).join(" • ")}
+                                  </p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={handleClearSelectedResident}
+                                className="px-2 py-0.5 rounded text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/50 transition cursor-pointer"
+                              >
+                                Change / Clear
+                              </button>
+                            </div>
+
+                            {/* Family Member Quick-Selection Chips */}
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Register this player as:
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const rDob = selectedResident.dateOfBirth || (selectedResident as any).dob || "";
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      playerName: selectedResident.fullName || (selectedResident as any).name || "",
+                                      familyMemberId: undefined,
+                                      gender: selectedResident.gender ? selectedResident.gender.toUpperCase() : prev.gender,
+                                      dateOfBirth: rDob,
+                                      age: rDob ? Math.max(0, new Date().getFullYear() - new Date(rDob).getFullYear()) : prev.age,
+                                      relation: "SELF",
+                                    }));
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-xs font-semibold transition border cursor-pointer ${
+                                    !formData.familyMemberId
+                                      ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                  }`}
+                                >
+                                  👤 {selectedResident.fullName || "Resident"} (Self)
+                                </button>
+
+                                {loadingResidentFamily && (
+                                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                    <Loader2 className="w-3 h-3 animate-spin" /> Loading family...
+                                  </span>
+                                )}
+
+                                {!loadingResidentFamily && residentFamilyMembers.map((mem) => {
+                                  const isMemSelected = String(formData.familyMemberId) === String(mem.id);
+                                  return (
+                                    <button
+                                      key={mem.id}
+                                      type="button"
+                                      onClick={() => handleSelectResidentFamilyMember(mem)}
+                                      className={`px-2 py-1 rounded-md text-xs font-semibold transition border cursor-pointer ${
+                                        isMemSelected
+                                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                          : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                      }`}
+                                    >
+                                      {mem.relation ? `${mem.relation}: ` : ""}{mem.name} {mem.age ? `(${mem.age} Yrs)` : ""}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     ) : (
-                      <select
-                        name="gender"
-                        value={formData.gender}
+                      <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs">
+                        <span>Manual Guest Entry: fill out the player details below.</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsManualPlayerEntry(false)}
+                          className="font-bold underline text-amber-900 dark:text-amber-100 hover:text-amber-700 cursor-pointer text-xs"
+                        >
+                          Use Directory Search
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isPlayerIdentityExpanded && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in duration-200">
+                    {/* Player Name */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
+                        Player Name
+                      </label>
+                      <input
+                        name="playerName"
+                        type="text"
+                        value={formData.playerName}
                         onChange={handleInputChange}
-                        required
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    )}
-                  </div>
+                        readOnly={formData.regType === "self"}
+                        placeholder={formData.regType === "self" ? "" : selectedResident ? "Player name" : "Search resident above or enter full name"}
+                        className={`w-full bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 ${
+                          formData.regType === "self"
+                            ? "text-slate-500 dark:text-slate-400 bg-slate-100/70 dark:bg-slate-800/40 cursor-not-allowed"
+                            : "text-slate-800 dark:text-slate-100"
+                        }`}
+                      />
+                    </div>
 
-                  {/* Primary Role */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate block">
-                      Primary Role
-                    </label>
-                    <select
-                      name="role"
-                      value={formData.role}
-                      onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 sm:py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                    >
-                      <option value="">Select Role</option>
-                      {availableRoles.map((r: string) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date of Birth (Mandatory) */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
-                      <span className="flex items-center gap-1.5 truncate">
-                        <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                        <span>DOB <span className="text-destructive font-bold">*</span></span>
-                      </span>
-                      {formData.regType === "self" && (
-                        <button
-                          type="button"
-                          onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <span>{!userDob ? "⚠️ Add" : "Edit"}</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
-                      )}
-                    </label>
-                    {formData.regType === "self" ? (
-                      <div className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm flex items-center justify-between ${
-                        userDob ? "bg-muted/50 border-border text-foreground" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                      }`}>
-                        <span className="font-medium truncate">
-                          {userDob ? format(new Date(userDob), "dd MMM yyyy") : "Missing"}
+                    {/* Gender */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <UserCheck className="w-3 h-3 text-indigo-500 shrink-0" />
+                          Gender <span className="text-rose-500 font-bold">*</span>
                         </span>
-                        {!userDob && (
+                        {formData.regType === "self" && (
                           <button
                             type="button"
                             onClick={() => openUpdateDetailsModal("self")}
-                            className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
                           >
-                            Add
+                            <span>{!userGender ? "⚠️ Add" : "Edit"}</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
                           </button>
                         )}
-                      </div>
-                    ) : (
-                      <DatePicker
-                        value={formData.dateOfBirth}
-                        onChange={handleDobChange}
-                        max={new Date().toISOString().split("T")[0]}
-                        presets={false}
-                        placeholder="Pick DOB"
-                      />
-                    )}
-                  </div>
-
-                  {/* Flat Number */}
-                  <div className="space-y-1.5 sm:space-y-2 col-span-1 animate-in fade-in slide-in-from-top-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center justify-between truncate">
-                      <span>Block & Flat <span className="text-destructive font-bold">*</span></span>
-                      {!userFlat && (
-                        <button
-                          type="button"
-                          onClick={() => openUpdateDetailsModal("self")}
-                          className="text-[10px] font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                      </label>
+                      {formData.regType === "self" ? (
+                        <div className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs flex items-center justify-between ${
+                          userGender ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                        }`}>
+                          <span className="font-medium truncate">{userGender ? userGender.toUpperCase() : "Missing"}</span>
+                          {!userGender && (
+                            <button
+                              type="button"
+                              onClick={() => openUpdateDetailsModal("self")}
+                              className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <select
+                          name="gender"
+                          value={formData.gender}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                         >
-                          <span>⚠️ Add</span>
-                          <ArrowUpRight className="w-3 h-3" />
-                        </button>
+                          <option value="">Select Gender</option>
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
                       )}
-                    </label>
-                    <input
-                      name="flatNumber"
-                      type="text"
-                      value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
-                      onChange={handleInputChange}
-                      readOnly={formData.regType === "self" || formData.regType === "family"}
-                      placeholder={userFlat || "Missing in Profile"}
-                      className={`w-full border rounded-lg px-3 py-2 sm:py-2.5 text-sm transition-all duration-200 ${
-                        formData.regType !== "other"
-                          ? userFlat
-                            ? "bg-muted/50 border-border text-muted-foreground cursor-not-allowed opacity-70"
-                            : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
-                          : "bg-muted/50 border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      }`}
-                    />
+                    </div>
+
+                    {/* Primary Role */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
+                        Primary Role
+                      </label>
+                      <select
+                        name="role"
+                        value={formData.role}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                      >
+                        <option value="">Select Role</option>
+                        {availableRoles.map((r: string) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date of Birth (Mandatory) */}
+                    <div className="space-y-1 col-span-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <span>DOB <span className="text-rose-500 font-bold">*</span></span>
+                        </span>
+                        {formData.regType === "self" && (
+                          <button
+                            type="button"
+                            onClick={() => openUpdateDetailsModal("self")}
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>{!userDob ? "⚠️ Add" : "Edit"}</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </label>
+                      {formData.regType === "self" ? (
+                        <div className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs flex items-center justify-between ${
+                          userDob ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                        }`}>
+                          <span className="font-medium truncate">
+                            {userDob ? format(new Date(userDob), "dd MMM yyyy") : "Missing"}
+                          </span>
+                          {!userDob && (
+                            <button
+                              type="button"
+                              onClick={() => openUpdateDetailsModal("self")}
+                              className="text-xs font-bold text-amber-600 hover:underline cursor-pointer ml-1"
+                            >
+                              Add
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <DatePicker
+                          value={formData.dateOfBirth}
+                          onChange={handleDobChange}
+                          max={new Date().toISOString().split("T")[0]}
+                          presets={false}
+                          placeholder="Pick DOB"
+                        />
+                      )}
+                    </div>
+
+                    {/* Flat Number */}
+                    <div className="space-y-1 col-span-1 animate-in fade-in slide-in-from-top-1">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                        <span>Block & Flat <span className="text-rose-500 font-bold">*</span></span>
+                        {!userFlat && (
+                          <button
+                            type="button"
+                            onClick={() => openUpdateDetailsModal("self")}
+                            className="text-xs font-bold text-amber-600 hover:text-amber-700 underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>⚠️ Add</span>
+                            <ArrowUpRight className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </label>
+                      <input
+                        name="flatNumber"
+                        type="text"
+                        value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
+                        onChange={handleInputChange}
+                        readOnly={formData.regType === "self" || formData.regType === "family"}
+                        placeholder={formData.regType === "other" ? (formData.flatNumber || "e.g. Block A, Flat 101") : (userFlat || "Missing in Profile")}
+                        className={`w-full border rounded-lg px-2.5 py-1 sm:py-1.5 text-xs transition-all duration-200 ${
+                          formData.regType !== "other"
+                            ? userFlat
+                              ? "bg-slate-100/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                              : "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200"
+                            : "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        }`}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* 2. Participant Type (Format) */}
             {availableFormats.length === 1 ? (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-3.5 shadow-sm flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
-                <div className="flex items-center gap-2 sm:gap-2.5">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Trophy className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Participant Type:</h3>
+                  <span className="text-[10px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                    Participant Type
+                  </span>
                 </div>
-                <span className={`px-2.5 sm:px-3 py-1 rounded-lg text-[11px] sm:text-sm font-bold capitalize border ${
-                  registeredFormats.includes(availableFormats[0].toUpperCase())
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
-                    : "bg-primary/10 text-primary border-primary/20"
-                }`}>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
                   {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
             ) : availableFormats.length > 1 ? (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 hidden sm:block" />
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-2 sm:gap-2.5 mb-2.5 sm:mb-3.5 flex-wrap">
-                    <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-                      </div>
-                      <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Participant Type</h3>
-                      <span className="hidden sm:inline text-xs text-muted-foreground font-normal">
-                        — Choose one or more formats
-                      </span>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
                     </div>
-                    {formData.matchTypes.length > 1 && (
-                      <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                        {formData.matchTypes.length} Formats Selected
-                      </span>
-                    )}
+                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                      Participant Type
+                    </h3>
+                    <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
+                      — Choose format(s)
+                    </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {availableFormats.map((fmt) => {
-                      const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
-                      const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
-                      const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
-                      return (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => toggleFormat(fmt)}
-                          className={`group relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg border-2 text-[13px] sm:text-sm font-semibold transition-all duration-200 flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none min-h-[36px] sm:min-h-0 ${
-                            isSelected
-                              ? "bg-gradient-to-r from-primary to-indigo-500 border-primary text-white shadow-sm shadow-primary/20"
-                              : isFmtRegistered
-                                ? "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/70"
-                                : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-foreground hover:shadow-xs"
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                            isSelected ? "bg-white/20 border-white text-white" : "border-muted-foreground/40 group-hover:border-primary"
-                          }`}>
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                          </div>
-                          <span>{formatLabel}</span>
-                          {isFmtRegistered && (
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
-                              isSelected
-                                ? "bg-white/25 text-white border border-white/30"
-                                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700"
-                            }`}>
-                              Registered
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {formData.matchTypes.length > 1 && (
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      {formData.matchTypes.length} Formats Selected
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {availableFormats.map((fmt) => {
+                    const isSelected = formData.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
+                    const isFmtRegistered = registeredFormats.includes(fmt.toUpperCase());
+                    const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase());
+                    return (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => toggleFormat(fmt)}
+                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                          isSelected
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs"
+                            : isFmtRegistered
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300"
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
+                          isSelected ? "bg-white/20 text-white" : "border border-slate-300 dark:border-slate-600 group-hover:border-indigo-400"
+                        }`}>
+                          {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        <span>{formatLabel}</span>
+                        {isFmtRegistered && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${ isSelected ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300" }`}>
+                            Registered
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
@@ -2686,44 +3331,47 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 matchType={formData.matchTypes.find(f => f.toUpperCase().includes("DOUBLES")) || "DOUBLES"}
                 currentGender={formData.gender}
                 currentUserId={user?.userId || (user as any)?.id}
+                currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
+                eventId={event?.id}
+                minAge={categories.find(c => formData.categoryIds.includes(c.id))?.minAge ?? (event as any)?.minAge}
+                maxAge={categories.find(c => formData.categoryIds.includes(c.id))?.maxAge ?? (event as any)?.maxAge}
+                allowHigherAgeCategory={(event as any)?.allowHigherAgeCategory ?? true}
               />
             )}
 
             {/* 2c. Team Captain Nomination (Cricket, Football, and other Team Sports) */}
             {isTeamSport(event?.sport?.name || event?.name || "") && (
-              <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-2.5 sm:p-4 shadow-sm space-y-2.5 sm:space-y-3">
-                <div className="flex items-start justify-between gap-2 sm:gap-3">
-                  <div className="flex items-start gap-2 sm:gap-2.5">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
-                      <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+              <div className="bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 flex items-center justify-center shrink-0">
+                      <Crown className="w-3.5 h-3.5 text-amber-600" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                          Team Captain Nomination
-                        </h4>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300">
-                          Optional
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSnackbarInfo({
-                              open: true,
-                              title: "Team Captain Nomination",
-                              message: "Are you interested in leading a team and participating in the player auction/draft?",
-                            });
-                          }}
-                          title="Team Captain Information"
-                          aria-label="Captain nomination information"
-                          className="p-1 rounded-full text-slate-400 hover:text-amber-600 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition cursor-pointer active:scale-95"
-                        >
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                        Team Captain Nomination
+                      </h4>
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200">
+                        Optional
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSnackbarInfo({
+                            open: true,
+                            title: "Team Captain Nomination",
+                            message: "Are you interested in leading a team and participating in the player auction/draft?",
+                          });
+                        }}
+                        title="Team Captain Information"
+                        aria-label="Captain nomination information"
+                        className="p-0.5 rounded text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -2731,33 +3379,33 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <button
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, captainNomination: !prev.captainNomination }))}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       formData.captainNomination ? "bg-amber-600" : "bg-slate-300 dark:bg-slate-700"
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.captainNomination ? "translate-x-5" : "translate-x-0"
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        formData.captainNomination ? "translate-x-4" : "translate-x-0"
                       }`}
                     />
                   </button>
                 </div>
 
                 {formData.captainNomination && (
-                  <div className="pt-2 border-t border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-200 space-y-2">
-                    <label className="block text-[11px] font-bold text-foreground">
-                      Proposed Team Name <span className="text-muted-foreground font-normal">(Optional)</span>
+                  <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Royal Strikers, Sector 12 Blasters"
+                      placeholder="e.g. Royal Strikers"
                       value={formData.proposedTeamName || ""}
                       onChange={(e) => setFormData(prev => ({ ...prev, proposedTeamName: e.target.value }))}
-                      className="w-full px-3 py-2 text-xs sm:text-sm rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="w-full px-2.5 py-1 sm:py-1.5 text-xs rounded-lg border border-amber-300/80 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                    <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
                       <Info className="w-3 h-3 shrink-0" />
-                      Organizers will review captain nominations and finalize teams before the auction.
+                      Organizers review captain nominations and finalize teams before the auction.
                     </p>
                   </div>
                 )}
@@ -2770,13 +3418,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               const currentElig = checkCategoryEligibility(event, formData.age, formData.gender);
               if (currentElig.eligible) return null;
               return (
-                <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-xl p-2 sm:p-2.5 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[12px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide">
-                      {currentElig.isGenderMismatch ? "Gender Mismatch" : currentElig.isOverAge ? "Over Age Limit" : "Under Age Limit"}
+                    <p className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wide">
+                      {currentElig.isGenderMismatch ? "Gender Mismatch" : currentElig.isOverAge ? "Over Age Limit" : currentElig.isAgeUnknown ? "Age Not Set" : "Under Age Limit"}
                     </p>
-                    <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 leading-relaxed">
                       {currentElig.warningMsg}
                       {siblingEvents.length > 1 && " Please select an eligible category below."}
                     </p>
@@ -2787,22 +3435,24 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* Sport Categories in Tournament */}
             {siblingEvents.length > 1 && (
-              <div className="bg-card border border-border rounded-xl p-2.5 sm:p-4 shadow-sm space-y-2 sm:space-y-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                      <Trophy className="w-3.5 h-3.5 text-violet-600" />
+                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                      <Trophy className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h3 className="text-[13px] sm:text-sm font-bold text-foreground uppercase tracking-wide">Select Category</h3>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                        Select Category
+                      </h3>
+                      <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
                         {siblingEvents.length} categories available for {event?.sport?.name}
                       </p>
                     </div>
                   </div>
                   {formData.age > 0 && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      Participant Age: {formData.age} Yrs
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                      Age: {formData.age} Yrs
                     </span>
                   )}
                 </div>
@@ -2826,14 +3476,14 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     return (
                       <div
                         key={sib.id}
-                        className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
+                        className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
                           isCurrentEvent && !isBlocked
-                            ? "border-primary bg-primary/5 shadow-sm"
+                            ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
                             : isRegistered
-                              ? "border-emerald-200 bg-emerald-50/30"
+                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
                               : isBlocked
-                                ? "border-rose-200 dark:border-rose-900/40 bg-rose-50/30 dark:bg-rose-950/20 opacity-75 cursor-not-allowed"
-                                : "border-border hover:border-primary/30 hover:bg-muted/30 cursor-pointer"
+                                ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
                         }`}
                         onClick={() => {
                           if ((isCurrentEvent && !isBlocked) || isRegistered) return;
@@ -2856,41 +3506,41 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                              isCurrentEvent && !isBlocked ? "bg-primary" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${
+                              isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
                             }`} />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-[13px] sm:text-sm font-semibold ${isCurrentEvent && !isBlocked ? "text-primary font-bold" : "text-foreground"}`}>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
                                   {sib.categoryName || sib.name}
                                 </span>
                                 {minAge != null && maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}–{maxAge} Yrs
                                   </span>
                                 ) : minAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     {minAge}+ Yrs
                                   </span>
                                 ) : maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
                                     Under {maxAge} Yrs
                                   </span>
                                 ) : null}
                                 {elig.requiredGender && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
                                     {elig.requiredGender}
                                   </span>
                                 )}
                                 {sib.maxParticipants && (
-                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary font-medium border border-primary/20">
-                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max spots
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
                                   </span>
                                 )}
                               </div>
                               {sib.venueName && (
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-muted-foreground">{sib.venueName}</span>
+                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
                                 </div>
                               )}
                             </div>
@@ -2898,19 +3548,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                           <div className="shrink-0 flex items-center gap-1.5">
                             {isCurrentEvent && !isBlocked ? (
-                              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary shrink-0 border border-primary/20">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                 Selected {isAlreadyRegistered ? "(Registered)" : ""}
                               </span>
                             ) : isRegistered ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
                                 ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
                               </span>
                             ) : isBlocked ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
+                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full shrink-0">
+                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
                                 ✓ Eligible
                               </span>
                             )}
@@ -2935,22 +3585,22 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   if (!isUpperCategory) return null;
 
                   return (
-                    <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2.5 animate-fade-in">
+                    <div className="p-2.5 sm:p-3 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2 animate-fade-in">
                       <div className="flex items-start gap-2">
                         <div className="p-1.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 rounded-lg shrink-0 mt-0.5">
-                          <FileUp className="w-4 h-4" />
+                          <FileUp className="w-3.5 h-3.5" />
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wide">
                             Valid DOB Proof Required for Upper Age Category
                           </h4>
-                          <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
                             Participant age ({formData.age} yrs) is under the standard age window ({currentMinAge}+ yrs). Please upload a valid Government/School ID with Date of Birth proof (Aadhaar, Passport, Birth Certificate, etc.) for tournament committee verification.
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                         <input
                           ref={ageProofInputRef}
                           type="file"
@@ -2975,15 +3625,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         <button
                           type="button"
                           onClick={() => ageProofInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95"
                         >
-                          <Upload className="w-3.5 h-3.5" />
+                          <Upload className="w-3 h-3" />
                           <span>{ageProofName ? "Change DOB Proof" : "Upload DOB Proof"}</span>
                         </button>
 
                         {ageProofName ? (
-                          <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                            <FileText className="w-3 h-3 text-emerald-600" />
                             <span className="font-semibold truncate max-w-[200px]">{ageProofName}</span>
                             <button
                               type="button"
@@ -2995,17 +3645,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                               className="text-slate-400 hover:text-slate-600 ml-1 cursor-pointer"
                               title="Remove attachment"
                             >
-                              <X className="w-3.5 h-3.5" />
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-amber-700 font-medium">
+                          <span className="text-[10px] text-amber-700 font-medium">
                             * Supported: PDF, JPG, PNG (Max 5MB)
                           </span>
                         )}
                       </div>
                       {ageProofError && (
-                        <p className="text-[11px] text-rose-600 font-semibold">{ageProofError}</p>
+                        <p className="text-xs text-rose-600 font-semibold">{ageProofError}</p>
                       )}
                     </div>
                   );
@@ -3016,25 +3666,25 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
 
             {/* 4. Career Statistics */}
-            <div className="hidden sm:block bg-card border border-border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <span className="text-sm">📊</span>
+            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <span className="text-[10px]">📊</span>
                 </div>
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Career Statistics</h3>
+                <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {(sportConfig?.stats || []).map(stat => (
-                  <div key={stat.name} className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{stat.label}</label>
+                  <div key={stat.name} className="space-y-0.5">
+                    <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400">{stat.label}</label>
                     <input
                       name={stat.name}
                       type="number"
                       step={stat.step ?? 1}
                       value={formData[stat.name]}
                       onChange={handleInputChange}
-                      className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                      className="w-full bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                     />
                   </div>
                 ))}
@@ -3043,19 +3693,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 5. Email Verification (optional) */}
             {OTP_REQUIRED && (
-              <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <ShieldCheck className="w-4 h-4 text-blue-500" />
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                   </div>
-                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Verify Email</h3>
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Verify Email</h4>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        <Mail className="w-3.5 h-3.5" /> Email Address
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end">
+                    <div className="space-y-0.5">
+                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
                         type="email"
@@ -3063,7 +3713,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         onChange={(e) => handleEmailChange(e.target.value)}
                         readOnly={emailVerified}
                         placeholder="you@example.com"
-                        className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 disabled:opacity-60"
+                        className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 h-7.5 sm:h-8 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:opacity-60"
                       />
                     </div>
                     {!emailVerified && (
@@ -3071,37 +3721,37 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         type="button"
                         onClick={sendOtp}
                         disabled={!emailValid || otpSending}
-                        className="h-[46px] px-5 bg-muted border border-border rounded-xl text-sm font-semibold text-foreground hover:bg-muted/80 disabled:opacity-50 transition-all whitespace-nowrap"
+                        className="h-7.5 sm:h-8 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50 transition-all whitespace-nowrap cursor-pointer"
                       >
-                        {otpSending ? <Loader2 className="w-4 h-4 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
+                        {otpSending ? <Loader2 className="w-3 h-3 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
                       </button>
                     )}
                   </div>
 
                   {emailVerified ? (
-                    <div className="flex items-center gap-2 text-sm text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 rounded-xl">
-                      <CheckCircle2 className="w-4 h-4" /> Email verified successfully
+                    <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Email verified successfully
                     </div>
                   ) : otpSent && (
-                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end animate-in fade-in slide-in-from-top-1">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Enter Code</label>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end animate-in fade-in slide-in-from-top-1">
+                      <div className="space-y-0.5">
+                        <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value)}
                           placeholder="6-digit code"
-                          className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2.5 text-sm text-foreground tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200"
+                          className="w-full bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700 rounded-lg px-2.5 py-1 sm:py-1.5 h-7.5 sm:h-8 text-xs text-foreground tracking-[0.25em] focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={verifyOtp}
                         disabled={otpVerifying || !otpCode.trim()}
-                        className="h-[46px] px-6 bg-primary hover:bg-primary/90 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-sm shadow-primary/20"
+                        className="h-7.5 sm:h-8 px-3.5 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-bold text-white disabled:opacity-50 transition-all whitespace-nowrap shadow-2xs cursor-pointer"
                       >
-                        {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
+                        {otpVerifying ? <Loader2 className="w-3 h-3 animate-spin" /> : "Verify"}
                       </button>
                     </div>
                   )}
@@ -3118,9 +3768,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* Missing Gender/DOB Alert */}
             {(!formData.gender?.trim() || !formData.dateOfBirth?.trim()) && (
-              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-2.5 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-2.5 text-left animate-in fade-in shadow-2xs">
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/80 rounded-xl p-2 sm:p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in shadow-2xs">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <p className="text-xs text-amber-800 dark:text-amber-200 font-medium">
                     Registration is disabled. Please provide {(!formData.gender?.trim() && !formData.dateOfBirth?.trim()) ? "Gender and Date of Birth" : !formData.gender?.trim() ? "Gender" : "Date of Birth"} to proceed.
                   </p>
@@ -3128,7 +3778,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <button
                   type="button"
                   onClick={() => openUpdateDetailsModal(formData.regType === "family" ? (formData.familyMemberId ? "family_edit" : "family_add") : "self", formData.familyMemberId)}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
+                  className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 whitespace-nowrap"
                 >
                   <span>Provide Details</span>
                   <ArrowUpRight className="w-3 h-3" />
@@ -3138,15 +3788,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* Already Registered Alert (When ALL selected formats are already registered) */}
             {isAlreadyRegistered && (
-              <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 text-left animate-in fade-in shadow-2xs">
-                <div className="p-1.5 sm:p-2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg sm:rounded-xl shrink-0">
-                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700/80 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1 sm:p-1.5 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-400 rounded-lg shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-[11px] sm:text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                  <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
                     Already Registered ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})
                   </h4>
-                  <p className="text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-300 font-medium mt-0.5 leading-relaxed">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium mt-0.5 leading-relaxed">
                     <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already registered for this format ({selectedFormats.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")}). Registration status: <span className="font-bold uppercase text-emerald-800 dark:text-emerald-200">{activeParticipantReg?.status || "CONFIRMED"}</span>.
                     {availableFormats.length > selectedFormats.length && (
                       <span className="block mt-1 text-primary font-bold">
@@ -3160,224 +3810,246 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* Partial format alert (e.g. Registered for Singles, currently registering for Doubles) */}
             {!isAlreadyRegistered && registeredFormats.length > 0 && unregisteredSelectedFormats.length > 0 && (
-              <div className="bg-sky-50 dark:bg-sky-950/40 border-2 border-sky-300 dark:border-sky-700/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 text-left animate-in fade-in shadow-2xs">
-                <div className="p-1.5 sm:p-2 bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-400 rounded-lg sm:rounded-xl shrink-0">
-                  <Info className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 dark:text-sky-400" />
+              <div className="bg-sky-50 dark:bg-sky-950/40 border-2 border-sky-300 dark:border-sky-700/80 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 text-left animate-in fade-in shadow-2xs">
+                <div className="p-1 sm:p-1.5 bg-sky-100 dark:bg-sky-900/60 text-sky-600 dark:text-sky-400 rounded-lg shrink-0">
+                  <Info className="w-4 h-4 text-sky-600 dark:text-sky-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-[11px] sm:text-xs font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wide">
+                  <h4 className="text-xs font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wide">
                     Adding New Format Registration
                   </h4>
-                  <p className="text-[10px] sm:text-[11px] text-sky-700 dark:text-sky-300 font-medium mt-0.5 leading-relaxed">
+                  <p className="text-xs text-sky-700 dark:text-sky-300 font-medium mt-0.5 leading-relaxed">
                     <strong className="font-semibold">{formData.playerName || "This participant"}</strong> is already confirmed for <span className="font-bold">{registeredFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>. You are now submitting registration for <span className="font-bold text-primary">{unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}</span>.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Submit Actions — desktop inline, mobile sticky bottom */}
-            <div className="hidden sm:flex gap-3 pt-1">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="flex-1 py-3 bg-card border border-border rounded-xl text-sm text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
-              >
-                ← {isModal ? "Cancel" : "Go Back"}
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className={`flex-[2] py-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm ${
-                  isAlreadyRegistered
-                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-                }`}
-              >
-                {submitting ? (
-                  <><Loader2 className="w-5 h-5 animate-spin" /> Processing…</>
-                ) : isAlreadyRegistered ? (
-                  <><CheckCircle2 className="w-5 h-5 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
-                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-                  <>Provide Gender &amp; DOB to Register</>
-                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-lg">→</span></>
-                ) : (
-                  <>Submit Registration <span className="text-lg">→</span></>
-                )}
-              </button>
-            </div>
+            {/* Hidden native submit button for Enter key & form.requestSubmit() */}
+            <button
+              type="submit"
+              className="hidden"
+              aria-hidden="true"
+              tabIndex={-1}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+            />
+
+            {/* Submit Actions — desktop inline for page mode (in modal mode the pinned footer handles actions; on mobile in page mode the sticky bottom bar handles actions) */}
+            {!isModal && (
+              <div className="hidden sm:flex gap-2.5 pt-2 sm:pt-1">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="flex-1 py-2.5 px-3 bg-card border border-border rounded-xl text-xs sm:text-[13px] text-muted-foreground font-semibold hover:bg-muted/50 hover:text-foreground transition-all duration-200 cursor-pointer"
+                >
+                  ← Go Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                  className={`flex-[2] py-2.5 px-3 text-white font-bold rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-[13px] ${
+                    isAlreadyRegistered
+                      ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                  }`}
+                >
+                  {submitting ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                  ) : isAlreadyRegistered ? (
+                    <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                  ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                    <>Provide Gender &amp; DOB to Register</>
+                  ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                    <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
+                  ) : (
+                    <>Submit Registration <span className="text-[10px]">→</span></>
+                  )}
+                </button>
+              </div>
+            )}
           </form>
         </div>
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
-        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-6">
-          <div className="relative rounded-3xl overflow-hidden shadow-xl border border-white/10">
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4f46e5] opacity-90" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(251,146,60,0.15),transparent_60%)]" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-orange-500/10 to-transparent rounded-full -translate-y-1/3 translate-x-1/3" />
+        <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
+          <div className="rounded-xl overflow-hidden shadow-2xs border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            {/* Header with subtle gradient banner */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+              {!isModal && (
+                <button
+                  onClick={handleClose}
+                  className="mb-2 flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors group cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                  <span>Back</span>
+                </button>
+              )}
 
-            <div className="relative p-4 md:p-5">
-              <button
-                onClick={handleClose}
-                className="mb-3 flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors group cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                {isModal ? "Cancel" : "Back"}
-              </button>
-
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-orange-400" />
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2.5 py-1 rounded-lg bg-orange-500/20 text-orange-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-white tracking-tight">
+                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
                     {event?.name ?? "Complete Registration"}
-                  </h2>
-                  <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+                  </h4>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
-                {eventDate && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📅</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Event Date</p>
-                      <p className="font-semibold">{eventDate}</p>
-                    </div>
+            <div className="p-2.5 sm:p-3 space-y-2">
+              {eventDate && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
                   </div>
-                )}
-                {venueName && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">📍</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Venue Location</p>
-                      <p className="font-semibold">{venueName}</p>
-                    </div>
+                </div>
+              )}
+              {venueName && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
                   </div>
-                )}
-                {event?.community?.name && (
-                  <div className="flex items-center gap-2.5 text-xs text-white/90 bg-white/5 backdrop-blur-sm border border-white/10 p-2.5 rounded-xl">
-                    <span className="text-base">🏠</span>
-                    <div>
-                      <p className="text-[10px] uppercase text-white/50 font-medium">Host Community</p>
-                      <p className="font-semibold">{event.community.name}</p>
-                    </div>
+                </div>
+              )}
+              {event?.community?.name && (
+                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
+                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* All Sport Categories & Age Details */}
-                {siblingEvents.length > 0 && (
-                  <div className="pt-2 border-t border-white/10 space-y-2">
-                    <p className="text-[11px] uppercase text-white/70 font-bold tracking-wider flex items-center gap-1.5">
-                      <Trophy className="w-3.5 h-3.5 text-orange-400" />
-                      <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                    </p>
+              {/* All Sport Categories & Age Details */}
+              {siblingEvents.length > 0 && (
+                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
+                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
+                  </p>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                      {siblingEvents.map(sib => {
-                        const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
-                        const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
-                        let ageLabel = "All Ages";
-                        const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
-                        const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
-                        const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
+                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                    {siblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                      const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
+                      let ageLabel = "All Ages";
+                      const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
+                      const plusMatch = textToScan.match(/(\d+)\s*(?:\+|plus|above)/i);
+                      const rangeMatch = textToScan.match(/(\d+)\s*[-–to]\s*(\d+)/i);
 
-                        if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
-                        else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
-                        else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+                      if (underMatch) ageLabel = `Under ${underMatch[1]} Yrs`;
+                      else if (plusMatch) ageLabel = `${plusMatch[1]}+ Yrs`;
+                      else if (rangeMatch) ageLabel = `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
 
-                        return (
-                          <div
-                            key={sib.id}
-                            className={`p-2.5 rounded-xl text-xs space-y-1 border ${
-                              isCurrent
-                                ? "bg-white/15 border-white/30 text-white shadow-xs"
-                                : "bg-white/5 border-white/10 text-white/85"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-white text-xs truncate">
-                                {sib.categoryName || sib.name}
+                      return (
+                        <div
+                          key={sib.id}
+                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                            isCurrent
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
+                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                              {sib.categoryName || sib.name}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
+                                Current
                               </span>
-                              {isCurrent && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/80 text-white font-bold uppercase tracking-wider shrink-0">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70 pt-0.5">
-                              <span>🎯 Age: <strong className="text-orange-300 font-semibold">{ageLabel}</strong></span>
-                              {sib.venueName && <span>📍 {sib.venueName}</span>}
-                              {sib.eventDateStart && (
-                                <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
-                              )}
-                              {sib.maxParticipants && (
-                                <span className="text-white/60">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
+                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
+                            {sib.venueName && <span>📍 {sib.venueName}</span>}
+                            {sib.eventDateStart && (
+                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                            )}
+                            {sib.maxParticipants && (
+                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Sticky Submit Bar */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-3 py-2.5 safe-area-bottom">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex-shrink-0 min-h-[44px] px-3.5 bg-card border border-border rounded-xl text-[13px] text-muted-foreground font-semibold active:scale-95 transition-all cursor-pointer"
-          >
-            ← Back
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
-            disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-            className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
-              isAlreadyRegistered
-                ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
-                : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
-            }`}
-          >
-            {submitting ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
-            ) : isAlreadyRegistered ? (
-              <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
-            ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
-              <>Add Gender & DOB</>
-            ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
-              <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
-            ) : (
-              <>Submit Registration →</>
-            )}
-          </button>
+      {/* Mobile Sticky Submit Bar (Page Mode) */}
+      {!isModal && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 px-3 py-2.5 safe-area-bottom">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex-shrink-0 min-h-[44px] px-3.5 bg-card border border-border rounded-xl text-[13px] text-muted-foreground font-semibold active:scale-95 transition-all cursor-pointer"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                if (form && typeof form.requestSubmit === "function") {
+                  try {
+                    form.requestSubmit();
+                    return;
+                  } catch {
+                    // fallback
+                  }
+                }
+                handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+              }}
+              disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+              className={`flex-1 min-h-[44px] text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 text-[13px] ${
+                isAlreadyRegistered
+                  ? "bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                  : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+              }`}
+            >
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+              ) : isAlreadyRegistered ? (
+                <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered</>
+              ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                <>Add Gender & DOB</>
+              ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} →</>
+              ) : (
+                <>Submit Registration →</>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -3424,17 +4096,131 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           onClick={handleClose}
         >
           <div 
-            className="relative w-full max-w-4xl max-h-[92vh] sm:max-h-[88vh] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            className="relative w-full max-w-5xl h-[92vh] max-h-[92dvh] sm:h-[88vh] sm:max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Pull handle for mobile */}
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
+            {/* Pinned Modal Header */}
+            <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
+              <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <span className="p-1.5 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Trophy className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
+                      {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
+                      {eventDate ? ` - ${eventDate}` : ""}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowEventInfoModal(true)}
+                      aria-label="View Complete Event Information"
+                      title="View Complete Event Information"
+                      className="p-0.5 rounded-full text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-[#6b7094] dark:text-slate-400 truncate leading-tight mt-0.5">
+                    {event?.categoryName || event?.name || venueName || "Tournament Registration"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer shrink-0"
+                title="Close"
+              >
+                <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </button>
+            </div>
+
+            {/* Scrollable Modal Body */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-3 sm:pb-0">
               {mainContent}
+            </div>
+
+            {/* Pinned Modal Footer */}
+            <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="min-h-[42px] px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
+              >
+                Cancel
+              </button>
+
+              {/* Status / Selected formats summary on sm+ */}
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 min-w-0">
+                {formData.playerName && (
+                  <span className="truncate font-medium">
+                    Participant: <strong className="text-slate-900 dark:text-slate-100">{formData.playerName}</strong>
+                  </span>
+                )}
+                {selectedFormats.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
+                    {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
+                  </span>
+                )}
+                {formData.categoryIds.length > 0 && (
+                  <span className="text-[10px] text-slate-500">
+                    ({formData.categoryIds.length} {formData.categoryIds.length === 1 ? "category" : "categories"} selected)
+                  </span>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const form = document.getElementById("sports-registration-form") as HTMLFormElement | null;
+                  if (form && typeof form.requestSubmit === "function") {
+                    try {
+                      form.requestSubmit();
+                      return;
+                    } catch {
+                      // fallback
+                    }
+                  }
+                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+                }}
+                disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
+                className={`flex-1 sm:flex-initial min-h-[42px] px-4 sm:px-6 py-2 sm:py-2.5 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm shrink-0 ${
+                  isAlreadyRegistered
+                    ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"
+                }`}
+              >
+                {submitting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</>
+                ) : isAlreadyRegistered ? (
+                  <><CheckCircle2 className="w-4 h-4 text-white" /> Already Registered ({selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")})</>
+                ) : !formData.gender?.trim() || !formData.dateOfBirth?.trim() ? (
+                  <>Provide Gender &amp; DOB to Register</>
+                ) : unregisteredSelectedFormats.length > 0 && registeredFormats.length > 0 ? (
+                  <>Register for {unregisteredSelectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(" & ")} <span className="text-[10px]">→</span></>
+                ) : (
+                  <>Submit Registration <span className="text-[10px]">→</span></>
+                )}
+              </button>
             </div>
           </div>
         </div>
         {snackbarElement}
+        <CashfreeCheckout
+          visible={showPaymentOverlay}
+          status={cashfree.status}
+          order={cashfree.order}
+          error={cashfree.error}
+          onDismiss={() => {
+            setShowPaymentOverlay(false);
+            cashfree.reset();
+          }}
+        />
         <Toaster richColors position="top-right" />
       </>
     );
@@ -3444,6 +4230,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     <>
       {mainContent}
       {snackbarElement}
+      <CashfreeCheckout
+        visible={showPaymentOverlay}
+        status={cashfree.status}
+        order={cashfree.order}
+        error={cashfree.error}
+        onDismiss={() => {
+          setShowPaymentOverlay(false);
+          cashfree.reset();
+        }}
+      />
       <Toaster richColors position="top-right" />
     </>
   );

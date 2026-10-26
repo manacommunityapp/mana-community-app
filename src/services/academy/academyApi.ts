@@ -9,6 +9,8 @@ import type {
   AcademyCertificate,
   LearningType,
   ProgramStatus,
+  TrainerSlot,
+  TrainerSlotBooking,
 } from "../../types/academy";
 
 const STORAGE_KEY_CATEGORIES = "mana_acad_categories_v1";
@@ -17,6 +19,8 @@ const STORAGE_KEY_INSTRUCTORS = "mana_acad_instructors_v1";
 const STORAGE_KEY_ENROLLMENTS = "mana_acad_enrollments_v1";
 const STORAGE_KEY_ATTENDANCE = "mana_acad_attendance_v1";
 const STORAGE_KEY_REVIEWS = "mana_acad_reviews_v1";
+const STORAGE_KEY_TRAINER_SLOTS = "mana_acad_trainer_slots_v1";
+const STORAGE_KEY_SLOT_BOOKINGS = "mana_acad_slot_bookings_v1";
 
 const DEFAULT_CATEGORIES: AcademyCategory[] = [
   { id: "cat-tech", name: "Technology & Coding", code: "TECH", description: "Software engineering, AI, cloud, web dev & coding workshops", icon: "💻", displayOrder: 1, active: true },
@@ -30,224 +34,13 @@ const DEFAULT_CATEGORIES: AcademyCategory[] = [
   { id: "cat-finance", name: "Financial Literacy", code: "FINANCE", description: "Personal budgeting, stock markets, mutual funds & tax planning", icon: "📊", displayOrder: 9, active: true },
 ];
 
-const DEFAULT_INSTRUCTORS: AcademyInstructor[] = [
-  {
-    id: "instr-sandeep",
-    communityId: "comm-mana-1",
-    residentUserId: "user-sandeep",
-    fullName: "Sandeep Patil",
-    profession: "Principal Software Engineer @ CloudTech",
-    bio: "12+ years building distributed cloud microservices. Passionate about mentoring junior developers and teaching Java, Spring Boot, and AWS.",
-    profilePicUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
-    tower: "Tower A",
-    flatNumber: "A-204",
-    skills: "Java, Spring Boot, AWS, Docker, Kubernetes, Microservices",
-    experienceYears: 12,
-    status: "APPROVED",
-    totalSessions: 14,
-    totalLearners: 112,
-    averageRating: 4.9,
-    reviewCount: 48,
-    approvedAt: "2026-06-01",
-    createdAt: "2026-06-01",
-  },
-  {
-    id: "instr-priya",
-    communityId: "comm-mana-1",
-    residentUserId: "user-priya",
-    fullName: "Priya Sharma",
-    profession: "Certified Yoga & Mindfulness Instructor (RYS 500)",
-    bio: "Daily morning Hatha & Vinyasa yoga practitioner helping community residents build flexibility, core strength, and mental wellness.",
-    profilePicUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80",
-    tower: "Tower B",
-    flatNumber: "B-501",
-    skills: "Hatha Yoga, Vinyasa Flow, Pranayama, Meditation, Flexibility",
-    experienceYears: 8,
-    status: "APPROVED",
-    totalSessions: 28,
-    totalLearners: 240,
-    averageRating: 5.0,
-    reviewCount: 92,
-    approvedAt: "2026-05-01",
-    createdAt: "2026-05-01",
-  },
-  {
-    id: "instr-arjun",
-    communityId: "comm-mana-1",
-    residentUserId: "user-arjun",
-    fullName: "Arjun Mehta",
-    profession: "FIDE Rated Chess Player & Youth Coach",
-    bio: "Former state champion coaching kids and adults in opening theory, tactical motifs, and endgame calculation.",
-    profilePicUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80",
-    tower: "Tower C",
-    flatNumber: "C-302",
-    skills: "Chess Tactics, Opening Theory, Endgame Mastery, Mind Sports",
-    experienceYears: 6,
-    status: "APPROVED",
-    totalSessions: 18,
-    totalLearners: 95,
-    averageRating: 4.8,
-    reviewCount: 34,
-    approvedAt: "2026-07-01",
-    createdAt: "2026-07-01",
-  },
-];
+const DEFAULT_TRAINER_SLOTS: TrainerSlot[] = [];
 
-const DEFAULT_PROGRAMS: AcademyProgram[] = [
-  {
-    id: "prog-springboot-workshop",
-    communityId: "comm-mana-1",
-    instructorId: "instr-sandeep",
-    instructorName: "Sandeep Patil",
-    categoryId: "cat-tech",
-    categoryName: "Technology & Coding",
-    title: "Java & Spring Boot Microservices Workshop",
-    summary: "Hands-on 2-hour crash workshop building production-ready REST APIs with Spring Data JPA and PostgreSQL.",
-    description: "In this interactive community workshop, we will construct a microservice from scratch. Topics include Spring Initializr, RESTful architectural design, Spring Data JPA with entity auditing, database migrations, connection pooling, and Docker deployment. Bring your laptop with JDK 17 installed!",
-    coverImageUrl: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80",
-    learningType: "WORKSHOP",
-    level: "INTERMEDIATE",
-    mode: "IN_PERSON",
-    location: "Clubhouse Hall 1 (Projector Area)",
-    startDate: "2026-09-28",
-    endDate: "2026-09-28",
-    startTime: "17:00",
-    durationMinutes: 120,
-    capacity: 20,
-    enrolledCount: 18,
-    waitlistCount: 2,
-    availableSeats: 2,
-    isFull: false,
-    pricingType: "FREE",
-    price: 0,
-    prerequisites: "Basic understanding of Java syntax and Object-Oriented Programming.",
-    targetAudience: "Software engineers, college students, and tech enthusiasts in our community.",
-    tags: "Java, Spring Boot, Microservices, Backend, SQL",
-    certificateEnabled: true,
-    status: "PUBLISHED",
-    averageRating: 4.9,
-    reviewCount: 14,
-    sessions: [
-      {
-        id: "sess-sb-1",
-        sessionOrder: 1,
-        title: "Spring Boot Core, REST APIs & JPA Persistence",
-        description: "Live coding session building REST endpoints with PostgreSQL integration.",
-        sessionDate: "2026-09-28",
-        startTime: "17:00",
-        endTime: "19:00",
-        location: "Clubhouse Hall 1",
-        qrCheckInToken: "QR-SESS-SB-01",
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: "prog-yoga-morning",
-    communityId: "comm-mana-1",
-    instructorId: "instr-priya",
-    instructorName: "Priya Sharma",
-    categoryId: "cat-fitness",
-    categoryName: "Fitness & Yoga",
-    title: "Weekend Morning Sunrise Yoga & Breathwork",
-    summary: "Rejuvenate your body and mind with guided Surya Namaskars, deep stretching, and Pranayama breathing.",
-    description: "Start your Sunday morning with peaceful mindfulness on the clubhouse lawn. Perfect for beginners and regular practitioners looking to relieve desk stiffness, improve flexibility, and practice guided meditation. Bring your own yoga mat and water bottle.",
-    coverImageUrl: "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=600&auto=format&fit=crop&q=80",
-    learningType: "FITNESS_SESSION",
-    level: "ALL_LEVELS",
-    mode: "IN_PERSON",
-    location: "Central Clubhouse Garden Lawn",
-    startDate: "2026-09-29",
-    endDate: "2026-09-29",
-    startTime: "06:30",
-    durationMinutes: 60,
-    capacity: 25,
-    enrolledCount: 12,
-    waitlistCount: 0,
-    availableSeats: 13,
-    isFull: false,
-    pricingType: "FREE",
-    price: 0,
-    prerequisites: "No prior experience needed. Open to all age groups.",
-    targetAudience: "All residents seeking health, posture alignment, and stress relief.",
-    tags: "Yoga, Pranayama, Fitness, Meditation, Wellness",
-    certificateEnabled: false,
-    status: "PUBLISHED",
-    averageRating: 5.0,
-    reviewCount: 22,
-    sessions: [
-      {
-        id: "sess-yoga-1",
-        sessionOrder: 1,
-        title: "Sunrise Hatha Flow & Guided Pranayama",
-        description: "60-minute revitalizing stretch and breathwork.",
-        sessionDate: "2026-09-29",
-        startTime: "06:30",
-        endTime: "07:30",
-        location: "Clubhouse Lawn",
-        qrCheckInToken: "QR-SESS-YOGA-01",
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: "prog-chess-mastery",
-    communityId: "comm-mana-1",
-    instructorId: "instr-arjun",
-    instructorName: "Arjun Mehta",
-    categoryId: "cat-sports",
-    categoryName: "Sports Coaching",
-    title: "Junior Chess Tactics & Endgame Mastery (4-Week Course)",
-    summary: "A comprehensive 4-week course for young champions to master board vision, pins, forks, and checkmate patterns.",
-    description: "Designed for children aged 7–16. Each weekly session combines 30 minutes of interactive lecture on tactical patterns followed by 45 minutes of mentored sparring games with live analysis.",
-    coverImageUrl: "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600&auto=format&fit=crop&q=80",
-    learningType: "COURSE",
-    level: "BEGINNER",
-    mode: "IN_PERSON",
-    location: "Community Library / Activity Room",
-    startDate: "2026-10-01",
-    endDate: "2026-10-29",
-    startTime: "16:00",
-    durationMinutes: 75,
-    capacity: 16,
-    enrolledCount: 10,
-    waitlistCount: 0,
-    availableSeats: 6,
-    isFull: false,
-    pricingType: "FREE",
-    price: 0,
-    prerequisites: "Knowledge of how chess pieces move.",
-    targetAudience: "Kids (Ages 7–16) and curious beginners.",
-    tags: "Chess, Kids, Strategy, Mind Sports, Brain Development",
-    certificateEnabled: true,
-    status: "PUBLISHED",
-    averageRating: 4.8,
-    reviewCount: 11,
-    sessions: [
-      { id: "sess-ch-1", sessionOrder: 1, title: "Session 1: Opening Principles & Center Control", sessionDate: "2026-10-01", startTime: "16:00", endTime: "17:15", qrCheckInToken: "QR-CHESS-01" },
-      { id: "sess-ch-2", sessionOrder: 2, title: "Session 2: Tactical Weapons (Forks, Pins, Skewers)", sessionDate: "2026-10-08", startTime: "16:00", endTime: "17:15", qrCheckInToken: "QR-CHESS-02" },
-      { id: "sess-ch-3", sessionOrder: 3, title: "Session 3: King Safety & Attacking Patterns", sessionDate: "2026-10-15", startTime: "16:00", endTime: "17:15", qrCheckInToken: "QR-CHESS-03" },
-      { id: "sess-ch-4", sessionOrder: 4, title: "Session 4: Essential Pawn Endgames & Tournaments", sessionDate: "2026-10-22", startTime: "16:00", endTime: "17:15", qrCheckInToken: "QR-CHESS-04" },
-    ],
-  },
-];
+const DEFAULT_INSTRUCTORS: AcademyInstructor[] = [];
 
-const DEFAULT_ENROLLMENTS: AcademyEnrollment[] = [
-  {
-    id: "enroll-sample-1",
-    programId: "prog-springboot-workshop",
-    programTitle: "Java & Spring Boot Microservices Workshop",
-    userId: "user-current",
-    userName: "Sandesh Patil",
-    tower: "Tower A",
-    flatNumber: "A-204",
-    seatNumber: 12,
-    status: "CONFIRMED",
-    amountPaid: 0,
-    qrPassCode: "ACAD-PASS-SANDESH-SB12",
-    enrolledAt: "2026-09-25T10:00:00Z",
-  },
-];
+const DEFAULT_PROGRAMS: AcademyProgram[] = [];
+
+const DEFAULT_ENROLLMENTS: AcademyEnrollment[] = [];
 
 function getStorage<T>(key: string, fallback: T): T {
   try {
@@ -522,6 +315,77 @@ export const academyApi = {
     return newAtt;
   },
 
+  // ── SPORTS TRAINER SLOTS ──
+  async getSportsTrainers(): Promise<AcademyInstructor[]> {
+    try {
+      const res = await apiClient.get<AcademyInstructor[]>("/academy/instructors/sports");
+      if (res && res.length > 0) return res;
+    } catch {}
+    const instructors = getStorage<AcademyInstructor[]>(STORAGE_KEY_INSTRUCTORS, DEFAULT_INSTRUCTORS);
+    return instructors.filter((i) => i.isSportsTrainer && i.status === "APPROVED");
+  },
+
+  async getTrainerSlots(trainerId?: string, sport?: string, date?: string): Promise<TrainerSlot[]> {
+    try {
+      const params = new URLSearchParams();
+      if (trainerId) params.append("trainerId", trainerId);
+      if (sport) params.append("sport", sport);
+      if (date) params.append("date", date);
+      const res = await apiClient.get<TrainerSlot[]>(`/academy/trainer-slots?${params}`);
+      if (res && res.length > 0) return res;
+    } catch {}
+    let slots = getStorage<TrainerSlot[]>(STORAGE_KEY_TRAINER_SLOTS, DEFAULT_TRAINER_SLOTS);
+    if (trainerId) slots = slots.filter((s) => s.trainerId === trainerId);
+    if (sport) slots = slots.filter((s) => s.sport.toLowerCase() === sport.toLowerCase());
+    if (date) slots = slots.filter((s) => s.date === date);
+    return slots;
+  },
+
+  async bookTrainerSlot(slotId: string, payload: { userId: string; userName: string; tower?: string; flatNumber?: string }): Promise<TrainerSlotBooking> {
+    try {
+      const res = await apiClient.post<TrainerSlotBooking>(`/academy/trainer-slots/${slotId}/book`, payload);
+      if (res) return res;
+    } catch {}
+    const slots = getStorage<TrainerSlot[]>(STORAGE_KEY_TRAINER_SLOTS, DEFAULT_TRAINER_SLOTS);
+    const slot = slots.find((s) => s.id === slotId);
+    if (!slot) throw new Error("Slot not found");
+    if (slot.status !== "OPEN") throw new Error("This slot is no longer available");
+    if (slot.bookedCount >= slot.maxCapacity) throw new Error("Slot is fully booked");
+
+    const bookings = getStorage<TrainerSlotBooking[]>(STORAGE_KEY_SLOT_BOOKINGS, []);
+    const existing = bookings.find((b) => b.slotId === slotId && b.userId === payload.userId && b.status === "CONFIRMED");
+    if (existing) return existing;
+
+    slot.bookedCount += 1;
+    if (slot.bookedCount >= slot.maxCapacity) slot.status = "BOOKED";
+    setStorage(STORAGE_KEY_TRAINER_SLOTS, slots);
+
+    const booking: TrainerSlotBooking = {
+      id: `sb-${Date.now()}`,
+      slotId,
+      trainerId: slot.trainerId,
+      userId: payload.userId,
+      userName: payload.userName,
+      tower: payload.tower,
+      flatNumber: payload.flatNumber,
+      status: "CONFIRMED",
+      amountPaid: slot.price,
+      bookedAt: new Date().toISOString(),
+    };
+    bookings.push(booking);
+    setStorage(STORAGE_KEY_SLOT_BOOKINGS, bookings);
+    return booking;
+  },
+
+  async getMySlotBookings(userId: string): Promise<TrainerSlotBooking[]> {
+    try {
+      const res = await apiClient.get<TrainerSlotBooking[]>(`/academy/trainer-slots/my-bookings?userId=${userId}`);
+      if (res) return res;
+    } catch {}
+    const bookings = getStorage<TrainerSlotBooking[]>(STORAGE_KEY_SLOT_BOOKINGS, []);
+    return bookings.filter((b) => b.userId === userId && b.status === "CONFIRMED");
+  },
+
   // ── REVIEWS ──
   async submitReview(programId: string, payload: { userId: string; userName: string; overallRating: number; reviewComment?: string }): Promise<AcademyReview> {
     try {
@@ -544,5 +408,18 @@ export const academyApi = {
     reviews.push(newRev);
     setStorage(STORAGE_KEY_REVIEWS, reviews);
     return newRev;
+  },
+
+  async updateInstructorStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<void> {
+    try {
+      await apiClient.patch(`/academy/instructors/${id}/status`, { status });
+      return;
+    } catch {}
+    const instructors = getStorage<AcademyInstructor[]>(STORAGE_KEY_INSTRUCTORS, DEFAULT_INSTRUCTORS);
+    const idx = instructors.findIndex((i) => i.id === id);
+    if (idx !== -1) {
+      instructors[idx] = { ...instructors[idx], status };
+      setStorage(STORAGE_KEY_INSTRUCTORS, instructors);
+    }
   },
 };

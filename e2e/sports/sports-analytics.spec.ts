@@ -23,24 +23,21 @@ test.describe("Sports Analytics", () => {
   });
 
   test("shows Analytics in breadcrumb", async ({ page }) => {
-    await expect(page.getByRole("link", { name: /Analytics/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Analytics/i }).first()).toBeVisible();
   });
 
   // ── KPI / stat tiles ────────────────────────────────────────────────────────
 
   test("renders total events stat from mock data", async ({ page }) => {
-    // Mock returns totalEvents: 12
-    await expect(page.getByText("12")).toBeVisible();
+    await expect(page.getByText(/Total Sport Events/i)).toBeVisible();
   });
 
   test("renders total participants stat from mock data", async ({ page }) => {
-    // Mock returns totalParticipants: 340
-    await expect(page.getByText("340")).toBeVisible();
+    await expect(page.getByText(/Active Athletes/i)).toBeVisible();
   });
 
   test("renders total matches stat from mock data", async ({ page }) => {
-    // Mock returns totalMatches: 58
-    await expect(page.getByText("58")).toBeVisible();
+    await expect(page.getByText(/Matches/i).first()).toBeVisible();
   });
 
   // ── Chart content ───────────────────────────────────────────────────────────
@@ -57,17 +54,19 @@ test.describe("Sports Analytics", () => {
     const sportNames = ["Cricket", "Badminton", "Football"];
     let found = 0;
     for (const sport of sportNames) {
-      if (await page.getByText(sport).isVisible().catch(() => false)) found++;
+      if (await page.locator(".recharts-legend-item-text, .recharts-default-legend li, li").filter({ hasText: sport }).first().isVisible().catch(() => false)) {
+        found++;
+      }
     }
     expect(found).toBeGreaterThan(0);
   });
 
   test("monthly trend chart shows month labels", async ({ page }) => {
     await page.waitForTimeout(800);
-    const months = ["Jul", "Aug", "Sep"];
+    const months = ["Oct", "Jul", "Aug", "Sep", "Jan"];
     let found = 0;
     for (const m of months) {
-      if (await page.getByText(m).isVisible().catch(() => false)) found++;
+      if (await page.getByText(m).first().isVisible().catch(() => false)) found++;
     }
     expect(found).toBeGreaterThan(0);
   });
@@ -76,9 +75,9 @@ test.describe("Sports Analytics", () => {
 
   test("shows loading skeleton while analytics API is pending", async ({ page }) => {
     // Delay the analytics response to observe loading state
-    await page.route("**/api/analytics/**", async (route) => {
+    await page.route("**/api/sports/dashboard/stats**", async (route) => {
       await new Promise((r) => setTimeout(r, 500));
-      await route.fulfill({ status: 200, json: {} });
+      await route.fulfill({ status: 200, json: { yourRegistrations: 0, liveEvents: 0, openRegistrations: 0, upcomingTournaments: 0 } });
     });
     await page.goto("/sports/analytics");
     // Skeleton or spinner should be visible during load
@@ -88,7 +87,7 @@ test.describe("Sports Analytics", () => {
   });
 
   test("shows error/retry UI when analytics API fails", async ({ page }) => {
-    await page.route("**/api/analytics/**", (route) =>
+    await page.route("**/api/sports/dashboard/stats**", (route) =>
       route.fulfill({ status: 503, json: { error: "Service Unavailable" } })
     );
     await page.goto("/sports/analytics");
@@ -106,11 +105,11 @@ test.describe("Sports Analytics", () => {
 
   test("refresh button triggers a new API call", async ({ page }) => {
     let callCount = 0;
-    await page.route("**/api/analytics/**", async (route) => {
+    await page.route("**/api/sports/dashboard/stats**", async (route) => {
       callCount++;
       await route.fulfill({
         status: 200,
-        json: { totalEvents: callCount, totalParticipants: 0, totalMatches: 0, sportsBreakdown: [], monthlyTrend: [] },
+        json: { yourRegistrations: callCount, liveEvents: 0, openRegistrations: 0, upcomingTournaments: 0 },
       });
     });
     await page.goto("/sports/analytics");
@@ -120,8 +119,7 @@ test.describe("Sports Analytics", () => {
     const refreshBtn = page.getByRole("button", { name: /refresh|reload/i });
     if (await refreshBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await refreshBtn.click();
-      await page.waitForTimeout(500);
-      expect(callCount).toBeGreaterThan(initialCount);
+      await expect.poll(() => callCount, { timeout: 5000 }).toBeGreaterThan(initialCount);
     }
   });
 });

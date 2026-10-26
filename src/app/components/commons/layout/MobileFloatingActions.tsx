@@ -9,6 +9,7 @@ import {
 import { CommunityDirectory } from "../../community/CommunityDirectory";
 import { NotificationBell } from "./NotificationBell";
 import { feedService, type FeedSummaryCountsResponse } from "../../../../services/community/feedService";
+import { useAuth } from "../../../../contexts/AuthContext";
 
 interface SearchResultItem {
   label: string;
@@ -20,6 +21,7 @@ interface SearchResultItem {
   category: string;
   color: string;
   bg: string;
+  requiredModule?: string | string[];
 }
 
 export function MenuListIcon({ className }: { className?: string }) {
@@ -46,6 +48,8 @@ export function MenuListIcon({ className }: { className?: string }) {
 
 export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
   const navigate = useNavigate();
+  const { user, isSuperAdmin } = useAuth();
+  const enabledModules = user?.enabledModules;
   const [activeModal, setActiveModal] = useState<"directory" | "search" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [directoryCount, setDirectoryCount] = useState<number | undefined>(undefined);
@@ -220,6 +224,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Safety",
       color: "text-emerald-700",
       bg: "bg-emerald-50",
+      requiredModule: ["VISITORS", "SAFETY"],
     },
     {
       label: "Mana Deals & Offers",
@@ -363,9 +368,19 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
     },
   ];
 
+  const isModuleAllowed = (moduleKeyOrKeys?: string | string[]) => {
+    if (!moduleKeyOrKeys) return true;
+    if (isSuperAdmin && !user?.communityId) return true;
+    if (!enabledModules || enabledModules.length === 0) return false;
+    const keys = Array.isArray(moduleKeyOrKeys) ? moduleKeyOrKeys : [moduleKeyOrKeys];
+    return keys.some((k) => enabledModules.includes(k));
+  };
+
+  const availableSearchItems = searchItems.filter((item) => isModuleAllowed(item.requiredModule));
+
   const filteredItems = searchQuery.trim() === ""
-    ? searchItems
-    : searchItems.filter(item =>
+    ? availableSearchItems
+    : availableSearchItems.filter(item =>
         item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.desc.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.keywords.toLowerCase().includes(searchQuery.toLowerCase()) ||

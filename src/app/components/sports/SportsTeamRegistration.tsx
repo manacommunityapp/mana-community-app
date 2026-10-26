@@ -107,7 +107,7 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
         <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
           <Check size={28} color="#16a34a" />
         </div>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>Team Registered!</h3>
+        <h3 className="text-xs" style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>Team Registered!</h3>
         <p style={{ fontSize: 14, color: "#64748b" }}>
           {logoEmoji} <strong>{teamName}</strong> with {selectedMembers.length} members has been registered.
         </p>
@@ -132,7 +132,7 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
             <Users size={18} color="#fff" />
           </div>
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Register Team</h3>
+            <h3 className="text-xs" style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", margin: 0 }}>Register Team</h3>
             <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>{event?.name ?? `Event #${eventId}`}</p>
           </div>
         </div>

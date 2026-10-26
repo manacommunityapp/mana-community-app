@@ -73,11 +73,11 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                   <span className="text-[10px] text-slate-400 font-semibold">• {team.season}</span>
                 )}
               </div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate mt-0.5">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
                 {team.name}
               </h3>
               {team.motto && (
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 italic truncate">
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic truncate">
                   "{team.motto}"
                 </p>
               )}
@@ -111,10 +111,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                 <Crown className="w-3.5 h-3.5 text-amber-300" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                   Captain
                 </span>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
+                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">
                   {team.captainName.split('(')[0].trim()}
                 </span>
               </div>
@@ -127,10 +127,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                 <Building className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
                   Owner
                 </span>
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">
+                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">
                   {team.ownerName}
                 </span>
               </div>
@@ -147,7 +147,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
             </span>
             <span className="text-slate-900 dark:text-white font-bold">
               ₹{spent.toLocaleString('en-IN')}{' '}
-              <span className="text-slate-400 text-[11px] font-normal">
+              <span className="text-slate-400 text-[10px] font-normal">
                 / ₹{budget.toLocaleString('en-IN')}
               </span>
             </span>
@@ -169,7 +169,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
             />
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+          <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
             <span>{spentPct}% utilized</span>
             <span className="font-bold text-emerald-600 dark:text-emerald-400">
               ₹{remaining.toLocaleString('en-IN')} remaining
@@ -214,14 +214,14 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
             {squad.slice(0, 4).map((p, idx) => (
               <div
                 key={idx}
-                className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-[9px] font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center"
+                className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center"
                 title={`${p.name} (${p.role})`}
               >
                 {p.name[0]}
               </div>
             ))}
           </div>
-          <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+          <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
             {squadSize} / {team.maxSquadSize} Players
           </span>
         </div>

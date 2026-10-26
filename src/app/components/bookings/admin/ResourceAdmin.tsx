@@ -15,6 +15,7 @@ import type {
   BookingStatus, ResourceStatus, BookingType, PricingType, RuleType,
   MaintenanceType, DiscountType, PageResponse,
 } from "../../../../types/booking";
+import { resourceBookingService } from "../../../../services/bookings/bookingService";
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -114,42 +115,33 @@ const secondaryBtn = "bg-muted text-foreground rounded-xl px-4 py-2.5 text-sm fo
 const dangerBtn = "bg-red-500 text-white rounded-xl px-4 py-2.5 text-sm font-bold inline-flex items-center gap-1.5";
 
 // ---------------------------------------------------------------------------
-// Mock service layer - replace with real API calls
-// ---------------------------------------------------------------------------
-const wait = (ms = 400) => new Promise((r) => setTimeout(r, ms));
-
-const mockDashboard: DashboardStatsResponse = {
-  totalResources: 24, totalBookings: 186, todayBookings: 12, activeBookings: 8,
-  occupancyRate: 73.5, revenue: 42500, cancellationRate: 4.2,
-  topResources: [
-    { name: "Tennis Court A", bookings: 48, revenue: 12000 },
-    { name: "Banquet Hall", bookings: 22, revenue: 18500 },
-  ],
-  recentBookings: [],
-};
-
-function useMockData<T>(initial: T) {
-  const [data, setData] = useState<T>(initial);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 600); return () => clearTimeout(t); }, []);
-  return { data, setData, loading };
-}
-
-// ---------------------------------------------------------------------------
 // Tab content components
 // ---------------------------------------------------------------------------
 
 function DashboardTab() {
-  const { loading } = useMockData(mockDashboard);
-  const stats = mockDashboard;
+  const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    resourceBookingService.getDashboardStats()
+      .then((data) => {
+        if (active) setStats(data);
+      })
+      .catch((err) => console.error("Failed to load dashboard stats:", err))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
 
   const cards = [
-    { label: "Total Resources", value: stats.totalResources, icon: Server },
-    { label: "Bookings (Month)", value: stats.totalBookings, icon: CalendarDays },
-    { label: "Revenue (Month)", value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee },
-    { label: "Occupancy Rate", value: `${stats.occupancyRate}%`, icon: BarChart3 },
+    { label: "Total Resources", value: stats?.totalResources ?? 0, icon: Server },
+    { label: "Bookings (Month)", value: stats?.totalBookings ?? 0, icon: CalendarDays },
+    { label: "Revenue (Month)", value: `₹${(stats?.revenue ?? 0).toLocaleString("en-IN")}`, icon: IndianRupee },
+    { label: "Occupancy Rate", value: `${stats?.occupancyRate ?? 0}%`, icon: BarChart3 },
   ];
 
   return (
@@ -168,13 +160,13 @@ function DashboardTab() {
 
       <div className="bg-card border border-border rounded-2xl shadow-sm p-6">
         <h3 className="text-base font-bold text-foreground mb-4">Top Resources</h3>
-        {stats.topResources.length === 0 ? <EmptyState message="No data yet" /> : (
+        {(!stats?.topResources || stats.topResources.length === 0) ? <EmptyState message="No data yet" /> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="bg-muted/50 text-left"><th className="px-4 py-2 font-medium">Resource</th><th className="px-4 py-2 font-medium">Bookings</th><th className="px-4 py-2 font-medium">Revenue</th></tr></thead>
               <tbody>{stats.topResources.map((r) => (
                 <tr key={r.name} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-4 py-2">{r.name}</td><td className="px-4 py-2">{r.bookings}</td><td className="px-4 py-2">${r.revenue.toLocaleString()}</td>
+                  <td className="px-4 py-2">{r.name}</td><td className="px-4 py-2">{r.bookings}</td><td className="px-4 py-2">₹{r.revenue.toLocaleString("en-IN")}</td>
                 </tr>
               ))}</tbody>
             </table>
@@ -200,7 +192,17 @@ function CategoriesTab() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState<ResourceCategoryRequest>({ name: "", icon: "", color: "#3b82f6", description: "", displayOrder: 0, status: "ACTIVE", imageUrl: "" });
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadCategories = () => {
+    setLoading(true);
+    resourceBookingService.getCategories()
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load categories:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   const openEdit = (cat: ResourceCategoryResponse) => {
     setEditing(cat);
@@ -215,19 +217,30 @@ function CategoriesTab() {
   };
 
   const handleSave = async () => {
-    await wait();
-    if (editing) {
-      setCategories((prev) => prev.map((c) => c.id === editing.id ? { ...c, ...form } as ResourceCategoryResponse : c));
-    } else {
-      setCategories((prev) => [...prev, { id: Date.now(), ...form, resourceCount: 0, communityId: 1 } as ResourceCategoryResponse]);
+    try {
+      if (editing) {
+        const updated = await resourceBookingService.updateCategory(editing.id, form);
+        setCategories((prev) => prev.map((c) => c.id === editing.id ? updated : c));
+      } else {
+        const created = await resourceBookingService.createCategory(form);
+        setCategories((prev) => [...prev, created]);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save category:", err);
+      alert("Failed to save category. Please try again.");
     }
-    setShowForm(false);
   };
 
   const handleDelete = async (id: number) => {
-    await wait();
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    setDeleting(null);
+    try {
+      await resourceBookingService.deleteCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setDeleting(null);
+    } catch (err) {
+      console.error("Failed to delete category:", err);
+      alert("Failed to delete category.");
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -308,7 +321,22 @@ function ResourcesTab() {
   const defaultForm: ResourceRequest = { name: "", categoryId: 0, description: "", capacity: undefined, location: "", building: "", floor: "", latitude: undefined, longitude: undefined, openTime: "08:00", closeTime: "22:00", bookingDurationMinutes: 60, minimumDurationMinutes: 30, maximumDurationMinutes: 240, bufferTimeMinutes: 15, cleaningTimeMinutes: 0, advanceBookingDays: 30, maxBookingsPerUser: 5, maxActiveBookings: 2, cancellationHours: 24, autoCancel: true, approvalRequired: false, depositRequired: false, paymentRequired: true, allowWaitlist: true, allowGuest: false, qrCheckIn: false, recurringBookingAllowed: false, maxCapacity: undefined, bookingType: "HOURLY", status: "ACTIVE" };
   const [form, setForm] = useState<ResourceRequest>(defaultForm);
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadResources = () => {
+    setLoading(true);
+    Promise.all([
+      resourceBookingService.getResources(),
+      resourceBookingService.getCategories(),
+    ])
+      .then(([res, cats]) => {
+        setResources(Array.isArray(res) ? res : []);
+      })
+      .catch((err) => console.error("Failed to load resources:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadResources();
+  }, []);
 
   const filtered = resources.filter((r) => {
     if (filterCategory && r.categoryName !== filterCategory) return false;
@@ -324,8 +352,33 @@ function ResourcesTab() {
     setShowForm(true);
   };
 
-  const handleSave = async () => { await wait(); setShowForm(false); };
-  const handleDelete = async (id: number) => { await wait(); setResources((p) => p.filter((r) => r.id !== id)); setDeleting(null); };
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        const updated = await resourceBookingService.updateResource(editing.id, form);
+        setResources((prev) => prev.map((r) => r.id === editing.id ? updated : r));
+      } else {
+        const created = await resourceBookingService.createResource(form);
+        setResources((prev) => [...prev, created]);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save resource:", err);
+      alert("Failed to save resource.");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await resourceBookingService.deleteResource(id);
+      setResources((p) => p.filter((r) => r.id !== id));
+      setDeleting(null);
+    } catch (err) {
+      console.error("Failed to delete resource:", err);
+      alert("Failed to delete resource.");
+    }
+  };
+
   const toggleActive = (id: number) => setResources((p) => p.map((r) => r.id === id ? { ...r, status: r.status === "ACTIVE" ? "INACTIVE" as ResourceStatus : "ACTIVE" as ResourceStatus } : r));
 
   const toggleField = (key: keyof ResourceRequest) => setForm((f) => ({ ...f, [key]: !f[key] }));
@@ -473,14 +526,42 @@ function BookingsTab() {
   const [page, setPage] = useState(0);
   const pageSize = 10;
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadBookings = () => {
+    setLoading(true);
+    resourceBookingService.getAllBookings(page, pageSize, filterStatus || undefined)
+      .then((data) => {
+        if (data && 'content' in data && Array.isArray((data as any).content)) {
+          setBookings((data as any).content);
+        } else if (Array.isArray(data)) {
+          setBookings(data as any);
+        }
+      })
+      .catch((err) => console.error("Failed to load bookings:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadBookings();
+  }, [page, filterStatus]);
 
   const filtered = bookings.filter((b) => !filterStatus || b.status === filterStatus);
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
-  const updateStatus = (id: number, status: BookingStatus) => {
-    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
+  const updateStatus = async (id: number, status: BookingStatus) => {
+    try {
+      if (status === "CONFIRMED") {
+        await resourceBookingService.approveBooking(id);
+      } else if (status === "REJECTED") {
+        await resourceBookingService.rejectBooking(id);
+      } else if (status === "CANCELLED") {
+        await resourceBookingService.cancelBooking(id, "Cancelled by Admin");
+      }
+      loadBookings();
+    } catch (err) {
+      console.error("Failed to update booking status:", err);
+      alert("Failed to update booking status.");
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -552,7 +633,17 @@ function PricingTab() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState<PricingRuleRequest>({ pricingType: "BASE_HOURLY", amount: 0, description: "" });
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadRules = () => {
+    setLoading(true);
+    resourceBookingService.getPricingRules()
+      .then((data) => setRules(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load pricing rules:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadRules();
+  }, []);
 
   const openNew = () => { setEditing(null); setForm({ pricingType: "BASE_HOURLY", amount: 0, description: "" }); setShowForm(true); };
   const openEdit = (rule: PricingRuleResponse) => {
@@ -560,8 +651,31 @@ function PricingTab() {
     setForm({ resourceId: rule.resourceId ?? undefined, categoryId: rule.categoryId ?? undefined, pricingType: rule.pricingType, amount: rule.amount ?? undefined, percentage: rule.percentage ?? undefined, description: rule.description ?? "", validFrom: rule.validFrom ?? undefined, validTo: rule.validTo ?? undefined, dayOfWeek: rule.dayOfWeek ?? undefined, startTime: rule.startTime ?? undefined, endTime: rule.endTime ?? undefined });
     setShowForm(true);
   };
-  const handleSave = async () => { await wait(); setShowForm(false); };
-  const handleDelete = async (id: number) => { await wait(); setRules((p) => p.filter((r) => r.id !== id)); setDeleting(null); };
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        const updated = await resourceBookingService.updatePricingRule(editing.id, form);
+        setRules((prev) => prev.map((r) => r.id === editing.id ? updated : r));
+      } else {
+        const created = await resourceBookingService.createPricingRule(form);
+        setRules((prev) => [...prev, created]);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save pricing rule:", err);
+      alert("Failed to save pricing rule.");
+    }
+  };
+  const handleDelete = async (id: number) => {
+    try {
+      await resourceBookingService.deletePricingRule(id);
+      setRules((p) => p.filter((r) => r.id !== id));
+      setDeleting(null);
+    } catch (err) {
+      console.error("Failed to delete pricing rule:", err);
+      alert("Failed to delete rule.");
+    }
+  };
   const setField = (key: keyof PricingRuleRequest, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -645,7 +759,17 @@ function RulesTab() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState<BusinessRuleRequest>({ ruleType: "MAX_BOOKINGS", ruleKey: "", ruleValue: "" });
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadRules = () => {
+    setLoading(true);
+    resourceBookingService.getRules()
+      .then((data) => setRules(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load business rules:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadRules();
+  }, []);
 
   const openNew = () => { setEditing(null); setForm({ ruleType: "MAX_BOOKINGS", ruleKey: "", ruleValue: "" }); setShowForm(true); };
   const openEdit = (rule: BusinessRuleResponse) => {
@@ -653,8 +777,31 @@ function RulesTab() {
     setForm({ resourceId: rule.resourceId ?? undefined, categoryId: rule.categoryId ?? undefined, ruleType: rule.ruleType, ruleKey: rule.ruleKey, ruleValue: rule.ruleValue, ruleOperator: rule.ruleOperator ?? undefined, description: rule.description ?? undefined, isActive: rule.isActive, priority: rule.priority, validFrom: rule.validFrom ?? undefined, validTo: rule.validTo ?? undefined });
     setShowForm(true);
   };
-  const handleSave = async () => { await wait(); setShowForm(false); };
-  const handleDelete = async (id: number) => { await wait(); setRules((p) => p.filter((r) => r.id !== id)); setDeleting(null); };
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        const updated = await resourceBookingService.updateRule(editing.id, form);
+        setRules((prev) => prev.map((r) => r.id === editing.id ? updated : r));
+      } else {
+        const created = await resourceBookingService.createRule(form);
+        setRules((prev) => [...prev, created]);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save rule:", err);
+      alert("Failed to save rule.");
+    }
+  };
+  const handleDelete = async (id: number) => {
+    try {
+      await resourceBookingService.deleteRule(id);
+      setRules((p) => p.filter((r) => r.id !== id));
+      setDeleting(null);
+    } catch (err) {
+      console.error("Failed to delete rule:", err);
+      alert("Failed to delete rule.");
+    }
+  };
   const setField = (key: keyof BusinessRuleRequest, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -742,7 +889,17 @@ function MaintenanceTab() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState<MaintenanceRequest>({ resourceId: 0, startDate: "", endDate: "", reason: "", maintenanceType: "SCHEDULED" });
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadRecords = () => {
+    setLoading(true);
+    resourceBookingService.getMaintenanceRecords()
+      .then((data) => setRecords(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load maintenance records:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadRecords();
+  }, []);
 
   const openNew = () => { setEditing(null); setForm({ resourceId: 0, startDate: "", endDate: "", reason: "", maintenanceType: "SCHEDULED" }); setShowForm(true); };
   const openEdit = (m: MaintenanceResponse) => {
@@ -750,8 +907,25 @@ function MaintenanceTab() {
     setForm({ resourceId: m.resourceId, startDate: m.startDate, endDate: m.endDate, reason: m.reason, maintenanceType: m.maintenanceType, cost: m.cost ?? undefined, vendorName: m.vendorName ?? undefined, vendorContact: m.vendorContact ?? undefined, notes: m.notes ?? undefined });
     setShowForm(true);
   };
-  const handleSave = async () => { await wait(); setShowForm(false); };
-  const handleDelete = async (id: number) => { await wait(); setRecords((p) => p.filter((r) => r.id !== id)); setDeleting(null); };
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        const updated = await resourceBookingService.updateMaintenance(editing.id, form);
+        setRecords((prev) => prev.map((m) => m.id === editing.id ? updated : m));
+      } else {
+        const created = await resourceBookingService.createMaintenance(form);
+        setRecords((prev) => [...prev, created]);
+      }
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save maintenance record:", err);
+      alert("Failed to save maintenance record.");
+    }
+  };
+  const handleDelete = async (id: number) => {
+    setRecords((p) => p.filter((r) => r.id !== id));
+    setDeleting(null);
+  };
   const setField = (key: keyof MaintenanceRequest, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -826,7 +1000,17 @@ function CouponsTab() {
   const [editing, setEditing] = useState<CouponResponse | null>(null);
   const [form, setForm] = useState<CouponRequest>({ code: "", discountType: "PERCENTAGE", discountValue: 0, validFrom: "", validTo: "" });
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  const loadCoupons = () => {
+    setLoading(true);
+    resourceBookingService.getCoupons()
+      .then((data) => setCoupons(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load coupons:", err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadCoupons();
+  }, []);
 
   const openNew = () => { setEditing(null); setForm({ code: "", discountType: "PERCENTAGE", discountValue: 0, validFrom: "", validTo: "" }); setShowForm(true); };
   const openEdit = (c: CouponResponse) => {
@@ -834,7 +1018,16 @@ function CouponsTab() {
     setForm({ code: c.code, description: c.description ?? undefined, discountType: c.discountType, discountValue: c.discountValue, maxUses: c.maxUses ?? undefined, validFrom: c.validFrom, validTo: c.validTo, minBookingAmount: c.minBookingAmount ?? undefined, maxDiscountAmount: c.maxDiscountAmount ?? undefined, isActive: c.isActive });
     setShowForm(true);
   };
-  const handleSave = async () => { await wait(); setShowForm(false); };
+  const handleSave = async () => {
+    try {
+      const created = await resourceBookingService.createCoupon(form);
+      setCoupons((prev) => [...prev, created]);
+      setShowForm(false);
+    } catch (err) {
+      console.error("Failed to save coupon:", err);
+      alert("Failed to save coupon.");
+    }
+  };
   const setField = (key: keyof CouponRequest, val: unknown) => setForm((f) => ({ ...f, [key]: val }));
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
@@ -905,18 +1098,24 @@ function CouponsTab() {
 // ---- Analytics Tab ----
 function AnalyticsTab() {
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStatsResponse | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  useEffect(() => { setTimeout(() => setLoading(false), 500); }, []);
+  useEffect(() => {
+    resourceBookingService.getDashboardStats()
+      .then(setStats)
+      .catch((err) => console.error("Failed to load analytics:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   if (loading) return <div className="flex justify-center py-20"><Spinner /></div>;
 
   const metrics = [
-    { label: "Avg. Occupancy", value: "73.5%" },
-    { label: "Total Revenue", value: "₹42,500" },
-    { label: "Bookings This Period", value: "186" },
-    { label: "Cancellation Rate", value: "4.2%" },
+    { label: "Avg. Occupancy", value: `${stats?.occupancyRate ?? 0}%` },
+    { label: "Total Revenue", value: `₹${(stats?.revenue ?? 0).toLocaleString("en-IN")}` },
+    { label: "Bookings", value: String(stats?.totalBookings ?? 0) },
+    { label: "Cancellation Rate", value: `${stats?.cancellationRate ?? 0}%` },
   ];
 
   return (

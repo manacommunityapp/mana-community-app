@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import type { TournamentSponsor } from './TournamentSponsorTypes';
+import { sanitizeHref } from '../../../../utils/sanitize';
 
 interface TournamentSponsorShowcaseProps {
   sponsors: TournamentSponsor[];
@@ -66,18 +67,18 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
       id="sponsors-showcase"
       className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-6 text-left ${className}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider">
               Official Partners
             </span>
-            <span className="text-xs text-slate-400 font-medium">• {season}</span>
+            <span className="text-[10px] text-slate-400 font-medium">• {season}</span>
           </div>
-          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1">
+          <h3 className="text-xs font-black text-slate-900 dark:text-white m-0 mb-0">
             Tournament Sponsors & Partners
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 m-0">
             The proud community and corporate brands powering our sporting stage and athletes.
           </p>
         </div>
@@ -111,7 +112,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                   <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
                     {sponsor.category || 'Presenting Sponsor'}
                   </span>
-                  <h4 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">
                     {sponsor.name}
                   </h4>
                   {sponsor.tagline && (
@@ -123,7 +124,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
 
                 {sponsor.url && (
                   <a
-                    href={sponsor.url}
+                    href={sanitizeHref(sponsor.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shrink-0 shadow-2xs transition-transform group-hover:scale-110"
@@ -152,14 +153,14 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                 className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-3.5 flex items-start justify-between gap-2.5 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all group"
               >
                 <div className="min-w-0 space-y-0.5">
-                  <span className="text-[9.5px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
+                  <span className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
                     {sponsor.category || 'Proud Partner'}
                   </span>
-                  <h5 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  <h5 className="text-xs font-bold text-slate-900 dark:text-white truncate">
                     {sponsor.name}
                   </h5>
                   {sponsor.tagline && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {sponsor.tagline}
                     </p>
                   )}
@@ -167,7 +168,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
 
                 {sponsor.url && (
                   <a
-                    href={sponsor.url}
+                    href={sanitizeHref(sponsor.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-md bg-white dark:bg-slate-700 text-slate-500 hover:text-indigo-600 border border-slate-200 dark:border-slate-600 shrink-0 transition-colors"
@@ -195,7 +196,7 @@ export const TournamentSponsorShowcase: React.FC<TournamentSponsorShowcaseProps>
                 className="rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 flex flex-col justify-between text-left space-y-1"
               >
                 <div>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
                     {sponsor.category}
                   </span>
                   <strong className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate block">

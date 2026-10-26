@@ -56,8 +56,8 @@ export function HealthDashboard() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <HeartPulse size={30} color="var(--gold)" />
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0 }}>Health Hub</h1>
+        <HeartPulse size={26} color="var(--gold)" />
+        <h4 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Health Hub</h4>
       </div>
       <p style={{ color: 'var(--muted)', marginTop: 0, marginBottom: 28, fontSize: 14 }}>
         Your family's health, simplified

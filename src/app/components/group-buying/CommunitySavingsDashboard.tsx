@@ -11,7 +11,7 @@ export function CommunitySavingsDashboard() {
 
   if (!data) return null;
 
-  const maxTrend = Math.max(...data.monthlyTrend.map(m => m.savings));
+  const maxTrend = data.monthlyTrend.length > 0 ? Math.max(1, ...data.monthlyTrend.map(m => m.savings)) : 1;
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
@@ -49,22 +49,28 @@ export function CommunitySavingsDashboard() {
           <Target size={16} style={{ color: "#f59e0b" }} />
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Community Milestones</span>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {data.milestones.map(m => {
-            const pct = Math.min(100, Math.round((m.current / m.target) * 100));
-            return (
-              <div key={m.label}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
-                  <span style={{ color: "var(--muted)" }}>{pct}%</span>
+        {data.milestones.length === 0 ? (
+          <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", padding: "16px 0" }}>
+            No community milestones active yet. Participate in active deals to unlock bulk savings goals!
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {data.milestones.map(m => {
+              const pct = Math.min(100, Math.round((m.current / m.target) * 100));
+              return (
+                <div key={m.label}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>{m.label}</span>
+                    <span style={{ color: "var(--muted)" }}>{pct}%</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: "rgba(148,163,184,0.1)" }}>
+                    <div style={{ height: 8, borderRadius: 4, background: pct >= 100 ? "#10b981" : "#f59e0b", width: `${pct}%`, transition: "width 0.5s" }} />
+                  </div>
                 </div>
-                <div style={{ height: 8, borderRadius: 4, background: "rgba(148,163,184,0.1)" }}>
-                  <div style={{ height: 8, borderRadius: 4, background: pct >= 100 ? "#10b981" : "#f59e0b", width: `${pct}%`, transition: "width 0.5s" }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -74,18 +80,24 @@ export function CommunitySavingsDashboard() {
             <TrendingUp size={16} style={{ color: "#10b981" }} />
             <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Monthly Trend</span>
           </div>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
-            {data.monthlyTrend.map(m => {
-              const h = Math.round((m.savings / maxTrend) * 100);
-              return (
-                <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981" }}>₹{(m.savings / 1000).toFixed(0)}K</span>
-                  <div style={{ width: "100%", height: h, borderRadius: "4px 4px 0 0", background: "linear-gradient(180deg, #10b981, #059669)" }} />
-                  <span style={{ fontSize: 9, color: "var(--muted)" }}>{m.month}</span>
-                </div>
-              );
-            })}
-          </div>
+          {data.monthlyTrend.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>
+              No monthly savings trend available yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
+              {data.monthlyTrend.map(m => {
+                const h = Math.round((m.savings / maxTrend) * 100);
+                return (
+                  <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "#10b981" }}>₹{(m.savings / 1000).toFixed(0)}K</span>
+                    <div style={{ width: "100%", height: h, borderRadius: "4px 4px 0 0", background: "linear-gradient(180deg, #10b981, #059669)" }} />
+                    <span style={{ fontSize: 9, color: "var(--muted)" }}>{m.month}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Tower Leaderboard */}
@@ -94,18 +106,24 @@ export function CommunitySavingsDashboard() {
             <Trophy size={16} style={{ color: "#f59e0b" }} />
             <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Tower Leaderboard</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {data.towerLeaderboard.map((t, i) => (
-              <div key={t.tower} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 20, height: 20, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7f32" : "rgba(148,163,184,0.1)", color: i < 3 ? "#fff" : "var(--muted)" }}>
-                  {i + 1}
-                </span>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{t.tower}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>₹{(t.savings / 1000).toFixed(1)}K</span>
-                <span style={{ fontSize: 10, color: "var(--muted)" }}>{t.orders} orders</span>
-              </div>
-            ))}
-          </div>
+          {data.towerLeaderboard.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", padding: "32px 0" }}>
+              No tower orders placed yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {data.towerLeaderboard.map((t, i) => (
+                <div key={t.tower} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, background: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7f32" : "rgba(148,163,184,0.1)", color: i < 3 ? "#fff" : "var(--muted)" }}>
+                    {i + 1}
+                  </span>
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{t.tower}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#10b981" }}>₹{(t.savings / 1000).toFixed(1)}K</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)" }}>{t.orders} orders</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

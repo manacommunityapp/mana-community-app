@@ -16,6 +16,7 @@ import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
 import { RankingsAdminTab } from "./RankingsAdminTab";
+import { TrainersAdminTab } from "./TrainersAdminTab";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
 import { TournamentAnnouncementModal } from "./TournamentAnnouncementModal";
 import "../SportsAuction.css";
@@ -79,6 +80,8 @@ export function SportsAdmin() {
                 handleEdit={s.handleEdit}
                 handleDelete={s.handleDelete}
                 handleActivate={s.handleActivate}
+                handleCloseTournament={s.handleCloseTournament}
+                handleCloseEvent={s.handleCloseEvent}
                 handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
                 handleViewPlayers={s.handleViewPlayers}
                 handleViewCaptains={s.handleViewCaptains}
@@ -303,6 +306,10 @@ export function SportsAdmin() {
               communityId={s.activeCommId}
               sportsMeta={s.sportsMeta}
             />
+          )}
+
+          {s.activeTab === "trainers" && (
+            <TrainersAdminTab />
           )}
         </div>
       </main>

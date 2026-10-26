@@ -67,7 +67,7 @@ export function CalendarDashboard() {
             <CalendarDays size={22} style={{ color: "#3b82f6" }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", margin: 0 }}>Community Calendar</h1>
+            <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Community Calendar</h4>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>All events across your community</p>
           </div>
         </div>

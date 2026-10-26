@@ -1,4 +1,250 @@
 export type ConsultationMode = "IN_PERSON" | "VIDEO" | "PHONE";
+
+// ── Round 4 types ─────────────────────────────────────────────────────────────
+
+export type SurgeryStatus = "REQUESTED" | "BUDDY_ASSIGNED" | "PRE_OP_TESTS" | "ADMISSION_CONFIRMED" | "SURGERY_COMPLETED" | "POST_OP_CARE" | "DISCHARGED" | "CANCELLED";
+
+export interface SurgeryRequestDto {
+  id: string;
+  requestUuid: string;
+  patientId: string;
+  procedureName: string;
+  category: string;
+  preferredHospital: string;
+  status: SurgeryStatus;
+  careBuddyName: string;
+  careBuddyPhone: string;
+  estimatedCost: number;
+  emiTenure?: string;
+  requestedDate: string;
+}
+
+export type DentalPackageType = "BASIC_CHECKUP" | "SCALING_POLISHING" | "ROOT_CANAL" | "TEETH_WHITENING" | "CROWN" | "BRACES_CONSULT";
+
+export interface DentalFindingDto {
+  id: string;
+  patientId: string;
+  dentistName: string;
+  visitDate: string;
+  finding: string;
+  treatment: string;
+  nextVisitIn: string;
+  documentUrl?: string;
+}
+
+export interface AbhaProfileDto {
+  abhaNumber: string;
+  name: string;
+  dateOfBirth: string;
+  gender: string;
+  linkedHospitals: number;
+  linkedRecords: number;
+  verified: boolean;
+  createdAt: string;
+}
+
+export type AbhaConsentStatus = "PENDING" | "APPROVED" | "REVOKED" | "EXPIRED";
+
+export interface AbhaConsentRequestDto {
+  id: string;
+  consentUuid: string;
+  requesterName: string;
+  purpose: string;
+  status: AbhaConsentStatus;
+  requestedDate: string;
+  expiryDate: string;
+}
+
+export type SecondOpinionStatus = "REQUESTED" | "UNDER_REVIEW" | "COMPLETED" | "DECLINED";
+
+export interface SecondOpinionRequestDto {
+  id: string;
+  requestUuid: string;
+  patientId: string;
+  specialistName: string;
+  cancerType: string;
+  originalDiagnosis: string;
+  status: SecondOpinionStatus;
+  opinionSummary?: string;
+  requestedAt: string;
+  completedAt?: string;
+}
+
+export type DigitalPrescriptionStatus = "GENERATED" | "SENT_TO_PHARMACY" | "ARCHIVED";
+
+export interface DigitalPrescriptionDto {
+  id: string;
+  rxId: string;
+  appointmentUuid?: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  patientName: string;
+  clinicalNotes?: string;
+  medications: string[];
+  issuedDate: string;
+  status: DigitalPrescriptionStatus;
+  pdfUrl?: string;
+  generatedAt: string;
+}
+
+export type OncologyStage = "DIAGNOSIS" | "STAGING" | "SECOND_OPINION" | "TREATMENT_PLAN" | "TREATMENT" | "RESPONSE_EVAL" | "FOLLOWUP" | "REMISSION";
+
+export interface OncologyJourneyStepDto {
+  stage: OncologyStage;
+  label: string;
+  completed: boolean;
+  detail: string;
+  completedAt?: string;
+}
+
+export interface ChemoSessionDto {
+  cycleNumber: number;
+  scheduledDate: string;
+  drug: string;
+  status: string;
+}
+
+export interface OncologyJourneyDto {
+  id: string;
+  journeyUuid: string;
+  patientId: string;
+  cancerType: string;
+  currentStage: OncologyStage;
+  steps: OncologyJourneyStepDto[];
+  chemoSchedule: ChemoSessionDto[];
+  startedAt: string;
+  updatedAt: string;
+}
+
+export type RefillFrequency = "WEEKLY" | "MONTHLY" | "BI_MONTHLY";
+
+export interface PharmacyRefillSubscriptionDto {
+  id: string;
+  medicineName: string;
+  strip: string;
+  pricePerDispatch: number;
+  frequency: RefillFrequency;
+  nextDispatchDate: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export type AppointmentReminderOffset = "MIN_15" | "MIN_30" | "HOUR_1" | "HOUR_2" | "DAY_1";
+
+export interface AppointmentReminderDto {
+  id: string;
+  appointmentId: string;
+  offset: AppointmentReminderOffset;
+  scheduledAt: string;
+}
+
+export interface BedAvailabilityDto {
+  hospitalName: string;
+  wardAvailability: Record<"GENERAL" | "SEMI_PRIVATE" | "PRIVATE" | "ICU", number>;
+  lastUpdated: string;
+}
+// ── Round 5 types ─────────────────────────────────────────────────────────────
+
+export type MentalHealthSessionType = "TELECONSULT_PSYCHIATRY" | "TELECONSULT_PSYCHOLOGY" | "THERAPY_SESSION" | "WELLNESS_PROGRAM" | "CRISIS_SUPPORT";
+
+export interface MentalHealthSessionDto {
+  id: string;
+  sessionUuid: string;
+  patientId: string;
+  therapistId?: string;
+  therapistName: string;
+  therapistSpecialty: string;
+  sessionType: MentalHealthSessionType;
+  sessionDate: string;
+  sessionTime?: string;
+  durationMinutes: number;
+  fee: number;
+  status: string;
+  bookedAt: string;
+}
+
+export interface MoodCheckInDto {
+  id: string;
+  patientId: string;
+  moodScore: number;
+  note?: string;
+  checkInDate: string;
+  loggedAt: string;
+}
+
+export type InsuranceClaimStatus = "SUBMITTED" | "UNDER_REVIEW" | "DOCS_REQUIRED" | "APPROVED" | "REJECTED" | "SETTLED";
+
+export interface InsuranceClaimDto {
+  id: string;
+  claimUuid: string;
+  claimNumber: string;
+  patientId: string;
+  hospitalName: string;
+  diagnosis: string;
+  admissionDate: string;
+  claimedAmount: number;
+  approvedAmount?: number;
+  status: InsuranceClaimStatus;
+  tpaName: string;
+  policyNumber?: string;
+  submittedAt: string;
+  updatedAt: string;
+}
+
+export type OpdQueueStatus = "WAITING" | "IN_CONSULTATION" | "COMPLETED" | "LEFT_QUEUE";
+
+export interface OpdQueueEntryDto {
+  id: string;
+  queueUuid: string;
+  patientId: string;
+  doctorId: string;
+  doctorName: string;
+  queuePosition: number;
+  estimatedWaitMinutes: number;
+  status: OpdQueueStatus;
+  joinedAt: string;
+  calledAt?: string;
+}
+
+export type HospitalNetworkType = "CASHLESS_TPA" | "REIMBURSEMENT_ONLY" | "BOTH";
+
+export interface NetworkHospitalDto {
+  id: string;
+  hospitalUuid: string;
+  name: string;
+  address: string;
+  city: string;
+  distanceKm: number;
+  rating: number;
+  totalBeds: number;
+  cashless: boolean;
+  nablAccredited: boolean;
+  nabhAccredited: boolean;
+  emergencyAvailable: boolean;
+  specialties: string[];
+  networkName: string;
+  networkType: HospitalNetworkType;
+  contactPhone: string;
+  mapsUrl?: string;
+}
+
+export type GoldPlanTier = "MONTHLY" | "ANNUAL";
+export type GoldMembershipStatus = "ACTIVE" | "EXPIRED" | "CANCELLED" | "PENDING";
+
+export interface GoldMembershipDto {
+  id: string;
+  membershipUuid: string;
+  patientId: string;
+  planTier: GoldPlanTier;
+  status: GoldMembershipStatus;
+  monthlyPrice: number;
+  startDate: string;
+  renewalDate: string;
+  freeConsultsUsed: number;
+  freeConsultsTotal: number;
+  createdAt: string;
+}
+
 export type AppointmentStatus = "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | "NO_SHOW";
 export type DoctorVerificationStatus = "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type FamilyRelationship = "SELF" | "SPOUSE" | "CHILD" | "PARENT" | "DEPENDENT";
@@ -11,7 +257,8 @@ export type ProviderCategory =
   | "DIAGNOSTIC_CENTER"
   | "PHARMACY"
   | "PHYSIOTHERAPIST"
-  | "HOME_CARE";
+  | "HOME_CARE"
+  | "FITNESS_TRAINER";
 
 export interface ClinicHourSlot {
   day: string;
@@ -80,6 +327,9 @@ export interface DoctorDto {
   homeVisitAvailable?: boolean;
   openNow?: boolean;
   about?: string;
+  accreditations?: string[];
+  mapsUrl?: string;
+  department?: string;
 }
 
 export interface HealthReminderDto {

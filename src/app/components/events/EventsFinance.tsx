@@ -8,44 +8,13 @@ import { eventDonationService, type EventDonationResponse } from "../../../servi
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-const mockSummary = [
-  { label: "Total Budget",  value: "₹7,10,000", icon: IndianRupee,  color: "#6366f1", bg: "#eef2ff" },
-  { label: "Total Income",  value: "₹9,24,000", icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
-  { label: "Total Expenses",value: "₹4,82,000", icon: TrendingDown,color: "#ef4444", bg: "#fff1f2" },
-  { label: "Net Balance",   value: "₹4,42,000", icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
-];
 
-const mockIncomeBreakdown = [
-  { name: "Registrations", value: 184200, color: "#6366f1" },
-  { name: "Sponsors",      value: 500000, color: "#4f46e5" },
-  { name: "Donations",     value: 175000, color: "#10b981" },
-  { name: "Auction",       value: 210000, color: "#7c3aed" },
-  { name: "Food Coupons",  value: 55800,  color: "#8b5cf6" },
-];
 
-const mockExpenseData = [
-  { cat: "Venue",     amount: 110000 },
-  { cat: "Food",      amount: 145000 },
-  { cat: "Decor",     amount: 62000  },
-  { cat: "AV & Tech", amount: 55000  },
-  { cat: "Security",  amount: 30000  },
-  { cat: "Printing",  amount: 18000  },
-  { cat: "Others",    amount: 40000  },
-];
 
 const CATEGORIES = ["Venue", "Food", "Decor", "AV & Tech", "Security", "Marketing", "Printing", "Others"];
 
 type LedgerRow = { id: string; expenseId?: number; desc: string; type: "income" | "expense"; amount: number; date: string; cat: string; vendorName: string; status: string; createdBy: string };
 
-const mockLedger: LedgerRow[] = [
-  { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue",   vendorName: "Phoenix Events", status: "APPROVED", createdBy: "" },
-  { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor", vendorName: "", status: "", createdBy: "" },
-  { id: "TXN-003", desc: "Catering Advance – Sai Foods",      type: "expense", amount: -60000,  date: "Jul 31", cat: "Food",    vendorName: "Sai Foods", status: "PENDING", createdBy: "" },
-  { id: "TXN-004", desc: "Registration Collections",          type: "income",  amount: 184200,  date: "Jul 30", cat: "Registration", vendorName: "", status: "", createdBy: "" },
-  { id: "TXN-005", desc: "LED Display Rental",                type: "expense", amount: -25000,  date: "Jul 28", cat: "AV & Tech", vendorName: "", status: "APPROVED", createdBy: "" },
-  { id: "TXN-006", desc: "Donations Received (UPI + Cash)",   type: "income",  amount: 175000,  date: "Jul 27", cat: "Donation", vendorName: "", status: "", createdBy: "" },
-  { id: "TXN-007", desc: "Flex & Banner Printing",            type: "expense", amount: -18000,  date: "Jul 25", cat: "Marketing", vendorName: "", status: "APPROVED", createdBy: "" },
-];
 
 interface ExpenseFormState {
   eventId: string;
@@ -99,7 +68,6 @@ export function EventsFinance() {
   };
 
   const loadData = async () => {
-    if (useMock) return;
     setLoading(true);
     setError("");
     const eventIdParam = selectedEventId !== "ALL" ? selectedEventId : undefined;
@@ -321,13 +289,13 @@ export function EventsFinance() {
     return rows;
   }, [liveExpenses, liveSponsors, liveDonations]);
 
-  const expenseData = useMock ? mockExpenseData : liveExpenseChartData;
-  const incomeData = useMock ? mockIncomeBreakdown : liveIncomeBreakdown;
-  const ledger = useMock ? mockLedger : liveLedgerRows;
+  const expenseData = liveExpenseChartData;
+  const incomeData = liveIncomeBreakdown;
+  const ledger = liveLedgerRows;
 
-  const displayTotalIncome = useMock ? 924000 : (liveTotalIncome || 184200);
-  const displayTotalExpenses = useMock ? 482000 : liveTotalExpenses;
-  const displayNetBalance = useMock ? 442000 : (liveTotalIncome ? liveNetBalance : 184200 - liveTotalExpenses);
+  const displayTotalIncome = liveTotalIncome;
+  const displayTotalExpenses = liveTotalExpenses;
+  const displayNetBalance = liveNetBalance;
 
   const summary = [
     { label: "Total Budget", value: `₹${(displayTotalIncome * 1.15).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`, icon: IndianRupee, color: "#6366f1", bg: "#eef2ff" },

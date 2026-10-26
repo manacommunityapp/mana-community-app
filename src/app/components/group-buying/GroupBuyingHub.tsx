@@ -73,7 +73,7 @@ export function GroupBuyingHub() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
           <ShoppingBag size={28} style={{ color: "#a7f3d0" }} />
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Mana Group Buying</h1>
+            <h4 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Mana Group Buying</h4>
             <p style={{ fontSize: 12, margin: 0, opacity: 0.85 }}>Unlock bulk discounts with your community</p>
           </div>
         </div>
@@ -161,6 +161,19 @@ export function GroupBuyingHub() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
             {almostUnlocked.map(d => <DealMiniCard key={d.id} deal={d} onClick={() => navigate(`/group-buying/deal/${d.id}`)} />)}
           </div>
+        </div>
+      )}
+
+      {trending.length === 0 && endingSoon.length === 0 && almostUnlocked.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--card)", borderRadius: 16, border: "1px solid rgba(148,163,184,0.12)", marginBottom: 24 }}>
+          <ShoppingBag size={36} style={{ color: "var(--muted)", marginBottom: 12, display: "inline-block" }} />
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>No Active Group Deals Right Now</div>
+          <div style={{ fontSize: 12, color: "var(--muted)", maxWidth: 440, margin: "0 auto 16px" }}>
+            New bulk buying campaigns from verified community vendors will appear here. You can also request deals on the Demand Board!
+          </div>
+          <button onClick={() => navigate("/group-buying/demand")} style={{ padding: "8px 18px", borderRadius: 10, background: "#059669", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+            Go to Demand Board
+          </button>
         </div>
       )}
     </div>

@@ -67,7 +67,7 @@ export function PersonalFinanceDashboard() {
             <Wallet size={22} style={{ color: "#8b5cf6" }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", margin: 0 }}>Personal Finance</h1>
+            <h4 style={{ fontSize: 18, fontWeight: 800, color: "var(--text)", margin: 0 }}>Personal Finance</h4>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Track income, expenses, goals & more</p>
           </div>
         </div>

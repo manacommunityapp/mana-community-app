@@ -19,8 +19,13 @@ export function useIsModalActive(): boolean {
 
       let foundActiveModal = false;
       candidates.forEach((el) => {
-        // Exclude floating chat / chatbot panels themselves
-        if (!el.closest(".floating-chat-container") && !el.closest(".floating-chatbot-container")) {
+        // Exclude floating chat / chatbot panels and cookie consent banner
+        if (
+          !el.closest(".floating-chat-container") &&
+          !el.closest(".floating-chatbot-container") &&
+          !el.closest(".consent-banner-dialog") &&
+          el.getAttribute("aria-label") !== "Cookie and tracking consent"
+        ) {
           // Verify it is visible
           const style = window.getComputedStyle(el);
           if (style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0") {
@@ -33,7 +38,12 @@ export function useIsModalActive(): boolean {
       if (!foundActiveModal) {
         const fixedOverlays = document.querySelectorAll<HTMLElement>(".fixed.inset-0");
         fixedOverlays.forEach((el) => {
-          if (!el.closest(".floating-chat-container") && !el.closest(".floating-chatbot-container")) {
+          if (
+            !el.closest(".floating-chat-container") &&
+            !el.closest(".floating-chatbot-container") &&
+            !el.closest(".consent-banner-dialog") &&
+            el.getAttribute("aria-label") !== "Cookie and tracking consent"
+          ) {
             const classList = el.className;
             if (
               classList.includes("bg-") &&

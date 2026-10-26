@@ -109,6 +109,74 @@ export interface MoveHistoryReport {
   qtyDone: number;
 }
 
+export interface StockLedgerReport {
+  id: number;
+  productId: number;
+  productName: string;
+  sku?: string;
+  locationId: number;
+  locationName: string;
+  lotName?: string;
+  movementType?: string;
+  referenceType?: string;
+  referenceId?: string;
+  quantityChange: number;
+  resultingBalance: number;
+  unitCost: number;
+  totalValue: number;
+  createdAt: string;
+}
+
+export interface InventoryValuationReport {
+  productId: number;
+  productName: string;
+  defaultCode?: string;
+  categoryName: string;
+  warehouseId?: number;
+  warehouseName: string;
+  locationId: number;
+  locationName: string;
+  quantityOnHand: number;
+  unitCost: number;
+  totalValuation: number;
+}
+
+export interface StockAgingReport {
+  productId: number;
+  productName: string;
+  defaultCode?: string;
+  locationName: string;
+  quantityOnHand: number;
+  ageDays: number;
+  agingBucket: string;
+  unitCost: number;
+  totalValue: number;
+  lastMovementDate: string;
+}
+
+export interface FefoRecommendation {
+  lotId: number;
+  lotName: string;
+  productId: number;
+  productName: string;
+  defaultCode?: string;
+  locationName: string;
+  availableQuantity: number;
+  expirationDate: string;
+  daysUntilExpiry: number;
+  urgency: "CRITICAL" | "HIGH" | "NORMAL";
+}
+
+export interface ReorderAlert {
+  productId: number;
+  productName: string;
+  defaultCode?: string;
+  currentOnHand: number;
+  safetyStock: number;
+  reorderQuantity: number;
+  deficit: number;
+}
+
 export const stockService = {
   // Products Catalog
   async getProducts(): Promise<Product[]> {
@@ -230,5 +298,29 @@ export const stockService = {
 
   async getMoveHistoryReport(): Promise<MoveHistoryReport[]> {
     return apiClient.get<MoveHistoryReport[]>("/inventory/reporting/moves-history");
+  },
+
+  async getStockLedger(params?: { productId?: number; communityId?: number }): Promise<StockLedgerReport[]> {
+    const query = new URLSearchParams();
+    if (params?.productId) query.append("productId", String(params.productId));
+    if (params?.communityId) query.append("communityId", String(params.communityId));
+    const qs = query.toString();
+    return apiClient.get<StockLedgerReport[]>(`/inventory/reporting/ledger${qs ? `?${qs}` : ""}`);
+  },
+
+  async getValuationReport(): Promise<InventoryValuationReport[]> {
+    return apiClient.get<InventoryValuationReport[]>("/inventory/reporting/valuation");
+  },
+
+  async getStockAgingReport(): Promise<StockAgingReport[]> {
+    return apiClient.get<StockAgingReport[]>("/inventory/reporting/stock-aging");
+  },
+
+  async getFefoRecommendations(): Promise<FefoRecommendation[]> {
+    return apiClient.get<FefoRecommendation[]>("/inventory/reporting/fefo-recommendations");
+  },
+
+  async getReorderAlerts(): Promise<ReorderAlert[]> {
+    return apiClient.get<ReorderAlert[]>("/inventory/reporting/reorder-alerts");
   }
 };

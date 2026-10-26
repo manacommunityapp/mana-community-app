@@ -42,7 +42,8 @@ import { otpService } from "../../../../services/common/otpService";
 import type { CommunityResponse, BlockConfigResponse } from "../../../../types/api";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
-import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
+import { PrivacyPolicyModal, PRIVACY_NOTICE_VERSION } from "../privacy/PrivacyPolicyModal";
+import { HCaptchaWidget } from "../HCaptchaWidget";
 
 type Step = 1 | 2 | 3;
 
@@ -524,6 +525,7 @@ export function Signup() {
   const [otpCode, setOtpCode] = useState<string>("");
   const [isSendingSignupOtp, setIsSendingSignupOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [captchaToken, setCaptchaToken] = useState<string>("");
   const flatSearchContainerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const signupOtpInputRef = useRef<HTMLInputElement>(null);
@@ -915,7 +917,12 @@ export function Signup() {
         userType: data.userType || "Owner",
         occupancyStatus: data.userType || "Owner",
         emailOtpCode: otpCode.trim(),
-      });
+        // DPDP Act 2023 s.6 — pass explicit consent flag and notice version
+        consentToPrivacyNotice: data.terms === true,
+        consentNoticeVersion: PRIVACY_NOTICE_VERSION,
+        // Bot protection — hCaptcha token (verified server-side when app.captcha.enabled=true)
+        captchaToken: captchaToken || undefined,
+      } as any);
 
       toast.success("Account created! Welcome to the community.");
       setStep(3);
@@ -1569,22 +1576,28 @@ export function Signup() {
                         </div>
                       )}
 
-                      {/* Terms of Service & Privacy Policy Checkbox */}
-                      <div className="pt-1 border-t border-border/60">
+                      {/* DPDP Act 2023 s.6 — explicit, informed, opt-in consent checkboxes */}
+                      <div className="pt-2 border-t border-border/60 space-y-2">
+                        {/* Mandatory: Privacy Notice + Terms consent */}
                         <label className="flex items-start gap-2 cursor-pointer select-none group">
                           <input
                             type="checkbox"
                             {...register("terms", {
-                              required: "You must agree to the terms to continue",
+                              required: "You must accept the Privacy Notice and Terms of Use to register",
                             })}
                             className="mt-0.5 w-3.5 h-3.5 accent-primary bg-slate-50 dark:bg-slate-900 border-border rounded focus:ring-primary/30 cursor-pointer shrink-0"
                           />
                           <span className="text-[11px] text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed font-medium">
-                            I agree to the{" "}
-                            <span className="text-primary font-bold underline underline-offset-2">
-                              Terms of Service
-                            </span>{" "}
-                            and{" "}
+                            <span className="text-destructive font-bold">*</span>{" "}
+                            I have read and accept the{" "}
+                            <Link
+                              to="/terms"
+                              target="_blank"
+                              className="text-primary font-bold underline underline-offset-2 hover:opacity-80 transition-opacity"
+                            >
+                              Terms of Use
+                            </Link>
+                            {" "}and{" "}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1594,9 +1607,9 @@ export function Signup() {
                               }}
                               className="text-primary font-bold underline underline-offset-2 hover:opacity-80 transition-opacity cursor-pointer inline p-0 bg-transparent border-none"
                             >
-                              Privacy Policy
+                              Privacy Notice
                             </button>
-                            .
+                            {" "}(DPDP Act 2023 — required for registration).
                           </span>
                         </label>
                         {errors.terms && (
@@ -1604,7 +1617,25 @@ export function Signup() {
                             {errors.terms.message}
                           </p>
                         )}
+                        <p className="text-[10px] text-muted-foreground/70 ml-5 leading-relaxed">
+                          You can manage or withdraw non-essential consents (analytics, marketing) after registration in Privacy Centre.
+                          Notice version: <code className="font-mono">{PRIVACY_NOTICE_VERSION}</code>
+                        </p>
                       </div>
+                    </div>
+
+                    {/* CAPTCHA — bot protection (DPDP / security gap #3) */}
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <HCaptchaWidget
+                        onToken={setCaptchaToken}
+                        onExpire={() => setCaptchaToken("")}
+                        onError={() => setCaptchaToken("")}
+                      />
+                      {!captchaToken && (
+                        <p className="text-[10px] text-amber-600 font-medium">
+                          Please complete the security check above before registering.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
