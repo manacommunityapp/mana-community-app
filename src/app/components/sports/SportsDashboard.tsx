@@ -1535,9 +1535,12 @@ export function SportsDashboard() {
                 // Eligibility filter state: default selected (true)
                 const showEligibleOnly = tournamentEligibleOnly[t.id] ?? true;
 
+                // "Eligible Only" filter: show eligible + age-unknown (amber badge) + registered
+                // age-unknown means we can't verify yet — show them so user knows to add age
+                // Only truly ineligible (gender mismatch, over/under age) are hidden
                 const isCategoryEligibleOrRegistered = (item: OpenRegistration) => {
                   const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
-                  return elig.eligible || isMemberRegisteredForEvent(item);
+                  return elig.eligible || elig.isAgeUnknown || isMemberRegisteredForEvent(item);
                 };
 
                 const totalEligibleCount = t.mappedEvents.filter(isCategoryEligibleOrRegistered).length;
