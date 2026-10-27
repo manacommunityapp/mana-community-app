@@ -110,7 +110,12 @@ export function SportsPartnerSelector({
 
   const availableFamilyMembers = useMemo(() => {
     const seen = new Set<string>();
-    const storedUser = getStoredUser();
+    let storedUser = null;
+    try {
+      if (typeof window !== "undefined") {
+        storedUser = getStoredUser();
+      }
+    } catch {}
     const effectiveUserId = currentUserId || (storedUser?.userId ? Number(storedUser.userId) : undefined);
     const effectiveUserName = currentUserName || storedUser?.fullName || (
       currentFamilyMemberId
@@ -611,7 +616,12 @@ export function isSelfFamilyMember(
   ) {
     return true;
   }
-  const storedUser = getStoredUser();
+  let storedUser = null;
+  try {
+    if (typeof window !== "undefined") {
+      storedUser = getStoredUser();
+    }
+  } catch {}
   const effectiveUserId = currentUserId || (storedUser?.userId ? Number(storedUser.userId) : undefined);
   if (effectiveUserId && fm.userId && Number(fm.userId) === effectiveUserId) {
     return true;

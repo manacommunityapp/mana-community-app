@@ -3,8 +3,10 @@ import {
   deduplicatePartnerCandidates,
   normalizeCandidateName,
   normalizeCandidateFlat,
+  isSelfFamilyMember,
 } from "./SportsPartnerSelector";
 import type { PartnerCandidateResponse } from "../../../services/common/userService";
+import type { FamilyMember } from "../../../services/common/familyService";
 
 describe("SportsPartnerSelector candidate normalization & deduplication", () => {
   it("normalizes names correctly (trimming, lowercasing, extra spaces)", () => {
@@ -253,5 +255,43 @@ describe("SportsPartnerSelector candidate normalization & deduplication", () => 
     expect(deduplicated).toHaveLength(1);
     expect(deduplicated[0].id).toBe(11);
     expect(deduplicated[0].eligible).toBe(true);
+  });
+
+  describe("isSelfFamilyMember helper", () => {
+    it("identifies Self (Head) synthetic family member as self", () => {
+      const selfMember: FamilyMember = {
+        id: "fam-self",
+        name: "sandeep kamarapu",
+        relation: "Self (Head)",
+        gender: "Male",
+        age: 37,
+      };
+      expect(isSelfFamilyMember(selfMember, 10, "sandeep kamarapu")).toBe(true);
+    });
+
+    it("identifies self when relation contains 'self' or 'head'", () => {
+      const fm1: FamilyMember = { id: 1, name: "Rahul", relation: "Self", gender: "Male" };
+      const fm2: FamilyMember = { id: 2, name: "Rahul", relation: "Head of Family", gender: "Male" };
+      const fm3: FamilyMember = { id: 3, name: "Rahul", relation: "Self (Head)", gender: "Male" };
+      expect(isSelfFamilyMember(fm1)).toBe(true);
+      expect(isSelfFamilyMember(fm2)).toBe(true);
+      expect(isSelfFamilyMember(fm3)).toBe(true);
+    });
+
+    it("identifies self when userId matches logged-in user id or name matches", () => {
+      const fm: FamilyMember = { id: 5, userId: 10, name: "Rahul Verma", relation: "Other", gender: "Male" };
+      expect(isSelfFamilyMember(fm, 10)).toBe(true);
+      expect(isSelfFamilyMember(fm, 99, "Rahul Verma")).toBe(true);
+    });
+
+    it("returns false for other family members (Spouse, Son, Daughter)", () => {
+      const spouse: FamilyMember = { id: 2, name: "Sindhuja Chinthala", relation: "Spouse", gender: "Female", age: 33 };
+      const son: FamilyMember = { id: 3, name: "Udvith Sai", relation: "Son", gender: "Male", age: 5 };
+      const daughter: FamilyMember = { id: 4, name: "Rithika", relation: "Daughter", gender: "Female", age: 3 };
+
+      expect(isSelfFamilyMember(spouse, 10, "sandeep kamarapu")).toBe(false);
+      expect(isSelfFamilyMember(son, 10, "sandeep kamarapu")).toBe(false);
+      expect(isSelfFamilyMember(daughter, 10, "sandeep kamarapu")).toBe(false);
+    });
   });
 });
