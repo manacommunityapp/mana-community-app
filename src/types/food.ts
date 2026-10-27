@@ -695,6 +695,8 @@ export interface DailyNutritionSummary {
   totalFiber: number;
   calorieGoal: number;
   proteinGoal: number;
+  carbsGoal?: number;
+  fatGoal?: number;
   mealBreakdown: { mealType: string; calories: number; items: number }[];
 }
 
