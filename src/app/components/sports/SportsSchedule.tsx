@@ -944,7 +944,7 @@ export function SportsSchedule() {
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
                 Tournament Hub
               </span>
-              <h2 className="text-xs font-extrabold tracking-tight">Schedule & Live Center</h2>
+              <h2 className="text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white">Schedule & Live Center</h2>
               <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
                 Track tournament match scheduling, ongoing live scores, team brackets, and complete event results all in one place.
               </p>

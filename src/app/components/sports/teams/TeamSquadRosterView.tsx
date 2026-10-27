@@ -98,7 +98,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                   </span>
                 )}
               </div>
-              <h2 className="text-xs font-black tracking-tight truncate">
+              <h2 className="text-base sm:text-lg md:text-xl font-black tracking-tight truncate">
                 {team.name}
               </h2>
               {team.motto && (

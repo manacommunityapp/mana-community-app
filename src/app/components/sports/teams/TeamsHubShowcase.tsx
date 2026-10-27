@@ -159,7 +159,7 @@ export const TeamsHubShowcase: React.FC<TeamsHubShowcaseProps> = ({
               </span>
               <span className="text-[10px] text-indigo-200 font-semibold">• {season}</span>
             </div>
-            <h1 className="text-xs font-black tracking-tight text-white">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-white">
               Franchise Hub & Squad Rosters
             </h1>
             <p className="text-xs sm:text-sm text-indigo-200/85 leading-relaxed">

@@ -202,7 +202,7 @@ export function LeaderboardPage() {
       {/* Header & Sport Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm">
         <div>
-          <h1 className="text-xs font-black text-slate-900 flex items-center gap-2">
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
             <Trophy className="w-6 h-6 text-amber-500" />
             Tournament Leaderboards
           </h1>
