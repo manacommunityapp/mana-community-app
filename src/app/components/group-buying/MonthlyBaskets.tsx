@@ -40,12 +40,18 @@ export function MonthlyBaskets() {
 
               {/* Items */}
               <div style={{ background: "rgba(148,163,184,0.04)", borderRadius: 10, padding: 12, marginBottom: 12 }}>
-                {basket.items.map((item, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "4px 0", borderBottom: i < basket.items.length - 1 ? "1px solid rgba(148,163,184,0.06)" : "none" }}>
-                    <span style={{ color: "var(--text)" }}>{item.name} × {item.qty}</span>
-                    <span style={{ color: "var(--muted)" }}>₹{item.price}</span>
-                  </div>
-                ))}
+                {basket.items.map((item, i) => {
+                  const isStr = typeof item === "string";
+                  const itemName = isStr ? item : item.name;
+                  const itemQty = isStr ? "" : ` × ${item.qty}`;
+                  const itemPrice = isStr ? "" : `₹${item.price}`;
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "4px 0", borderBottom: i < basket.items.length - 1 ? "1px solid rgba(148,163,184,0.06)" : "none" }}>
+                      <span style={{ color: "var(--text)" }}>{itemName}{itemQty}</span>
+                      {itemPrice ? <span style={{ color: "var(--muted)" }}>{itemPrice}</span> : null}
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

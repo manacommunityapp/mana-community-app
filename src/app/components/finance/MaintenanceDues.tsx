@@ -113,7 +113,7 @@ export function MaintenanceDues() {
               <div className="flex items-center gap-2">
                 <span className="text-base font-black text-slate-900 dark:text-white">{bill.billNumber}</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                  bill.status === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
+                  (bill.status as string) === "PAID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
                   bill.status === "OVERDUE" ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300" :
                   "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
                 }`}>
@@ -126,7 +126,7 @@ export function MaintenanceDues() {
             </div>
 
             <div className="flex items-center gap-3">
-              {bill.status !== "PAID" ? (
+              {(bill.status as string) !== "PAID" ? (
                 <button
                   onClick={() => setShowPayModal(true)}
                   className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2"

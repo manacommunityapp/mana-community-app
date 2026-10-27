@@ -26,7 +26,8 @@ export function BuyAgain() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {items.map(item => {
-          const priceDrop = item.lastPrice - item.currentPrice;
+          const currentPrice = item.currentPrice ?? item.lastPrice;
+          const priceDrop = item.lastPrice - currentPrice;
           const dropPct = Math.round((priceDrop / item.lastPrice) * 100);
           return (
             <div key={item.dealId} style={{ padding: 18, borderRadius: 14, background: "var(--card)", border: "1px solid rgba(148,163,184,0.1)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -37,12 +38,12 @@ export function BuyAgain() {
                 <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 2 }}>{item.title}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>{item.vendor} · {item.category}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted)" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Clock size={10} />Last ordered {new Date(item.lastOrderDate).toLocaleDateString()}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Clock size={10} />Last ordered {item.lastOrderDate ? new Date(item.lastOrderDate).toLocaleDateString() : "Recently"}</span>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6, justifyContent: "flex-end", marginBottom: 4 }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: "#10b981" }}>₹{item.currentPrice}</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: "#10b981" }}>₹{currentPrice}</span>
                   <span style={{ fontSize: 12, color: "var(--muted)", textDecoration: "line-through" }}>₹{item.lastPrice}</span>
                 </div>
                 {priceDrop > 0 && (
