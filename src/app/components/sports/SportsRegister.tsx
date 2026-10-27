@@ -3412,6 +3412,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 currentGender={formData.gender}
                 currentUserId={user?.userId || (user as any)?.id}
                 currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
+                currentUserName={formData.playerName || user?.fullName}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
