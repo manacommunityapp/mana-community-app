@@ -71,25 +71,25 @@ function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon, 
   return (
     <div
       onClick={onClick}
-      className={`rounded-xl p-2 sm:p-2.5 card-hover-lift flex items-center gap-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_8px_rgba(99,102,241,0.04)] transition-all duration-300 hover:border-indigo-500/30 ${
-        onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.99]" : ""
+      className={`rounded-xl px-2.5 py-2 card-hover-lift flex items-center gap-2 bg-white border border-slate-200/90 shadow-2xs transition-all duration-200 hover:border-indigo-300 hover:shadow-xs ${
+        onClick ? "cursor-pointer active:scale-[0.99]" : ""
       }`}
     >
-      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 shadow-xs" style={{ background: badgeBg }}>
-        <Icon className="h-4 w-4" style={{ color }} />
+      <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 shadow-2xs" style={{ background: badgeBg }}>
+        <Icon className="h-3.5 w-3.5" style={{ color }} />
       </div>
       <div className="flex-1 min-w-0 text-left">
-        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+        <div className="flex items-center justify-between gap-1 flex-wrap">
           <div className="flex items-baseline gap-1.5 min-w-0">
-            <span className="text-[10px] font-bold leading-none shrink-0" style={{ color }}>
+            <span className="text-xs sm:text-sm font-bold leading-none shrink-0" style={{ color }}>
               {value}
             </span>
-            <span className="text-[10px] text-slate-500 font-medium truncate" title={label}>
+            <span className="text-[11px] text-slate-500 font-medium truncate" title={label}>
               {label}
             </span>
           </div>
           <span
-            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
+            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none shrink-0"
             style={{ background: badgeBg, color: badgeText }}
           >
             {badge}
@@ -131,8 +131,8 @@ function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
   const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
 
   return (
-    <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] font-bold tabular-nums shrink-0 ml-1 sm:ml-1.5 shadow-2xs">
-      <span className="text-[10px] text-amber-600/70">⏱</span>
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] font-bold tabular-nums shrink-0 ml-1 shadow-2xs">
+      <span className="text-[10px] text-amber-600/70 mr-0.5">⏱</span>
       {timeLeft.d > 0 && <span>{timeLeft.d}d</span>}
       <span>{pad(timeLeft.h)}h</span>
       <span>:</span>
@@ -154,26 +154,32 @@ interface EventRowProps {
 }
 
 function EventRow({ event, onClick }: EventRowProps) {
-  const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_10px_#10b981] animate-pulse"
-    : event.status === "COMPLETED" ? "bg-slate-500" : "bg-[#f97316]";
+  const dotClass = event.status === "LIVE" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse"
+    : event.status === "COMPLETED" ? "bg-slate-400" : "bg-amber-500";
   return (
-    <div onClick={onClick} className="flex items-center justify-between gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:translate-x-0.5 hover:shadow-md">
+    <div
+      onClick={onClick}
+      className="flex items-center justify-between gap-2 sm:gap-3 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg cursor-pointer bg-white border border-slate-200/90 shadow-2xs transition-all duration-200 hover:border-indigo-300 hover:bg-slate-50/70 hover:shadow-xs"
+    >
       <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-        <div className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${dotClass}`} />
         <div className="min-w-0 text-left flex-1">
           <div className="text-xs font-bold text-slate-900 flex items-center flex-wrap gap-1.5">
-            <span className="truncate">{event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}</span>
+            <span className="truncate">{event.name}</span>
             {event.targetDate && event.targetDate.getTime() > Date.now() && (
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
+          </div>
+          <div className="text-[11px] text-slate-500 font-medium flex items-center flex-wrap gap-1 mt-0.5">
+            {event.subtitle && <span className="truncate">{event.subtitle}</span>}
             {event.venue && (
-              <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+              <span className="flex items-center gap-1">
                 <span>·</span>
-                <span>{event.venue}</span>
+                <span className="truncate">{event.venue}</span>
               </span>
             )}
             {event.registrantBadge && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 font-semibold inline-flex items-center gap-1">
+              <span className="text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
               </span>
             )}
@@ -181,8 +187,12 @@ function EventRow({ event, onClick }: EventRowProps) {
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <div className="text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
-        <div className="text-xs text-slate-500 mt-0.5 font-medium">{event.statusSub}</div>
+        <div className="text-xs font-semibold" style={{ color: event.wonColor ?? event.timeColor }}>
+          {event.statusText}
+        </div>
+        <div className="text-[11px] text-slate-500 mt-0.5 font-medium">
+          {event.statusSub}
+        </div>
       </div>
     </div>
   );
@@ -218,32 +228,32 @@ function RegCard({
   toggling
 }: RegCardProps) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg mb-2 bg-white border border-[#6366f1]/12 shadow-[0_2px_10px_rgba(99,102,241,0.03)] transition-all duration-300 hover:border-indigo-500/20 hover:shadow-md">
+    <div className="flex items-start gap-2.5 p-2 sm:p-2.5 rounded-xl mb-1.5 bg-white border border-slate-200/90 shadow-2xs transition-all duration-200 hover:border-indigo-300 hover:shadow-xs">
       {item.sportEmoji ? (
-        <span className="text-[10px] flex-shrink-0 mt-0.5">{item.sportEmoji}</span>
+        <span className="text-xs flex-shrink-0 mt-0.5">{item.sportEmoji}</span>
       ) : (
-        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
+        <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: item.dotColor }} />
       )}
       <div className="flex-1 min-w-0 text-left">
-        <div className="text-xs font-bold text-slate-900">
+        <div className="text-xs font-bold text-slate-900 truncate">
           {item.name} <span className="text-slate-500 font-medium">— {item.date}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-          <span className="text-[10px] text-slate-500 font-medium">{item.category}</span>
+        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+          <span className="text-[11px] text-slate-500 font-medium">{item.category}</span>
           {item.categoryName && (
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
               {item.categoryName}
             </span>
           )}
         </div>
-        {item.spots && <div className="text-xs text-indigo-600 font-semibold mt-1">{item.spots}</div>}
+        {item.spots && <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{item.spots}</div>}
       </div>
-      <div className="flex flex-col gap-1.5 flex-shrink-0 items-end">
-        <div className="flex gap-1.5 justify-end">
+      <div className="flex flex-col gap-1 flex-shrink-0 items-end">
+        <div className="flex gap-1 justify-end">
           {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
             <button
               disabled
-              className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
+              className="text-xs px-2 py-0.5 rounded-lg font-semibold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
             >
               Closed
             </button>
@@ -256,9 +266,9 @@ function RegCard({
                 else onView(item);
               }}
               disabled={item.action === "Confirmed"}
-              className={`text-xs font-bold px-3 py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer ${
+              className={`text-xs font-bold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs cursor-pointer ${
                 item.action === "Register"
-                  ? "bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-500/20 active:scale-95"
+                  ? "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white active:scale-95"
                   : item.action === "Confirmed"
                     ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default"
                     : item.action === "Withdraw"
@@ -371,7 +381,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
   ];
 
   return (
-    <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+    <div className="rounded-xl p-2 sm:p-2.5 bg-white border border-slate-200/90 shadow-2xs">
       <div className="flex items-center justify-between mb-1.5">
         <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
           <Clock className="w-3.5 h-3.5 text-orange-500" />
@@ -1150,17 +1160,17 @@ export function SportsDashboard() {
 
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl p-2 sm:p-2.5 flex items-center gap-2 ${idx >= 2 ? "hidden sm:flex" : ""}`}>
-              <div className="h-8 w-8 rounded-lg bg-slate-200/60 shrink-0"></div>
+            <div key={idx} className={`shimmer-bg-light border border-slate-200/60 rounded-xl px-2.5 py-2 flex items-center gap-2 ${idx >= 2 ? "hidden sm:flex" : ""}`}>
+              <div className="h-7 w-7 rounded-lg bg-slate-200/60 shrink-0"></div>
               <div className="flex-1 min-w-0 flex items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 flex-1">
-                  <div className="h-5 bg-slate-200/60 rounded w-6"></div>
-                  <div className="h-3.5 bg-slate-200/60 rounded w-24"></div>
+                  <div className="h-4 bg-slate-200/60 rounded w-6"></div>
+                  <div className="h-3 bg-slate-200/60 rounded w-20"></div>
                 </div>
-                <div className="h-4 bg-slate-200/60 rounded-full w-14 shrink-0"></div>
+                <div className="h-4 bg-slate-200/60 rounded-full w-12 shrink-0"></div>
               </div>
             </div>
           ))
@@ -1266,21 +1276,27 @@ export function SportsDashboard() {
       )}
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2.5 sm:gap-3">
-        <div className="lg:col-span-3 space-y-2.5">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-2.5">
+        <div className="lg:col-span-3 space-y-2">
           {/* Upcoming events */}
-          <div className={`rounded-xl bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all ${
+          <div className={`rounded-xl bg-white border border-slate-200/90 shadow-2xs transition-all ${
             filteredLiveEvents.length === 0 && !loading
-              ? "p-2 sm:px-3.5 sm:py-2"
-              : "p-2 sm:p-3"
+              ? "p-2 sm:px-3 sm:py-2"
+              : "p-2 sm:p-2.5"
           }`}>
             <div className={`flex items-center justify-between gap-2 flex-wrap ${
               filteredLiveEvents.length === 0 && !loading
-                ? (familyMembersOnly.length > 0 ? "mb-1 sm:mb-1.5" : "")
-                : "mb-1.5 sm:mb-2"
+                ? (familyMembersOnly.length > 0 ? "mb-1" : "")
+                : "mb-1.5"
             }`}>
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Your Upcoming Events
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>Your Upcoming Events</span>
+                {filteredLiveEvents.length > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    {filteredLiveEvents.length}
+                  </span>
+                )}
               </div>
               {/* Family Filter Dropdown */}
               {familyMembersOnly.length > 0 ? (
@@ -1289,7 +1305,7 @@ export function SportsDashboard() {
                   <select
                     value={upcomingFamilyFilter}
                     onChange={(e) => setUpcomingFamilyFilter(e.target.value)}
-                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 sm:px-2.5 py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
+                    className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 py-0.5 sm:px-2.5 sm:py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
                     title="Filter upcoming events by family member"
                   >
                     <option value="ALL">👥 All Registrations</option>
@@ -1356,14 +1372,10 @@ export function SportsDashboard() {
                   const isSelfNomination = !myReg?.familyMemberId && (!myReg?.relation || myReg?.relation?.toUpperCase() === "SELF" || myReg?.relation?.toUpperCase() === "HEAD");
 
                   return (
-                    <div key={ev.id} className={`mb-1.5 sm:mb-2 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                    <div key={ev.id} className={`mb-1 sm:mb-1.5 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                       <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
                       {isConfirmed && isTeamReg && (
-                        <div className="flex items-center justify-between px-2 sm:px-3 py-1.5 sm:py-2 rounded-b-lg border-x border-b -mt-1"
-                          style={{
-                            background: "rgba(99, 102, 241, 0.03)",
-                            borderColor: "rgba(99, 102, 241, 0.08)",
-                          }}
+                        <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-b-lg border-x border-b -mt-1 bg-indigo-50/25 border-indigo-100/80"
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-500 font-medium">Captaincy Status:</span>
@@ -1416,15 +1428,15 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations — grouped by tournament with rich sports group view */}
-          <div id="open-registrations-section" className="rounded-2xl p-2.5 sm:p-3.5 bg-white border border-[#6366f1]/15 shadow-[0_4px_24px_rgba(99,102,241,0.06)]">
-            <div className="flex items-center justify-between mb-2.5 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-xs">
-                  <Trophy className="w-4 h-4 text-white" />
+          <div id="open-registrations-section" className="rounded-xl p-2 sm:p-2.5 bg-white border border-slate-200/90 shadow-2xs">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                  <Trophy className="w-3.5 h-3.5 text-white" />
                 </div>
                 <div>
                   <div className="relative flex items-center gap-1.5">
-                    <h3 className="text-xs font-sans font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
+                    <h3 className="text-xs font-bold text-slate-900 leading-tight m-0 mb-0">Open for Registration</h3>
                     <div className="relative inline-flex items-center">
                       <button
                         type="button"
@@ -1590,12 +1602,12 @@ export function SportsDashboard() {
                   return (
                     <div
                       key={item.id}
-                      className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between gap-2 ${
+                      className={`p-2 sm:p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between gap-1.5 ${
                         isFullyReg
                           ? "border-emerald-200 bg-emerald-50/30 shadow-2xs"
                           : isBlocked
                           ? "border-slate-200 bg-slate-50/60 opacity-90"
-                          : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-xs"
+                          : "border-slate-200/90 bg-white hover:border-indigo-300 hover:shadow-2xs"
                       }`}
                     >
                       <div>
@@ -1659,7 +1671,7 @@ export function SportsDashboard() {
                         </div>
 
                         {/* Action row */}
-                        <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap mt-2">
+                        <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap mt-1.5">
                           {isNearlyFull && !isFull ? (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
                               ⚡ Filling Fast
@@ -1776,13 +1788,13 @@ export function SportsDashboard() {
                 };
 
                 return (
-                  <div key={t.id} className="mb-2.5 last:mb-0 rounded-2xl border border-indigo-100/90 bg-white shadow-xs overflow-hidden transition-all text-left">
+                  <div key={t.id} className="mb-2 last:mb-0 rounded-xl border border-indigo-100/90 bg-white shadow-2xs overflow-hidden transition-all text-left">
                     {/* Tournament Header with Details */}
-                    <div className="p-2.5 sm:p-3 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
+                    <div className="p-2 sm:p-2.5 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
                       <div className="flex items-center justify-between gap-2.5 flex-wrap">
                         {/* Tournament Name, Details Button & Badges */}
                         <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
-                          <h3 className="text-xs sm:text-sm font-sans font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
+                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
 
                           <button
                             type="button"
@@ -1807,19 +1819,22 @@ export function SportsDashboard() {
                             </span>
                           )}
 
+                          {/*
                           {deadlineDays !== null && deadlineDays >= 0 && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shrink-0">
                               <Clock className="w-3 h-3" />
                               {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
                             </span>
                           )}
+                          */}
 
                           {t.sponsors && t.sponsors.length > 0 && (
                             <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
                           )}
                         </div>
 
-                        {/* Hide / Show Button */}
+                        {/* Hide / Show Button (Hidden as requested) */}
+                        {/*
                         <button
                           type="button"
                           onClick={() => setExpandedTournaments(prev => {
@@ -1832,11 +1847,12 @@ export function SportsDashboard() {
                           <span>{isExpanded ? "Hide" : "Show"}</span>
                           {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                         </button>
+                        */}
                       </div>
 
                       {/* Family member registration selector */}
                       {isExpanded && (
-                        <div className="mt-2 pt-2 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="mt-1.5 pt-1.5 border-t border-indigo-100/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-2 flex-wrap shrink-0">
                               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap">
@@ -1956,10 +1972,10 @@ export function SportsDashboard() {
 
                     {/* Sports Group View - Body */}
                     {isExpanded && (
-                      <div className="p-2.5 sm:p-3 bg-slate-50/30">
+                      <div className="p-2 sm:p-2.5 bg-slate-50/30">
                         {showEligibleOnly && (viewMode === "groups" ? sportEntries.length === 0 : gridEvents.length === 0) ? (
-                          <div className="py-8 px-4 text-center bg-white rounded-xl border border-dashed border-slate-200">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2 text-lg">
+                          <div className="py-6 px-3 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-1.5 text-base">
                               🔍
                             </div>
                             <p className="text-xs font-semibold text-slate-700">No eligible categories found for this participant</p>
@@ -1967,11 +1983,11 @@ export function SportsDashboard() {
                               Based on age ({targetMember.age > 0 ? `${targetMember.age}y` : "unspecified"}) and gender ({targetMember.gender || "unspecified"}).
                             </p>
                             {!memberProfileStatus.isValid && (
-                              <div className="mt-2.5 flex items-center justify-center">
+                              <div className="mt-2 flex items-center justify-center">
                                 <button
                                   type="button"
                                   onClick={() => navigate(memberProfileStatus.isSelf ? "/profile" : "/profile?tab=family")}
-                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
+                                  className="text-[10px] font-medium text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition shadow-2xs"
                                   title={`Profile Incomplete: Missing ${memberProfileStatus.missingFields.join(" & ")}. Click to update profile.`}
                                 >
                                   <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
@@ -1983,21 +1999,21 @@ export function SportsDashboard() {
                             <button
                               type="button"
                               onClick={() => setTournamentEligibleOnly(prev => ({ ...prev, [t.id]: false }))}
-                              className="mt-3 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="mt-2.5 px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
                             >
                               <span>Show All Categories ({t.mappedEvents.length})</span>
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ) : viewMode === "groups" ? (
-                          <div className="space-y-2.5">
+                          <div className="space-y-1.5 sm:space-y-2">
                             {sportEntries.map(([sport, { emoji, events: sportEvents }]) => {
                               const eligibleCount = sportEvents.filter(e => checkCategoryEligibility(e, targetMember.age, targetMember.gender).eligible).length;
                               const regCount = sportEvents.filter(e => isMemberRegisteredForEvent(e)).length;
 
                               return (
-                                <div key={sport} className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 bg-white">
-                                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100 flex-wrap gap-1.5">
+                                <div key={sport} className="p-2 sm:p-2.5 rounded-lg border border-slate-200/80 bg-white shadow-2xs">
+                                  <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 flex-wrap gap-1">
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="text-[10px] shrink-0">{emoji}</span>
                                       <h3 className="text-xs font-bold text-slate-900 m-0 mb-0 truncate">{sport}</h3>
@@ -2032,7 +2048,7 @@ export function SportsDashboard() {
                                     </div>
                                   </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                                     {sportEvents.map(renderCategoryCard)}
                                   </div>
                                 </div>
@@ -2040,7 +2056,7 @@ export function SportsDashboard() {
                             })}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                             {gridEvents.map(renderCategoryCard)}
                           </div>
                         )}
@@ -2092,8 +2108,8 @@ export function SportsDashboard() {
 
           {/* Closed registrations */}
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
-            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-2.5">
+            <div className="rounded-xl p-2 sm:p-2.5 mt-2 bg-white border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Closed Registrations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedTournaments.length > 0
@@ -2105,7 +2121,7 @@ export function SportsDashboard() {
                 closedTournaments.map((t, tIdx) => {
                   const isExpanded = expandedClosedTournaments.has(t.id);
                   return (
-                    <div key={t.id} className={`mb-2.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                    <div key={t.id} className={`mb-1.5 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
                       <button
                         type="button"
                         onClick={() => setExpandedClosedTournaments(prev => {
@@ -2113,10 +2129,10 @@ export function SportsDashboard() {
                           if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
                           return next;
                         })}
-                        className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
+                        className="w-full flex items-center gap-2 p-1.5 sm:p-2 rounded-lg bg-slate-50/70 border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer text-left group"
                       >
-                        <div className="h-8 w-8 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                          <Trophy className="h-4 w-4 text-white" />
+                        <div className="h-7 w-7 rounded-md bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                          <Trophy className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-slate-900 truncate">{t.name}</div>
@@ -2138,7 +2154,7 @@ export function SportsDashboard() {
                         </div>
                       </button>
                       {isExpanded && (
-                        <div className="mt-2 ml-3 pl-2.5 border-l-2 border-slate-200 space-y-0">
+                        <div className="mt-1.5 ml-2 pl-2 border-l-2 border-slate-200 space-y-0">
                           {t.mappedEvents.map((item, idx) => (
                             <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                               <RegCard
@@ -2221,8 +2237,8 @@ export function SportsDashboard() {
 
           {/* Unified Captain Nominations Section — team sports only */}
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
-            <div className="rounded-xl p-2.5 sm:p-3 mt-2.5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-              <div className="flex items-center justify-between mb-2">
+            <div className="rounded-xl p-2 sm:p-2.5 mt-2 bg-white border border-slate-200/90 shadow-2xs">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Captain Nominations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
@@ -2301,7 +2317,7 @@ export function SportsDashboard() {
         {/* Right column */}
         <div className="space-y-2 lg:col-span-1">
           {/* Notifications */}
-          <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+          <div className="rounded-xl p-2 sm:p-2.5 bg-white border border-slate-200/90 shadow-2xs">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5 text-indigo-500" />
@@ -2349,7 +2365,7 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Season Stats */}
-          <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+          <div className="rounded-xl p-2 sm:p-2.5 bg-white border border-slate-200/90 shadow-2xs">
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-500" />
