@@ -1684,6 +1684,7 @@ export function MySports() {
                 currentGender={(partnerModalState.registration as any)?.gender || (user as any)?.gender}
                 currentUserId={user?.userId || (user as any)?.id}
                 currentFamilyMemberId={(partnerModalState.registration as any)?.familyMemberId}
+                currentUserName={(partnerModalState.registration as any)?.playerName || user?.fullName}
                 communityId={user?.communityId}
                 familyMembers={familyMembers}
                 disabled={partnerModalState.saving}

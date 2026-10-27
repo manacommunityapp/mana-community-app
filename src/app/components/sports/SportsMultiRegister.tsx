@@ -2571,6 +2571,7 @@ export function SportsMultiRegister() {
                                       currentGender={gender}
                                       currentUserId={user?.userId || (user as any)?.id}
                                       currentFamilyMemberId={regType === "family" ? familyMemberId : undefined}
+                                      currentUserName={playerName || user?.fullName}
                                       communityId={user?.communityId}
                                       familyMembers={savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
@@ -2954,10 +2955,12 @@ export function SportsMultiRegister() {
             {/* Form */}
             <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                <label htmlFor="multi-profile-modal-full-name" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                   Full Name <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="multi-profile-modal-full-name"
+                  name="multiProfileFullName"
                   type="text"
                   required
                   value={profileModalState.name}
@@ -2970,10 +2973,12 @@ export function SportsMultiRegister() {
               {profileModalState.mode !== "self" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-relation" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Relationship <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      id="multi-profile-modal-relation"
+                      name="multiProfileRelation"
                       value={profileModalState.relation}
                       onChange={(e) => {
                         const rel = e.target.value;
@@ -3001,10 +3006,12 @@ export function SportsMultiRegister() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-gender-member" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Gender <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      id="multi-profile-modal-gender-member"
+                      name="multiProfileGender"
                       value={profileModalState.gender}
                       onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                       className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
@@ -3018,10 +3025,12 @@ export function SportsMultiRegister() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                  <label htmlFor="multi-profile-modal-gender-self" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                     Gender <span className="text-rose-500">*</span>
                   </label>
                   <select
+                    id="multi-profile-modal-gender-self"
+                    name="multiProfileGender"
                     value={profileModalState.gender}
                     onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                     className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
@@ -3057,10 +3066,12 @@ export function SportsMultiRegister() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                  <label htmlFor="multi-profile-modal-phone" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                     Phone Number
                   </label>
                   <input
+                    id="multi-profile-modal-phone"
+                    name="multiProfilePhone"
                     type="tel"
                     value={profileModalState.phone}
                     onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
@@ -3071,10 +3082,12 @@ export function SportsMultiRegister() {
 
                 {profileModalState.mode === "self" ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-flat-no" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Flat / Villa No.
                     </label>
                     <input
+                      id="multi-profile-modal-flat-no"
+                      name="multiProfileFlatNo"
                       type="text"
                       value={profileModalState.flatNo || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
@@ -3084,10 +3097,12 @@ export function SportsMultiRegister() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-blood-group" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Blood Group
                     </label>
                     <input
+                      id="multi-profile-modal-blood-group"
+                      name="multiProfileBloodGroup"
                       type="text"
                       value={profileModalState.bloodGroup || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}

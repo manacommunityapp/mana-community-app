@@ -924,12 +924,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   // Sibling category events (same sport in same tournament)
   const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
   const [showEligibleCategoriesOnly, setShowEligibleCategoriesOnly] = useState<boolean>(true);
+  const [showCategorySwitcher, setShowCategorySwitcher] = useState<boolean>(false);
 
-  // Deduplicated sibling category events (unique by ID, UUID, or normalized category name)
+  // Deduplicated sibling category events (unique by composite category key or ID)
   const uniqueSiblingEvents = useMemo(() => {
     const seen = new Set<string>();
     return siblingEvents.filter(sib => {
-      const key = String(sib.id ?? sib.uuid ?? (sib.categoryName || sib.name || "")).trim().toLowerCase();
+      const catName = (sib.categoryName || sib.name || "").trim().toLowerCase();
+      const ageKey = `${sib.minAge ?? ""}-${sib.maxAge ?? ""}`;
+      const genderKey = (sib.gender || (sib as any).requiredGender || "").trim().toLowerCase();
+      const compositeKey = `${catName}_${ageKey}_${genderKey}`;
+      const key = (compositeKey !== "__") ? compositeKey : String(sib.id ?? sib.uuid ?? "");
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -2534,10 +2539,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             {/* Form */}
             <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                <label htmlFor="profile-modal-full-name" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                   Full Name <span className="text-destructive">*</span>
                 </label>
                 <input
+                  id="profile-modal-full-name"
+                  name="profileFullName"
                   type="text"
                   required
                   value={profileModalState.name}
@@ -2550,10 +2557,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               {profileModalState.mode !== "self" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-relation" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Relationship <span className="text-destructive">*</span>
                     </label>
                     <select
+                      id="profile-modal-relation"
+                      name="profileRelation"
                       value={profileModalState.relation}
                       onChange={(e) => {
                         const rel = e.target.value;
@@ -2581,10 +2590,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-gender-member" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Gender <span className="text-destructive">*</span>
                     </label>
                     <select
+                      id="profile-modal-gender-member"
+                      name="profileGender"
                       value={profileModalState.gender}
                       onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                       className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
@@ -2598,10 +2609,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                  <label htmlFor="profile-modal-gender-self" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                     Gender <span className="text-destructive">*</span>
                   </label>
                   <select
+                    id="profile-modal-gender-self"
+                    name="profileGender"
                     value={profileModalState.gender}
                     onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                     className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
@@ -2637,10 +2650,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                  <label htmlFor="profile-modal-phone" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                     Phone Number
                   </label>
                   <input
+                    id="profile-modal-phone"
+                    name="profilePhone"
                     type="tel"
                     value={profileModalState.phone}
                     onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
@@ -2651,10 +2666,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                 {profileModalState.mode === "self" ? (
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-flat-no" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Flat / Villa No.
                     </label>
                     <input
+                      id="profile-modal-flat-no"
+                      name="profileFlatNo"
                       type="text"
                       value={profileModalState.flatNo || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
@@ -2664,10 +2681,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-blood-group" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Blood Group
                     </label>
                     <input
+                      id="profile-modal-blood-group"
+                      name="profileBloodGroup"
                       type="text"
                       value={profileModalState.bloodGroup || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}
@@ -2950,7 +2969,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         <div className="relative">
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
+                            id="sports-resident-search-input"
+                            name="residentSearch"
                             type="text"
+                            aria-label="Search resident by name, flat, phone or email"
                             value={playerSearchQuery}
                             onChange={(e) => setPlayerSearchQuery(e.target.value)}
                             placeholder="Type name, flat number, phone, or email to search..."
@@ -3132,10 +3154,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in duration-200">
                     {/* Player Name */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
+                      <label htmlFor="sports-reg-player-name" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
                         Player Name
                       </label>
                       <input
+                        id="sports-reg-player-name"
                         name="playerName"
                         type="text"
                         value={formData.playerName}
@@ -3152,7 +3175,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Gender */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                      <label htmlFor={formData.regType !== "self" ? "sports-reg-gender-select" : undefined} className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                         <span className="flex items-center gap-1.5 truncate">
                           <UserCheck className="w-3 h-3 text-indigo-500 shrink-0" />
                           Gender <span className="text-rose-500 font-bold">*</span>
@@ -3185,6 +3208,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         </div>
                       ) : (
                         <select
+                          id="sports-reg-gender-select"
                           name="gender"
                           value={formData.gender}
                           onChange={handleInputChange}
@@ -3201,10 +3225,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Primary Role */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
+                      <label htmlFor="sports-reg-role-select" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
                         Primary Role
                       </label>
                       <select
+                        id="sports-reg-role-select"
                         name="role"
                         value={formData.role}
                         onChange={handleInputChange}
@@ -3265,7 +3290,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Flat Number */}
                     <div className="space-y-1 col-span-1 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                      <label htmlFor="sports-reg-flat-number" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                         <span>Block & Flat <span className="text-rose-500 font-bold">*</span></span>
                         {!userFlat && (
                           <button
@@ -3279,6 +3304,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         )}
                       </label>
                       <input
+                        id="sports-reg-flat-number"
                         name="flatNumber"
                         type="text"
                         value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
@@ -3386,6 +3412,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 currentGender={formData.gender}
                 currentUserId={user?.userId || (user as any)?.id}
                 currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
+                currentUserName={formData.playerName || user?.fullName}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
@@ -3447,10 +3474,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                 {formData.captainNomination && (
                   <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label htmlFor="sports-reg-proposed-team" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
+                      id="sports-reg-proposed-team"
+                      name="proposedTeamName"
                       type="text"
                       placeholder="e.g. Royal Strikers"
                       value={formData.proposedTeamName || ""}
@@ -3487,22 +3516,23 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               );
             })()}
 
-            {/* Sport Categories in Tournament */}
-            {uniqueSiblingEvents.length > 1 && (
+            {/* ── Selected Sport Category for this Event ── */}
+            {event && (
               <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
                 {(() => {
-                  const isCategoryEligibleOrRegistered = (sib: DashboardEventCard) => {
-                    const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
-                    const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
-                    const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
-                    const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
-                    return elig.eligible || isRegistered || isCurrentEvent;
-                  };
+                  const currentCategoryName = event.categoryName || event.name || "Main Category";
+                  const currentElig = checkCategoryEligibility(event, formData.age, formData.gender);
+                  const minAge = currentElig.minAge;
+                  const maxAge = currentElig.maxAge;
+                  const spots = ((event as any).registeredCount ?? (event as any).registrationCount ?? (event as any).registeredParticipants ?? 0);
+                  const maxSpots = event.maxParticipants;
+                  const isBlocked = !currentElig.eligible;
 
-                  const eligibleSiblingsCount = uniqueSiblingEvents.filter(isCategoryEligibleOrRegistered).length;
-                  const displayedSiblings = showEligibleCategoriesOnly && eligibleSiblingsCount > 0
-                    ? uniqueSiblingEvents.filter(isCategoryEligibleOrRegistered)
-                    : uniqueSiblingEvents;
+                  // Other available tournament categories (excluding the currently selected category)
+                  const otherCategories = uniqueSiblingEvents.filter(sib => {
+                    const isCurrent = sib.id === event.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
+                    return !isCurrent;
+                  });
 
                   return (
                     <>
@@ -3513,152 +3543,182 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           </div>
                           <div>
                             <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
-                              Select Category
+                              Selected Category
                             </h3>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {showEligibleCategoriesOnly && eligibleSiblingsCount > 0
-                                ? `${displayedSiblings.length} eligible ${displayedSiblings.length === 1 ? "category" : "categories"} available for ${event?.sport?.name}`
-                                : `${uniqueSiblingEvents.length} categories available for ${event?.sport?.name}`}
+                              {event?.sport?.name ? `${event.sport.name} Tournament Category` : "Sport Tournament Category"}
                             </p>
                           </div>
                         </div>
+
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {formData.age > 0 && (
                             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
                               Age: {formData.age} Yrs
                             </span>
                           )}
-                          {uniqueSiblingEvents.length > eligibleSiblingsCount && eligibleSiblingsCount > 0 && (
+                          {otherCategories.length > 0 && (
                             <button
                               type="button"
-                              onClick={() => setShowEligibleCategoriesOnly(prev => !prev)}
-                              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
-                                showEligibleCategoriesOnly
-                                  ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
-                              }`}
-                              title={showEligibleCategoriesOnly ? "Click to view all categories including ineligible" : "Click to show eligible categories only"}
+                              onClick={() => setShowCategorySwitcher(prev => !prev)}
+                              className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                              title={showCategorySwitcher ? "Hide other categories" : "Switch to another tournament category"}
                             >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>{showEligibleCategoriesOnly ? "Eligible Only" : "Show All"}</span>
+                              <span>{showCategorySwitcher ? "Hide Categories" : `Change Category (${otherCategories.length} more)`}</span>
+                              <ChevronDown className={`w-3 h-3 transition-transform ${showCategorySwitcher ? "rotate-180" : ""}`} />
                             </button>
                           )}
                         </div>
                       </div>
 
-                      <div className={`space-y-1.5 sm:space-y-2 overflow-y-auto pr-1 overscroll-contain transition-all duration-300 ${
-                        formData.captainNomination
-                          ? "max-h-[11rem] sm:max-h-[14rem]"
-                          : "max-h-[15rem] sm:max-h-[18rem]"
+                      {/* ── Display ONLY the Selected Category ── */}
+                      <div className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
+                        isBlocked
+                          ? "border-rose-300 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20"
+                          : "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-2xs ring-1 ring-indigo-500/30"
                       }`}>
-                        {displayedSiblings.map(sib => {
-                          const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
-                          const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
-                          const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              isBlocked ? "bg-rose-500 ring-2 ring-rose-200" : "bg-indigo-600 ring-2 ring-indigo-200"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-xs sm:text-[13px] font-bold ${isBlocked ? "text-rose-700 dark:text-rose-300" : "text-indigo-600 dark:text-indigo-400 font-bold"}`}>
+                                  {currentCategoryName}
+                                </span>
+                                {minAge != null && maxAge != null ? (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
+                                    {minAge}–{maxAge} Yrs
+                                  </span>
+                                ) : minAge != null ? (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
+                                    {minAge}+ Yrs
+                                  </span>
+                                ) : maxAge != null ? (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
+                                    Under {maxAge} Yrs
+                                  </span>
+                                ) : null}
+                                {currentElig.requiredGender && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
+                                    {currentElig.requiredGender}
+                                  </span>
+                                )}
+                                {maxSpots && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
+                                    {spots}/{maxSpots} spots
+                                  </span>
+                                )}
+                              </div>
+                              {event.venueName && (
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[11px] text-muted-foreground">{event.venueName}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
-                          const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
-                          const minAge = elig.minAge;
-                          const maxAge = elig.maxAge;
-                          const isBlocked = !elig.eligible;
-                          const warningMsg = elig.warningMsg;
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            {isBlocked ? (
+                              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shadow-2xs">
+                                Ineligible ({currentElig.isGenderMismatch ? "Gender" : currentElig.isOverAge ? "Over Age" : "Under Age"})
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                          return (
-                            <div
-                              key={sib.id}
-                              className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
-                                isCurrentEvent && !isBlocked
-                                  ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-2xs ring-1 ring-indigo-500/30"
-                                  : isRegistered
-                                    ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                                    : isBlocked
-                                      ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
-                                      : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                              }`}
-                              onClick={() => {
-                                if ((isCurrentEvent && !isBlocked) || isRegistered) return;
-                                if (isBlocked) {
-                                  toast.error(`Ineligible Category: ${warningMsg}`);
-                                  return;
-                                }
-                                const targetUuid = String(sib.uuid || sib.id);
-                                if (isModal) {
-                                  setActiveEventUuid(targetUuid);
-                                  setLoading(true);
-                                } else {
-                                  setActiveEventUuid(targetUuid);
-                                  setLoading(true);
-                                  window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
-                                }
-                              }}
-                              role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
-                              tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                    isCurrentEvent && !isBlocked ? "bg-indigo-600 ring-2 ring-indigo-200" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
-                                  }`} />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`text-xs sm:text-[13px] font-bold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-foreground"}`}>
-                                        {sib.categoryName || sib.name}
-                                      </span>
-                                      {minAge != null && maxAge != null ? (
-                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
-                                          {minAge}–{maxAge} Yrs
+                      {/* Switcher: only visible when user clicks 'Change Category' */}
+                      {showCategorySwitcher && otherCategories.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 animate-in fade-in duration-200">
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                            Available Tournament Categories
+                          </p>
+                          <div className="space-y-1.5 max-h-[14rem] overflow-y-auto pr-1">
+                            {otherCategories.map(sib => {
+                              const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
+                              const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+                              const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+                              const sibMinAge = elig.minAge;
+                              const sibMaxAge = elig.maxAge;
+                              const sibBlocked = !elig.eligible;
+
+                              return (
+                                <div
+                                  key={sib.id}
+                                  onClick={() => {
+                                    if (sibBlocked) {
+                                      toast.error(`Ineligible Category: ${elig.warningMsg}`);
+                                      return;
+                                    }
+                                    const targetUuid = String(sib.uuid || sib.id);
+                                    setShowCategorySwitcher(false);
+                                    setActiveEventUuid(targetUuid);
+                                    setLoading(true);
+                                    if (!isModal) {
+                                      window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+                                    }
+                                  }}
+                                  className={`rounded-xl border transition-all p-2 sm:p-2.5 cursor-pointer flex items-center justify-between gap-3 ${
+                                    isRegistered
+                                      ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                                      : sibBlocked
+                                        ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                        : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                      isRegistered ? "bg-emerald-500" : sibBlocked ? "bg-rose-400" : "bg-emerald-500"
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-xs font-bold text-foreground">
+                                          {sib.categoryName || sib.name}
                                         </span>
-                                      ) : minAge != null ? (
-                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
-                                          {minAge}+ Yrs
-                                        </span>
-                                      ) : maxAge != null ? (
-                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
-                                          Under {maxAge} Yrs
-                                        </span>
-                                      ) : null}
-                                      {elig.requiredGender && (
-                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
-                                          {elig.requiredGender}
-                                        </span>
-                                      )}
-                                      {sib.maxParticipants && (
-                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
-                                          {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
-                                        </span>
-                                      )}
-                                    </div>
-                                    {sib.venueName && (
-                                      <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-[11px] text-muted-foreground">{sib.venueName}</span>
+                                        {sibMinAge != null && sibMaxAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            {sibMinAge}–{sibMaxAge} Yrs
+                                          </span>
+                                        ) : sibMinAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            {sibMinAge}+ Yrs
+                                          </span>
+                                        ) : sibMaxAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            Under {sibMaxAge} Yrs
+                                          </span>
+                                        ) : null}
+                                        {elig.requiredGender && (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
+                                            {elig.requiredGender}
+                                          </span>
+                                        )}
                                       </div>
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0">
+                                    {sibBlocked ? (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                                        Ineligible
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        Select
+                                      </span>
                                     )}
                                   </div>
                                 </div>
-
-                                <div className="shrink-0 flex items-center gap-1.5">
-                                  {isCurrentEvent && !isBlocked ? (
-                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
-                                      Selected {isAlreadyRegistered ? "(Registered)" : ""}
-                                    </span>
-                                  ) : isRegistered ? (
-                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                      ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
-                                    </span>
-                                  ) : isBlocked ? (
-                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
-                                      <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full shrink-0">
-                                      ✓ Eligible
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
@@ -3694,9 +3754,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                         <input
+                          id="sports-reg-age-proof-file"
+                          name="ageProofFile"
                           ref={ageProofInputRef}
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
+                          aria-label="Upload DOB Proof document"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -3769,8 +3832,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {(sportConfig?.stats || []).map(stat => (
                   <div key={stat.name} className="space-y-0.5">
-                    <label className="text-xs font-semibold text-muted-foreground">{stat.label}</label>
+                    <label htmlFor={`stat-field-${stat.name}`} className="text-xs font-semibold text-muted-foreground">{stat.label}</label>
                     <input
+                      id={`stat-field-${stat.name}`}
                       name={stat.name}
                       type="number"
                       step={stat.step ?? 1}
@@ -3796,10 +3860,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <div className="space-y-2.5">
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end">
                     <div className="space-y-0.5">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                      <label htmlFor="sports-reg-verify-email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                         <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
+                        id="sports-reg-verify-email"
+                        name="email"
                         type="email"
                         value={email}
                         onChange={(e) => handleEmailChange(e.target.value)}
@@ -3827,8 +3893,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   ) : otpSent && (
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end animate-in fade-in slide-in-from-top-1">
                       <div className="space-y-0.5">
-                        <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
+                        <label htmlFor="sports-reg-otp-code" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
                         <input
+                          id="sports-reg-otp-code"
+                          name="otpCode"
                           type="text"
                           inputMode="numeric"
                           value={otpCode}

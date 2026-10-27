@@ -1001,7 +1001,7 @@ export function Feed() {
       } else if (sportsTeamsOrScore) {
         request.location = sportsTeamsOrScore;
       }
-      request.linkUrl = selectedSportsTournamentId ? `/sports/tournaments` : `/sports`;
+      request.linkUrl = "/sports";
       const linkedTourn = sportsTournaments.find((t) => String(t.id) === selectedSportsTournamentId);
       request.linkTitle = linkedTourn?.name || (sportsCategory ? `${sportsCategory} Sports` : "Community Sports");
     } else if (composerType === "EMERGENCY") {
@@ -2681,10 +2681,10 @@ const PostCard = React.memo(function PostCard({
         </button>
       )}
 
-      {/* Sports tournament & match details – click to go to sports module */}
+      {/* Sports tournament & match details – click to go to sports dashboard */}
       {post.postType === "SPORTS" && (
         <button
-          onClick={() => navigate(post.linkUrl || "/sports")}
+          onClick={() => navigate("/sports")}
           className="w-full mb-3 text-left bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/70 border border-emerald-200/80 rounded-xl p-3 hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group"
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -2826,7 +2826,21 @@ const PostCard = React.memo(function PostCard({
 
       {/* Link preview */}
       {post.linkUrl && post.linkTitle && (
-        <a href={sanitizeHref(post.linkUrl)} target="_blank" rel="noopener noreferrer" className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all">
+        <a
+          href={post.linkUrl.startsWith("/sports") || post.postType === "SPORTS" ? "/sports" : sanitizeHref(post.linkUrl)}
+          target={post.linkUrl.startsWith("/") || post.postType === "SPORTS" ? undefined : "_blank"}
+          rel={post.linkUrl.startsWith("/") || post.postType === "SPORTS" ? undefined : "noopener noreferrer"}
+          onClick={(e) => {
+            if (post.linkUrl.startsWith("/sports") || post.postType === "SPORTS") {
+              e.preventDefault();
+              navigate("/sports");
+            } else if (post.linkUrl.startsWith("/")) {
+              e.preventDefault();
+              navigate(post.linkUrl);
+            }
+          }}
+          className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all"
+        >
           {post.linkImage && <img src={post.linkImage} alt="" className="w-full h-32 object-cover" />}
           <div className="p-3">
             <h5 className="text-xs font-bold text-slate-800 line-clamp-1">{post.linkTitle}</h5>

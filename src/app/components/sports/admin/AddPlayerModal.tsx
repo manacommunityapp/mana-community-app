@@ -984,16 +984,27 @@ export function AddPlayerModal({
                                 {/* Autocomplete dropdown */}
                                 {partnerSearchOpen[form.id] && partnerSearchQueries[form.id]?.trim() && (
                                   <div className="absolute left-0 right-0 top-full mt-1 bg-[#141c2e] border border-[#2a3a5c] rounded-xl shadow-xl max-h-40 overflow-y-auto z-30 divide-y divide-[#2a3a5c]/50">
-                                    {communityUsers
-                                      .filter(u => {
-                                        // exclude primary player
-                                        if (u.email && form.playerEmail && u.email.toLowerCase() === form.playerEmail.toLowerCase()) return false;
-                                        if (u.fullName && form.playerName && u.fullName.toLowerCase() === form.playerName.toLowerCase()) return false;
-                                        const query = (partnerSearchQueries[form.id] || "").toLowerCase();
-                                        return (u.fullName && u.fullName.toLowerCase().includes(query)) ||
-                                               (u.flatNo && String(u.flatNo).toLowerCase().includes(query)) ||
-                                               (u.email && u.email.toLowerCase().includes(query));
-                                      })
+                                    {(() => {
+                                      const seen = new Set<string>();
+                                      return communityUsers
+                                        .filter(u => {
+                                          // exclude primary player
+                                          if (u.email && form.playerEmail && u.email.toLowerCase() === form.playerEmail.toLowerCase()) return false;
+                                          if (u.fullName && form.playerName && u.fullName.toLowerCase() === form.playerName.toLowerCase()) return false;
+                                          const query = (partnerSearchQueries[form.id] || "").toLowerCase();
+                                          const matches = (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+                                                          (u.flatNo && String(u.flatNo).toLowerCase().includes(query)) ||
+                                                          (u.email && u.email.toLowerCase().includes(query));
+                                          if (!matches) return false;
+                                          const idKey = `id-${u.id}`;
+                                          const normName = (u.fullName || "").trim().toLowerCase();
+                                          const normFlat = String(u.flatNo || "").trim().toLowerCase();
+                                          const nameFlatKey = normFlat && normName ? `${normName}|${normFlat}` : normName ? `name-${normName}` : idKey;
+                                          if (seen.has(idKey) || seen.has(nameFlatKey)) return false;
+                                          seen.add(idKey);
+                                          seen.add(nameFlatKey);
+                                          return true;
+                                        })
                                       .map(u => (
                                         <button
                                           key={u.id}
@@ -1021,7 +1032,8 @@ export function AddPlayerModal({
                                           </div>
                                           <span className="text-[10px] text-indigo-400 font-semibold flex-shrink-0">Select →</span>
                                         </button>
-                                      ))}
+                                      ));
+                                    })()}
                                   </div>
                                 )}
                               </div>
