@@ -275,6 +275,7 @@
   }
 
   button {
+    font-family: inherit;
     font-size: var(--font-sm);
     font-weight: var(--font-weight-medium);
     line-height: var(--line-height-sm);
@@ -287,6 +288,7 @@
   }
 
   input {
+    font-family: inherit;
     font-size: var(--font-sm);
     font-weight: var(--font-weight-normal);
     line-height: var(--line-height-sm);
@@ -294,6 +296,7 @@
   }
 
   select, textarea {
+    font-family: inherit;
     font-size: var(--font-sm);
     line-height: var(--line-height-sm);
     color: var(--mana-text-primary);

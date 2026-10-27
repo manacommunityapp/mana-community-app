@@ -66,6 +66,10 @@
   box-sizing: border-box;
 }
 
+body, button, input, select, textarea {
+  font-family: var(--sans);
+}
+
 body {
   margin: 0;
 }
