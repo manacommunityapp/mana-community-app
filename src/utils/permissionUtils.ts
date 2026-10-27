@@ -68,6 +68,20 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
   // Service Platform
   { pathPrefix: "/services", module: "SERVICE_PLATFORM", methods: ["GET"], anyPermissions: [VIEW_SERVICE_CATALOG] },
 
+  // Wealth & Investments
+  { pathPrefix: "/fd", module: "PERSONAL_FINANCE" },
+  { pathPrefix: "/gold", module: "PERSONAL_FINANCE" },
+  { pathPrefix: "/mutual-funds", module: "PERSONAL_FINANCE" },
+  { pathPrefix: "/loans", module: "PERSONAL_FINANCE" },
+  { pathPrefix: "/split", module: "MANA_PAY" },
+  { pathPrefix: "/scan-pay", module: "MANA_PAY" },
+
+  // Lifestyle & Living
+  { pathPrefix: "/calendar", module: "CALENDAR" },
+  { pathPrefix: "/movies", module: "ENTERTAINMENT" },
+  { pathPrefix: "/vehicle-care", module: "HOME_SERVICES" },
+  { pathPrefix: "/health-guard", module: "HEALTH" },
+
   // Admin
   { pathPrefix: "/admin", module: "ADMIN_HUB", anyPermissions: [VIEW_ADMIN] },
 ];
