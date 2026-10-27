@@ -21,7 +21,7 @@ interface SportsPartnerSelectorProps {
   onChange: (partner: SelectedPartnerInfo | null) => void;
   matchType?: string; // "DOUBLES" | "MIXED_DOUBLES" | string
   currentGender?: string;
-  currentUserId?: number;
+  currentUserId?: number | string;
   currentFamilyMemberId?: number | string;
   currentUserName?: string;
   communityId?: number;
@@ -116,7 +116,11 @@ export function SportsPartnerSelector({
         storedUser = getStoredUser();
       }
     } catch {}
-    const effectiveUserId = currentUserId || (storedUser?.userId ? Number(storedUser.userId) : undefined);
+    const effectiveUserId = currentUserId != null
+      ? String(currentUserId).trim()
+      : storedUser?.userId
+        ? String(storedUser.userId).trim()
+        : undefined;
     const effectiveUserName = currentUserName || storedUser?.fullName || (
       currentFamilyMemberId
         ? familyMembers.find(f => String(f.id) === String(currentFamilyMemberId))?.name
@@ -125,16 +129,18 @@ export function SportsPartnerSelector({
     const normRegisteringName = effectiveUserName ? normalizeCandidateName(effectiveUserName) : "";
 
     return familyMembers.filter(fm => {
-      // 1. Exclude the self logged-in person (relation "Self (Head)", id "fam-self", or matching logged-in user)
-      if (isSelfFamilyMember(fm, effectiveUserId, currentUserName || storedUser?.fullName)) {
-        return false;
+      // 1. If registering for self, exclude the self logged-in person (relation "Self (Head)", id "fam-self", or matching logged-in user)
+      if (!currentFamilyMemberId) {
+        if (isSelfFamilyMember(fm, effectiveUserId, effectiveUserName)) {
+          return false;
+        }
       }
 
       // 2. Exclude if this is the family member currently registering
       if (currentFamilyMemberId && String(fm.id) === String(currentFamilyMemberId)) {
         return false;
       }
-      if (normRegisteringName && normalizeCandidateName(fm.name) === normRegisteringName) {
+      if (currentFamilyMemberId && normRegisteringName && normalizeCandidateName(fm.name) === normRegisteringName) {
         return false;
       }
 
@@ -601,7 +607,7 @@ export function normalizeCandidateName(name?: string | null): string {
 
 export function isSelfFamilyMember(
   fm: FamilyMember,
-  currentUserId?: number,
+  currentUserId?: number | string,
   currentUserName?: string
 ): boolean {
   if (fm.id === "fam-self" || String(fm.id).toLowerCase() === "fam-self") {
@@ -622,8 +628,12 @@ export function isSelfFamilyMember(
       storedUser = getStoredUser();
     }
   } catch {}
-  const effectiveUserId = currentUserId || (storedUser?.userId ? Number(storedUser.userId) : undefined);
-  if (effectiveUserId && fm.userId && Number(fm.userId) === effectiveUserId) {
+  const effectiveUserIdStr = currentUserId != null
+    ? String(currentUserId).trim()
+    : storedUser?.userId
+      ? String(storedUser.userId).trim()
+      : "";
+  if (effectiveUserIdStr && fm.userId && String(fm.userId) === effectiveUserIdStr) {
     return true;
   }
   const effectiveUserName = currentUserName || storedUser?.fullName;
@@ -656,36 +666,68 @@ export function normalizeCandidateFlat(candidate: { block?: string | null; flatN
  */
 export function deduplicatePartnerCandidates(
   results: PartnerCandidateResponse[],
-  currentUserId?: number,
+  currentUserId?: number | string,
   currentFamilyMemberId?: number | string,
   currentUserName?: string
 ): PartnerCandidateResponse[] {
-  const normCurrentUserName = currentUserName ? normalizeCandidateName(currentUserName) : "";
+  let storedUser: StoredUser | null = null;
+  try {
+    if (typeof window !== "undefined") {
+      storedUser = getStoredUser();
+    }
+  } catch {}
 
-  // 1. Filter out the currently registering player (self)
+  const effectiveUserIdStr = currentUserId != null
+    ? String(currentUserId).trim()
+    : storedUser?.userId
+      ? String(storedUser.userId).trim()
+      : "";
+
+  const effectiveUserNameStr = currentUserName || storedUser?.fullName || "";
+  const normCurrentUserName = normalizeCandidateName(effectiveUserNameStr);
+  const storedEmail = storedUser?.email?.trim().toLowerCase() || "";
+
+  // 1. Filter out the currently registering player (self or selected family member)
   const nonSelfResults = results.filter((r) => {
-    // If registering as self (currentUserId provided, and not registering for a family member)
-    if (currentUserId && !currentFamilyMemberId) {
-      if (r.type === "USER" && r.id === currentUserId) {
+    const normCandName = normalizeCandidateName(r.name);
+    const candIdStr = String(r.id);
+    const candPrimaryIdStr = r.primaryUserId != null ? String(r.primaryUserId) : "";
+    const rel = (r.relation || "").trim().toLowerCase();
+    const isSelfRelation = rel.includes("self") || rel.includes("head") || rel === "primary" || rel.startsWith("primary ");
+
+    // Case A: Registering as Self (no currentFamilyMemberId)
+    if (!currentFamilyMemberId) {
+      // 1. Match by user ID (type USER and ID matches current user)
+      if (effectiveUserIdStr && r.type === "USER" && candIdStr === effectiveUserIdStr) {
         return false;
       }
+      // 2. Match by candidate name matching the logged-in user
+      if (normCurrentUserName && normCandName === normCurrentUserName) {
+        return false;
+      }
+      // 3. Family member record representing self/head
       if (r.type === "FAMILY_MEMBER") {
-        const rel = (r.relation || "").trim().toLowerCase();
-        if ((rel.includes("self") || rel.includes("head")) && r.primaryUserId === currentUserId) {
+        if (effectiveUserIdStr && candPrimaryIdStr === effectiveUserIdStr && isSelfRelation) {
           return false;
         }
-        if (normCurrentUserName && normalizeCandidateName(r.name) === normCurrentUserName && r.primaryUserId === currentUserId) {
+        if (normCurrentUserName && normCandName === normCurrentUserName && isSelfRelation) {
           return false;
         }
+      }
+      // 4. Match by email if present on candidate
+      if (storedEmail && (r as any).email && (r as any).email.trim().toLowerCase() === storedEmail) {
+        return false;
       }
     }
 
-    // If registering for a family member (currentFamilyMemberId provided)
+    // Case B: Registering for a family member (currentFamilyMemberId provided)
     if (currentFamilyMemberId) {
-      if (r.type === "FAMILY_MEMBER" && r.id === Number(currentFamilyMemberId)) {
+      const targetFmIdStr = String(currentFamilyMemberId);
+      // The registering family member cannot partner with themselves
+      if (r.type === "FAMILY_MEMBER" && candIdStr === targetFmIdStr) {
         return false;
       }
-      if (normCurrentUserName && normalizeCandidateName(r.name) === normCurrentUserName && r.type === "FAMILY_MEMBER") {
+      if (normCurrentUserName && r.type === "FAMILY_MEMBER" && normCandName === normCurrentUserName) {
         return false;
       }
     }
