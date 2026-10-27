@@ -200,6 +200,68 @@ describe("SportsPartnerSelector candidate normalization & deduplication", () => 
     expect(deduplicated[0].name).toBe("Rohan Verma");
   });
 
+  it("excludes current user when currentUserId is passed as string '10' from AuthContext", () => {
+    const raw: PartnerCandidateResponse[] = [
+      {
+        type: "USER",
+        id: 10,
+        name: "Rahul Verma",
+        flatNo: "201",
+        block: "B",
+        eligible: true,
+      },
+      {
+        type: "FAMILY_MEMBER",
+        id: 99,
+        primaryUserId: 10,
+        name: "Rahul Verma",
+        relation: "Self",
+        flatNo: "201",
+        block: "B",
+        eligible: true,
+      },
+      {
+        type: "USER",
+        id: 25,
+        name: "Anand Sharma",
+        flatNo: "305",
+        block: "A",
+        eligible: true,
+      },
+    ];
+
+    // AuthContext passes userId as string "10"
+    const deduplicated = deduplicatePartnerCandidates(raw, "10", undefined, "Rahul Verma");
+    expect(deduplicated).toHaveLength(1);
+    expect(deduplicated[0].name).toBe("Anand Sharma");
+  });
+
+  it("excludes current user by name match even if currentUserId is undefined", () => {
+    const raw: PartnerCandidateResponse[] = [
+      {
+        type: "USER",
+        id: 10,
+        name: "Rahul Verma",
+        flatNo: "201",
+        block: "B",
+        eligible: true,
+      },
+      {
+        type: "USER",
+        id: 25,
+        name: "Anand Sharma",
+        flatNo: "305",
+        block: "A",
+        eligible: true,
+      },
+    ];
+
+    // currentUserId is undefined, but currentUserName matches Rahul Verma
+    const deduplicated = deduplicatePartnerCandidates(raw, undefined, undefined, "Rahul Verma");
+    expect(deduplicated).toHaveLength(1);
+    expect(deduplicated[0].name).toBe("Anand Sharma");
+  });
+
   it("excludes current family member when registering for that family member", () => {
     const raw: PartnerCandidateResponse[] = [
       {
