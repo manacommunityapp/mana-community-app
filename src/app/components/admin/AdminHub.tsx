@@ -36,6 +36,7 @@ import {
   Megaphone,
   Mail,
   MailOpen,
+  Film,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -546,6 +547,7 @@ const ALL_MODULES = [
   { key: "POLLS",           label: "Polls",            icon: Activity,     color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
   { key: "JOBS",            label: "Jobs & Referrals",  icon: Dumbbell,    color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
   { key: "EVENTS",          label: "Events",           icon: Clock,        color: "#c084fc", bg: "rgba(192,132,252,0.12)" },
+  { key: "ENTERTAINMENT",   label: "Entertainment & Movies", icon: Film,   color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
   { key: "COMMUNITY_MGMT",  label: "Community Mgmt",   icon: Package,     color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
   { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
   { key: "ADMIN_HUB",       label: "Admin Hub",        icon: ShieldCheck,  color: "#ef4444", bg: "rgba(239,68,68,0.12)" },

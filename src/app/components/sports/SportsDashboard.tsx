@@ -371,44 +371,45 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
   ];
 
   return (
-    <div
-      className="rounded-xl p-2.5 sm:p-3"
-      style={{
-        background: "white",
-        border: "1px solid rgba(99, 102, 241, 0.12)",
-        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-      }}
-    >
-      <div className="text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-500">
-        Next Match Timer
+    <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+          <Clock className="w-3.5 h-3.5 text-orange-500" />
+          <span>Next Match Timer</span>
+        </div>
+        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 border border-orange-200/60">
+          Upcoming
+        </span>
       </div>
       <div className="text-center">
-        <div className="text-xs mb-2 font-semibold text-slate-800 truncate px-1" title={nextMatch.title}>
+        <div className="text-xs mb-1.5 font-bold text-slate-800 truncate px-1" title={nextMatch.title}>
           {nextMatch.title}
         </div>
-        <div className="flex justify-center items-center gap-1.5 sm:gap-2">
+        <div className="flex justify-center items-center gap-1 sm:gap-1.5">
           {timeUnits.map(({ v, l }, i) => (
-            <div key={l} className="flex items-center gap-1.5 sm:gap-2">
+            <div key={l} className="flex items-center gap-1 sm:gap-1.5">
               <div className="text-center">
                 <div
-                  className="text-lg sm:text-2xl font-bold bg-slate-50 px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-lg min-w-[40px] sm:min-w-[48px] tabular-nums"
+                  className="text-xs sm:text-sm font-bold bg-gradient-to-b from-orange-50/60 to-slate-50 px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-md min-w-[28px] sm:min-w-[32px] tabular-nums leading-none flex items-center justify-center shadow-2xs"
                   style={{ color: accent, border: `1px solid ${accent}30` }}
                 >
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-xs mt-1 font-semibold tracking-wider text-slate-500">
+                <div className="text-[9px] mt-0.5 font-bold tracking-wider text-slate-400">
                   {l}
                 </div>
               </div>
               {i < timeUnits.length - 1 && (
-                <div className="text-base sm:text-xl text-slate-400 font-light mb-4 sm:mb-5 select-none">:</div>
+                <div className="text-xs text-slate-300 font-bold mb-2.5 select-none">:</div>
               )}
             </div>
           ))}
         </div>
-        <div className="text-xs mt-2 font-medium truncate px-1 text-slate-500" title={nextMatch.subtitle}>
-          {nextMatch.subtitle}
-        </div>
+        {nextMatch.subtitle && (
+          <div className="text-[10px] mt-1.5 font-medium truncate px-1.5 py-0.5 text-slate-500 bg-slate-50 rounded border border-slate-100/80 inline-block max-w-full" title={nextMatch.subtitle}>
+            {nextMatch.subtitle}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2301,33 +2302,48 @@ export function SportsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {/* Notifications */}
-          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-2">
-              <Bell className="w-3 h-3" /> Notifications
+          <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Notifications</span>
+              </div>
+              {notifications.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                  {notifications.length}
+                </span>
+              )}
             </div>
-            <div className="space-y-0">
+            <div>
               {loading ? (
-                <div className="flex items-center justify-center py-5">
-                  <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-xs text-center py-3 text-slate-500">No new notifications</p>
+                <p className="text-[11px] text-center py-2 text-slate-400">No new notifications</p>
               ) : (
-                notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-2.5 py-1.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
-                      {n.icon}
-                    </div>
-                    <div>
-                      <div className="text-xs leading-relaxed text-slate-800">
-                        {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
+                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100/80 pr-0.5">
+                  {notifications.map((n, i) => (
+                    <div key={n.id} className={`flex items-start gap-2 py-1.5 first:pt-0 last:pb-0 animate-fade-in-up stagger-${(i % 8) + 1}`}>
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
+                        {n.icon}
                       </div>
-                      <div className="text-xs mt-0.5 text-slate-500">{n.time}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-semibold text-slate-800 leading-snug line-clamp-2">
+                          {n.text}
+                        </div>
+                        {n.bold && n.bold !== n.text && !n.text.includes(n.bold) && (
+                          <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
+                            {n.bold}
+                          </div>
+                        )}
+                        <div className="text-[9px] sm:text-[10px] mt-0.5 font-medium text-slate-400">{n.time}</div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </div>
@@ -2336,17 +2352,19 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Season Stats */}
-          <div className="rounded-xl p-2.5 sm:p-3 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-            <div className="flex items-center gap-2 mb-2">
-              <Trophy className="w-4 h-4 text-[#f97316]" />
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Season Stats</div>
+          <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                <span>Season Stats</span>
+              </div>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
+                <Loader2 className="w-4 h-4 text-[#f97316] animate-spin" />
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="divide-y divide-slate-50">
                 {(() => {
                   const total = myRegistrations.length;
                   const confirmed = confirmedMyRegistrations.length;
@@ -2358,9 +2376,9 @@ export function SportsDashboard() {
                     ["Upcoming", String(liveEvents.length)],
                   ];
                   return seasonData.map(([k, v]) => (
-                    <div key={k} className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500">{k}</span>
-                      <span className="font-semibold text-slate-800">{v}</span>
+                    <div key={k} className="flex justify-between items-center py-1 text-[11px]">
+                      <span className="text-slate-500 font-medium">{k}</span>
+                      <span className="font-bold text-slate-800 px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100/80 tabular-nums text-[10px] sm:text-[11px]">{v}</span>
                     </div>
                   ));
                 })()}
@@ -2368,7 +2386,8 @@ export function SportsDashboard() {
             )}
           </div>
 
-          {/* Franchises & Squads Quick Card */}
+          {/* Franchises & Squads Quick Card (Hidden per user request) */}
+          {/*
           <div className="rounded-xl p-2.5 sm:p-3 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white shadow-md border border-indigo-500/20 text-left relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
               <Users className="w-16 h-16 text-indigo-400" />
@@ -2393,6 +2412,7 @@ export function SportsDashboard() {
               </Link>
             </div>
           </div>
+          */}
         </div>
 
         {/* Tournament Sponsor Showcase Section - Only shown when real sponsors exist */}

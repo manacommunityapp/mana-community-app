@@ -923,6 +923,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   // Sibling category events (same sport in same tournament)
   const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
+  const [showEligibleCategoriesOnly, setShowEligibleCategoriesOnly] = useState<boolean>(true);
 
   // Age proof & Out of age window override state
   const [ageProofFile, setAgeProofFile] = useState<File | null>(null);
@@ -3436,140 +3437,178 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             {/* Sport Categories in Tournament */}
             {siblingEvents.length > 1 && (
               <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                      <Trophy className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
-                        Select Category
-                      </h3>
-                      <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
-                        {siblingEvents.length} categories available for {event?.sport?.name}
-                      </p>
-                    </div>
-                  </div>
-                  {formData.age > 0 && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
-                      Age: {formData.age} Yrs
-                    </span>
-                  )}
-                </div>
-
-                <div className={`space-y-1.5 sm:space-y-2 overflow-y-auto pr-1 overscroll-contain transition-all duration-300 ${
-                  formData.captainNomination
-                    ? "max-h-[11rem] sm:max-h-[14rem]"
-                    : "max-h-[15rem] sm:max-h-[18rem]"
-                }`}>
-                  {siblingEvents.map(sib => {
+                {(() => {
+                  const isCategoryEligibleOrRegistered = (sib: DashboardEventCard) => {
                     const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
                     const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
                     const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
-
                     const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
-                    const minAge = elig.minAge;
-                    const maxAge = elig.maxAge;
-                    const isBlocked = !elig.eligible;
-                    const warningMsg = elig.warningMsg;
+                    return elig.eligible || isRegistered || isCurrentEvent;
+                  };
 
-                    return (
-                      <div
-                        key={sib.id}
-                        className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
-                          isCurrentEvent && !isBlocked
-                            ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
-                            : isRegistered
-                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                              : isBlocked
-                                ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
-                                : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                        }`}
-                        onClick={() => {
-                          if ((isCurrentEvent && !isBlocked) || isRegistered) return;
-                          if (isBlocked) {
-                            toast.error(`Ineligible Category: ${warningMsg}`);
-                            return;
-                          }
-                          const targetUuid = String(sib.uuid || sib.id);
-                          if (isModal) {
-                            setActiveEventUuid(targetUuid);
-                            setLoading(true);
-                          } else {
-                            setActiveEventUuid(targetUuid);
-                            setLoading(true);
-                            window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
-                          }
-                        }}
-                        role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
-                        tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className={`w-2 h-2 rounded-full shrink-0 ${
-                              isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
-                            }`} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
-                                  {sib.categoryName || sib.name}
-                                </span>
-                                {minAge != null && maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
-                                    {minAge}–{maxAge} Yrs
-                                  </span>
-                                ) : minAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
-                                    {minAge}+ Yrs
-                                  </span>
-                                ) : maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
-                                    Under {maxAge} Yrs
-                                  </span>
-                                ) : null}
-                                {elig.requiredGender && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
-                                    {elig.requiredGender}
-                                  </span>
-                                )}
-                                {sib.maxParticipants && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
-                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
-                                  </span>
-                                )}
-                              </div>
-                              {sib.venueName && (
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
-                                </div>
-                              )}
-                            </div>
+                  const eligibleSiblingsCount = siblingEvents.filter(isCategoryEligibleOrRegistered).length;
+                  const displayedSiblings = showEligibleCategoriesOnly && eligibleSiblingsCount > 0
+                    ? siblingEvents.filter(isCategoryEligibleOrRegistered)
+                    : siblingEvents;
+
+                  return (
+                    <>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                            <Trophy className="w-3.5 h-3.5" />
                           </div>
-
-                          <div className="shrink-0 flex items-center gap-1.5">
-                            {isCurrentEvent && !isBlocked ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
-                              </span>
-                            ) : isRegistered ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
-                              </span>
-                            ) : isBlocked ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
-                                ✓ Eligible
-                              </span>
-                            )}
+                          <div>
+                            <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                              Select Category
+                            </h3>
+                            <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
+                              {showEligibleCategoriesOnly && eligibleSiblingsCount > 0
+                                ? `${displayedSiblings.length} eligible ${displayedSiblings.length === 1 ? "category" : "categories"} available for ${event?.sport?.name}`
+                                : `${siblingEvents.length} categories available for ${event?.sport?.name}`}
+                            </p>
                           </div>
                         </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {formData.age > 0 && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                              Age: {formData.age} Yrs
+                            </span>
+                          )}
+                          {siblingEvents.length > eligibleSiblingsCount && eligibleSiblingsCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowEligibleCategoriesOnly(prev => !prev)}
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
+                                showEligibleCategoriesOnly
+                                  ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                              }`}
+                              title={showEligibleCategoriesOnly ? "Click to view all categories including ineligible" : "Click to show eligible categories only"}
+                            >
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>{showEligibleCategoriesOnly ? "Eligible Only" : "Show All"}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      <div className={`space-y-1.5 sm:space-y-2 overflow-y-auto pr-1 overscroll-contain transition-all duration-300 ${
+                        formData.captainNomination
+                          ? "max-h-[11rem] sm:max-h-[14rem]"
+                          : "max-h-[15rem] sm:max-h-[18rem]"
+                      }`}>
+                        {displayedSiblings.map(sib => {
+                          const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
+                          const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
+                          const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+
+                          const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+                          const minAge = elig.minAge;
+                          const maxAge = elig.maxAge;
+                          const isBlocked = !elig.eligible;
+                          const warningMsg = elig.warningMsg;
+
+                          return (
+                            <div
+                              key={sib.id}
+                              className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
+                                isCurrentEvent && !isBlocked
+                                  ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
+                                  : isRegistered
+                                    ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                                    : isBlocked
+                                      ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                      : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
+                              }`}
+                              onClick={() => {
+                                if ((isCurrentEvent && !isBlocked) || isRegistered) return;
+                                if (isBlocked) {
+                                  toast.error(`Ineligible Category: ${warningMsg}`);
+                                  return;
+                                }
+                                const targetUuid = String(sib.uuid || sib.id);
+                                if (isModal) {
+                                  setActiveEventUuid(targetUuid);
+                                  setLoading(true);
+                                } else {
+                                  setActiveEventUuid(targetUuid);
+                                  setLoading(true);
+                                  window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+                                }
+                              }}
+                              role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
+                              tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                    isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
+                                        {sib.categoryName || sib.name}
+                                      </span>
+                                      {minAge != null && maxAge != null ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                          {minAge}–{maxAge} Yrs
+                                        </span>
+                                      ) : minAge != null ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                          {minAge}+ Yrs
+                                        </span>
+                                      ) : maxAge != null ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                          Under {maxAge} Yrs
+                                        </span>
+                                      ) : null}
+                                      {elig.requiredGender && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                          {elig.requiredGender}
+                                        </span>
+                                      )}
+                                      {sib.maxParticipants && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                          {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                                        </span>
+                                      )}
+                                    </div>
+                                    {sib.venueName && (
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                  {isCurrentEvent && !isBlocked ? (
+                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                      Selected {isAlreadyRegistered ? "(Registered)" : ""}
+                                    </span>
+                                  ) : isRegistered ? (
+                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                      ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
+                                    </span>
+                                  ) : isBlocked ? (
+                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
+                                      ✓ Eligible
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* ── DOB Proof Upload for Out-of-Age / Upper Age Category Selection ── */}
                 {(() => {

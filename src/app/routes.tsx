@@ -326,6 +326,7 @@ import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
 import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
 import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
 import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
+import { ConnectedHealthOverview } from "./components/healthguard/ConnectedHealthOverview";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -1184,7 +1185,7 @@ export const router = createBrowserRouter([
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
       { path: "split-bill", element: <SplitBillPortal /> },
-      { path: "movies", element: <MoviePortal /> },
+      { path: "movies", element: <PermissionGuard anyModules={["ENTERTAINMENT", "MOVIES"]} requiredModule="ENTERTAINMENT"><MoviePortal /></PermissionGuard> },
       { path: "fd", element: <FDPortal /> },
       { path: "loans", element: <LoanPortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
@@ -1231,6 +1232,7 @@ export const router = createBrowserRouter([
         path: "healthguard",
         children: [
           { index: true, element: <HealthGuardDashboard /> },
+          { path: "connected-health", element: <ConnectedHealthOverview /> },
           { path: "contacts", element: <EmergencyContacts /> },
           { path: "incidents", element: <IncidentTracker /> },
           { path: "sos", element: <SosScreen /> },

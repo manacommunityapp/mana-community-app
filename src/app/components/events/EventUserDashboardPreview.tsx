@@ -2727,7 +2727,13 @@ export function EventUserDashboardPreview() {
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="text-xl shrink-0">{member.avatar}</span>
+                              <span className="text-xl shrink-0 w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
+                                {member.avatar && (member.avatar.startsWith("http") || member.avatar.startsWith("/")) ? (
+                                  <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-lg" />
+                                ) : (
+                                  (member.avatar && member.avatar.length <= 4 ? member.avatar : (member.gender === "Female" ? "👩" : "👨"))
+                                )}
+                              </span>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-1.5">
                                   <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
@@ -4142,8 +4148,12 @@ export function EventUserDashboardPreview() {
                       className="p-3 rounded-2xl bg-muted/30 border border-border flex items-center justify-between gap-2.5"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
-                          {member.avatar || member.name.charAt(0)}
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0 overflow-hidden">
+                          {member.avatar && (member.avatar.startsWith("http") || member.avatar.startsWith("/")) ? (
+                            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            (member.avatar && member.avatar.length <= 4 ? member.avatar : (member.name?.charAt(0) || "?"))
+                          )}
                         </div>
                         <div className="min-w-0">
                           <h4 className="font-bold text-foreground text-xs truncate">{member.name}</h4>

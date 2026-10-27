@@ -423,7 +423,7 @@ export function Layout() {
     "Community Calendar": "CALENDAR",
     "Vehicle Care": "HOME_SERVICES",
     "Property OS (CPOS)": "CPOS",
-    "Movie Night": "EVENTS",
+    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
     "Food & Dining": "FOOD_OS",
     "Fixed Deposits": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
     "Digital Gold": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
@@ -613,7 +613,7 @@ export function Layout() {
     if (label === "Community Calendar" || label === "Calendar") return true;
     if (label === "Vehicle Care") return true;
     if (label === "Property OS (CPOS)") return true;
-    if (label === "Movie Night") return true;
+    if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
     if (label === "Food & Dining") return true;
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
