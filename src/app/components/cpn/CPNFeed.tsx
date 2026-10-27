@@ -29,58 +29,7 @@ interface Post {
   jobTag?: string;
 }
 
-const MOCK_POSTS: Post[] = [
-  {
-    id: 1,
-    author: { name: "Priya Sharma", role: "Senior Engineer @ Google", avatar: "PS", flat: "A-304", verified: true },
-    time: "2h ago",
-    type: "achievement",
-    content: "Thrilled to announce that I've just received an offer from Google as Senior Software Engineer! 🎉\n\nThis journey wasn't easy — 6 rounds of interviews, countless mock sessions, and incredible support from our community here at Mana Gardens. A huge thanks to Rahul (B-201) for the referral and to our CPN mentorship group!\n\n#CareerGrowth #GoogleHire #ManaGardens",
-    hashtags: ["CareerGrowth", "GoogleHire", "ManaGardens"],
-    reactions: { like: 84, celebrate: 42, insightful: 12 },
-    comments: 18,
-    saved: false,
-    isAnnouncement: true,
-  },
-  {
-    id: 2,
-    author: { name: "Vikram Rao", role: "Founder @ BuildRight", avatar: "VR", flat: "Villa 8", verified: false },
-    time: "5h ago",
-    type: "job",
-    content: "🔥 We're hiring! BuildRight is looking for a Senior React Developer (Remote-friendly).\n\nAs a fellow resident here in our community, I'd love to give preference to our neighbors first!\n\n✅ 4+ years React experience\n✅ Strong TypeScript skills\n✅ Salary: ₹22L-₹32L\n\nDM me or click Apply. Community members get priority screening! 🏠",
-    hashtags: ["Hiring", "ReactJS", "CommunityJobs"],
-    reactions: { like: 47, celebrate: 5, insightful: 8 },
-    comments: 22,
-    saved: true,
-    isJob: true,
-    jobTag: "React Developer • Remote • ₹22L-32L",
-  },
-  {
-    id: 3,
-    author: { name: "Ananya Krishnan", role: "AI/ML Engineer @ Infosys", avatar: "AK", flat: "B-102", verified: true },
-    time: "Yesterday",
-    type: "article",
-    content: "Just published my article: \"How I cracked System Design interviews in 3 weeks\" 📝\n\nKey areas I focused on:\n→ Distributed systems fundamentals\n→ Database design patterns\n→ Real-world case studies (Twitter, Uber, Netflix)\n→ Mock interviews with our community group\n\nLink in comments! Happy to mentor anyone preparing for FAANG interviews.",
-    hashtags: ["SystemDesign", "FAANG", "TechCareers"],
-    reactions: { like: 132, celebrate: 0, insightful: 67 },
-    comments: 34,
-    saved: false,
-  },
-];
-
-const TRENDING_TOPICS = [
-  { tag: "HiringNow", count: "142 posts" },
-  { tag: "SystemDesign", count: "89 posts" },
-  { tag: "StartupHiring", count: "76 posts" },
-  { tag: "AICareer", count: "54 posts" },
-  { tag: "RemoteJobs", count: "48 posts" },
-];
-
-const SUGGESTED_PEOPLE = [
-  { name: "Arjun Nair", role: "DevOps @ AWS", flat: "C-506", mutual: 8, avatar: "AN" },
-  { name: "Sneha Patel", role: "UX Designer @ Swiggy", flat: "A-201", mutual: 5, avatar: "SP" },
-  { name: "Kiran Reddy", role: "Product @ Zepto", flat: "Villa 3", mutual: 12, avatar: "KR" },
-];
+const MOCK_POSTS: Post[] = [];
 
 function Avatar({ initials, size = "md", color = "indigo" }: { initials: string; size?: "sm" | "md" | "lg"; color?: "indigo" | "violet" | "emerald" | "amber" }) {
   const sizes = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-12 h-12 text-base" };
@@ -331,9 +280,19 @@ export function CPNFeed() {
 
         <PostComposer />
 
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} onReact={handleReact} onSave={handleSave} />
-        ))}
+        {posts.length === 0 ? (
+          <div className="py-16 text-center bg-white dark:bg-[#1E1E36] rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+            <Briefcase className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-white mb-1">No Professional Posts Yet</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              Share a career milestone, job opportunity, or tech discussion with your gated community network.
+            </p>
+          </div>
+        ) : (
+          posts.map((post) => (
+            <PostCard key={post.id} post={post} onReact={handleReact} onSave={handleSave} />
+          ))
+        )}
       </div>
 
       {/* Right: Sidebar */}
@@ -352,7 +311,7 @@ export function CPNFeed() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 pt-3">
-            {[["248", "Connections"], ["1.2K", "Views"], ["12", "Matches"]].map(([val, lbl]) => (
+            {[["0", "Connections"], ["0", "Views"], ["0", "Matches"]].map(([val, lbl]) => (
               <div key={lbl} className="text-center">
                 <div className="font-black text-slate-900 dark:text-white text-xs">{val}</div>
                 <div className="text-[9px] text-slate-400">{lbl}</div>

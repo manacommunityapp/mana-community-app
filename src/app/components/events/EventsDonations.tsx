@@ -7,24 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Button } from "../ui/button";
 import { SponsorshipProspectusModal, SponsorshipAppealEmailModal } from "./EventsSponsors";
 
-const donationTypes = [
-  { label: "Cash",              value: "₹2,40,000", icon: IndianRupee, color: "#10b981", bg: "#ecfdf5" },
-  { label: "UPI / Online",      value: "₹1,85,000", icon: IndianRupee, color: "#6366f1", bg: "#eef2ff" },
-  { label: "Cheque",            value: "₹80,000",   icon: IndianRupee, color: "#0891b2", bg: "#ecfeff" },
-  { label: "Material Donations",value: "₹1,15,000", icon: Package,     color: "#d97706", bg: "#fffbeb" },
-];
-
-const mockDonations: DonationRow[] = [
-  { rawId: 1, id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         amount: 25000,  receipt: "RCP-001", date: "Aug 2",  email: "krishna@email.com", phone: "+91 98765 12345", flatNumber: "A-101", note: "", recordedBy: "", anonymous: false },
-  { rawId: 2, id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   amount: 0,      receipt: "RCP-002", date: "Aug 2",  email: "", phone: "", flatNumber: "B-202", note: "Gold coin for puja", recordedBy: "", anonymous: false },
-  { rawId: 3, id: "DON-003", donor: "Raghunath Rao",    type: "UPI",        item: "₹10,000",         amount: 10000,  receipt: "RCP-003", date: "Aug 1",  email: "", phone: "", flatNumber: "C-301", note: "", recordedBy: "", anonymous: false },
-  { rawId: 4, id: "DON-004", donor: "Subhash Reddy",    type: "Rice",       item: "100 kg Basmati",  amount: 0,      receipt: "RCP-004", date: "Aug 1",  email: "", phone: "", flatNumber: "D-401", note: "Basmati rice for prasadam", recordedBy: "", anonymous: false },
-  { rawId: 5, id: "DON-005", donor: "Venkatesha M.",    type: "Cash",       item: "₹50,000",         amount: 50000,  receipt: "RCP-005", date: "Jul 31", email: "", phone: "", flatNumber: "E-501", note: "", recordedBy: "", anonymous: false },
-  { rawId: 6, id: "DON-006", donor: "Annapurna S.",     type: "Milk",       item: "500 litres",      amount: 0,      receipt: "RCP-006", date: "Jul 30", email: "", phone: "", flatNumber: "F-601", note: "", recordedBy: "", anonymous: false },
-  { rawId: 7, id: "DON-007", donor: "Tirumala Trust",   type: "Cheque",     item: "₹1,00,000",       amount: 100000, receipt: "RCP-007", date: "Jul 28", email: "trust@tirumala.org", phone: "", flatNumber: "", note: "", recordedBy: "", anonymous: false },
-  { rawId: 8, id: "DON-008", donor: "Chandran Pillai",  type: "Vegetables", item: "Mixed vegetables 50kg", amount: 0, receipt: "RCP-008", date: "Jul 27", email: "", phone: "", flatNumber: "G-701", note: "", recordedBy: "", anonymous: false },
-];
-
 type DonationRow = { rawId: number; id: string; donor: string; type: string; item: string; amount: number; receipt: string; date: string; email: string; phone: string; flatNumber: string; note: string; recordedBy: string; anonymous: boolean };
 
 const typeColors: Record<string, { bg: string; text: string }> = {
@@ -382,8 +364,8 @@ export function EventsDonations() {
     }
   };
 
-  const donations = useMock ? mockDonations : liveDonations;
-  const totalAmount = useMock ? 620000 : liveDonations.reduce((a, d) => a + parseInt(d.item.replace(/[^\d]/g, "") || "0"), 0);
+  const donations = liveDonations;
+  const totalAmount = liveDonations.reduce((a, d) => a + (d.amount || 0), 0);
 
   return (
     <div className="space-y-3 sm:space-y-6">
@@ -425,53 +407,28 @@ export function EventsDonations() {
         </div>
       )}
 
-      {/* Type summary — mock only for breakdown */}
-      {useMock && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-          {donationTypes.map((d) => (
-            <div key={d.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-              <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 sm:mb-3" style={{ background: d.bg }}>
-                <d.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: d.color }} />
-              </div>
-              <p className="text-base sm:text-xl font-black" style={{ color: d.color }}>{d.value}</p>
-              <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{d.label}</p>
-            </div>
-          ))}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+          <p className="text-xl sm:text-2xl font-black text-indigo-600">{donations.length}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Total Donations</p>
         </div>
-      )}
-
-      {!useMock && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-2xl font-black text-indigo-600">{donations.length}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Total Donations</p>
-          </div>
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-2xl font-black text-emerald-600">₹{totalAmount.toLocaleString("en-IN")}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Total Amount</p>
-          </div>
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+          <p className="text-xl sm:text-2xl font-black text-emerald-600">₹{totalAmount.toLocaleString("en-IN")}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Total Amount Raised</p>
         </div>
-      )}
-
-      {/* Donation progress towards goal */}
-      {useMock && (
-        <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-slate-800">Total Donations vs Target</h2>
-            <div>
-              <span className="text-lg font-black text-rose-600">₹6.2L</span>
-              <span className="text-slate-400 text-sm"> / ₹8L goal</span>
-            </div>
-          </div>
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="animate-fade-in-up h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-400"
-              style={{ width: "77.5%" }}
-            />
-          </div>
-          <p className="text-xs text-slate-400 mt-2">77.5% of target achieved · ₹1.8L remaining</p>
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+          <p className="text-xl sm:text-2xl font-black text-blue-600">
+            {donations.filter(d => d.type === "CASH" || d.type === "Cash").length}
+          </p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Cash Contributions</p>
         </div>
-      )}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+          <p className="text-xl sm:text-2xl font-black text-violet-600">
+            {donations.filter(d => ["UPI", "ONLINE", "Online", "CHEQUE", "Cheque"].includes(d.type)).length}
+          </p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Digital / Cheque</p>
+        </div>
+      </div>
 
       {/* Donation list */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">

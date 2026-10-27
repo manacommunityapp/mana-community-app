@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
 import { stockService } from "../../../../services/inventory/stockService";
-import { vendorProcurementService, type ThreeWayMatchResultDto } from "../../../../services/vendor/vendorProcurementService";
 
 interface OrderRow {
   doc: FinanceDocument;
@@ -24,11 +23,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const [search, setSearch] = useState("");
   const [advOpen, setAdvOpen] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [matchModalData, setMatchModalData] = useState<{
-    order: OrderRow;
-    result: ThreeWayMatchResultDto | null;
-    loading: boolean;
-  } | null>(null);
+
 
   const [allOrders, setAllOrders] = useState<OrderRow[]>([]);
 
@@ -54,47 +49,8 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
     loadOrders();
   }, []);
 
-  const handleVerifyMatch = async (order: OrderRow) => {
-    setMatchModalData({ order, result: null, loading: true });
-    try {
-      const numericId = order.doc.id ? Number(order.doc.id) : 1;
-      const res = await vendorProcurementService.verifyThreeWayMatch(numericId);
-      setMatchModalData({ order, result: res, loading: false });
-    } catch {
-      // Build authentic match representation from document data
-      const isPurchased = order.status.toLowerCase() === "purchased";
-      const docId = order.doc.id ? Number(order.doc.id) : 1;
-      setMatchModalData({
-        order,
-        result: {
-          invoiceId: docId,
-          invoiceNumber: `INV-${order.id}`,
-          purchaseOrderId: docId,
-          poNumber: order.id,
-          matched: isPurchased,
-          totalPoAmount: order.amount,
-          totalGrnAmount: isPurchased ? order.amount : 0,
-          totalInvoiceAmount: order.amount,
-          quantityDiscrepancy: !isPurchased,
-          priceDiscrepancy: false,
-          notes: isPurchased
-            ? "3-Way Match Verified: Purchase Order, Goods Receipt, and Invoice quantities align within 2.0% tolerance."
-            : "Verification Pending: Goods Receipt has not yet been accepted in warehouse.",
-          lineMatches: (order.doc.items || []).map((it, idx) => ({
-            poItemId: idx + 1,
-            itemName: it.item || "Line Item",
-            poQuantity: it.qty || 1,
-            grnAcceptedQuantity: isPurchased ? (it.qty || 1) : 0,
-            invoiceQuantity: it.qty || 1,
-            poUnitPrice: it.cost || 0,
-            invoiceUnitPrice: it.cost || 0,
-            status: isPurchased ? "MATCHED" : "UNRECEIVED_ITEM",
-            remarks: isPurchased ? "Exact line match (0% variance)" : "Awaiting warehouse goods receipt acceptance",
-          })),
-        },
-        loading: false,
-      });
-    }
+  const handleVerifyMatch = (_order: OrderRow) => {
+    toast.info("Three-way matching is unavailable for ledger purchase orders until they are linked to vendor procurement invoices and receipts.");
   };
 
   const handleReceiveGoods = async (row: OrderRow) => {
@@ -157,23 +113,8 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
         moveLines,
       });
 
-      // 3. Record Goods Receipt in VMS
-      try {
-        const numericPoId = row.doc.id ? Number(row.doc.id) : 1;
-        await vendorProcurementService.createGoodsReceipt({
-          purchaseOrderId: numericPoId,
-          remarks: `Received against PO ${row.id}`,
-          items: (row.doc.items || []).map(it => ({
-            itemName: it.item || "Item",
-            orderedQuantity: it.qty || 1,
-            receivedQuantity: it.qty || 1,
-            acceptedQuantity: it.qty || 1,
-            unitPrice: it.cost || 0,
-          })),
-        });
-      } catch (grnErr) {
-        console.warn("VMS Goods Receipt record note:", grnErr);
-      }
+      // The stock picking is the persisted warehouse receipt for this finance PO.
+      // This ledger screen does not yet share IDs with VMS goods receipts.
 
       // 4. Update PO status in finance to "Purchased"
       if (row.doc.id) {
@@ -183,7 +124,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
         });
       }
 
-      toast.success(`Incoming warehouse receipt and GRN created for ${row.id}. Status updated to Purchased!`);
+      toast.success(`Warehouse receipt created for ${row.id}; finance status updated to Purchased.`);
       loadOrders();
     } catch (err: any) {
       toast.error(err?.message || "Failed to create incoming goods receipt.");
@@ -193,13 +134,14 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   };
 
   const metrics = useMemo(() => {
+    const currentMonth = new Date().toISOString().slice(0, 7);
     let total = 0, open = 0, purchased = 0, month = 0;
     let openCount = 0, purchasedCount = 0, monthCount = 0;
     for (const o of allOrders) {
       total += o.amount;
       if (o.status.toLowerCase() === "open") { open += o.amount; openCount++; }
       if (o.status.toLowerCase() === "purchased") { purchased += o.amount; purchasedCount++; }
-      if (o.date.startsWith("2026-07")) { month += o.amount; monthCount++; }
+      if (o.date.startsWith(currentMonth)) { month += o.amount; monthCount++; }
     }
     return { total, open, purchased, month, openCount, purchasedCount, monthCount };
   }, [allOrders]);
@@ -207,7 +149,7 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
   const orders = useMemo(() => allOrders.filter((o) => {
     if (statusFilter && o.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
     if (search && !o.id.toLowerCase().includes(search.toLowerCase()) && !o.vendor.toLowerCase().includes(search.toLowerCase())) return false;
-    if (periodFilter === "month" && !o.date.startsWith("2026-07")) return false;
+    if (periodFilter === "month" && !o.date.startsWith(new Date().toISOString().slice(0, 7))) return false;
     return true;
   }), [allOrders, statusFilter, search, periodFilter]);
 
@@ -363,15 +305,10 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
                           type="button"
                           onClick={() => handleVerifyMatch(o)}
                           className="btn btn-sm btn-ghost"
-                          style={{
-                            fontSize: 11,
-                            padding: "3px 8px",
-                            color: o.status.toLowerCase() === "purchased" ? "#059669" : "#6366f1",
-                            border: "1px solid currentColor",
-                            borderRadius: "6px"
-                          }}
+                          style={{ fontSize: 11, padding: "3px 8px", color: "#64748b", border: "1px solid currentColor", borderRadius: "6px" }}
+                          title="Three-way matching is not wired to this finance ledger record yet"
                         >
-                          {o.status.toLowerCase() === "purchased" ? "✓ 3-Way Matched" : "Verify 3-Way Match"}
+                          Match unavailable
                         </button>
                       </div>
                     </td>
@@ -383,189 +320,6 @@ export function PurchaseOrdersView({ onNewPurchaseOrder, canAdd = true }: { onNe
         </div>
       </div>
 
-      {/* 3-Way Match Verification Modal */}
-      {matchModalData && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1rem"
-          }}
-          onClick={() => setMatchModalData(null)}
-        >
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "1rem",
-              width: "100%",
-              maxWidth: "680px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #e2e8f0",
-              overflow: "hidden"
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Procure-to-Pay Audit Engine
-                </span>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#0f172a", margin: "2px 0 0 0" }}>
-                  Three-Way Matching Verification
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMatchModalData(null)}
-                style={{ background: "none", border: "none", fontSize: "1.25rem", color: "#64748b", cursor: "pointer" }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div style={{ padding: "1.5rem", maxHeight: "70vh", overflowY: "auto" }}>
-              {matchModalData.loading ? (
-                <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
-                  Auditing PO line items against Goods Receipt and Invoice records...
-                </div>
-              ) : matchModalData.result ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                  {/* Status Banner */}
-                  <div
-                    style={{
-                      padding: "1rem",
-                      borderRadius: "0.75rem",
-                      border: `1px solid ${matchModalData.result.matched ? "#a7f3d0" : "#fed7aa"}`,
-                      backgroundColor: matchModalData.result.matched ? "#ecfdf5" : "#fff7ed",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between"
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: "14px", fontWeight: 800, color: matchModalData.result.matched ? "#065f46" : "#9a3412" }}>
-                        {matchModalData.result.matched ? "✓ 3-Way Match Approved (±2.0% Tolerance)" : "⚠ Verification Exception Flagged"}
-                      </div>
-                      <div style={{ fontSize: "12px", color: matchModalData.result.matched ? "#047857" : "#c2410c", marginTop: "2px" }}>
-                        {matchModalData.result.notes}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        padding: "4px 10px",
-                        borderRadius: "9999px",
-                        backgroundColor: matchModalData.result.matched ? "#10b981" : "#f97316",
-                        color: "#ffffff"
-                      }}
-                    >
-                      {matchModalData.result.matched ? "CLEARED" : "HOLD"}
-                    </span>
-                  </div>
-
-                  {/* Summary Comparison Grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
-                    <div style={{ backgroundColor: "#f8fafc", padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Purchase Order</div>
-                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
-                        ₹{matchModalData.result.totalPoAmount.toFixed(2)}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>Ref: {matchModalData.result.poNumber}</div>
-                    </div>
-                    <div style={{ backgroundColor: "#f8fafc", padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Goods Receipt (GRN)</div>
-                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#059669", marginTop: "4px" }}>
-                        ₹{matchModalData.result.totalGrnAmount.toFixed(2)}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                        {matchModalData.result.totalGrnAmount > 0 ? "Accepted in Warehouse" : "No GRN Linked"}
-                      </div>
-                    </div>
-                    <div style={{ backgroundColor: "#f8fafc", padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "1px solid #e2e8f0" }}>
-                      <div style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Billed Invoice</div>
-                      <div style={{ fontSize: "16px", fontWeight: 800, color: "#6366f1", marginTop: "4px" }}>
-                        ₹{matchModalData.result.totalInvoiceAmount.toFixed(2)}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>Ref: {matchModalData.result.invoiceNumber}</div>
-                    </div>
-                  </div>
-
-                  {/* Line Items Breakdown */}
-                  <div>
-                    <h4 style={{ fontSize: "13px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>Line Item Reconciliation</h4>
-                    <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse" }}>
-                      <thead>
-                        <tr style={{ backgroundColor: "#f1f5f9", textAlign: "left", color: "#475569" }}>
-                          <th style={{ padding: "8px 10px", borderRadius: "6px 0 0 6px" }}>Item Name</th>
-                          <th style={{ padding: "8px 10px", textAlign: "center" }}>PO Qty</th>
-                          <th style={{ padding: "8px 10px", textAlign: "center" }}>GRN Qty</th>
-                          <th style={{ padding: "8px 10px", textAlign: "center" }}>Invoice Qty</th>
-                          <th style={{ padding: "8px 10px", textAlign: "right", borderRadius: "0 6px 6px 0" }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {matchModalData.result.lineMatches.map((lm, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                            <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{lm.itemName}</td>
-                            <td style={{ padding: "8px 10px", textAlign: "center" }}>{lm.poQuantity}</td>
-                            <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 700, color: lm.grnAcceptedQuantity >= lm.poQuantity ? "#059669" : "#d97706" }}>
-                              {lm.grnAcceptedQuantity}
-                            </td>
-                            <td style={{ padding: "8px 10px", textAlign: "center" }}>{lm.invoiceQuantity}</td>
-                            <td style={{ padding: "8px 10px", textAlign: "right" }}>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  fontWeight: 700,
-                                  padding: "2px 6px",
-                                  borderRadius: "4px",
-                                  backgroundColor: lm.status === "MATCHED" ? "#d1fae5" : "#fee2e2",
-                                  color: lm.status === "MATCHED" ? "#065f46" : "#991b1b"
-                                }}
-                              >
-                                {lm.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            {/* Modal Footer */}
-            <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => setMatchModalData(null)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#0f172a",
-                  color: "#ffffff",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Close Audit Report
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

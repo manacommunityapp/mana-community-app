@@ -20,46 +20,7 @@ interface Proposal {
   notes?: string;
 }
 
-const MOCK_PROPOSALS: Proposal[] = [
-  {
-    id: "1",
-    title: "Install 12 Dedicated EV Fast-Charging Points in Basement Parking",
-    category: "INFRASTRUCTURE",
-    description: "Installation of 12 shared AC/DC fast chargers across Basements 1 & 2 with smart load balancing, RFID tag access, and automated billing integrated into monthly maintenance accounts.",
-    estimatedCost: "₹8,50,000",
-    fundingSource: "Community Sinking Fund (70%) + Vendor Subsidy (30%)",
-    submittedBy: "Sandeep Kumar · B-402",
-    status: "APPROVED_FOR_AGENDA",
-    upvotes: 142,
-    hasUpvoted: true,
-    notes: "Feasibility verified with BESCOM load approval. Placed on AGM 2026 agenda for voting.",
-  },
-  {
-    id: "2",
-    title: "Complete Solar Rooftop Photovoltaic Grid (100 kWp)",
-    category: "ENVIRONMENT",
-    description: "Install rooftop solar panels across Towers A, B, and C to offset 65% of common area lighting, lifts, and water pumping energy costs with estimated 3.2 year payback period.",
-    estimatedCost: "₹14,00,000",
-    fundingSource: "Special Green Assessment & State Subsidy",
-    submittedBy: "Dr. Anita Sen · A-701",
-    status: "UNDER_REVIEW",
-    upvotes: 89,
-    hasUpvoted: false,
-    notes: "Technical evaluation under review with Tata Solar and Loom Solar.",
-  },
-  {
-    id: "3",
-    title: "Clubhouse Gym Equipment Upgrade & Acoustic Flooring",
-    category: "AMENITIES",
-    description: "Replace aging multi-gym station, add 2 commercial treadmills, and install rubber acoustic tiles to prevent noise transfer to ground floor apartments.",
-    estimatedCost: "₹3,20,000",
-    fundingSource: "Amenity Maintenance Reserve",
-    submittedBy: "Arjun Mehta · C-104",
-    status: "SUBMITTED",
-    upvotes: 54,
-    hasUpvoted: false,
-  },
-];
+const MOCK_PROPOSALS: Proposal[] = [];
 
 export function ProposalsHub() {
   const [proposals, setProposals] = useState<Proposal[]>(MOCK_PROPOSALS);
@@ -161,7 +122,22 @@ export function ProposalsHub() {
 
       {/* ── Proposals List ────────────────────────────────────────────────────── */}
       <div className="space-y-4">
-        {filtered.map((prop) => (
+        {filtered.length === 0 ? (
+          <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center shadow-xs space-y-3">
+            <FileCheck className="w-12 h-12 text-slate-300 mx-auto" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-white">No Proposals Found</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mb-3">
+              No community proposals have been submitted for this category yet.
+            </p>
+            <button
+              onClick={() => setModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" /> Submit First Proposal
+            </button>
+          </div>
+        ) : (
+          filtered.map((prop) => (
           <div
             key={prop.id}
             className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:shadow-lg transition-all space-y-4"
@@ -225,7 +201,8 @@ export function ProposalsHub() {
               <span className="text-[10px] text-slate-400">Requires 50+ upvotes for mandatory committee review</span>
             </div>
           </div>
-        ))}
+        ))
+      )}
       </div>
 
       {/* ── Submit Modal ──────────────────────────────────────────────────────── */}

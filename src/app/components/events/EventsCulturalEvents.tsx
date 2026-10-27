@@ -52,22 +52,7 @@ const DEFAULT_AGE_GROUPS = ["Kids (5-10)", "Junior (11-15)", "Youth (16-25)", "A
 const today = new Date().toISOString().slice(0, 10);
 const in2days = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
 
-const mockCulturalEvents: CulturalEvent[] = [
-  { id: 1, name: "Bharatanatyam – Pushpanjali", category: "Classical Dance", perfType: "Solo", ageGroup: "Youth (16-25)", date: "2026-08-27", startTime: "10:00", duration: 15, stage: "Main Stage", requirements: "Classical music system, spotlight", hasBacktrack: true, hasLiveMusic: false, needsRegistration: true, capacity: 20, sortOrder: 1, regDeadline: in2days },
-  { id: 2, name: "Carnatic Vocal Ensemble", category: "Classical Music", perfType: "Ensemble", ageGroup: "Open", date: "2026-08-27", startTime: "11:00", duration: 30, stage: "Main Stage", requirements: "Mics x4, tanpura, tabla", hasBacktrack: false, hasLiveMusic: true, needsRegistration: true, capacity: 10, sortOrder: 2 },
-  { id: 3, name: "Kids Fancy Dress", category: "Drama/Skit", perfType: "Group", ageGroup: "Kids (5-10)", date: "2026-08-28", startTime: "09:30", duration: 45, stage: "Side Stage", requirements: "Open floor area, props table", hasBacktrack: false, hasLiveMusic: false, needsRegistration: true, capacity: 30, sortOrder: 3 },
-  { id: 4, name: "Bhajan Sandhya", category: "Bhajan/Kirtan", perfType: "Group", ageGroup: "Open", date: "2026-08-28", startTime: "18:00", duration: 60, stage: "Temple Mandap", requirements: "Harmonium, dholak, cymbal mics", hasBacktrack: false, hasLiveMusic: true, needsRegistration: false, sortOrder: 4 },
-  { id: 5, name: "Folk Dance – Garba Night", category: "Folk Dance", perfType: "Group", ageGroup: "Open", date: "2026-08-29", startTime: "20:00", duration: 90, stage: "Open Ground", requirements: "DJ setup, LED lights, dandiya sticks", hasBacktrack: true, hasLiveMusic: false, needsRegistration: true, capacity: 50, sortOrder: 5 },
-];
 
-const mockRegistrations: CulturalRegistration[] = [
-  { id: 20, regCode: "MNA-2026-CULT-100001", culturalEventId: 1, participantName: "Meenakshi Sundaram", devoteeCount: 1, status: "CONFIRMED", checkedIn: true, checkedInAt: "2026-08-27T10:05:00", createdAt: "2026-08-14T10:00:00" },
-  { id: 21, regCode: "MNA-2026-CULT-100002", culturalEventId: 2, participantName: "Ramakrishnan V.", devoteeCount: 4, status: "CONFIRMED", checkedIn: false, createdAt: "2026-08-14T12:00:00" },
-  { id: 22, regCode: "MNA-2026-CULT-100003", culturalEventId: 3, participantName: "Priya Sharma (parent)", devoteeCount: 3, status: "CONFIRMED", checkedIn: false, createdAt: "2026-08-15T09:00:00" },
-  { id: 23, regCode: "MNA-2026-CULT-100004", culturalEventId: 4, participantName: "Annapurna Group", devoteeCount: 8, status: "CONFIRMED", checkedIn: false, createdAt: "2026-08-16T15:00:00" },
-  { id: 24, regCode: "MNA-2026-CULT-100005", culturalEventId: 5, participantName: "Chandrashekar M.", devoteeCount: 6, status: "CONFIRMED", checkedIn: false, createdAt: "2026-08-17T10:00:00" },
-  { id: 25, regCode: "MNA-2026-CULT-100006", culturalEventId: 5, participantName: "Lakshmi Family", devoteeCount: 5, status: "CONFIRMED", checkedIn: false, createdAt: "2026-08-17T11:30:00" },
-];
 
 const emptyForm = {
   mainEventId: "", name: "", category: "", perfType: "Solo", ageGroup: "Open",
@@ -153,7 +138,6 @@ export function EventsCulturalEvents() {
   useEffect(() => { eventService.getAll().then(setEvents).catch(() => {}); }, []);
 
   const loadData = () => {
-    if (useMock) { setCulturalEvents(mockCulturalEvents); setRegistrations(mockRegistrations); return; }
     setLoading(true); setError("");
     Promise.all([
       eventService.getCulturalEvents(),

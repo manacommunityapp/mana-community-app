@@ -7,12 +7,12 @@ export const foodAnalyticsService = {
   // ── Restaurant Analytics ──
   async getRestaurantAnalytics(restaurantId: number, startDate: string, endDate: string): Promise<RestaurantAnalytics[]> {
     const params = new URLSearchParams({ startDate, endDate });
-    return apiClient.get<RestaurantAnalytics[]>(`/food/analytics/restaurants/${restaurantId}?${params}`);
+    return apiClient.get<RestaurantAnalytics[]>(`/food/analytics/restaurant/${restaurantId}?${params}`);
   },
 
   // ── Community Trends ──
   async getCommunityTrends(months = 6): Promise<ConsumptionTrend[]> {
-    return apiClient.get<ConsumptionTrend[]>(`/food/analytics/trends?months=${months}`);
+    return apiClient.get<ConsumptionTrend[]>(`/food/analytics/community-trends?months=${months}`);
   },
 
   // ── Food Waste ──

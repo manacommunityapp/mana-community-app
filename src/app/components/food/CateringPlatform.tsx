@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import {
   Truck, Star, Users, Calendar, IndianRupee, ChefHat,
-  Plus, Send, Clock, CheckCircle2, AlertCircle, FileText,
-  ArrowRight, Phone
+  Send, Clock, CheckCircle2, AlertCircle, FileText,
+  ArrowRight, Phone, UtensilsCrossed
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -14,34 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
-import type { Caterer, CateringPackage, CateringRequest, CateringQuotation } from "../../../types/food";
+import { foodCateringService } from "../../../services/food/foodCateringService";
+import type { Caterer, CateringRequest, CateringRequestDto } from "../../../types/food";
 
 function formatPrice(n: number) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 }
-
-const mockCaterers: Caterer[] = [
-  { id: 1, name: "Royal Feast Caterers", description: "Premium North Indian catering with 15+ years of experience. Specializing in wedding and corporate events.", cuisineTypes: "North Indian, Mughlai, Continental", minOrderCount: 50, maxOrderCount: 1000, pricePerPlateFrom: 500, pricePerPlateTo: 2500, rating: 4.7, totalEvents: 320, status: "ACTIVE", packages: [
-    { id: 1, catererId: 1, name: "Silver Package", description: "4 starters + 6 main course + 3 desserts", occasionType: "WEDDING", itemsPerPlate: 13, pricePerPlate: 800, minPlates: 100, includes: "Service staff, crockery, setup", active: true },
-    { id: 2, catererId: 1, name: "Gold Package", description: "6 starters + 8 main course + 4 desserts + live counters", occasionType: "WEDDING", itemsPerPlate: 18, pricePerPlate: 1200, minPlates: 100, includes: "Service staff, crockery, setup, decoration", active: true },
-  ], createdAt: "2025-01-15T10:00:00Z" },
-  { id: 2, name: "Green Leaf Catering", description: "Pure vegetarian and vegan catering. Organic ingredients, Jain-friendly options available.", cuisineTypes: "South Indian, Jain, Vegan", minOrderCount: 25, maxOrderCount: 500, pricePerPlateFrom: 350, pricePerPlateTo: 1500, rating: 4.5, totalEvents: 180, status: "ACTIVE", packages: [
-    { id: 3, catererId: 2, name: "Corporate Lunch", description: "3 starters + 4 main course + 2 desserts", occasionType: "CORPORATE", itemsPerPlate: 9, pricePerPlate: 450, minPlates: 25, includes: "Disposable packaging, delivery", active: true },
-  ], createdAt: "2025-03-20T10:00:00Z" },
-  { id: 3, name: "Spice Route Events", description: "Multi-cuisine catering specialists. From intimate gatherings to grand celebrations.", cuisineTypes: "Multi-Cuisine, Chinese, Italian", minOrderCount: 30, maxOrderCount: 800, pricePerPlateFrom: 400, pricePerPlateTo: 2000, rating: 4.6, totalEvents: 245, status: "ACTIVE", packages: [
-    { id: 4, catererId: 3, name: "Birthday Bash", description: "5 starters + 5 main course + 3 desserts + drinks", occasionType: "BIRTHDAY", itemsPerPlate: 13, pricePerPlate: 600, minPlates: 30, includes: "Service staff, setup, cake cutting arrangement", active: true },
-  ], createdAt: "2025-06-10T10:00:00Z" },
-];
-
-const mockRequests: CateringRequest[] = [
-  { id: 1, userId: 1, occasionType: "BIRTHDAY", eventDate: "2026-08-15", eventTime: "18:00", venue: "Community Hall, Block A", guestCount: 80, budget: 60000, menuPreferences: "Vegetarian + Non-Veg starters", status: "QUOTATION_RECEIVED", quotations: [
-    { id: 1, requestId: 1, catererId: 1, catererName: "Royal Feast Caterers", menu: "4 veg starters, 2 non-veg starters, 5 main course, 3 desserts", pricePerPlate: 750, totalAmount: 60000, validUntil: "2026-08-05", status: "PENDING", notes: "Includes service staff and crockery" },
-    { id: 2, requestId: 1, catererId: 3, catererName: "Spice Route Events", menu: "5 starters, 5 main course, 3 desserts, welcome drink", pricePerPlate: 700, totalAmount: 56000, validUntil: "2026-08-05", status: "PENDING", notes: "Setup included, decoration extra" },
-  ], createdAt: "2026-07-20T10:00:00Z" },
-  { id: 2, userId: 1, occasionType: "CORPORATE", eventDate: "2026-07-30", eventTime: "12:30", venue: "Office Conference Room", guestCount: 40, budget: 20000, menuPreferences: "Pure Veg, Jain options", status: "CONFIRMED", selectedCatererId: 2, quotations: [
-    { id: 3, requestId: 2, catererId: 2, catererName: "Green Leaf Catering", menu: "3 starters, 4 main course, 2 desserts", pricePerPlate: 450, totalAmount: 18000, validUntil: "2026-07-28", status: "ACCEPTED" },
-  ], createdAt: "2026-07-22T10:00:00Z" },
-];
 
 const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -56,15 +34,89 @@ const occasionTypes = ["WEDDING", "BIRTHDAY", "CORPORATE", "HOUSEWARMING", "POOJ
 
 export function CateringPlatform() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [caterers, setCaterers] = useState<Caterer[]>([]);
+  const [requests, setRequests] = useState<CateringRequest[]>([]);
   const [activeTab, setActiveTab] = useState("browse");
   const [quoteFormOpen, setQuoteFormOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<CateringRequest | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
 
+  // Form state
+  const [occasionType, setOccasionType] = useState<string>("BIRTHDAY");
+  const [eventDate, setEventDate] = useState<string>("");
+  const [eventTime, setEventTime] = useState<string>("18:00");
+  const [guestCount, setGuestCount] = useState<number>(50);
+  const [budget, setBudget] = useState<number | undefined>(undefined);
+  const [venue, setVenue] = useState<string>("");
+  const [menuPreferences, setMenuPreferences] = useState<string>("");
+  const [dietaryRequirements, setDietaryRequirements] = useState<string>("");
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [caterersRes, requestsRes] = await Promise.allSettled([
+        foodCateringService.getCaterers(0, 50),
+        foodCateringService.getMyCateringRequests(0, 50),
+      ]);
+
+      if (caterersRes.status === "fulfilled" && caterersRes.value?.content) {
+        setCaterers(caterersRes.value.content);
+      }
+      if (requestsRes.status === "fulfilled" && requestsRes.value?.content) {
+        setRequests(requestsRes.value.content);
+      }
+    } catch (err) {
+      console.error("Failed to load catering data:", err);
+      setError("Failed to load caterers and requests.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
+    loadData();
   }, []);
+
+  const handleCreateRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!eventDate || !guestCount) return;
+    try {
+      setSubmitting(true);
+      const payload: CateringRequestDto = {
+        occasionType,
+        eventDate,
+        eventTime,
+        guestCount: Number(guestCount),
+        budget: budget ? Number(budget) : undefined,
+        venue,
+        menuPreferences,
+        dietaryRequirements,
+      };
+      await foodCateringService.createCateringRequest(payload);
+      setQuoteFormOpen(false);
+      await loadData();
+      setActiveTab("requests");
+    } catch (err) {
+      console.error("Failed to create catering request:", err);
+      alert("Failed to submit quote request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAcceptQuote = async (requestId: number, quotationId: number) => {
+    try {
+      await foodCateringService.acceptQuotation(requestId, quotationId);
+      setCompareOpen(false);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to accept quotation:", err);
+      alert("Failed to accept quotation. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
@@ -79,7 +131,7 @@ export function CateringPlatform() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Catering Platform</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">Find caterers and manage event catering</p>
@@ -89,75 +141,98 @@ export function CateringPlatform() {
         </Button>
       </div>
 
+      {error && (
+        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-center gap-3 text-amber-700 dark:text-amber-300 text-sm">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100 dark:bg-slate-800">
-          <TabsTrigger value="browse">Browse Caterers</TabsTrigger>
-          <TabsTrigger value="requests">My Requests ({mockRequests.length})</TabsTrigger>
+          <TabsTrigger value="browse">Browse Caterers ({caterers.length})</TabsTrigger>
+          <TabsTrigger value="requests">My Requests ({requests.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="browse" className="mt-4">
-          <div className="space-y-6">
-            {mockCaterers.map((caterer) => (
-              <Card key={caterer.id} className="border-0 shadow-sm">
-                <CardContent className="p-0">
-                  <div className="p-4 sm:p-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-base font-semibold">{caterer.name}</h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{caterer.cuisineTypes}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span className="text-sm font-semibold">{caterer.rating}</span>
-                        <span className="text-xs text-slate-400">({caterer.totalEvents} events)</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{caterer.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-4">
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" />{caterer.minOrderCount}-{caterer.maxOrderCount} guests</span>
-                      <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{formatPrice(caterer.pricePerPlateFrom ?? 0)} - {formatPrice(caterer.pricePerPlateTo ?? 0)}/plate</span>
-                    </div>
-
-                    {/* Packages */}
-                    {caterer.packages && caterer.packages.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Packages</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {caterer.packages.map((pkg) => (
-                            <div key={pkg.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-sm font-semibold">{pkg.name}</p>
-                                <Badge variant="outline" className="text-[10px]">{pkg.occasionType}</Badge>
-                              </div>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">{pkg.description}</p>
-                              <div className="flex items-center justify-between mt-2">
-                                <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatPrice(pkg.pricePerPlate)}/plate</span>
-                                <span className="text-xs text-slate-400">Min {pkg.minPlates} plates</span>
-                              </div>
-                              {pkg.includes && <p className="text-[10px] text-slate-400 mt-1">Includes: {pkg.includes}</p>}
-                            </div>
-                          ))}
+          {caterers.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="py-12 text-center flex flex-col items-center justify-center">
+                <UtensilsCrossed className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-3" />
+                <h3 className="text-base font-semibold text-slate-700 dark:text-slate-300">No caterers registered yet</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  Community caterers and banquet partners will appear here once onboarded. You can still submit a custom quote request anytime.
+                </p>
+                <Button className="mt-4 bg-orange-600 hover:bg-orange-700 text-white gap-2" size="sm" onClick={() => setQuoteFormOpen(true)}>
+                  <Send className="w-3.5 h-3.5" /> Request a Custom Quote
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {caterers.map((caterer) => (
+                <Card key={caterer.id} className="border-0 shadow-sm">
+                  <CardContent className="p-0">
+                    <div className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="text-base font-semibold">{caterer.name}</h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{caterer.cuisineTypes}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                          <span className="text-sm font-semibold">{caterer.rating ? caterer.rating.toFixed(1) : "—"}</span>
+                          {caterer.totalEvents ? <span className="text-xs text-slate-400">({caterer.totalEvents} events)</span> : null}
                         </div>
                       </div>
-                    )}
+                      {caterer.description && <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{caterer.description}</p>}
+                      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mb-4">
+                        {(caterer.minOrderCount || caterer.maxOrderCount) && (
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{caterer.minOrderCount ?? 1}-{caterer.maxOrderCount ?? 500} guests</span>
+                        )}
+                        {(caterer.pricePerPlateFrom || caterer.pricePerPlateTo) && (
+                          <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{formatPrice(caterer.pricePerPlateFrom ?? 0)} - {formatPrice(caterer.pricePerPlateTo ?? 0)}/plate</span>
+                        )}
+                      </div>
 
-                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white gap-2" onClick={() => setQuoteFormOpen(true)}>
-                        <Send className="w-3 h-3" /> Get Quote
-                      </Button>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Phone className="w-3 h-3" /> Contact
-                      </Button>
+                      {/* Packages */}
+                      {caterer.packages && caterer.packages.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Packages</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {caterer.packages.map((pkg) => (
+                              <div key={pkg.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-sm font-semibold">{pkg.name}</p>
+                                  <Badge variant="outline" className="text-[10px]">{pkg.occasionType}</Badge>
+                                </div>
+                                {pkg.description && <p className="text-xs text-slate-500 dark:text-slate-400">{pkg.description}</p>}
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{formatPrice(pkg.pricePerPlate)}/plate</span>
+                                  {pkg.minPlates && <span className="text-xs text-slate-400">Min {pkg.minPlates} plates</span>}
+                                </div>
+                                {pkg.includes && <p className="text-[10px] text-slate-400 mt-1">Includes: {pkg.includes}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700 text-white gap-2" onClick={() => setQuoteFormOpen(true)}>
+                          <Send className="w-3 h-3" /> Get Quote
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="requests" className="mt-4 space-y-4">
-          {mockRequests.length === 0 ? (
+          {requests.length === 0 ? (
             <Card className="border-0 shadow-sm">
               <CardContent className="p-8 text-center">
                 <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
@@ -166,21 +241,25 @@ export function CateringPlatform() {
               </CardContent>
             </Card>
           ) : (
-            mockRequests.map((req) => (
+            requests.map((req) => (
               <Card key={req.id} className="border-0 shadow-sm">
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">{req.occasionType.replace(/_/g, " ")} Event</h3>
-                        <Badge className={`text-[10px] ${statusColors[req.status]}`}>{req.status.replace(/_/g, " ")}</Badge>
+                        <h3 className="text-sm font-semibold">{req.occasionType ? req.occasionType.replace(/_/g, " ") : "Catering"} Event</h3>
+                        <Badge className={`text-[10px] ${statusColors[req.status] || ""}`}>{req.status?.replace(/_/g, " ")}</Badge>
                       </div>
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(req.eventDate).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        {req.eventDate && (
+                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(req.eventDate).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        )}
                         <span className="flex items-center gap-1"><Users className="w-3 h-3" />{req.guestCount} guests</span>
                         {req.budget && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />Budget: {formatPrice(req.budget)}</span>}
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">{req.venue} - {req.menuPreferences}</p>
+                      {(req.venue || req.menuPreferences) && (
+                        <p className="text-xs text-slate-400 mt-1">{[req.venue, req.menuPreferences].filter(Boolean).join(" - ")}</p>
+                      )}
                     </div>
                   </div>
 
@@ -198,13 +277,13 @@ export function CateringPlatform() {
                       {req.quotations.map((q) => (
                         <div key={q.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium">{q.catererName}</p>
+                            <p className="text-sm font-medium">{q.catererName || `Caterer #${q.catererId}`}</p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{q.menu}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-bold">{formatPrice(q.totalAmount)}</p>
-                            <p className="text-xs text-slate-400">{formatPrice(q.pricePerPlate)}/plate</p>
-                            <Badge className={`text-[10px] mt-1 ${statusColors[q.status]}`}>{q.status}</Badge>
+                            {q.pricePerPlate ? <p className="text-xs text-slate-400">{formatPrice(q.pricePerPlate)}/plate</p> : null}
+                            <Badge className={`text-[10px] mt-1 ${statusColors[q.status] || ""}`}>{q.status}</Badge>
                           </div>
                         </div>
                       ))}
@@ -222,12 +301,12 @@ export function CateringPlatform() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Request Catering Quote</DialogTitle>
-            <DialogDescription>Fill in your event details to receive quotations from caterers</DialogDescription>
+            <DialogDescription>Fill in your event details to receive quotations from community caterers</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={handleCreateRequest} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm">Occasion Type</Label>
-              <Select>
+              <Select value={occasionType} onValueChange={setOccasionType}>
                 <SelectTrigger><SelectValue placeholder="Select occasion" /></SelectTrigger>
                 <SelectContent>
                   {occasionTypes.map((t) => <SelectItem key={t} value={t}>{t.replace(/_/g, " ")}</SelectItem>)}
@@ -237,35 +316,35 @@ export function CateringPlatform() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm">Event Date</Label>
-                <Input type="date" className="text-sm" min="2026-07-24" />
+                <Input type="date" required value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm">Guest Count</Label>
-                <Input type="number" placeholder="50" className="text-sm" />
+                <Input type="number" required min="1" value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))} className="text-sm" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm">Budget (approx)</Label>
-                <Input type="number" placeholder="50000" className="text-sm" />
+                <Label className="text-sm">Budget (optional)</Label>
+                <Input type="number" placeholder="50000" value={budget || ""} onChange={(e) => setBudget(e.target.value ? Number(e.target.value) : undefined)} className="text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm">Venue</Label>
-                <Input placeholder="e.g., Community Hall" className="text-sm" />
+                <Input placeholder="e.g., Community Hall" value={venue} onChange={(e) => setVenue(e.target.value)} className="text-sm" />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-sm">Menu Preferences</Label>
-              <Textarea placeholder="Vegetarian, Non-veg starters, Jain options, specific dishes..." className="h-20 text-sm" />
+              <Textarea placeholder="Vegetarian, Non-veg starters, Jain options, specific dishes..." value={menuPreferences} onChange={(e) => setMenuPreferences(e.target.value)} className="h-20 text-sm" />
             </div>
             <div className="space-y-2">
               <Label className="text-sm">Dietary Requirements</Label>
-              <Input placeholder="e.g., No onion garlic, nut-free..." className="text-sm" />
+              <Input placeholder="e.g., No onion garlic, nut-free..." value={dietaryRequirements} onChange={(e) => setDietaryRequirements(e.target.value)} className="text-sm" />
             </div>
-            <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2">
-              <Send className="w-4 h-4" /> Submit Request
+            <Button type="submit" disabled={submitting} className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2">
+              <Send className="w-4 h-4" /> {submitting ? "Submitting..." : "Submit Request"}
             </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -274,27 +353,33 @@ export function CateringPlatform() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Compare Quotations</DialogTitle>
-            <DialogDescription>{selectedRequest?.occasionType.replace(/_/g, " ")} - {selectedRequest?.guestCount} guests</DialogDescription>
+            <DialogDescription>{selectedRequest?.occasionType?.replace(/_/g, " ")} - {selectedRequest?.guestCount} guests</DialogDescription>
           </DialogHeader>
           {selectedRequest?.quotations && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {selectedRequest.quotations.map((q) => (
                 <div key={q.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">{q.catererName}</p>
-                    <Badge className={`text-[10px] ${statusColors[q.status]}`}>{q.status}</Badge>
+                    <p className="text-sm font-semibold">{q.catererName || `Caterer #${q.catererId}`}</p>
+                    <Badge className={`text-[10px] ${statusColors[q.status] || ""}`}>{q.status}</Badge>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex justify-between text-xs"><span className="text-slate-500">Per Plate</span><span className="font-semibold">{formatPrice(q.pricePerPlate)}</span></div>
+                    {q.pricePerPlate ? <div className="flex justify-between text-xs"><span className="text-slate-500">Per Plate</span><span className="font-semibold">{formatPrice(q.pricePerPlate)}</span></div> : null}
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Total</span><span className="font-bold text-base">{formatPrice(q.totalAmount)}</span></div>
                     <div className="flex justify-between text-xs"><span className="text-slate-500">Valid Until</span><span>{q.validUntil ? new Date(q.validUntil).toLocaleDateString("en-IN") : "-"}</span></div>
                   </div>
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Menu</p>
-                    <p className="text-xs">{q.menu}</p>
-                  </div>
+                  {q.menu && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Menu</p>
+                      <p className="text-xs">{q.menu}</p>
+                    </div>
+                  )}
                   {q.notes && <p className="text-[10px] text-slate-400">Note: {q.notes}</p>}
-                  <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700 text-white">Accept Quote</Button>
+                  {q.status !== "ACCEPTED" && (
+                    <Button size="sm" onClick={() => handleAcceptQuote(selectedRequest.id, q.id)} className="w-full bg-orange-600 hover:bg-orange-700 text-white">
+                      Accept Quote
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

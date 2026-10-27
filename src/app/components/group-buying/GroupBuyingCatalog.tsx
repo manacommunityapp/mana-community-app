@@ -84,10 +84,10 @@ export function GroupBuyingCatalog() {
 
   const loadData = async () => {
     const [d, o, dem, s, ba, mb, fest] = await Promise.all([
-      groupBuyingService.getDeals(),
-      groupBuyingService.getMyOrders(user?.userId),
-      groupBuyingService.getDemandBoard(),
-      groupBuyingService.getCommunitySavings(),
+      groupBuyingService.fetchDeals(),
+      groupBuyingService.fetchMyOrders(user?.userId),
+      groupBuyingService.fetchDemandBoard(),
+      groupBuyingService.fetchCommunitySavings(),
       groupBuyingService.getBuyAgainSuggestions(),
       groupBuyingService.getMonthlyBaskets(),
       groupBuyingService.getFestivalCategories(),
@@ -245,8 +245,17 @@ export function GroupBuyingCatalog() {
             ))}
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredDeals.map(deal => {
+          {filteredDeals.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Deals Available</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                No active group deals in this category right now. Request a product on the Community Demand board!
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredDeals.map(deal => {
               const committed = deal.committedQty ?? deal.currentParticipants ?? 0;
               const target = deal.targetQty ?? deal.targetParticipants ?? 1;
               const currentPrice = deal.currentTierPrice ?? (deal.tiers?.[0]?.pricePerUnit ?? 0);
@@ -320,7 +329,8 @@ export function GroupBuyingCatalog() {
                 </Card>
               );
             })}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 2: ALMOST UNLOCKED FEED ── */}
@@ -339,8 +349,17 @@ export function GroupBuyingCatalog() {
             </div>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
-            {almostUnlockedDeals.map(deal => {
+          {almostUnlockedDeals.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <Flame className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Deals Near Unlock Threshold</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                When deals get close to their next tier discount, they will be highlighted here for a community sprint!
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+              {almostUnlockedDeals.map(deal => {
               const committed = deal.committedQty ?? deal.currentParticipants ?? 0;
               const target = deal.targetQty ?? deal.targetParticipants ?? 1;
               const currentPrice = deal.currentTierPrice ?? (deal.tiers?.[0]?.pricePerUnit ?? 0);
@@ -414,7 +433,8 @@ export function GroupBuyingCatalog() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 3: BUY AGAIN ── */}
@@ -431,8 +451,17 @@ export function GroupBuyingCatalog() {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
-            {buyAgainList.map(item => (
+          {buyAgainList.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <RefreshCw className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Previous Purchases Yet</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                After you participate in group deals, your regular essentials will appear here for fast one-tap reorders.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
+              {buyAgainList.map(item => (
               <div
                 key={item.dealId}
                 className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-emerald-300 transition-all"
@@ -485,7 +514,8 @@ export function GroupBuyingCatalog() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 4: MONTHLY COMMUNITY BASKETS ── */}
@@ -502,8 +532,17 @@ export function GroupBuyingCatalog() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            {monthlyBaskets.map(basket => (
+          {monthlyBaskets.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <Package className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Monthly Baskets Available</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Monthly staples bundles will appear here once community vendor agreements are established.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {monthlyBaskets.map(basket => (
               <div
                 key={basket.id}
                 className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between"
@@ -567,7 +606,8 @@ export function GroupBuyingCatalog() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 5: FESTIVAL BUYING ── */}
@@ -584,8 +624,17 @@ export function GroupBuyingCatalog() {
             </div>
           </div>
 
-          <div className="space-y-8">
-            {festivals.map(fest => (
+          {festivals.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <Gift className="w-12 h-12 text-rose-400 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Active Festive Buying Drives</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                Special seasonal wholesale drives for upcoming festivals will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {festivals.map(fest => (
               <div key={fest.id} className="space-y-4">
                 <div className="border-b border-slate-200 pb-2">
                   <h4 className="text-lg font-black text-slate-900">{fest.festivalName}</h4>
@@ -627,13 +676,26 @@ export function GroupBuyingCatalog() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 6: DEMAND BOARD ── */}
         <TabsContent value="demand" className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {demandBoard.map(dem => (
+          {demandBoard.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-xs">
+              <Users className="w-12 h-12 text-blue-400 mx-auto mb-3" />
+              <h4 className="text-sm font-bold text-slate-800 dark:text-white">No Community Demands Proposed Yet</h4>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto mb-4">
+                Have a product or service you want to buy in bulk with neighbours? Propose it now to gather upvotes!
+              </p>
+              <Button onClick={() => setIsRequestModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl">
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Propose First Product
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {demandBoard.map(dem => (
               <Card key={dem.id} className="border-slate-200 shadow-xs flex flex-col justify-between rounded-2xl">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-center">
@@ -661,7 +723,8 @@ export function GroupBuyingCatalog() {
                 </CardFooter>
               </Card>
             ))}
-          </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ── TAB 7: MY ORDERS & QR PASSES ── */}

@@ -171,6 +171,7 @@ import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfi
 import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
+import { VendorApplication } from "./components/vendor/portal/VendorApplication";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -325,6 +326,7 @@ import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
 import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
 import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
 import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
+import { ConnectedHealthOverview } from "./components/healthguard/ConnectedHealthOverview";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -793,8 +795,12 @@ export const router = createBrowserRouter([
         ]
       },
       {
+        path: "vendor-apply",
+        Component: VendorApplication,
+      },
+      {
         path: "vendor-admin",
-        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
+        element: <PermissionGuard permission={MANAGE_VENDORS} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
         children: [
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },
@@ -1179,7 +1185,7 @@ export const router = createBrowserRouter([
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
       { path: "split-bill", element: <SplitBillPortal /> },
-      { path: "movies", element: <MoviePortal /> },
+      { path: "movies", element: <PermissionGuard anyModules={["ENTERTAINMENT", "MOVIES"]} requiredModule="ENTERTAINMENT"><MoviePortal /></PermissionGuard> },
       { path: "fd", element: <FDPortal /> },
       { path: "loans", element: <LoanPortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
@@ -1226,6 +1232,7 @@ export const router = createBrowserRouter([
         path: "healthguard",
         children: [
           { index: true, element: <HealthGuardDashboard /> },
+          { path: "connected-health", element: <ConnectedHealthOverview /> },
           { path: "contacts", element: <EmergencyContacts /> },
           { path: "incidents", element: <IncidentTracker /> },
           { path: "sos", element: <SosScreen /> },

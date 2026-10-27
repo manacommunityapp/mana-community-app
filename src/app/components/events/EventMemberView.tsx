@@ -2589,7 +2589,13 @@ export function EventMemberView() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <span className="text-2xl shrink-0 p-1 bg-background/80 rounded-xl border border-border shadow-2xs">{member.avatar || (member.gender === "Female" ? "👩" : "👨")}</span>
+                                <span className="text-2xl shrink-0 p-1 bg-background/80 rounded-xl border border-border shadow-2xs w-9 h-9 flex items-center justify-center overflow-hidden">
+                                  {member.avatar && (member.avatar.startsWith("http") || member.avatar.startsWith("/")) ? (
+                                    <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-lg" />
+                                  ) : (
+                                    (member.avatar && member.avatar.length <= 4 ? member.avatar : (member.gender === "Female" ? "👩" : "👨"))
+                                  )}
+                                </span>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <p className="text-xs font-black text-foreground truncate">{member.name}</p>
@@ -4016,8 +4022,12 @@ export function EventMemberView() {
                       className="p-3 rounded-2xl bg-muted/30 border border-border flex items-center justify-between gap-2.5"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
-                          {member.avatar || (member.gender === "Female" ? "👩" : "👨")}
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0 overflow-hidden">
+                          {member.avatar && (member.avatar.startsWith("http") || member.avatar.startsWith("/")) ? (
+                            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover rounded-xl" />
+                          ) : (
+                            (member.avatar && member.avatar.length <= 4 ? member.avatar : (member.gender === "Female" ? "👩" : "👨"))
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Ambulance, Shield, LayoutDashboard } from 'lucide-react';
+import { ShieldAlert, Users, Clock, Phone, AlertTriangle, CheckCircle2, XCircle, ChevronRight, Plus, Ambulance, Shield, LayoutDashboard, HeartPulse } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -94,6 +94,20 @@ export function HealthGuardDashboard() {
           SOS
         </Button>
       </div>
+
+      {/* Connected health introduction */}
+      <Card className="cursor-pointer border-blue-200 bg-blue-50/40 transition-colors hover:border-blue-400 dark:border-blue-900 dark:bg-blue-950/20" onClick={() => navigate('/healthguard/connected-health')}>
+        <CardContent className="flex items-center gap-3 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-100 text-blue-700 dark:border-blue-800 dark:bg-blue-900 dark:text-blue-300">
+            <HeartPulse className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Connected health</p>
+            <p className="text-xs text-muted-foreground">See how wearable syncing and data permissions will work</p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </CardContent>
+      </Card>
 
       {/* Active Incident Alert */}
       {activeIncident && (

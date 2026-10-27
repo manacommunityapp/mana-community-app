@@ -20,20 +20,9 @@ export function MeetingsManagement() {
   const [activeTab, setActiveTab] = useState<"AGM" | "EGM" | "PAST">("AGM");
   const [attendedMode, setAttendedMode] = useState<"PHYSICAL" | "ONLINE">("PHYSICAL");
   const [hasConfirmedAttendance, setHasConfirmedAttendance] = useState(true);
-  const [attendanceCount, setAttendanceCount] = useState(438);
+  const [attendanceCount, setAttendanceCount] = useState(0);
 
-  const [agendaItems] = useState<AgendaItem[]>([
-    { id: 1, order: 1, title: "1. Opening & Formal Quorum Verification", presenter: "President · Sandeep K.", duration: "15 min", description: "Verification of physical + online registered voting members against 50% legal quorum.", status: "PENDING" },
-    { id: 2, order: 2, title: "2. Adoption of Previous AGM 2025 Minutes", presenter: "Secretary · Rahul V.", duration: "20 min", description: "Review of compliance and actions completed from FY 2024-25 resolutions.", status: "PENDING" },
-    { id: 3, order: 3, title: "3. Presentation of Annual Audited Accounts (FY 2025-26)", presenter: "Treasurer · Priya M.", duration: "45 min", description: "Detailed review of ₹1.82 Cr maintenance collection, vendor audits, and Sinking Fund yields.", status: "PENDING" },
-    { id: 4, order: 4, title: "4. Major Capital Proposal: Basement EV Charging Grid", presenter: "Infrastructure Sub-committee", duration: "30 min", description: "Approval of ₹8,50,000 for 12 fast charging units with load management.", status: "VOTING_OPEN" },
-    { id: 5, order: 5, title: "5. Security System & ANPR Barrier Modernization", presenter: "Security Marshal", duration: "20 min", description: "Upgrade of Boom barriers, visitor facial recognition, and guard patrol tablets.", status: "PENDING" },
-    { id: 6, order: 6, title: "6. Biennial Management Committee Elections 2026-2028", presenter: "Returning Officer", duration: "60 min", description: "Secret electronic ballot declaration for President, Secretary, Treasurer & Members.", status: "PENDING" },
-    { id: 7, order: 7, title: "7. Approval of Annual Maintenance Budget (FY 2026-27)", presenter: "Treasurer", duration: "30 min", description: "Determination of per-sq.ft monthly maintenance tariff.", status: "PENDING" },
-    { id: 8, order: 8, title: "8. Resident Open Floor & Community Questions", presenter: "General Body", duration: "45 min", description: "Addressing resident queries submitted via Mana Helpdesk.", status: "PENDING" },
-    { id: 9, order: 9, title: "9. Any Other Matter with Permission of the Chair", presenter: "President", duration: "15 min", description: "Emergent topics raised by verified voting members.", status: "PENDING" },
-    { id: 10, order: 10, title: "10. Vote of Thanks & Meeting Concluding Remarks", presenter: "Joint Secretary", duration: "10 min", description: "Formal conclusion and publishing of raw proceedings.", status: "PENDING" },
-  ]);
+  const [agendaItems] = useState<AgendaItem[]>([]);
 
   const handleConfirmAttendance = () => {
     setHasConfirmedAttendance(true);

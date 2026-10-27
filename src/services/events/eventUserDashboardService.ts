@@ -235,3 +235,4 @@ export const eventUserDashboardService = {
   getFamilyMembers: (): Promise<FamilyMemberItem[]> =>
     apiClient.get<FamilyMemberItem[]>("/events/user-dashboard/family-members"),
 };
+

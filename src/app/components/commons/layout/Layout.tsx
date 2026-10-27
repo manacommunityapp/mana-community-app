@@ -6,7 +6,7 @@ import {
   Building2, Headphones, Vote, Server, Sparkles, Home, Lock, HeartHandshake, ShieldAlert,
   ShoppingBag, Compass, CreditCard, GraduationCap, Tag, Heart, Stethoscope, Wallet, Car,
   PieChart, CalendarClock, HeartPulse, FolderKanban, Brain, Bot, Calendar, ShoppingCart,
-  Smartphone
+  Smartphone, Film
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -419,6 +419,16 @@ export function Layout() {
     "Calendar": "CALENDAR",
     "Commerce": "COMMERCE",
     "Mobile Recharge": ["PAYMENTS", "MANA_PAY", "FINANCE_MGMT"],
+    "Smart Gates": ["VISITORS", "SAFETY"],
+    "Community Calendar": "CALENDAR",
+    "Vehicle Care": "HOME_SERVICES",
+    "Property OS (CPOS)": "CPOS",
+    "Movie Night": ["ENTERTAINMENT", "MOVIES"],
+    "Food & Dining": "FOOD_OS",
+    "Fixed Deposits": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
+    "Digital Gold": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
+    "Mutual Funds": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
+    "Loans & EMI": ["FINANCE_MGMT", "PERSONAL_FINANCE"],
   };
 
   const toggleSidebar = () => {
@@ -441,6 +451,8 @@ export function Layout() {
     icon: any;
     label: string;
     badge?: string;
+    /** Optional: matches menuPermissions[].menuKey from backend. Enables dynamic per-role visibility. */
+    menuKey?: string;
   }
 
   interface NavSection {
@@ -454,57 +466,73 @@ export function Layout() {
       id: "core",
       title: "Core & Safety",
       items: [
-        { to: "/", icon: Users, label: "Community Feed" },
-        { to: "/safety", icon: ShieldCheck, label: "Safety & Security" },
-        { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS", badge: "24/7" },
-        { to: "/commute", icon: Car, label: "Community Rides" },
+        { to: "/", icon: Users, label: "Community Feed", menuKey: "community-feed" },
+        { to: "/safety", icon: ShieldCheck, label: "Safety & Security", menuKey: "safety" },
+        { to: "/access/turnstiles", icon: ShieldCheck, label: "Smart Gates", badge: "Live", menuKey: "smart-gates" },
+        { to: "/emergency", icon: ShieldAlert, label: "Emergency SOS", badge: "24/7", menuKey: "emergency" },
+        { to: "/commute", icon: Car, label: "Community Rides", menuKey: "commute" },
       ],
     },
     {
       id: "living",
       title: "Living & Facilities",
       items: [
-        { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI" },
-        { to: "/recharge", icon: Smartphone, label: "Mobile Recharge", badge: "NEW" },
-        { to: "/bookings", icon: Building2, label: "Bookings" },
-        { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk" },
-        { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues" },
-        { to: "/finance/bills", icon: CalendarClock, label: "Bills & Autopay", badge: "CRED" },
-        { to: "/my-money", icon: Wallet, label: "My Money" },
-        { to: "/parking", icon: Car, label: "Parking & Vehicles" },
-        { to: "/notices", icon: Megaphone, label: "Notices" },
-        { to: "/visitors", icon: Shield, label: "Visitors" },
+        { to: "/calendar", icon: Calendar, label: "Community Calendar", badge: "NEW", menuKey: "calendar" },
+        { to: "/notices", icon: Megaphone, label: "Notices", menuKey: "notices" },
+        { to: "/pay", icon: CreditCard, label: "Mana Pay", badge: "UPI", menuKey: "mana-pay" },
+        { to: "/recharge", icon: Smartphone, label: "Mobile Recharge", badge: "NEW", menuKey: "recharge" },
+        { to: "/bookings", icon: Building2, label: "Bookings", menuKey: "amenity-booking" },
+        { to: "/vehicle-care", icon: Car, label: "Vehicle Care", badge: "Wash", menuKey: "vehicle-care" },
+        { to: "/parking", icon: Car, label: "Parking & Vehicles", menuKey: "parking" },
+        { to: "/helpdesk-smart", icon: Headphones, label: "Smart Helpdesk", menuKey: "helpdesk" },
+        { to: "/finance/maintenance", icon: CreditCard, label: "Maintenance Dues", menuKey: "maintenance-dues" },
+        { to: "/finance/bills", icon: CalendarClock, label: "Bills & Autopay", badge: "CRED", menuKey: "bills-autopay" },
+        { to: "/my-money", icon: Wallet, label: "My Money", menuKey: "my-money" },
+        { to: "/cpos", icon: Home, label: "Property OS (CPOS)", badge: "CPOS", menuKey: "cpos" },
+        { to: "/visitors", icon: Shield, label: "Visitors", menuKey: "visitors" },
       ],
     },
     {
       id: "social",
       title: "Community & Lifestyle",
       items: [
-        { to: "/discover", icon: Sparkles, label: "Community Discover" },
-        { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New" },
-        { to: "/wellness", icon: HeartPulse, label: "Health Buddy", badge: "New" },
-        { to: "/healthguard", icon: ShieldAlert, label: "Mana HealthGuard", badge: "SOS" },
-        { to: "/insurance", icon: ShieldCheck, label: "Mana Insurance", badge: "New" },
-        { to: "/sports", icon: Trophy, label: "Sports" },
-        { to: "/events", icon: CalendarDays, label: "Events" },
-        { to: "/trips", icon: Compass, label: "Community Trips" },
-        { to: "/split", icon: PieChart, label: "Mana Split", badge: "New" },
-        { to: "/pets", icon: Heart, label: "Pet Registry" },
-        { to: "/polls", icon: Vote, label: "Polls" },
+        { to: "/discover", icon: Sparkles, label: "Community Discover", menuKey: "discover" },
+        { to: "/health", icon: Stethoscope, label: "Mana Health", badge: "New", menuKey: "health" },
+        { to: "/wellness", icon: HeartPulse, label: "Health Buddy", badge: "New", menuKey: "health-buddy" },
+        { to: "/healthguard", icon: ShieldAlert, label: "Mana HealthGuard", badge: "SOS", menuKey: "healthguard" },
+        { to: "/insurance", icon: ShieldCheck, label: "Mana Insurance", badge: "New", menuKey: "insurance" },
+        { to: "/sports", icon: Trophy, label: "Sports", menuKey: "sports" },
+        { to: "/events", icon: CalendarDays, label: "Events", menuKey: "events" },
+        { to: "/movies", icon: Film, label: "Movie Night", badge: "Cinema", menuKey: "movies" },
+        { to: "/trips", icon: Compass, label: "Community Trips", menuKey: "trips" },
+        { to: "/split", icon: PieChart, label: "Mana Split", badge: "New", menuKey: "split-bill" },
+        { to: "/pets", icon: Heart, label: "Pet Registry", menuKey: "pets" },
+        { to: "/polls", icon: Vote, label: "Polls", menuKey: "polls" },
       ],
     },
     {
       id: "commerce",
       title: "Commerce & Network",
       items: [
-        { to: "/deals", icon: Tag, label: "Mana Deals" },
-        { to: "/academy", icon: GraduationCap, label: "Mana Academy" },
-        { to: "/group-buying", icon: ShoppingBag, label: "Group Buying" },
-        { to: "/home-services", icon: HeartHandshake, label: "Home Services" },
-        { to: "/marketplace", icon: Store, label: "Marketplace" },
-        { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
-        { to: "/cpn", icon: Sparkles, label: "Professional Network" },
-        { to: "/governance", icon: Landmark, label: "Governance & Decisions" },
+        { to: "/marketplace", icon: Store, label: "Marketplace", menuKey: "marketplace" },
+        { to: "/deals", icon: Tag, label: "Mana Deals", menuKey: "deals" },
+        { to: "/food", icon: ShoppingCart, label: "Food & Dining", menuKey: "food" },
+        { to: "/academy", icon: GraduationCap, label: "Mana Academy", menuKey: "academy" },
+        { to: "/group-buying", icon: ShoppingBag, label: "Group Buying", menuKey: "group-buying" },
+        { to: "/home-services", icon: HeartHandshake, label: "Home Services", menuKey: "home-services" },
+        { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals", menuKey: "jobs" },
+        { to: "/cpn", icon: Sparkles, label: "Professional Network", menuKey: "professional-network" },
+        { to: "/governance", icon: Landmark, label: "Governance & Decisions", menuKey: "governance" },
+      ],
+    },
+    {
+      id: "wealth",
+      title: "Wealth & Investments",
+      items: [
+        { to: "/fd", icon: Landmark, label: "Fixed Deposits", badge: "8.5%", menuKey: "fixed-deposits" },
+        { to: "/gold", icon: Sparkles, label: "Digital Gold", badge: "24K", menuKey: "digital-gold" },
+        { to: "/mutual-funds", icon: BarChart3, label: "Mutual Funds", badge: "SIP", menuKey: "mutual-funds" },
+        { to: "/loans", icon: Receipt, label: "Loans & EMI", badge: "Pre-Appr", menuKey: "loans" },
       ],
     },
   ];
@@ -521,10 +549,25 @@ export function Layout() {
     return keys.some((k) => enabledModules.includes(k));
   };
 
-  const isLinkVisible = (label: string) => {
+  /**
+   * Hybrid visibility check — three-tier logic:
+   * 1. If the link has a menuKey AND user.menuPermissions[] is populated (backend-driven):
+   *    → use hasMenuPermission(menuKey, "view") — fully dynamic, no code changes needed for new items
+   * 2. Else fall back to the legacy label-based module + permission check (old behaviour)
+   * 3. SuperAdmin always sees everything
+   */
+  const isLinkVisible = (label: string, menuKey?: string) => {
     if (loadingPermissions) return true;
 
-    // Check community module availability
+    // SuperAdmin bypass
+    if (isSuperAdmin) return true;
+
+    // Tier 1: dynamic menuPermissions from backend (populated after /users/me)
+    if (menuKey && user?.menuPermissions && user.menuPermissions.length > 0) {
+      return hasMenuPermission(menuKey, "view");
+    }
+
+    // Tier 2: legacy module-enablement check
     const moduleConfig = labelToModule[label];
     if (moduleConfig) {
       if (!isModuleEnabled(moduleConfig)) {
@@ -532,6 +575,7 @@ export function Layout() {
       }
     }
 
+    // Tier 3: legacy hardcoded permission check (fallback)
     if (label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (label === "Safety & Security") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
     if (label === "Mana Pay") return permissions.includes(VIEW_MAINTENANCE_DUES) || permissions.includes(PAY_MAINTENANCE_DUES) || permissions.includes(VIEW_ADMIN) || isAnyAdmin;
@@ -565,13 +609,23 @@ export function Layout() {
     if (label === "My Money") return true;
     if (label === "Mana Split") return true;
     if (label === "Mobile Recharge") return true;
+    if (label === "Smart Gates") return permissions.includes(VIEW_SAFETY) || permissions.includes(VIEW_VISITORS) || isAnyAdmin;
+    if (label === "Community Calendar" || label === "Calendar") return true;
+    if (label === "Vehicle Care") return true;
+    if (label === "Property OS (CPOS)") return true;
+    if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
+    if (label === "Food & Dining") return true;
+    if (label === "Fixed Deposits") return true;
+    if (label === "Digital Gold") return true;
+    if (label === "Mutual Funds") return true;
+    if (label === "Loans & EMI") return true;
     return false;
   };
 
   const filteredSections = navSections
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => isLinkVisible(item.label)),
+      items: section.items.filter((item) => isLinkVisible(item.label, item.menuKey)),
     }))
     .filter((section) => section.items.length > 0);
 

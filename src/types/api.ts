@@ -655,6 +655,8 @@ export interface UserResponse {
   profilePicUrl?: string;
   gender?: string;
   dateOfBirth?: string;
+  createdAt?: string;
+  createdDate?: string;
   flatNo?: string;
   block?: string;
   tower?: string;
@@ -1243,7 +1245,7 @@ export interface MenuRolePermissionResponse {
 // ─── Vendor Management System ───────────────────────────────────────────────
 
 export type VendorStatus = "PENDING" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "REJECTED" | "BLACKLISTED";
-export type VendorRegistrationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "INCOMPLETE";
+export type VendorRegistrationStatus = "PENDING" | "APPROVED" | "REJECTED" | "CONVERTED";
 export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED";
 export type WorkOrderStatus = "DRAFT" | "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "ON_HOLD" | "COMPLETED" | "CLOSED" | "CANCELLED";
 export type WorkOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
@@ -1292,6 +1294,7 @@ export interface VendorDocument {
   fileSize?: number;
   expiryDate?: string;
   verified: boolean;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | string;
   verifiedAt?: string;
   verifiedBy?: string;
   uploadedAt: string;
@@ -1367,33 +1370,46 @@ export interface VendorRequest {
 export interface VendorRegistrationResponse {
   id: number;
   businessName: string;
-  ownerName: string;
-  ownerEmail: string;
-  ownerPhone: string;
-  categoryName: string;
-  categoryId: number;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  categoryName?: string;
+  categoryId?: number;
+  businessType?: string;
   status: VendorRegistrationStatus;
   description?: string;
   address?: string;
-  documents?: VendorDocument[];
-  submittedAt: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  applicantUserId?: number;
+  applicantUserName?: string;
+  applicantUserEmail?: string;
+  vendorId?: number;
+  communityId?: number;
+  createdAt: string;
+  updatedAt?: string;
   reviewedAt?: string;
-  reviewedBy?: string;
+  reviewedByName?: string;
+  reviewedById?: number;
   rejectionReason?: string;
   notes?: string;
 }
 
 export interface VendorRegistrationRequest {
   businessName: string;
-  ownerName: string;
-  ownerEmail: string;
-  ownerPhone: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
   categoryId: number;
+  businessType?: "INDIVIDUAL" | "COMPANY" | "PARTNERSHIP" | "PROPRIETORSHIP";
   description?: string;
   address?: string;
   city?: string;
   state?: string;
-  pinCode?: string;
+  pincode?: string;
   gstNumber?: string;
   panNumber?: string;
 }
@@ -1832,8 +1848,8 @@ export interface VendorDashboardStats {
   totalRevenue: number;
   monthlyRevenue: number;
   avgRating: number;
-  totalWorkOrders: number;
-  openWorkOrders: number;
+  totalWorkOrders?: number;
+  openWorkOrders?: number;
   overdueInvoices: number;
   expiringContracts: number;
   categoryDistribution: { category: string; count: number }[];
@@ -1884,7 +1900,7 @@ export interface VendorPortalStats {
   pendingPayments: number;
   avgRating: number;
   totalReviews: number;
-  openWorkOrders: number;
+  openWorkOrders?: number;
   upcomingBookings: VendorBookingResponse[];
   recentPayments: VendorPaymentResponse[];
   ratingBreakdown: { stars: number; count: number }[];

@@ -1,3 +1,5 @@
+import { apiClient } from "../common/apiClient";
+
 export type DealStatus = "ACTIVE" | "FUNDED" | "FULFILLED" | "CANCELLED";
 export type OrderStatus = "CONFIRMED" | "PROCESSING" | "READY" | "DELIVERED" | "CANCELLED";
 export type DisputeStatus = "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "ESCALATED";
@@ -108,8 +110,14 @@ export interface VendorProfile {
   gstVerified: boolean;
   fssaiVerified: boolean;
   since: string;
-  products: { name: string; price: number; unit: string }[];
   badges: string[];
+  products: { name: string; price: number; unit: string }[];
+}
+
+export interface MonthlyBasketItem {
+  name: string;
+  qty: string;
+  price: number;
 }
 
 export interface MonthlyBasket {
@@ -117,18 +125,18 @@ export interface MonthlyBasket {
   name: string;
   title?: string;
   description: string;
-  items: { name: string; qty: string; price: number }[];
+  items: MonthlyBasketItem[] | string[];
   totalPrice: number;
   regularPrice?: number;
   communityPrice?: number;
   subscribers: number;
-  targetFamilies?: number;
-  enrolledFamilies?: number;
   frequency: "WEEKLY" | "MONTHLY";
   nextDelivery: string;
   nextDeliveryDate?: string;
   vendor: string;
   vendorRating: number;
+  targetFamilies?: number;
+  enrolledFamilies?: number;
   savings?: number;
 }
 
@@ -146,7 +154,7 @@ export interface FestivalCategory {
   id: string;
   festivalName: string;
   tagline: string;
-  bannerImage?: string;
+  bannerImage: string;
   deals: GroupDeal[];
 }
 
@@ -224,258 +232,22 @@ export interface AIDemandMatch {
   suggestions: string[];
 }
 
-const SAMPLE_DEALS: GroupDeal[] = [
-  {
-    id: "deal-001", title: "Fresh Organic Produce Box", category: "Groceries",
-    description: "Weekly farm-to-door organic vegetables and fruits sourced directly from certified organic farms in Pune.",
-    imagePlaceholderColor: "#4ade80", currentParticipants: 34, targetParticipants: 50,
-    tiers: [
-      { minQty: 1, maxQty: 19, pricePerUnit: 850, label: "Standard" },
-      { minQty: 20, maxQty: 39, pricePerUnit: 750, label: "Group" },
-      { minQty: 40, maxQty: null, pricePerUnit: 650, label: "Bulk" },
-    ],
-    vendor: "Green Earth Farms", vendorId: "v-001", vendorRating: 4.7,
-    endDate: new Date(Date.now() + 3 * 86400000).toISOString(), status: "ACTIVE",
-    deliveryDate: new Date(Date.now() + 7 * 86400000).toISOString(),
-    pickupPoints: ["Tower A Lobby", "Tower B Lobby", "Clubhouse"],
-    tags: ["Organic", "Weekly"], mrp: 1100, savings: 29,
-  },
-  {
-    id: "deal-002", title: "Premium Air Purifier - Dyson V3", category: "Electronics",
-    description: "Hospital-grade HEPA air purifier with WiFi control. CADR 500 m³/hr, covers up to 800 sq ft.",
-    imagePlaceholderColor: "#60a5fa", currentParticipants: 18, targetParticipants: 25,
-    tiers: [
-      { minQty: 1, maxQty: 9, pricePerUnit: 28000, label: "Standard" },
-      { minQty: 10, maxQty: 19, pricePerUnit: 24000, label: "Group" },
-      { minQty: 20, maxQty: null, pricePerUnit: 21000, label: "Bulk" },
-    ],
-    vendor: "TechMart Electronics", vendorId: "v-002", vendorRating: 4.4,
-    endDate: new Date(Date.now() + 5 * 86400000).toISOString(), status: "ACTIVE",
-    deliveryDate: new Date(Date.now() + 12 * 86400000).toISOString(),
-    pickupPoints: ["Security Gate", "Clubhouse"],
-    tags: ["Premium", "Electronics"], mrp: 35000, savings: 40,
-  },
-  {
-    id: "deal-003", title: "Household Cleaning Bundle", category: "Household",
-    description: "3-month supply of eco-friendly cleaning products: floor cleaner, dishwash, laundry pods & surface spray.",
-    imagePlaceholderColor: "#f472b6", currentParticipants: 67, targetParticipants: 60,
-    tiers: [
-      { minQty: 1, maxQty: 29, pricePerUnit: 599, label: "Standard" },
-      { minQty: 30, maxQty: 59, pricePerUnit: 499, label: "Group" },
-      { minQty: 60, maxQty: null, pricePerUnit: 399, label: "Bulk" },
-    ],
-    vendor: "CleanCo Supplies", vendorId: "v-003", vendorRating: 4.6,
-    endDate: new Date(Date.now() + 1 * 86400000).toISOString(), status: "FUNDED",
-    deliveryDate: new Date(Date.now() + 5 * 86400000).toISOString(),
-    pickupPoints: ["Tower A Lobby", "Tower B Lobby"],
-    tags: ["Eco-Friendly", "Bulk"], mrp: 899, savings: 56,
-  },
-  {
-    id: "deal-004", title: "Festive Sweets Hamper - Diwali", category: "Food & Festive",
-    description: "Curated Diwali hamper with 16 varieties of premium dry fruits, mithai, and chocolate assortments.",
-    imagePlaceholderColor: "#fb923c", currentParticipants: 45, targetParticipants: 40,
-    tiers: [
-      { minQty: 1, maxQty: 19, pricePerUnit: 1499, label: "Standard" },
-      { minQty: 20, maxQty: 39, pricePerUnit: 1299, label: "Group" },
-      { minQty: 40, maxQty: null, pricePerUnit: 1099, label: "Bulk" },
-    ],
-    vendor: "Mithai Palace", vendorId: "v-004", vendorRating: 4.8,
-    endDate: new Date(Date.now() + 10 * 86400000).toISOString(), status: "FUNDED",
-    deliveryDate: new Date(Date.now() + 14 * 86400000).toISOString(),
-    pickupPoints: ["Clubhouse", "Tower A Lobby"],
-    tags: ["Festive", "Gift"], isFestival: true, festivalName: "Diwali", mrp: 2200, savings: 50,
-  },
-  {
-    id: "deal-005", title: "Basmati Rice 25kg - Premium", category: "Groceries",
-    description: "Aged 2-year premium Basmati rice from Dehradun. Perfect for biryani and pulao.",
-    imagePlaceholderColor: "#fbbf24", currentParticipants: 28, targetParticipants: 30,
-    tiers: [
-      { minQty: 1, maxQty: 14, pricePerUnit: 2200, label: "Standard" },
-      { minQty: 15, maxQty: 29, pricePerUnit: 1900, label: "Group" },
-      { minQty: 30, maxQty: null, pricePerUnit: 1700, label: "Bulk" },
-    ],
-    vendor: "Kisan Direct", vendorId: "v-005", vendorRating: 4.5,
-    endDate: new Date(Date.now() + 2 * 86400000).toISOString(), status: "ACTIVE",
-    deliveryDate: new Date(Date.now() + 6 * 86400000).toISOString(),
-    pickupPoints: ["Gate 2 Lobby", "Clubhouse"],
-    tags: ["Staples", "Bulk"], mrp: 3000, savings: 43,
-  },
-  {
-    id: "deal-006", title: "Diwali Crackers Family Pack", category: "Food & Festive",
-    description: "Safe & eco-friendly cracker assortment: sparklers, flower pots, chakris, anars. PESO certified.",
-    imagePlaceholderColor: "#ef4444", currentParticipants: 52, targetParticipants: 50,
-    tiers: [
-      { minQty: 1, maxQty: 24, pricePerUnit: 1800, label: "Standard" },
-      { minQty: 25, maxQty: 49, pricePerUnit: 1500, label: "Group" },
-      { minQty: 50, maxQty: null, pricePerUnit: 1200, label: "Bulk" },
-    ],
-    vendor: "Festival Mart", vendorId: "v-006", vendorRating: 4.3,
-    endDate: new Date(Date.now() + 8 * 86400000).toISOString(), status: "FUNDED",
-    deliveryDate: new Date(Date.now() + 11 * 86400000).toISOString(),
-    pickupPoints: ["Gate 1 Parking"],
-    tags: ["Festive", "Eco-Friendly"], isFestival: true, festivalName: "Diwali", mrp: 2800, savings: 57,
-  },
-  {
-    id: "deal-007", title: "Kids School Supplies Kit", category: "Education",
-    description: "Complete school kit: notebooks, geometry set, pens, pencils, art supplies for the new term.",
-    imagePlaceholderColor: "#8b5cf6", currentParticipants: 12, targetParticipants: 40,
-    tiers: [
-      { minQty: 1, maxQty: 19, pricePerUnit: 750, label: "Standard" },
-      { minQty: 20, maxQty: 39, pricePerUnit: 600, label: "Group" },
-      { minQty: 40, maxQty: null, pricePerUnit: 480, label: "Bulk" },
-    ],
-    vendor: "StudyMate India", vendorId: "v-007", vendorRating: 4.2,
-    endDate: new Date(Date.now() + 15 * 86400000).toISOString(), status: "ACTIVE",
-    deliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
-    pickupPoints: ["Tower A Lobby", "Clubhouse"],
-    tags: ["Education", "Kids"], mrp: 1100, savings: 56,
-  },
-];
-
-const DEMAND_ITEMS: DemandItem[] = [
-  { id: "d-1", title: "Organic A2 Milk - Monthly Subscription", description: "Need vendor for daily A2 cow milk delivery", category: "Groceries", requestedBy: "Priya K, Flat 204", upvotes: 42, createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), status: "OPEN",
-    vendorOffers: [
-      { vendorId: "v-010", vendorName: "GoFarm Dairy", price: 85, moq: 30, rating: 4.6, deliveryDays: 1, score: 92 },
-      { vendorId: "v-011", vendorName: "A2 Pure Farms", price: 90, moq: 20, rating: 4.8, deliveryDays: 1, score: 88 },
-    ],
-  },
-  { id: "d-2", title: "Premium Water Purifier (RO+UV)", description: "Group deal on Kent or Livpure purifiers with AMC", category: "Appliances", requestedBy: "Ravi M, Flat 501", upvotes: 31, createdAt: new Date(Date.now() - 3 * 86400000).toISOString(), status: "MATCHED",
-    vendorOffers: [
-      { vendorId: "v-012", vendorName: "AquaPure Services", price: 14500, moq: 10, rating: 4.5, deliveryDays: 5, score: 85 },
-    ],
-  },
-  { id: "d-3", title: "Solar Panel Installation", description: "Community solar rooftop with shared billing", category: "Energy", requestedBy: "Sanjay T, Flat 102", upvotes: 28, createdAt: new Date(Date.now() - 7 * 86400000).toISOString(), status: "OPEN" },
-  { id: "d-4", title: "EV Charging Station (Shared)", description: "2-point EV charger for basement parking", category: "Energy", requestedBy: "Amit R, Flat 301", upvotes: 19, createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), status: "OPEN" },
-];
-
-const VENDOR_PROFILES: VendorProfile[] = [
-  {
-    id: "v-001", name: "Green Earth Farms", category: "Organic Produce", rating: 4.7,
-    totalOrders: 342, onTimeRate: 96, qualityScore: 94, responseTime: "< 1 hour",
-    verified: true, gstVerified: true, fssaiVerified: true, since: "2023-03",
-    badges: ["Top Rated", "Community Favourite", "Eco Certified"],
-    products: [
-      { name: "Organic Veggie Box", price: 650, unit: "box" },
-      { name: "Fruit Basket (2kg)", price: 450, unit: "basket" },
-      { name: "Salad Greens Pack", price: 180, unit: "pack" },
-    ],
-  },
-  {
-    id: "v-002", name: "TechMart Electronics", category: "Electronics & Appliances", rating: 4.4,
-    totalOrders: 187, onTimeRate: 91, qualityScore: 89, responseTime: "< 2 hours",
-    verified: true, gstVerified: true, fssaiVerified: false, since: "2024-01",
-    badges: ["Verified Seller", "Fast Response"],
-    products: [
-      { name: "Dyson V3 Purifier", price: 21000, unit: "unit" },
-      { name: "Samsung AC 1.5T", price: 34000, unit: "unit" },
-      { name: "LG Washing Machine", price: 28000, unit: "unit" },
-    ],
-  },
-  {
-    id: "v-004", name: "Mithai Palace", category: "Food & Sweets", rating: 4.8,
-    totalOrders: 520, onTimeRate: 98, qualityScore: 97, responseTime: "< 30 mins",
-    verified: true, gstVerified: true, fssaiVerified: true, since: "2022-06",
-    badges: ["Top Rated", "FSSAI Certified", "Festival Specialist"],
-    products: [
-      { name: "Diwali Premium Hamper", price: 1099, unit: "hamper" },
-      { name: "Kaju Katli 500g", price: 650, unit: "box" },
-      { name: "Dry Fruit Gift Box", price: 899, unit: "box" },
-    ],
-  },
-];
-
-const MONTHLY_BASKETS: MonthlyBasket[] = [
-  {
-    id: "basket-001", name: "Monthly Staples Basket", description: "Essential groceries for a family of 4",
-    items: [
-      { name: "Rice (5kg)", qty: "1", price: 450 },
-      { name: "Atta (5kg)", qty: "1", price: 280 },
-      { name: "Toor Dal (1kg)", qty: "2", price: 340 },
-      { name: "Cooking Oil (1L)", qty: "2", price: 380 },
-      { name: "Sugar (1kg)", qty: "1", price: 55 },
-      { name: "Salt (1kg)", qty: "1", price: 25 },
-    ],
-    totalPrice: 1530, subscribers: 78, frequency: "MONTHLY",
-    nextDelivery: new Date(Date.now() + 5 * 86400000).toISOString(),
-    vendor: "Kisan Direct", vendorRating: 4.5,
-  },
-  {
-    id: "basket-002", name: "Organic Veggie Weekly", description: "Fresh seasonal vegetables delivered weekly",
-    items: [
-      { name: "Seasonal Veggies (2kg)", qty: "1", price: 220 },
-      { name: "Leafy Greens Bundle", qty: "1", price: 80 },
-      { name: "Onion-Potato-Tomato (1kg each)", qty: "1", price: 150 },
-      { name: "Herbs & Garnish Pack", qty: "1", price: 60 },
-    ],
-    totalPrice: 510, subscribers: 124, frequency: "WEEKLY",
-    nextDelivery: new Date(Date.now() + 2 * 86400000).toISOString(),
-    vendor: "Green Earth Farms", vendorRating: 4.7,
-  },
-  {
-    id: "basket-003", name: "Baby Essentials Pack", description: "Diapers, wipes, and baby food monthly bundle",
-    items: [
-      { name: "Diapers (L, 50pcs)", qty: "1", price: 680 },
-      { name: "Baby Wipes (3 packs)", qty: "1", price: 250 },
-      { name: "Cerelac Mixed Fruit", qty: "2", price: 440 },
-      { name: "Baby Lotion & Soap", qty: "1", price: 320 },
-    ],
-    totalPrice: 1690, subscribers: 34, frequency: "MONTHLY",
-    nextDelivery: new Date(Date.now() + 8 * 86400000).toISOString(),
-    vendor: "MomCare India", vendorRating: 4.6,
-  },
-];
-
-const FESTIVAL_CAMPAIGNS: FestivalCampaign[] = [
-  {
-    id: "fest-001", festivalName: "Diwali Dhamaka", tagline: "Light up your savings this Diwali",
-    color: "#f59e0b", startDate: new Date(Date.now() - 2 * 86400000).toISOString(),
-    endDate: new Date(Date.now() + 12 * 86400000).toISOString(),
-    deals: SAMPLE_DEALS.filter(d => d.isFestival),
-  },
-  {
-    id: "fest-002", festivalName: "Winter Ready Sale", tagline: "Cozy up with community bulk deals",
-    color: "#3b82f6", startDate: new Date(Date.now() + 20 * 86400000).toISOString(),
-    endDate: new Date(Date.now() + 35 * 86400000).toISOString(),
-    deals: [],
-  },
-];
-
-const BUYING_GROUPS: BuyingGroup[] = [
-  { id: "bg-001", name: "Tower A Buyers", type: "TOWER", members: 42, maxMembers: 80, admin: "Priya K", activeDealCount: 3, totalSavings: 28500 },
-  { id: "bg-002", name: "Tower B Buyers", type: "TOWER", members: 38, maxMembers: 80, admin: "Ravi M", activeDealCount: 2, totalSavings: 22300 },
-  { id: "bg-003", name: "Wing C - Floor 3-5", type: "WING", members: 15, maxMembers: 30, admin: "Anita S", activeDealCount: 1, totalSavings: 8900 },
-  { id: "bg-004", name: "Block D Families", type: "BLOCK", members: 28, maxMembers: 50, admin: "Sanjay T", activeDealCount: 4, totalSavings: 31200 },
-];
-
-const COMMUNITY_SAVINGS: CommunitySavings = {
-  totalSaved: 487500, ordersCompleted: 1240, activeDeals: 7, avgSavingsPercent: 32,
-  milestones: [
-    { label: "₹5 Lakh Saved", target: 500000, current: 487500 },
-    { label: "1500 Orders", target: 1500, current: 1240 },
-    { label: "100 Families", target: 100, current: 84 },
-  ],
-  towerLeaderboard: [
-    { tower: "Tower A", savings: 142000, orders: 380 },
-    { tower: "Tower B", savings: 128500, orders: 340 },
-    { tower: "Block D", savings: 98200, orders: 260 },
-    { tower: "Wing C", savings: 67800, orders: 150 },
-    { tower: "Tower E", savings: 51000, orders: 110 },
-  ],
-  monthlyTrend: [
-    { month: "May", savings: 42000 },
-    { month: "Jun", savings: 58000 },
-    { month: "Jul", savings: 63000 },
-    { month: "Aug", savings: 71000 },
-    { month: "Sep", savings: 85000 },
-    { month: "Oct", savings: 92000 },
-  ],
+// ── In-Memory Live State (Defaults empty) ──
+let liveDeals: GroupDeal[] = [];
+let liveDemands: DemandItem[] = [];
+let liveSavings: CommunitySavings = {
+  totalSaved: 0,
+  totalSavedThisMonth: 0,
+  ordersCompleted: 0,
+  totalOrders: 0,
+  activeDeals: 0,
+  avgSavingsPercent: 0,
+  milestones: [],
+  towerLeaderboard: [],
+  monthlyTrend: [],
+  topCategories: [],
 };
-
-const BUY_AGAIN_ITEMS = [
-  { dealId: "deal-past-1", title: "Organic Produce Box", lastPrice: 750, currentPrice: 650, lastOrderDate: new Date(Date.now() - 30 * 86400000).toISOString(), vendor: "Green Earth Farms", category: "Groceries" },
-  { dealId: "deal-past-2", title: "Cleaning Bundle", lastPrice: 499, currentPrice: 399, lastOrderDate: new Date(Date.now() - 45 * 86400000).toISOString(), vendor: "CleanCo Supplies", category: "Household" },
-  { dealId: "deal-past-3", title: "Basmati Rice 25kg", lastPrice: 1900, currentPrice: 1700, lastOrderDate: new Date(Date.now() - 60 * 86400000).toISOString(), vendor: "Kisan Direct", category: "Groceries" },
-];
+let liveBuyingGroups: BuyingGroup[] = [];
 
 const ORDERS_KEY = "mana_group_orders";
 const REVIEWS_KEY = "mana_group_reviews";
@@ -518,11 +290,92 @@ function saveDisputes(disputes: OrderDispute[]) {
 }
 
 function getCurrentTierPrice(deal: GroupDeal): number {
-  const count = deal.currentParticipants + 1;
+  if (!deal.tiers || deal.tiers.length === 0) return deal.currentTierPrice || 0;
+  const count = (deal.currentParticipants || 0) + 1;
   for (const tier of deal.tiers) {
     if (tier.maxQty === null || count <= tier.maxQty) return tier.pricePerUnit;
   }
   return deal.tiers[deal.tiers.length - 1].pricePerUnit;
+}
+
+function mapBackendDeal(d: any): GroupDeal {
+  const currentParticipants = d.currentParticipants ?? d.committedQty ?? 0;
+  const targetParticipants = d.targetParticipants ?? d.targetQty ?? 10;
+  const tiers: PriceTier[] = Array.isArray(d.priceTiers) && d.priceTiers.length > 0
+    ? d.priceTiers.map((t: any) => ({
+        minQty: t.minQty ?? 1,
+        maxQty: t.maxQty ?? null,
+        pricePerUnit: Number(t.pricePerUnit ?? t.price ?? 0),
+        label: t.label ?? "Tier",
+      }))
+    : [{ minQty: 1, maxQty: null, pricePerUnit: Number(d.currentPrice ?? d.standardPrice ?? 0), label: "Standard" }];
+
+  const currentPrice = Number(d.currentTierPrice ?? d.currentPrice ?? tiers[0]?.pricePerUnit ?? 0);
+  const nextTier = tiers.find(t => t.minQty > currentParticipants);
+
+  return {
+    id: String(d.id),
+    title: d.title || "Group Deal",
+    category: d.category || "General",
+    subCategory: d.subCategory,
+    description: d.description || "",
+    imageUrl: d.imageUrl,
+    imagePlaceholderColor: d.imagePlaceholderColor || "#10b981",
+    currentParticipants,
+    targetParticipants,
+    tiers,
+    vendor: d.vendor || d.vendorName || "Community Vendor",
+    vendorId: d.vendorId ? String(d.vendorId) : "v-1",
+    vendorRating: Number(d.vendorRating ?? 4.5),
+    vendorVerified: d.vendorVerified ?? false,
+    endDate: d.dealEndsAt || d.endDate || new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: (d.dealStatus || d.status || "ACTIVE") as DealStatus,
+    deliveryDate: d.pickupDate || d.deliveryDate,
+    pickupPoints: d.pickupPoint ? [d.pickupPoint] : ["Clubhouse"],
+    pickupPoint: d.pickupPoint || "Clubhouse",
+    tags: d.tags || [],
+    isAlmostUnlocked: d.isAlmostUnlocked ?? (nextTier ? (nextTier.minQty - currentParticipants <= 5) : false),
+    isTrending: d.isTrending ?? false,
+    isFestival: d.isFestivalDeal ?? d.isFestival ?? false,
+    festivalName: d.festivalName,
+    mrp: Number(d.mrp || Math.round(currentPrice * 1.3)),
+    currentTierPrice: currentPrice,
+    nextTierPrice: d.nextTierPrice ? Number(d.nextTierPrice) : nextTier?.pricePerUnit,
+    nextTierUnitsNeeded: d.nextTierUnitsNeeded ?? (nextTier ? Math.max(0, nextTier.minQty - currentParticipants) : 0),
+    committedQty: currentParticipants,
+    targetQty: targetParticipants,
+    daysLeft: d.daysLeft ?? Math.max(1, Math.round(((new Date(d.dealEndsAt || d.endDate || Date.now()).getTime()) - Date.now()) / 86400000)),
+  };
+}
+
+function mapBackendDemand(d: any): DemandItem {
+  return {
+    id: String(d.id),
+    title: d.title || "",
+    description: d.description || "",
+    category: d.category || "Groceries",
+    requestedBy: d.requestedBy || "Resident",
+    upvotes: Number(d.upvotes ?? d.interestedResidents ?? 0),
+    targetUpvotes: Number(d.targetUpvotes ?? 25),
+    hasUpvoted: Boolean(d.hasUpvoted),
+    createdAt: d.createdAt || new Date().toISOString(),
+    expectedQty: Number(d.expectedQty ?? 1),
+    preferredPriceMin: d.preferredPriceMin ? Number(d.preferredPriceMin) : undefined,
+    preferredPriceMax: d.preferredPriceMax ? Number(d.preferredPriceMax) : undefined,
+    preferredBrand: d.preferredBrand,
+    status: d.status || "OPEN",
+    vendorOffers: Array.isArray(d.vendorOffers)
+      ? d.vendorOffers.map((o: any) => ({
+          vendorId: String(o.vendorId),
+          vendorName: o.vendorName || "Vendor",
+          price: Number(o.price ?? 0),
+          moq: Number(o.moq ?? 1),
+          rating: Number(o.rating ?? 4.5),
+          deliveryDays: Number(o.deliveryDays ?? 3),
+          score: Number(o.score ?? 80),
+        }))
+      : [],
+  };
 }
 
 export const groupBuyingService = {
@@ -530,8 +383,20 @@ export const groupBuyingService = {
     return ["All", "Groceries", "Electronics", "Household", "Food & Festive", "Education", "Appliances", "Energy"];
   },
 
+  async fetchDeals(category?: string, search?: string): Promise<GroupDeal[]> {
+    try {
+      const data = await apiClient.get<any[]>("/group-buying/deals");
+      if (Array.isArray(data)) {
+        liveDeals = data.map(mapBackendDeal);
+      }
+    } catch {
+      // Backend returned error or unavailable
+    }
+    return this.getDeals(category, search);
+  },
+
   getDeals(category?: string, search?: string): GroupDeal[] {
-    let deals = SAMPLE_DEALS.map(d => {
+    let deals = liveDeals.map(d => {
       const currentPrice = getCurrentTierPrice(d);
       const nextTier = d.tiers.find(t => t.minQty > d.currentParticipants);
       return {
@@ -543,7 +408,7 @@ export const groupBuyingService = {
         targetQty: d.targetParticipants,
         daysLeft: Math.max(1, Math.round((new Date(d.endDate).getTime() - Date.now()) / 86400000)),
         isAlmostUnlocked: nextTier ? (nextTier.minQty - d.currentParticipants <= 5) : false,
-        pickupPoint: d.pickupPoints[0] || 'Clubhouse',
+        pickupPoint: d.pickupPoints[0] || "Clubhouse",
         mrp: d.mrp || Math.round(currentPrice * 1.3),
       };
     });
@@ -555,12 +420,26 @@ export const groupBuyingService = {
     return deals;
   },
 
+  async fetchDealById(id: string): Promise<GroupDeal | undefined> {
+    try {
+      const d = await apiClient.get<any>(`/group-buying/deals/${id}`);
+      if (d) {
+        const mapped = mapBackendDeal(d);
+        const idx = liveDeals.findIndex(x => x.id === mapped.id);
+        if (idx >= 0) liveDeals[idx] = mapped;
+        else liveDeals.push(mapped);
+        return mapped;
+      }
+    } catch {}
+    return this.getDealById(id);
+  },
+
   getDealById(id: string): GroupDeal | undefined {
-    return SAMPLE_DEALS.find(d => d.id === id);
+    return liveDeals.find(d => d.id === id);
   },
 
   getAlmostUnlockedDeals(): GroupDeal[] {
-    return SAMPLE_DEALS.filter(d => {
+    return liveDeals.filter(d => {
       if (d.status !== "ACTIVE") return false;
       const nextTier = d.tiers.find(t => t.minQty > d.currentParticipants);
       if (!nextTier) return false;
@@ -569,78 +448,193 @@ export const groupBuyingService = {
   },
 
   getTrendingDeals(): GroupDeal[] {
-    return [...SAMPLE_DEALS].sort((a, b) => b.currentParticipants - a.currentParticipants).slice(0, 4);
+    return [...liveDeals].sort((a, b) => b.currentParticipants - a.currentParticipants).slice(0, 4);
   },
 
   getEndingSoonDeals(): GroupDeal[] {
-    return SAMPLE_DEALS.filter(d => d.status === "ACTIVE")
+    return liveDeals.filter(d => d.status === "ACTIVE")
       .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
       .slice(0, 4);
   },
 
-  joinDeal(dealId: string, quantity: number, userId?: string, fulfillment: FulfillmentType = "PICKUP", paymentMethod: PaymentMethod = "UPI", pickupPoint?: string): GroupOrder {
-    const deal = SAMPLE_DEALS.find(d => d.id === dealId);
-    if (!deal) throw new Error("Deal not found");
-    const price = getCurrentTierPrice(deal);
+  async joinDeal(
+    dealId: string,
+    quantity: number,
+    userId?: string,
+    fulfillment: FulfillmentType = "PICKUP",
+    paymentMethod: PaymentMethod = "UPI",
+    pickupPoint?: string
+  ): Promise<GroupOrder> {
+    const deal = liveDeals.find(d => d.id === dealId);
+    const price = deal ? getCurrentTierPrice(deal) : 0;
+    
+    // Attempt backend join if endpoint available
+    try {
+      const resp = await apiClient.post<any>(`/group-buying/deals/${dealId}/join`, {
+        quantity,
+        fulfillmentType: fulfillment,
+        paymentType: paymentMethod,
+        pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
+      });
+      if (resp) {
+        const order: GroupOrder = {
+          id: String(resp.orderNumber || resp.id || `ord-${Date.now()}`),
+          orderNumber: resp.orderNumber,
+          dealId,
+          dealTitle: resp.dealTitle || deal?.title || "Group Buy Order",
+          quantity: resp.quantity || quantity,
+          pricePerUnit: resp.pricePerUnit || price,
+          totalAmount: resp.totalAmount || (price * quantity),
+          status: (resp.status || "CONFIRMED") as OrderStatus,
+          orderedAt: resp.createdAt || new Date().toISOString(),
+          qrCode: resp.qrCode || `QR-${dealId.toUpperCase()}-${Date.now()}`,
+          fulfillment,
+          paymentMethod,
+          pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
+          vendorName: deal?.vendor || "Community Vendor",
+        };
+        const orders = loadOrders();
+        saveOrders([order, ...orders]);
+        return order;
+      }
+    } catch {}
+
     const order: GroupOrder = {
-      id: `ord-${Date.now()}`, dealId, dealTitle: deal.title, quantity,
-      pricePerUnit: price, totalAmount: price * quantity, status: "CONFIRMED",
+      id: `ord-${Date.now()}`,
+      dealId,
+      dealTitle: deal?.title || "Group Buy Order",
+      quantity,
+      pricePerUnit: price,
+      totalAmount: price * quantity,
+      status: "CONFIRMED",
       orderedAt: new Date().toISOString(),
-      qrCode: `QR-${dealId.toUpperCase()}-${(userId || 'GUEST').slice(0, 6).toUpperCase()}-${Date.now()}`,
-      fulfillment, paymentMethod,
-      pickupPoint: pickupPoint || deal.pickupPoints[0],
-      vendorName: deal.vendor,
+      qrCode: `QR-${dealId.toUpperCase()}-${(userId || "GUEST").slice(0, 6).toUpperCase()}-${Date.now()}`,
+      fulfillment,
+      paymentMethod,
+      pickupPoint: pickupPoint || deal?.pickupPoints[0] || "Clubhouse",
+      vendorName: deal?.vendor || "Community Vendor",
     };
     const orders = loadOrders();
-    saveOrders([...orders, order]);
+    saveOrders([order, ...orders]);
     return order;
+  },
+
+  async fetchMyOrders(userId?: string): Promise<GroupOrder[]> {
+    try {
+      const data = await apiClient.get<any[]>("/group-buying/my-orders");
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((o: any) => ({
+          id: String(o.orderNumber || o.id),
+          orderNumber: o.orderNumber,
+          dealId: String(o.dealId || ""),
+          dealTitle: o.dealTitle || "Group Order",
+          quantity: Number(o.quantity || 1),
+          pricePerUnit: Number(o.pricePerUnit || 0),
+          totalAmount: Number(o.totalAmount || 0),
+          status: (o.status || "CONFIRMED") as OrderStatus,
+          orderedAt: o.createdAt || new Date().toISOString(),
+          qrCode: o.qrCode || `QR-${o.id}`,
+          fulfillment: (o.fulfillmentType || "PICKUP") as FulfillmentType,
+          paymentMethod: (o.paymentType || "UPI") as PaymentMethod,
+          pickupPoint: o.pickupPoint,
+          vendorName: o.vendorName,
+          reviewed: o.reviewed,
+        }));
+      }
+    } catch {}
+    return this.getMyOrders(userId);
   },
 
   getMyOrders(_userId?: string): GroupOrder[] {
     return loadOrders();
   },
 
+  async fetchDemandBoard(): Promise<DemandItem[]> {
+    try {
+      const data = await apiClient.get<any[]>("/group-buying/demand");
+      if (Array.isArray(data)) {
+        liveDemands = data.map(mapBackendDemand);
+      }
+    } catch {}
+    return this.getDemandBoard();
+  },
+
   getDemandBoard(): DemandItem[] {
-    return DEMAND_ITEMS;
+    return liveDemands;
   },
 
   getDemandById(id: string): DemandItem | undefined {
-    return DEMAND_ITEMS.find(d => d.id === id);
+    return liveDemands.find(d => d.id === id);
   },
 
-  upvoteDemand(id: string): void {
-    const item = DEMAND_ITEMS.find(d => d.id === id);
-    if (item) item.upvotes += 1;
+  async upvoteDemand(id: string): Promise<void> {
+    const item = liveDemands.find(d => d.id === id);
+    if (item) {
+      item.upvotes += 1;
+      item.hasUpvoted = true;
+    }
+    try {
+      await apiClient.post(`/group-buying/demand/${id}/upvote`);
+    } catch {}
   },
 
-  acceptVendorOffer(demandId: string, vendorId: string): GroupDeal | undefined {
-    const demand = DEMAND_ITEMS.find(d => d.id === demandId);
+  async acceptVendorOffer(demandId: string, vendorId: string): Promise<GroupDeal | undefined> {
+    const demand = liveDemands.find(d => d.id === demandId);
     const offer = demand?.vendorOffers?.find(v => v.vendorId === vendorId);
     if (!demand || !offer) return undefined;
     demand.status = "CONVERTED";
-    return {
-      id: `deal-${Date.now()}`, title: demand.title, category: demand.category,
-      description: demand.description, imagePlaceholderColor: "#10b981",
-      currentParticipants: demand.upvotes, targetParticipants: offer.moq,
+    try {
+      await apiClient.post(`/group-buying/demand/${demandId}/offers/${vendorId}/accept`);
+    } catch {}
+    const deal: GroupDeal = {
+      id: `deal-${Date.now()}`,
+      title: demand.title,
+      category: demand.category,
+      description: demand.description,
+      imagePlaceholderColor: "#10b981",
+      currentParticipants: demand.upvotes,
+      targetParticipants: offer.moq,
       tiers: [{ minQty: 1, maxQty: null, pricePerUnit: offer.price, label: "Group" }],
-      vendor: offer.vendorName, vendorId: offer.vendorId, vendorRating: offer.rating,
-      endDate: new Date(Date.now() + 14 * 86400000).toISOString(), status: "ACTIVE",
+      vendor: offer.vendorName,
+      vendorId: offer.vendorId,
+      vendorRating: offer.rating,
+      endDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+      status: "ACTIVE",
       deliveryDate: new Date(Date.now() + (14 + offer.deliveryDays) * 86400000).toISOString(),
       pickupPoints: ["Clubhouse", "Tower A Lobby"],
     };
+    liveDeals.unshift(deal);
+    return deal;
   },
 
-  getVendorProfile(id: string): VendorProfile | undefined {
-    return VENDOR_PROFILES.find(v => v.id === id);
+  getVendorProfile(_id: string): VendorProfile | undefined {
+    return undefined;
   },
 
-  createDemand(demand: Partial<DemandItem>): DemandItem {
+  async createDemand(demand: Partial<DemandItem>): Promise<DemandItem> {
+    try {
+      const resp = await apiClient.post<any>("/group-buying/demand", {
+        title: demand.title,
+        description: demand.description,
+        category: demand.category,
+        expectedQty: demand.expectedQty,
+        preferredPriceMin: demand.preferredPriceMin,
+        preferredPriceMax: demand.preferredPriceMax,
+        preferredBrand: demand.preferredBrand,
+      });
+      if (resp) {
+        const mapped = mapBackendDemand(resp);
+        liveDemands.unshift(mapped);
+        return mapped;
+      }
+    } catch {}
+
     const item: DemandItem = {
       id: `d-${Date.now()}`,
-      title: demand.title || '',
-      description: demand.description || '',
-      category: demand.category || 'Groceries',
-      requestedBy: demand.requestedBy || 'Resident',
+      title: demand.title || "",
+      description: demand.description || "",
+      category: demand.category || "Groceries",
+      requestedBy: demand.requestedBy || "Resident",
       upvotes: 1,
       targetUpvotes: 25,
       hasUpvoted: false,
@@ -648,72 +642,98 @@ export const groupBuyingService = {
       expectedQty: demand.expectedQty || 1,
       preferredPriceMin: demand.preferredPriceMin,
       preferredPriceMax: demand.preferredPriceMax,
-      status: 'OPEN',
+      status: "OPEN",
     };
-    DEMAND_ITEMS.unshift(item);
+    liveDemands.unshift(item);
     return item;
   },
 
   getFestivalCategories(): FestivalCategory[] {
-    return FESTIVAL_CAMPAIGNS.map(c => ({
-      id: c.id,
-      festivalName: c.festivalName,
-      tagline: c.tagline,
-      bannerImage: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500",
-      deals: c.deals,
-    }));
+    return [];
   },
 
   getFeaturedDeals(): GroupDeal[] {
-    return SAMPLE_DEALS.slice(0, 3);
+    return liveDeals.slice(0, 3);
   },
 
   getMonthlyBaskets(): MonthlyBasket[] {
-    return MONTHLY_BASKETS.map(b => ({
-      ...b,
-      title: b.name,
-      regularPrice: Math.round(b.totalPrice * 1.25),
-      communityPrice: b.totalPrice,
-      targetFamilies: 50,
-      enrolledFamilies: b.subscribers,
-      nextDeliveryDate: b.nextDelivery,
-      savings: Math.round(b.totalPrice * 0.25),
-    }));
+    return [];
   },
 
   getFestivalCampaigns(): FestivalCampaign[] {
-    return FESTIVAL_CAMPAIGNS;
+    return [];
   },
 
-  getBuyAgainSuggestions(): typeof BUY_AGAIN_ITEMS {
-    return BUY_AGAIN_ITEMS;
+  getBuyAgainSuggestions(): BuyAgainItem[] {
+    return [];
+  },
+
+  async fetchBuyingGroups(): Promise<BuyingGroup[]> {
+    try {
+      const data = await apiClient.get<any[]>("/group-buying/tower-groups");
+      if (Array.isArray(data)) {
+        liveBuyingGroups = data.map((g: any) => ({
+          id: String(g.id || g.groupCode),
+          name: g.groupName || g.name || "Buying Group",
+          type: g.type || "TOWER",
+          members: Number(g.memberCount || g.members || 0),
+          maxMembers: Number(g.maxMembers || 50),
+          admin: g.adminName || g.admin || "Lead",
+          activeDealCount: Number(g.activeDealCount || 0),
+          totalSavings: Number(g.totalSavings || 0),
+        }));
+      }
+    } catch {}
+    return this.getBuyingGroups();
   },
 
   getBuyingGroups(): BuyingGroup[] {
-    return BUYING_GROUPS;
+    return liveBuyingGroups;
+  },
+
+  async fetchCommunitySavings(): Promise<CommunitySavings> {
+    try {
+      const s = await apiClient.get<any>("/group-buying/community-savings");
+      if (s) {
+        liveSavings = {
+          totalSaved: Number(s.totalSavedAllTime ?? s.totalSaved ?? s.totalSavedThisMonth ?? 0),
+          totalSavedThisMonth: Number(s.totalSavedThisMonth ?? 0),
+          ordersCompleted: Number(s.totalOrders ?? s.ordersCompleted ?? 0),
+          totalOrders: Number(s.totalOrders ?? s.ordersCompleted ?? 0),
+          activeDeals: Number(s.activeDeals ?? 0),
+          avgSavingsPercent: Number(s.collectiveDiscountPercent ?? s.avgSavingsPercent ?? 0),
+          milestones: [],
+          towerLeaderboard: Array.isArray(s.towerLeaderboard)
+            ? s.towerLeaderboard.map((t: any) => ({
+                tower: t.tower || "Tower",
+                savings: Number(t.totalSaved ?? t.savings ?? 0),
+                orders: Number(t.orders ?? 0),
+              }))
+            : [],
+          monthlyTrend: [],
+          topCategories: s.topCategory ? [{ category: s.topCategory, saved: 0 }] : [],
+        };
+      }
+    } catch {}
+    return this.getCommunitySavings();
   },
 
   getCommunitySavings(): CommunitySavings {
-    return {
-      ...COMMUNITY_SAVINGS,
-      totalSavedThisMonth: COMMUNITY_SAVINGS.totalSaved,
-      totalOrders: COMMUNITY_SAVINGS.ordersCompleted,
-      topCategories: [
-        { category: 'Groceries', saved: 68400 },
-        { category: 'Fresh Produce', saved: 42300 },
-        { category: 'Festival Specials', saved: 37800 },
-      ],
-    };
+    return liveSavings;
   },
 
   getPickupPass(orderId: string): PickupPass | undefined {
     const order = loadOrders().find(o => o.id === orderId);
     if (!order) return undefined;
     return {
-      orderId: order.id, qrCode: order.qrCode, dealTitle: order.dealTitle,
-      quantity: order.quantity, pickupPoint: order.pickupPoint || "Clubhouse",
+      orderId: order.id,
+      qrCode: order.qrCode,
+      dealTitle: order.dealTitle,
+      quantity: order.quantity,
+      pickupPoint: order.pickupPoint || "Clubhouse",
       pickupDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-      authorizedCollectors: [], status: order.status === "DELIVERED" ? "COLLECTED" : "PENDING",
+      authorizedCollectors: [],
+      status: order.status === "DELIVERED" ? "COLLECTED" : "PENDING",
     };
   },
 
@@ -749,7 +769,10 @@ export const groupBuyingService = {
 
   raiseDispute(dispute: Omit<OrderDispute, "id" | "status" | "createdAt">): OrderDispute {
     const full: OrderDispute = {
-      ...dispute, id: `disp-${Date.now()}`, status: "OPEN", createdAt: new Date().toISOString(),
+      ...dispute,
+      id: `disp-${Date.now()}`,
+      status: "OPEN",
+      createdAt: new Date().toISOString(),
     };
     const disputes = loadDisputes();
     saveDisputes([...disputes, full]);
@@ -762,14 +785,14 @@ export const groupBuyingService = {
 
   askCommunityAI(query: string): AIDemandMatch {
     const q = query.toLowerCase();
-    const matches = SAMPLE_DEALS
+    const matches = liveDeals
       .filter(d => d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q) || d.description.toLowerCase().includes(q))
-      .map(d => ({ deal: d, confidence: Math.round(60 + Math.random() * 35), reason: `Matches "${query}" in ${d.category}` }))
-      .sort((a, b) => b.confidence - a.confidence);
+      .map(d => ({ deal: d, confidence: 85, reason: `Matches "${query}" in ${d.category}` }));
     return {
-      query, matches: matches.slice(0, 3),
+      query,
+      matches: matches.slice(0, 3),
       suggestions: matches.length === 0
-        ? ["Try broader terms", "Post on Demand Board", "Check Festival Deals"]
+        ? ["Post on Demand Board", "Check active categories"]
         : ["Join now for best price", "Share with neighbours"],
     };
   },
