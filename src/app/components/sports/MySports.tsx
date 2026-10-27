@@ -507,7 +507,7 @@ export function MySports() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xs font-extrabold text-[#0d0d2b] leading-tight">
+                    <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                       {displayName}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
@@ -583,7 +583,7 @@ export function MySports() {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block">
                             Athlete Command Center
                           </span>
-                          <h2 className="text-xs font-extrabold tracking-tight">
+                          <h2 className="text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white">
                             Welcome back, {displayName}!
                           </h2>
                           <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">

@@ -1754,7 +1754,7 @@ export function SportsMultiRegister() {
           <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
             <Trophy className="h-3.5 w-3.5 text-white" />
           </div>
-          <h2 className="text-xs font-bold text-slate-900 truncate leading-tight">
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
             {tournament.name}
           </h2>
           {tournament.events && (

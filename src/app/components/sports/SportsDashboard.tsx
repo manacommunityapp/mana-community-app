@@ -1266,8 +1266,8 @@ export function SportsDashboard() {
       )}
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        <div className="lg:col-span-2 space-y-2.5">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="lg:col-span-3 space-y-2.5">
           {/* Upcoming events */}
           <div className={`rounded-xl bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] transition-all ${
             filteredLiveEvents.length === 0 && !loading
@@ -1779,63 +1779,60 @@ export function SportsDashboard() {
                   <div key={t.id} className="mb-2.5 last:mb-0 rounded-2xl border border-indigo-100/90 bg-white shadow-xs overflow-hidden transition-all text-left">
                     {/* Tournament Header with Details */}
                     <div className="p-2.5 sm:p-3 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80 border-b border-indigo-100/80">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          {/* Top Row: Tournament Name & Details Button */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-xs font-sans font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
+                      <div className="flex items-center justify-between gap-2.5 flex-wrap">
+                        {/* Tournament Name, Details Button & Badges */}
+                        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
+                          <h3 className="text-xs sm:text-sm font-sans font-bold text-slate-900 truncate max-w-full m-0 mb-0">{t.name}</h3>
 
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDetailsModalTournament(t);
-                                  setIsDetailsModalOpen(true);
-                                }}
-                                className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
-                                title="View full tournament rules, venue, and description"
-                                aria-label="Tournament Details"
-                              >
-                                <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                <span className="hidden sm:inline">Tournament Details</span>
-                              </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetailsModalTournament(t);
+                              setIsDetailsModalOpen(true);
+                            }}
+                            className="p-1 sm:px-2.5 sm:py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs shrink-0"
+                            title="View full tournament rules, venue, and description"
+                            aria-label="Tournament Details"
+                          >
+                            <Info className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="hidden sm:inline">Tournament Details</span>
+                          </button>
 
-                              {deadlineDays !== null && deadlineDays >= 0 && (
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
-                                </span>
-                              )}
-                              {t.sponsors && t.sponsors.length > 0 && (
-                                <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
-                              )}
-                            </div>
+                          {t.eventDateStart && t.eventDateEnd && (
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0">
+                              <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+                              <span>
+                                {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
+                              </span>
+                            </span>
+                          )}
 
-                            {/* Next Row: Tournament Meta Badges + Hide Groups Button */}
-                            <div className="flex items-center gap-2.5 mt-1 flex-wrap text-xs text-slate-500 font-medium">
-                              {t.eventDateStart && t.eventDateEnd && (
-                                <span className="inline-flex items-center gap-1">
-                                  <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                                  <span>
-                                    {format(new Date(t.eventDateStart), "MMM d")} - {format(new Date(t.eventDateEnd), "MMM d")}
-                                  </span>
-                                </span>
-                              )}
+                          {deadlineDays !== null && deadlineDays >= 0 && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 shrink-0">
+                              <Clock className="w-3 h-3" />
+                              {deadlineDays === 0 ? "Starts Today!" : `${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} to go`}
+                            </span>
+                          )}
 
-                              <button
-                                type="button"
-                                onClick={() => setExpandedTournaments(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
-                                  return next;
-                                })}
-                                className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                              >
-                                <span>{isExpanded ? "Hide" : "Show"}</span>
-                                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                              </button>
-                            </div>
-                          </div>
+                          {t.sponsors && t.sponsors.length > 0 && (
+                            <TournamentSponsorBadge sponsor={t.sponsors[0]} size="sm" />
+                          )}
                         </div>
+
+                        {/* Hide / Show Button */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedTournaments(prev => {
+                            const next = new Set(prev);
+                            if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                            return next;
+                          })}
+                          className="px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0 ml-auto sm:ml-0"
+                        >
+                          <span>{isExpanded ? "Hide" : "Show"}</span>
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
 
                       {/* Family member registration selector */}
                       {isExpanded && (
@@ -2302,7 +2299,7 @@ export function SportsDashboard() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-2">
+        <div className="space-y-2 lg:col-span-1">
           {/* Notifications */}
           <div className="rounded-xl p-2.5 bg-white border border-[#6366f1]/12 shadow-[0_2px_12px_rgba(99,102,241,0.04)]">
             <div className="flex items-center justify-between mb-1.5">
@@ -2417,7 +2414,7 @@ export function SportsDashboard() {
 
         {/* Tournament Sponsor Showcase Section - Only shown when real sponsors exist */}
         {sponsors.length > 0 && (
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-4">
             <TournamentSponsorShowcase
               sponsors={sponsors}
               tournamentName={featuredTournamentName || "Community Tournament"}

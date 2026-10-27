@@ -925,6 +925,36 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
   const [showEligibleCategoriesOnly, setShowEligibleCategoriesOnly] = useState<boolean>(true);
 
+  // Deduplicated sibling category events (unique by ID, UUID, or normalized category name)
+  const uniqueSiblingEvents = useMemo(() => {
+    const seen = new Set<string>();
+    return siblingEvents.filter(sib => {
+      const key = String(sib.id ?? sib.uuid ?? (sib.categoryName || sib.name || "")).trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [siblingEvents]);
+
+  const handleSwitchSiblingCategory = (sib: DashboardEventCard) => {
+    const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
+    if (isCurrent) return;
+
+    const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+    if (!elig.eligible) {
+      toast.error(`Ineligible Category: ${elig.warningMsg || "Age or gender does not match."}`);
+      return;
+    }
+
+    const targetUuid = String(sib.uuid || sib.id);
+    setActiveEventUuid(targetUuid);
+    setLoading(true);
+    if (!isModal) {
+      window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+    }
+    setShowEventInfoModal(false);
+  };
+
   // Age proof & Out of age window override state
   const [ageProofFile, setAgeProofFile] = useState<File | null>(null);
   const [ageProofName, setAgeProofName] = useState<string>("");
@@ -2291,12 +2321,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-3 sm:p-4 border-b border-border/60">
+              <div className="flex items-center justify-between mb-2.5">
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
@@ -2304,79 +2334,90 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="w-6 h-6 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
+                  className="w-7 h-7 rounded-lg bg-slate-200/60 dark:bg-slate-800 text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-start gap-2.5">
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
-                  <Trophy className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
+                  <Trophy className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
+                  <h4 className="text-sm sm:text-base font-bold text-foreground tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
                   </h4>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-normal">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-2.5 sm:p-3 overflow-y-auto max-h-[70vh] space-y-2">
+            <div className="p-3 sm:p-3.5 overflow-y-auto max-h-[70vh] space-y-2.5">
               {eventDate && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{eventDate}</p>
                   </div>
                 </div>
               )}
               {venueName && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{venueName}</p>
                   </div>
                 </div>
               )}
               {event?.community?.name && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Building2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{event.community.name}</p>
                   </div>
                 </div>
               )}
 
               {/* All Sport Categories & Age Details */}
-              {siblingEvents.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
-                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                  </p>
+              {uniqueSiblingEvents.length > 0 && (
+                <div className="pt-2 border-t border-border/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>All {event?.sport?.name || "Sport"} Categories</span>
+                    </p>
+                    <span className="text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                      {uniqueSiblingEvents.length}
+                    </span>
+                  </div>
 
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    {siblingEvents.map(sib => {
-                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {uniqueSiblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
                       const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
                       let ageLabel = "All Ages";
                       const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
@@ -2389,32 +2430,44 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       return (
                         <div
-                          key={sib.id}
-                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                          key={sib.id || sib.uuid}
+                          onClick={() => handleSwitchSiblingCategory(sib)}
+                          role={!isCurrent ? "button" : undefined}
+                          tabIndex={!isCurrent ? 0 : undefined}
+                          className={`p-2.5 rounded-xl text-xs space-y-1.5 border transition-all group ${
                             isCurrent
-                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
-                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                              ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
+                              : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-bold text-xs sm:text-[13px] text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
-                            {isCurrent && (
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
-                                Current
+                            {isCurrent ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                                Selected
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+                                Switch →
                               </span>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
-                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
-                            {sib.venueName && <span>📍 {sib.venueName}</span>}
-                            {sib.eventDateStart && (
-                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                              🎯 {ageLabel}
+                            </span>
+                            {sib.venueName && sib.venueName !== venueName && (
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                📍 {sib.venueName}
+                              </span>
                             )}
                             {sib.maxParticipants && (
-                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                              </span>
                             )}
                           </div>
                         </div>
@@ -2803,11 +2856,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <UserCheck className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                       Player Identity
                     </h3>
                     {!isPlayerIdentityExpanded && formData.playerName && (
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
+                      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px] sm:max-w-xs">
                         • {formData.playerName}
                         {(userFlat || formData.flatNumber) ? ` (${userFlat || formData.flatNumber})` : ""}
                       </span>
@@ -2815,12 +2868,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {formData.age > 0 && (
-                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                         Age: {formData.age} Yrs
                       </span>
                     )}
                     {isAlreadyRegistered && (
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md flex items-center gap-1">
                         ✓ Registered
                       </span>
                     )}
@@ -3248,16 +3301,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 2. Participant Type (Format) */}
             {availableFormats.length === 1 ? (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs flex items-center justify-between gap-2">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Trophy className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[10px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                  <span className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider">
                     Participant Type
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
+                <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
                   {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
@@ -3268,15 +3321,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <Trophy className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                       Participant Type
                     </h3>
-                    <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
+                    <span className="hidden sm:inline text-xs text-muted-foreground font-normal">
                       — Choose format(s)
                     </span>
                   </div>
                   {formData.matchTypes.length > 1 && (
-                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                       {formData.matchTypes.length} Formats Selected
                     </span>
                   )}
@@ -3435,7 +3488,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             })()}
 
             {/* Sport Categories in Tournament */}
-            {siblingEvents.length > 1 && (
+            {uniqueSiblingEvents.length > 1 && (
               <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
                 {(() => {
                   const isCategoryEligibleOrRegistered = (sib: DashboardEventCard) => {
@@ -3446,10 +3499,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     return elig.eligible || isRegistered || isCurrentEvent;
                   };
 
-                  const eligibleSiblingsCount = siblingEvents.filter(isCategoryEligibleOrRegistered).length;
+                  const eligibleSiblingsCount = uniqueSiblingEvents.filter(isCategoryEligibleOrRegistered).length;
                   const displayedSiblings = showEligibleCategoriesOnly && eligibleSiblingsCount > 0
-                    ? siblingEvents.filter(isCategoryEligibleOrRegistered)
-                    : siblingEvents;
+                    ? uniqueSiblingEvents.filter(isCategoryEligibleOrRegistered)
+                    : uniqueSiblingEvents;
 
                   return (
                     <>
@@ -3459,27 +3512,27 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             <Trophy className="w-3.5 h-3.5" />
                           </div>
                           <div>
-                            <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                            <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                               Select Category
                             </h3>
-                            <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {showEligibleCategoriesOnly && eligibleSiblingsCount > 0
                                 ? `${displayedSiblings.length} eligible ${displayedSiblings.length === 1 ? "category" : "categories"} available for ${event?.sport?.name}`
-                                : `${siblingEvents.length} categories available for ${event?.sport?.name}`}
+                                : `${uniqueSiblingEvents.length} categories available for ${event?.sport?.name}`}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {formData.age > 0 && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
                               Age: {formData.age} Yrs
                             </span>
                           )}
-                          {siblingEvents.length > eligibleSiblingsCount && eligibleSiblingsCount > 0 && (
+                          {uniqueSiblingEvents.length > eligibleSiblingsCount && eligibleSiblingsCount > 0 && (
                             <button
                               type="button"
                               onClick={() => setShowEligibleCategoriesOnly(prev => !prev)}
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
+                              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
                                 showEligibleCategoriesOnly
                                   ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
@@ -3512,9 +3565,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           return (
                             <div
                               key={sib.id}
-                              className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
+                              className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
                                 isCurrentEvent && !isBlocked
-                                  ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
+                                  ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-2xs ring-1 ring-indigo-500/30"
                                   : isRegistered
                                     ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
                                     : isBlocked
@@ -3542,41 +3595,41 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div className={`w-2 h-2 rounded-full shrink-0 ${
-                                    isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                                  <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                    isCurrentEvent && !isBlocked ? "bg-indigo-600 ring-2 ring-indigo-200" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
                                   }`} />
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
+                                      <span className={`text-xs sm:text-[13px] font-bold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-foreground"}`}>
                                         {sib.categoryName || sib.name}
                                       </span>
                                       {minAge != null && maxAge != null ? (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                           {minAge}–{maxAge} Yrs
                                         </span>
                                       ) : minAge != null ? (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                           {minAge}+ Yrs
                                         </span>
                                       ) : maxAge != null ? (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                           Under {maxAge} Yrs
                                         </span>
                                       ) : null}
                                       {elig.requiredGender && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
                                           {elig.requiredGender}
                                         </span>
                                       )}
                                       {sib.maxParticipants && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
                                           {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
                                         </span>
                                       )}
                                     </div>
                                     {sib.venueName && (
                                       <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
+                                        <span className="text-[11px] text-muted-foreground">{sib.venueName}</span>
                                       </div>
                                     )}
                                   </div>
@@ -3584,19 +3637,19 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                                 <div className="shrink-0 flex items-center gap-1.5">
                                   {isCurrentEvent && !isBlocked ? (
-                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
                                       Selected {isAlreadyRegistered ? "(Registered)" : ""}
                                     </span>
                                   ) : isRegistered ? (
-                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
+                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
                                       ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
                                     </span>
                                   ) : isBlocked ? (
-                                    <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
+                                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
                                       <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
                                     </span>
                                   ) : (
-                                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
+                                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full shrink-0">
                                       ✓ Eligible
                                     </span>
                                   )}
@@ -3708,15 +3761,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-[10px]">📊</span>
+                  <span className="text-xs">📊</span>
                 </div>
-                <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {(sportConfig?.stats || []).map(stat => (
                   <div key={stat.name} className="space-y-0.5">
-                    <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400">{stat.label}</label>
+                    <label className="text-xs font-semibold text-muted-foreground">{stat.label}</label>
                     <input
                       name={stat.name}
                       type="number"
@@ -3737,13 +3790,13 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Verify Email</h4>
+                  <h4 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider">Verify Email</h4>
                 </div>
 
                 <div className="space-y-2.5">
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end">
                     <div className="space-y-0.5">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                         <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
@@ -3911,86 +3964,98 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
         <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
-          <div className="rounded-xl overflow-hidden shadow-2xs border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="rounded-2xl overflow-hidden shadow-sm border border-border/80 bg-card">
             {/* Header with subtle gradient banner */}
-            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-3 sm:p-4 border-b border-border/60">
               {!isModal && (
                 <button
+                  type="button"
                   onClick={handleClose}
-                  className="mb-2 flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors group cursor-pointer"
+                  className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   <span>Back</span>
                 </button>
               )}
 
-              <div className="flex items-start gap-2.5">
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
-                  <Trophy className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
+                  <Trophy className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
+                  <h4 className="text-sm sm:text-base font-bold text-foreground tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
                   </h4>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-normal">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-2.5 sm:p-3 space-y-2">
+            <div className="p-3 sm:p-3.5 space-y-2.5">
               {eventDate && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{eventDate}</p>
                   </div>
                 </div>
               )}
               {venueName && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{venueName}</p>
                   </div>
                 </div>
               )}
               {event?.community?.name && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Building2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{event.community.name}</p>
                   </div>
                 </div>
               )}
 
               {/* All Sport Categories & Age Details */}
-              {siblingEvents.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
-                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                  </p>
+              {uniqueSiblingEvents.length > 0 && (
+                <div className="pt-2 border-t border-border/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>All {event?.sport?.name || "Sport"} Categories</span>
+                    </p>
+                    <span className="text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                      {uniqueSiblingEvents.length}
+                    </span>
+                  </div>
 
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    {siblingEvents.map(sib => {
-                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {uniqueSiblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
                       const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
                       let ageLabel = "All Ages";
                       const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
@@ -4003,32 +4068,44 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       return (
                         <div
-                          key={sib.id}
-                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                          key={sib.id || sib.uuid}
+                          onClick={() => handleSwitchSiblingCategory(sib)}
+                          role={!isCurrent ? "button" : undefined}
+                          tabIndex={!isCurrent ? 0 : undefined}
+                          className={`p-2.5 rounded-xl text-xs space-y-1.5 border transition-all group ${
                             isCurrent
-                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
-                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                              ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
+                              : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-bold text-xs sm:text-[13px] text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
-                            {isCurrent && (
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
-                                Current
+                            {isCurrent ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                                Selected
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+                                Switch →
                               </span>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
-                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
-                            {sib.venueName && <span>📍 {sib.venueName}</span>}
-                            {sib.eventDateStart && (
-                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                              🎯 {ageLabel}
+                            </span>
+                            {sib.venueName && sib.venueName !== venueName && (
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                📍 {sib.venueName}
+                              </span>
                             )}
                             {sib.maxParticipants && (
-                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                              </span>
                             )}
                           </div>
                         </div>
@@ -4149,7 +4226,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
+                    <h4 className="text-sm sm:text-base font-bold text-foreground truncate leading-tight">
                       {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
                       {eventDate ? ` - ${eventDate}` : ""}
                     </h4>
@@ -4163,7 +4240,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <Info className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 truncate leading-tight mt-0.5">
+                  <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
                     {event?.categoryName || event?.name || venueName || "Tournament Registration"}
                   </p>
                 </div>
