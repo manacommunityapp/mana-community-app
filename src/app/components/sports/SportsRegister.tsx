@@ -2282,7 +2282,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const currentStep = completedSteps.filter(Boolean).length;
 
   const mainContent = (
-    <div className={`${isModal ? "p-3 sm:p-6 space-y-3 sm:space-y-4" : "max-w-5xl mx-auto pb-24 sm:pb-10 space-y-3 sm:space-y-4"}`}>
+    <div className={`${isModal ? "p-2.5 sm:p-4 space-y-2.5 sm:space-y-3" : "max-w-5xl mx-auto p-3 sm:p-4 pb-20 sm:pb-8 space-y-2.5 sm:space-y-3"}`}>
       {/* ── Top Bar (Page Mode) ────────────────────────────────── */}
       {!isModal && (
         <div className="flex items-center justify-between">
@@ -2439,18 +2439,18 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           onClick={() => handleSwitchSiblingCategory(sib)}
                           role={!isCurrent ? "button" : undefined}
                           tabIndex={!isCurrent ? 0 : undefined}
-                          className={`p-2.5 rounded-xl text-xs space-y-1.5 border transition-all group ${
+                          className={`p-2 rounded-lg text-xs space-y-1 border transition-all group ${
                             isCurrent
                               ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
                               : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-bold text-xs sm:text-[13px] text-foreground group-hover:text-primary transition-colors truncate">
+                            <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
                             {isCurrent ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
                                 Selected
                               </span>
                             ) : (
@@ -2460,8 +2460,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded-md border border-indigo-100 dark:border-indigo-900/40">
                               🎯 {ageLabel}
                             </span>
                             {sib.venueName && sib.venueName !== venueName && (
@@ -2730,11 +2730,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       )}
 
       {/* ── 2-Column Responsive Layout ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-3.5 items-start">
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
-        <div className="lg:col-span-7 space-y-3 sm:space-y-3.5">
+        <div className="lg:col-span-7 space-y-2 sm:space-y-2.5">
           {/* Step Indicator */}
-          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
+          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-2xs">
             <div className="flex items-center gap-2">
               {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
@@ -2745,7 +2745,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         ? "bg-indigo-300 dark:bg-indigo-700"
                         : "bg-slate-100 dark:bg-slate-800"
                   }`} />
-                  <p className={`text-xs mt-1 text-center font-semibold tracking-wider uppercase transition-colors ${
+                  <p className={`text-[10.5px] mt-0.5 text-center font-bold tracking-wider uppercase transition-colors ${
                     i < currentStep ? "text-indigo-600 dark:text-indigo-400" : i === currentStep ? "text-slate-800 dark:text-slate-200" : "text-[#6b7094] dark:text-slate-500"
                   }`}>
                     {label}
@@ -2821,11 +2821,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             <TournamentSponsorBanner
               sponsors={event.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, event.id))}
               variant="strip"
-              className="mb-2"
+              className="mb-1.5"
             />
           )}
 
-          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
+          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5">
             {/* Profile Incomplete Banner */}
             {formData.regType === "self" && missingProfileFields.length > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-2.5 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -2853,7 +2853,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
             {/* 1. Player Identity */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
               <div>
                 <div
                   onClick={() => setIsPlayerIdentityExpanded(prev => !prev)}
@@ -2867,7 +2867,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   }}
                   className={`flex items-center justify-between gap-2 flex-wrap cursor-pointer select-none transition-colors ${
                     isPlayerIdentityExpanded || (formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth))
-                      ? "mb-2.5"
+                      ? "mb-2"
                       : ""
                   }`}
                 >
@@ -3327,7 +3327,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 2. Participant Type (Format) */}
             {availableFormats.length === 1 ? (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs flex items-center justify-between gap-2">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Trophy className="w-3.5 h-3.5" />
@@ -3341,7 +3341,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </span>
               </div>
             ) : availableFormats.length > 1 ? (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -3518,7 +3518,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* ── Selected Sport Category for this Event ── */}
             {event && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
                 {(() => {
                   const currentCategoryName = event.categoryName || event.name || "Main Category";
                   const currentElig = checkCategoryEligibility(event, formData.age, formData.gender);
@@ -3545,7 +3545,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                               Selected Category
                             </h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
                               {event?.sport?.name ? `${event.sport.name} Tournament Category` : "Sport Tournament Category"}
                             </p>
                           </div>
@@ -3572,7 +3572,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       </div>
 
                       {/* ── Display ONLY the Selected Category ── */}
-                      <div className={`rounded-xl border transition-all p-2.5 sm:p-3 ${
+                      <div className={`rounded-xl border transition-all p-2 sm:p-2.5 ${
                         isBlocked
                           ? "border-rose-300 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20"
                           : "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-2xs ring-1 ring-indigo-500/30"
@@ -3821,8 +3821,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
 
             {/* 4. Career Statistics */}
-            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
+              <div className="flex items-center gap-2 mb-1.5">
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
                   <span className="text-xs">📊</span>
                 </div>
@@ -3849,7 +3849,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 5. Email Verification (optional) */}
             {OTP_REQUIRED && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
                 <div className="flex items-center gap-2 mb-2.5">
                   <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
@@ -4032,91 +4032,91 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
         <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
-          <div className="rounded-2xl overflow-hidden shadow-sm border border-border/80 bg-card">
+          <div className="rounded-2xl overflow-hidden shadow-2xs border border-border/80 bg-card">
             {/* Header with subtle gradient banner */}
-            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-3 sm:p-4 border-b border-border/60">
+            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-2.5 sm:p-3 border-b border-border/60">
               {!isModal && (
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
+                  className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   <span>Back</span>
                 </button>
               )}
 
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
-                  <Trophy className="w-4 h-4" />
+              <div className="flex items-start gap-2.5">
+                <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
+                  <Trophy className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
+                      <span className="px-2 py-0.2 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-2 py-0.2 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-sm sm:text-base font-bold text-foreground tracking-tight leading-snug">
+                  <h4 className="text-xs sm:text-[13px] font-bold text-foreground tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
                   </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-normal">
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-3 sm:p-3.5 space-y-2.5">
+            <div className="p-2 sm:p-2.5 space-y-2">
               {eventDate && (
-                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <Calendar className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3 h-3" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
-                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{eventDate}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{eventDate}</p>
                   </div>
                 </div>
               )}
               {venueName && (
-                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <MapPin className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3 h-3" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
-                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{venueName}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{venueName}</p>
                   </div>
                 </div>
               )}
               {event?.community?.name && (
-                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <Building2 className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Building2 className="w-3 h-3" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
-                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{event.community.name}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{event.community.name}</p>
                   </div>
                 </div>
               )}
 
               {/* All Sport Categories & Age Details */}
               {uniqueSiblingEvents.length > 0 && (
-                <div className="pt-2 border-t border-border/60 space-y-2">
+                <div className="pt-1.5 border-t border-border/60 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
+                    <p className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
                       <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       <span>All {event?.sport?.name || "Sport"} Categories</span>
                     </p>
-                    <span className="text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
                       {uniqueSiblingEvents.length}
                     </span>
                   </div>
@@ -4140,18 +4140,18 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           onClick={() => handleSwitchSiblingCategory(sib)}
                           role={!isCurrent ? "button" : undefined}
                           tabIndex={!isCurrent ? 0 : undefined}
-                          className={`p-2.5 rounded-xl text-xs space-y-1.5 border transition-all group ${
+                          className={`p-2 rounded-lg text-xs space-y-1 border transition-all group ${
                             isCurrent
                               ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
                               : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-bold text-xs sm:text-[13px] text-foreground group-hover:text-primary transition-colors truncate">
+                            <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
                             {isCurrent ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
                                 Selected
                               </span>
                             ) : (
@@ -4161,17 +4161,17 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded-md border border-indigo-100 dark:border-indigo-900/40">
                               🎯 {ageLabel}
                             </span>
                             {sib.venueName && sib.venueName !== venueName && (
-                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                              <span className="text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-md">
                                 📍 {sib.venueName}
                               </span>
                             )}
                             {sib.maxParticipants && (
-                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                              <span className="text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-md">
                                 {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
                               </span>
                             )}
@@ -4280,21 +4280,21 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           onClick={handleClose}
         >
           <div 
-            className="relative w-full max-w-5xl h-[92vh] max-h-[92dvh] sm:h-[88vh] sm:max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            className="relative w-full max-w-5xl h-[90vh] max-h-[90dvh] sm:h-[86vh] sm:max-h-[820px] bg-slate-50 dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Pull handle for mobile */}
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2 mb-0.5 sm:hidden shrink-0" />
 
             {/* Pinned Modal Header */}
-            <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
+            <div className="shrink-0 px-3.5 sm:px-5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <span className="p-1.5 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
                   <Trophy className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h4 className="text-sm sm:text-base font-bold text-foreground truncate leading-tight">
+                    <h4 className="text-xs sm:text-sm font-bold text-foreground truncate leading-tight">
                       {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
                       {eventDate ? ` - ${eventDate}` : ""}
                     </h4>
@@ -4308,7 +4308,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <Info className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
+                  <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
                     {event?.categoryName || event?.name || venueName || "Tournament Registration"}
                   </p>
                 </div>
@@ -4324,16 +4324,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             </div>
 
             {/* Scrollable Modal Body */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-3 sm:pb-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2.5 sm:pb-0">
               {mainContent}
             </div>
 
             {/* Pinned Modal Footer */}
-            <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
+            <div className="shrink-0 px-3 sm:px-5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
               <button
                 type="button"
                 onClick={handleClose}
-                className="min-h-[42px] px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
+                className="min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
               >
                 Cancel
               </button>
@@ -4346,7 +4346,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </span>
                 )}
                 {selectedFormats.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
                     {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
                   </span>
                 )}
@@ -4373,7 +4373,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   handleSubmit({ preventDefault: () => {} } as React.FormEvent);
                 }}
                 disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className={`flex-1 sm:flex-initial min-h-[42px] px-4 sm:px-6 py-2 sm:py-2.5 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm shrink-0 ${
+                className={`flex-1 sm:flex-initial min-h-[36px] sm:min-h-[38px] px-3.5 sm:px-5 py-1.5 sm:py-2 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-1.5 text-xs sm:text-[13px] shrink-0 ${
                   isAlreadyRegistered
                     ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
                     : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"

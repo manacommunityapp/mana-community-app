@@ -1291,7 +1291,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-2.5 lg:p-5">
+        <main className="flex-1 min-h-0 overflow-y-auto p-1.5 sm:p-2 lg:p-2.5">
           <div className="w-full h-full">
             <Outlet />
           </div>

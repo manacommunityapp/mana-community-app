@@ -263,23 +263,23 @@ export function SportsPartnerSelector({
   };
 
   return (
-    <div ref={containerRef} className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 sm:p-4 space-y-3 text-left">
+    <div ref={containerRef} className="bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/90 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 space-y-2 text-left">
       {/* Header with Title and Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-1.5 border-b border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
-                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 text-[10px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
             </h3>
-            <p className="text-xs text-slate-500 m-0">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 leading-tight">
               {isMixedDoubles
                 ? targetPartnerGender
                   ? `Mixed Doubles requires a ${targetPartnerGender.toLowerCase()} partner (1 Male + 1 Female).`
@@ -291,12 +291,12 @@ export function SportsPartnerSelector({
 
         {/* Mode Selector Tabs */}
         {!selectedPartner && (
-          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-xs font-semibold">
+          <div className="flex items-center bg-slate-200/60 dark:bg-slate-800 p-0.5 rounded-lg text-xs font-semibold">
             <button
               type="button"
               onClick={() => { setPartnerMode("community"); onChange(null); }}
-              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                partnerMode === "community" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                partnerMode === "community" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Neighbor
@@ -305,8 +305,8 @@ export function SportsPartnerSelector({
               <button
                 type="button"
                 onClick={() => { setPartnerMode("family"); onChange(null); }}
-                className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                  partnerMode === "family" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+                className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                  partnerMode === "family" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 Family
@@ -315,8 +315,8 @@ export function SportsPartnerSelector({
             <button
               type="button"
               onClick={handleSetOpenPool}
-              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                partnerMode === "open_pool" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                partnerMode === "open_pool" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Need Partner
@@ -327,7 +327,7 @@ export function SportsPartnerSelector({
 
       {/* When a Partner is already selected */}
       {selectedPartner ? (
-        <div className="bg-white border border-indigo-200 rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
               {selectedPartner.mode === "open_pool" ? (
