@@ -1,46 +1,17 @@
-import { toast, type ToastOptions } from "react-toastify";
-import React from "react";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaTimesCircle,
-  FaInfoCircle
-} from "react-icons/fa";
-
-const commonConfig: ToastOptions = {
-  position: "top-right",
-  autoClose: 4000,
-  hideProgressBar: false,
-  closeOnClick: true,
-  pauseOnHover: true,
-  draggable: true,
-  theme: "colored"
-};
+import { toast } from "sonner";
 
 export const showSuccess = (message: string) => {
-  toast.success(message, {
-    ...commonConfig,
-    icon: () => React.createElement(FaCheckCircle)
-  });
+  toast.success(message);
 };
 
 export const showWarning = (message: string) => {
-  toast.warning(message, {
-    ...commonConfig,
-    icon: () => React.createElement(FaExclamationTriangle)
-  });
+  toast.warning(message);
 };
 
 export const showError = (message: string) => {
-  toast.error(message, {
-    ...commonConfig,
-    icon: () => React.createElement(FaTimesCircle)
-  });
+  toast.error(message);
 };
 
 export const showInfo = (message: string) => {
-  toast.info(message, {
-    ...commonConfig,
-    icon: () => React.createElement(FaInfoCircle)
-  });
+  toast.info(message);
 };

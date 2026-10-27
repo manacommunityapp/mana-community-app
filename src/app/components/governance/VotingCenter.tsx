@@ -4,7 +4,7 @@ import {
   AlertTriangle, Clock, Users, ArrowRight,
   Sparkles, Check, Download, Share2
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface VotingOption {
   id: string;

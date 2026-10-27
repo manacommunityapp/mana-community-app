@@ -4,7 +4,7 @@ import {
   Star, MessageSquare, CheckCircle, Award, Sparkles,
   ExternalLink, Building2, BookOpen, Send, Calendar, Globe, Filter
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface DiscoverableNeighbor {
   id: string;

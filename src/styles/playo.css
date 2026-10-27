@@ -15,6 +15,15 @@
   --playo-shadow-pill: 0 1px 2px #d6d6db, 0 1px 3px #f2f2f4;
 }
 
+.dark {
+  --playo-surface: var(--surface-1, #0d0d1f);
+  --playo-card: var(--card, #16163a);
+  --playo-text-main: var(--foreground, #e8eaf6);
+  --playo-text-muted: var(--muted-foreground, #8b8fc8);
+  --playo-border: var(--border, rgba(99, 102, 241, 0.25));
+  --playo-primary-light: rgba(0, 181, 98, 0.15);
+}
+
 .playo-app {
   background-color: var(--playo-surface);
   color: var(--playo-text-main);

@@ -650,7 +650,7 @@ export function Layout() {
 
   return (
     <ChatProvider>
-      <div className="h-screen bg-background flex font-sans text-foreground overflow-hidden">
+      <div className="h-dvh min-h-dvh bg-background flex font-sans text-foreground overflow-hidden">
         {/* Mobile Backdrop */}
         {isMobileSidebarOpen && (
           <div
@@ -1291,7 +1291,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto p-1.5 sm:p-2 lg:p-2.5">
+        <main className="flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable] p-1.5 sm:p-2 lg:p-2.5">
           <div className="w-full h-full">
             <Outlet />
           </div>
