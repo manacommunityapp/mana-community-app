@@ -7,6 +7,7 @@ import { sportsService } from "../../../services/sports/sportsService";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
+import { tournamentService, type ConfigInfo } from "../../../services/sports/tournamentService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { SportsRegister, findBestMatchingCategory, calculateAge, checkCategoryEligibility, getEventFormats, inferGender } from "./SportsRegister";
 import { getStoredUser } from "../../../services/common/apiClient";
@@ -149,6 +150,8 @@ interface EventRowProps {
   event: (typeof SPORTS_DATA.upcomingEvents)[number] & {
     targetDate?: Date;
     registrantBadge?: string;
+    isScheduledMatch?: boolean;
+    matchId?: number;
   };
   onClick: () => void;
 }
@@ -183,6 +186,11 @@ function EventRow({ event, onClick }: EventRowProps) {
             {event.registrantBadge && (
               <span className="text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
+              </span>
+            )}
+            {event.isScheduledMatch && (
+              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 font-semibold inline-flex items-center gap-0.5">
+                ⚔️ Fixture
               </span>
             )}
             {(event.subtitle || event.venue) && (
@@ -812,14 +820,15 @@ export function SportsDashboard() {
     setError(null);
     try {
       // Trigger parallel granular fetch requests
-      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData] = await Promise.all([
+      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData, communityTournamentsData, configsData] = await Promise.all([
         sportsDashboardService.getStats(),
         sportsDashboardService.getUpcomingEvents(),
         sportsDashboardService.getOpenTournaments(),
         sportsDashboardService.getClosedTournaments(),
         sportsDashboardService.getMyRegistrations(),
         sportsDashboardService.getNotifications(),
-        sportsService.getCommunityTournaments(user?.communityId).catch(() => [] as any[])
+        sportsService.getCommunityTournaments(user?.communityId).catch(() => [] as any[]),
+        tournamentService.getConfigs().catch(() => [] as ConfigInfo[])
       ]);
 
       const fmtRange = (start: string | null, end: string | null) =>
@@ -1008,9 +1017,10 @@ export function SportsDashboard() {
       setClosedRegs(closedTournamentsData.flatMap(t => t.events).map(mapClosedEventCard));
 
       // Captain registrations (auction domain — separate concern, kept as-is)
+      let captainRegs: any[] = [];
       try {
-        const regs = await auctionService.getCaptainRegistration();
-        setCaptainRegistration(regs);
+        captainRegs = await auctionService.getCaptainRegistration();
+        setCaptainRegistration(captainRegs);
       } catch {
         setCaptainRegistration([]);
       }
@@ -1074,9 +1084,208 @@ export function SportsDashboard() {
           dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
           timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
           targetDate: exactTargetDate,
+          isScheduledMatch: false,
         };
       });
-      setLiveEvents(mappedMyEvents);
+
+      // Fetch scheduled matches for tournament configurations
+      const activeFamilyMembers = familyMembers.length > 0 ? familyMembers : await familyService.getFamilyMembers().catch(() => [] as FamilyMember[]);
+      if (familyMembers.length === 0 && activeFamilyMembers.length > 0) {
+        setFamilyMembers(activeFamilyMembers);
+      }
+
+      const scheduledMatchesRaw: { config: ConfigInfo; match: any }[] = [];
+      if (configsData && configsData.length > 0) {
+        const matchResults = await Promise.allSettled(
+          configsData.map(cfg =>
+            tournamentService.getMatchesByConfigId(cfg.id).then(matches => ({ cfg, matches }))
+          )
+        );
+        matchResults.forEach(res => {
+          if (res.status === "fulfilled" && Array.isArray(res.value?.matches)) {
+            res.value.matches.forEach((m: any) => {
+              if (m && m.status !== "BYE") {
+                scheduledMatchesRaw.push({ config: res.value.cfg, match: m });
+              }
+            });
+          }
+        });
+      }
+
+      // Map scheduled matches belonging to the logged-in user or family members
+      const norm = (str?: string | null) => (str || "").trim().toLowerCase();
+      const currentUserName = norm(user?.fullName);
+      const currentUserIdStr = user?.userId ? String(user.userId) : null;
+
+      const userScheduledMatches: any[] = [];
+      const matchedConfigEventIds = new Set<number>();
+
+      for (const { config, match: m } of scheduledMatchesRaw) {
+        const teamA = norm(m.teamAName);
+        const teamB = norm(m.teamBName);
+        const teamAId = m.teamAId != null ? String(m.teamAId) : null;
+        const teamBId = m.teamBId != null ? String(m.teamBId) : null;
+
+        let matchedMember: FamilyMember | null = null;
+        let matchedReg: any = null;
+        let isSelfMatch = false;
+
+        // 1. Check family members by name
+        for (const fm of activeFamilyMembers) {
+          const fmName = norm(fm.name);
+          if (fmName && (teamA.includes(fmName) || teamB.includes(fmName))) {
+            matchedMember = fm;
+            break;
+          }
+        }
+
+        // 2. Check registrations in fetchedMyRegs
+        if (!matchedMember) {
+          for (const r of fetchedMyRegs) {
+            const rName = norm(r.playerName);
+            const rTeam = norm(r.teamName || (r as any).proposedTeamName);
+            const rIdStr = String(r.id);
+            const isRegMatch =
+              (rName && (teamA.includes(rName) || teamB.includes(rName))) ||
+              (rTeam && (teamA === rTeam || teamB === rTeam)) ||
+              (teamAId && teamAId === rIdStr) ||
+              (teamBId && teamBId === rIdStr);
+
+            if (isRegMatch) {
+              matchedReg = r;
+              if (r.familyMemberId) {
+                matchedMember = activeFamilyMembers.find(f => String(f.id) === String(r.familyMemberId)) || ({
+                  id: r.familyMemberId,
+                  name: r.playerName || "Family Member",
+                  relation: r.relation || "FAMILY",
+                } as any);
+              } else if (r.relation && r.relation.toUpperCase() !== "SELF" && r.relation.toUpperCase() !== "HEAD") {
+                matchedMember = {
+                  id: r.familyMemberId || `fam-${r.playerName}`,
+                  name: r.playerName || "Family Member",
+                  relation: r.relation,
+                } as any;
+              } else {
+                isSelfMatch = true;
+              }
+              break;
+            }
+          }
+        }
+
+        // 3. Check self by user.fullName, userId, or captain teams
+        if (!matchedMember && !matchedReg) {
+          if (currentUserName && (teamA.includes(currentUserName) || teamB.includes(currentUserName))) {
+            isSelfMatch = true;
+          } else if (currentUserIdStr && (teamAId === currentUserIdStr || teamBId === currentUserIdStr)) {
+            isSelfMatch = true;
+          } else if (captainRegs && captainRegs.length > 0) {
+            for (const cap of captainRegs) {
+              const capTeam = norm(cap.teamName);
+              if (capTeam && (teamA === capTeam || teamB === capTeam)) {
+                isSelfMatch = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (matchedMember || isSelfMatch || matchedReg) {
+          const isSelf = isSelfMatch || (!matchedMember && (!matchedReg?.familyMemberId || matchedReg?.relation === "SELF"));
+          const regPlayerName = matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You");
+          const regRelation = matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF");
+          const regFamId = matchedMember ? matchedMember.id : matchedReg?.familyMemberId;
+
+          let registrantBadge: string | undefined;
+          if (!isSelf && regPlayerName) {
+            registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
+          } else if (regPlayerName && regPlayerName !== user?.fullName) {
+            registrantBadge = `👤 ${regPlayerName}`;
+          }
+
+          const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || matchedReg?.teamName || user?.fullName);
+          const isTeamASide = (myIdStr && teamA.includes(myIdStr)) || (matchedReg?.teamName && teamA === norm(matchedReg.teamName));
+          const userSideName = isTeamASide ? (m.teamAName || "You") : (m.teamBName || "You");
+          const opponentSideName = isTeamASide ? (m.teamBName || "TBD") : (m.teamAName || "TBD");
+
+          const roundStr = m.roundName || m.round;
+          const roundPrefix = roundStr ? `${roundStr.replace(/_/g, " ")}: ` : "";
+          const matchTitle = `${roundPrefix}${userSideName} vs ${opponentSideName}`;
+
+          let exactMatchDate: Date | undefined;
+          if (m.scheduledAt) {
+            try {
+              const parsed = new Date(m.scheduledAt);
+              if (!isNaN(parsed.getTime())) exactMatchDate = parsed;
+            } catch {}
+          } else if (m.matchDate) {
+            try {
+              const timeStr = m.matchTime ? (m.matchTime.length === 5 ? `${m.matchTime}:00` : m.matchTime) : "00:00:00";
+              const parsed = new Date(`${m.matchDate}T${timeStr}`);
+              if (!isNaN(parsed.getTime())) exactMatchDate = parsed;
+            } catch {}
+          }
+
+          const isMatchLive = m.status === "LIVE" || m.status === "IN_PROGRESS";
+          const isMatchCompleted = m.status === "COMPLETED";
+          const statusVal = isMatchLive ? "LIVE" : isMatchCompleted ? "COMPLETED" : "UPCOMING";
+          const statusTextVal = isMatchLive ? "LIVE NOW"
+            : isMatchCompleted ? (m.scoreTeamA && m.scoreTeamB ? `${m.scoreTeamA} - ${m.scoreTeamB}` : "Completed")
+            : exactMatchDate ? format(exactMatchDate, "MMM d, h:mm a")
+            : "Scheduled";
+          const statusSubVal = isMatchLive ? "In Progress"
+            : isMatchCompleted ? "Finished"
+            : m.courtName || (roundStr ? roundStr.replace(/_/g, " ") : "Fixture Scheduled ✓");
+
+          const eventIdNum = config.eventId || m.eventId;
+          if (eventIdNum) {
+            matchedConfigEventIds.add(Number(eventIdNum));
+          }
+
+          userScheduledMatches.push({
+            id: m.id ? -Math.abs(Number(m.id)) : -Math.abs(Number(m.matchId || Math.floor(Math.random() * 100000))),
+            matchId: m.id || m.matchId,
+            eventId: eventIdNum,
+            name: matchTitle,
+            subtitle: `${config.tournamentName || "Tournament"}${config.eventName ? ` · ${config.eventName}` : ""}${roundStr ? ` · ${roundStr.replace(/_/g, " ")}` : ""}`,
+            venue: [m.venueName, m.courtName].filter(Boolean).join(" · ") || config.venueName || "Venue TBD",
+            category: config.eventName || (roundStr ? roundStr.replace(/_/g, " ") : "Match"),
+            registrantBadge,
+            playerName: regPlayerName,
+            relation: regRelation,
+            familyMemberId: regFamId,
+            status: statusVal as any,
+            statusText: statusTextVal,
+            statusSub: statusSubVal,
+            dotColor: isMatchLive ? "#10b981" : "#f97316",
+            timeColor: isMatchLive ? "#10b981" : "#f97316",
+            targetDate: exactMatchDate,
+            isScheduledMatch: true,
+            matchData: m,
+          });
+        }
+      }
+
+      // Substitute scheduled matches instead of upcoming registered events
+      let finalEventsList: any[] = [];
+      if (userScheduledMatches.length > 0) {
+        // Exclude registered events that now have concrete scheduled matches
+        const remainingRegisteredEvents = mappedMyEvents.filter(e => !matchedConfigEventIds.has(e.id));
+        finalEventsList = [...userScheduledMatches, ...remainingRegisteredEvents];
+      } else {
+        finalEventsList = mappedMyEvents;
+      }
+
+      // Sort with LIVE first, then closest upcoming targetDate
+      finalEventsList.sort((a, b) => {
+        if (a.status === "LIVE" && b.status !== "LIVE") return -1;
+        if (b.status === "LIVE" && a.status !== "LIVE") return 1;
+        const timeA = a.targetDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const timeB = b.targetDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return timeA - timeB;
+      });
+
+      setLiveEvents(finalEventsList);
 
       // Stats (server-computed counts)
       setStats([
@@ -1086,9 +1295,9 @@ export function SportsDashboard() {
         { id: 4, value: statsData.upcomingTournaments, label: "Upcoming Tournaments", badge: "Register", badgeType: "purple", color: "#8b5cf6", icon: Trophy },
       ] as any);
 
-      // Next match
-      const upcoming = mappedMyEvents
-        .filter(e => e.targetDate && e.targetDate.getTime() > new Date().getTime())
+      // Next match (prioritizes concrete scheduled fixtures over generic registration events)
+      const upcoming = finalEventsList
+        .filter(e => e.targetDate && e.targetDate.getTime() > new Date().getTime() && e.status !== "COMPLETED")
         .sort((a, b) => (a.targetDate?.getTime() ?? 0) - (b.targetDate?.getTime() ?? 0))[0];
 
       if (upcoming && upcoming.targetDate) {
@@ -1343,7 +1552,11 @@ export function SportsDashboard() {
             }`}>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
                 <CalendarDays className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span>Your Upcoming Events</span>
+                <span>
+                  {filteredLiveEvents.some(e => e.isScheduledMatch)
+                    ? "Your Upcoming Matches"
+                    : "Your Upcoming Events"}
+                </span>
                 {filteredLiveEvents.length > 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
                     {filteredLiveEvents.length}
@@ -1389,7 +1602,7 @@ export function SportsDashboard() {
                 </div>
               ) : (filteredLiveEvents.length === 0 && !loading) ? (
                 <div className="text-xs font-semibold text-slate-400">
-                  No upcoming events
+                  No upcoming matches or events
                 </div>
               ) : null}
             </div>
@@ -1403,8 +1616,8 @@ export function SportsDashboard() {
                 <div className="text-center py-1 sm:py-1.5">
                   <div className="text-xs font-semibold text-slate-500">
                     {upcomingFamilyFilter !== "ALL"
-                      ? `No upcoming events for ${selectedMemberDisplayName}`
-                      : "No upcoming events"}
+                      ? `No upcoming matches or events for ${selectedMemberDisplayName}`
+                      : "No upcoming matches or events"}
                   </div>
                 </div>
               ) : null
@@ -1427,8 +1640,17 @@ export function SportsDashboard() {
 
                   return (
                     <div key={ev.id} className={`mb-1 sm:mb-1.5 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                      <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
-                      {isConfirmed && isTeamReg && (
+                      <EventRow
+                        event={ev}
+                        onClick={() => {
+                          if (ev.isScheduledMatch) {
+                            toast.info(`Match: ${ev.name}${ev.venue ? ` • ${ev.venue}` : ""}`);
+                          } else {
+                            toast.info(`Selected: ${ev.name}`);
+                          }
+                        }}
+                      />
+                      {isConfirmed && isTeamReg && !ev.isScheduledMatch && (
                         <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-b-lg border-x border-b -mt-1 bg-indigo-50/25 border-indigo-100/80"
                         >
                           <div className="flex items-center gap-2">
