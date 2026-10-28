@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X, User, Crown, HeartHandshake, Info, Clock, Sparkles, LayoutGrid, ListTree, CheckCircle2, Award, Trash2, MapPin, Medal, Swords } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
@@ -191,23 +191,28 @@ interface EventRowProps {
     registrantBadge?: string;
     isScheduledMatch?: boolean;
     matchId?: number;
+    tournamentName?: string;
+    eventName?: string;
+    roundName?: string;
+    matchNumber?: number;
+    teamAName?: string;
+    teamBName?: string;
+    userSideName?: string;
+    opponentSideName?: string;
+    venueName?: string;
+    courtName?: string;
+    scoreTeamA?: string;
+    scoreTeamB?: string;
+    matchData?: any;
+    config?: any;
   };
   onClick: () => void;
+  onShowInfo?: (event: any) => void;
 }
 
-function EventRow({ event, onClick }: EventRowProps) {
-  const [showInfo, setShowInfo] = useState(false);
+function EventRow({ event, onClick, onShowInfo }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse"
     : event.status === "COMPLETED" ? "bg-slate-400" : "bg-amber-500";
-
-  useEffect(() => {
-    if (!showInfo) return;
-    const handleOutsideClick = () => {
-      setShowInfo(false);
-    };
-    window.addEventListener("click", handleOutsideClick);
-    return () => window.removeEventListener("click", handleOutsideClick);
-  }, [showInfo]);
 
   return (
     <div
@@ -235,54 +240,22 @@ function EventRow({ event, onClick }: EventRowProps) {
               </span>
             )}
             {(event.subtitle || event.venue) && (
-              <div className="relative inline-flex items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowInfo(prev => !prev);
-                  }}
-                  className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer flex items-center justify-center shrink-0"
-                  title={`${event.subtitle || ""}${event.venue ? ` · ${event.venue}` : ""}`}
-                  aria-label="Tournament and venue info"
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-                {showInfo && (
-                  <div
-                    className="absolute left-0 top-full mt-1 z-30 min-w-[200px] max-w-[280px] p-2.5 rounded-xl bg-slate-900 text-white text-[11px] shadow-lg border border-slate-800 animate-in fade-in zoom-in-95 duration-150"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        {event.subtitle && (
-                          <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-                            <Trophy className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                            <span className="truncate">{event.subtitle}</span>
-                          </div>
-                        )}
-                        {event.venue && (
-                          <div className="text-slate-400 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span className="truncate">Venue: {event.venue}</span>
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowInfo(false);
-                        }}
-                        className="text-slate-400 hover:text-white p-0.5 cursor-pointer rounded"
-                        aria-label="Close"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onShowInfo) {
+                    onShowInfo(event);
+                  } else {
+                    onClick();
+                  }
+                }}
+                className="p-1 rounded-full text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition cursor-pointer flex items-center justify-center shrink-0"
+                title={`${event.subtitle || ""}${event.venue ? ` · ${event.venue}` : ""}`}
+                aria-label="Tournament and venue info"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
         </div>
@@ -571,6 +544,8 @@ export function SportsDashboard() {
   const [upcomingFamilyFilter, setUpcomingFamilyFilter] = useState<string>("ALL");
   // Stats Card Modal State ("registrations" | "live_events" | null)
   const [activeStatsModal, setActiveStatsModal] = useState<"registrations" | "live_events" | null>(null);
+  // Match & Event Fixture Details Modal State
+  const [activeInfoEvent, setActiveInfoEvent] = useState<any | null>(null);
   // Tournament Sponsors State (dynamic from database)
   const [sponsors, setSponsors] = useState<TournamentSponsor[]>([]);
   const [featuredTournamentName, setFeaturedTournamentName] = useState<string>("");
@@ -1320,7 +1295,17 @@ export function SportsDashboard() {
             eventId: eventIdNum,
             name: matchTitle,
             subtitle: `${config.tournamentName || "Tournament"}${config.eventName ? ` · ${config.eventName}` : ""}${roundStr ? ` · ${roundStr.replace(/_/g, " ")}` : ""}`,
+            tournamentName: config.tournamentName || "Tournament",
+            eventName: config.eventName,
+            roundName: roundStr ? roundStr.replace(/_/g, " ") : undefined,
+            matchNumber: m.matchNumber,
+            teamAName: rawTeamA,
+            teamBName: rawTeamB,
+            userSideName,
+            opponentSideName,
             venue: [m.venueName, m.courtName].filter(Boolean).join(" · ") || (config as any).venueName || "Venue TBD",
+            venueName: m.venueName || (config as any).venueName || "Community Sports Arena",
+            courtName: m.courtName,
             category: config.eventName || (roundStr ? roundStr.replace(/_/g, " ") : "Match"),
             registrantBadge,
             playerName: regPlayerName,
@@ -1329,11 +1314,14 @@ export function SportsDashboard() {
             status: statusVal as any,
             statusText: statusTextVal,
             statusSub: statusSubVal,
+            scoreTeamA: m.scoreTeamA,
+            scoreTeamB: m.scoreTeamB,
             dotColor: isMatchLive ? "#10b981" : "#f97316",
             timeColor: isMatchLive ? "#10b981" : "#f97316",
             targetDate: exactMatchDate,
             isScheduledMatch: true,
             matchData: m,
+            config,
           });
         }
       }
@@ -1704,13 +1692,8 @@ export function SportsDashboard() {
                     <div key={ev.id} className={`mb-1 sm:mb-1.5 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                       <EventRow
                         event={ev}
-                        onClick={() => {
-                          if (ev.isScheduledMatch) {
-                            toast.info(`Match: ${ev.name}${ev.venue ? ` • ${ev.venue}` : ""}`);
-                          } else {
-                            toast.info(`Selected: ${ev.name}`);
-                          }
-                        }}
+                        onShowInfo={(infoEv) => setActiveInfoEvent(infoEv)}
+                        onClick={() => setActiveInfoEvent(ev)}
                       />
                       {isConfirmed && isTeamReg && !ev.isScheduledMatch && (
                         <div className="flex items-center justify-between px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-b-lg border-x border-b -mt-1 bg-indigo-50/25 border-indigo-100/80"
@@ -3206,6 +3189,212 @@ export function SportsDashboard() {
                 <button
                   type="button"
                   onClick={() => setActiveStatsModal(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Match & Event Fixture Details Modal ── */}
+        {activeInfoEvent && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setActiveInfoEvent(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-lg w-full p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto text-left animate-in zoom-in-95 duration-200 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                    {activeInfoEvent.isScheduledMatch ? (
+                      <Swords className="w-5 h-5 text-indigo-600" />
+                    ) : (
+                      <Trophy className="w-5 h-5 text-amber-500" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900 m-0 leading-tight">
+                        {activeInfoEvent.isScheduledMatch ? "Match Fixture Details" : "Tournament Event Details"}
+                      </h3>
+                      {activeInfoEvent.status === "LIVE" ? (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          LIVE NOW
+                        </span>
+                      ) : activeInfoEvent.status === "COMPLETED" ? (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          COMPLETED
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                          UPCOMING
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 m-0 line-clamp-1">
+                      {activeInfoEvent.subtitle || `${activeInfoEvent.tournamentName || "Tournament"} · ${activeInfoEvent.category || "Match"}`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveInfoEvent(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer shrink-0"
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Matchup Versus Card (for scheduled matches) */}
+              {activeInfoEvent.isScheduledMatch && (
+                <div className="p-3.5 sm:p-4 rounded-xl bg-gradient-to-br from-slate-50 via-indigo-50/25 to-slate-50 border border-slate-200/90 text-center relative overflow-hidden">
+                  <div className="grid grid-cols-11 items-center gap-2">
+                    {/* Team / Side A */}
+                    <div className="col-span-5 text-left min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Home / Side A</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={activeInfoEvent.teamAName || activeInfoEvent.userSideName || "Team A"}>
+                        {activeInfoEvent.teamAName || activeInfoEvent.userSideName || "Team A"}
+                      </span>
+                      {activeInfoEvent.scoreTeamA != null && (
+                        <span className="text-base sm:text-lg font-black text-indigo-700 block mt-0.5">
+                          {activeInfoEvent.scoreTeamA}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* VS Badge */}
+                    <div className="col-span-1 flex items-center justify-center">
+                      <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-extrabold flex items-center justify-center border border-indigo-200 shadow-2xs">
+                        VS
+                      </span>
+                    </div>
+
+                    {/* Team / Side B */}
+                    <div className="col-span-5 text-right min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Away / Side B</span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 block truncate" title={activeInfoEvent.teamBName || activeInfoEvent.opponentSideName || "Team B"}>
+                        {activeInfoEvent.teamBName || activeInfoEvent.opponentSideName || "Team B"}
+                      </span>
+                      {activeInfoEvent.scoreTeamB != null && (
+                        <span className="text-base sm:text-lg font-black text-indigo-700 block mt-0.5">
+                          {activeInfoEvent.scoreTeamB}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Match / Event Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+                {/* Tournament */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1 text-[11px]">
+                    <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>Tournament</span>
+                  </div>
+                  <div className="font-bold text-slate-900 line-clamp-1">
+                    {activeInfoEvent.tournamentName || "Community Sports Championship"}
+                  </div>
+                </div>
+
+                {/* Championship / Category */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1 text-[11px]">
+                    <Medal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>Championship / Event</span>
+                  </div>
+                  <div className="font-bold text-slate-900 line-clamp-1">
+                    {activeInfoEvent.eventName || activeInfoEvent.category || "Main Draw"}
+                  </div>
+                </div>
+
+                {/* Fixture Round / Stage */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1 text-[11px]">
+                    <Swords className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>Round / Stage</span>
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {activeInfoEvent.roundName || (activeInfoEvent.matchData?.roundName || activeInfoEvent.matchData?.round?.replace(/_/g, " ") || "Fixture Scheduled")}
+                    {activeInfoEvent.matchNumber ? ` · Match #${activeInfoEvent.matchNumber}` : ""}
+                  </div>
+                </div>
+
+                {/* Schedule Date & Time */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1 text-[11px]">
+                    <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span>Schedule & Timing</span>
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {activeInfoEvent.targetDate
+                      ? format(activeInfoEvent.targetDate, "EEE, MMM d, yyyy · h:mm a")
+                      : (activeInfoEvent.statusText || "Fixture Scheduled")}
+                  </div>
+                  {activeInfoEvent.targetDate && activeInfoEvent.targetDate.getTime() > Date.now() && (
+                    <div className="mt-1">
+                      <CompactMatchBadge targetDate={activeInfoEvent.targetDate} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Venue & Location */}
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 sm:col-span-2">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1 text-[11px]">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Venue & Court Location</span>
+                  </div>
+                  <div className="font-bold text-slate-900">
+                    {activeInfoEvent.venue || activeInfoEvent.venueName || "Community Sports Arena"}
+                  </div>
+                  {activeInfoEvent.courtName && (
+                    <div className="text-slate-500 text-[11px] mt-0.5">
+                      Court / Table: <span className="font-semibold text-slate-700">{activeInfoEvent.courtName}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Registered Participant */}
+                <div className="p-2.5 rounded-xl bg-indigo-50/50 border border-indigo-100 sm:col-span-2 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">👤</span>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-indigo-600">Registered Participant</div>
+                      <div className="text-xs font-bold text-slate-900">
+                        {activeInfoEvent.playerName || user?.fullName || "You"}
+                        {activeInfoEvent.relation && !isSelfRelationOrMember(activeInfoEvent.relation) && (
+                          <span className="text-slate-500 font-medium ml-1">({activeInfoEvent.relation})</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white text-indigo-700 border border-indigo-200 shadow-2xs">
+                    {activeInfoEvent.isScheduledMatch ? "⚔️ Official Fixture" : "Confirmed Registration"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 flex-wrap">
+                <Link
+                  to="/sports/schedule"
+                  onClick={() => setActiveInfoEvent(null)}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  View Tournament Draws & Brackets →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setActiveInfoEvent(null)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                 >
                   Close
