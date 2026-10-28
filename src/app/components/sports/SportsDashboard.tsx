@@ -1121,10 +1121,23 @@ export function SportsDashboard() {
       const matchedConfigEventIds = new Set<number>();
 
       for (const { config, match: m } of scheduledMatchesRaw) {
-        const teamA = norm(m.teamAName);
-        const teamB = norm(m.teamBName);
-        const teamAId = m.teamAId != null ? String(m.teamAId) : null;
-        const teamBId = m.teamBId != null ? String(m.teamBId) : null;
+        const rawTeamA = m.teamAName || m.homeName || m.teamA?.name || "";
+        const rawTeamB = m.teamBName || m.awayName || m.teamB?.name || "";
+        const teamA = norm(rawTeamA);
+        const teamB = norm(rawTeamB);
+        const teamAId = m.teamAId != null ? String(m.teamAId) : (m.homeId != null ? String(m.homeId) : (m.teamA?.id != null ? String(m.teamA.id) : null));
+        const teamBId = m.teamBId != null ? String(m.teamBId) : (m.awayId != null ? String(m.awayId) : (m.teamB?.id != null ? String(m.teamB.id) : null));
+
+        const playersListA: string[] = (
+          Array.isArray(m.teamA?.players) ? m.teamA.players.map((p: any) => norm(p?.name || p?.playerName || p)) :
+          Array.isArray(m.teamAPlayers) ? m.teamAPlayers.map((p: any) => norm(p?.name || p)) : []
+        );
+        const playersListB: string[] = (
+          Array.isArray(m.teamB?.players) ? m.teamB.players.map((p: any) => norm(p?.name || p?.playerName || p)) :
+          Array.isArray(m.teamBPlayers) ? m.teamBPlayers.map((p: any) => norm(p?.name || p)) : []
+        );
+        const hasNameInA = (n: string) => Boolean(n && (teamA.includes(n) || playersListA.some(p => p.includes(n))));
+        const hasNameInB = (n: string) => Boolean(n && (teamB.includes(n) || playersListB.some(p => p.includes(n))));
 
         let matchedMember: FamilyMember | null = null;
         let matchedReg: any = null;
@@ -1133,7 +1146,7 @@ export function SportsDashboard() {
         // 1. Check family members by name
         for (const fm of activeFamilyMembers) {
           const fmName = norm(fm.name);
-          if (fmName && (teamA.includes(fmName) || teamB.includes(fmName))) {
+          if (fmName && (hasNameInA(fmName) || hasNameInB(fmName))) {
             matchedMember = fm;
             break;
           }
@@ -1146,7 +1159,7 @@ export function SportsDashboard() {
             const rTeam = norm((r as any).teamName || (r as any).proposedTeamName);
             const rIdStr = String(r.id);
             const isRegMatch =
-              (rName && (teamA.includes(rName) || teamB.includes(rName))) ||
+              (rName && (hasNameInA(rName) || hasNameInB(rName))) ||
               (rTeam && (teamA === rTeam || teamB === rTeam)) ||
               (teamAId && teamAId === rIdStr) ||
               (teamBId && teamBId === rIdStr);
@@ -1175,7 +1188,7 @@ export function SportsDashboard() {
 
         // 3. Check self by user.fullName, userId, or captain teams
         if (!matchedMember && !matchedReg) {
-          if (currentUserName && (teamA.includes(currentUserName) || teamB.includes(currentUserName))) {
+          if (currentUserName && (hasNameInA(currentUserName) || hasNameInB(currentUserName))) {
             isSelfMatch = true;
           } else if (currentUserIdStr && (teamAId === currentUserIdStr || teamBId === currentUserIdStr)) {
             isSelfMatch = true;
@@ -1204,9 +1217,9 @@ export function SportsDashboard() {
           }
 
           const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || (matchedReg as any)?.teamName || user?.fullName);
-          const isTeamASide = (myIdStr && teamA.includes(myIdStr)) || ((matchedReg as any)?.teamName && teamA === norm((matchedReg as any).teamName));
-          const userSideName = isTeamASide ? (m.teamAName || "You") : (m.teamBName || "You");
-          const opponentSideName = isTeamASide ? (m.teamBName || "TBD") : (m.teamAName || "TBD");
+          const isTeamASide = (myIdStr && hasNameInA(myIdStr)) || ((matchedReg as any)?.teamName && teamA === norm((matchedReg as any).teamName));
+          const userSideName = isTeamASide ? (rawTeamA || "You") : (rawTeamB || "You");
+          const opponentSideName = isTeamASide ? (rawTeamB || "TBD") : (rawTeamA || "TBD");
 
           const roundStr = m.roundName || m.round;
           const roundPrefix = roundStr ? `${roundStr.replace(/_/g, " ")}: ` : "";
@@ -1266,15 +1279,8 @@ export function SportsDashboard() {
         }
       }
 
-      // Substitute scheduled matches instead of upcoming registered events
-      let finalEventsList: any[] = [];
-      if (userScheduledMatches.length > 0) {
-        // Exclude registered events that now have concrete scheduled matches
-        const remainingRegisteredEvents = mappedMyEvents.filter(e => !matchedConfigEventIds.has(e.id));
-        finalEventsList = [...userScheduledMatches, ...remainingRegisteredEvents];
-      } else {
-        finalEventsList = mappedMyEvents;
-      }
+      // ONLY show scheduled matches when matches got scheduled (do not show generic registered events)
+      const finalEventsList: any[] = [...userScheduledMatches];
 
       // Sort with LIVE first, then closest upcoming targetDate
       finalEventsList.sort((a, b) => {
@@ -1552,11 +1558,7 @@ export function SportsDashboard() {
             }`}>
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600">
                 <CalendarDays className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                <span>
-                  {filteredLiveEvents.some(e => e.isScheduledMatch)
-                    ? "Your Upcoming Matches"
-                    : "Your Upcoming Events"}
-                </span>
+                <span>Your Upcoming Matches</span>
                 {filteredLiveEvents.length > 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
                     {filteredLiveEvents.length}
@@ -1573,9 +1575,9 @@ export function SportsDashboard() {
                     value={upcomingFamilyFilter}
                     onChange={(e) => setUpcomingFamilyFilter(e.target.value)}
                     className="text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2 py-0.5 sm:px-2.5 sm:py-1 outline-none focus:border-indigo-500 transition cursor-pointer"
-                    title="Filter upcoming events by family member"
+                    title="Filter upcoming matches by family member"
                   >
-                    <option value="ALL">👥 All Registrations</option>
+                    <option value="ALL">👥 All Matches</option>
                     <option value="SELF">👤 {user?.fullName || "Self"}</option>
                     {familyMembersOnly.map(m => (
                       <option key={m.id} value={String(m.id)}>
@@ -1602,7 +1604,7 @@ export function SportsDashboard() {
                 </div>
               ) : (filteredLiveEvents.length === 0 && !loading) ? (
                 <div className="text-xs font-semibold text-slate-400">
-                  No upcoming matches or events
+                  No upcoming matches scheduled
                 </div>
               ) : null}
             </div>
@@ -1612,15 +1614,16 @@ export function SportsDashboard() {
                 <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
               </div>
             ) : filteredLiveEvents.length === 0 ? (
-              familyMembersOnly.length > 0 ? (
-                <div className="text-center py-1 sm:py-1.5">
-                  <div className="text-xs font-semibold text-slate-500">
-                    {upcomingFamilyFilter !== "ALL"
-                      ? `No upcoming matches or events for ${selectedMemberDisplayName}`
-                      : "No upcoming matches or events"}
-                  </div>
+              <div className="text-center py-2.5 sm:py-3">
+                <div className="text-xs font-semibold text-slate-500">
+                  {upcomingFamilyFilter !== "ALL"
+                    ? `No upcoming matches scheduled for ${selectedMemberDisplayName}`
+                    : "No upcoming matches scheduled yet"}
                 </div>
-              ) : null
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  When tournament draws and match fixtures are published, they will appear here.
+                </div>
+              </div>
             ) : (
               <div className="max-h-[220px] sm:max-h-[240px] overflow-y-auto pr-1">
                 {filteredLiveEvents.map((ev, idx) => {
