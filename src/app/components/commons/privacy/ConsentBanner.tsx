@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Shield, Settings, Check, X } from "lucide-react";
 import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 import { PRIVACY_NOTICE_VERSION } from "./PrivacyPolicyModal";
+import { useAuth } from "../../../../contexts/AuthContext";
 
 /** Per-purpose consent state stored in localStorage (non-authenticated fallback). */
 export interface ConsentChoices {
@@ -44,14 +45,36 @@ interface ConsentBannerProps {
  * until the user opts in. This banner gates those purposes.
  *
  * Essential processing (security, session management) is never blocked.
+ * Shown only for admin and super admin users.
  */
 export function ConsentBanner({ onConsent }: ConsentBannerProps) {
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const [visible, setVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [analyticsConsent, setAnalyticsConsent] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
 
+  const roleUpper = String(user?.role || "").toUpperCase();
+  const rolesUpper = (user?.roles || []).map((r) => String(r).toUpperCase());
+  const canShowBanner = Boolean(
+    isSuperAdmin ||
+    isAdmin ||
+    roleUpper === "SUPER_ADMIN" ||
+    roleUpper === "SUPERADMIN" ||
+    roleUpper === "SUPER_ADMINISTRATOR" ||
+    roleUpper === "ADMIN" ||
+    roleUpper === "COMMUNITY_ADMIN" ||
+    rolesUpper.some((r) =>
+      ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "ADMIN", "COMMUNITY_ADMIN"].includes(r)
+    )
+  );
+
   useEffect(() => {
+    if (!canShowBanner) {
+      setVisible(false);
+      return;
+    }
+
     const stored = loadStoredChoices();
     if (stored) {
       onConsent?.(stored);
@@ -60,9 +83,9 @@ export function ConsentBanner({ onConsent }: ConsentBannerProps) {
     // Show banner after a short delay so the page loads first.
     const timer = setTimeout(() => setVisible(true), 800);
     return () => clearTimeout(timer);
-  }, []);
+  }, [canShowBanner, onConsent]);
 
-  if (!visible) return null;
+  if (!canShowBanner || !visible) return null;
 
   function acceptAll() {
     const choices: ConsentChoices = {
