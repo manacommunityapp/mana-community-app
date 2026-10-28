@@ -588,6 +588,7 @@ export const tournamentService = {
           status: "SCHEDULED",
           roundName: "Semi-Final",
           matchNumber: 1,
+          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
           teamA: { id: 1, name: "Team A", color: "#6366f1" },
           teamB: { id: 2, name: "Team B", color: "#f97316" },
           venueName: "Community Sports Arena",
