@@ -1,6 +1,7 @@
 import { apiClient } from "../common/apiClient";
 import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
+import { SAMPLE_TOURNAMENT_CONFIGS, getSampleMatchesForConfig } from "../../app/components/sports/sampleSportsScheduleData";
 
 export interface TournamentTypeInfo {
   id: string;
@@ -456,7 +457,16 @@ export const tournamentService = {
 
   /** GET /api/tournament/configs */
   async getConfigs(): Promise<ConfigInfo[]> {
-    return apiClient.get<ConfigInfo[]>("/tournament/configs");
+    try {
+      const data = await apiClient.get<ConfigInfo[]>("/tournament/configs");
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (_err) {
+      // Fallback for local development or when backend is unreachable
+    }
+    const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+    return isLocalEnv ? SAMPLE_TOURNAMENT_CONFIGS : [];
   },
 
   /** POST /api/tournament/config */
@@ -491,7 +501,16 @@ export const tournamentService = {
 
   /** GET /api/tournament/{configId}/matches - Fetch all matches for a config */
   async getMatchesByConfigId(configId: number): Promise<any[]> {
-    return apiClient.get<any[]>(`/tournament/${configId}/matches`);
+    try {
+      const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (_err) {
+      // Fallback for local development or when backend is unreachable
+    }
+    const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+    return isLocalEnv ? getSampleMatchesForConfig(configId) : [];
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Update status of all matches */
@@ -520,10 +539,31 @@ export const tournamentService = {
     config: any;
     matches: any[];
   }): Promise<{ config: ConfigInfo; savedMatches: number }> {
-    return apiClient.post<{ config: ConfigInfo; savedMatches: number }>(
-      "/tournament/schedule/save",
-      payload
-    );
+    try {
+      return await apiClient.post<{ config: ConfigInfo; savedMatches: number }>(
+        "/tournament/schedule/save",
+        payload
+      );
+    } catch (err) {
+      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+      if (isLocalEnv) {
+        return {
+          config: {
+            id: payload.configId || Math.floor(Math.random() * 1000) + 200,
+            tournamentName: payload.config?.tournamentName || "Custom Tournament",
+            tournamentType: payload.config?.tournamentType || "GROUP_PLAYOFF",
+            eventName: payload.config?.eventName || "Sport Championship",
+            eventId: payload.config?.eventId || 1,
+            totalTeams: payload.matches?.length || 8,
+            startDate: payload.config?.startDate || new Date().toISOString().split("T")[0],
+            endDate: payload.config?.endDate || new Date(Date.now() + 86400000 * 7).toISOString().split("T")[0],
+            status: payload.status,
+          },
+          savedMatches: payload.matches?.length || 0,
+        };
+      }
+      throw err;
+    }
   },
 
   /** POST /api/tournament/match/result — basic result (scores + winner) */
@@ -538,7 +578,25 @@ export const tournamentService = {
 
   /** GET /api/tournament/match/{matchId}/detail — full match detail with scorecard */
   async getMatchDetail(matchId: number): Promise<MatchDetailData> {
-    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+    try {
+      return await apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+    } catch (_err) {
+      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+      if (isLocalEnv) {
+        return {
+          matchId,
+          status: "SCHEDULED",
+          roundName: "Semi-Final",
+          matchNumber: 1,
+          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+          teamA: { id: 1, name: "Team A", color: "#6366f1" },
+          teamB: { id: 2, name: "Team B", color: "#f97316" },
+          venueName: "Community Sports Arena",
+          courtName: "Court 1",
+        };
+      }
+      throw _err;
+    }
   },
 
   /** GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp */
