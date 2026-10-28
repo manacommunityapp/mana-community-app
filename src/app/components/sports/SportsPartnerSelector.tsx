@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, Users, User, Heart, Sparkles, Check, X, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { userService } from "../../../services/common/userService";
-import { getStoredUser } from "../../../services/common/apiClient";
+import { getStoredUser, type StoredUser } from "../../../services/common/apiClient";
 import type { PartnerCandidateResponse } from "../../../services/common/userService";
 import type { FamilyMember } from "../../../services/common/familyService";
 
