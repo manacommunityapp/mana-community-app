@@ -144,6 +144,45 @@ function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
   );
 }
 
+/**
+ * Robust helper to determine if a member, relation, ID, or name represents the logged-in user / Self / Head.
+ */
+export function isSelfRelationOrMember(
+  rel?: string | null,
+  id?: string | number | null,
+  name?: string | null,
+  currentUserName?: string | null
+): boolean {
+  if (id != null) {
+    const idStr = String(id).toLowerCase().trim();
+    if (idStr === "self" || idStr === "fam-self" || idStr === "member-self" || idStr === "head" || idStr === "primary") {
+      return true;
+    }
+  }
+  if (rel) {
+    const r = rel.toUpperCase().trim();
+    if (
+      r === "SELF" ||
+      r === "HEAD" ||
+      r === "SELF (HEAD)" ||
+      r.includes("SELF") ||
+      r.includes("HEAD") ||
+      r === "PRIMARY" ||
+      r === "OWNER"
+    ) {
+      return true;
+    }
+  }
+  if (name && currentUserName) {
+    const n = name.toLowerCase().trim();
+    const c = currentUserName.toLowerCase().trim();
+    if (n && c && (n === c || n.includes(c) || c.includes(n))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ─── Event Row ───────────────────────────────────────────────────────────────
 
 interface EventRowProps {
@@ -183,7 +222,9 @@ function EventRow({ event, onClick }: EventRowProps) {
             {event.targetDate && event.targetDate.getTime() > Date.now() && (
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
-            {event.registrantBadge && (
+            {event.registrantBadge &&
+              !event.registrantBadge.toUpperCase().includes("SELF") &&
+              !event.registrantBadge.toUpperCase().includes("HEAD") && (
               <span className="text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
               </span>
@@ -554,14 +595,10 @@ export function SportsDashboard() {
   }, []);
 
   const familyMembersOnly = useMemo(() => {
+    const currentName = user?.fullName?.trim().toLowerCase();
     return familyMembers.filter((m) => {
-      const rel = (m.relation || (m as any).relationship || "").toUpperCase().trim();
-      const isSelf =
-        rel === "SELF" ||
-        rel === "HEAD" ||
-        m.id === "self" ||
-        m.id === "member-self" ||
-        (user?.fullName && m.name?.trim().toLowerCase() === user.fullName.trim().toLowerCase());
+      const rel = m.relation || (m as any).relationship || "";
+      const isSelf = isSelfRelationOrMember(rel, m.id, m.name, currentName);
       return !isSelf;
     });
   }, [familyMembers, user?.fullName]);
@@ -571,41 +608,42 @@ export function SportsDashboard() {
     selectedMemberId: string | number | undefined,
   ) => {
     if (!reg) return false;
-    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || selectedMemberId === "SELF" || selectedMemberId === "member-self";
+    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || selectedMemberId === "SELF" || selectedMemberId === "member-self" || selectedMemberId === "fam-self";
 
-    const regPlayerName = (reg.playerName || "").trim().toLowerCase();
-    const regRelation = (reg.relation || "").trim().toUpperCase();
+    const regPlayerName = (reg.playerName || "").trim();
+    const regRelation = (reg.relation || "").trim();
     const regFamilyMemberId = reg.familyMemberId;
-    const targetFullName = (user?.fullName || "").trim().toLowerCase();
+    const targetFullName = (user?.fullName || "").trim();
 
-    const isExplicitFamily =
-      (regFamilyMemberId && regFamilyMemberId !== "self" && regFamilyMemberId !== "member-self") ||
-      (regRelation && regRelation !== "SELF" && regRelation !== "HEAD");
-
-    const isSelfReg = !isExplicitFamily || (targetFullName && regPlayerName === targetFullName && regRelation === "SELF");
+    const isSelfReg = isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName);
 
     if (isSelfTarget) {
       return isSelfReg;
+    }
+
+    // When filtering by an actual family member, exclude Self registrations
+    if (isSelfReg) {
+      return false;
     }
 
     if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
       return true;
     }
 
-    const targetMember = familyMembers.find(m => String(m.id) === String(selectedMemberId));
+    const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
     if (targetMember) {
       const targetMemberName = (targetMember.name || "").trim().toLowerCase();
       const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-      if (targetMemberName && regPlayerName === targetMemberName) {
+      if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
         return true;
       }
-      if (targetMemberRelation && regRelation === targetMemberRelation) {
+      if (targetMemberRelation && regRelation.toUpperCase() === targetMemberRelation) {
         return true;
       }
     }
 
     return false;
-  }, [familyMembers, user?.fullName]);
+  }, [familyMembersOnly, user?.fullName]);
 
   const filteredLiveEvents = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return liveEvents;
@@ -631,7 +669,7 @@ export function SportsDashboard() {
   }, [upcomingFamilyFilter, familyMembers, user?.fullName]);
 
   const getMemberProfileStatus = useCallback((memberId: string | number | undefined) => {
-    const isSelf = !memberId || memberId === "self" || memberId === "SELF" || memberId === "member-self";
+    const isSelf = isSelfRelationOrMember(undefined, memberId);
     if (isSelf) {
       const stored = getStoredUser();
       const rawDob = user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob;
@@ -1057,10 +1095,13 @@ export function SportsDashboard() {
         const regFamId = e.familyMemberId != null ? e.familyMemberId : matchingReg?.familyMemberId;
 
         let registrantBadge: string | undefined;
-        if (regPlayerName && regRelation && regRelation.toUpperCase() !== "SELF") {
-          registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
-        } else if (regPlayerName && regPlayerName !== user?.fullName) {
-          registrantBadge = `👤 ${regPlayerName}`;
+        const isSelfEvent = isSelfRelationOrMember(regRelation, regFamId, regPlayerName, user?.fullName);
+        if (!isSelfEvent && regPlayerName) {
+          if (regRelation && !isSelfRelationOrMember(regRelation)) {
+            registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
+          } else {
+            registrantBadge = `👤 ${regPlayerName}`;
+          }
         }
 
         return {
@@ -1143,17 +1184,26 @@ export function SportsDashboard() {
         let matchedReg: any = null;
         let isSelfMatch = false;
 
-        // 1. Check family members by name
-        for (const fm of activeFamilyMembers) {
-          const fmName = norm(fm.name);
-          if (fmName && (hasNameInA(fmName) || hasNameInB(fmName))) {
-            matchedMember = fm;
-            break;
+        // 1. Direct check if it's the primary user
+        if (currentUserName && (hasNameInA(currentUserName) || hasNameInB(currentUserName))) {
+          isSelfMatch = true;
+        } else if (currentUserIdStr && (teamAId === currentUserIdStr || teamBId === currentUserIdStr)) {
+          isSelfMatch = true;
+        }
+
+        // 2. Check genuine family members by name (strictly familyMembersOnly, excluding self/head)
+        if (!isSelfMatch) {
+          for (const fm of familyMembersOnly) {
+            const fmName = norm(fm.name);
+            if (fmName && (hasNameInA(fmName) || hasNameInB(fmName))) {
+              matchedMember = fm;
+              break;
+            }
           }
         }
 
-        // 2. Check registrations in fetchedMyRegs
-        if (!matchedMember) {
+        // 3. Check registrations in fetchedMyRegs
+        if (!isSelfMatch && !matchedMember) {
           for (const r of fetchedMyRegs) {
             const rName = norm(r.playerName);
             const rTeam = norm((r as any).teamName || (r as any).proposedTeamName);
@@ -1166,13 +1216,16 @@ export function SportsDashboard() {
 
             if (isRegMatch) {
               matchedReg = r;
-              if (r.familyMemberId) {
-                matchedMember = activeFamilyMembers.find(f => String(f.id) === String(r.familyMemberId)) || ({
+              const isSelfReg = isSelfRelationOrMember(r.relation, r.familyMemberId, r.playerName, user?.fullName);
+              if (isSelfReg) {
+                isSelfMatch = true;
+              } else if (r.familyMemberId) {
+                matchedMember = familyMembersOnly.find(f => String(f.id) === String(r.familyMemberId)) || ({
                   id: r.familyMemberId,
                   name: r.playerName || "Family Member",
                   relation: r.relation || "FAMILY",
                 } as any);
-              } else if (r.relation && r.relation.toUpperCase() !== "SELF" && r.relation.toUpperCase() !== "HEAD") {
+              } else if (r.relation && !isSelfRelationOrMember(r.relation)) {
                 matchedMember = {
                   id: r.familyMemberId || `fam-${r.playerName}`,
                   name: r.playerName || "Family Member",
@@ -1186,34 +1239,40 @@ export function SportsDashboard() {
           }
         }
 
-        // 3. Check self by user.fullName, userId, or captain teams
-        if (!matchedMember && !matchedReg) {
-          if (currentUserName && (hasNameInA(currentUserName) || hasNameInB(currentUserName))) {
-            isSelfMatch = true;
-          } else if (currentUserIdStr && (teamAId === currentUserIdStr || teamBId === currentUserIdStr)) {
-            isSelfMatch = true;
-          } else if (captainRegs && captainRegs.length > 0) {
-            for (const cap of captainRegs) {
-              const capTeam = norm(cap.teamName);
-              if (capTeam && (teamA === capTeam || teamB === capTeam)) {
-                isSelfMatch = true;
-                break;
-              }
+        // 4. Check captain teams if still not matched
+        if (!isSelfMatch && !matchedMember && captainRegs && captainRegs.length > 0) {
+          for (const cap of captainRegs) {
+            const capTeam = norm(cap.teamName);
+            if (capTeam && (teamA === capTeam || teamB === capTeam)) {
+              isSelfMatch = true;
+              break;
             }
           }
         }
 
         if (matchedMember || isSelfMatch || matchedReg) {
-          const isSelf = isSelfMatch || (!matchedMember && (!matchedReg?.familyMemberId || matchedReg?.relation === "SELF"));
-          const regPlayerName: string = matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You");
-          const regRelation: string = matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF");
-          const regFamId = matchedMember ? matchedMember.id : matchedReg?.familyMemberId;
+          const isSelf = isSelfMatch || isSelfRelationOrMember(
+            matchedMember?.relation || matchedReg?.relation,
+            matchedMember?.id || matchedReg?.familyMemberId,
+            matchedMember?.name || matchedReg?.playerName,
+            user?.fullName
+          );
+          const regPlayerName: string = isSelf
+            ? (user?.fullName || "You")
+            : (matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You"));
+          const regRelation: string = isSelf
+            ? "SELF"
+            : (matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF"));
+          const regFamId = isSelf ? "self" : (matchedMember ? matchedMember.id : matchedReg?.familyMemberId);
 
           let registrantBadge: string | undefined;
-          if (!isSelf && regPlayerName) {
-            registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
-          } else if (regPlayerName && regPlayerName !== user?.fullName) {
-            registrantBadge = `👤 ${regPlayerName}`;
+          // Strictly omit badge for the logged-in user / Self
+          if (!isSelf && regPlayerName && !isSelfRelationOrMember(regRelation, regFamId, regPlayerName, user?.fullName)) {
+            if (regRelation && !isSelfRelationOrMember(regRelation)) {
+              registrantBadge = `👥 ${regPlayerName} (${regRelation})`;
+            } else {
+              registrantBadge = `👤 ${regPlayerName}`;
+            }
           }
 
           const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || (matchedReg as any)?.teamName || user?.fullName);
@@ -1639,7 +1698,7 @@ export function SportsDashboard() {
                   const isNominated = myReg?.captainNomination;
                   const isTeamReg = myReg?.matchType === "TEAM";
                   const regPersonName = myReg?.playerName || user?.fullName || "You";
-                  const isSelfNomination = !myReg?.familyMemberId && (!myReg?.relation || myReg?.relation?.toUpperCase() === "SELF" || myReg?.relation?.toUpperCase() === "HEAD");
+                  const isSelfNomination = isSelfRelationOrMember(myReg?.relation, myReg?.familyMemberId, myReg?.playerName, user?.fullName);
 
                   return (
                     <div key={ev.id} className={`mb-1 sm:mb-1.5 last:mb-0 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
@@ -2725,7 +2784,7 @@ export function SportsDashboard() {
               {(() => {
                 const targetReg = myRegistrations.find(r => r.id === nominatingRegId);
                 const targetPersonName = targetReg?.playerName || user?.fullName || "Player";
-                const isTargetSelf = !targetReg?.familyMemberId && (!targetReg?.relation || targetReg?.relation?.toUpperCase() === "SELF" || targetReg?.relation?.toUpperCase() === "HEAD");
+                const isTargetSelf = isSelfRelationOrMember(targetReg?.relation, targetReg?.familyMemberId, targetReg?.playerName, user?.fullName);
                 const targetRelation = isTargetSelf ? "Self" : (targetReg?.relation || "Family Member");
 
                 return (
@@ -2965,7 +3024,7 @@ export function SportsDashboard() {
                             {reg.playerName && (
                               <span className="text-[10px] font-semibold text-slate-700 inline-flex items-center gap-1">
                                 👤 <span>{reg.playerName}</span>
-                                {reg.relation && reg.relation.toUpperCase() !== "SELF" && (
+                                {reg.relation && !isSelfRelationOrMember(reg.relation) && (
                                   <span className="text-[10px] text-slate-400">({reg.relation})</span>
                                 )}
                               </span>
