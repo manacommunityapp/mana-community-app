@@ -1143,7 +1143,7 @@ export function SportsDashboard() {
         if (!matchedMember) {
           for (const r of fetchedMyRegs) {
             const rName = norm(r.playerName);
-            const rTeam = norm(r.teamName || (r as any).proposedTeamName);
+            const rTeam = norm((r as any).teamName || (r as any).proposedTeamName);
             const rIdStr = String(r.id);
             const isRegMatch =
               (rName && (teamA.includes(rName) || teamB.includes(rName))) ||
@@ -1192,8 +1192,8 @@ export function SportsDashboard() {
 
         if (matchedMember || isSelfMatch || matchedReg) {
           const isSelf = isSelfMatch || (!matchedMember && (!matchedReg?.familyMemberId || matchedReg?.relation === "SELF"));
-          const regPlayerName = matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You");
-          const regRelation = matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF");
+          const regPlayerName: string = matchedMember ? matchedMember.name : (matchedReg?.playerName || user?.fullName || "You");
+          const regRelation: string = matchedMember ? (matchedMember.relation || (matchedMember as any).relationship || "FAMILY") : (matchedReg?.relation || "SELF");
           const regFamId = matchedMember ? matchedMember.id : matchedReg?.familyMemberId;
 
           let registrantBadge: string | undefined;
@@ -1203,8 +1203,8 @@ export function SportsDashboard() {
             registrantBadge = `👤 ${regPlayerName}`;
           }
 
-          const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || matchedReg?.teamName || user?.fullName);
-          const isTeamASide = (myIdStr && teamA.includes(myIdStr)) || (matchedReg?.teamName && teamA === norm(matchedReg.teamName));
+          const myIdStr = norm(matchedMember?.name || matchedReg?.playerName || (matchedReg as any)?.teamName || user?.fullName);
+          const isTeamASide = (myIdStr && teamA.includes(myIdStr)) || ((matchedReg as any)?.teamName && teamA === norm((matchedReg as any).teamName));
           const userSideName = isTeamASide ? (m.teamAName || "You") : (m.teamBName || "You");
           const opponentSideName = isTeamASide ? (m.teamBName || "TBD") : (m.teamAName || "TBD");
 
@@ -1248,7 +1248,7 @@ export function SportsDashboard() {
             eventId: eventIdNum,
             name: matchTitle,
             subtitle: `${config.tournamentName || "Tournament"}${config.eventName ? ` · ${config.eventName}` : ""}${roundStr ? ` · ${roundStr.replace(/_/g, " ")}` : ""}`,
-            venue: [m.venueName, m.courtName].filter(Boolean).join(" · ") || config.venueName || "Venue TBD",
+            venue: [m.venueName, m.courtName].filter(Boolean).join(" · ") || (config as any).venueName || "Venue TBD",
             category: config.eventName || (roundStr ? roundStr.replace(/_/g, " ") : "Match"),
             registrantBadge,
             playerName: regPlayerName,
