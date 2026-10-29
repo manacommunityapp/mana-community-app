@@ -2,7 +2,8 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import {
   LayoutDashboard, Package, Boxes, Briefcase, CalendarCheck, Clock, Wallet,
   FileText, ShieldCheck, Star, UserCircle, ChevronRight, Store, ShoppingBag,
-  Tag, BadgeDollarSign, BarChart3, type LucideIcon,
+  Tag, BadgeDollarSign, BarChart3, Trophy, Layers, Calendar, Dumbbell, Users,
+  Award, Shirt, Zap, Building2, type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
@@ -21,6 +22,17 @@ type PortalNavItem = {
 
 const portalNav: PortalNavItem[] = [
   { to: "/vendor-portal", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/vendor-portal/sports", label: "Sports Business", icon: Trophy },
+  { to: "/vendor-portal/sports/venues", label: "Venues & Courts", icon: Layers },
+  { to: "/vendor-portal/sports/calendar", label: "Court Calendar", icon: Calendar },
+  { to: "/vendor-portal/sports/bookings", label: "Sports Bookings", icon: CalendarCheck },
+  { to: "/vendor-portal/sports/pricing", label: "Court Pricing", icon: BadgeDollarSign },
+  { to: "/vendor-portal/sports/coaching", label: "Coaches & Batches", icon: Dumbbell },
+  { to: "/vendor-portal/sports/memberships", label: "Students & Roster", icon: Users },
+  { to: "/vendor-portal/sports/events", label: "Events & Leagues", icon: Award },
+  { to: "/vendor-portal/sports/suppliers", label: "Sports Supplies", icon: Shirt },
+  { to: "/vendor-portal/sports/intelligence", label: "Sports Intelligence", icon: Zap },
+  { to: "/vendor-portal/sports/branches", label: "Multi-Venue Hub", icon: Building2 },
   { to: "/vendor-portal/products", label: "Product Catalog", icon: Package, permission: VIEW_COMMERCE_PRODUCTS },
   { to: "/vendor-portal/inventory", label: "Inventory", icon: Boxes, permission: VIEW_COMMERCE_INVENTORY },
   { to: "/vendor-portal/order-management", label: "Orders", icon: ShoppingBag, permission: MANAGE_COMMERCE_ORDERS },

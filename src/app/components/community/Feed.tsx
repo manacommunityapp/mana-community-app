@@ -1001,7 +1001,7 @@ export function Feed() {
       } else if (sportsTeamsOrScore) {
         request.location = sportsTeamsOrScore;
       }
-      request.linkUrl = selectedSportsTournamentId ? `/sports/tournaments` : `/sports`;
+      request.linkUrl = "/sports";
       const linkedTourn = sportsTournaments.find((t) => String(t.id) === selectedSportsTournamentId);
       request.linkTitle = linkedTourn?.name || (sportsCategory ? `${sportsCategory} Sports` : "Community Sports");
     } else if (composerType === "EMERGENCY") {
@@ -1311,9 +1311,9 @@ export function Feed() {
   const composerTypeConfig = getPostTypeConfig(composerType);
 
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3 items-start">
-        <div className="lg:col-span-3 space-y-2 sm:space-y-2.5">
+    <div className="w-full max-w-[1040px] xl:max-w-[1080px] mx-auto px-1 sm:px-2">
+      <div className="flex flex-col lg:flex-row justify-center gap-3 sm:gap-4 lg:gap-5 items-start">
+        <div className="w-full max-w-[640px] xl:max-w-[680px] mx-auto lg:mx-0 flex-1 space-y-2 sm:space-y-2.5 min-w-0">
           <AlertTicker />
 
           {/* Filter Tabs */}
@@ -2089,7 +2089,7 @@ export function Feed() {
         </div>
 
         {/* Sidebar */}
-        <div className="hidden lg:block sticky top-20 space-y-4">
+        <div className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-20 space-y-4">
           <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <EventsNotificationCard badgeCount={summaryCounts?.upcomingEventsCount} passCount={summaryCounts?.myPassCount} />
           <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
@@ -2681,10 +2681,10 @@ const PostCard = React.memo(function PostCard({
         </button>
       )}
 
-      {/* Sports tournament & match details – click to go to sports module */}
+      {/* Sports tournament & match details – click to go to sports dashboard */}
       {post.postType === "SPORTS" && (
         <button
-          onClick={() => navigate(post.linkUrl || "/sports")}
+          onClick={() => navigate("/sports")}
           className="w-full mb-3 text-left bg-gradient-to-r from-emerald-50/70 via-white to-teal-50/70 border border-emerald-200/80 rounded-xl p-3 hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group"
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -2826,7 +2826,21 @@ const PostCard = React.memo(function PostCard({
 
       {/* Link preview */}
       {post.linkUrl && post.linkTitle && (
-        <a href={sanitizeHref(post.linkUrl)} target="_blank" rel="noopener noreferrer" className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all">
+        <a
+          href={post.linkUrl.startsWith("/sports") || post.postType === "SPORTS" ? "/sports" : sanitizeHref(post.linkUrl)}
+          target={post.linkUrl.startsWith("/") || post.postType === "SPORTS" ? undefined : "_blank"}
+          rel={post.linkUrl.startsWith("/") || post.postType === "SPORTS" ? undefined : "noopener noreferrer"}
+          onClick={(e) => {
+            if (post.linkUrl.startsWith("/sports") || post.postType === "SPORTS") {
+              e.preventDefault();
+              navigate("/sports");
+            } else if (post.linkUrl.startsWith("/")) {
+              e.preventDefault();
+              navigate(post.linkUrl);
+            }
+          }}
+          className="block mb-3 border border-slate-200 rounded-lg overflow-hidden hover:shadow-sm transition-all"
+        >
           {post.linkImage && <img src={post.linkImage} alt="" className="w-full h-32 object-cover" />}
           <div className="p-3">
             <h5 className="text-xs font-bold text-slate-800 line-clamp-1">{post.linkTitle}</h5>

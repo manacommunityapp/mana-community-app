@@ -25,6 +25,13 @@ interface Mentor {
 
 const MOCK_MENTORS: Mentor[] = [];
 
+const SESSION_TYPES = [
+  { icon: Video, label: "1-on-1 Video", desc: "Private 45-min session" },
+  { icon: Users, label: "Group Session", desc: "Up to 5 mentees" },
+  { icon: BookOpen, label: "Resume Review", desc: "Async feedback" },
+  { icon: MessageCircle, label: "Quick Chat", desc: "15-min check-in" },
+];
+
 function MentorCard({ mentor, onBook }: { mentor: Mentor; onBook: (mentor: Mentor) => void }) {
   return (
     <div className="bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md transition-all hover:border-indigo-200 dark:hover:border-indigo-900 group">

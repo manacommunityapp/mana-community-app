@@ -3,12 +3,19 @@ import { useNavigate } from "react-router";
 import { Megaphone, AlertTriangle, Info, Wrench, Shield, X, Trophy, RefreshCw, CalendarDays } from "lucide-react";
 import { notificationService } from "../../../services/notices/notificationService";
 import type { NotificationItem } from "../../../services/notices/notificationService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { sportsService } from "../../../services/sports/sportsService";
+import type { SportsTournament } from "../../../types/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface AlertTickerItem {
   id: number;
   category: "EMERGENCY" | "MAINTENANCE" | "NOTICE" | "SECURITY" | "EVENT" | "SPORTS";
   message: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  status?: "UPCOMING" | "RUNNING" | "PAST";
+  actionUrl?: string;
 }
 
 // ── Static config per category ────────────────────────────────────────────────
@@ -39,28 +46,129 @@ const ICONS: Record<string, React.FC<{ className?: string }>> = {
   SPORTS:      Trophy,
 };
 
-import { eventService, type EventResponse } from "../../../services/events/eventService";
+export interface EventDateStatus {
+  status: "UPCOMING" | "RUNNING" | "PAST";
+  label: string;
+}
 
-const VINAYAKA_CHAVITHI_DEFAULT_ALERTS: AlertTickerItem[] = [
+/**
+ * Determines whether an event/tournament is currently running or upcoming based on start and end dates.
+ * Past events (where end date or start date has already elapsed) evaluate to PAST.
+ */
+export function getEventDateStatus(
+  startDateStr?: string | null,
+  endDateStr?: string | null,
+  startTimeStr?: string | null,
+  endTimeStr?: string | null,
+  now: Date = new Date()
+): EventDateStatus {
+  if (!startDateStr && !endDateStr) {
+    return { status: "PAST", label: "Past" };
+  }
+
+  const nowMs = now.getTime();
+
+  let startMs: number | null = null;
+  if (startDateStr) {
+    if (startDateStr.length === 10 && startDateStr.includes("-")) {
+      const [y, m, d] = startDateStr.split("-").map(Number);
+      let hour = 0;
+      let min = 0;
+      if (startTimeStr) {
+        const timeMatch = startTimeStr.match(/(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i);
+        if (timeMatch) {
+          hour = Number(timeMatch[1]);
+          min = Number(timeMatch[2]);
+          const ampm = timeMatch[3]?.toUpperCase();
+          if (ampm === "PM" && hour < 12) hour += 12;
+          if (ampm === "AM" && hour === 12) hour = 0;
+        }
+      }
+      startMs = new Date(y, m - 1, d, hour, min, 0, 0).getTime();
+    } else {
+      const parsed = new Date(startDateStr);
+      if (!isNaN(parsed.getTime())) startMs = parsed.getTime();
+    }
+  }
+
+  let endMs: number | null = null;
+  if (endDateStr) {
+    if (endDateStr.length === 10 && endDateStr.includes("-")) {
+      const [y, m, d] = endDateStr.split("-").map(Number);
+      let hour = 23;
+      let min = 59;
+      if (endTimeStr) {
+        const timeMatch = endTimeStr.match(/(\d{1,2}):(\d{2})(?:\s*(AM|PM))?/i);
+        if (timeMatch) {
+          hour = Number(timeMatch[1]);
+          min = Number(timeMatch[2]);
+          const ampm = timeMatch[3]?.toUpperCase();
+          if (ampm === "PM" && hour < 12) hour += 12;
+          if (ampm === "AM" && hour === 12) hour = 0;
+        }
+      }
+      endMs = new Date(y, m - 1, d, hour, min, 59, 999).getTime();
+    } else {
+      const parsed = new Date(endDateStr);
+      if (!isNaN(parsed.getTime())) endMs = parsed.getTime();
+    }
+  } else if (startMs !== null) {
+    // Single day event runs until 23:59:59.999 of the start day
+    const e = new Date(startMs);
+    e.setHours(23, 59, 59, 999);
+    endMs = e.getTime();
+  }
+
+  if (endMs !== null && endMs < nowMs) {
+    return { status: "PAST", label: "Past" };
+  }
+
+  if (startMs !== null && startMs > nowMs) {
+    return { status: "UPCOMING", label: "Upcoming" };
+  }
+
+  return { status: "RUNNING", label: "Happening Now" };
+}
+
+/**
+ * Checks if a free-form notification message mentions an explicit date that is already in the past.
+ */
+export function isNotificationDatePast(text?: string | null): boolean {
+  if (!text) return false;
+  const monthNames = "january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec";
+  const regex = new RegExp(`(?:on|for|from|dated?|by)?\\s*(${monthNames})\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s*(\\d{4})`, "i");
+  const match = text.match(regex);
+  if (match) {
+    const parsed = new Date(`${match[1]} ${match[2]}, ${match[3]}`);
+    if (!isNaN(parsed.getTime())) {
+      parsed.setHours(23, 59, 59, 999);
+      if (parsed.getTime() < Date.now()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ── Upcoming Fallback Alerts (Only shown if genuinely in the future/running) ──
+const SEED_UPCOMING_ALERTS: AlertTickerItem[] = [
   {
     id: 101,
     category: "EVENT",
-    message: "🕉️ Upcoming Grand Festival: Vinayaka Chavithi (Ganesh Chaturthi) on September 14, 2026. Join the community celebrations!",
+    startDate: "2026-11-08",
+    endDate: "2026-11-12",
+    status: "UPCOMING",
+    actionUrl: "/events",
+    message: "🪔 Upcoming Grand Festival: Diwali Celebrations & Deepotsavam (Nov 8–12, 2026). Join the community festivities!",
   },
   {
     id: 102,
-    category: "EVENT",
-    message: "🙏 Vinayaka Chavithi Special Pooja & Maha Ganapathi Seva bookings opening for September 14.",
-  },
-  {
-    id: 103,
-    category: "EVENT",
-    message: "🎭 Vinayaka Chavithi Cultural Programs, Bhajans & Competitions scheduled for September 14. Registrations open soon!",
-  },
-  {
-    id: 104,
-    category: "NOTICE",
-    message: "📢 Community Ganesh Utsav 2026: Mandap setup and volunteer registrations commence for September 14.",
+    category: "SPORTS",
+    startDate: "2026-11-20",
+    endDate: "2026-11-25",
+    status: "UPCOMING",
+    actionUrl: "/sports",
+    message: "🏆 Community Winter Sports Meet 2026: Badminton & Cricket registrations opening for November 20.",
   },
 ];
 
@@ -76,31 +184,50 @@ function formatDisplayDate(dateStr?: string | null, timeStr?: string | null): st
   return timeStr ? `${dateStr} at ${timeStr}` : dateStr;
 }
 
-function mapEventToAlert(ev: EventResponse, idx: number): AlertTickerItem {
+function mapEventToAlert(ev: EventResponse, idx: number): AlertTickerItem | null {
+  const dateStatus = getEventDateStatus(ev.startDate, ev.endDate, ev.startTime, ev.endTime);
+  if (dateStatus.status === "PAST") return null;
+
   const isSports = (ev.type || "").toUpperCase().includes("SPORT") || (ev.category || "").toUpperCase().includes("SPORT");
   const isPooja = (ev.type || "").toUpperCase().includes("POOJA") || (ev.category || "").toUpperCase().includes("POOJA") || (ev.title || "").toLowerCase().includes("puja") || (ev.title || "").toLowerCase().includes("pooja");
   
   const dateFormatted = formatDisplayDate(ev.startDate, ev.startTime);
   const location = ev.venue || ev.location || "";
   const locationStr = location ? ` at ${location}` : "";
-  const prefix = isPooja ? "🙏 " : isSports ? "🏆 " : "🎉 ";
+  const prefix = dateStatus.status === "RUNNING"
+    ? (isSports ? "🏆 [Live] " : "🔴 [Happening Now] ")
+    : (isPooja ? "🙏 [Upcoming] " : isSports ? "🏆 [Upcoming] " : "🎉 [Upcoming] ");
   
   return {
     id: ev.id ? Number(ev.id) : 200 + idx,
     category: isSports ? "SPORTS" : "EVENT",
     message: `${prefix}${ev.title}${dateFormatted ? ` • ${dateFormatted}` : ""}${locationStr}${ev.priceType === "FREE" ? " (Free Entry)" : ""}`,
+    startDate: ev.startDate,
+    endDate: ev.endDate,
+    status: dateStatus.status,
+    actionUrl: "/events",
   };
 }
 
-function mapPoojaSevaToAlert(seva: any, idx: number): AlertTickerItem {
-  const dateFormatted = formatDisplayDate(seva.date || seva.slotDate, seva.startTime || seva.slotTime);
-  const mandapStr = seva.mandap ? ` at ${seva.mandap}` : "";
-  const feeStr = seva.fee ? ` • Fee: ₹${seva.fee}` : seva.isFree ? " • Free Seva" : "";
-  
+function mapTournamentToAlert(t: SportsTournament, idx: number): AlertTickerItem | null {
+  const start = t.eventDateStart || t.registrationDateStart;
+  const end = t.eventDateEnd || t.registrationDateEnd;
+  const dateStatus = getEventDateStatus(start, end, t.startTime, t.dueTime);
+  if (dateStatus.status === "PAST") return null;
+
+  const dateFormatted = formatDisplayDate(start, t.startTime);
+  const location = t.venueName || (t.venue as any)?.name || "";
+  const locationStr = location ? ` at ${location}` : "";
+  const prefix = dateStatus.status === "RUNNING" ? "🏆 [Live Tournament] " : "🏆 [Upcoming Tournament] ";
+
   return {
-    id: seva.id ? 3000 + Number(seva.id) : 300 + idx,
-    category: "EVENT",
-    message: `🙏 Pooja Seva: ${seva.name || seva.type || "Pooja"}${dateFormatted ? ` • ${dateFormatted}` : ""}${mandapStr}${feeStr}`,
+    id: t.id ? 8000 + Number(t.id) : 800 + idx,
+    category: "SPORTS",
+    message: `${prefix}${t.name}${dateFormatted ? ` • ${dateFormatted}` : ""}${locationStr}`,
+    startDate: start,
+    endDate: end,
+    status: dateStatus.status,
+    actionUrl: "/sports",
   };
 }
 
@@ -131,6 +258,7 @@ function mapNotificationToAlert(n: NotificationItem, idx: number): AlertTickerIt
     id: n.id ?? idx,
     category,
     message: n.body ?? n.title,
+    actionUrl: isSports ? "/sports" : "/events",
   };
 }
 
@@ -146,35 +274,83 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
   const pausedRef   = useRef<boolean>(false);
   const lastTsRef   = useRef<number | null>(null);
 
-  const [alerts, setAlerts] = useState<AlertTickerItem[]>(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
+  const [alerts, setAlerts] = useState<AlertTickerItem[]>([]);
   const [dismissed, setDismissed]     = useState(false);
   const [activeAlert, setActiveAlert] = useState<AlertTickerItem | null>(null);
 
-  // Fetch live notifications/broadcast notices from the backend
+  // Fetch live notifications and only keep current running and upcoming events
   useEffect(() => {
     let isMounted = true;
 
     async function loadAlerts() {
       try {
-        const noticesRes = await notificationService.getNotificationsSummary(0, 5).catch(() => null);
+        const liveItems: AlertTickerItem[] = [];
 
-        const combinedAlerts: AlertTickerItem[] = [];
-
-        if (noticesRes?.content && noticesRes.content.length > 0) {
-          const noticeAlerts = noticesRes.content.map(mapNotificationToAlert);
-          combinedAlerts.push(...noticeAlerts);
-        }
-
-        if (isMounted) {
-          if (combinedAlerts.length > 0) {
-            setAlerts([...combinedAlerts, ...VINAYAKA_CHAVITHI_DEFAULT_ALERTS]);
-          } else {
-            setAlerts(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
+        // 1. Fetch live events from eventService
+        try {
+          const events = await eventService.getAllEvents().catch(() => []);
+          if (Array.isArray(events)) {
+            events.forEach((ev, idx) => {
+              if (ev.status === "CANCELLED" || ev.status === "COMPLETED") return;
+              const mapped = mapEventToAlert(ev, idx);
+              if (mapped) liveItems.push(mapped);
+            });
           }
+        } catch (e) {
+          console.warn("Failed to fetch events for alert ticker:", e);
         }
-      } catch {
+
+        // 2. Fetch live sports tournaments
+        try {
+          const tournaments = await sportsService.getAllTournaments().catch(() => []);
+          if (Array.isArray(tournaments)) {
+            tournaments.forEach((t, idx) => {
+              if (t.registrationStatus === "COMPLETED" || t.registrationStatus === "CANCELLED") return;
+              const mapped = mapTournamentToAlert(t, idx);
+              if (mapped) liveItems.push(mapped);
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch tournaments for alert ticker:", e);
+        }
+
+        // 3. Fetch notifications summary (skip notifications referencing past dates)
+        try {
+          const noticesRes = await notificationService.getNotificationsSummary(0, 5).catch(() => null);
+          if (noticesRes?.content && Array.isArray(noticesRes.content)) {
+            noticesRes.content.forEach((n, idx) => {
+              const text = (n.body ?? n.title ?? "");
+              if (isNotificationDatePast(text)) return; // Exclude notifications for past events!
+
+              const isEmergency = n.category === "EMERGENCY" || n.priority === "URGENT" || n.priority === "HIGH";
+              const isNotice = n.category === "NOTICE" || n.category === "SECURITY" || n.category === "MAINTENANCE";
+
+              // Only add if active emergency or notice, and not duplicate message
+              if (isEmergency || (isNotice && liveItems.length < 5)) {
+                const alert = mapNotificationToAlert(n, 9000 + idx);
+                if (!liveItems.some(item => item.message.toLowerCase() === alert.message.toLowerCase())) {
+                  liveItems.push(alert);
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch notifications for alert ticker:", e);
+        }
+
+        // 4. Fallback: only if no live items are present, show upcoming seed alerts that are not past
+        if (liveItems.length === 0) {
+          const validSeed = SEED_UPCOMING_ALERTS.filter(a => {
+            const dateStatus = getEventDateStatus(a.startDate, a.endDate);
+            return dateStatus.status !== "PAST";
+          });
+          if (isMounted) setAlerts(validSeed);
+        } else {
+          if (isMounted) setAlerts(liveItems);
+        }
+      } catch (err) {
         if (isMounted) {
-          setAlerts(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
+          setAlerts([]);
         }
       }
     }
@@ -301,16 +477,26 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
               <div className="px-5 pb-5 flex items-center justify-end gap-2">
                 <button
                   onClick={() => {
+                    const target = activeAlert.actionUrl || (activeAlert.category === "SPORTS" ? "/sports" : "/events");
                     setActiveAlert(null);
-                    navigate("/events");
+                    navigate(target);
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
-                  Event Dashboard
+                  {activeAlert.category === "SPORTS" ? (
+                    <>
+                      <Trophy className="w-3.5 h-3.5 text-sky-600" />
+                      Sports Hub
+                    </>
+                  ) : (
+                    <>
+                      <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+                      Event Dashboard
+                    </>
+                  )}
                 </button>
                 <button onClick={() => setActiveAlert(null)}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white ${cfg.bg} hover:opacity-90 transition-opacity`}>
+                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white ${cfg.bg} hover:opacity-90 transition-opacity cursor-pointer`}>
                   Got it
                 </button>
               </div>

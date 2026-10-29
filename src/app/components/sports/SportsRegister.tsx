@@ -59,8 +59,8 @@ export interface CategoryEligibilityResult {
 export function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
   if (!gender) return "";
   const g = String(gender).trim().toUpperCase();
-  if (g === "MALE" || g === "M" || g === "MEN" || g === "MAN" || g === "BOY" || g === "BOYS") return "MALE";
-  if (g === "FEMALE" || g === "F" || g === "WOMEN" || g === "WOMAN" || g === "GIRL" || g === "GIRLS" || g === "LADIES") return "FEMALE";
+  if (["MALE", "M", "MEN", "MENS", "MEN'S", "MAN", "BOY", "BOYS", "GENTLEMEN"].includes(g)) return "MALE";
+  if (["FEMALE", "F", "WOMEN", "WOMENS", "WOMEN'S", "WOMAN", "GIRL", "GIRLS", "LADIES"].includes(g)) return "FEMALE";
   return "OTHER";
 }
 
@@ -164,20 +164,21 @@ export function checkCategoryEligibility(
     : null;
 
   if (minAge == null && maxAge == null) {
-    const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
-    const plusMatch = text.match(/(?:above|over|>|>=)\s*(\d+)|(\d+)\s*(?:\+|plus|above|and above|and over|over|>|>=)/i);
-    const rangeMatch = text.match(/(?:between\s*)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
+    const catText = (categoryOrEvent.categoryName || "").toLowerCase();
+    const underMatch = catText.match(/(?:under|below|u)[-_\s]*(\d+)|(?:<|<=)\s*(\d+)/i) || text.match(/(?:under|below|u)[-_\s]*(\d+)|(?:<|<=)\s*(\d+)/i);
+    const plusMatch = catText.match(/(?:above|over|>|>=)[-_\s]*(\d+)|(\d+)[-_\s]*(?:\+|plus|above|and above|and over|& above|& over|over|>|>=)/i) || text.match(/(?:above|over|>|>=)[-_\s]*(\d+)|(\d+)[-_\s]*(?:\+|plus|above|and above|and over|& above|& over|over|>|>=)/i);
+    const rangeMatch = catText.match(/(?:between\s+)?(\d+)\s*(?:-|–|to)\s*(\d+)/i) || text.match(/(?:between\s+)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
 
     if (rangeMatch) {
       minAge = parseInt(rangeMatch[1], 10);
       maxAge = parseInt(rangeMatch[2], 10);
     } else if (underMatch) {
-      maxAge = parseInt(underMatch[1], 10);
+      maxAge = parseInt(underMatch[1] || underMatch[2], 10);
     } else if (plusMatch) {
       minAge = parseInt(plusMatch[1] || plusMatch[2], 10);
-    } else if (/\b(kids?|childrens?)\b/i.test(text)) {
+    } else if (/\b(kids?|childrens?)\b/i.test(catText || text)) {
       maxAge = 16;
-    } else if (/\b(seniors?|veterans?)\b/i.test(text)) {
+    } else if (/\b(seniors?|veterans?)\b/i.test(catText || text)) {
       minAge = 45;
     }
   }
@@ -189,25 +190,44 @@ export function checkCategoryEligibility(
     requiredGender = "MALE";
   } else if (rawGender === "FEMALE") {
     requiredGender = "FEMALE";
-  } else {
-    // Check keywords in text — female FIRST to avoid 'men' matching inside 'women'
-    // Handles: women's, womens, woman, female, girl, girls, ladies
-    const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
-    // Handles: men's, mens, man, male, males, boy, boys, gentlemen
-    // Negative lookbehind prevents matching 'men' inside 'women'
-    const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
-    const isMixed = /\b(mixed|mix)\b/i.test(text);
+  } else if (Array.isArray(categoryOrEvent.allowedGenders) && categoryOrEvent.allowedGenders.length > 0) {
+    const normAllowed = categoryOrEvent.allowedGenders.map(g => normalizeGender(g)).filter(Boolean);
+    if (normAllowed.length === 1 && (normAllowed[0] === "MALE" || normAllowed[0] === "FEMALE")) {
+      requiredGender = normAllowed[0];
+    }
+  }
 
-    if (isMixed) requiredGender = "MIXED";
-    else if (isFemale) requiredGender = "FEMALE";
-    else if (isMale) requiredGender = "MALE";
-    else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+  if (!requiredGender) {
+    // Check keywords in categoryName first (priority), then full text — female FIRST to avoid 'men' matching inside 'women'
+    const catText = (categoryOrEvent.categoryName || "").toLowerCase();
+    const isCatFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(catText);
+    const isCatMale = !isCatFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(catText);
+    const isCatMixed = /\b(mixed|mix)\b/i.test(catText);
+
+    if (isCatMixed) {
+      requiredGender = "MIXED";
+    } else if (isCatFemale) {
+      requiredGender = "FEMALE";
+    } else if (isCatMale) {
+      requiredGender = "MALE";
+    } else {
+      const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
+      const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
+      const isMixed = /\b(mixed|mix)\b/i.test(text);
+
+      if (isMixed) requiredGender = "MIXED";
+      else if (isFemale) requiredGender = "FEMALE";
+      else if (isMale) requiredGender = "MALE";
+      else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+    }
   }
 
   const pGender = normalizeGender(participantGender);
   let isGenderMismatch = false;
-  if (pGender && requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
-    if (requiredGender === "MALE" && pGender !== "MALE") {
+  if (requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
+    if (!pGender) {
+      isGenderMismatch = true;
+    } else if (requiredGender === "MALE" && pGender !== "MALE") {
       isGenderMismatch = true;
     } else if (requiredGender === "FEMALE" && pGender !== "FEMALE") {
       isGenderMismatch = true;
@@ -243,7 +263,9 @@ export function checkCategoryEligibility(
   if (isGenderMismatch) {
     const requiredLabel = requiredGender === "FEMALE" ? "Female" : requiredGender === "MALE" ? "Male" : requiredGender;
     const currentLabel = pGender === "FEMALE" ? "Female" : pGender === "MALE" ? "Male" : participantGender || "unspecified";
-    warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
+    warningMsg = !pGender
+      ? `Category requires ${requiredLabel} participant, but gender is not set in profile.`
+      : `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
   }
 
   // If this category or event itself has explicit restrictions that failed, it is ineligible!
@@ -441,6 +463,27 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     eName.includes("boys") ||
     eName.includes("girls");
 
+  // If category name or event name specifically indicates a single format, prioritize it over tournament defaults
+  if (catName.includes("singles") && !catName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (catName.includes("mixed") || catName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (catName.includes("doubles") && !catName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (eName.includes("doubles") && !eName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+
   // 1. Check if event explicitly specifies formats
   const rawExplicit =
     event.format ||
@@ -455,7 +498,7 @@ export function getEventFormats(event: SportsEvent | null): string[] {
 
   const parsedExplicit = normalizeFormatList(rawExplicit);
   if (parsedExplicit.length > 0) {
-    if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
+    if ((eName.includes("mixed") || eName.includes("mixed doubles") || catName.includes("mixed")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
       return ["MIXED_DOUBLES"];
     }
     // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
@@ -470,18 +513,9 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     return ["TEAM"];
   }
 
-  // 2. Check event name keywords for specific format
-  if (eName.includes("singles") && eName.includes("doubles")) {
-    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
-  }
-  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
-    return ["MIXED_DOUBLES"];
-  }
-  if (eName.includes("doubles") && !eName.includes("singles")) {
-    return ["DOUBLES"];
-  }
-  if (eName.includes("singles") && !eName.includes("doubles")) {
-    return ["SINGLES"];
+  // 2. Check event name keywords for combined formats
+  if ((eName.includes("singles") || catName.includes("singles")) && (eName.includes("doubles") || catName.includes("doubles"))) {
+    return ((eName.includes("mixed") || catName.includes("mixed")) && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
 
   // 3. Default available formats based on sport type
@@ -923,6 +957,42 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   // Sibling category events (same sport in same tournament)
   const [siblingEvents, setSiblingEvents] = useState<DashboardEventCard[]>([]);
+  const [showEligibleCategoriesOnly, setShowEligibleCategoriesOnly] = useState<boolean>(true);
+  const [showCategorySwitcher, setShowCategorySwitcher] = useState<boolean>(false);
+
+  // Deduplicated sibling category events (unique by composite category key or ID)
+  const uniqueSiblingEvents = useMemo(() => {
+    const seen = new Set<string>();
+    return siblingEvents.filter(sib => {
+      const catName = (sib.categoryName || sib.name || "").trim().toLowerCase();
+      const ageKey = `${sib.minAge ?? ""}-${sib.maxAge ?? ""}`;
+      const genderKey = (sib.gender || (sib as any).requiredGender || "").trim().toLowerCase();
+      const compositeKey = `${catName}_${ageKey}_${genderKey}`;
+      const key = (compositeKey !== "__") ? compositeKey : String(sib.id ?? sib.uuid ?? "");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [siblingEvents]);
+
+  const handleSwitchSiblingCategory = (sib: DashboardEventCard) => {
+    const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
+    if (isCurrent) return;
+
+    const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+    if (!elig.eligible) {
+      toast.error(`Ineligible Category: ${elig.warningMsg || "Age or gender does not match."}`);
+      return;
+    }
+
+    const targetUuid = String(sib.uuid || sib.id);
+    setActiveEventUuid(targetUuid);
+    setLoading(true);
+    if (!isModal) {
+      window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+    }
+    setShowEventInfoModal(false);
+  };
 
   // Age proof & Out of age window override state
   const [ageProofFile, setAgeProofFile] = useState<File | null>(null);
@@ -1382,14 +1452,32 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [getParticipantRegistrations, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
 
   const registeredFormats = useMemo(() => {
-    return activeParticipantRegistrations.map(r => (r.matchType || "SINGLES").toUpperCase());
-  }, [activeParticipantRegistrations]);
+    const evFormats = getEventFormats(event);
+    if (activeParticipantRegistrations.length === 0) return [];
+    if (evFormats.length <= 1) {
+      const isEvTeam = Boolean((event as any)?.isTeamSport || (event as any)?.teamSport || isTeamSport(event?.sport?.name || event?.name || ""));
+      const singleFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+      return [singleFmt.toUpperCase()];
+    }
+    return activeParticipantRegistrations.map(r => {
+      const rawFmt = (r.matchType || "").toUpperCase();
+      if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
+        return rawFmt;
+      }
+      if (((r as any).partnerUserId || (r as any).partnerFamilyMemberId) && evFormats.some(f => f.toUpperCase().includes("DOUBLES"))) {
+        return (evFormats.find(f => f.toUpperCase() === "DOUBLES") || evFormats.find(f => f.toUpperCase().includes("DOUBLES"))!).toUpperCase();
+      }
+      return (evFormats[0] || "SINGLES").toUpperCase();
+    });
+  }, [activeParticipantRegistrations, event]);
 
   const selectedFormats = useMemo(() => {
+    const evFormats = getEventFormats(event);
+    const defaultFmt = evFormats[0] || "SINGLES";
     return (formData.matchTypes && formData.matchTypes.length > 0)
       ? formData.matchTypes
-      : [formData.matchType || "SINGLES"];
-  }, [formData.matchTypes, formData.matchType]);
+      : [formData.matchType || defaultFmt];
+  }, [formData.matchTypes, formData.matchType, event]);
 
   const unregisteredSelectedFormats = useMemo(() => {
     return selectedFormats.filter(fmt => !registeredFormats.includes(fmt.toUpperCase()));
@@ -2246,7 +2334,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const currentStep = completedSteps.filter(Boolean).length;
 
   const mainContent = (
-    <div className={`${isModal ? "p-3 sm:p-6 space-y-3 sm:space-y-4" : "max-w-5xl mx-auto pb-24 sm:pb-10 space-y-3 sm:space-y-4"}`}>
+    <div className={`${isModal ? "p-2.5 sm:p-4 space-y-2.5 sm:space-y-3" : "max-w-5xl mx-auto p-3 sm:p-4 pb-20 sm:pb-8 space-y-2.5 sm:space-y-3"}`}>
       {/* ── Top Bar (Page Mode) ────────────────────────────────── */}
       {!isModal && (
         <div className="flex items-center justify-between">
@@ -2290,12 +2378,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-2">
+            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-3 sm:p-4 border-b border-border/60">
+              <div className="flex items-center justify-between mb-2.5">
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back</span>
@@ -2303,79 +2391,90 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 <button
                   type="button"
                   onClick={() => setShowEventInfoModal(false)}
-                  className="w-6 h-6 rounded-md bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
+                  className="w-7 h-7 rounded-lg bg-slate-200/60 dark:bg-slate-800 text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="flex items-start gap-2.5">
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
-                  <Trophy className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
+                  <Trophy className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight leading-tight">
+                  <h4 className="text-sm sm:text-base font-bold text-foreground tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
                   </h4>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-normal">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-2.5 sm:p-3 overflow-y-auto max-h-[70vh] space-y-2">
+            <div className="p-3 sm:p-3.5 overflow-y-auto max-h-[70vh] space-y-2.5">
               {eventDate && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{eventDate}</p>
                   </div>
                 </div>
               )}
               {venueName && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{venueName}</p>
                   </div>
                 </div>
               )}
               {event?.community?.name && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
+                <div className="flex items-center gap-2.5 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 rounded-xl transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Building2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10.5px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
+                    <p className="font-bold text-xs sm:text-[13px] text-foreground truncate leading-tight mt-1">{event.community.name}</p>
                   </div>
                 </div>
               )}
 
               {/* All Sport Categories & Age Details */}
-              {siblingEvents.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
-                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                  </p>
+              {uniqueSiblingEvents.length > 0 && (
+                <div className="pt-2 border-t border-border/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>All {event?.sport?.name || "Sport"} Categories</span>
+                    </p>
+                    <span className="text-[10.5px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                      {uniqueSiblingEvents.length}
+                    </span>
+                  </div>
 
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    {siblingEvents.map(sib => {
-                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {uniqueSiblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
                       const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
                       let ageLabel = "All Ages";
                       const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
@@ -2388,32 +2487,44 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       return (
                         <div
-                          key={sib.id}
-                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                          key={sib.id || sib.uuid}
+                          onClick={() => handleSwitchSiblingCategory(sib)}
+                          role={!isCurrent ? "button" : undefined}
+                          tabIndex={!isCurrent ? 0 : undefined}
+                          className={`p-2 rounded-lg text-xs space-y-1 border transition-all group ${
                             isCurrent
-                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
-                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                              ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
+                              : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
-                            {isCurrent && (
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
-                                Current
+                            {isCurrent ? (
+                              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                                Selected
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+                                Switch →
                               </span>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
-                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
-                            {sib.venueName && <span>📍 {sib.venueName}</span>}
-                            {sib.eventDateStart && (
-                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                              🎯 {ageLabel}
+                            </span>
+                            {sib.venueName && sib.venueName !== venueName && (
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                📍 {sib.venueName}
+                              </span>
                             )}
                             {sib.maxParticipants && (
-                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                              <span className="text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md">
+                                {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                              </span>
                             )}
                           </div>
                         </div>
@@ -2480,10 +2591,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             {/* Form */}
             <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                <label htmlFor="profile-modal-full-name" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                   Full Name <span className="text-destructive">*</span>
                 </label>
                 <input
+                  id="profile-modal-full-name"
+                  name="profileFullName"
                   type="text"
                   required
                   value={profileModalState.name}
@@ -2496,10 +2609,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               {profileModalState.mode !== "self" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-relation" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Relationship <span className="text-destructive">*</span>
                     </label>
                     <select
+                      id="profile-modal-relation"
+                      name="profileRelation"
                       value={profileModalState.relation}
                       onChange={(e) => {
                         const rel = e.target.value;
@@ -2527,10 +2642,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-gender-member" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Gender <span className="text-destructive">*</span>
                     </label>
                     <select
+                      id="profile-modal-gender-member"
+                      name="profileGender"
                       value={profileModalState.gender}
                       onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                       className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
@@ -2544,10 +2661,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                  <label htmlFor="profile-modal-gender-self" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                     Gender <span className="text-destructive">*</span>
                   </label>
                   <select
+                    id="profile-modal-gender-self"
+                    name="profileGender"
                     value={profileModalState.gender}
                     onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                     className="w-full h-10 text-sm border border-border rounded-xl px-2.5 bg-muted/40 focus:bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition cursor-pointer"
@@ -2583,10 +2702,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                  <label htmlFor="profile-modal-phone" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                     Phone Number
                   </label>
                   <input
+                    id="profile-modal-phone"
+                    name="profilePhone"
                     type="tel"
                     value={profileModalState.phone}
                     onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
@@ -2597,10 +2718,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                 {profileModalState.mode === "self" ? (
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-flat-no" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Flat / Villa No.
                     </label>
                     <input
+                      id="profile-modal-flat-no"
+                      name="profileFlatNo"
                       type="text"
                       value={profileModalState.flatNo || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
@@ -2610,10 +2733,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
+                    <label htmlFor="profile-modal-blood-group" className="block text-xs font-semibold text-foreground uppercase tracking-wide mb-1">
                       Blood Group
                     </label>
                     <input
+                      id="profile-modal-blood-group"
+                      name="profileBloodGroup"
                       type="text"
                       value={profileModalState.bloodGroup || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}
@@ -2657,11 +2782,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       )}
 
       {/* ── 2-Column Responsive Layout ─────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-3.5 items-start">
         {/* ── LEFT COLUMN: Registration Form Controls (7 cols) ──── */}
-        <div className="lg:col-span-7 space-y-3 sm:space-y-3.5">
+        <div className="lg:col-span-7 space-y-2 sm:space-y-2.5">
           {/* Step Indicator */}
-          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
+          <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shadow-2xs">
             <div className="flex items-center gap-2">
               {["Identity", "Format", "Category", "Role"].map((label, i) => (
                 <div key={label} className="flex-1">
@@ -2672,7 +2797,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         ? "bg-indigo-300 dark:bg-indigo-700"
                         : "bg-slate-100 dark:bg-slate-800"
                   }`} />
-                  <p className={`text-xs mt-1 text-center font-semibold tracking-wider uppercase transition-colors ${
+                  <p className={`text-[10.5px] mt-0.5 text-center font-bold tracking-wider uppercase transition-colors ${
                     i < currentStep ? "text-indigo-600 dark:text-indigo-400" : i === currentStep ? "text-slate-800 dark:text-slate-200" : "text-[#6b7094] dark:text-slate-500"
                   }`}>
                     {label}
@@ -2748,11 +2873,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             <TournamentSponsorBanner
               sponsors={event.sponsors.map(s => mapDbSponsorToTournamentSponsor(s, event.id))}
               variant="strip"
-              className="mb-2"
+              className="mb-1.5"
             />
           )}
 
-          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
+          <form id="sports-registration-form" onSubmit={handleSubmit} className="space-y-2 sm:space-y-2.5">
             {/* Profile Incomplete Banner */}
             {formData.regType === "self" && missingProfileFields.length > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 dark:border-amber-800/60 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-2.5 text-left shadow-sm animate-in fade-in slide-in-from-top-2">
@@ -2780,7 +2905,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               </div>
             )}
             {/* 1. Player Identity */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
               <div>
                 <div
                   onClick={() => setIsPlayerIdentityExpanded(prev => !prev)}
@@ -2794,7 +2919,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   }}
                   className={`flex items-center justify-between gap-2 flex-wrap cursor-pointer select-none transition-colors ${
                     isPlayerIdentityExpanded || (formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth))
-                      ? "mb-2.5"
+                      ? "mb-2"
                       : ""
                   }`}
                 >
@@ -2802,11 +2927,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <UserCheck className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                       Player Identity
                     </h3>
                     {!isPlayerIdentityExpanded && formData.playerName && (
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[140px] sm:max-w-xs">
+                      <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[140px] sm:max-w-xs">
                         • {formData.playerName}
                         {(userFlat || formData.flatNumber) ? ` (${userFlat || formData.flatNumber})` : ""}
                       </span>
@@ -2814,12 +2939,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {formData.age > 0 && (
-                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                      <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                         Age: {formData.age} Yrs
                       </span>
                     )}
                     {isAlreadyRegistered && (
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md flex items-center gap-1">
                         ✓ Registered
                       </span>
                     )}
@@ -2896,7 +3021,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         <div className="relative">
                           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                           <input
+                            id="sports-resident-search-input"
+                            name="residentSearch"
                             type="text"
+                            aria-label="Search resident by name, flat, phone or email"
                             value={playerSearchQuery}
                             onChange={(e) => setPlayerSearchQuery(e.target.value)}
                             placeholder="Type name, flat number, phone, or email to search..."
@@ -3078,10 +3206,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in duration-200">
                     {/* Player Name */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
+                      <label htmlFor="sports-reg-player-name" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center gap-1.5 truncate">
                         Player Name
                       </label>
                       <input
+                        id="sports-reg-player-name"
                         name="playerName"
                         type="text"
                         value={formData.playerName}
@@ -3098,7 +3227,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Gender */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                      <label htmlFor={formData.regType !== "self" ? "sports-reg-gender-select" : undefined} className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                         <span className="flex items-center gap-1.5 truncate">
                           <UserCheck className="w-3 h-3 text-indigo-500 shrink-0" />
                           Gender <span className="text-rose-500 font-bold">*</span>
@@ -3131,6 +3260,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         </div>
                       ) : (
                         <select
+                          id="sports-reg-gender-select"
                           name="gender"
                           value={formData.gender}
                           onChange={handleInputChange}
@@ -3147,10 +3277,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Primary Role */}
                     <div className="space-y-1 col-span-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
+                      <label htmlFor="sports-reg-role-select" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 truncate block">
                         Primary Role
                       </label>
                       <select
+                        id="sports-reg-role-select"
                         name="role"
                         value={formData.role}
                         onChange={handleInputChange}
@@ -3211,7 +3342,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                     {/* Flat Number */}
                     <div className="space-y-1 col-span-1 animate-in fade-in slide-in-from-top-1">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
+                      <label htmlFor="sports-reg-flat-number" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 flex items-center justify-between truncate">
                         <span>Block & Flat <span className="text-rose-500 font-bold">*</span></span>
                         {!userFlat && (
                           <button
@@ -3225,6 +3356,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                         )}
                       </label>
                       <input
+                        id="sports-reg-flat-number"
                         name="flatNumber"
                         type="text"
                         value={formData.regType === "other" ? formData.flatNumber : (userFlat || formData.flatNumber)}
@@ -3252,30 +3384,30 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                     <Trophy className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[10px] font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">
+                  <span className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider">
                     Participant Type
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
+                <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold capitalize border ${ registeredFormats.includes(availableFormats[0].toUpperCase()) ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700" : "bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900/50" }`}>
                   {availableFormats[0].replace(/_/g, " ").toLowerCase()} {registeredFormats.includes(availableFormats[0].toUpperCase()) ? "✓ Registered" : ""}
                 </span>
               </div>
             ) : availableFormats.length > 1 ? (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
                       <Trophy className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
+                    <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
                       Participant Type
                     </h3>
-                    <span className="hidden sm:inline text-[10px] text-[#6b7094] dark:text-slate-400 font-normal">
+                    <span className="hidden sm:inline text-xs text-muted-foreground font-normal">
                       — Choose format(s)
                     </span>
                   </div>
                   {formData.matchTypes.length > 1 && (
-                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/50">
                       {formData.matchTypes.length} Formats Selected
                     </span>
                   )}
@@ -3332,6 +3464,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 currentGender={formData.gender}
                 currentUserId={user?.userId || (user as any)?.id}
                 currentFamilyMemberId={formData.regType === "family" ? formData.familyMemberId : undefined}
+                currentUserName={formData.playerName || user?.fullName}
                 communityId={user?.communityId}
                 familyMembers={savedFamilyMembers}
                 disabled={submitting}
@@ -3393,10 +3526,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                 {formData.captainNomination && (
                   <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 animate-in fade-in duration-200 space-y-1.5">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label htmlFor="sports-reg-proposed-team" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                       Proposed Team Name <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
                     <input
+                      id="sports-reg-proposed-team"
+                      name="proposedTeamName"
                       type="text"
                       placeholder="e.g. Royal Strikers"
                       value={formData.proposedTeamName || ""}
@@ -3433,143 +3568,214 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               );
             })()}
 
-            {/* Sport Categories in Tournament */}
-            {siblingEvents.length > 1 && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                      <Trophy className="w-3.5 h-3.5" />
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">
-                        Select Category
-                      </h3>
-                      <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5">
-                        {siblingEvents.length} categories available for {event?.sport?.name}
-                      </p>
-                    </div>
-                  </div>
-                  {formData.age > 0 && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
-                      Age: {formData.age} Yrs
-                    </span>
-                  )}
-                </div>
+            {/* ── Selected Sport Category for this Event ── */}
+            {event && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs space-y-2">
+                {(() => {
+                  const currentCategoryName = event.categoryName || event.name || "Main Category";
+                  const currentElig = checkCategoryEligibility(event, formData.age, formData.gender);
+                  const minAge = currentElig.minAge;
+                  const maxAge = currentElig.maxAge;
+                  const spots = ((event as any).registeredCount ?? (event as any).registrationCount ?? (event as any).registeredParticipants ?? 0);
+                  const maxSpots = event.maxParticipants;
+                  const isBlocked = !currentElig.eligible;
 
-                <div className={`space-y-1.5 sm:space-y-2 overflow-y-auto pr-1 overscroll-contain transition-all duration-300 ${
-                  formData.captainNomination
-                    ? "max-h-[11rem] sm:max-h-[14rem]"
-                    : "max-h-[15rem] sm:max-h-[18rem]"
-                }`}>
-                  {siblingEvents.map(sib => {
-                    const isCurrentEvent = sib.id === event?.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
-                    const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
-                    const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+                  // Other available tournament categories (excluding the currently selected category)
+                  const otherCategories = uniqueSiblingEvents.filter(sib => {
+                    const isCurrent = sib.id === event.id || (sib.uuid && sib.uuid === eventUuid) || String(sib.id) === String(eventUuid);
+                    return !isCurrent;
+                  });
 
-                    const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
-                    const minAge = elig.minAge;
-                    const maxAge = elig.maxAge;
-                    const isBlocked = !elig.eligible;
-                    const warningMsg = elig.warningMsg;
+                  return (
+                    <>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                            <Trophy className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">
+                              Selected Category
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                              {event?.sport?.name ? `${event.sport.name} Tournament Category` : "Sport Tournament Category"}
+                            </p>
+                          </div>
+                        </div>
 
-                    return (
-                      <div
-                        key={sib.id}
-                        className={`rounded-lg border transition-all p-2 sm:p-2.5 ${
-                          isCurrentEvent && !isBlocked
-                            ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-2xs"
-                            : isRegistered
-                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                              : isBlocked
-                                ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
-                                : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                        }`}
-                        onClick={() => {
-                          if ((isCurrentEvent && !isBlocked) || isRegistered) return;
-                          if (isBlocked) {
-                            toast.error(`Ineligible Category: ${warningMsg}`);
-                            return;
-                          }
-                          const targetUuid = String(sib.uuid || sib.id);
-                          if (isModal) {
-                            setActiveEventUuid(targetUuid);
-                            setLoading(true);
-                          } else {
-                            setActiveEventUuid(targetUuid);
-                            setLoading(true);
-                            window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
-                          }
-                        }}
-                        role={!isCurrentEvent && !isRegistered && !isBlocked ? "button" : undefined}
-                        tabIndex={!isCurrentEvent && !isRegistered && !isBlocked ? 0 : undefined}
-                      >
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {formData.age > 0 && (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
+                              Age: {formData.age} Yrs
+                            </span>
+                          )}
+                          {otherCategories.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowCategorySwitcher(prev => !prev)}
+                              className="text-[11px] font-semibold px-2.5 py-0.5 rounded-md border transition-all cursor-pointer flex items-center gap-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                              title={showCategorySwitcher ? "Hide other categories" : "Switch to another tournament category"}
+                            >
+                              <span>{showCategorySwitcher ? "Hide Categories" : `Change Category (${otherCategories.length} more)`}</span>
+                              <ChevronDown className={`w-3 h-3 transition-transform ${showCategorySwitcher ? "rotate-180" : ""}`} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── Display ONLY the Selected Category ── */}
+                      <div className={`rounded-xl border transition-all p-2 sm:p-2.5 ${
+                        isBlocked
+                          ? "border-rose-300 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20"
+                          : "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 shadow-2xs ring-1 ring-indigo-500/30"
+                      }`}>
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className={`w-2 h-2 rounded-full shrink-0 ${
-                              isCurrentEvent && !isBlocked ? "bg-indigo-600" : isRegistered ? "bg-emerald-500" : isBlocked ? "bg-rose-400" : "bg-emerald-500"
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                              isBlocked ? "bg-rose-500 ring-2 ring-rose-200" : "bg-indigo-600 ring-2 ring-indigo-200"
                             }`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-[10px] font-semibold ${isCurrentEvent && !isBlocked ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-800 dark:text-slate-100"}`}>
-                                  {sib.categoryName || sib.name}
+                                <span className={`text-xs sm:text-[13px] font-bold ${isBlocked ? "text-rose-700 dark:text-rose-300" : "text-indigo-600 dark:text-indigo-400 font-bold"}`}>
+                                  {currentCategoryName}
                                 </span>
                                 {minAge != null && maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                     {minAge}–{maxAge} Yrs
                                   </span>
                                 ) : minAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                     {minAge}+ Yrs
                                   </span>
                                 ) : maxAge != null ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] dark:text-slate-400 font-medium">
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-semibold">
                                     Under {maxAge} Yrs
                                   </span>
                                 ) : null}
-                                {elig.requiredGender && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold uppercase">
-                                    {elig.requiredGender}
+                                {currentElig.requiredGender && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
+                                    {currentElig.requiredGender}
                                   </span>
                                 )}
-                                {sib.maxParticipants && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[#6b7094] font-medium">
-                                    {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                                {maxSpots && (
+                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
+                                    {spots}/{maxSpots} spots
                                   </span>
                                 )}
                               </div>
-                              {sib.venueName && (
+                              {event.venueName && (
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] text-[#6b7094]">{sib.venueName}</span>
+                                  <span className="text-[11px] text-muted-foreground">{event.venueName}</span>
                                 </div>
                               )}
                             </div>
                           </div>
 
                           <div className="shrink-0 flex items-center gap-1.5">
-                            {isCurrentEvent && !isBlocked ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
-                              </span>
-                            ) : isRegistered ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
-                                ✓ {sibReg?.status === "CONFIRMED" || sib.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Registered"}
-                              </span>
-                            ) : isBlocked ? (
-                              <span className="text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" /> {elig.isGenderMismatch ? "Gender Ineligible" : elig.isOverAge ? "Over Age" : "Under Age"}
+                            {isBlocked ? (
+                              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shadow-2xs">
+                                Ineligible ({currentElig.isGenderMismatch ? "Gender" : currentElig.isOverAge ? "Over Age" : "Under Age"})
                               </span>
                             ) : (
-                              <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
-                                ✓ Eligible
+                              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                                Selected {isAlreadyRegistered ? "(Registered)" : ""}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* Switcher: only visible when user clicks 'Change Category' */}
+                      {showCategorySwitcher && otherCategories.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-800 space-y-1.5 animate-in fade-in duration-200">
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                            Available Tournament Categories
+                          </p>
+                          <div className="space-y-1.5 max-h-[14rem] overflow-y-auto pr-1">
+                            {otherCategories.map(sib => {
+                              const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
+                              const sibBackendStatus = (sib.myRegistrationStatus || "").toUpperCase().trim();
+                              const isSibBackendActive = sib.myRegistrationId != null && sibBackendStatus !== "WITHDRAWN" && sibBackendStatus !== "CANCELLED" && sibBackendStatus !== "REJECTED";
+                              const isRegistered = Boolean(sibReg) || (formData.regType === "self" && isSibBackendActive);
+                              const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
+                              const sibMinAge = elig.minAge;
+                              const sibMaxAge = elig.maxAge;
+                              const sibBlocked = !elig.eligible;
+
+                              return (
+                                <div
+                                  key={sib.id}
+                                  onClick={() => {
+                                    if (sibBlocked) {
+                                      toast.error(`Ineligible Category: ${elig.warningMsg}`);
+                                      return;
+                                    }
+                                    const targetUuid = String(sib.uuid || sib.id);
+                                    setShowCategorySwitcher(false);
+                                    setActiveEventUuid(targetUuid);
+                                    setLoading(true);
+                                    if (!isModal) {
+                                      window.history.replaceState(null, "", `/sports/register/${targetUuid}`);
+                                    }
+                                  }}
+                                  className={`rounded-xl border transition-all p-2 sm:p-2.5 cursor-pointer flex items-center justify-between gap-3 ${
+                                    isRegistered
+                                      ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                                      : sibBlocked
+                                        ? "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed"
+                                        : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300 hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                      isRegistered ? "bg-emerald-500" : sibBlocked ? "bg-rose-400" : "bg-emerald-500"
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-xs font-bold text-foreground">
+                                          {sib.categoryName || sib.name}
+                                        </span>
+                                        {sibMinAge != null && sibMaxAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            {sibMinAge}–{sibMaxAge} Yrs
+                                          </span>
+                                        ) : sibMinAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            {sibMinAge}+ Yrs
+                                          </span>
+                                        ) : sibMaxAge != null ? (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-semibold">
+                                            Under {sibMaxAge} Yrs
+                                          </span>
+                                        ) : null}
+                                        {elig.requiredGender && (
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold uppercase">
+                                            {elig.requiredGender}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="shrink-0">
+                                    {sibBlocked ? (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                                        Ineligible
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        Select
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* ── DOB Proof Upload for Out-of-Age / Upper Age Category Selection ── */}
                 {(() => {
@@ -3602,9 +3808,12 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                         <input
+                          id="sports-reg-age-proof-file"
+                          name="ageProofFile"
                           ref={ageProofInputRef}
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png"
+                          aria-label="Upload DOB Proof document"
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -3666,19 +3875,20 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
 
             {/* 4. Career Statistics */}
-            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="hidden sm:block bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
+              <div className="flex items-center gap-2 mb-1.5">
                 <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <span className="text-[10px]">📊</span>
+                  <span className="text-xs">📊</span>
                 </div>
-                <h3 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
+                <h3 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider m-0 mb-0">Career Statistics</h3>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {(sportConfig?.stats || []).map(stat => (
                   <div key={stat.name} className="space-y-0.5">
-                    <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400">{stat.label}</label>
+                    <label htmlFor={`stat-field-${stat.name}`} className="text-xs font-semibold text-muted-foreground">{stat.label}</label>
                     <input
+                      id={`stat-field-${stat.name}`}
                       name={stat.name}
                       type="number"
                       step={stat.step ?? 1}
@@ -3693,21 +3903,23 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
             {/* 5. Email Verification (optional) */}
             {OTP_REQUIRED && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-2xs">
                 <div className="flex items-center gap-2 mb-2.5">
                   <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center">
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white uppercase tracking-wider">Verify Email</h4>
+                  <h4 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider">Verify Email</h4>
                 </div>
 
                 <div className="space-y-2.5">
                   <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end">
                     <div className="space-y-0.5">
-                      <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+                      <label htmlFor="sports-reg-verify-email" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                         <Mail className="w-3 h-3" /> Email Address
                       </label>
                       <input
+                        id="sports-reg-verify-email"
+                        name="email"
                         type="email"
                         value={email}
                         onChange={(e) => handleEmailChange(e.target.value)}
@@ -3735,8 +3947,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   ) : otpSent && (
                     <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 md:items-end animate-in fade-in slide-in-from-top-1">
                       <div className="space-y-0.5">
-                        <label className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
+                        <label htmlFor="sports-reg-otp-code" className="text-xs font-semibold text-[#6b7094] dark:text-slate-400 uppercase tracking-wide">Enter Code</label>
                         <input
+                          id="sports-reg-otp-code"
+                          name="otpCode"
                           type="text"
                           inputMode="numeric"
                           value={otpCode}
@@ -3872,13 +4086,14 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
         {/* ── RIGHT COLUMN: Sticky Event Summary Card (5 cols) ──── */}
         <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-4">
-          <div className="rounded-xl overflow-hidden shadow-2xs border border-indigo-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="rounded-2xl overflow-hidden shadow-2xs border border-border/80 bg-card">
             {/* Header with subtle gradient banner */}
-            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 p-2.5 sm:p-3 border-b border-indigo-100/60 dark:border-slate-800">
+            <div className="bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/80 dark:from-slate-800/90 dark:via-indigo-950/50 dark:to-slate-900/80 p-2.5 sm:p-3 border-b border-border/60">
               {!isModal && (
                 <button
+                  type="button"
                   onClick={handleClose}
-                  className="mb-2 flex items-center gap-1.5 text-xs text-[#6b7094] hover:text-[#0d0d2b] dark:text-slate-400 dark:hover:text-white transition-colors group cursor-pointer"
+                  className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors group cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
                   <span>Back</span>
@@ -3886,72 +4101,83 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
               )}
 
               <div className="flex items-start gap-2.5">
-                <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                <div className="shrink-0 w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 dark:ring-slate-800/60">
                   <Trophy className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     {event?.sport?.name && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-indigo-100/80 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                      <span className="px-2 py-0.2 rounded-md bg-indigo-100/90 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/70 dark:border-indigo-800">
                         {event.sport.name}
                       </span>
                     )}
                     {event?.registrationStatus && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                      <span className="px-2 py-0.2 rounded-md bg-emerald-500/10 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
                         {event.registrationStatus}
                       </span>
                     )}
                   </div>
-                  <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white tracking-tight truncate leading-tight">
+                  <h4 className="text-xs sm:text-[13px] font-bold text-foreground tracking-tight leading-snug">
                     {event?.name ?? "Complete Registration"}
                   </h4>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 mt-0.5 leading-tight">
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
                     Fill in your details below to register for this event
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-2.5 sm:p-3 space-y-2">
+            <div className="p-2 sm:p-2.5 space-y-2">
               {eventDate && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Event Date</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{eventDate}</p>
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3 h-3" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Event Date</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{eventDate}</p>
                   </div>
                 </div>
               )}
               {venueName && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Venue Location</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{venueName}</p>
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <MapPin className="w-3 h-3" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Venue Location</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{venueName}</p>
                   </div>
                 </div>
               )}
               {event?.community?.name && (
-                <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 py-1.5 px-2.5 rounded-lg">
-                  <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-semibold tracking-wider leading-none">Host Community</p>
-                    <p className="font-semibold text-xs text-[#0d0d2b] dark:text-white truncate leading-tight mt-0.5">{event.community.name}</p>
+                <div className="flex items-center gap-2 bg-muted/40 hover:bg-muted/60 border border-border/60 p-2 rounded-lg transition-colors">
+                  <div className="w-6 h-6 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Building2 className="w-3 h-3" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase text-muted-foreground font-bold tracking-wider leading-none">Host Community</p>
+                    <p className="font-bold text-xs text-foreground truncate leading-tight mt-0.5">{event.community.name}</p>
                   </div>
                 </div>
               )}
 
               {/* All Sport Categories & Age Details */}
-              {siblingEvents.length > 0 && (
-                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-                  <p className="text-xs uppercase text-[#6b7094] dark:text-slate-400 font-bold tracking-wider flex items-center gap-1.5">
-                    <Trophy className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                    <span>All {event?.sport?.name || "Sport"} Categories ({siblingEvents.length})</span>
-                  </p>
+              {uniqueSiblingEvents.length > 0 && (
+                <div className="pt-1.5 border-t border-border/60 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase text-muted-foreground font-bold tracking-wider flex items-center gap-1.5">
+                      <Trophy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>All {event?.sport?.name || "Sport"} Categories</span>
+                    </p>
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                      {uniqueSiblingEvents.length}
+                    </span>
+                  </div>
 
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                    {siblingEvents.map(sib => {
-                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid;
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {uniqueSiblingEvents.map(sib => {
+                      const isCurrent = sib.id === event?.id || sib.uuid === eventUuid || String(sib.id) === String(eventUuid);
                       const textToScan = `${sib.categoryName || ""} ${sib.name || ""}`.toLowerCase();
                       let ageLabel = "All Ages";
                       const underMatch = textToScan.match(/(?:under|u-?|below)\s*(\d+)/i);
@@ -3964,32 +4190,44 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
                       return (
                         <div
-                          key={sib.id}
-                          className={`py-1.5 px-2 rounded-lg text-xs space-y-0.5 border transition-all ${
+                          key={sib.id || sib.uuid}
+                          onClick={() => handleSwitchSiblingCategory(sib)}
+                          role={!isCurrent ? "button" : undefined}
+                          tabIndex={!isCurrent ? 0 : undefined}
+                          className={`p-2 rounded-lg text-xs space-y-1 border transition-all group ${
                             isCurrent
-                              ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/70 text-indigo-900 dark:text-indigo-200 shadow-2xs"
-                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100/50"
+                              ? "bg-indigo-50/80 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-950 dark:text-indigo-100 shadow-2xs ring-1 ring-indigo-500/30"
+                              : "bg-muted/30 hover:bg-muted/70 border-border/70 text-foreground hover:border-indigo-300 dark:hover:border-indigo-700 cursor-pointer"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1.5">
-                            <span className="font-semibold text-[10px] text-[#0d0d2b] dark:text-white truncate">
+                            <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors truncate">
                               {sib.categoryName || sib.name}
                             </span>
-                            {isCurrent && (
-                              <span className="text-[10px] px-1 py-0.2 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none">
-                                Current
+                            {isCurrent ? (
+                              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-indigo-600 text-white font-bold uppercase tracking-wider shrink-0 leading-none shadow-2xs">
+                                Selected
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 shrink-0">
+                                Switch →
                               </span>
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-[#6b7094] dark:text-slate-400">
-                            <span>🎯 Age: <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">{ageLabel}</strong></span>
-                            {sib.venueName && <span>📍 {sib.venueName}</span>}
-                            {sib.eventDateStart && (
-                              <span>📅 {format(new Date(sib.eventDateStart), "dd MMM yyyy")}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
+                            <span className="font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded-md border border-indigo-100 dark:border-indigo-900/40">
+                              🎯 {ageLabel}
+                            </span>
+                            {sib.venueName && sib.venueName !== venueName && (
+                              <span className="text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-md">
+                                📍 {sib.venueName}
+                              </span>
                             )}
                             {sib.maxParticipants && (
-                              <span className="text-slate-400">Spots: {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} max</span>
+                              <span className="text-muted-foreground bg-muted/60 px-1.5 py-0.2 rounded-md">
+                                {((sib as any).registeredCount ?? (sib as any).registrationCount ?? (sib as any).registeredParticipants ?? 0)}/{sib.maxParticipants} spots
+                              </span>
                             )}
                           </div>
                         </div>
@@ -4096,21 +4334,21 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           onClick={handleClose}
         >
           <div 
-            className="relative w-full max-w-5xl h-[92vh] max-h-[92dvh] sm:h-[88vh] sm:max-h-[850px] bg-slate-50 dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
+            className="relative w-full max-w-5xl h-[90vh] max-h-[90dvh] sm:h-[86vh] sm:max-h-[820px] bg-slate-50 dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Pull handle for mobile */}
-            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+            <div className="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mt-2 mb-0.5 sm:hidden shrink-0" />
 
             {/* Pinned Modal Header */}
-            <div className="shrink-0 px-4 sm:px-6 py-2 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
+            <div className="shrink-0 px-3.5 sm:px-5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-10 shadow-2xs">
               <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <span className="p-1.5 rounded-lg sm:rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
                   <Trophy className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h4 className="text-xs font-bold text-[#0d0d2b] dark:text-white truncate leading-tight">
+                    <h4 className="text-xs sm:text-sm font-bold text-foreground truncate leading-tight">
                       {event?.sport?.name || (event as any)?.sportName || event?.name || "Event Registration"}
                       {eventDate ? ` - ${eventDate}` : ""}
                     </h4>
@@ -4124,7 +4362,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <Info className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-[#6b7094] dark:text-slate-400 truncate leading-tight mt-0.5">
+                  <p className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5">
                     {event?.categoryName || event?.name || venueName || "Tournament Registration"}
                   </p>
                 </div>
@@ -4140,16 +4378,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             </div>
 
             {/* Scrollable Modal Body */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-3 sm:pb-0">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2.5 sm:pb-0">
               {mainContent}
             </div>
 
             {/* Pinned Modal Footer */}
-            <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
+            <div className="shrink-0 px-3 sm:px-5 py-1.5 sm:py-2 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 safe-area-bottom">
               <button
                 type="button"
                 onClick={handleClose}
-                className="min-h-[42px] px-3.5 sm:px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
+                className="min-h-[36px] sm:min-h-[38px] px-3 sm:px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-[13px] text-slate-700 dark:text-slate-300 font-semibold transition cursor-pointer shrink-0"
               >
                 Cancel
               </button>
@@ -4162,7 +4400,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   </span>
                 )}
                 {selectedFormats.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
+                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold border border-indigo-100 dark:border-indigo-900/50">
                     {selectedFormats.map((f: string) => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())).join(", ")}
                   </span>
                 )}
@@ -4189,7 +4427,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                   handleSubmit({ preventDefault: () => {} } as React.FormEvent);
                 }}
                 disabled={submitting || isAlreadyRegistered || (OTP_REQUIRED && !emailVerified) || !formData.gender?.trim() || !formData.dateOfBirth?.trim()}
-                className={`flex-1 sm:flex-initial min-h-[42px] px-4 sm:px-6 py-2 sm:py-2.5 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm shrink-0 ${
+                className={`flex-1 sm:flex-initial min-h-[36px] sm:min-h-[38px] px-3.5 sm:px-5 py-1.5 sm:py-2 text-white font-bold rounded-xl shadow-md transition-all duration-300 flex items-center justify-center gap-1.5 text-xs sm:text-[13px] shrink-0 ${
                   isAlreadyRegistered
                     ? "bg-emerald-600 hover:bg-emerald-600 cursor-not-allowed opacity-90 shadow-emerald-500/20"
                     : "bg-gradient-to-r from-primary via-indigo-500 to-violet-500 hover:from-primary/90 hover:via-indigo-500/90 hover:to-violet-500/90 shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] cursor-pointer"

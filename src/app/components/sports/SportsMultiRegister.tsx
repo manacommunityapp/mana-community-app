@@ -1142,7 +1142,12 @@ export function SportsMultiRegister() {
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
-            const isAlreadyRegistered = Boolean(ev.myRegistrationId);
+            const isAlreadyRegistered = Boolean(
+              ev.myRegistrationId &&
+              ev.myRegistrationStatus !== "WITHDRAWN" &&
+              ev.myRegistrationStatus !== "CANCELLED" &&
+              ev.myRegistrationStatus !== "REJECTED"
+            );
 
             // Find single related category from service categories for this specific event
             const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
@@ -1319,7 +1324,7 @@ export function SportsMultiRegister() {
   const toggleEventFormat = (eventId: number, formatToToggle: string) => {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
-        const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || "SINGLES"];
+        const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
         const isAlready = current.some(f => f.toUpperCase() === formatToToggle.toUpperCase());
         let nextFormats: string[];
         if (isAlready) {
@@ -1399,7 +1404,7 @@ export function SportsMultiRegister() {
       return copy;
     });
 
-    const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+    const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
     const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
     if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
       setEventErrors(prev => ({ ...prev, [eventId]: "Doubles partner is mandatory. Please choose a partner or select Open Pool." }));
@@ -1617,7 +1622,7 @@ export function SportsMultiRegister() {
         newEventErrors[ev.eventId] = eligibility.reason || "Ineligible for selected category";
         hasEligibilityIssues = true;
       }
-      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
       const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
       if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
         newEventErrors[ev.eventId] = "Doubles partner is mandatory. Please select a partner or choose Open Pool.";
@@ -1639,7 +1644,7 @@ export function SportsMultiRegister() {
 
     for (const ev of selectedEvents) {
       const catId = ev.categoryId || categories[0]?.id || 1;
-      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
         try {
@@ -1754,7 +1759,7 @@ export function SportsMultiRegister() {
           <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-2xs">
             <Trophy className="h-3.5 w-3.5 text-white" />
           </div>
-          <h2 className="text-xs font-bold text-slate-900 truncate leading-tight">
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 truncate leading-tight">
             {tournament.name}
           </h2>
           {tournament.events && (
@@ -2520,7 +2525,7 @@ export function SportsMultiRegister() {
                                     </div>
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       {ev.availableFormats.map((fmt) => {
-                                        const selectedList = ev.matchTypes || [ev.matchType || "SINGLES"];
+                                        const selectedList = ev.matchTypes || [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
                                         const isFmtSelected = selectedList.some(f => f.toUpperCase() === fmt.toUpperCase());
                                         const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
                                         return (
@@ -2547,7 +2552,7 @@ export function SportsMultiRegister() {
                                   </div>
                                 )}
                                 {/* Doubles / Mixed Doubles Partner Selection */}
-                                {((ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || "SINGLES"]).some(f => f.toUpperCase().includes("DOUBLES"))) && (
+                                {((ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")]).some(f => f.toUpperCase().includes("DOUBLES"))) && (
                                   <div className="w-full mt-2 pt-2 border-t border-slate-100">
                                     <SportsPartnerSelector
                                       selectedPartner={ev.partnerInfo}
@@ -2571,6 +2576,7 @@ export function SportsMultiRegister() {
                                       currentGender={gender}
                                       currentUserId={user?.userId || (user as any)?.id}
                                       currentFamilyMemberId={regType === "family" ? familyMemberId : undefined}
+                                      currentUserName={playerName || user?.fullName}
                                       communityId={user?.communityId}
                                       familyMembers={savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
@@ -2954,10 +2960,12 @@ export function SportsMultiRegister() {
             {/* Form */}
             <form onSubmit={handleProfileModalSubmit} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                <label htmlFor="multi-profile-modal-full-name" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                   Full Name <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="multi-profile-modal-full-name"
+                  name="multiProfileFullName"
                   type="text"
                   required
                   value={profileModalState.name}
@@ -2970,10 +2978,12 @@ export function SportsMultiRegister() {
               {profileModalState.mode !== "self" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-relation" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Relationship <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      id="multi-profile-modal-relation"
+                      name="multiProfileRelation"
                       value={profileModalState.relation}
                       onChange={(e) => {
                         const rel = e.target.value;
@@ -3001,10 +3011,12 @@ export function SportsMultiRegister() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-gender-member" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Gender <span className="text-rose-500">*</span>
                     </label>
                     <select
+                      id="multi-profile-modal-gender-member"
+                      name="multiProfileGender"
                       value={profileModalState.gender}
                       onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                       className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
@@ -3018,10 +3030,12 @@ export function SportsMultiRegister() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                  <label htmlFor="multi-profile-modal-gender-self" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                     Gender <span className="text-rose-500">*</span>
                   </label>
                   <select
+                    id="multi-profile-modal-gender-self"
+                    name="multiProfileGender"
                     value={profileModalState.gender}
                     onChange={(e) => setProfileModalState({ ...profileModalState, gender: e.target.value })}
                     className="w-full h-10 text-sm border border-slate-200 rounded-xl px-2.5 bg-slate-50/50 focus:bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition cursor-pointer"
@@ -3057,10 +3071,12 @@ export function SportsMultiRegister() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                  <label htmlFor="multi-profile-modal-phone" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                     Phone Number
                   </label>
                   <input
+                    id="multi-profile-modal-phone"
+                    name="multiProfilePhone"
                     type="tel"
                     value={profileModalState.phone}
                     onChange={(e) => setProfileModalState({ ...profileModalState, phone: e.target.value })}
@@ -3071,10 +3087,12 @@ export function SportsMultiRegister() {
 
                 {profileModalState.mode === "self" ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-flat-no" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Flat / Villa No.
                     </label>
                     <input
+                      id="multi-profile-modal-flat-no"
+                      name="multiProfileFlatNo"
                       type="text"
                       value={profileModalState.flatNo || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, flatNo: e.target.value })}
@@ -3084,10 +3102,12 @@ export function SportsMultiRegister() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
+                    <label htmlFor="multi-profile-modal-blood-group" className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">
                       Blood Group
                     </label>
                     <input
+                      id="multi-profile-modal-blood-group"
+                      name="multiProfileBloodGroup"
                       type="text"
                       value={profileModalState.bloodGroup || ""}
                       onChange={(e) => setProfileModalState({ ...profileModalState, bloodGroup: e.target.value })}

@@ -192,6 +192,41 @@ const sessions = [
   { id: 3, device: "Firefox on Windows", location: "Hyderabad, IN", lastActive: "3 days ago", isCurrent: false },
 ];
 
+export const isAvatarUrl = (val?: string): boolean => {
+  if (!val || typeof val !== "string") return false;
+  return (
+    val.startsWith("http://") ||
+    val.startsWith("https://") ||
+    val.startsWith("data:image/") ||
+    val.startsWith("/api/files/") ||
+    val.startsWith("/") ||
+    val.includes("amazonaws.com")
+  );
+};
+
+export const renderFamilyAvatar = (member: FamilyMember, defaultInitial?: string) => {
+  const avatarVal = (member as any).avatar || member.photoUrl;
+  if (isAvatarUrl(avatarVal)) {
+    return (
+      <img
+        src={avatarVal}
+        alt={member.name}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+          if (e.currentTarget.parentElement) {
+            e.currentTarget.parentElement.innerText = (defaultInitial || member.name?.charAt(0) || "?").toUpperCase();
+          }
+        }}
+      />
+    );
+  }
+  if (avatarVal && avatarVal.length <= 4) {
+    return avatarVal;
+  }
+  return (defaultInitial || member.name?.charAt(0) || "?").toUpperCase();
+};
+
 export function ProfileDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, updateUser } = useAuth();
@@ -649,13 +684,15 @@ export function ProfileDashboard() {
 
   const handleOpenEditFamily = (member: FamilyMember) => {
     setEditingMember(member);
+    const rawAvatar = (member as any).avatar || member.avatar || (member as any).photoUrl;
+    const isUrl = isAvatarUrl(rawAvatar);
     setMemberForm({
       name: member.name || "",
       relation: member.relation || "Spouse",
       age: member.age,
       dob: member.dob || (member as any).dateOfBirth || "",
       gender: member.gender || "Male",
-      avatar: (member as any).avatar || member.avatar || (member as any).photoUrl || (member.gender === "Female" ? "👩" : "👨"),
+      avatar: !isUrl && rawAvatar && rawAvatar.length <= 4 ? rawAvatar : (member.gender === "Female" ? "👩" : "👨"),
       phone: member.phone || (member as any).mobile || "",
       email: member.email || "",
       bloodGroup: member.bloodGroup || (member as any).blood || "",
@@ -1529,10 +1566,10 @@ export function ProfileDashboard() {
                       <div key={member.id} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-muted/25 border border-border/40 text-xs">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <div className={cn(
-                            "w-5 h-5 rounded-md font-bold flex items-center justify-center text-[9.5px] shrink-0",
+                            "w-5 h-5 rounded-md font-bold flex items-center justify-center text-[9.5px] shrink-0 overflow-hidden",
                             member.gender === "Female" ? "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300" : "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
                           )}>
-                            {(member as any).avatar || member.name.charAt(0)}
+                            {renderFamilyAvatar(member)}
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-foreground text-[11px] truncate">{member.name}</p>
@@ -1734,14 +1771,14 @@ export function ProfileDashboard() {
                               <div className="flex items-start justify-between gap-1.5">
                                 <div className="flex items-start gap-2 min-w-0">
                                   <div className={cn(
-                                    "w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-bold flex items-center justify-center text-xs sm:text-sm shrink-0 shadow-2xs",
+                                    "w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-bold flex items-center justify-center text-xs sm:text-sm shrink-0 shadow-2xs overflow-hidden",
                                     isSelf
                                       ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white"
                                       : isFemale
                                       ? "bg-gradient-to-br from-pink-400 to-rose-600 text-white"
                                       : "bg-gradient-to-br from-blue-500 to-cyan-600 text-white"
                                   )}>
-                                    {(member as any).avatar || member.name.charAt(0)}
+                                    {renderFamilyAvatar(member)}
                                   </div>
 
                                   <div className="min-w-0">

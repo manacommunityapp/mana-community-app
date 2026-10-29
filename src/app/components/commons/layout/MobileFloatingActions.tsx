@@ -4,7 +4,8 @@ import {
   Trophy, Bell, Users, Shield, X, ChevronRight,
   CalendarDays, Flame, Award, Sparkles, Search,
   Store, Briefcase, Megaphone, Building2, Headphones, Vote, UserCircle,
-  ShieldCheck, Tag, GraduationCap, ShieldAlert, ShoppingBag, Compass, Landmark, Heart, Activity, WifiOff, Stethoscope, Wallet, Car, PieChart
+  ShieldCheck, Tag, GraduationCap, ShieldAlert, ShoppingBag, Compass, Landmark, Heart, Activity, WifiOff, Stethoscope, Wallet, Car, PieChart,
+  Film, ShoppingCart, CreditCard
 } from "lucide-react";
 import { CommunityDirectory } from "../../community/CommunityDirectory";
 import { NotificationBell } from "./NotificationBell";
@@ -22,6 +23,8 @@ interface SearchResultItem {
   color: string;
   bg: string;
   requiredModule?: string | string[];
+  menuKey?: string;
+  adminOnly?: boolean;
 }
 
 export function MenuListIcon({ className }: { className?: string }) {
@@ -48,7 +51,7 @@ export function MenuListIcon({ className }: { className?: string }) {
 
 export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
   const navigate = useNavigate();
-  const { user, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin, isAdmin, isAnyAdmin, hasMenuPermission } = useAuth();
   const enabledModules = user?.enabledModules;
   const [activeModal, setActiveModal] = useState<"directory" | "search" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -94,6 +97,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Main",
       color: "text-blue-600",
       bg: "bg-blue-50",
+      requiredModule: "COMMUNITY_FEED",
+      menuKey: "community-feed",
     },
     {
       label: "Professional Network (CPN)",
@@ -104,6 +109,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Network",
       color: "text-purple-600",
       bg: "bg-purple-50",
+      requiredModule: ["JOBS", "CPN"],
+      menuKey: "professional-network",
     },
     {
       label: "Sports Community Hub",
@@ -114,6 +121,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Activities",
       color: "text-indigo-600",
       bg: "bg-indigo-50",
+      requiredModule: "SPORTS",
+      menuKey: "sports",
     },
     {
       label: "Marketplace",
@@ -124,6 +133,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Community",
       color: "text-amber-600",
       bg: "bg-amber-50",
+      requiredModule: "MARKETPLACE",
+      menuKey: "marketplace",
     },
     {
       label: "Visitor Management",
@@ -134,6 +145,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Safety",
       color: "text-emerald-600",
       bg: "bg-emerald-50",
+      requiredModule: "VISITORS",
+      menuKey: "visitors",
     },
     {
       label: "Notices & Circulars",
@@ -144,6 +157,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Updates",
       color: "text-rose-600",
       bg: "bg-rose-50",
+      requiredModule: "NOTICES",
+      menuKey: "notices",
     },
     {
       label: "Facility Bookings",
@@ -154,6 +169,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Amenities",
       color: "text-cyan-600",
       bg: "bg-cyan-50",
+      requiredModule: ["BOOKINGS", "AMENITIES"],
+      menuKey: "amenity-booking",
     },
     {
       label: "Helpdesk & Support",
@@ -164,6 +181,20 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Services",
       color: "text-orange-600",
       bg: "bg-orange-50",
+      requiredModule: "HELPDESK",
+      menuKey: "helpdesk",
+    },
+    {
+      label: "Maintenance Dues & Payments",
+      desc: "Society maintenance invoices, payment receipts & ledger",
+      icon: CreditCard,
+      path: "/finance/maintenance",
+      keywords: "maintenance dues payments bills invoices finance receipts pay society fees",
+      category: "Finance",
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      requiredModule: "FINANCE_MGMT",
+      menuKey: "maintenance-dues",
     },
     {
       label: "Polls & Surveys",
@@ -174,6 +205,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Engagement",
       color: "text-violet-600",
       bg: "bg-violet-50",
+      requiredModule: "POLLS",
+      menuKey: "polls",
     },
     {
       label: "Jobs & Referrals",
@@ -184,6 +217,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Career",
       color: "text-teal-600",
       bg: "bg-teal-50",
+      requiredModule: "JOBS",
+      menuKey: "jobs",
     },
     {
       label: "Events & Celebrations",
@@ -194,6 +229,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Events",
       color: "text-pink-600",
       bg: "bg-pink-50",
+      requiredModule: "EVENTS",
+      menuKey: "events",
     },
     {
       label: "Community Directory",
@@ -204,6 +241,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Contacts",
       color: "text-emerald-600",
       bg: "bg-emerald-50",
+      requiredModule: ["COMMUNITY_FEED", "DIRECTORY", "COMMUNITY_MGMT"],
+      menuKey: "directory",
     },
     {
       label: "My Profile",
@@ -225,6 +264,19 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       color: "text-emerald-700",
       bg: "bg-emerald-50",
       requiredModule: ["VISITORS", "SAFETY"],
+      menuKey: "safety",
+    },
+    {
+      label: "Smart Gates & Turnstiles",
+      desc: "Real-time gate telemetry, contactless entry & QR access",
+      icon: ShieldCheck,
+      path: "/access/turnstiles",
+      keywords: "gates turnstiles qr barrier access security telemetry",
+      category: "Safety",
+      color: "text-cyan-700",
+      bg: "bg-cyan-50",
+      requiredModule: ["VISITORS", "SAFETY"],
+      menuKey: "smart-gates",
     },
     {
       label: "Mana Deals & Offers",
@@ -235,6 +287,20 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Commerce",
       color: "text-amber-600",
       bg: "bg-amber-50",
+      requiredModule: ["COMMUNITY_OFFERS", "DEALS", "COMMERCE"],
+      menuKey: "deals",
+    },
+    {
+      label: "Food & Dining",
+      desc: "Community canteen, cafe menus & pre-orders",
+      icon: ShoppingCart,
+      path: "/food",
+      keywords: "food dining canteen cafe menu order meals delivery",
+      category: "Commerce",
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      requiredModule: ["FOOD_OS", "FOOD"],
+      menuKey: "food",
     },
     {
       label: "Mana Academy",
@@ -245,6 +311,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Education",
       color: "text-indigo-600",
       bg: "bg-indigo-50",
+      requiredModule: "ACADEMY",
+      menuKey: "academy",
     },
     {
       label: "Mana Health",
@@ -255,6 +323,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Lifestyle",
       color: "text-emerald-600",
       bg: "bg-emerald-50",
+      requiredModule: ["HEALTH", "WELLNESS"],
+      menuKey: "health",
     },
     {
       label: "My Money & Personal Finance",
@@ -265,6 +335,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Finance",
       color: "text-teal-600",
       bg: "bg-teal-50",
+      requiredModule: ["PERSONAL_FINANCE", "FINANCE_MGMT"],
+      menuKey: "my-money",
     },
     {
       label: "Smart Parking & Vehicles",
@@ -275,6 +347,20 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Facilities",
       color: "text-blue-600",
       bg: "bg-blue-50",
+      requiredModule: ["PARKING", "VISITORS"],
+      menuKey: "parking",
+    },
+    {
+      label: "Community Rides",
+      desc: "Shared carpooling, commute pools & route discovery",
+      icon: Car,
+      path: "/commute",
+      keywords: "rides carpool commute travel lift transport share pool",
+      category: "Facilities",
+      color: "text-sky-600",
+      bg: "bg-sky-50",
+      requiredModule: ["COMMUTE", "COMMUNITY_MGMT"],
+      menuKey: "commute",
     },
     {
       label: "Mana Split & Collections",
@@ -285,6 +371,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Finance",
       color: "text-purple-600",
       bg: "bg-purple-50",
+      requiredModule: ["FINANCE_MGMT", "MANA_SPLIT"],
+      menuKey: "split-bill",
     },
     {
       label: "Emergency SOS",
@@ -295,6 +383,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Safety",
       color: "text-red-600",
       bg: "bg-red-50",
+      requiredModule: ["EMERGENCY", "SAFETY", "VISITORS"],
+      menuKey: "emergency",
     },
     {
       label: "Community Trips OS",
@@ -305,6 +395,20 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Activities",
       color: "text-blue-600",
       bg: "bg-blue-50",
+      requiredModule: ["TRIPS", "EVENTS"],
+      menuKey: "trips",
+    },
+    {
+      label: "Movie Night & Entertainment",
+      desc: "Open air screenings, movie votes & cinema schedules",
+      icon: Film,
+      path: "/movies",
+      keywords: "movies cinema film screening show night entertainment tickets",
+      category: "Activities",
+      color: "text-pink-600",
+      bg: "bg-pink-50",
+      requiredModule: ["ENTERTAINMENT", "MOVIES"],
+      menuKey: "movies",
     },
     {
       label: "Group Buying",
@@ -315,6 +419,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Commerce",
       color: "text-orange-600",
       bg: "bg-orange-50",
+      requiredModule: ["GROUP_BUYING", "COMMUNITY_MGMT", "MARKETPLACE"],
+      menuKey: "group-buying",
     },
     {
       label: "Community Discover",
@@ -325,6 +431,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Network",
       color: "text-violet-600",
       bg: "bg-violet-50",
+      requiredModule: ["COMMUNITY_GRAPH", "DISCOVER", "COMMUNITY_FEED"],
+      menuKey: "discover",
     },
     {
       label: "Governance & Decisions",
@@ -335,6 +443,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Governance",
       color: "text-sky-600",
       bg: "bg-sky-50",
+      requiredModule: ["GOVERNANCE", "COMMUNITY_MGMT"],
+      menuKey: "governance",
     },
     {
       label: "Pet Registry",
@@ -345,6 +455,8 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Community",
       color: "text-rose-600",
       bg: "bg-rose-50",
+      requiredModule: ["HOME_SERVICES", "PETS", "COMMUNITY_MGMT"],
+      menuKey: "pets",
     },
     {
       label: "IoT Smart Metering",
@@ -355,6 +467,21 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
       category: "Utilities",
       color: "text-cyan-600",
       bg: "bg-cyan-50",
+      requiredModule: ["UTILITIES", "IOT", "COMMUNITY_MGMT"],
+      menuKey: "iot-meters",
+    },
+    {
+      label: "Admin Hub",
+      desc: "Society operations, member verification, roles & module config",
+      icon: ShieldCheck,
+      path: "/admin",
+      keywords: "admin management hub moderation kyc members approval settings roles modules",
+      category: "Administration",
+      color: "text-red-600",
+      bg: "bg-red-50",
+      requiredModule: ["ADMIN_HUB", "COMMUNITY_MGMT"],
+      menuKey: "admin",
+      adminOnly: true,
     },
     {
       label: "Offline Sync Manager",
@@ -368,15 +495,44 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
     },
   ];
 
-  const isModuleAllowed = (moduleKeyOrKeys?: string | string[]) => {
-    if (!moduleKeyOrKeys) return true;
-    if (isSuperAdmin && !user?.communityId) return true;
-    if (!enabledModules || enabledModules.length === 0) return false;
-    const keys = Array.isArray(moduleKeyOrKeys) ? moduleKeyOrKeys : [moduleKeyOrKeys];
+  const isModuleAllowed = (item: SearchResultItem): boolean => {
+    // 1. Role-based admin restriction
+    if (item.adminOnly && !isAnyAdmin && !isAdmin && !isSuperAdmin) {
+      return false;
+    }
+
+    // 2. SuperAdmin bypass
+    if (isSuperAdmin) {
+      return true;
+    }
+
+    // 3. Dynamic backend menu permissions check
+    if (item.menuKey && user?.menuPermissions && user.menuPermissions.length > 0) {
+      if (!hasMenuPermission(item.menuKey, "view")) {
+        return false;
+      }
+    }
+
+    // 4. Global utilities without module restrictions (e.g., My Profile, Offline Sync)
+    if (!item.requiredModule) {
+      return true;
+    }
+
+    // 5. Initial boot grace period while user data is synchronizing
+    if (user && !user.enabledModules && !user.permissions) {
+      return true;
+    }
+
+    // 6. Community module enablement validation
+    if (!enabledModules || enabledModules.length === 0) {
+      return false;
+    }
+
+    const keys = Array.isArray(item.requiredModule) ? item.requiredModule : [item.requiredModule];
     return keys.some((k) => enabledModules.includes(k));
   };
 
-  const availableSearchItems = searchItems.filter((item) => isModuleAllowed(item.requiredModule));
+  const availableSearchItems = searchItems.filter((item) => isModuleAllowed(item));
 
   const filteredItems = searchQuery.trim() === ""
     ? availableSearchItems

@@ -31,6 +31,20 @@ interface Post {
 
 const MOCK_POSTS: Post[] = [];
 
+const TRENDING_TOPICS = [
+  { tag: "HiringNow", count: "142 posts" },
+  { tag: "SystemDesign", count: "89 posts" },
+  { tag: "StartupHiring", count: "76 posts" },
+  { tag: "AICareer", count: "54 posts" },
+  { tag: "RemoteJobs", count: "48 posts" },
+];
+
+const SUGGESTED_PEOPLE = [
+  { name: "Arjun Nair", role: "DevOps @ AWS", flat: "C-506", mutual: 8, avatar: "AN" },
+  { name: "Sneha Patel", role: "UX Designer @ Swiggy", flat: "A-201", mutual: 5, avatar: "SP" },
+  { name: "Kiran Reddy", role: "Product @ Zepto", flat: "Villa 3", mutual: 12, avatar: "KR" },
+];
+
 function Avatar({ initials, size = "md", color = "indigo" }: { initials: string; size?: "sm" | "md" | "lg"; color?: "indigo" | "violet" | "emerald" | "amber" }) {
   const sizes = { sm: "w-8 h-8 text-xs", md: "w-10 h-10 text-sm", lg: "w-12 h-12 text-base" };
   const colors = {

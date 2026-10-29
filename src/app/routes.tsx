@@ -116,6 +116,8 @@ import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
 import { SportsTrainers }        from "./components/sports/SportsTrainers";
 import { SportsExternalPublicRegister } from "./components/sports/SportsExternalPublicRegister";
+import { SportsVenueBrowse } from "./components/sports/venues/SportsVenueBrowse";
+import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -172,6 +174,17 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 import { VendorApplication } from "./components/vendor/portal/VendorApplication";
+import { SportsVendorDashboard } from "./components/vendor/portal/sports/SportsVendorDashboard";
+import { SportsVenueManager } from "./components/vendor/portal/sports/SportsVenueManager";
+import { SportsSlotCalendar } from "./components/vendor/portal/sports/SportsSlotCalendar";
+import { SportsBookingManager } from "./components/vendor/portal/sports/SportsBookingManager";
+import { SportsPricingMatrix } from "./components/vendor/portal/sports/SportsPricingMatrix";
+import { SportsCoachingPortal } from "./components/vendor/portal/sports/SportsCoachingPortal";
+import { SportsMembershipsPortal } from "./components/vendor/portal/sports/SportsMembershipsPortal";
+import { SportsEventsOrganizerPortal } from "./components/vendor/portal/sports/SportsEventsOrganizerPortal";
+import { SportsSuppliersPortal } from "./components/vendor/portal/sports/SportsSuppliersPortal";
+import { SportsIntelligencePortal } from "./components/vendor/portal/sports/SportsIntelligencePortal";
+import { SportsMultiVenuePortal } from "./components/vendor/portal/sports/SportsMultiVenuePortal";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -326,6 +339,7 @@ import AmbulanceBookingScreen from "./components/healthguard/AmbulanceBooking";
 import AdminIncidentDashboard from "./components/healthguard/AdminIncidentDashboard";
 import AmbulanceDispatch from "./components/healthguard/AmbulanceDispatch";
 import WearableAlertsDashboard from "./components/healthguard/WearableAlertsDashboard";
+import { ConnectedHealthOverview } from "./components/healthguard/ConnectedHealthOverview";
 import { CommuteDashboard } from "./components/commute/CommuteDashboard";
 import { MobilityDashboard } from "./components/mobility/MobilityDashboard";
 import { ProjectsDashboard } from "./components/projects/ProjectsDashboard";
@@ -510,6 +524,14 @@ export const router = createBrowserRouter([
           {
             path: "trainers",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
+          },
+          {
+            path: "venues",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsVenueBrowse /></PermissionGuard>
+          },
+          {
+            path: "venues/:venueId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsVenueDetail /></PermissionGuard>
           },
           {
             path: "auction",
@@ -840,6 +862,17 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
         children: [
           { index: true, Component: VendorPortalDashboard },
+          { path: "sports", Component: SportsVendorDashboard },
+          { path: "sports/venues", Component: SportsVenueManager },
+          { path: "sports/calendar", Component: SportsSlotCalendar },
+          { path: "sports/bookings", Component: SportsBookingManager },
+          { path: "sports/pricing", Component: SportsPricingMatrix },
+          { path: "sports/coaching", Component: SportsCoachingPortal },
+          { path: "sports/memberships", Component: SportsMembershipsPortal },
+          { path: "sports/events", Component: SportsEventsOrganizerPortal },
+          { path: "sports/suppliers", Component: SportsSuppliersPortal },
+          { path: "sports/intelligence", Component: SportsIntelligencePortal },
+          { path: "sports/branches", Component: SportsMultiVenuePortal },
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
@@ -1184,7 +1217,7 @@ export const router = createBrowserRouter([
       { path: "gold", element: <GoldPortal /> },
       { path: "mutual-funds", element: <MutualFundsPortal /> },
       { path: "split-bill", element: <SplitBillPortal /> },
-      { path: "movies", element: <MoviePortal /> },
+      { path: "movies", element: <PermissionGuard anyModules={["ENTERTAINMENT", "MOVIES"]} requiredModule="ENTERTAINMENT"><MoviePortal /></PermissionGuard> },
       { path: "fd", element: <FDPortal /> },
       { path: "loans", element: <LoanPortal /> },
       // ── Mana Academy (Community Learning & Skill-Sharing) ────────
@@ -1231,6 +1264,7 @@ export const router = createBrowserRouter([
         path: "healthguard",
         children: [
           { index: true, element: <HealthGuardDashboard /> },
+          { path: "connected-health", element: <ConnectedHealthOverview /> },
           { path: "contacts", element: <EmergencyContacts /> },
           { path: "incidents", element: <IncidentTracker /> },
           { path: "sos", element: <SosScreen /> },

@@ -129,5 +129,7 @@ const MODULE_LABELS: Record<string, string> = {
   SAFETY: "Safety & Security",
   PAYMENTS: "Mana Pay",
   MANA_PAY: "Mana Pay",
+  ENTERTAINMENT: "Entertainment & Movies",
+  MOVIES: "Entertainment & Movies",
 };
 

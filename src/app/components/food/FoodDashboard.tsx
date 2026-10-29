@@ -319,5 +319,4 @@ export function FoodDashboard() {
       </Card>
     </div>
   );
-  );
 }

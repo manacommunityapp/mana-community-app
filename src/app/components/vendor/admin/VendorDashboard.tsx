@@ -133,14 +133,14 @@ export function VendorDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={Store}        label="Total Vendors"      value={stats.totalVendors}      sub={`${stats.activeVendors} active`}            color="#6366f1" bg="#eef2ff" />
-        <StatCard icon={Users}        label="Pending Vendors"    value={stats.pendingVendors}    sub="Awaiting approval"                           color="#f59e0b" bg="#fef3c7" />
-        <StatCard icon={Calendar}     label="Total Bookings"     value={stats.totalBookings}     sub={`${stats.activeBookings} active`}            color="#06b6d4" bg="#ecfeff" />
-        <StatCard icon={Wrench}       label="Open Work Orders"   value={stats.openWorkOrders}    sub="Requires attention"                          color="#ef4444" bg="#fef2f2" />
-        <StatCard icon={IndianRupee}  label="Total Revenue"      value={formatCurrency(stats.totalRevenue)}  sub={`${formatCurrency(stats.monthlyRevenue)} this month`} color="#10b981" bg="#ecfdf5" />
-        <StatCard icon={Star}         label="Average Rating"     value={stats.avgRating?.toFixed(1) ?? "N/A"} sub={`${stats.totalBookings} reviews`}   color="#f59e0b" bg="#fffbeb" />
-        <StatCard icon={Clock}        label="Overdue Invoices"   value={stats.overdueInvoices}   sub="Needs follow-up"                             color="#ef4444" bg="#fef2f2" />
-        <StatCard icon={TrendingUp}   label="Expiring Contracts" value={stats.expiringContracts} sub="Renewal needed"                              color="#8b5cf6" bg="#f5f3ff" />
+        <StatCard icon={Store}        label="Total Vendors"      value={stats.totalVendors ?? 0}      sub={`${stats.activeVendors ?? 0} active`}            color="#6366f1" bg="#eef2ff" />
+        <StatCard icon={Users}        label="Pending Vendors"    value={stats.pendingVendors ?? 0}    sub="Awaiting approval"                           color="#f59e0b" bg="#fef3c7" />
+        <StatCard icon={Calendar}     label="Total Bookings"     value={stats.totalBookings ?? 0}     sub={`${stats.activeBookings ?? 0} active`}            color="#06b6d4" bg="#ecfeff" />
+        <StatCard icon={Wrench}       label="Open Work Orders"   value={stats.openWorkOrders ?? 0}    sub="Requires attention"                          color="#ef4444" bg="#fef2f2" />
+        <StatCard icon={IndianRupee}  label="Total Revenue"      value={formatCurrency(stats.totalRevenue ?? 0)}  sub={`${formatCurrency(stats.monthlyRevenue ?? 0)} this month`} color="#10b981" bg="#ecfdf5" />
+        <StatCard icon={Star}         label="Average Rating"     value={stats.avgRating?.toFixed(1) ?? "N/A"} sub={`${stats.totalBookings ?? 0} reviews`}   color="#f59e0b" bg="#fffbeb" />
+        <StatCard icon={Clock}        label="Overdue Invoices"   value={stats.overdueInvoices ?? 0}   sub="Needs follow-up"                             color="#ef4444" bg="#fef2f2" />
+        <StatCard icon={TrendingUp}   label="Expiring Contracts" value={stats.expiringContracts ?? 0} sub="Renewal needed"                              color="#8b5cf6" bg="#f5f3ff" />
       </div>
 
       {/* Bottom row: Recent activity + Top vendors */}

@@ -429,7 +429,6 @@ export function EventsDonations() {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">Digital / Cheque</p>
         </div>
       </div>
-      )}
 
       {/* Donation list */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">

@@ -91,6 +91,33 @@ function getCategory(age: number, gender: string): string {
   return gender === "Female" ? "Womens (18-55)" : "Mens (18-55)";
 }
 
+function getFormatBadge(reg: RegistrationListItem): { label: string; color: string } {
+  const typeStr = (
+    reg.matchType ||
+    (Array.isArray(reg.format) ? reg.format[0] : "") ||
+    reg.categoryName ||
+    reg.eventName ||
+    ""
+  ).toUpperCase();
+
+  if (typeStr.includes("MIXED")) {
+    return { label: "Mixed Doubles", color: "bg-purple-50 text-purple-700 border-purple-200" };
+  }
+  if (typeStr.includes("DOUBLES")) {
+    return { label: "Doubles", color: "bg-blue-50 text-blue-700 border-blue-200" };
+  }
+  if (typeStr.includes("SINGLES")) {
+    return { label: "Singles", color: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+  }
+  if (typeStr.includes("TEAM") || isTeamSport(reg.eventName || "") || isTeamSport(reg.sportName || "")) {
+    return { label: "Team Squad", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  }
+  return {
+    label: reg.matchType ? reg.matchType.replace(/_/g, " ") : "Open Event",
+    color: "bg-slate-100 text-slate-700 border-slate-200",
+  };
+}
+
 const ACHIEVEMENT_DEFS = [
   { id: 1, title: "First Registration", desc: "Register for an event", icon: Star, color: "#f59e0b", check: (r: number) => r >= 1 },
   { id: 2, title: "Team Player", desc: "Join an auction squad", icon: Users, color: "#10b981", check: (_r: number, t: number) => t >= 1 },
@@ -196,6 +223,7 @@ export function MySports() {
   const [tournamentSearch, setTournamentSearch] = useState("");
   const [tournamentSportFilter, setTournamentSportFilter] = useState("All");
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState("All");
+  const [tournamentParticipantFilter, setTournamentParticipantFilter] = useState("All");
 
   // Player Passport state
   const [passport, setPassport] = useState<PlayerPassport>(() => {
@@ -278,12 +306,16 @@ export function MySports() {
 
   const handleWithdraw = async (regId: number) => {
     if (!confirm("Are you sure you want to withdraw from this tournament event?")) return;
+    // Optimistic UI update
+    setRegistrations(prev => prev.map(r => r.id === regId ? { ...r, status: "WITHDRAWN" } : r));
     try {
       await sportsService.withdraw(regId);
       toast.success("Withdrawn from tournament successfully");
       fetchCoreData();
-    } catch (err) {
-      toast.error("Failed to withdraw from tournament");
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to withdraw from tournament");
+      fetchCoreData();
     }
   };
 
@@ -399,13 +431,45 @@ export function MySports() {
   // Performance calculations
   const totalMatches = myMatches?.length ?? 0;
 
-  const xpPoints = ((registrations?.length ?? 0) * 150) + ((teams?.length ?? 0) * 200) + ((myMatches?.length ?? 0) * 100) + 100;
+  const activeRegistrations = useMemo(() => {
+    return registrations.filter(r => r.status !== "WITHDRAWN" && r.status !== "CANCELLED" && r.status !== "REJECTED");
+  }, [registrations]);
+
+  const participantOptions = useMemo(() => {
+    const options = [
+      { value: "All", label: "All Participants" },
+      { value: "Self", label: "👤 Self" },
+    ];
+    const seen = new Set<string>(["self"]);
+    familyMembers.forEach(fam => {
+      if (fam.relation?.toLowerCase() !== "self") {
+        options.push({
+          value: String(fam.id),
+          label: `👥 ${fam.name} (${fam.relation})`,
+        });
+        seen.add(fam.name.toLowerCase());
+      }
+    });
+    registrations.forEach(r => {
+      const isSelf = !r.familyMemberId && (!r.relation || r.relation.toUpperCase() === "SELF");
+      if (!isSelf && r.playerName && !seen.has(r.playerName.toLowerCase())) {
+        options.push({
+          value: r.playerName,
+          label: `👥 ${r.playerName}${r.relation ? ` (${r.relation})` : ""}`,
+        });
+        seen.add(r.playerName.toLowerCase());
+      }
+    });
+    return options;
+  }, [familyMembers, registrations]);
+
+  const xpPoints = (activeRegistrations.length * 150) + ((teams?.length ?? 0) * 200) + ((myMatches?.length ?? 0) * 100) + 100;
   const playerLevel = Math.floor(xpPoints / 400) + 1;
   const levelProgress = Math.min(100, Math.round(((xpPoints % 400) / 400) * 100));
 
   const achievements = ACHIEVEMENT_DEFS.map(a => ({
     ...a,
-    unlocked: a.check(registrations?.length ?? 0, teams?.length ?? 0, myMatches?.length ?? 0, true),
+    unlocked: a.check(activeRegistrations.length, teams?.length ?? 0, myMatches?.length ?? 0, true),
   }));
   const unlockedCount = achievements.filter(a => a.unlocked).length;
 
@@ -415,15 +479,109 @@ export function MySports() {
     return registrations.filter(r => {
       const nameMatch = (r.eventName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
                          (r.sportName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
-                         (r.categoryName || "").toLowerCase().includes(tournamentSearch.toLowerCase());
+                         (r.categoryName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
+                         (r.playerName || "").toLowerCase().includes(tournamentSearch.toLowerCase());
       const sportMatch = tournamentSportFilter === "All" || (r.sportName || "").toLowerCase() === tournamentSportFilter.toLowerCase();
       const statusMatch = tournamentStatusFilter === "All" || r.status === tournamentStatusFilter;
-      return nameMatch && sportMatch && statusMatch;
+
+      const isSelf = !r.familyMemberId && (!r.relation || r.relation.toUpperCase() === "SELF");
+      const participantMatch = tournamentParticipantFilter === "All" ||
+        (tournamentParticipantFilter === "Self" && isSelf) ||
+        (tournamentParticipantFilter !== "Self" && (
+          (r.familyMemberId && String(r.familyMemberId) === tournamentParticipantFilter) ||
+          (r.playerName && r.playerName.toLowerCase() === tournamentParticipantFilter.toLowerCase())
+        ));
+
+      return nameMatch && sportMatch && statusMatch && participantMatch;
     });
-  }, [registrations, tournamentSearch, tournamentSportFilter, tournamentStatusFilter]);
+  }, [registrations, tournamentSearch, tournamentSportFilter, tournamentStatusFilter, tournamentParticipantFilter]);
 
   // Next Upcoming Match
   const nextMatch = (myMatches?.length ?? 0) > 0 ? myMatches[0] : null;
+
+  const renderPartnerInvitationsBanner = () => {
+    if (partnerInvitations.length === 0) return null;
+    return (
+      <div className="bg-amber-50/90 border border-amber-300 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-sm">
+        <div className="flex items-center justify-between border-b border-amber-200">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-xs">
+              <Users className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5 m-0 mb-0">
+                Pending Doubles Partner Invitations
+                <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[10px] font-black rounded-full">
+                  {partnerInvitations.length} new
+                </span>
+              </h3>
+              <p className="text-xs text-amber-800 m-0">
+                You have been nominated as a doubles partner for the following event(s):
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {partnerInvitations.map((inv) => {
+            const invId = inv.id;
+            const pName = inv.playerName || inv.user?.fullName || "A player";
+            const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
+            const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
+            const catName = inv.categoryName || inv.category?.name;
+            const isBusy = respondingInviteId === invId;
+
+            return (
+              <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                      {spName}
+                    </span>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                      Action Required
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
+                    {evName}
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    <strong className="text-slate-900 font-semibold">{pName}</strong> nominated you to play as their doubles partner.
+                  </p>
+                  {catName && (
+                    <div className="mt-1.5 text-xs font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
+                      {catName}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleRespondInvitation(invId, true)}
+                    className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>{isBusy ? "Confirming..." : "Accept Partner"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleRespondInvitation(invId, false)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[12px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Decline</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="auction-hub-wrapper animate-fade-in-up stagger-1">
@@ -507,7 +665,7 @@ export function MySports() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xs font-extrabold text-[#0d0d2b] leading-tight">
+                    <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                       {displayName}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
@@ -532,7 +690,7 @@ export function MySports() {
                 <div className="flex items-center gap-3 sm:gap-6">
                   {[
                     { label: "Teams", value: (teams?.length ?? 0).toString(), color: "#6366f1" },
-                    { label: "Registrations", value: (registrations?.length ?? 0).toString(), color: "#10b981" },
+                    { label: "Active Regs", value: (activeRegistrations.length).toString(), color: "#10b981" },
                     { label: "Matches", value: (myMatches?.length ?? 0).toString(), color: "#f59e0b" },
                     { label: "Athlete Level", value: `Lvl ${playerLevel}`, color: "#8b5cf6" },
                   ].map((s) => (
@@ -571,27 +729,6 @@ export function MySports() {
                   {/* ════════════════════ OVERVIEW TAB ════════════════════ */}
                   {activeTab === "overview" && (
                     <div className="space-y-3 sm:space-y-5 text-left animate-fade-in-up">
-                      {/* Hero Welcome Banner */}
-                      <div
-                        className="hidden sm:block rounded-2xl sm:rounded-3xl py-3 px-4 sm:py-4 sm:px-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
-                        style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)" }}
-                      >
-                        <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                          <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
-                        </div>
-                        <div className="max-w-xl relative z-10 space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block">
-                            Athlete Command Center
-                          </span>
-                          <h2 className="text-xs font-extrabold tracking-tight">
-                            Welcome back, {displayName}!
-                          </h2>
-                          <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
-                            Track match draws, manage doubles partnerships, review team lineups, and update your player settings.
-                          </p>
-                        </div>
-                      </div>
-
                       {/* Quick Action Bar */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Link
@@ -648,86 +785,7 @@ export function MySports() {
                       </div>
 
                       {/* Pending Doubles Partner Invitations */}
-                      {partnerInvitations.length > 0 && (
-                        <div className="bg-amber-50/90 border border-amber-300 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-sm">
-                          <div className="flex items-center justify-between border-b border-amber-200">
-                            <div className="flex items-center gap-2">
-                              <div className="p-1.5 rounded-lg bg-amber-500 text-white shadow-xs">
-                                <Users className="w-3.5 h-3.5" />
-                              </div>
-                              <div>
-                                <h3 className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5 m-0 mb-0">
-                                  Pending Doubles Partner Invitations
-                                  <span className="px-1.5 py-0.2 bg-amber-600 text-white text-[10px] font-black rounded-full">
-                                    {partnerInvitations.length} new
-                                  </span>
-                                </h3>
-                                <p className="text-xs text-amber-800 m-0">
-                                  You have been nominated as a doubles partner for the following event(s):
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            {partnerInvitations.map((inv) => {
-                              const invId = inv.id;
-                              const pName = inv.playerName || inv.user?.fullName || "A player";
-                              const evName = inv.eventName || inv.event?.name || "Doubles Tournament";
-                              const spName = inv.sportName || inv.event?.sport?.name || "Doubles Match";
-                              const catName = inv.categoryName || inv.category?.name;
-                              const isBusy = respondingInviteId === invId;
-
-                              return (
-                                <div key={invId} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 shadow-xs">
-                                  <div>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-[10px] uppercase font-black tracking-wider text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                                        {spName}
-                                      </span>
-                                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                                        Action Required
-                                      </span>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-900 mt-1 leading-snug">
-                                      {evName}
-                                    </h4>
-                                    <p className="text-xs text-slate-600 mt-0.5">
-                                      <strong className="text-slate-900 font-semibold">{pName}</strong> nominated you to play as their doubles partner.
-                                    </p>
-                                    {catName && (
-                                      <div className="mt-1.5 text-xs font-semibold text-slate-500 bg-slate-100 inline-block px-1.5 py-0.5 rounded">
-                                        {catName}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
-                                    <button
-                                      type="button"
-                                      disabled={isBusy}
-                                      onClick={() => handleRespondInvitation(invId, true)}
-                                      className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-[12px] sm:text-xs font-bold rounded-lg transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-                                    >
-                                      <CheckCircle className="w-3.5 h-3.5" />
-                                      <span>{isBusy ? "Confirming..." : "Accept Partner"}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isBusy}
-                                      onClick={() => handleRespondInvitation(invId, false)}
-                                      className="flex items-center gap-1 px-2.5 py-1.5 min-h-[40px] sm:min-h-0 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 text-[12px] sm:text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                      <span>Decline</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                      {renderPartnerInvitationsBanner()}
 
                       {/* Next Upcoming Match Hero Card */}
                       {nextMatch && (
@@ -808,24 +866,34 @@ export function MySports() {
                               Tournaments
                             </h3>
                             <button onClick={() => setActiveTab("tournaments")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 min-h-[32px] flex items-center">
-                              Manage ({registrations.length}) →
+                              Manage ({activeRegistrations.length}) →
                             </button>
                           </div>
 
                           <div className="space-y-1.5 sm:space-y-2">
-                            {registrations.length === 0 ? (
+                            {activeRegistrations.length === 0 ? (
                               <div className="text-center py-6 text-slate-400 text-[13px] sm:text-xs">
                                 No active registrations.
                               </div>
                             ) : (
-                              registrations.slice(0, 3).map((reg) => {
+                              activeRegistrations.slice(0, 3).map((reg) => {
                                 const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
+                                const fmt = getFormatBadge(reg);
+                                const isSelf = !reg.familyMemberId && (!reg.relation || reg.relation.toUpperCase() === "SELF");
                                 return (
                                   <div key={reg.id} className="p-2 sm:p-2.5 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-2">
                                     <div className="min-w-0">
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
-                                      <h4 className="text-xs font-bold text-slate-800 truncate">{reg.eventName}</h4>
-                                      <p className="text-xs text-slate-500">{reg.categoryName || "Open Category"}</p>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{reg.sportName}</span>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${fmt.color}`}>{fmt.label}</span>
+                                        {!isSelf && (
+                                          <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                                            👥 {reg.playerName || "Family"}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <h4 className="text-xs font-bold text-slate-800 truncate mt-0.5">{reg.eventName}</h4>
+                                      <p className="text-xs text-slate-500 truncate">{reg.categoryName || "Open Category"}</p>
                                     </div>
                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${ isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-yellow-50 text-yellow-600 border border-yellow-100" }`}>
                                       {reg.status}
@@ -843,13 +911,16 @@ export function MySports() {
                   {/* ════════════════════ MY TOURNAMENTS TAB ════════════════════ */}
                   {activeTab === "tournaments" && (
                     <div className="space-y-4 text-left animate-fade-in-up">
+                      {/* Pending Doubles Partner Invitations Banner */}
+                      {renderPartnerInvitationsBanner()}
+
                       {/* Search & Filter Bar */}
                       <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center justify-between">
-                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 sm:py-1.5 w-full sm:w-72">
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 sm:py-1.5 w-full sm:w-64">
                           <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <input
                             type="text"
-                            placeholder="Search tournament, sport..."
+                            placeholder="Search tournament, sport, player..."
                             value={tournamentSearch}
                             onChange={e => setTournamentSearch(e.target.value)}
                             className="bg-transparent border-none outline-none text-[13px] sm:text-xs text-slate-800 placeholder-slate-400 w-full"
@@ -857,6 +928,18 @@ export function MySports() {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                          {participantOptions.length > 2 && (
+                            <select
+                              value={tournamentParticipantFilter}
+                              onChange={e => setTournamentParticipantFilter(e.target.value)}
+                              className="text-[13px] sm:text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 sm:py-1.5 font-semibold text-slate-700 outline-none flex-1 sm:flex-none min-h-[40px] sm:min-h-0"
+                            >
+                              {participantOptions.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                              ))}
+                            </select>
+                          )}
+
                           <select
                             value={tournamentSportFilter}
                             onChange={e => setTournamentSportFilter(e.target.value)}
@@ -899,6 +982,8 @@ export function MySports() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                           {filteredTournaments.map(reg => {
                             const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
+                            const formatBadge = getFormatBadge(reg);
+                            const isSelf = !reg.familyMemberId && (!reg.relation || reg.relation.toUpperCase() === "SELF");
 
                             return (
                               <div
@@ -907,22 +992,56 @@ export function MySports() {
                               >
                                 <div>
                                   <div className="flex items-start justify-between gap-2">
-                                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                                      {reg.sportName || "Sports Event"}
-                                    </span>
-                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${ isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200" }`}>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                        {reg.sportName || "Sports Event"}
+                                      </span>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${formatBadge.color}`}>
+                                        {formatBadge.label}
+                                      </span>
+                                      {isSelf ? (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80 inline-flex items-center gap-1" title="Registered for yourself">
+                                          <span>👤</span>
+                                          <span>Self</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1" title={`Registered for ${reg.playerName}`}>
+                                          <span>👥</span>
+                                          <span>{reg.playerName || "Family"}{reg.relation ? ` (${reg.relation})` : ""}</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${ isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200" }`}>
                                       {reg.status}
                                     </span>
                                   </div>
 
                                   <h4 className="text-xs font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
 
+                                  {/* Scheduled Date & Venue */}
+                                  {(reg.eventDateStart || reg.venueName) && (
+                                    <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-500 font-medium mt-1">
+                                      {reg.eventDateStart && (
+                                        <span className="inline-flex items-center gap-1 text-slate-600">
+                                          <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                          <span>
+                                            {new Date(reg.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                            {reg.eventDateEnd && reg.eventDateEnd !== reg.eventDateStart && (
+                                              ` – ${new Date(reg.eventDateEnd).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                                            )}
+                                          </span>
+                                        </span>
+                                      )}
+                                      {reg.venueName && (
+                                        <span className="inline-flex items-center gap-1 text-slate-500">
+                                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                          <span className="truncate">{reg.venueName}{reg.venueCity ? `, ${reg.venueCity}` : ""}</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
                                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1.5 sm:mt-2">
-                                    {reg.matchType && (
-                                      <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 sm:px-2 py-0.5 rounded font-bold capitalize">
-                                        {reg.matchType.replace(/_/g, " ").toLowerCase()}
-                                      </span>
-                                    )}
                                     {reg.categoryName && (
                                       <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 sm:px-2 py-0.5 rounded font-semibold">
                                         {reg.categoryName}
@@ -1030,7 +1149,7 @@ export function MySports() {
 
                                 <div className="border-t border-slate-100 pt-2 sm:pt-3 flex items-center justify-between gap-2 text-xs">
                                   <div className="text-xs text-slate-400 font-medium">
-                                    {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "Active"}
+                                    {reg.registeredAt ? `Registered: ${new Date(reg.registeredAt).toLocaleDateString()}` : "Active"}
                                   </div>
 
                                   <div className="flex items-center gap-1.5">
@@ -1554,8 +1673,8 @@ export function MySports() {
 
                 <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   <div className="p-2 sm:p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-center">
-                    <p className="text-lg sm:text-xl font-extrabold text-indigo-600">{registrations.length}</p>
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Registered</p>
+                    <p className="text-lg sm:text-xl font-extrabold text-indigo-600">{activeRegistrations.length}</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Active Regs</p>
                   </div>
                   <div className="p-2 sm:p-2.5 bg-emerald-50/50 border border-emerald-100 rounded-xl text-center">
                     <p className="text-lg sm:text-xl font-extrabold text-emerald-600">{teams.length}</p>
@@ -1684,6 +1803,7 @@ export function MySports() {
                 currentGender={(partnerModalState.registration as any)?.gender || (user as any)?.gender}
                 currentUserId={user?.userId || (user as any)?.id}
                 currentFamilyMemberId={(partnerModalState.registration as any)?.familyMemberId}
+                currentUserName={(partnerModalState.registration as any)?.playerName || user?.fullName}
                 communityId={user?.communityId}
                 familyMembers={familyMembers}
                 disabled={partnerModalState.saving}

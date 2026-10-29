@@ -150,8 +150,8 @@ export function SportsRegistration() {
 
       {/* Primary Header */}
       <div>
-        <h1 className="text-xs font-semibold text-[#0d0d2b]">My Sports Hub</h1>
-        <p className="text-[13px] sm:text-sm text-[#6b7094] mt-0.5 sm:mt-1">Manage your active tournaments, matches, teams, and registrations</p>
+        <h1 className="text-lg sm:text-xl font-bold text-foreground">My Sports Hub</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">Manage your active tournaments, matches, teams, and registrations</p>
       </div>
 
       {/* Sub navigation bar */}

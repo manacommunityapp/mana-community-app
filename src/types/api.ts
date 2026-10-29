@@ -675,8 +675,6 @@ export interface UserResponse {
   userType?: string;
   bio?: string;
   skills?: string[] | string;
-  createdAt?: string;
-  createdDate?: string;
   updatedAt?: string;
 }
 

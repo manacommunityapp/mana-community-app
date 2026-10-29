@@ -25,7 +25,7 @@ interface PrivacyPolicyModalProps {
 }
 
 /** Current notice version — must be passed as consentNoticeVersion at registration. */
-export const PRIVACY_NOTICE_VERSION = "2026-10-13-v1";
+export const PRIVACY_NOTICE_VERSION = "2026-10-27-v1";
 
 export const PRIVACY_POINTS = [
   {
@@ -90,6 +90,7 @@ const DATA_COLLECTED = [
   { category: "Residence", items: "Block, flat number, occupancy type", purpose: "Resident management & gate access" },
   { category: "Financial", items: "Payment reference IDs via Razorpay (no card data stored)", purpose: "Maintenance dues, event fees, amenity booking" },
   { category: "Usage", items: "App activity logs, feature interactions", purpose: "Platform performance & security (analytics, with consent)" },
+  { category: "Connected health", items: "Selected steps and workout sessions, record times, and source app from Android Health Connect", purpose: "Show your personal activity history in Mana; not diagnosis or emergency monitoring" },
   { category: "Device", items: "Push notification token (FCM/APNs)", purpose: "Push notification delivery (with consent)" },
   { category: "Biometric*", items: "Fingerprint / face hash (not raw image)", purpose: "Turnstile gate access (with explicit separate consent)" },
 ];
@@ -162,6 +163,10 @@ export function PrivacyContent() {
         <p className="text-[10px] text-muted-foreground mt-1.5">
           * Biometric data is processed only with your explicit, separate consent and is never shared with third parties.
         </p>
+        <div className="mt-3 p-3 rounded-xl bg-muted/30 border border-border/70 text-[11px] text-muted-foreground leading-relaxed space-y-2">
+          <p><strong className="text-foreground">Connected health data (optional):</strong> If you connect Android Health Connect, Mana reads only the steps and workout sessions you select and authorize. The initial sync reads the recent seven-day period; you start later syncs from the Connected Health screen. We store those selected records in your Mana account to show your activity history. Mana does not use this feature to diagnose conditions, continuously monitor you, or automatically trigger SOS. This integration does not share these records with caregivers or community members.</p>
+          <p>You can stop future uploads by disconnecting Mana in the app or revoke Android access in Health Connect settings. Revoking consent does not erase records already stored in Mana. Use “Delete records stored in Mana” in the Connected Health screen to erase them; a hard account deletion also removes them.</p>
+        </div>
       </div>
 
       {/* Legal Basis */}
@@ -187,6 +192,7 @@ export function PrivacyContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {[
             { type: "Account & profile data", period: "Active + 2 years after deletion" },
+            { type: "Connected health records", period: "Until you delete them or your account is hard-deleted; revoking sync consent alone does not erase stored records" },
             { type: "Financial / payment records", period: "7 years (Companies Act / GST)" },
             { type: "Access & audit logs", period: "12 months" },
             { type: "Chat & feed messages", period: "As long as you are a member" },

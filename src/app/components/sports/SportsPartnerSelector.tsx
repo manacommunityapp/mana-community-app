@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Search, Users, User, Heart, Sparkles, Check, X, AlertCircle, Loader2, ShieldCheck } from "lucide-react";
 import { userService } from "../../../services/common/userService";
+import { getStoredUser, type StoredUser } from "../../../services/common/apiClient";
 import type { PartnerCandidateResponse } from "../../../services/common/userService";
 import type { FamilyMember } from "../../../services/common/familyService";
 
@@ -20,8 +21,9 @@ interface SportsPartnerSelectorProps {
   onChange: (partner: SelectedPartnerInfo | null) => void;
   matchType?: string; // "DOUBLES" | "MIXED_DOUBLES" | string
   currentGender?: string;
-  currentUserId?: number;
+  currentUserId?: number | string;
   currentFamilyMemberId?: number | string;
+  currentUserName?: string;
   communityId?: number;
   familyMembers?: FamilyMember[];
   disabled?: boolean;
@@ -42,6 +44,7 @@ export function SportsPartnerSelector({
   currentGender,
   currentUserId,
   currentFamilyMemberId,
+  currentUserName,
   communityId,
   familyMembers = [],
   disabled = false,
@@ -106,13 +109,50 @@ export function SportsPartnerSelector({
   };
 
   const availableFamilyMembers = useMemo(() => {
+    const seen = new Set<string>();
+    let storedUser = null;
+    try {
+      if (typeof window !== "undefined") {
+        storedUser = getStoredUser();
+      }
+    } catch {}
+    const effectiveUserId = currentUserId != null
+      ? String(currentUserId).trim()
+      : storedUser?.userId
+        ? String(storedUser.userId).trim()
+        : undefined;
+    const effectiveUserName = currentUserName || storedUser?.fullName || (
+      currentFamilyMemberId
+        ? familyMembers.find(f => String(f.id) === String(currentFamilyMemberId))?.name
+        : undefined
+    );
+    const normRegisteringName = effectiveUserName ? normalizeCandidateName(effectiveUserName) : "";
+
     return familyMembers.filter(fm => {
+      // 1. If registering for self, exclude the self logged-in person (relation "Self (Head)", id "fam-self", or matching logged-in user)
+      if (!currentFamilyMemberId) {
+        if (isSelfFamilyMember(fm, effectiveUserId, effectiveUserName)) {
+          return false;
+        }
+      }
+
+      // 2. Exclude if this is the family member currently registering
       if (currentFamilyMemberId && String(fm.id) === String(currentFamilyMemberId)) {
         return false;
       }
+      if (currentFamilyMemberId && normRegisteringName && normalizeCandidateName(fm.name) === normRegisteringName) {
+        return false;
+      }
+
+      // 3. Deduplicate family members by id and name
+      const idKey = `id-${fm.id}`;
+      const nameKey = `name-${normalizeCandidateName(fm.name)}`;
+      if (seen.has(idKey) || seen.has(nameKey)) return false;
+      seen.add(idKey);
+      seen.add(nameKey);
       return true;
     });
-  }, [familyMembers, currentFamilyMemberId]);
+  }, [familyMembers, currentFamilyMemberId, currentUserId, currentUserName]);
 
   // ── Debounced unified partner search ─────────────────────────────────────
   useEffect(() => {
@@ -132,13 +172,19 @@ export function SportsPartnerSelector({
           matchType,
           callerGender: currentGender,
         });
-        // Exclude the currently registering user from results
-        const filtered = results.filter(r => {
-          if (r.type === "USER" && r.id === currentUserId) return false;
-          if (r.type === "FAMILY_MEMBER" && currentFamilyMemberId && r.id === Number(currentFamilyMemberId)) return false;
-          return true;
-        });
-        setSearchResults(filtered);
+        const effectiveUserName = currentUserName || (
+          currentFamilyMemberId
+            ? familyMembers.find(f => String(f.id) === String(currentFamilyMemberId))?.name
+            : undefined
+        );
+        // Deduplicate partner candidates from the same flat and exclude the self-registering member
+        const deduplicated = deduplicatePartnerCandidates(
+          results,
+          currentUserId,
+          currentFamilyMemberId,
+          effectiveUserName
+        );
+        setSearchResults(deduplicated);
       } catch (err) {
         console.warn("Failed to search partners:", err);
         setSearchResults([]);
@@ -148,7 +194,7 @@ export function SportsPartnerSelector({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, partnerMode, communityId, currentUserId, currentFamilyMemberId, eventId, matchType, currentGender]);
+  }, [searchQuery, partnerMode, communityId, currentUserId, currentFamilyMemberId, currentUserName, familyMembers, eventId, matchType, currentGender]);
 
   // ── Close dropdown on outside click ──────────────────────────────────────
   useEffect(() => {
@@ -223,23 +269,23 @@ export function SportsPartnerSelector({
   };
 
   return (
-    <div ref={containerRef} className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 sm:p-4 space-y-3 text-left">
+    <div ref={containerRef} className="bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/90 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 space-y-2 text-left">
       {/* Header with Title and Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-1.5 border-b border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center shrink-0">
             <Users className="w-3.5 h-3.5" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 m-0 mb-0">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 m-0 mb-0">
               <span>Doubles Partner <span className="text-rose-500 font-bold">*</span></span>
               {isMixedDoubles && (
-                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 text-[10px] font-extrabold rounded uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 text-[10px] font-extrabold rounded uppercase tracking-wider">
                   Mixed Doubles
                 </span>
               )}
             </h3>
-            <p className="text-xs text-slate-500 m-0">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0 leading-tight">
               {isMixedDoubles
                 ? targetPartnerGender
                   ? `Mixed Doubles requires a ${targetPartnerGender.toLowerCase()} partner (1 Male + 1 Female).`
@@ -251,12 +297,12 @@ export function SportsPartnerSelector({
 
         {/* Mode Selector Tabs */}
         {!selectedPartner && (
-          <div className="flex items-center bg-slate-200/60 p-0.5 rounded-lg text-xs font-semibold">
+          <div className="flex items-center bg-slate-200/60 dark:bg-slate-800 p-0.5 rounded-lg text-xs font-semibold">
             <button
               type="button"
               onClick={() => { setPartnerMode("community"); onChange(null); }}
-              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                partnerMode === "community" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                partnerMode === "community" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Neighbor
@@ -265,8 +311,8 @@ export function SportsPartnerSelector({
               <button
                 type="button"
                 onClick={() => { setPartnerMode("family"); onChange(null); }}
-                className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                  partnerMode === "family" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+                className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                  partnerMode === "family" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 Family
@@ -275,8 +321,8 @@ export function SportsPartnerSelector({
             <button
               type="button"
               onClick={handleSetOpenPool}
-              className={`px-2.5 sm:px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 rounded-md transition cursor-pointer ${
-                partnerMode === "open_pool" ? "bg-white text-indigo-700 shadow-2xs font-bold" : "text-slate-600 hover:text-slate-900"
+              className={`px-2.5 sm:px-2 py-1 min-h-[30px] sm:min-h-0 rounded-md transition cursor-pointer ${
+                partnerMode === "open_pool" ? "bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-bold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Need Partner
@@ -287,7 +333,7 @@ export function SportsPartnerSelector({
 
       {/* When a Partner is already selected */}
       {selectedPartner ? (
-        <div className="bg-white border border-indigo-200 rounded-xl p-2.5 sm:p-3 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-2xs">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs shrink-0">
               {selectedPartner.mode === "open_pool" ? (
@@ -551,4 +597,209 @@ function parseDobClient(dob: string): Date | null {
   }
   const fallback = new Date(dob);
   return !isNaN(fallback.getTime()) ? fallback : null;
+}
+
+// ── Candidate normalization & deduplication helpers ─────────────────────────
+
+export function normalizeCandidateName(name?: string | null): string {
+  return (name || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function isSelfFamilyMember(
+  fm: FamilyMember,
+  currentUserId?: number | string,
+  currentUserName?: string
+): boolean {
+  if (fm.id === "fam-self" || String(fm.id).toLowerCase() === "fam-self") {
+    return true;
+  }
+  const rel = (fm.relation || "").trim().toLowerCase();
+  if (
+    rel.includes("self") ||
+    rel.includes("head") ||
+    rel === "primary" ||
+    rel.startsWith("primary ")
+  ) {
+    return true;
+  }
+  let storedUser = null;
+  try {
+    if (typeof window !== "undefined") {
+      storedUser = getStoredUser();
+    }
+  } catch {}
+  const effectiveUserIdStr = currentUserId != null
+    ? String(currentUserId).trim()
+    : storedUser?.userId
+      ? String(storedUser.userId).trim()
+      : "";
+  if (effectiveUserIdStr && fm.userId && String(fm.userId) === effectiveUserIdStr) {
+    return true;
+  }
+  const effectiveUserName = currentUserName || storedUser?.fullName;
+  if (effectiveUserName && normalizeCandidateName(fm.name) === normalizeCandidateName(effectiveUserName)) {
+    return true;
+  }
+  if (storedUser?.email && fm.email && fm.email.trim().toLowerCase() === storedUser.email.trim().toLowerCase()) {
+    return true;
+  }
+  return false;
+}
+
+export function normalizeCandidateFlat(candidate: { block?: string | null; flatNo?: string | null }): string {
+  const block = (candidate.block || "").trim().toLowerCase();
+  const flat = (candidate.flatNo || "").trim().toLowerCase();
+  if (block && flat) {
+    if (flat.startsWith(block)) return flat;
+    return `${block}-${flat}`;
+  }
+  return flat || block || "";
+}
+
+/**
+ * Deduplicates candidate results when searching for a partner by name or flat number.
+ * 1. Excludes the current player registering (both as user account and as family member self).
+ * 2. Deduplicates multiple results from the same flat:
+ *    - Resolves AppUser vs FamilyMember duplicates for the same resident.
+ *    - Eliminates duplicate family member entries from the same flat.
+ *    - Merges missing metadata (age, gender, labels) into the surviving candidate.
+ */
+export function deduplicatePartnerCandidates(
+  results: PartnerCandidateResponse[],
+  currentUserId?: number | string,
+  currentFamilyMemberId?: number | string,
+  currentUserName?: string
+): PartnerCandidateResponse[] {
+  let storedUser: StoredUser | null = null;
+  try {
+    if (typeof window !== "undefined") {
+      storedUser = getStoredUser();
+    }
+  } catch {}
+
+  const effectiveUserIdStr = currentUserId != null
+    ? String(currentUserId).trim()
+    : storedUser?.userId
+      ? String(storedUser.userId).trim()
+      : "";
+
+  const effectiveUserNameStr = currentUserName || storedUser?.fullName || "";
+  const normCurrentUserName = normalizeCandidateName(effectiveUserNameStr);
+  const storedEmail = storedUser?.email?.trim().toLowerCase() || "";
+
+  // 1. Filter out the currently registering player (self or selected family member)
+  const nonSelfResults = results.filter((r) => {
+    const normCandName = normalizeCandidateName(r.name);
+    const candIdStr = String(r.id);
+    const candPrimaryIdStr = r.primaryUserId != null ? String(r.primaryUserId) : "";
+    const rel = (r.relation || "").trim().toLowerCase();
+    const isSelfRelation = rel.includes("self") || rel.includes("head") || rel === "primary" || rel.startsWith("primary ");
+
+    // Case A: Registering as Self (no currentFamilyMemberId)
+    if (!currentFamilyMemberId) {
+      // 1. Match by user ID (type USER and ID matches current user)
+      if (effectiveUserIdStr && r.type === "USER" && candIdStr === effectiveUserIdStr) {
+        return false;
+      }
+      // 2. Match by candidate name matching the logged-in user
+      if (normCurrentUserName && normCandName === normCurrentUserName) {
+        return false;
+      }
+      // 3. Family member record representing self/head
+      if (r.type === "FAMILY_MEMBER") {
+        if (effectiveUserIdStr && candPrimaryIdStr === effectiveUserIdStr && isSelfRelation) {
+          return false;
+        }
+        if (normCurrentUserName && normCandName === normCurrentUserName && isSelfRelation) {
+          return false;
+        }
+      }
+      // 4. Match by email if present on candidate
+      if (storedEmail && (r as any).email && (r as any).email.trim().toLowerCase() === storedEmail) {
+        return false;
+      }
+    }
+
+    // Case B: Registering for a family member (currentFamilyMemberId provided)
+    if (currentFamilyMemberId) {
+      const targetFmIdStr = String(currentFamilyMemberId);
+      // The registering family member cannot partner with themselves
+      if (r.type === "FAMILY_MEMBER" && candIdStr === targetFmIdStr) {
+        return false;
+      }
+      if (normCurrentUserName && r.type === "FAMILY_MEMBER" && normCandName === normCurrentUserName) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // 2. Deduplicate:
+  // - Eliminate duplicate entity IDs from SQL joins (same type & id)
+  // - Deduplicate identical persons from the same flat (USER vs FAMILY_MEMBER, or duplicate FAMILY_MEMBER records)
+  const map = new Map<string, PartnerCandidateResponse>();
+  const seenEntityKeys = new Set<string>();
+
+  for (const candidate of nonSelfResults) {
+    const entityKey = `${candidate.type}-${candidate.id}`;
+    if (seenEntityKeys.has(entityKey)) {
+      continue;
+    }
+    seenEntityKeys.add(entityKey);
+
+    const normName = normalizeCandidateName(candidate.name);
+    const normFlat = normalizeCandidateFlat(candidate);
+    const personKey = normFlat && normName ? `${normName}|${normFlat}` : normName ? `name-${normName}` : entityKey;
+
+    if (!map.has(personKey)) {
+      map.set(personKey, candidate);
+    } else {
+      const existing = map.get(personKey)!;
+      let shouldReplace = false;
+
+      // Rule 1: Prefer eligible over ineligible
+      if (candidate.eligible && !existing.eligible) {
+        shouldReplace = true;
+      } else if (existing.eligible && !candidate.eligible) {
+        shouldReplace = false;
+      } else {
+        // Rule 2: Prefer USER over FAMILY_MEMBER (primary account with direct phone/login)
+        if (candidate.type === "USER" && existing.type === "FAMILY_MEMBER") {
+          shouldReplace = true;
+        } else if (existing.type === "USER" && candidate.type === "FAMILY_MEMBER") {
+          shouldReplace = false;
+        } else {
+          // Rule 3: Prefer record with more complete metadata
+          const candScore = (candidate.age != null ? 1 : 0) + (candidate.gender ? 1 : 0) + (candidate.occupancyLabel ? 1 : 0);
+          const existScore = (existing.age != null ? 1 : 0) + (existing.gender ? 1 : 0) + (existing.occupancyLabel ? 1 : 0);
+          if (candScore > existScore) {
+            shouldReplace = true;
+          }
+        }
+      }
+
+      if (shouldReplace) {
+        map.set(personKey, {
+          ...candidate,
+          age: candidate.age ?? existing.age,
+          gender: candidate.gender || existing.gender,
+          flatNo: candidate.flatNo || existing.flatNo,
+          block: candidate.block || existing.block,
+          occupancyLabel: candidate.occupancyLabel || existing.occupancyLabel,
+        });
+      } else {
+        map.set(personKey, {
+          ...existing,
+          age: existing.age ?? candidate.age,
+          gender: existing.gender || candidate.gender,
+          flatNo: existing.flatNo || candidate.flatNo,
+          block: existing.block || candidate.block,
+          occupancyLabel: existing.occupancyLabel || candidate.occupancyLabel,
+        });
+      }
+    }
+  }
+
+  return Array.from(map.values());
 }
