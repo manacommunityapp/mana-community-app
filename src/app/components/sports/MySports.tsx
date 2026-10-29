@@ -729,27 +729,6 @@ export function MySports() {
                   {/* ════════════════════ OVERVIEW TAB ════════════════════ */}
                   {activeTab === "overview" && (
                     <div className="space-y-3 sm:space-y-5 text-left animate-fade-in-up">
-                      {/* Hero Welcome Banner */}
-                      <div
-                        className="hidden sm:block rounded-2xl sm:rounded-3xl py-3 px-4 sm:py-4 sm:px-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
-                        style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)" }}
-                      >
-                        <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                          <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
-                        </div>
-                        <div className="max-w-xl relative z-10 space-y-1">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block">
-                            Athlete Command Center
-                          </span>
-                          <h2 className="text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white">
-                            Welcome back, {displayName}!
-                          </h2>
-                          <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
-                            Track match draws, manage doubles partnerships, review team lineups, and update your player settings.
-                          </p>
-                        </div>
-                      </div>
-
                       {/* Quick Action Bar */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Link
