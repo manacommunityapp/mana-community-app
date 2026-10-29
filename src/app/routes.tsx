@@ -116,6 +116,8 @@ import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
 import { SportsTrainers }        from "./components/sports/SportsTrainers";
 import { SportsExternalPublicRegister } from "./components/sports/SportsExternalPublicRegister";
+import { SportsVenueBrowse } from "./components/sports/venues/SportsVenueBrowse";
+import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -172,6 +174,11 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 import { VendorApplication } from "./components/vendor/portal/VendorApplication";
+import { SportsVendorDashboard } from "./components/vendor/portal/sports/SportsVendorDashboard";
+import { SportsVenueManager } from "./components/vendor/portal/sports/SportsVenueManager";
+import { SportsSlotCalendar } from "./components/vendor/portal/sports/SportsSlotCalendar";
+import { SportsBookingManager } from "./components/vendor/portal/sports/SportsBookingManager";
+import { SportsPricingMatrix } from "./components/vendor/portal/sports/SportsPricingMatrix";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -513,6 +520,14 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
+            path: "venues",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsVenueBrowse /></PermissionGuard>
+          },
+          {
+            path: "venues/:venueId",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsVenueDetail /></PermissionGuard>
+          },
+          {
             path: "auction",
             element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]} requiredModule="SPORTS"><SportsAuction /></PermissionGuard>
           },
@@ -841,6 +856,11 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
         children: [
           { index: true, Component: VendorPortalDashboard },
+          { path: "sports", Component: SportsVendorDashboard },
+          { path: "sports/venues", Component: SportsVenueManager },
+          { path: "sports/calendar", Component: SportsSlotCalendar },
+          { path: "sports/bookings", Component: SportsBookingManager },
+          { path: "sports/pricing", Component: SportsPricingMatrix },
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
