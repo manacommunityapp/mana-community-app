@@ -19,7 +19,8 @@ import {
   Download,
   Volume2,
   VolumeX,
-  Sparkles
+  Sparkles,
+  Lock,
 } from "lucide-react";
 import {
   auctionAudio,
@@ -80,12 +81,47 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
 };
 
 export function SportsAuction() {
-  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const {
+    user,
+    hasPermission,
+    hasAnyPermission,
+    isAdmin: isContextAdmin,
+    isSuperAdmin,
+    isSportsAdmin,
+  } = useAuth();
+
+  const userRolesUpper = (
+    user?.roles && user.roles.length > 0
+      ? user.roles
+      : (user?.role ?? "").split(",")
+  ).map((r) => r.trim().toUpperCase()).filter(Boolean);
+
+  const isRoleAdminOrSportsAdmin = Boolean(
+    isContextAdmin ||
+    isSportsAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.some((r) =>
+      [
+        "ADMIN",
+        "SPORTS_ADMIN",
+        "COMMUNITY_ADMIN",
+        "COMMUNITYADMIN",
+        "COMMUNITY_ADMINISTRATOR",
+        "SUPER_ADMIN",
+        "SUPERADMIN",
+      ].includes(r)
+    )
+  );
+
+  const canAccessAuctionConfig = Boolean(
+    isRoleAdminOrSportsAdmin ||
+    hasAnyPermission(VIEW_AUCTION_CONFIG, CREATE_EDIT_AUCTION_CONFIG)
+  );
 
   // Granular permission flags — each maps to a specific sidebar section / tab
   const canViewSportsMenu    = hasAnyPermission(VIEW_SPORTS_MENU,          CREATE_EDIT_SPORTS_MENU);
-  const canViewAuctionConfig = hasAnyPermission(VIEW_AUCTION_CONFIG,       CREATE_EDIT_AUCTION_CONFIG);
-  const canEditAuctionConfig = hasPermission(CREATE_EDIT_AUCTION_CONFIG);
+  const canViewAuctionConfig = canAccessAuctionConfig;
+  const canEditAuctionConfig = Boolean(isRoleAdminOrSportsAdmin || hasPermission(CREATE_EDIT_AUCTION_CONFIG));
   const canViewLiveAuction   = hasAnyPermission(VIEW_LIVE_AUCTION,         CREATE_EDIT_LIVE_AUCTION);
   const canEditLiveAuction   = hasPermission(CREATE_EDIT_LIVE_AUCTION);
   const canViewTeams         = hasAnyPermission(VIEW_TEAMS_DASHBOARD,       CREATE_EDIT_TEAMS_DASHBOARD);
@@ -94,10 +130,10 @@ export function SportsAuction() {
   const canEditPlayerPool    = hasPermission(CREATE_EDIT_PLAYER_POOL);
   const canViewRegistrations = hasAnyPermission(VIEW_EVENT_REGISTRATIONS,  CREATE_EDIT_EVENT_REGISTRATIONS);
   const canViewResults       = hasAnyPermission(VIEW_AUCTION_RESULTS,       CREATE_EDIT_AUCTION_RESULTS);
-  const isAdmin              = hasPermission(CREATE_EDIT_SPORTS_MAIN);
+  const isAdmin              = Boolean(isRoleAdminOrSportsAdmin || hasPermission(CREATE_EDIT_SPORTS_MAIN));
 
   // Kept for backward compat with any code that still references isAuctionAdmin
-  const isAuctionAdmin = canEditAuctionConfig || canEditLiveAuction;
+  const isAuctionAdmin = canEditAuctionConfig || canEditLiveAuction || isRoleAdminOrSportsAdmin;
   const { eventId } = useParams();
   const routerNavigate = useRouterNavigate();
 
@@ -507,6 +543,10 @@ export function SportsAuction() {
   };
 
   const handleSaveConfig = async () => {
+    if (!canEditAuctionConfig) {
+      toast.error("Access denied: Only administrators and sports administrators can configure auctions.");
+      return;
+    }
     const payload = {
       sportId: selectedEventId ? (communityEvents.find(e => e.id === selectedEventId)?.sport?.id ?? 1) : 1,
       eventId: selectedEventId || undefined,
@@ -1083,6 +1123,27 @@ export function SportsAuction() {
 
         {/* CONFIG */}
         {activeTab === 'config' && (
+          !canAccessAuctionConfig ? (
+            <div className="page active">
+              <div className="card text-center p-8 sm:p-12 max-w-lg mx-auto space-y-4 my-8">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 m-0">Access Restricted</h2>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed m-0">
+                  Auction Configuration is restricted to Community Administrators and Sports Administrators only.
+                </p>
+                <div className="pt-2">
+                  <button
+                    className="btn btn-gold text-xs px-6 py-2.5 font-bold"
+                    onClick={() => nav('overview')}
+                  >
+                    Return to Auction Overview
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="page active">
             <div className="page-hdr">
               <div><div className="page-title">Auction Configuration</div><div className="page-sub">{sport.charAt(0).toUpperCase() + sport.slice(1)} · {seasonName} · Dynamically configurable rules</div></div>
@@ -1272,6 +1333,7 @@ export function SportsAuction() {
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* LIVE AUCTION */}
