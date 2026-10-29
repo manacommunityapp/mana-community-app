@@ -215,18 +215,20 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
   const rCatId = r.category?.id != null ? String(r.category.id).trim() : ((r as any).categoryId != null ? String((r as any).categoryId).trim() : null);
   if (rCatId && evId && rCatId === evId) return true;
 
-  // Match by event name
+  // 4. Exact Category Name + Event Name matching
+  // BOTH category name AND event name MUST match. Never match by event name alone!
   const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const rCatName = norm(r.categoryName || r.category?.name);
+  const evCatName = norm(ev.categoryName || (ev as any).rawEvent?.categoryName || (ev as any).category?.name);
   const rName = norm(r.eventName || r.event?.name);
   const evName = norm(ev.name);
-  if (rName && evName && (rName === evName || rName.includes(evName) || evName.includes(rName))) {
-    return true;
-  }
 
-  // Match by category name
-  const rCatName = norm(r.categoryName || r.category?.name);
-  const evCatName = norm(ev.categoryName);
-  if (rCatName && evCatName && (rCatName === evCatName || rCatName.includes(evCatName) || evCatName.includes(rCatName))) {
+  if (rCatName && evCatName) {
+    if (rCatName === evCatName && (!rName || !evName || rName === evName)) {
+      return true;
+    }
+  } else if (!rCatName && !evCatName && rName && evName && rName === evName) {
+    // Single standalone event with no sub-categories
     return true;
   }
 
@@ -831,13 +833,13 @@ export function SportsDashboard() {
       return;
     }
 
-    const isSelfMember = val === "self";
+    const isSelfMember = !val || val === "self" || isSelfRelationOrMember(undefined, val);
     const stored = getStoredUser();
     const member = isSelfMember
       ? {
           name: user?.fullName || stored?.fullName || "Self",
           age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
-          gender: user?.gender || stored?.gender || "Male",
+          gender: user?.gender || stored?.gender || "",
         }
       : (() => {
           const fm = familyMembers.find(m => String(m.id) === String(val));
@@ -846,7 +848,7 @@ export function SportsDashboard() {
           return {
             name: fm?.name || "Family Member",
             age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
-            gender: inferredGen || fm?.gender || "",
+            gender: fm?.gender || inferredGen || "",
           };
         })();
 
@@ -1898,12 +1900,12 @@ export function SportsDashboard() {
 
                 const selectedMemberId = selectedMemberByTournament[t.id] ?? (t.id ? selectedMemberByTournament[String(t.id)] : undefined) ?? "self";
                 const memberProfileStatus = getMemberProfileStatus(selectedMemberId);
-                const isSelf = selectedMemberId === "self";
+                const isSelf = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
                 const stored = getStoredUser();
                 const targetMember = isSelf
                   ? {
                       age: calculateAge(user?.dateOfBirth || (user as any)?.dob || stored?.dateOfBirth || (stored as any)?.dob) || (user as any)?.age || (stored as any)?.age || 0,
-                      gender: user?.gender || stored?.gender || "Male",
+                      gender: user?.gender || stored?.gender || "",
                     }
                   : (() => {
                       const fm = familyMembers.find(m => String(m.id) === String(selectedMemberId));
@@ -1911,7 +1913,7 @@ export function SportsDashboard() {
                       const inferredGen = inferGender(fm, user?.gender || stored?.gender);
                       return {
                         age: (computedAge !== null && computedAge > 0 ? computedAge : Number(fm?.age)) || 0,
-                        gender: inferredGen || fm?.gender || "",
+                        gender: fm?.gender || inferredGen || "",
                       };
                     })();
 

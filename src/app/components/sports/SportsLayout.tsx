@@ -81,7 +81,7 @@ export function SportsLayout() {
   });
 
   return (
-    <div className="flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 text-sm">
+    <div className="flex flex-col gap-1.5 sm:gap-2 h-full min-h-0 text-xs sports-module">
       {/* Breadcrumb + page header in a single horizontal row */}
       <div className="shrink-0 flex items-center justify-between gap-2.5 border-b border-slate-100">
         {/* Left: Breadcrumbs */}

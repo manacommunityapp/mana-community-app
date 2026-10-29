@@ -3,7 +3,7 @@ import {
   FolderLock, FileText, Download, ShieldCheck,
   Search, Filter, Calendar, ExternalLink, Hash, CheckCircle2
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 interface VaultDoc {
   id: string;

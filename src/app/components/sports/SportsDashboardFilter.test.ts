@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch } from "./SportsDashboard";
+import { checkCategoryEligibility } from "./SportsRegister";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
   const currentUserName = "Sandeep Kamarapu";
@@ -130,23 +131,34 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     // Number vs string ID match
     expect(isEventMatch(mockReg, { id: "42", name: "Any" } as any)).toBe(true);
     expect(isEventMatch(mockReg, { id: 42, name: "Any" } as any)).toBe(true);
-    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026" } as any)).toBe(true);
-    expect(isEventMatch(mockReg, { id: 99, name: "Unrelated", categoryName: "Badminton Men's Doubles Championship" } as any)).toBe(true);
+    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026", categoryName: "Badminton Men's Doubles Championship" } as any)).toBe(true);
 
     // UUID match
     const uuidReg = { id: 102, eventUuid: "uuid-1234", eventName: "Tourney" };
     expect(isEventMatch(uuidReg, { id: 99, uuid: "uuid-1234", name: "Tourney" } as any)).toBe(true);
 
+    // MUST NOT match different categories under the same tournament
+    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026", categoryName: "Women's Singles" } as any)).toBe(false);
+    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026", categoryName: "Under-14 Boys Singles" } as any)).toBe(false);
+    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026", categoryName: "Men's Singles" } as any)).toBe(false);
+
     // Non-match
     expect(isEventMatch(mockReg, { id: 99, name: "Cricket Trophy", categoryName: "Under-16" } as any)).toBe(false);
   });
 
-  it("ensures an already registered event resolves to Registered state rather than Register Now", () => {
-    const openCard = {
+  it("ensures an already registered event resolves to Registered state, while other categories remain Unregistered", () => {
+    const registeredCard = {
       id: 42,
       name: "Monsoon Badminton Premier Cup 2026",
       categoryName: "Men's Doubles",
       isTeamSport: true,
+    } as any;
+
+    const unregisteredCard = {
+      id: 43,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      isTeamSport: false,
     } as any;
 
     const myRegistrations = [
@@ -154,6 +166,7 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
         id: 777,
         eventId: 42,
         eventName: "Monsoon Badminton Premier Cup 2026",
+        categoryName: "Men's Doubles",
         familyMemberId: null,
         relation: null,
         playerName: null,
@@ -163,18 +176,61 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     ];
 
     const selectedMemberId = "self";
-    const regs = myRegistrations.filter(r =>
-      isEventMatch(r, openCard) &&
+
+    // Check registered category
+    const registeredRegs = myRegistrations.filter(r =>
+      isEventMatch(r, registeredCard) &&
       isRegistrationForMemberHelper(r, selectedMemberId, familyMembersOnly, currentUserName) &&
       r.status !== "CANCELLED" &&
       r.status !== "WITHDRAWN"
     );
+    expect(registeredRegs.length > 0).toBe(true);
 
-    const isReg = regs.length > 0;
-    const isFullyReg = isReg && (openCard.isTeamSport || false);
+    // Check unregistered category
+    const unregisteredRegs = myRegistrations.filter(r =>
+      isEventMatch(r, unregisteredCard) &&
+      isRegistrationForMemberHelper(r, selectedMemberId, familyMembersOnly, currentUserName) &&
+      r.status !== "CANCELLED" &&
+      r.status !== "WITHDRAWN"
+    );
+    expect(unregisteredRegs.length > 0).toBe(false);
+  });
 
-    expect(isReg).toBe(true);
-    expect(isFullyReg).toBe(true);
-    // When isFullyReg is true, the UI displays "Registered" + "Unregister", NOT "Register Now"
+  it("checkCategoryEligibility correctly identifies gender and age ineligibility", () => {
+    const womenCategory = {
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Women's Singles",
+    };
+
+    const under14Category = {
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Under-14 Boys Singles",
+    };
+
+    const menCategory = {
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+    };
+
+    // Male user (age 28) checking Women's Singles -> Ineligible (Gender Mismatch)
+    const womenCheck = checkCategoryEligibility(womenCategory as any, 28, "Male");
+    expect(womenCheck.eligible).toBe(false);
+    expect(womenCheck.isGenderMismatch).toBe(true);
+
+    // Male user (age 28) checking Under-14 -> Ineligible (Over Age)
+    const u14Check = checkCategoryEligibility(under14Category as any, 28, "Male");
+    expect(u14Check.eligible).toBe(false);
+    expect(u14Check.isOverAge).toBe(true);
+
+    // Male user (age 28) checking Men's Singles -> Eligible!
+    const menCheck = checkCategoryEligibility(menCategory as any, 28, "Male");
+    expect(menCheck.eligible).toBe(true);
+    expect(menCheck.isGenderMismatch).toBe(false);
+    expect(menCheck.isOverAge).toBe(false);
+
+    // User without gender set checking gender-restricted category -> Ineligible
+    const unknownGenderCheck = checkCategoryEligibility(womenCategory as any, 28, "");
+    expect(unknownGenderCheck.eligible).toBe(false);
+    expect(unknownGenderCheck.isGenderMismatch).toBe(true);
   });
 });

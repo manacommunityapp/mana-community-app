@@ -3,7 +3,7 @@ import {
   CheckCircle2, ArrowRight, IndianRupee, Clock,
   Users, Building2, Plus, Calendar, AlertCircle, FileText
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 interface ActionItem {
   id: string;
