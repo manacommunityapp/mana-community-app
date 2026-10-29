@@ -1141,8 +1141,12 @@ export function SportsMultiRegister() {
             const resolvedSportName = ev.sportName || (targetTourney as any).sportName || (targetTourney as any).sport?.name || targetTourney.name || "Sports";
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
-            const defaultRole = cfg.categories[0]?.roles[0] || "Player";
-            const isAlreadyRegistered = Boolean(ev.myRegistrationId);
+            const isAlreadyRegistered = Boolean(
+              ev.myRegistrationId &&
+              ev.myRegistrationStatus !== "WITHDRAWN" &&
+              ev.myRegistrationStatus !== "CANCELLED" &&
+              ev.myRegistrationStatus !== "REJECTED"
+            );
 
             // Find single related category from service categories for this specific event
             const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);

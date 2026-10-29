@@ -3663,8 +3663,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           </p>
                           <div className="space-y-1.5 max-h-[14rem] overflow-y-auto pr-1">
                             {otherCategories.map(sib => {
-                              const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
-                              const isRegistered = Boolean(sibReg) || (formData.regType === "self" && sib.myRegistrationId != null);
+                              const sibBackendStatus = (sib.myRegistrationStatus || "").toUpperCase().trim();
+                              const isSibBackendActive = sib.myRegistrationId != null && sibBackendStatus !== "WITHDRAWN" && sibBackendStatus !== "CANCELLED" && sibBackendStatus !== "REJECTED";
+                              const isRegistered = Boolean(sibReg) || (formData.regType === "self" && isSibBackendActive);
                               const elig = checkCategoryEligibility(sib, formData.age, formData.gender);
                               const sibMinAge = elig.minAge;
                               const sibMaxAge = elig.maxAge;
