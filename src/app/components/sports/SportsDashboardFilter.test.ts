@@ -196,6 +196,55 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     expect(unregisteredRegs.length > 0).toBe(false);
   });
 
+  it("does not match Singles registration to Doubles card when sharing the exact same category", () => {
+    // Two cards for the exact same tournament and category: one Singles, one Doubles
+    const singlesCard = {
+      id: 45,
+      name: "Carrom — Mens",
+      categoryName: "Men's Above 19",
+      format: "SINGLES",
+      formats: ["SINGLES"],
+      isTeamSport: false,
+    } as any;
+
+    const doublesCard = {
+      id: 46,
+      name: "Carrom — Mens",
+      categoryName: "Men's Above 19",
+      format: "DOUBLES",
+      formats: ["DOUBLES"],
+      isTeamSport: false,
+    } as any;
+
+    // User only registered for Singles
+    const singlesReg = {
+      id: 801,
+      eventId: 45,
+      eventName: "Carrom — Mens",
+      categoryName: "Men's Above 19",
+      matchType: "SINGLES",
+      status: "CONFIRMED",
+    };
+
+    // User only registered for Doubles
+    const doublesReg = {
+      id: 802,
+      eventId: 46,
+      eventName: "Carrom — Mens",
+      categoryName: "Men's Above 19",
+      matchType: "DOUBLES",
+      status: "CONFIRMED",
+    };
+
+    // Singles registration must match Singles card, but NOT Doubles card
+    expect(isEventMatch(singlesReg, singlesCard)).toBe(true);
+    expect(isEventMatch(singlesReg, doublesCard)).toBe(false);
+
+    // Doubles registration must match Doubles card, but NOT Singles card
+    expect(isEventMatch(doublesReg, doublesCard)).toBe(true);
+    expect(isEventMatch(doublesReg, singlesCard)).toBe(false);
+  });
+
   it("checkCategoryEligibility correctly identifies gender and age ineligibility", () => {
     const womenCategory = {
       name: "Monsoon Badminton Premier Cup 2026",
