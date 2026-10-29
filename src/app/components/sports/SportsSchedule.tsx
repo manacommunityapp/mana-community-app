@@ -168,17 +168,19 @@ function MatchCard({ match }: { match: BracketMatch }) {
   );
 }
 
-function BracketView({ eventId, tournamentConfigs }: { eventId?: string; tournamentConfigs: ConfigInfo[] }) {
+function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?: string; tournamentConfigs: ConfigInfo[]; initialConfigId?: number | null }) {
   const [rounds, setRounds] = useState<BracketRound[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null);
+  const [selectedConfigId, setSelectedConfigId] = useState<number | null>(initialConfigId ?? null);
   const [bracketMatches, setBracketMatches] = useState<any[]>([]);
 
   useEffect(() => {
-    if (tournamentConfigs.length > 0 && !selectedConfigId) {
+    if (initialConfigId) {
+      setSelectedConfigId(initialConfigId);
+    } else if (tournamentConfigs.length > 0 && !selectedConfigId) {
       setSelectedConfigId(tournamentConfigs[0].id);
     }
-  }, [tournamentConfigs, selectedConfigId]);
+  }, [tournamentConfigs, initialConfigId, selectedConfigId]);
 
   useEffect(() => {
     if (selectedConfigId) {
@@ -474,13 +476,14 @@ export function SportsSchedule() {
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null);
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
   const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
+  const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
 
   const metaLoadedRef = useRef(false);
-  const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events";
+  const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events" || activeTab === "My Matches";
   useEffect(() => {
-    if (!user?.communityId || metaLoadedRef.current || !needsMeta) return;
+    if (metaLoadedRef.current || !needsMeta) return;
     metaLoadedRef.current = true;
-    venueService.getVenues(user.communityId).then(setVenues).catch(() => {});
+    venueService.getVenues(user?.communityId ?? null).then(setVenues).catch(() => {});
     sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
   }, [user?.communityId, needsMeta]);
 
@@ -753,10 +756,12 @@ export function SportsSchedule() {
         })
         .catch(() => { })
         .finally(() => setLoading(false));
-    } else if ((activeTab === "All Events" || activeTab === "Overview") && user?.communityId) {
+    } else if (activeTab === "All Events" || activeTab === "Overview") {
       fetchScheduleStats();
-      const eventsPromise = sportsScheduleService.getOpenEvents(user.communityId);
-      const configsPromise = tournamentService.getConfigs();
+      const eventsPromise = user?.communityId
+        ? sportsScheduleService.getOpenEvents(user.communityId)
+        : sportsScheduleService.getAllOpenEvents().catch(() => []);
+      const configsPromise = tournamentService.getConfigs().catch(() => []);
 
       Promise.all([eventsPromise, configsPromise])
         .then(async ([events, configs]) => {
@@ -1005,7 +1010,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Total</span>
               </div>
             </div>
@@ -1018,7 +1023,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
                   {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
@@ -1033,7 +1038,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
                   {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
@@ -1048,7 +1053,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{venues.length || "—"}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{venues.length || "—"}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
               </div>
             </div>
@@ -1273,7 +1278,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
@@ -1286,7 +1291,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
@@ -1299,7 +1304,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
               </div>
             </div>
@@ -1312,7 +1317,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-[10px] font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
@@ -2040,12 +2045,53 @@ export function SportsSchedule() {
       )}
 
       {/* Leaderboard */}
-      {activeTab === "Leaderboard" && (
-        activeIsCricket ? <Leaderboard /> : <GenericLeaderboard />
-      )}
+      {activeTab === "Leaderboard" && (() => {
+        const activeTournament = tournamentConfigs.find(c => c.id === selectedTournamentId) || tournamentConfigs[0];
+        const activeTournamentIsCricket = activeTournament ? isCricketSport(activeTournament.eventName || activeTournament.tournamentName || "") : false;
+        const hasCricketConfig = tournamentConfigs.some(c => isCricketSport(c.eventName || c.tournamentName || ""));
+        const hasGenericConfig = tournamentConfigs.some(c => !isCricketSport(c.eventName || c.tournamentName || ""));
+
+        const showCricketLeaderboard = leaderboardViewType === "cricket"
+          ? true
+          : leaderboardViewType === "generic"
+          ? false
+          : (activeTournament ? activeTournamentIsCricket : (hasCricketConfig || activeIsCricket));
+
+        return (
+          <div className="space-y-4">
+            {hasCricketConfig && hasGenericConfig && (
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl w-fit">
+                <button
+                  type="button"
+                  onClick={() => setLeaderboardViewType("cricket")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    showCricketLeaderboard
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Cricket Leaderboard (Caps & MVP)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeaderboardViewType("generic")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    !showCricketLeaderboard
+                      ? "bg-white text-indigo-700 shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Multi-Sport Leaderboard
+                </button>
+              </div>
+            )}
+            {showCricketLeaderboard ? <Leaderboard /> : <GenericLeaderboard />}
+          </div>
+        );
+      })()}
 
       {/* Brackets */}
-      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} />}
+      {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} />}
 
       {/* Config */}
       {activeTab === "Config" && <TournamentScheduler />}
@@ -2054,7 +2100,7 @@ export function SportsSchedule() {
       {activeTab === "Setup Schedule" && <SetupSchedule initialEventId={eventId} />}
 
       {/* Manual Scheduler */}
-      {activeTab === "Manual" && <ManualScheduler />}
+      {activeTab === "Manual" && <ManualScheduler configId={selectedTournamentId ?? (tournamentConfigs[0]?.id)} />}
 
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (
