@@ -236,6 +236,15 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
 }
 
 /**
+ * Robust helper to check if a registration status is active (not cancelled, withdrawn, or rejected).
+ */
+export function isActiveRegistrationStatus(status?: string | null): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase().trim();
+  return s !== "CANCELLED" && s !== "WITHDRAWN" && s !== "REJECTED";
+}
+
+/**
  * Robust helper to determine if a registration belongs to a specific family member or the logged-in user (Self).
  */
 export function isRegistrationForMemberHelper(
@@ -670,6 +679,7 @@ export function SportsDashboard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsModalTournament, setDetailsModalTournament] = useState<any>(null);
   const [showOpenRegInfo, setShowOpenRegInfo] = useState(false);
+  const [withdrawnRegistrationIds, setWithdrawnRegistrationIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const loadFamily = async () => {
@@ -975,12 +985,38 @@ export function SportsDashboard() {
 
       // Helper event mapping function
       const mapEventCard = (e: any): OpenRegistration => {
-        const matchingReg = fetchedMyRegs.find(r => isEventMatch(r, e));
-        const regId = e.myRegistrationId ?? matchingReg?.id ?? undefined;
-        const regStatus = e.myRegistrationStatus ?? matchingReg?.status ?? undefined;
+        // ONLY match active registrations from fetchedMyRegs
+        const matchingReg = fetchedMyRegs.find(r =>
+          isEventMatch(r, e) &&
+          isActiveRegistrationStatus(r.status) &&
+          !withdrawnRegistrationIds.has(Number(r.id))
+        );
+
+        // Check if there is an explicit inactive (withdrawn/cancelled) record in fetchedMyRegs
+        const isWithdrawnInMyRegs = fetchedMyRegs.some(r =>
+          (r.id === e.myRegistrationId || isEventMatch(r, e)) &&
+          !isActiveRegistrationStatus(r.status)
+        );
+
+        // Check if backend e.myRegistrationStatus itself says WITHDRAWN, CANCELLED, or REJECTED:
+        const backendStatus = (e.myRegistrationStatus || "").toUpperCase().trim();
+        const isBackendInactive = backendStatus === "CANCELLED" || backendStatus === "WITHDRAWN" || backendStatus === "REJECTED";
+
+        // Check if locally marked withdrawn in this session:
+        const isLocallyWithdrawn = Boolean(
+          (e.myRegistrationId && withdrawnRegistrationIds.has(Number(e.myRegistrationId))) ||
+          (matchingReg?.id && withdrawnRegistrationIds.has(Number(matchingReg.id)))
+        );
+
+        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn);
+
+        const rawRegId = hasActiveBackendReg ? e.myRegistrationId : (matchingReg && !isLocallyWithdrawn ? matchingReg.id : undefined);
+        const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
+
+        const activeRegId = (rawRegId && isActiveRegistrationStatus(rawRegStatus) && !isLocallyWithdrawn) ? rawRegId : undefined;
         let actionVal = "Register";
-        if (regId) {
-          actionVal = regStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
+        if (activeRegId) {
+          actionVal = rawRegStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
         }
         const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
@@ -990,12 +1026,12 @@ export function SportsDashboard() {
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "Unlimited spots",
-          progress: regId ? (regStatus === "CONFIRMED" ? 100 : 50) : 0,
-          progressColor: regId ? (regStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
+          progress: activeRegId ? (rawRegStatus === "CONFIRMED" ? 100 : 50) : 0,
+          progressColor: activeRegId ? (rawRegStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
-          registrationId: regId,
+          registrationId: activeRegId,
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
@@ -1148,9 +1184,15 @@ export function SportsDashboard() {
         }
 
         const matchingReg = fetchedMyRegs.find(r =>
+          isActiveRegistrationStatus(r.status) &&
+          !withdrawnRegistrationIds.has(Number(r.id)) &&
           r.eventId === e.id &&
           (e.familyMemberId == null || String(r.familyMemberId) === String(e.familyMemberId))
-        ) || fetchedMyRegs.find(r => r.eventId === e.id);
+        ) || fetchedMyRegs.find(r =>
+          isActiveRegistrationStatus(r.status) &&
+          !withdrawnRegistrationIds.has(Number(r.id)) &&
+          r.eventId === e.id
+        );
         const regPlayerName = e.playerName || matchingReg?.playerName;
         const regRelation = e.relation || matchingReg?.relation;
         const regFamId = e.familyMemberId != null ? e.familyMemberId : matchingReg?.familyMemberId;
@@ -1921,15 +1963,36 @@ export function SportsDashboard() {
                   const fromMyRegs = myRegistrations.filter(r =>
                     isEventMatch(r, ev) &&
                     isRegistrationForMember(r, selectedMemberId) &&
-                    r.status !== "CANCELLED" &&
-                    r.status !== "WITHDRAWN" &&
-                    r.status !== "REJECTED"
+                    isActiveRegistrationStatus(r.status) &&
+                    !withdrawnRegistrationIds.has(Number(r.id))
                   );
                   if (fromMyRegs.length > 0) return fromMyRegs;
 
+                  // If this member has an inactive (WITHDRAWN/CANCELLED/REJECTED) registration in myRegistrations,
+                  // they are definitely NOT registered!
+                  const hasInactiveForMember = myRegistrations.some(r =>
+                    isEventMatch(r, ev) &&
+                    isRegistrationForMember(r, selectedMemberId) &&
+                    !isActiveRegistrationStatus(r.status)
+                  );
+                  if (hasInactiveForMember) return [];
+
+                  // If this event or registration ID was marked withdrawn in this session:
+                  if (ev.registrationId && withdrawnRegistrationIds.has(Number(ev.registrationId))) return [];
+                  if ((ev as any).myRegistrationId && withdrawnRegistrationIds.has(Number((ev as any).myRegistrationId))) return [];
+
+                  // If backend event object reports withdrawn/cancelled status:
+                  const evStatus = (ev as any).myRegistrationStatus;
+                  if (evStatus && !isActiveRegistrationStatus(evStatus)) return [];
+
+                  // When myRegistrations has loaded, it is authoritative!
+                  if (myRegistrations.length > 0) return [];
+
                   if (isSelf && (ev.registrationId || (ev as any).myRegistrationId)) {
+                    const rawId = ev.registrationId || (ev as any).myRegistrationId;
+                    if (withdrawnRegistrationIds.has(Number(rawId))) return [];
                     return [{
-                      id: ev.registrationId || (ev as any).myRegistrationId,
+                      id: rawId,
                       eventId: ev.id,
                       status: (ev as any).myRegistrationStatus || "CONFIRMED",
                       matchType: (ev as any).matchType || (ev.isTeamSport ? "TEAM" : "SINGLES"),
@@ -1965,6 +2028,64 @@ export function SportsDashboard() {
                   const allFormats = getEventFormats(ev as any);
                   if (allFormats.length <= 1) return isMemberRegisteredForEvent(ev);
                   return getUnregisteredFormats(ev).length === 0;
+                };
+
+                const handleUnregisterCategory = async (item: OpenRegistration) => {
+                  const regs = getMemberRegsForEvent(item);
+                  if (regs.length === 0) return;
+                  const displayName = item.categoryName || item.name;
+                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`))) return;
+
+                  const withdrawnIds = regs.map(r => Number(r.id));
+
+                  // 1. Mark IDs as locally withdrawn immediately
+                  setWithdrawnRegistrationIds(prev => {
+                    const next = new Set(prev);
+                    withdrawnIds.forEach(id => next.add(id));
+                    return next;
+                  });
+
+                  // 2. Optimistically update myRegistrations: mark status as WITHDRAWN
+                  setMyRegistrations(prev =>
+                    prev.map(r => withdrawnIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
+                  );
+
+                  // 3. Optimistically update openTournaments: reset event card to Register Now
+                  setOpenTournaments(prev => prev.map(tourney => ({
+                    ...tourney,
+                    mappedEvents: tourney.mappedEvents.map(ev => {
+                      const isTarget = ev.id === item.id || isEventMatch({ id: item.id, ...item }, ev);
+                      if (isTarget) {
+                        return {
+                          ...ev,
+                          registrationId: undefined,
+                          action: "Register",
+                          progress: 0,
+                          progressColor: "#e2e8f0",
+                          rawEvent: {
+                            ...ev.rawEvent,
+                            myRegistrationId: null,
+                            myRegistrationStatus: "WITHDRAWN",
+                          },
+                        };
+                      }
+                      return ev;
+                    })
+                  })));
+
+                  // 4. Optimistically update stats count
+                  setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - regs.length) } : prev);
+
+                  try {
+                    for (const r of regs) {
+                      await sportsService.withdraw(r.id);
+                    }
+                    toast.success(`Unregistered from ${displayName}`);
+                    await fetchData();
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to unregister");
+                    fetchData();
+                  }
                 };
 
                 // Eligibility filter state: default selected (true)
@@ -2112,20 +2233,7 @@ export function SportsDashboard() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    const regs = getMemberRegsForEvent(item);
-                                    if (regs.length === 0) return;
-                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
-                                    try {
-                                      for (const r of regs) {
-                                        await sportsService.withdraw(r.id);
-                                      }
-                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
-                                      fetchData();
-                                    } catch (err: any) {
-                                      toast.error(err?.message || "Failed to unregister");
-                                    }
-                                  }}
+                                  onClick={() => handleUnregisterCategory(item)}
                                   className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
                                   title="Unregister from this category"
                                 >
@@ -2139,20 +2247,7 @@ export function SportsDashboard() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    const regs = getMemberRegsForEvent(item);
-                                    if (regs.length === 0) return;
-                                    if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${item.categoryName || item.name}? You will lose your reserved spot.`))) return;
-                                    try {
-                                      for (const r of regs) {
-                                        await sportsService.withdraw(r.id);
-                                      }
-                                      toast.success(`Unregistered from ${item.categoryName || item.name}`);
-                                      fetchData();
-                                    } catch (err: any) {
-                                      toast.error(err?.message || "Failed to unregister");
-                                    }
-                                  }}
+                                  onClick={() => handleUnregisterCategory(item)}
                                   className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
                                   title="Unregister from this category"
                                 >
@@ -2500,12 +2595,32 @@ export function SportsDashboard() {
                        onWithdraw={async (regItem) => {
                          if (!regItem.registrationId) return;
                          if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
+                         const regId = Number(regItem.registrationId);
+                         setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
+                         setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
+                         setOpenTournaments(prev => prev.map(tourney => ({
+                           ...tourney,
+                           mappedEvents: tourney.mappedEvents.map(ev => {
+                             if (Number(ev.registrationId) === regId || Number(ev.id) === Number(regItem.id) || isEventMatch({ id: regItem.id, ...regItem }, ev)) {
+                               return {
+                                 ...ev,
+                                 registrationId: undefined,
+                                 action: "Register",
+                                 progress: 0,
+                                 progressColor: "#e2e8f0",
+                               };
+                             }
+                             return ev;
+                           })
+                         })));
+                         setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - 1) } : prev);
                          try {
                            await sportsService.withdraw(regItem.registrationId);
                            toast.success(`Successfully withdrawn from ${regItem.name}`);
-                           fetchData();
+                           await fetchData();
                          } catch (err: any) {
                            toast.error(err?.message || "Failed to withdraw registration");
+                           fetchData();
                          }
                        }}
                        isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
@@ -3132,12 +3247,37 @@ export function SportsDashboard() {
                                 onClick={async () => {
                                   const evName = reg.event?.name || reg.eventName || "this event";
                                   if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
+                                  const regId = Number(reg.id);
+                                  setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
+                                  setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
+                                  setOpenTournaments(prev => prev.map(tourney => ({
+                                    ...tourney,
+                                    mappedEvents: tourney.mappedEvents.map(ev => {
+                                      if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
+                                        return {
+                                          ...ev,
+                                          registrationId: undefined,
+                                          action: "Register",
+                                          progress: 0,
+                                          progressColor: "#e2e8f0",
+                                          rawEvent: {
+                                            ...ev.rawEvent,
+                                            myRegistrationId: null,
+                                            myRegistrationStatus: "WITHDRAWN",
+                                          },
+                                        };
+                                      }
+                                      return ev;
+                                    })
+                                  })));
+                                  setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - 1) } : prev);
                                   try {
                                     await sportsService.withdraw(reg.id);
                                     toast.success(`Unregistered from ${evName}`);
-                                    fetchData();
+                                    await fetchData();
                                   } catch (err: any) {
                                     toast.error(err?.message || "Failed to unregister");
+                                    fetchData();
                                   }
                                 }}
                                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"

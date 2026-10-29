@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
@@ -232,5 +232,45 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     const unknownGenderCheck = checkCategoryEligibility(womenCategory as any, 28, "");
     expect(unknownGenderCheck.eligible).toBe(false);
     expect(unknownGenderCheck.isGenderMismatch).toBe(true);
+  });
+
+  it("isActiveRegistrationStatus accurately recognizes active vs inactive registration statuses", () => {
+    expect(isActiveRegistrationStatus("CONFIRMED")).toBe(true);
+    expect(isActiveRegistrationStatus("REGISTERED")).toBe(true);
+    expect(isActiveRegistrationStatus("PENDING")).toBe(true);
+    expect(isActiveRegistrationStatus("confirmed")).toBe(true);
+
+    expect(isActiveRegistrationStatus("WITHDRAWN")).toBe(false);
+    expect(isActiveRegistrationStatus("CANCELLED")).toBe(false);
+    expect(isActiveRegistrationStatus("REJECTED")).toBe(false);
+    expect(isActiveRegistrationStatus("withdrawn")).toBe(false);
+    expect(isActiveRegistrationStatus("")).toBe(false);
+    expect(isActiveRegistrationStatus(null)).toBe(false);
+    expect(isActiveRegistrationStatus(undefined)).toBe(false);
+  });
+
+  it("when user unregisters (status: WITHDRAWN), event is no longer considered registered", () => {
+    const eventCard = {
+      id: 99,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Doubles",
+    } as any;
+
+    const myRegistrations = [
+      {
+        id: 501,
+        eventId: 99,
+        eventName: "Monsoon Badminton Premier Cup 2026",
+        categoryName: "Men's Doubles",
+        status: "WITHDRAWN",
+      },
+    ];
+
+    const activeRegs = myRegistrations.filter(r =>
+      isEventMatch(r, eventCard) &&
+      isActiveRegistrationStatus(r.status)
+    );
+
+    expect(activeRegs.length).toBe(0);
   });
 });
