@@ -736,7 +736,8 @@ type DashboardTournamentWithEvents = Omit<DashboardTournamentCard, "sponsors"> &
 };
 
 export function SportsDashboard() {
-  const { user, hasPermission, hasAnyPermission, isSuperAdmin } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin, isAdmin, isSportsAdmin } = useAuth();
+  const canAccessAdminSports = isAdmin || isSuperAdmin || isSportsAdmin;
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
@@ -1778,8 +1779,8 @@ export function SportsDashboard() {
             { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
             { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
             { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
-            { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
-            { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
+            ...(canAccessAdminSports ? [{ label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" }] : []),
+            ...(canAccessAdminSports ? [{ label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" }] : []),
           ].map(action => (
             <Link
               key={action.label}
@@ -3418,13 +3419,15 @@ export function SportsDashboard() {
                                 <span>Unregister</span>
                               </button>
                             )}
-                            <Link
-                              to="/sports/my-sports"
-                              onClick={() => setActiveStatsModal(null)}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
-                            >
-                              Manage →
-                            </Link>
+                            {canAccessAdminSports && (
+                              <Link
+                                to="/sports/my-sports"
+                                onClick={() => setActiveStatsModal(null)}
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                              >
+                                Manage →
+                              </Link>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3435,13 +3438,15 @@ export function SportsDashboard() {
 
               {/* Modal Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 flex-shrink-0">
-                <Link
-                  to="/sports/my-sports"
-                  onClick={() => setActiveStatsModal(null)}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
-                >
-                  Go to My Sports Dashboard →
-                </Link>
+                {canAccessAdminSports ? (
+                  <Link
+                    to="/sports/my-sports"
+                    onClick={() => setActiveStatsModal(null)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    Go to My Sports Dashboard →
+                  </Link>
+                ) : <span />}
                 <button
                   type="button"
                   onClick={() => setActiveStatsModal(null)}

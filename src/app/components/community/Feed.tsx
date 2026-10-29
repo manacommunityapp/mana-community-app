@@ -54,6 +54,7 @@ import { feedService, type CreatePostRequest, type UpdatePostRequest, type FeedS
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
+import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
 import { sanitizeHref } from "../../../utils/sanitize";
@@ -760,6 +761,19 @@ export function Feed() {
   useEffect(() => {
     if (!user?.communityId) return;
     feedService.getSidebarSummary().then(setSummaryCounts).catch(() => {});
+    communityDirectoryService.getDirectory()
+      .then((lList) => {
+        if (Array.isArray(lList) && lList.length > 0) {
+          const map: Record<number, string> = {};
+          lList.forEach((l) => {
+            if (l.userId && l.designation) {
+              map[l.userId] = l.designation;
+            }
+          });
+          setLeaderMap(map);
+        }
+      })
+      .catch(() => {});
   }, [user?.communityId]);
 
   useEffect(() => {
@@ -1059,7 +1073,29 @@ export function Feed() {
   const handleUpdatePost = useCallback(async (postId: number, updates: UpdatePostRequest) => {
     try {
       const updated = await feedService.updatePost(postId, updates);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          const mappedMedia = updates.mediaAttachments !== undefined
+            ? updates.mediaAttachments.map((m, idx) => ({
+                id: (m as any).id || p.media?.[idx]?.id || -(idx + 1),
+                mediaUrl: m.mediaUrl,
+                mediaType: m.mediaType,
+                thumbnailUrl: m.thumbnailUrl,
+                altText: m.altText,
+                sortOrder: m.sortOrder ?? idx,
+                mediaObjectId: m.mediaObjectId,
+              }))
+            : (updated?.media ?? p.media);
+
+          return {
+            ...p,
+            ...updated,
+            media: mappedMedia,
+            imageUrl: updates.imageUrl !== undefined ? updates.imageUrl : (updated?.imageUrl ?? p.imageUrl),
+          };
+        })
+      );
       toast.success("Post updated.");
     } catch (error: any) {
       toast.error("Failed to update post: " + error.message);
@@ -2092,13 +2128,17 @@ export function Feed() {
         <div className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-20 space-y-4">
           <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <EventsNotificationCard badgeCount={summaryCounts?.upcomingEventsCount} passCount={summaryCounts?.myPassCount} />
-          <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
-          <MyGroupsCard badgeCount={summaryCounts?.myGroupsCount} />
-          <LeaderboardCard badgeCount={summaryCounts?.topContributorsCount} getInitials={getInitials} />
-          <CommunityDirectory badgeCount={summaryCounts?.directoryCount} onDirectoryLoaded={setLeaderMap} />
-          <EngagementScoreCard summaryScore={summaryCounts ? { totalPoints: summaryCounts.myEngagementPoints, level: summaryCounts.myEngagementLevel } : undefined} />
-          <SidebarAnnouncements posts={posts} />
-          <QuickLinksCard />
+          {isAdmin && (
+            <>
+              <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
+              <MyGroupsCard badgeCount={summaryCounts?.myGroupsCount} />
+              <LeaderboardCard badgeCount={summaryCounts?.topContributorsCount} getInitials={getInitials} />
+              <CommunityDirectory badgeCount={summaryCounts?.directoryCount} onDirectoryLoaded={setLeaderMap} />
+              <EngagementScoreCard summaryScore={summaryCounts ? { totalPoints: summaryCounts.myEngagementPoints, level: summaryCounts.myEngagementLevel } : undefined} />
+              <SidebarAnnouncements posts={posts} />
+              <QuickLinksCard />
+            </>
+          )}
         </div>
       </div>
 
@@ -2294,8 +2334,61 @@ const PostCard = React.memo(function PostCard({
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const [activeEditCoverPickerIndex, setActiveEditCoverPickerIndex] = useState<number | null>(null);
+  const [isDeletingMedia, setIsDeletingMedia] = useState(false);
 
   const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
+
+  const handleDeleteMediaItem = async (indexToRemove: number) => {
+    if (!window.confirm("Are you sure you want to remove this media from the post?")) return;
+    setIsDeletingMedia(true);
+    try {
+      const currentMedia = post.media && post.media.length > 0 ? post.media : postMediaToAttachments(post);
+      const remaining = currentMedia.filter((_: any, idx: number) => idx !== indexToRemove);
+      const remainingAttachments: FeedMediaAttachment[] = remaining.map((m: any, sortOrder: number) => ({
+        mediaUrl: m.mediaUrl,
+        mediaType: m.mediaType,
+        thumbnailUrl: m.thumbnailUrl,
+        altText: m.altText,
+        sortOrder,
+        mediaObjectId: m.mediaObjectId,
+      }));
+      const nextImageUrl = remainingAttachments.find((m) => m.mediaType === "IMAGE")?.mediaUrl || "";
+
+      await onUpdatePost(post.id, {
+        content: post.content,
+        title: post.title,
+        imageUrl: nextImageUrl,
+        mediaAttachments: remainingAttachments,
+      });
+      setEditMedia(remainingAttachments);
+      setEditImageUrl(nextImageUrl);
+      toast.success("Media removed.");
+    } catch (err: any) {
+      toast.error("Failed to remove media: " + (err.message || "Please try again."));
+    } finally {
+      setIsDeletingMedia(false);
+    }
+  };
+
+  const handleDeleteImageUrl = async () => {
+    if (!window.confirm("Are you sure you want to remove this media from the post?")) return;
+    setIsDeletingMedia(true);
+    try {
+      await onUpdatePost(post.id, {
+        content: post.content,
+        title: post.title,
+        imageUrl: "",
+        mediaAttachments: [],
+      });
+      setEditMedia([]);
+      setEditImageUrl("");
+      toast.success("Media removed.");
+    } catch (err: any) {
+      toast.error("Failed to remove media: " + (err.message || "Please try again."));
+    } finally {
+      setIsDeletingMedia(false);
+    }
+  };
 
   const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -2343,18 +2436,21 @@ const PostCard = React.memo(function PostCard({
     if (!editContent.trim()) { toast.error("Content cannot be empty."); return; }
     setIsSavingEdit(true);
     try {
+      const finalMedia = editMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder, mediaObjectId }) => ({
+        mediaUrl,
+        mediaType,
+        thumbnailUrl,
+        altText,
+        sortOrder,
+        mediaObjectId,
+      }));
+      const finalImageUrl = editImageUrl.trim() || finalMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || "";
+
       await onUpdatePost(post.id, {
         content: editContent.trim(),
         title: editTitle.trim() || undefined,
-        imageUrl: editImageUrl.trim() || editMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || undefined,
-        mediaAttachments: editMedia.length > 0 ? editMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder, mediaObjectId }) => ({
-          mediaUrl,
-          mediaType,
-          thumbnailUrl,
-          altText,
-          sortOrder,
-          mediaObjectId,
-        })) : undefined,
+        imageUrl: finalImageUrl,
+        mediaAttachments: finalMedia,
         eventDate: editEventDate || undefined,
         eventVenue: editEventVenue.trim() || undefined,
         location: editLocation.trim() || undefined,
@@ -2787,7 +2883,7 @@ const PostCard = React.memo(function PostCard({
       {post.media && post.media.length > 0 && (
         <div className={`mb-3 gap-1 rounded-xl overflow-hidden ${post.media.length === 1 ? "" : "grid grid-cols-2"}`}>
           {post.media.slice(0, 4).map((m: any, idx: number) => (
-            <div key={m.id || `${m.mediaUrl}-${idx}`} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-72" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
+            <div key={m.id || `${m.mediaUrl}-${idx}`} className={`relative group/media overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-72" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
               {isVideoMedia(m.mediaType, m.mediaUrl) ? (
                 <FeedVideoPlayer
                   mediaUrl={m.mediaUrl}
@@ -2798,13 +2894,28 @@ const PostCard = React.memo(function PostCard({
               ) : (
                 <img src={m.mediaUrl} alt={m.altText || ""} className="w-full h-full object-cover" />
               )}
+              {canEditThisPost && (
+                <button
+                  type="button"
+                  disabled={isDeletingMedia}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteMediaItem(idx);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-white z-20 opacity-80 sm:opacity-0 sm:group-hover/media:opacity-100 focus:opacity-100 transition-all shadow-md cursor-pointer hover:scale-110 active:scale-95 disabled:opacity-50"
+                  title="Remove media from post"
+                  aria-label="Remove media from post"
+                >
+                  {isDeletingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {post.imageUrl && (!post.media || post.media.length === 0) && (
-        <div className="mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-72 bg-slate-50 flex items-center justify-center">
+        <div className="relative group/media mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-72 bg-slate-50 flex items-center justify-center">
           {isVideoMedia(undefined, post.imageUrl) ? (
             <FeedVideoPlayer mediaUrl={post.imageUrl} isSingle />
           ) : (
@@ -2820,6 +2931,21 @@ const PostCard = React.memo(function PostCard({
                 if (parent) parent.style.display = "none";
               }}
             />
+          )}
+          {canEditThisPost && (
+            <button
+              type="button"
+              disabled={isDeletingMedia}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteImageUrl();
+              }}
+              className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-white z-20 opacity-80 sm:opacity-0 sm:group-hover/media:opacity-100 focus:opacity-100 transition-all shadow-md cursor-pointer hover:scale-110 active:scale-95 disabled:opacity-50"
+              title="Remove image from post"
+              aria-label="Remove image from post"
+            >
+              {isDeletingMedia ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            </button>
           )}
         </div>
       )}
