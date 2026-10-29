@@ -126,18 +126,18 @@ export function Login() {
     <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       {/* ── Left Brand Showcase Panel (Desktop Browser) ────────────────── */}
       <div
-        className="hidden lg:flex flex-col justify-between relative overflow-hidden lg:w-[420px] xl:w-[480px] 2xl:w-[520px] shrink-0 text-white p-8 xl:p-10 select-none border-r border-white/10"
+        className="hidden lg:flex flex-col justify-between relative overflow-hidden lg:w-[320px] xl:w-[360px] 2xl:w-[380px] shrink-0 text-white p-6 xl:p-8 select-none border-r border-white/10"
         style={{
           background: "linear-gradient(160deg, #4f46e5 0%, #4338ca 35%, #3730a3 70%, #1e1b4b 100%)",
         }}
       >
         {/* Ambient background glowing orbs */}
         <div
-          className="absolute -top-16 -right-16 w-80 h-80 rounded-full opacity-30 pointer-events-none blur-3xl"
+          className="absolute -top-12 -right-12 w-64 h-64 rounded-full opacity-30 pointer-events-none blur-3xl"
           style={{ background: "radial-gradient(circle, #818cf8, transparent)" }}
         />
         <div
-          className="absolute -bottom-20 -left-20 w-96 h-96 rounded-full opacity-25 pointer-events-none blur-3xl"
+          className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full opacity-25 pointer-events-none blur-3xl"
           style={{ background: "radial-gradient(circle, #c084fc, transparent)" }}
         />
         <div
@@ -150,44 +150,44 @@ export function Login() {
 
         {/* Top Header & Brand Logo */}
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-6 xl:mb-8">
-            <div className="w-11 h-11 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/25 shadow-lg shadow-black/10">
-              <ShieldCheck className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-2.5 mb-5 xl:mb-6">
+            <div className="w-9 h-9 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 shadow-md shadow-black/10">
+              <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-white font-extrabold text-lg tracking-tight leading-none">Mana Community</p>
-              <p className="text-indigo-200 text-xs font-medium mt-1">Your neighborhood, connected</p>
+              <p className="text-white font-extrabold text-base tracking-tight leading-none">Mana Community</p>
+              <p className="text-indigo-200 text-[11px] font-medium mt-0.5">Your neighborhood, connected</p>
             </div>
           </div>
 
           {/* Hero copy */}
-          <div className="mb-6 xl:mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-3 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              <span className="text-xs font-bold text-amber-100 tracking-wide">
+          <div className="mb-5 xl:mb-6">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-2.5 shadow-xs">
+              <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+              <span className="text-[11px] font-bold text-amber-100 tracking-wide">
                 Community Resident Portal
               </span>
             </div>
-            <h4 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
+            <h4 className="text-white leading-[1.2] mb-2 text-xl xl:text-2xl font-black tracking-tight">
               Welcome back to
               <br />
               <span className="text-amber-300">Mana Community Hub</span>
             </h4>
-            <p className="text-indigo-100/80 text-xs xl:text-sm leading-relaxed max-w-sm">
+            <p className="text-indigo-100/80 text-xs leading-relaxed max-w-xs">
               Log in to manage bookings, stay updated with society notices, and connect with neighbors seamlessly.
             </p>
           </div>
 
           {/* Key Feature Highlights */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {HIGHLIGHTS.map(({ icon: Icon, title, desc }, i) => (
-              <div key={i} className="flex items-start gap-3 group">
-                <div className="w-7 h-7 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
-                  <Icon className="w-3.5 h-3.5 text-amber-200" />
+              <div key={i} className="flex items-start gap-2.5 group">
+                <div className="w-6 h-6 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
+                  <Icon className="w-3 h-3 text-amber-200" />
                 </div>
                 <div>
-                  <p className="text-white text-xs xl:text-[13px] font-bold leading-tight">{title}</p>
-                  <p className="text-indigo-200/75 text-[11px] xl:text-xs leading-snug mt-0.5">{desc}</p>
+                  <p className="text-white text-xs font-bold leading-tight">{title}</p>
+                  <p className="text-indigo-200/75 text-[10.5px] leading-snug mt-0.5">{desc}</p>
                 </div>
               </div>
             ))}
@@ -195,14 +195,14 @@ export function Login() {
         </div>
 
         {/* Resident Testimonial / Social Proof */}
-        <div className="relative z-10 pt-4 border-t border-white/10 space-y-3">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 p-3.5 xl:p-4 shadow-lg shadow-black/5">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex -space-x-2">
+        <div className="relative z-10 pt-3 border-t border-white/10 space-y-2.5">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/15 p-3 shadow-md shadow-black/5">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex -space-x-1.5">
                 {["#4f46e5", "#818cf8", "#10b981", "#ec4899"].map((c, i) => (
                   <div
                     key={i}
-                    className="w-5.5 h-5.5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8.5px] font-bold text-white shadow-xs"
+                    className="w-5 h-5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8px] font-bold text-white shadow-xs"
                     style={{ background: c }}
                   >
                     {["R", "S", "M", "P"][i]}
@@ -211,18 +211,18 @@ export function Login() {
               </div>
               <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="w-3 h-3 fill-amber-300 text-amber-300" />
+                  <Star key={i} className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
                 ))}
               </div>
             </div>
-            <p className="text-indigo-50/90 text-[11px] xl:text-xs leading-relaxed italic">
+            <p className="text-indigo-50/90 text-[10.5px] leading-relaxed italic">
               "Booking event passes and connecting with community members has never been easier."
             </p>
           </div>
 
-          <div className="flex items-center justify-between text-indigo-200/70 text-[11px] px-1">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center justify-between text-indigo-200/70 text-[10.5px] px-0.5">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
               Verified & Secure Portal
             </span>
             <span>v2.4.0</span>
@@ -299,17 +299,18 @@ export function Login() {
         </div>
 
         {/* Form area — flex-1 so it fills remaining height, centred vertically on desktop */}
-        <div className="flex-1 flex flex-col justify-center overflow-hidden">
-          <div className="w-full max-w-[440px] mx-auto px-5 sm:px-8 py-4 sm:py-6 lg:my-auto relative z-10">
+        <div className="flex-1 flex flex-col justify-center overflow-y-auto">
+          <div className="w-full max-w-[420px] mx-auto px-5 sm:px-7 py-4 sm:py-6 lg:my-auto relative z-10">
             {/* Desktop-only header */}
-            <div className="text-left mb-5 hidden lg:block">
-              <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-2.5 rounded-xl mb-3 border border-primary/20 shadow-xs">
-                <ShieldCheck className="h-6 w-6 text-primary" />
+            <div className="text-left mb-4 hidden lg:block">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold border border-indigo-100 dark:border-indigo-800/40 mb-2 shadow-2xs">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                <span>Secure Resident Login</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
                 Sign In to Your Account
               </h2>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Enter your registered email or 10-digit mobile number
               </p>
             </div>
@@ -356,7 +357,7 @@ export function Login() {
             )}
 
             {/* Form Card */}
-            <div className="bg-card rounded-2xl shadow-xl shadow-black/[0.04] border border-border p-4 sm:p-6">
+            <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-xl shadow-indigo-950/[0.04] border border-border/80 p-5 sm:p-6">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
                 {/* Identifier */}
                 <div>
