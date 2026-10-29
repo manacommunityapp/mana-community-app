@@ -118,8 +118,10 @@ export function SportsAuction() {
     hasAnyPermission(VIEW_AUCTION_CONFIG, CREATE_EDIT_AUCTION_CONFIG)
   );
 
+  const canAccessSportsMenu = isRoleAdminOrSportsAdmin;
+
   // Granular permission flags — each maps to a specific sidebar section / tab
-  const canViewSportsMenu    = hasAnyPermission(VIEW_SPORTS_MENU,          CREATE_EDIT_SPORTS_MENU);
+  const canViewSportsMenu    = canAccessSportsMenu;
   const canViewAuctionConfig = canAccessAuctionConfig;
   const canEditAuctionConfig = Boolean(isRoleAdminOrSportsAdmin || hasPermission(CREATE_EDIT_AUCTION_CONFIG));
   const canViewLiveAuction   = hasAnyPermission(VIEW_LIVE_AUCTION,         CREATE_EDIT_LIVE_AUCTION);
@@ -586,6 +588,10 @@ export function SportsAuction() {
   };
 
   const handleCreateTeam = async () => {
+    if (!canAccessSportsMenu) {
+      toast.error("Access denied: Only administrators and sports administrators can manage sports setup.");
+      return;
+    }
     if (!selectedConfigId) {
       toast.error("Please select an auction configuration first.");
       return;
@@ -900,6 +906,10 @@ export function SportsAuction() {
   });
 
   const handleCreatePlayer = async () => {
+    if (!canAccessSportsMenu) {
+      toast.error("Access denied: Only administrators and sports administrators can manage sports setup.");
+      return;
+    }
     if (!newPlayer.name) { toast.error("Player name is required"); return; }
     if (!selectedConfigId) { toast.error("Please select an auction configuration first."); return; }
     try {
@@ -2474,6 +2484,27 @@ export function SportsAuction() {
 
         {/* CRICKET (Setup Menu) */}
         {activeTab === 'cricket' && (
+          !canAccessSportsMenu ? (
+            <div className="page active">
+              <div className="card text-center p-8 sm:p-12 max-w-lg mx-auto space-y-4 my-8">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 m-0">Access Restricted</h2>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed m-0">
+                  Sports Menu and setup configurations are restricted to Community Administrators and Sports Administrators only.
+                </p>
+                <div className="pt-2">
+                  <button
+                    className="btn btn-gold text-xs px-6 py-2.5 font-bold"
+                    onClick={() => nav('overview')}
+                  >
+                    Return to Auction Overview
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="page active">
             <div className="page-hdr">
               <div><div className="page-title">Cricket Setup</div><div className="page-sub">Manage Players & Teams</div></div>
@@ -2566,10 +2597,32 @@ export function SportsAuction() {
               )}
             </div>
           </div>
+          )
         )}
 
         {/* Other Sports — redirect to config */}
         {['badminton', 'football', 'volleyball'].includes(activeTab) && (
+          !canAccessSportsMenu ? (
+            <div className="page active">
+              <div className="card text-center p-8 sm:p-12 max-w-lg mx-auto space-y-4 my-8">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 m-0">Access Restricted</h2>
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed m-0">
+                  Sports Menu and setup configurations are restricted to Community Administrators and Sports Administrators only.
+                </p>
+                <div className="pt-2">
+                  <button
+                    className="btn btn-gold text-xs px-6 py-2.5 font-bold"
+                    onClick={() => nav('overview')}
+                  >
+                    Return to Auction Overview
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
           <div className="page active">
             <div className="page-hdr">
               <div><div className="page-title capitalize">{activeTab}</div><div className="page-sub">Auction for {activeTab}</div></div>
@@ -2583,6 +2636,7 @@ export function SportsAuction() {
               </div>
             </div>
           </div>
+          )
         )}
 
       </main>
