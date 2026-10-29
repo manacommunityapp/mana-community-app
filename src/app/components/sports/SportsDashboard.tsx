@@ -184,11 +184,99 @@ export function isSelfRelationOrMember(
 }
 
 /**
+ * Format compatibility checker to ensure Singles registrations do not match Doubles events,
+ * and vice-versa, especially for events sharing the same category name (e.g. "Men's Above 19").
+ */
+export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
+  if (!r || !ev) return true;
+
+  const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+  const evFormats = isEvTeam ? ["TEAM"] : (getEventFormats ? getEventFormats(ev as any) : []);
+
+  // Determine registration matchType/format
+  let rFmt = (r.matchType || (r as any).format || "").toUpperCase().trim();
+  if (!rFmt && ((r as any).partnerUserId || (r as any).partnerFamilyMemberId)) {
+    rFmt = "DOUBLES";
+  }
+
+  const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const rName = norm(r.eventName || r.event?.name);
+  const rCatName = norm(r.categoryName || r.category?.name);
+  const evName = norm(ev.name);
+  const evCatName = norm(ev.categoryName || (ev as any).rawEvent?.categoryName || (ev as any).category?.name);
+
+  if (!rFmt) {
+    const combinedR = `${rName} ${rCatName}`;
+    if (combinedR.includes("mixed") || combinedR.includes("mixed doubles")) {
+      rFmt = "MIXED_DOUBLES";
+    } else if (combinedR.includes("doubles")) {
+      rFmt = "DOUBLES";
+    } else if (combinedR.includes("singles")) {
+      rFmt = "SINGLES";
+    }
+  }
+
+  // Check textual keywords in event / category name
+  const evStrictlyDoubles = (evName.includes("doubles") || evCatName.includes("doubles")) && !evName.includes("singles") && !evCatName.includes("singles");
+  const evStrictlySingles = (evName.includes("singles") || evCatName.includes("singles")) && !evName.includes("doubles") && !evCatName.includes("doubles");
+
+  // If r is Singles:
+  if (rFmt === "SINGLES") {
+    if (isEvTeam) return false;
+    if (evStrictlyDoubles) return false;
+    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase() === "SINGLES")) {
+      return false;
+    }
+  }
+
+  // If r is Doubles (excluding Mixed):
+  if (rFmt === "DOUBLES" || (rFmt.includes("DOUBLES") && !rFmt.includes("MIXED"))) {
+    if (isEvTeam) return false;
+    if (evStrictlySingles) return false;
+    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("DOUBLES") && !f.toUpperCase().includes("MIXED"))) {
+      return false;
+    }
+  }
+
+  // If r is Mixed Doubles:
+  if (rFmt === "MIXED_DOUBLES" || rFmt.includes("MIXED")) {
+    if (isEvTeam) return false;
+    if (evStrictlySingles) return false;
+    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("MIXED"))) {
+      return false;
+    }
+  }
+
+  // If r is Team:
+  if (rFmt === "TEAM") {
+    if (!isEvTeam && evFormats.length > 0 && !evFormats.includes("TEAM")) {
+      return false;
+    }
+  }
+
+  // Vice versa: if ev is strictly Singles or Doubles and r keywords conflict
+  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles"))) {
+    return false;
+  }
+  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles"))) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Robust helper to match an event/category registration with a dashboard event card.
  * Handles numeric/string IDs, UUIDs, nested rawEvent, category ID, and normalized event/category names.
+ * Strictly respects format compatibility so Singles registrations do not match Doubles event cards.
  */
 export function isEventMatch(r: any, ev: OpenRegistration): boolean {
   if (!r || !ev) return false;
+
+  // Format compatibility check: a Singles registration MUST NOT match a Doubles event, and vice-versa
+  if (!isFormatCompatible(r, ev)) {
+    return false;
+  }
 
   const rEvId = r.eventId != null ? String(r.eventId).trim() : (r.event?.id != null ? String(r.event.id).trim() : null);
   const evId = ev.id != null ? String(ev.id).trim() : null;
@@ -215,14 +303,30 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
   const rCatId = r.category?.id != null ? String(r.category.id).trim() : ((r as any).categoryId != null ? String((r as any).categoryId).trim() : null);
   if (rCatId && evId && rCatId === evId) return true;
 
-  // 4. Exact Category Name + Event Name matching
-  // BOTH category name AND event name MUST match. Never match by event name alone!
+  // If BOTH r and ev have explicit IDs, but they do NOT match:
+  // prevent matching across different event IDs for generic categories (e.g. "Men's Above 19", "Under-16")
   const norm = (s?: string | null) => (s || "").trim().toLowerCase();
   const rCatName = norm(r.categoryName || r.category?.name);
   const evCatName = norm(ev.categoryName || (ev as any).rawEvent?.categoryName || (ev as any).category?.name);
   const rName = norm(r.eventName || r.event?.name);
   const evName = norm(ev.name);
 
+  if (rEvId && evId && rEvId !== evId) {
+    const isSpecificFormatCategory =
+      rCatName.includes("doubles") ||
+      rCatName.includes("singles") ||
+      rCatName.includes("mixed") ||
+      evCatName.includes("doubles") ||
+      evCatName.includes("singles") ||
+      evCatName.includes("mixed");
+
+    if (!isSpecificFormatCategory) {
+      return false;
+    }
+  }
+
+  // 4. Exact Category Name + Event Name matching
+  // BOTH category name AND event name MUST match. Never match by event name alone!
   if (rCatName && evCatName) {
     if (rCatName === evCatName && (!rName || !evName || rName === evName)) {
       return true;
