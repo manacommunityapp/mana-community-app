@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, GripVertical, Trophy, Save, Shield, Loader2 } from 'lucide-react';
-import { tournamentService } from '../../../services/sports/tournamentService';
+import { tournamentService, type ConfigInfo } from '../../../services/sports/tournamentService';
+import { SAMPLE_TOURNAMENT_TEAMS } from '../sports/teams/sampleTeamsData';
 
 interface ManualSchedulerProps {
   configId?: number;
@@ -9,25 +10,70 @@ interface ManualSchedulerProps {
 const TEAM_COLORS = ['#3b82f6', '#eab308', '#ef4444', '#0ea5e9', '#a855f7', '#ec4899', '#10b981', '#f97316'];
 
 export function ManualScheduler({ configId }: ManualSchedulerProps) {
+  const [configs, setConfigs] = useState<ConfigInfo[]>([]);
+  const [selectedConfigId, setSelectedConfigId] = useState<number | null>(configId ?? null);
   const [activeTab, setActiveTab] = useState('GROUPS');
   const [teams, setTeams] = useState<{ id: string; name: string; group: string; color: string }[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
 
   useEffect(() => {
-    if (!configId) return;
-    setLoadingTeams(true);
-    tournamentService.getConfigTeams?.(configId)
-      .then((data: any[]) => {
-        setTeams(data.map((t, i) => ({
-          id: String(t.id || t.teamId || `T${i + 1}`),
-          name: t.name || t.teamName || `Team ${i + 1}`,
-          group: t.group || t.groupId || 'UNASSIGNED',
-          color: TEAM_COLORS[i % TEAM_COLORS.length],
-        })));
+    tournamentService.getConfigs()
+      .then(cfgs => {
+        setConfigs(cfgs);
+        if (!selectedConfigId && cfgs.length > 0) {
+          setSelectedConfigId(cfgs[0].id);
+        }
       })
-      .catch(() => setTeams([]))
-      .finally(() => setLoadingTeams(false));
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (configId) {
+      setSelectedConfigId(configId);
+    }
   }, [configId]);
+
+  useEffect(() => {
+    if (!selectedConfigId) return;
+    setLoadingTeams(true);
+    tournamentService.getConfigTeams?.(selectedConfigId)
+      .then((data: any[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTeams(data.map((t, i) => ({
+            id: String(t.id || t.teamId || `T${i + 1}`),
+            name: t.name || t.teamName || `Team ${i + 1}`,
+            group: t.group || t.groupId || 'UNASSIGNED',
+            color: TEAM_COLORS[i % TEAM_COLORS.length],
+          })));
+        } else {
+          const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+          if (isLocalEnv && SAMPLE_TOURNAMENT_TEAMS.length > 0) {
+            setTeams(SAMPLE_TOURNAMENT_TEAMS.slice(0, 8).map((t, i) => ({
+              id: String(t.id),
+              name: t.name,
+              group: i < 3 ? 'GROUP_A' : i < 6 ? 'GROUP_B' : 'UNASSIGNED',
+              color: t.colorHex || TEAM_COLORS[i % TEAM_COLORS.length],
+            })));
+          } else {
+            setTeams([]);
+          }
+        }
+      })
+      .catch(() => {
+        const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
+        if (isLocalEnv && SAMPLE_TOURNAMENT_TEAMS.length > 0) {
+          setTeams(SAMPLE_TOURNAMENT_TEAMS.slice(0, 8).map((t, i) => ({
+            id: String(t.id),
+            name: t.name,
+            group: i < 3 ? 'GROUP_A' : i < 6 ? 'GROUP_B' : 'UNASSIGNED',
+            color: t.colorHex || TEAM_COLORS[i % TEAM_COLORS.length],
+          })));
+        } else {
+          setTeams([]);
+        }
+      })
+      .finally(() => setLoadingTeams(false));
+  }, [selectedConfigId]);
   const [matches, setMatches] = useState<any[]>([]);
   const [draggedTeam, setDraggedTeam] = useState<string | null>(null);
 
@@ -64,13 +110,13 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
   };
 
   const saveGroupsToDB = async () => {
-    if (!configId) {
+    if (!selectedConfigId) {
       alert("No tournament config selected.");
       return;
     }
     try {
       const assignments = teams.map(t => ({ teamId: t.id, groupId: t.group }));
-      await tournamentService.assignTeamsToGroups(configId, assignments);
+      await tournamentService.assignTeamsToGroups(selectedConfigId, assignments);
       alert("Groups saved successfully!");
     } catch (err) {
       console.error("Failed to save groups", err);
@@ -97,11 +143,11 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
     setMatches([...matches, newMatch]);
 
     try {
-      if (!configId) {
+      if (!selectedConfigId) {
         alert("No tournament config selected.");
         return;
       }
-      await tournamentService.scheduleManualMatch(configId, {
+      await tournamentService.scheduleManualMatch(selectedConfigId, {
         homeTeamId: matchForm.home === 'TBD' ? '' : matchForm.home,
         awayTeamId: matchForm.away === 'TBD' ? '' : matchForm.away,
         matchType: matchForm.type,
@@ -123,11 +169,11 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
       draggable 
       onDragStart={(e) => handleDragStart(e, team.id)}
       onDragEnd={handleDragEnd}
-      className="bg-[#1a2540] p-3 mb-2 rounded-lg border border-[rgba(99,102,241,0.12)] cursor-grab active:cursor-grabbing hover:border-[#F5A623] hover:shadow-[0_0_10px_rgba(200,255,0,0.2)] transition-all flex items-center group"
+      className="bg-white p-3 mb-2 rounded-lg border border-slate-200 shadow-xs cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-md transition-all flex items-center group"
     >
-      <GripVertical className="w-4 h-4 text-[#6b7094] mr-2 group-hover:text-[#F5A623] transition-colors" />
-      <div className="w-3 h-3 rounded-full mr-3 shadow-sm" style={{ background: team.color }}></div>
-      <span className="font-semibold text-[#0d0d2b] text-sm tracking-wide">{team.name}</span>
+      <GripVertical className="w-4 h-4 text-slate-400 mr-2 group-hover:text-indigo-600 transition-colors" />
+      <div className="w-3 h-3 rounded-full mr-3 shadow-xs" style={{ background: team.color }}></div>
+      <span className="font-semibold text-slate-800 text-sm tracking-wide">{team.name}</span>
     </div>
   );
 
@@ -137,10 +183,12 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
     return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>;
   }
 
-  if (!configId) {
+  if (!selectedConfigId && configs.length === 0) {
     return (
-      <div className="bg-white/50 border border-[rgba(99,102,241,0.12)] border-dashed rounded-xl p-8 text-center text-[#6b7094] text-sm">
-        Select a tournament configuration to use the Manual Scheduler.
+      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500 text-sm">
+        <Trophy className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+        <p className="font-semibold text-slate-700">No tournament configurations found.</p>
+        <p className="text-xs text-slate-400 mt-1">Create a schedule config in the "Config" tab to use the manual scheduler.</p>
       </div>
     );
   }
@@ -160,6 +208,25 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
           <button onClick={() => setActiveTab('KNOCKOUT')} className={`whitespace-nowrap px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'KNOCKOUT' ? 'bg-[#F5A623] text-black shadow-sm' : 'text-[#6b7094] hover:text-[#0d0d2b]'}`}>3. Knockouts</button>
         </div>
       </div>
+
+      {/* Tournament Selector */}
+      {configs.length > 0 && (
+        <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-indigo-500" />
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tournament:</label>
+          </div>
+          <select
+            value={selectedConfigId ?? ""}
+            onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
+            className="text-xs sm:text-sm font-semibold rounded-lg border border-slate-200 bg-white px-3 py-1.5 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800 min-w-[240px]"
+          >
+            {configs.map(c => (
+              <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* ==========================================
           TAB 1: DRAG & DROP GROUP ASSIGNMENTS

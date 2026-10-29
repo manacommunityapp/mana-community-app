@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch } from "./SportsDashboard";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
   const currentUserName = "Sandeep Kamarapu";
@@ -82,5 +82,99 @@ describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", 
     const sonMatches = filterByMember("2");
     expect(sonMatches).toHaveLength(1);
     expect(sonMatches[0].playerName).toBe("Aarav Kamarapu");
+  });
+});
+
+describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () => {
+  const currentUserName = "Sandeep Kamarapu";
+  const familyMembersOnly = [
+    { id: 2, name: "Aarav Kamarapu", relation: "Son" },
+    { id: 3, name: "Sunita Kamarapu", relation: "Spouse" },
+  ];
+
+  it("recognizes Self registration when familyMemberId, relation, and playerName are null/empty", () => {
+    const rawSelfReg = {
+      id: 501,
+      eventId: 10,
+      familyMemberId: null,
+      relation: null,
+      playerName: null,
+    };
+
+    expect(isRegistrationForMemberHelper(rawSelfReg, "self", familyMembersOnly, currentUserName)).toBe(true);
+    expect(isRegistrationForMemberHelper(rawSelfReg, undefined, familyMembersOnly, currentUserName)).toBe(true);
+    expect(isRegistrationForMemberHelper(rawSelfReg, 2, familyMembersOnly, currentUserName)).toBe(false);
+  });
+
+  it("recognizes explicit Self registrations with relation 'SELF' or familyMemberId 'self'", () => {
+    const selfRegWithId = { id: 502, eventId: 10, familyMemberId: "self", relation: "SELF" };
+    expect(isRegistrationForMemberHelper(selfRegWithId, "self", familyMembersOnly, currentUserName)).toBe(true);
+    expect(isRegistrationForMemberHelper(selfRegWithId, 2, familyMembersOnly, currentUserName)).toBe(false);
+  });
+
+  it("recognizes family member registrations and excludes them from Self target", () => {
+    const sonReg = { id: 503, eventId: 10, familyMemberId: 2, relation: "Son", playerName: "Aarav Kamarapu" };
+    expect(isRegistrationForMemberHelper(sonReg, "self", familyMembersOnly, currentUserName)).toBe(false);
+    expect(isRegistrationForMemberHelper(sonReg, 2, familyMembersOnly, currentUserName)).toBe(true);
+    expect(isRegistrationForMemberHelper(sonReg, 3, familyMembersOnly, currentUserName)).toBe(false);
+  });
+
+  it("isEventMatch correctly matches events across string, number, UUID, and category names", () => {
+    const mockReg = {
+      id: 101,
+      eventId: 42,
+      eventName: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Badminton Men's Doubles Championship",
+    };
+
+    // Number vs string ID match
+    expect(isEventMatch(mockReg, { id: "42", name: "Any" } as any)).toBe(true);
+    expect(isEventMatch(mockReg, { id: 42, name: "Any" } as any)).toBe(true);
+    expect(isEventMatch(mockReg, { id: 99, name: "Monsoon Badminton Premier Cup 2026" } as any)).toBe(true);
+    expect(isEventMatch(mockReg, { id: 99, name: "Unrelated", categoryName: "Badminton Men's Doubles Championship" } as any)).toBe(true);
+
+    // UUID match
+    const uuidReg = { id: 102, eventUuid: "uuid-1234", eventName: "Tourney" };
+    expect(isEventMatch(uuidReg, { id: 99, uuid: "uuid-1234", name: "Tourney" } as any)).toBe(true);
+
+    // Non-match
+    expect(isEventMatch(mockReg, { id: 99, name: "Cricket Trophy", categoryName: "Under-16" } as any)).toBe(false);
+  });
+
+  it("ensures an already registered event resolves to Registered state rather than Register Now", () => {
+    const openCard = {
+      id: 42,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Doubles",
+      isTeamSport: true,
+    } as any;
+
+    const myRegistrations = [
+      {
+        id: 777,
+        eventId: 42,
+        eventName: "Monsoon Badminton Premier Cup 2026",
+        familyMemberId: null,
+        relation: null,
+        playerName: null,
+        status: "CONFIRMED",
+        matchType: "TEAM",
+      },
+    ];
+
+    const selectedMemberId = "self";
+    const regs = myRegistrations.filter(r =>
+      isEventMatch(r, openCard) &&
+      isRegistrationForMemberHelper(r, selectedMemberId, familyMembersOnly, currentUserName) &&
+      r.status !== "CANCELLED" &&
+      r.status !== "WITHDRAWN"
+    );
+
+    const isReg = regs.length > 0;
+    const isFullyReg = isReg && (openCard.isTeamSport || false);
+
+    expect(isReg).toBe(true);
+    expect(isFullyReg).toBe(true);
+    // When isFullyReg is true, the UI displays "Registered" + "Unregister", NOT "Register Now"
   });
 });

@@ -4,6 +4,7 @@ import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VenueTimingModal } from './VenueTimingModal';
+import { AddEditVenueModal } from './AddEditVenueModal';
 import { showSuccess, showWarning, showError, showInfo } from '../../../utils/ToastUtils';
 import { confirmAction } from '../../../utils/AlertUtils';
 import { escapeHtml } from '../../../utils/sanitize';
@@ -264,6 +265,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [addEditVenueModalOpen, setAddEditVenueModalOpen] = useState(false);
+  const [venueToEdit, setVenueToEdit] = useState<Venue | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
@@ -335,6 +338,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const handleSaveTimingSuccess = (updatedVenue: Venue) => {
     setVenues(prev => prev.map(item => item.id === updatedVenue.id ? updatedVenue : item));
     showSuccess('Venue timing updated successfully!');
+  };
+
+  const handleVenueSaved = (savedVenue: Venue) => {
+    setVenues(prev => {
+      const exists = prev.some(v => v.id === savedVenue.id);
+      if (exists) {
+        return prev.map(v => v.id === savedVenue.id ? savedVenue : v);
+      }
+      return [...prev, savedVenue];
+    });
+    setSelectedVenues(prev => prev.includes(savedVenue.id) ? prev : [...prev, savedVenue.id]);
+    setExpandedVenue(savedVenue.id);
   };
 
 
@@ -1741,7 +1756,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <MapPin className="w-4 h-4 text-[#4f46e5]" />
               <h3 className="text-sm font-semibold text-[#0d0d2b]">Venue Configuration <span className="text-red-400">*</span></h3>
             </div>
-            <button className="text-xs border border-[#4f46e5]/40 text-[#4f46e5] px-3 py-1.5 rounded-lg hover:bg-[#4f46e5]/10 transition-colors font-semibold flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setVenueToEdit(null);
+                setAddEditVenueModalOpen(true);
+              }}
+              className="text-xs border border-[#4f46e5]/40 text-[#4f46e5] px-3 py-1.5 rounded-lg hover:bg-[#4f46e5]/10 transition-colors font-semibold flex items-center gap-1 cursor-pointer"
+            >
               <Plus className="w-3 h-3" /> Add/Edit Venue
             </button>
           </div>
@@ -1758,7 +1780,19 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           {/* Venue List */}
           <div className="space-y-2 mb-4 max-h-[260px] overflow-y-auto pr-1">
             {venues.length === 0 ? (
-              <div className="text-center py-6 text-[#6b7094] text-sm border border-dashed border-[rgba(99,102,241,0.12)] rounded-lg">No venues found. Add a venue to get started.</div>
+              <div className="text-center py-6 text-[#6b7094] text-sm border border-dashed border-[rgba(99,102,241,0.12)] rounded-lg space-y-2">
+                <p className="m-0">No venues found.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVenueToEdit(null);
+                    setAddEditVenueModalOpen(true);
+                  }}
+                  className="text-xs bg-[#4f46e5] text-white px-3 py-1.5 rounded-lg hover:bg-[#4338ca] transition-colors font-semibold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" /> Add Venue Now
+                </button>
+              </div>
             ) : venues.map(v => (
               <div key={v.id} className="border border-[rgba(99,102,241,0.12)] rounded-lg overflow-hidden">
                 <div className="flex items-center gap-3 p-3 bg-white/50 cursor-pointer" onClick={() => setExpandedVenue(expandedVenue === v.id ? null : v.id)}>
@@ -1824,7 +1858,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </div>
                     {v.mapLink && <a href={v.mapLink} target="_blank" rel="noreferrer" className="text-[#00e5ff] hover:underline inline-flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> View on Map</a>}
                     
-                    <div className="pt-1">
+                    <div className="pt-1 flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1835,6 +1869,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                         className="text-[11px] border border-[rgba(99,102,241,0.12)] text-[#6b7094] px-2 py-1 rounded hover:border-[#4f46e5] hover:text-[#4f46e5] transition-colors flex items-center gap-1 bg-transparent cursor-pointer"
                       >
                         <Pencil className="w-3 h-3" /> {canEditTiming ? "Edit Venue Timing" : "View Venue Timing"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setVenueToEdit(v);
+                          setAddEditVenueModalOpen(true);
+                        }}
+                        className="text-[11px] border border-[rgba(99,102,241,0.12)] text-[#6b7094] px-2 py-1 rounded hover:border-[#4f46e5] hover:text-[#4f46e5] transition-colors flex items-center gap-1 bg-transparent cursor-pointer"
+                      >
+                        <Settings className="w-3 h-3" /> Edit Venue Details
                       </button>
                     </div>
                   </div>
@@ -3215,6 +3260,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         venue={selectedTimingVenue}
         canEditTiming={canEditTiming}
         onSaveSuccess={handleSaveTimingSuccess}
+      />
+      <AddEditVenueModal
+        isOpen={addEditVenueModalOpen}
+        onClose={() => {
+          setAddEditVenueModalOpen(false);
+          setVenueToEdit(null);
+        }}
+        onVenueSaved={handleVenueSaved}
+        communityId={user?.communityId}
+        venueToEdit={venueToEdit}
+        existingVenues={venues}
       />
     </div>
   );

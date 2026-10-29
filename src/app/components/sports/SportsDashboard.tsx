@@ -183,6 +183,120 @@ export function isSelfRelationOrMember(
   return false;
 }
 
+/**
+ * Robust helper to match an event/category registration with a dashboard event card.
+ * Handles numeric/string IDs, UUIDs, nested rawEvent, category ID, and normalized event/category names.
+ */
+export function isEventMatch(r: any, ev: OpenRegistration): boolean {
+  if (!r || !ev) return false;
+
+  const rEvId = r.eventId != null ? String(r.eventId).trim() : (r.event?.id != null ? String(r.event.id).trim() : null);
+  const evId = ev.id != null ? String(ev.id).trim() : null;
+  const evUuid = ev.uuid != null ? String(ev.uuid).trim() : null;
+  const rEvUuid = (r as any).eventUuid != null
+    ? String((r as any).eventUuid).trim()
+    : ((r as any).uuid != null ? String((r as any).uuid).trim() : (r.event?.uuid != null ? String(r.event.uuid).trim() : null));
+
+  // Match by numeric or string IDs
+  if (rEvId && evId && rEvId === evId) return true;
+  // Match by UUID
+  if (rEvUuid && evUuid && rEvUuid === evUuid) return true;
+  if (evUuid && rEvId && rEvId === evUuid) return true;
+  if (evId && rEvUuid && evId === rEvUuid) return true;
+
+  // Match by rawEvent or nested eventId
+  const evRawId = (ev as any).rawEvent?.id != null ? String((ev as any).rawEvent.id).trim() : null;
+  if (evRawId && rEvId && evRawId === rEvId) return true;
+
+  const evEventId = (ev as any).eventId != null ? String((ev as any).eventId).trim() : null;
+  if (evEventId && rEvId && evEventId === rEvId) return true;
+
+  // Match category ID
+  const rCatId = r.category?.id != null ? String(r.category.id).trim() : ((r as any).categoryId != null ? String((r as any).categoryId).trim() : null);
+  if (rCatId && evId && rCatId === evId) return true;
+
+  // Match by event name
+  const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const rName = norm(r.eventName || r.event?.name);
+  const evName = norm(ev.name);
+  if (rName && evName && (rName === evName || rName.includes(evName) || evName.includes(rName))) {
+    return true;
+  }
+
+  // Match by category name
+  const rCatName = norm(r.categoryName || r.category?.name);
+  const evCatName = norm(ev.categoryName);
+  if (rCatName && evCatName && (rCatName === evCatName || rCatName.includes(evCatName) || evCatName.includes(rCatName))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Robust helper to determine if a registration belongs to a specific family member or the logged-in user (Self).
+ */
+export function isRegistrationForMemberHelper(
+  reg: any,
+  selectedMemberId: string | number | undefined,
+  familyMembersOnly: Array<{ id: string | number; name?: string; relation?: string }> = [],
+  currentUserName?: string | null
+): boolean {
+  if (!reg) return false;
+  const isSelfTarget =
+    !selectedMemberId ||
+    selectedMemberId === "self" ||
+    selectedMemberId === "SELF" ||
+    selectedMemberId === "member-self" ||
+    selectedMemberId === "fam-self";
+
+  const regPlayerName = (reg.playerName || "").trim();
+  const regRelation = (reg.relation || "").trim();
+  const regFamilyMemberId = reg.familyMemberId;
+  const targetFullName = (currentUserName || "").trim();
+
+  const isExplicitFamily = Boolean(
+    (regFamilyMemberId && !isSelfRelationOrMember(undefined, regFamilyMemberId)) ||
+    (regRelation && !isSelfRelationOrMember(regRelation))
+  );
+
+  const matchesFamilyMemberName = Boolean(
+    regPlayerName && familyMembersOnly.some(m => m.name && m.name.trim().toLowerCase() === regPlayerName.toLowerCase())
+  );
+
+  // A registration belongs to Self if it's explicitly Self, OR not an explicit family member and not matching any family member's name
+  const isSelfReg =
+    isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName) ||
+    (!isExplicitFamily && !matchesFamilyMemberName);
+
+  if (isSelfTarget) {
+    return isSelfReg;
+  }
+
+  // When filtering by an actual family member, exclude Self registrations
+  if (isSelfReg) {
+    return false;
+  }
+
+  if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
+    return true;
+  }
+
+  const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
+  if (targetMember) {
+    const targetMemberName = (targetMember.name || "").trim().toLowerCase();
+    const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
+    if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
+      return true;
+    }
+    if (targetMemberRelation && regRelation.toUpperCase() === targetMemberRelation) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // ─── Event Row ───────────────────────────────────────────────────────────────
 
 interface EventRowProps {
@@ -582,42 +696,7 @@ export function SportsDashboard() {
     reg: any,
     selectedMemberId: string | number | undefined,
   ) => {
-    if (!reg) return false;
-    const isSelfTarget = !selectedMemberId || selectedMemberId === "self" || selectedMemberId === "SELF" || selectedMemberId === "member-self" || selectedMemberId === "fam-self";
-
-    const regPlayerName = (reg.playerName || "").trim();
-    const regRelation = (reg.relation || "").trim();
-    const regFamilyMemberId = reg.familyMemberId;
-    const targetFullName = (user?.fullName || "").trim();
-
-    const isSelfReg = isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName);
-
-    if (isSelfTarget) {
-      return isSelfReg;
-    }
-
-    // When filtering by an actual family member, exclude Self registrations
-    if (isSelfReg) {
-      return false;
-    }
-
-    if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
-      return true;
-    }
-
-    const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
-    if (targetMember) {
-      const targetMemberName = (targetMember.name || "").trim().toLowerCase();
-      const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-      if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
-        return true;
-      }
-      if (targetMemberRelation && regRelation.toUpperCase() === targetMemberRelation) {
-        return true;
-      }
-    }
-
-    return false;
+    return isRegistrationForMemberHelper(reg, selectedMemberId, familyMembersOnly, user?.fullName);
   }, [familyMembersOnly, user?.fullName]);
 
   const filteredLiveEvents = useMemo(() => {
@@ -870,6 +949,7 @@ export function SportsDashboard() {
 
       // Map my registrations
       const fetchedMyRegs = myRegsData.map(r => ({
+        ...r,
         id: r.id,
         eventId: r.eventId,
         event: {
@@ -878,8 +958,9 @@ export function SportsDashboard() {
           eventDateStart: r.eventDateStart,
           sport: { name: r.sportName },
           registrationStatus: r.eventRegistrationStatus,
+          ...(r as any).event,
         },
-        category: { name: r.categoryName },
+        category: { name: r.categoryName, ...(r as any).category },
         status: r.status,
         matchType: r.matchType,
         captainNomination: r.captainNomination,
@@ -892,9 +973,12 @@ export function SportsDashboard() {
 
       // Helper event mapping function
       const mapEventCard = (e: any): OpenRegistration => {
+        const matchingReg = fetchedMyRegs.find(r => isEventMatch(r, e));
+        const regId = e.myRegistrationId ?? matchingReg?.id ?? undefined;
+        const regStatus = e.myRegistrationStatus ?? matchingReg?.status ?? undefined;
         let actionVal = "Register";
-        if (e.myRegistrationId) {
-          actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
+        if (regId) {
+          actionVal = regStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
         }
         const regCount = (e as any).registeredCount ?? (e as any).registrationCount ?? (e as any).registeredParticipants ?? 0;
         return {
@@ -904,12 +988,12 @@ export function SportsDashboard() {
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: [e.sportName, e.venueName].filter(Boolean).join(" · ") || (e.sportName ?? "Sport"),
           spots: e.maxParticipants ? `${regCount}/${e.maxParticipants} spots` : "Unlimited spots",
-          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 0,
-          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
+          progress: regId ? (regStatus === "CONFIRMED" ? 100 : 50) : 0,
+          progressColor: regId ? (regStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#e2e8f0",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
-          registrationId: e.myRegistrationId ?? undefined,
+          registrationId: regId,
           isTeamSport: Boolean(e.teamSport || isTeamSport(e.sportName || e.name || "") || (e as any).matchType === "TEAM" || (e as any).eventType === "TEAM"),
           sportEmoji: getSportEmoji(e.sportName),
           categoryName: e.categoryName ?? (e as any).category?.name ?? (e as any).playerCategory?.name ?? (e as any).categories?.[0]?.name ?? undefined,
@@ -1675,12 +1759,12 @@ export function SportsDashboard() {
               <div className="max-h-[220px] sm:max-h-[240px] overflow-y-auto pr-1">
                 {filteredLiveEvents.map((ev, idx) => {
                   const myReg = myRegistrations.find(r => {
-                    if (r.eventId !== ev.id && r.event?.id !== ev.id) return false;
+                    if (!isEventMatch(r, ev as any)) return false;
                     if (ev.familyMemberId != null) return String(r.familyMemberId) === String(ev.familyMemberId);
                     if (ev.playerName) return r.playerName?.toLowerCase().trim() === ev.playerName.toLowerCase().trim();
                     if (upcomingFamilyFilter !== "ALL") return isRegistrationForMember(r, upcomingFamilyFilter);
                     return true;
-                  }) || myRegistrations.find(r => (r.eventId === ev.id || r.event?.id === ev.id));
+                  }) || myRegistrations.find(r => isEventMatch(r, ev as any));
 
                   const isConfirmed = myReg?.status === "CONFIRMED";
                   const isNominated = myReg?.captainNomination;
@@ -1832,12 +1916,27 @@ export function SportsDashboard() {
                     })();
 
                 const getMemberRegsForEvent = (ev: OpenRegistration) => {
-                  return myRegistrations.filter(r =>
-                    (r.eventId === ev.id || r.event?.id === ev.id) &&
+                  const fromMyRegs = myRegistrations.filter(r =>
+                    isEventMatch(r, ev) &&
                     isRegistrationForMember(r, selectedMemberId) &&
                     r.status !== "CANCELLED" &&
-                    r.status !== "WITHDRAWN"
+                    r.status !== "WITHDRAWN" &&
+                    r.status !== "REJECTED"
                   );
+                  if (fromMyRegs.length > 0) return fromMyRegs;
+
+                  if (isSelf && (ev.registrationId || (ev as any).myRegistrationId)) {
+                    return [{
+                      id: ev.registrationId || (ev as any).myRegistrationId,
+                      eventId: ev.id,
+                      status: (ev as any).myRegistrationStatus || "CONFIRMED",
+                      matchType: (ev as any).matchType || (ev.isTeamSport ? "TEAM" : "SINGLES"),
+                      playerName: user?.fullName || "Self",
+                      relation: "SELF",
+                    }];
+                  }
+
+                  return [];
                 };
                 const isMemberRegisteredForEvent = (ev: OpenRegistration) => {
                   return getMemberRegsForEvent(ev).length > 0;
