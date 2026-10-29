@@ -12,13 +12,15 @@ interface PermissionGuardProps {
   superAdminOnly?: boolean;
   /** Restrict strictly to admin roles (ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
   adminOnly?: boolean;
+  /** Restrict strictly to vendor roles (VENDOR, SPORTS_VENDOR, VENDOR_ADMIN, or admin override) */
+  vendorOnly?: boolean;
   /** Community module key required (e.g. "SPORTS", "MARKETPLACE"). Blocked if module is disabled for the user's community. */
   requiredModule?: string;
   /** OR-based module check — community must have at least one of these enabled (e.g. ["FINANCE_MGMT", "PAYMENTS"]) */
   anyModules?: string[];
 }
 
-export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, requiredModule, anyModules }: PermissionGuardProps) {
+export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, vendorOnly, requiredModule, anyModules }: PermissionGuardProps) {
   const { user, isSuperAdmin, isAdmin } = useAuth();
 
   if (!user) {
@@ -49,6 +51,20 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   // adminOnly views are restricted strictly to users with admin roles
   if (adminOnly && !isAdmin) {
     return renderAccessDenied();
+  }
+  // vendorOnly views are restricted strictly to vendors or managing admins
+  if (vendorOnly) {
+    const userRoles = [
+      ...(user.roles || []),
+      ...(user.role ? user.role.split(",").map((r) => r.trim()) : []),
+    ].map((r) => r.toUpperCase());
+    const isVendorRole =
+      userRoles.includes("VENDOR") ||
+      userRoles.includes("SPORTS_VENDOR") ||
+      userRoles.includes("VENDOR_ADMIN");
+    if (!isVendorRole && !isAdmin && !isSuperAdmin) {
+      return renderAccessDenied();
+    }
   }
   let hasAccess = false;
   if (permission) {

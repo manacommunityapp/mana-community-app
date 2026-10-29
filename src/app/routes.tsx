@@ -859,7 +859,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "vendor-portal",
-        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
+        element: (
+          <PermissionGuard vendorOnly permission={VIEW_VENDOR_MANAGEMENT}>
+            <VendorPortalLayout />
+          </PermissionGuard>
+        ),
         children: [
           { index: true, Component: VendorPortalDashboard },
           { path: "sports", Component: SportsVendorDashboard },
@@ -894,6 +898,7 @@ export const router = createBrowserRouter([
           },
           { path: "payments", Component: MyPayments },
           { path: "merchant-payments", Component: VendorMerchantPayments },
+          { path: "verification", Component: VendorVerification },
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
           { path: "profile", Component: VendorProfile },
