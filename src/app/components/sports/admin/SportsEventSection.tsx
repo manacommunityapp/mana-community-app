@@ -96,6 +96,7 @@ export function SportsEventSection({
   // Filters for Scheduled Community Events
   const [selectedSportFilter, setSelectedSportFilter] = React.useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState<string>("");
+  const [selectedAgeCategoryFilter, setSelectedAgeCategoryFilter] = React.useState<string>("");
 
   const getEventSportName = React.useCallback((e: any): string => {
     if (e.sport?.name) return e.sport.name;
@@ -117,6 +118,66 @@ export function SportsEventSection({
     }
     return "";
   }, [sportsMeta]);
+
+  // Helper to format an age range into an age category label
+  const formatAgeCategoryLabel = React.useCallback((minAge?: number | null, maxAge?: number | null): string => {
+    const min = minAge != null ? Number(minAge) : null;
+    const max = maxAge != null ? Number(maxAge) : null;
+
+    if ((min == null || min <= 0) && (max == null || max >= 90)) {
+      return "Open (All Ages)";
+    }
+    if ((min == null || min <= 0) && max != null && max < 90) {
+      return `Under ${max} (U-${max})`;
+    }
+    if (min != null && min > 0 && (max == null || max >= 90)) {
+      return `${min}+ Yrs`;
+    }
+    if (min != null && max != null) {
+      return `${min}–${max} Yrs`;
+    }
+    return "Open (All Ages)";
+  }, []);
+
+  // Helper to resolve an event's primary age category
+  const getEventAgeCategory = React.useCallback((e: any): string => {
+    // 1. Direct property if explicitly provided
+    if (e.ageCategory) return String(e.ageCategory);
+    if (e.ageGroup) return String(e.ageGroup);
+
+    // 2. Direct event minAge / maxAge
+    if (e.minAge != null || e.maxAge != null) {
+      return formatAgeCategoryLabel(e.minAge, e.maxAge);
+    }
+
+    // 3. Category array
+    if (Array.isArray(e.categories) && e.categories.length > 0) {
+      const firstCat = e.categories[0];
+      if (firstCat && (firstCat.minAge != null || firstCat.maxAge != null)) {
+        return formatAgeCategoryLabel(firstCat.minAge, firstCat.maxAge);
+      }
+    }
+
+    // 4. Category IDs matching playerCategories
+    if (Array.isArray(e.categoryIds) && e.categoryIds.length > 0) {
+      const matched = playerCategories.find(pc => e.categoryIds.some((id: any) => Number(id) === Number(pc.id)));
+      if (matched && (matched.minAge != null || matched.maxAge != null)) {
+        return formatAgeCategoryLabel(matched.minAge, matched.maxAge);
+      }
+    }
+
+    // 5. Detect from event name
+    const nameLower = (e.name || "").toLowerCase();
+    const uMatch = nameLower.match(/\b(?:u-?|under\s*)(\d+)\b/i);
+    if (uMatch) return `Under ${uMatch[1]} (U-${uMatch[1]})`;
+    const plusMatch = nameLower.match(/\b(\d+)\s*\+/);
+    if (plusMatch) return `${plusMatch[1]}+ Yrs`;
+    const rangeMatch = nameLower.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
+    if (rangeMatch) return `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+    if (/\bopen\b/i.test(nameLower)) return "Open (All Ages)";
+
+    return "Open (All Ages)";
+  }, [playerCategories, formatAgeCategoryLabel]);
 
   const matchesEventCategory = React.useCallback((e: any, targetCategoryName: string): boolean => {
     if (!targetCategoryName) return true;
@@ -159,6 +220,59 @@ export function SportsEventSection({
     return false;
   }, [playerCategories]);
 
+  const matchesEventAgeCategory = React.useCallback((e: any, targetAgeCategory: string): boolean => {
+    if (!targetAgeCategory) return true;
+
+    // Direct computed age category comparison
+    const eventAgeCategory = getEventAgeCategory(e);
+    if (eventAgeCategory.toLowerCase() === targetAgeCategory.toLowerCase()) {
+      return true;
+    }
+
+    // Check categories array
+    if (Array.isArray(e.categories)) {
+      for (const c of e.categories) {
+        if (c.minAge != null || c.maxAge != null) {
+          const label = formatAgeCategoryLabel(c.minAge, c.maxAge);
+          if (label.toLowerCase() === targetAgeCategory.toLowerCase()) return true;
+        }
+      }
+    }
+
+    // Check categoryIds
+    if (Array.isArray(e.categoryIds)) {
+      for (const id of e.categoryIds) {
+        const cat = playerCategories.find(pc => Number(pc.id) === Number(id));
+        if (cat && (cat.minAge != null || cat.maxAge != null)) {
+          const label = formatAgeCategoryLabel(cat.minAge, cat.maxAge);
+          if (label.toLowerCase() === targetAgeCategory.toLowerCase()) return true;
+        }
+      }
+    }
+
+    // Check numerical range compatibility if target specifies numbers
+    const uMatch = targetAgeCategory.match(/\b(?:u-?|under\s*)(\d+)\b/i);
+    if (uMatch) {
+      const targetMax = parseInt(uMatch[1], 10);
+      if (e.maxAge != null && Number(e.maxAge) === targetMax) return true;
+      if (e.name && new RegExp(`\\b(u-?|under\\s*)${targetMax}\\b`, "i").test(e.name)) return true;
+    }
+    const plusMatch = targetAgeCategory.match(/\b(\d+)\s*\+/);
+    if (plusMatch) {
+      const targetMin = parseInt(plusMatch[1], 10);
+      if (e.minAge != null && Number(e.minAge) === targetMin) return true;
+      if (e.name && e.name.includes(`${targetMin}+`)) return true;
+    }
+    const rangeMatch = targetAgeCategory.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
+    if (rangeMatch) {
+      const targetMin = parseInt(rangeMatch[1], 10);
+      const targetMax = parseInt(rangeMatch[2], 10);
+      if (e.minAge != null && e.maxAge != null && Number(e.minAge) === targetMin && Number(e.maxAge) === targetMax) return true;
+    }
+
+    return false;
+  }, [getEventAgeCategory, formatAgeCategoryLabel, playerCategories]);
+
   const availableSports = React.useMemo(() => {
     const set = new Set<string>();
     activeEvents.forEach(e => {
@@ -195,6 +309,40 @@ export function SportsEventSection({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [activeEvents, playerCategories]);
 
+  const availableAgeCategories = React.useMemo(() => {
+    const set = new Set<string>();
+    activeEvents.forEach(e => {
+      const ac = getEventAgeCategory(e);
+      if (ac) set.add(ac);
+    });
+
+    playerCategories.forEach(cat => {
+      if (cat.minAge != null || cat.maxAge != null) {
+        const label = formatAgeCategoryLabel(cat.minAge, cat.maxAge);
+        if (label) set.add(label);
+      }
+    });
+
+    if (set.size === 0) {
+      ["Open (All Ages)", "Under 12 (U-12)", "Under 14 (U-14)", "Under 16 (U-16)", "Under 19 (U-19)", "18–35 Yrs", "35+ Yrs", "40+ Yrs"].forEach(s => set.add(s));
+    }
+
+    // Sort age categories: U-X first by age, then ranges, then X+, then Open
+    return Array.from(set).sort((a, b) => {
+      const getSortKey = (str: string) => {
+        const u = str.match(/\b(?:u-?|under\s*)(\d+)\b/i);
+        if (u) return parseInt(u[1], 10);
+        const r = str.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
+        if (r) return parseInt(r[1], 10) + 100;
+        const p = str.match(/\b(\d+)\s*\+/);
+        if (p) return parseInt(p[1], 10) + 200;
+        if (/open/i.test(str)) return 999;
+        return 500;
+      };
+      return getSortKey(a) - getSortKey(b);
+    });
+  }, [activeEvents, playerCategories, getEventAgeCategory, formatAgeCategoryLabel]);
+
   const filteredEvents = React.useMemo(() => {
     return activeEvents.filter(e => {
       if (selectedSportFilter) {
@@ -208,11 +356,16 @@ export function SportsEventSection({
           return false;
         }
       }
+      if (selectedAgeCategoryFilter) {
+        if (!matchesEventAgeCategory(e, selectedAgeCategoryFilter)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [activeEvents, selectedSportFilter, selectedCategoryFilter, getEventSportName, matchesEventCategory]);
+  }, [activeEvents, selectedSportFilter, selectedCategoryFilter, selectedAgeCategoryFilter, getEventSportName, matchesEventCategory, matchesEventAgeCategory]);
 
-  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter);
+  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter);
 
   const isDateDisabled = React.useCallback((date: Date) => {
     if (tournamentStartDate) {
@@ -1028,10 +1181,16 @@ export function SportsEventSection({
                 </span>
               </div>
 
-              {/* Filters for sports type and player category */}
+              {/* Filters for sports type, player category, and age category */}
               <div className="flex flex-wrap items-center gap-2">
+                {isFiltered && (
+                  <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
+                    {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+                  </span>
+                )}
+
                 {/* Sports Type Filter */}
-                <div className="relative min-w-[130px] sm:min-w-[150px]">
+                <div className="relative min-w-[125px] sm:min-w-[145px]">
                   <select
                     value={selectedSportFilter}
                     onChange={(e) => setSelectedSportFilter(e.target.value)}
@@ -1048,7 +1207,7 @@ export function SportsEventSection({
                 </div>
 
                 {/* Player Category Filter */}
-                <div className="relative min-w-[140px] sm:min-w-[170px]">
+                <div className="relative min-w-[130px] sm:min-w-[155px]">
                   <select
                     value={selectedCategoryFilter}
                     onChange={(e) => setSelectedCategoryFilter(e.target.value)}
@@ -1064,6 +1223,23 @@ export function SportsEventSection({
                   </select>
                 </div>
 
+                {/* Age Category Filter */}
+                <div className="relative min-w-[135px] sm:min-w-[165px]">
+                  <select
+                    value={selectedAgeCategoryFilter}
+                    onChange={(e) => setSelectedAgeCategoryFilter(e.target.value)}
+                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                    aria-label="Filter by age category"
+                  >
+                    <option value="">All Ages {availableAgeCategories.length > 0 ? `(${availableAgeCategories.length})` : ""}</option>
+                    {availableAgeCategories.map((ac) => (
+                      <option key={ac} value={ac}>
+                        {ac}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Clear filters button */}
                 {isFiltered && (
                   <button
@@ -1071,6 +1247,7 @@ export function SportsEventSection({
                     onClick={() => {
                       setSelectedSportFilter("");
                       setSelectedCategoryFilter("");
+                      setSelectedAgeCategoryFilter("");
                     }}
                     className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
                     title="Clear filters"
@@ -1089,13 +1266,14 @@ export function SportsEventSection({
                 </div>
                 <h4 className="text-xs font-bold text-slate-700 mb-1">No matching events found</h4>
                 <p className="text-[11px] text-slate-500 max-w-sm mx-auto mb-3">
-                  No scheduled events match the selected sports type or player category filter.
+                  No scheduled events match the selected sports type, player category, or age category filter.
                 </p>
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedSportFilter("");
                     setSelectedCategoryFilter("");
+                    setSelectedAgeCategoryFilter("");
                   }}
                   className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
                 >
@@ -1111,6 +1289,7 @@ export function SportsEventSection({
                   const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
                   const sportLabel = getEventSportName(e);
                   const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
+                  const ageCategoryLabel = getEventAgeCategory(e);
 
                   return (
                     <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs", e.active !== false ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs" : "bg-slate-50 border-slate-200/60 opacity-75")}>
@@ -1148,6 +1327,11 @@ export function SportsEventSection({
                             {categoryLabel && (
                               <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
                                 {categoryLabel}
+                              </span>
+                            )}
+                            {ageCategoryLabel && (
+                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                                {ageCategoryLabel}
                               </span>
                             )}
                             {e.status && (
