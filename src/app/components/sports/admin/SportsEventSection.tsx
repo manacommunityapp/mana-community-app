@@ -93,6 +93,127 @@ export function SportsEventSection({
 }: SportsEventSectionProps) {
   const [openDatePickerKey, setOpenDatePickerKey] = React.useState<string | null>(null);
 
+  // Filters for Scheduled Community Events
+  const [selectedSportFilter, setSelectedSportFilter] = React.useState<string>("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState<string>("");
+
+  const getEventSportName = React.useCallback((e: any): string => {
+    if (e.sport?.name) return e.sport.name;
+    if (e.sportName) return e.sportName;
+    if (e.sportId) {
+      const found = sportsMeta.find(s => s.id === e.sportId || s.id === e.sport?.id);
+      if (found?.name) return found.name;
+    }
+    const eventNameLower = (e.name || "").toLowerCase();
+    for (const sm of sportsMeta) {
+      if (sm.name && eventNameLower.includes(sm.name.toLowerCase())) {
+        return sm.name;
+      }
+    }
+    for (const ps of PREDEFINED_SPORTS) {
+      if (ps.name && eventNameLower.includes(ps.name.toLowerCase())) {
+        return ps.name;
+      }
+    }
+    return "";
+  }, [sportsMeta]);
+
+  const matchesEventCategory = React.useCallback((e: any, targetCategoryName: string): boolean => {
+    if (!targetCategoryName) return true;
+    const target = targetCategoryName.toLowerCase();
+
+    // 1. Direct categoryName or category property
+    if (e.categoryName && e.categoryName.toLowerCase() === target) return true;
+    if (typeof e.category === "string" && e.category.toLowerCase() === target) return true;
+    if (e.category?.name && e.category.name.toLowerCase() === target) return true;
+
+    // 2. categories array
+    if (Array.isArray(e.categories) && e.categories.some((c: any) => c?.name?.toLowerCase() === target)) {
+      return true;
+    }
+
+    // 3. categoryIds matching playerCategories
+    const targetCat = playerCategories.find(pc => pc.name.toLowerCase() === target);
+    if (targetCat) {
+      if (Array.isArray(e.categoryIds) && e.categoryIds.some((id: any) => Number(id) === Number(targetCat.id))) {
+        return true;
+      }
+      if (e.categoryId && Number(e.categoryId) === Number(targetCat.id)) {
+        return true;
+      }
+      // Age and gender match if category has them
+      if (
+        (e.gender === targetCat.gender || e.gender === "ALL" || !e.gender) &&
+        (e.minAge === targetCat.minAge || (e.minAge == null && targetCat.minAge === 0)) &&
+        (e.maxAge === targetCat.maxAge || (e.maxAge == null && targetCat.maxAge === 99))
+      ) {
+        return true;
+      }
+    }
+
+    // 4. Check if event name includes the category name
+    if (e.name && e.name.toLowerCase().includes(target)) {
+      return true;
+    }
+
+    return false;
+  }, [playerCategories]);
+
+  const availableSports = React.useMemo(() => {
+    const set = new Set<string>();
+    activeEvents.forEach(e => {
+      const s = getEventSportName(e);
+      if (s) set.add(s);
+    });
+    if (set.size === 0) {
+      sportsMeta.forEach(s => { if (s.name) set.add(s.name); });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeEvents, getEventSportName, sportsMeta]);
+
+  const availableCategories = React.useMemo(() => {
+    const set = new Set<string>();
+    activeEvents.forEach(e => {
+      if (e.categoryName) set.add(e.categoryName);
+      if (typeof e.category === 'string') set.add(e.category);
+      if (e.category?.name) set.add(e.category.name);
+      if (Array.isArray(e.categories)) {
+        e.categories.forEach((c: any) => {
+          if (c?.name) set.add(c.name);
+        });
+      }
+      if (Array.isArray(e.categoryIds)) {
+        e.categoryIds.forEach((id: any) => {
+          const found = playerCategories.find(pc => Number(pc.id) === Number(id));
+          if (found?.name) set.add(found.name);
+        });
+      }
+    });
+    playerCategories.forEach(c => {
+      if (c.name) set.add(c.name);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeEvents, playerCategories]);
+
+  const filteredEvents = React.useMemo(() => {
+    return activeEvents.filter(e => {
+      if (selectedSportFilter) {
+        const sName = getEventSportName(e);
+        if (sName.toLowerCase() !== selectedSportFilter.toLowerCase()) {
+          return false;
+        }
+      }
+      if (selectedCategoryFilter) {
+        if (!matchesEventCategory(e, selectedCategoryFilter)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [activeEvents, selectedSportFilter, selectedCategoryFilter, getEventSportName, matchesEventCategory]);
+
+  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter);
+
   const isDateDisabled = React.useCallback((date: Date) => {
     if (tournamentStartDate) {
       const minDate = new Date(tournamentStartDate);
@@ -896,111 +1017,207 @@ export function SportsEventSection({
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100">
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0 mb-0">Scheduled Community Events ({activeEvents.length})</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
+                  Scheduled Community Events
+                </h3>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                  {filteredEvents.length}
+                  {isFiltered ? ` / ${activeEvents.length}` : ""}
+                </span>
+              </div>
+
+              {/* Filters for sports type and player category */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Sports Type Filter */}
+                <div className="relative min-w-[130px] sm:min-w-[150px]">
+                  <select
+                    value={selectedSportFilter}
+                    onChange={(e) => setSelectedSportFilter(e.target.value)}
+                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                    aria-label="Filter by sport type"
+                  >
+                    <option value="">All Sports {availableSports.length > 0 ? `(${availableSports.length})` : ""}</option>
+                    {availableSports.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Player Category Filter */}
+                <div className="relative min-w-[140px] sm:min-w-[170px]">
+                  <select
+                    value={selectedCategoryFilter}
+                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                    aria-label="Filter by player category"
+                  >
+                    <option value="">All Categories {availableCategories.length > 0 ? `(${availableCategories.length})` : ""}</option>
+                    {availableCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Clear filters button */}
+                {isFiltered && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSportFilter("");
+                      setSelectedCategoryFilter("");
+                    }}
+                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
+                    title="Clear filters"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {activeEvents.map(e => {
-              const iconUrl = e.sport?.iconUrl || e.iconUrl;
-              const icon = e.sport?.icon || e.icon || "🏆";
-              const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
-              const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
-              
-              return (
-                <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs", e.active !== false ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs" : "bg-slate-50 border-slate-200/60 opacity-75")}>
-                  <div className="flex gap-3">
-                    {iconUrl ? (
-                      <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
-                        <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
-                      </div>
-                    ) : (
-                      <span className="text-[10px] leading-none">{icon}</span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
-                        {e.name}
-                        {e.tournament?.name && (
-                          <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
-                        )}
-                      </h4>
-                      
-                      <div className="flex flex-wrap items-center gap-1 mt-2">
-                        {e.active !== false ? (
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                            Active
-                          </span>
+
+            {filteredEvents.length === 0 ? (
+              <div className="text-center py-10 px-4 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-2 text-slate-400 text-lg">
+                  🔍
+                </div>
+                <h4 className="text-xs font-bold text-slate-700 mb-1">No matching events found</h4>
+                <p className="text-[11px] text-slate-500 max-w-sm mx-auto mb-3">
+                  No scheduled events match the selected sports type or player category filter.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSportFilter("");
+                    setSelectedCategoryFilter("");
+                  }}
+                  className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
+                >
+                  Reset filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredEvents.map(e => {
+                  const iconUrl = e.sport?.iconUrl || e.iconUrl;
+                  const icon = e.sport?.icon || e.icon || "🏆";
+                  const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
+                  const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
+                  const sportLabel = getEventSportName(e);
+                  const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
+
+                  return (
+                    <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs", e.active !== false ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs" : "bg-slate-50 border-slate-200/60 opacity-75")}>
+                      <div className="flex gap-3">
+                        {iconUrl ? (
+                          <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
+                            <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
+                          </div>
                         ) : (
-                          <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                            Closed
-                          </span>
+                          <span className="text-[10px] leading-none">{icon}</span>
                         )}
-                        {e.status && (
-                          <span className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
-                            e.status === "REGISTRATION_OPEN"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : e.status === "LIVE"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : e.status === "COMPLETED"
-                                  ? "bg-slate-100 text-slate-600 border-slate-200"
-                                  : e.status === "CANCELLED"
-                                    ? "bg-red-50 text-red-600 border-red-200"
-                                    : "bg-slate-50 text-slate-600 border-slate-200"
-                          )}>
-                            {e.status.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                        <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                          {e.format || "SINGLES"}
-                        </span>
-                        <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                          {e.tournamentType ? e.tournamentType.replace(/_/g, ' ') : "KNOCKOUT"}
-                        </span>
-                        {e.auctionEnabled && (
-                          <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
-                            <Gavel className="w-2.5 h-2.5" /> Auction
-                          </span>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
+                            {e.name}
+                            {e.tournament?.name && (
+                              <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
+                            )}
+                          </h4>
+                          
+                          <div className="flex flex-wrap items-center gap-1 mt-2">
+                            {e.active !== false ? (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                Closed
+                              </span>
+                            )}
+                            {sportLabel && (
+                              <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                {sportLabel}
+                              </span>
+                            )}
+                            {categoryLabel && (
+                              <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                                {categoryLabel}
+                              </span>
+                            )}
+                            {e.status && (
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
+                                e.status === "REGISTRATION_OPEN"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : e.status === "LIVE"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : e.status === "COMPLETED"
+                                      ? "bg-slate-100 text-slate-600 border-slate-200"
+                                      : e.status === "CANCELLED"
+                                        ? "bg-red-50 text-red-600 border-red-200"
+                                        : "bg-slate-50 text-slate-600 border-slate-200"
+                              )}>
+                                {e.status.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                              {e.format || "SINGLES"}
+                            </span>
+                            <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                              {e.tournamentType ? e.tournamentType.replace(/_/g, ' ') : "KNOCKOUT"}
+                            </span>
+                            {e.auctionEnabled && (
+                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                                <Gavel className="w-2.5 h-2.5" /> Auction
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span className="truncate">{startStr} - {endStr}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="truncate">{startStr} - {endStr}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                          <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
-                        </div>
+                      <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => handleSportEdit(e)}
+                          className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                          title="Edit Event"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSportDelete(e.id)}
+                          className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                          title="Delete Event"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => handleSportEdit(e)}
-                      className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                      title="Edit Event"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSportDelete(e.id)}
-                      className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                      title="Delete Event"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+                  );
+                })}
+              </div>
+            )}
+          </>
       )}
       </div>
     </div>
