@@ -59,8 +59,8 @@ export interface CategoryEligibilityResult {
 export function normalizeGender(gender: string | null | undefined): "MALE" | "FEMALE" | "OTHER" | "" {
   if (!gender) return "";
   const g = String(gender).trim().toUpperCase();
-  if (g === "MALE" || g === "M" || g === "MEN" || g === "MAN" || g === "BOY" || g === "BOYS") return "MALE";
-  if (g === "FEMALE" || g === "F" || g === "WOMEN" || g === "WOMAN" || g === "GIRL" || g === "GIRLS" || g === "LADIES") return "FEMALE";
+  if (["MALE", "M", "MEN", "MENS", "MEN'S", "MAN", "BOY", "BOYS", "GENTLEMEN"].includes(g)) return "MALE";
+  if (["FEMALE", "F", "WOMEN", "WOMENS", "WOMEN'S", "WOMAN", "GIRL", "GIRLS", "LADIES"].includes(g)) return "FEMALE";
   return "OTHER";
 }
 
@@ -164,20 +164,21 @@ export function checkCategoryEligibility(
     : null;
 
   if (minAge == null && maxAge == null) {
-    const underMatch = text.match(/(?:under|u-?|below|<|<=)\s*(\d+)/i);
-    const plusMatch = text.match(/(?:above|over|>|>=)\s*(\d+)|(\d+)\s*(?:\+|plus|above|and above|and over|over|>|>=)/i);
-    const rangeMatch = text.match(/(?:between\s*)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
+    const catText = (categoryOrEvent.categoryName || "").toLowerCase();
+    const underMatch = catText.match(/(?:under|below|u)[-_\s]*(\d+)|(?:<|<=)\s*(\d+)/i) || text.match(/(?:under|below|u)[-_\s]*(\d+)|(?:<|<=)\s*(\d+)/i);
+    const plusMatch = catText.match(/(?:above|over|>|>=)[-_\s]*(\d+)|(\d+)[-_\s]*(?:\+|plus|above|and above|and over|& above|& over|over|>|>=)/i) || text.match(/(?:above|over|>|>=)[-_\s]*(\d+)|(\d+)[-_\s]*(?:\+|plus|above|and above|and over|& above|& over|over|>|>=)/i);
+    const rangeMatch = catText.match(/(?:between\s+)?(\d+)\s*(?:-|–|to)\s*(\d+)/i) || text.match(/(?:between\s+)?(\d+)\s*(?:-|–|to)\s*(\d+)/i);
 
     if (rangeMatch) {
       minAge = parseInt(rangeMatch[1], 10);
       maxAge = parseInt(rangeMatch[2], 10);
     } else if (underMatch) {
-      maxAge = parseInt(underMatch[1], 10);
+      maxAge = parseInt(underMatch[1] || underMatch[2], 10);
     } else if (plusMatch) {
       minAge = parseInt(plusMatch[1] || plusMatch[2], 10);
-    } else if (/\b(kids?|childrens?)\b/i.test(text)) {
+    } else if (/\b(kids?|childrens?)\b/i.test(catText || text)) {
       maxAge = 16;
-    } else if (/\b(seniors?|veterans?)\b/i.test(text)) {
+    } else if (/\b(seniors?|veterans?)\b/i.test(catText || text)) {
       minAge = 45;
     }
   }
@@ -189,25 +190,44 @@ export function checkCategoryEligibility(
     requiredGender = "MALE";
   } else if (rawGender === "FEMALE") {
     requiredGender = "FEMALE";
-  } else {
-    // Check keywords in text — female FIRST to avoid 'men' matching inside 'women'
-    // Handles: women's, womens, woman, female, girl, girls, ladies
-    const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
-    // Handles: men's, mens, man, male, males, boy, boys, gentlemen
-    // Negative lookbehind prevents matching 'men' inside 'women'
-    const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
-    const isMixed = /\b(mixed|mix)\b/i.test(text);
+  } else if (Array.isArray(categoryOrEvent.allowedGenders) && categoryOrEvent.allowedGenders.length > 0) {
+    const normAllowed = categoryOrEvent.allowedGenders.map(g => normalizeGender(g)).filter(Boolean);
+    if (normAllowed.length === 1 && (normAllowed[0] === "MALE" || normAllowed[0] === "FEMALE")) {
+      requiredGender = normAllowed[0];
+    }
+  }
 
-    if (isMixed) requiredGender = "MIXED";
-    else if (isFemale) requiredGender = "FEMALE";
-    else if (isMale) requiredGender = "MALE";
-    else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+  if (!requiredGender) {
+    // Check keywords in categoryName first (priority), then full text — female FIRST to avoid 'men' matching inside 'women'
+    const catText = (categoryOrEvent.categoryName || "").toLowerCase();
+    const isCatFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(catText);
+    const isCatMale = !isCatFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(catText);
+    const isCatMixed = /\b(mixed|mix)\b/i.test(catText);
+
+    if (isCatMixed) {
+      requiredGender = "MIXED";
+    } else if (isCatFemale) {
+      requiredGender = "FEMALE";
+    } else if (isCatMale) {
+      requiredGender = "MALE";
+    } else {
+      const isFemale = /\b(womens?|woman|females?|girls?|ladies)('s)?\b/i.test(text);
+      const isMale = !isFemale && /(?<![a-z])(mens?|man\b|males?|boys?|gentlemen)('s)?\b/i.test(text);
+      const isMixed = /\b(mixed|mix)\b/i.test(text);
+
+      if (isMixed) requiredGender = "MIXED";
+      else if (isFemale) requiredGender = "FEMALE";
+      else if (isMale) requiredGender = "MALE";
+      else if (/\b(open|general|all)\b/i.test(text)) requiredGender = "ALL";
+    }
   }
 
   const pGender = normalizeGender(participantGender);
   let isGenderMismatch = false;
-  if (pGender && requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
-    if (requiredGender === "MALE" && pGender !== "MALE") {
+  if (requiredGender && requiredGender !== "MIXED" && requiredGender !== "ALL") {
+    if (!pGender) {
+      isGenderMismatch = true;
+    } else if (requiredGender === "MALE" && pGender !== "MALE") {
       isGenderMismatch = true;
     } else if (requiredGender === "FEMALE" && pGender !== "FEMALE") {
       isGenderMismatch = true;
@@ -243,7 +263,9 @@ export function checkCategoryEligibility(
   if (isGenderMismatch) {
     const requiredLabel = requiredGender === "FEMALE" ? "Female" : requiredGender === "MALE" ? "Male" : requiredGender;
     const currentLabel = pGender === "FEMALE" ? "Female" : pGender === "MALE" ? "Male" : participantGender || "unspecified";
-    warningMsg = `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
+    warningMsg = !pGender
+      ? `Category requires ${requiredLabel} participant, but gender is not set in profile.`
+      : `Category requires ${requiredLabel} participant, but selected profile is ${currentLabel}.`;
   }
 
   // If this category or event itself has explicit restrictions that failed, it is ineligible!
