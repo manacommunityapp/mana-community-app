@@ -1452,14 +1452,32 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   }, [getParticipantRegistrations, event?.id, formData.regType, formData.familyMemberId, formData.playerName]);
 
   const registeredFormats = useMemo(() => {
-    return activeParticipantRegistrations.map(r => (r.matchType || "SINGLES").toUpperCase());
-  }, [activeParticipantRegistrations]);
+    const evFormats = getEventFormats(event);
+    if (activeParticipantRegistrations.length === 0) return [];
+    if (evFormats.length <= 1) {
+      const isEvTeam = Boolean((event as any)?.isTeamSport || (event as any)?.teamSport || isTeamSport(event?.sport?.name || event?.name || ""));
+      const singleFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+      return [singleFmt.toUpperCase()];
+    }
+    return activeParticipantRegistrations.map(r => {
+      const rawFmt = (r.matchType || "").toUpperCase();
+      if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
+        return rawFmt;
+      }
+      if (((r as any).partnerUserId || (r as any).partnerFamilyMemberId) && evFormats.some(f => f.toUpperCase().includes("DOUBLES"))) {
+        return (evFormats.find(f => f.toUpperCase() === "DOUBLES") || evFormats.find(f => f.toUpperCase().includes("DOUBLES"))!).toUpperCase();
+      }
+      return (evFormats[0] || "SINGLES").toUpperCase();
+    });
+  }, [activeParticipantRegistrations, event]);
 
   const selectedFormats = useMemo(() => {
+    const evFormats = getEventFormats(event);
+    const defaultFmt = evFormats[0] || "SINGLES";
     return (formData.matchTypes && formData.matchTypes.length > 0)
       ? formData.matchTypes
-      : [formData.matchType || "SINGLES"];
-  }, [formData.matchTypes, formData.matchType]);
+      : [formData.matchType || defaultFmt];
+  }, [formData.matchTypes, formData.matchType, event]);
 
   const unregisteredSelectedFormats = useMemo(() => {
     return selectedFormats.filter(fmt => !registeredFormats.includes(fmt.toUpperCase()));

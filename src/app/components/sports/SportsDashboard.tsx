@@ -1991,11 +1991,14 @@ export function SportsDashboard() {
                   if (isSelf && (ev.registrationId || (ev as any).myRegistrationId)) {
                     const rawId = ev.registrationId || (ev as any).myRegistrationId;
                     if (withdrawnRegistrationIds.has(Number(rawId))) return [];
+                    const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
+                    const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
+                    const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
                     return [{
                       id: rawId,
                       eventId: ev.id,
                       status: (ev as any).myRegistrationStatus || "CONFIRMED",
-                      matchType: (ev as any).matchType || (ev.isTeamSport ? "TEAM" : "SINGLES"),
+                      matchType: (ev as any).matchType || defaultFmt,
                       playerName: user?.fullName || "Self",
                       relation: "SELF",
                     }];
@@ -2011,16 +2014,40 @@ export function SportsDashboard() {
                 };
                 const getMemberRegisteredFormats = (ev: OpenRegistration) => {
                   const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-                  return getMemberRegsForEvent(ev).map(r => (r.matchType || (isEvTeam ? "TEAM" : "SINGLES")).toUpperCase());
+                  if (isEvTeam) return ["TEAM"];
+                  const evFormats = getEventFormats(ev as any);
+                  const regs = getMemberRegsForEvent(ev);
+                  if (regs.length === 0) return [];
+
+                  // If event only offers 1 format (e.g. DOUBLES), any registration for this event is for that format
+                  if (evFormats.length <= 1) {
+                    const singleFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");
+                    return [singleFmt.toUpperCase()];
+                  }
+
+                  const registered = regs.map(r => {
+                    const rawFmt = (r.matchType || "").toUpperCase();
+                    if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
+                      return rawFmt;
+                    }
+                    if (((r as any).partnerUserId || (r as any).partnerFamilyMemberId) && evFormats.some(f => f.toUpperCase().includes("DOUBLES"))) {
+                      return (evFormats.find(f => f.toUpperCase() === "DOUBLES") || evFormats.find(f => f.toUpperCase().includes("DOUBLES"))!).toUpperCase();
+                    }
+                    return (evFormats[0] || "SINGLES").toUpperCase();
+                  });
+                  return Array.from(new Set(registered));
                 };
                 const getUnregisteredFormats = (ev: OpenRegistration) => {
                   const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
                   if (isEvTeam) {
                     return isMemberRegisteredForEvent(ev) ? [] : ["TEAM"];
                   }
-                  const regFormats = getMemberRegisteredFormats(ev);
                   const allFormats = getEventFormats(ev as any);
-                  return allFormats.filter(f => !regFormats.includes(f.toUpperCase()));
+                  if (allFormats.length <= 1) {
+                    return isMemberRegisteredForEvent(ev) ? [] : (allFormats.length === 1 ? allFormats : ["SINGLES"]);
+                  }
+                  const regFormats = getMemberRegisteredFormats(ev);
+                  return allFormats.filter(f => !regFormats.some(rf => rf.toUpperCase() === f.toUpperCase()));
                 };
                 const isFullyRegisteredForEvent = (ev: OpenRegistration) => {
                   const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
@@ -2125,8 +2152,8 @@ export function SportsDashboard() {
                   const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
                   const regFormats = getMemberRegisteredFormats(item);
                   const unregFormats = getUnregisteredFormats(item);
-                  const isFullyReg = isReg && (isTeam || unregFormats.length === 0);
-                  const isPartiallyReg = !isTeam && isReg && unregFormats.length > 0;
+                  const isFullyReg = isReg && (isTeam || eventFormats.length <= 1 || unregFormats.length === 0);
+                  const isPartiallyReg = !isTeam && isReg && eventFormats.length > 1 && unregFormats.length > 0;
 
                   const displayFormats = isTeam
                     ? ["TEAM"]

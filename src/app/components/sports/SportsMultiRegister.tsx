@@ -1324,7 +1324,7 @@ export function SportsMultiRegister() {
   const toggleEventFormat = (eventId: number, formatToToggle: string) => {
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
-        const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || "SINGLES"];
+        const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
         const isAlready = current.some(f => f.toUpperCase() === formatToToggle.toUpperCase());
         let nextFormats: string[];
         if (isAlready) {
@@ -1404,7 +1404,7 @@ export function SportsMultiRegister() {
       return copy;
     });
 
-    const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+    const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
     const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
     if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
       setEventErrors(prev => ({ ...prev, [eventId]: "Doubles partner is mandatory. Please choose a partner or select Open Pool." }));
@@ -1622,7 +1622,7 @@ export function SportsMultiRegister() {
         newEventErrors[ev.eventId] = eligibility.reason || "Ineligible for selected category";
         hasEligibilityIssues = true;
       }
-      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
       const isDoublesInFormats = formatsToRegister.some(f => f.toUpperCase().includes("DOUBLES"));
       if (isDoublesInFormats && !ev.partnerInfo && !ev.partnerUserId && !(ev as any).partnerFamilyMemberId) {
         newEventErrors[ev.eventId] = "Doubles partner is mandatory. Please select a partner or choose Open Pool.";
@@ -1644,7 +1644,7 @@ export function SportsMultiRegister() {
 
     for (const ev of selectedEvents) {
       const catId = ev.categoryId || categories[0]?.id || 1;
-      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || "SINGLES"];
+      const formatsToRegister = (ev.matchTypes && ev.matchTypes.length > 0) ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
         try {
@@ -2525,7 +2525,7 @@ export function SportsMultiRegister() {
                                     </div>
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       {ev.availableFormats.map((fmt) => {
-                                        const selectedList = ev.matchTypes || [ev.matchType || "SINGLES"];
+                                        const selectedList = ev.matchTypes || [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
                                         const isFmtSelected = selectedList.some(f => f.toUpperCase() === fmt.toUpperCase());
                                         const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
                                         return (
@@ -2552,7 +2552,7 @@ export function SportsMultiRegister() {
                                   </div>
                                 )}
                                 {/* Doubles / Mixed Doubles Partner Selection */}
-                                {((ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || "SINGLES"]).some(f => f.toUpperCase().includes("DOUBLES"))) && (
+                                {((ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")]).some(f => f.toUpperCase().includes("DOUBLES"))) && (
                                   <div className="w-full mt-2 pt-2 border-t border-slate-100">
                                     <SportsPartnerSelector
                                       selectedPartner={ev.partnerInfo}
