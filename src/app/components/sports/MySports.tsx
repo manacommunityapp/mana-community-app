@@ -490,7 +490,7 @@ export function MySports() {
           </div>
 
           {/* Player Identity Card */}
-          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)] text-left">
+          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-6 bg-card text-card-foreground border border-border shadow-xs text-left">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-6">
               {/* Left: Avatar & Bio */}
               <div className="flex items-center gap-3 sm:gap-4">
@@ -510,17 +510,17 @@ export function MySports() {
                     <h2 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                       {displayName}
                     </h2>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/50">
                       {passport.skillLevel}
                     </span>
                   </div>
-                  <p className="text-xs text-[#6b7094] mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-indigo-600 flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-primary flex items-center gap-1">
                       <Building2 className="w-3 h-3" />
                       {myCommunity?.name ?? "Community Member"}
                     </span>
                     <span>•</span>
-                    <span className="text-slate-500 font-medium">
+                    <span className="text-muted-foreground font-medium">
                       {passport.dominantHand}-Handed • {passport.primarySport.toUpperCase()}
                     </span>
                   </p>
@@ -537,8 +537,8 @@ export function MySports() {
                     { label: "Athlete Level", value: `Lvl ${playerLevel}`, color: "#8b5cf6" },
                   ].map((s) => (
                     <div key={s.label} className="text-left md:text-center">
-                      <p className="font-extrabold text-sm sm:text-lg text-[#0d0d2b]" style={{ color: s.color }}>{s.value}</p>
-                      <p className="text-xs uppercase tracking-wider font-semibold text-[#6b7094]">{s.label}</p>
+                      <p className="font-extrabold text-sm sm:text-lg num-tabular" style={{ color: s.color }}>{s.value}</p>
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground">{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -546,8 +546,7 @@ export function MySports() {
                 <div className="shrink-0 flex items-center gap-2">
                   <button
                     onClick={() => setActiveTab("settings")}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all hover:bg-indigo-500/10 active:scale-[0.96] cursor-pointer"
-                    style={{ background: "rgba(99,102,241,0.08)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 active:scale-[0.96] cursor-pointer"
                   >
                     <Settings className="w-3.5 h-3.5" />
                     <span>Settings</span>
@@ -562,9 +561,9 @@ export function MySports() {
             {/* Left Column */}
             <div className="lg:col-span-2 space-y-3 sm:space-y-5">
               {loadingData ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl bg-white border border-[rgba(99,102,241,0.1)] shadow-sm">
-                  <Loader2 className="w-8 h-8 text-[#4f46e5] animate-spin" />
-                  <p className="text-xs text-[#6b7094]">Loading your athlete hub...</p>
+                <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl bg-card border border-border shadow-xs">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-xs text-muted-foreground">Loading your athlete hub...</p>
                 </div>
               ) : (
                 <>

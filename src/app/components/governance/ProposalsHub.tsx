@@ -4,7 +4,7 @@ import {
   Building2, Shield, Wrench, IndianRupee, Trees,
   CheckCircle2, Clock, AlertCircle, X, Check
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface Proposal {
   id: string;

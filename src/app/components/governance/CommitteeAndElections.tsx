@@ -3,7 +3,7 @@ import {
   Users, Vote, Award, ShieldCheck, CheckCircle2,
   Calendar, ArrowRight, UserPlus, FileText, Check, Plus
 } from "lucide-react";
-import { toast } from "react-toastify";
+import { toast } from "sonner";
 
 interface CommitteeMember {
   id: string;

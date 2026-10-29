@@ -909,9 +909,9 @@ export function SportsAuction() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-        <div style={{ textAlign: 'center', color: '#6b7094' }}>
-          <div className="spinner" style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="text-center text-muted-foreground text-sm font-medium">
+          <div className="w-8 h-8 border-3 border-muted border-t-primary rounded-full animate-spin mx-auto mb-3" />
           Loading Auction Hub...
         </div>
       </div>
@@ -1385,16 +1385,16 @@ export function SportsAuction() {
                   if (sold.length === 0) return null;
                   const top = sold[0];
                   return (
-                    <div style={{ display: 'inline-flex', gap: 14, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(212,160,23,0.08)', border: '1px solid rgba(212,160,23,0.15)', textAlign: 'center' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: 1 }}>Top Buy</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>{(top as any).playerName || top.name}</div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--gold)' }}>₹{(top.soldPrice || 0).toLocaleString('en-IN')}</div>
+                    <div className="inline-flex gap-3.5 mb-5 flex-wrap justify-center">
+                      <div className="p-3 sm:px-4 rounded-xl bg-gold/10 border border-gold/20 text-center">
+                        <div className="text-xs font-bold text-gold uppercase tracking-wider">Top Buy</div>
+                        <div className="text-sm font-bold text-foreground mt-1">{(top as any).playerName || top.name}</div>
+                        <div className="text-base font-bold text-gold num-tabular">₹{(top.soldPrice || 0).toLocaleString('en-IN')}</div>
                       </div>
-                      <div style={{ padding: '10px 16px', borderRadius: 10, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', textAlign: 'center' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: 1 }}>Total Sold</div>
-                        <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)', marginTop: 4 }}>{sold.length}</div>
-                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>₹{sold.reduce((s, p) => s + (p.soldPrice || 0), 0).toLocaleString('en-IN')}</div>
+                      <div className="p-3 sm:px-4 rounded-xl bg-success/10 border border-success/20 text-center">
+                        <div className="text-xs font-bold text-success uppercase tracking-wider">Total Sold</div>
+                        <div className="text-xl font-bold text-success mt-1 num-tabular">{sold.length}</div>
+                        <div className="text-xs text-muted-foreground num-tabular">₹{sold.reduce((s, p) => s + (p.soldPrice || 0), 0).toLocaleString('en-IN')}</div>
                       </div>
                     </div>
                   );
@@ -1562,12 +1562,18 @@ export function SportsAuction() {
                         <div className="bid-team">{livePlayer.currentBidTeamName || 'No bids yet — click a team to bid'}</div>
                       </div>
                       {bidTimeLeft !== null && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, margin: '12px 0', padding: '8px 16px', borderRadius: 8, background: bidTimeLeft <= 5 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)' }}>
-                          <Timer size={16} style={{ color: bidTimeLeft <= 5 ? '#ef4444' : 'var(--gold)' }} />
-                          <span style={{ fontSize: 24, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: bidTimeLeft <= 5 ? '#ef4444' : bidTimeLeft <= 10 ? '#f59e0b' : 'var(--gold)' }}>
+                        <div className={`flex items-center justify-center gap-2 my-3 py-2 px-4 rounded-xl border transition-colors ${
+                          bidTimeLeft <= 5
+                            ? "bg-danger/15 border-danger/30 text-danger animate-pulse"
+                            : bidTimeLeft <= 10
+                            ? "bg-warning/15 border-warning/30 text-warning"
+                            : "bg-primary/10 border-primary/20 text-gold"
+                        }`}>
+                          <Timer className={`w-4 h-4 ${bidTimeLeft <= 5 ? "text-danger" : "text-gold"}`} />
+                          <span className="text-2xl font-bold num-tabular">
                             {bidTimeLeft}s
                           </span>
-                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>remaining</span>
+                          <span className="text-xs text-muted-foreground font-medium">remaining</span>
                         </div>
                       )}
                       <div className="text-xs text-[var(--muted)] mb-2.5">Next bid: ₹{livePlayer.nextBid.toLocaleString('en-IN')} (increment: ₹{livePlayer.nextIncrement.toLocaleString('en-IN')})</div>
