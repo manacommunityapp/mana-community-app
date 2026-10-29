@@ -71,6 +71,45 @@ export function SportsVenueBrowse() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 font-sans">
+      {/* Ecosystem Navigation Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5" />
+            Courts & Venues
+          </span>
+          <Link
+            to="/sports/tournaments"
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+            Tournaments
+          </Link>
+          <Link
+            to="/sports/schedule"
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+          >
+            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            Match Schedule
+          </Link>
+          <Link
+            to="/sports"
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors hidden md:flex items-center gap-1.5"
+          >
+            <Dumbbell className="w-3.5 h-3.5 text-purple-500" />
+            Sports Hub
+          </Link>
+        </div>
+
+        <Link
+          to="/vendor-portal/sports"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
+        >
+          <span>💼 Sports Vendor Portal</span>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+        </Link>
+      </div>
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-700 to-indigo-800 p-8 sm:p-10 text-white shadow-xl">
         <div className="relative z-10 max-w-2xl space-y-3">

@@ -179,6 +179,12 @@ import { SportsVenueManager } from "./components/vendor/portal/sports/SportsVenu
 import { SportsSlotCalendar } from "./components/vendor/portal/sports/SportsSlotCalendar";
 import { SportsBookingManager } from "./components/vendor/portal/sports/SportsBookingManager";
 import { SportsPricingMatrix } from "./components/vendor/portal/sports/SportsPricingMatrix";
+import { SportsCoachingPortal } from "./components/vendor/portal/sports/SportsCoachingPortal";
+import { SportsMembershipsPortal } from "./components/vendor/portal/sports/SportsMembershipsPortal";
+import { SportsEventsOrganizerPortal } from "./components/vendor/portal/sports/SportsEventsOrganizerPortal";
+import { SportsSuppliersPortal } from "./components/vendor/portal/sports/SportsSuppliersPortal";
+import { SportsIntelligencePortal } from "./components/vendor/portal/sports/SportsIntelligencePortal";
+import { SportsMultiVenuePortal } from "./components/vendor/portal/sports/SportsMultiVenuePortal";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -861,6 +867,12 @@ export const router = createBrowserRouter([
           { path: "sports/calendar", Component: SportsSlotCalendar },
           { path: "sports/bookings", Component: SportsBookingManager },
           { path: "sports/pricing", Component: SportsPricingMatrix },
+          { path: "sports/coaching", Component: SportsCoachingPortal },
+          { path: "sports/memberships", Component: SportsMembershipsPortal },
+          { path: "sports/events", Component: SportsEventsOrganizerPortal },
+          { path: "sports/suppliers", Component: SportsSuppliersPortal },
+          { path: "sports/intelligence", Component: SportsIntelligencePortal },
+          { path: "sports/branches", Component: SportsMultiVenuePortal },
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
