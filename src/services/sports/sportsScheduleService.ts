@@ -34,6 +34,20 @@ export interface RegistrationListItem {
   captainNomination: boolean | null;
   captainConfirmation: boolean | null;
   proposedTeamName: string | null;
+  // Participant & family member
+  playerName?: string | null;
+  relation?: string | null;
+  familyMemberId?: number | string | null;
+  // Event & venue details
+  eventDateStart?: string | null;
+  eventDateEnd?: string | null;
+  venueName?: string | null;
+  venueCity?: string | null;
+  format?: string[] | null;
+  teamName?: string | null;
+  teamColor?: string | null;
+  jerseySize?: string | null;
+  skillLevel?: string | null;
 }
 
 export const sportsScheduleService = {
