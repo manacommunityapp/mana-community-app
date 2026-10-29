@@ -5,7 +5,7 @@ import {
   FileText, Briefcase, GraduationCap, Globe,
   Award, Zap, Plus, X, AlertCircle, Info, Sliders
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 export function MyProfessionalProfile() {
   const [activeTab, setActiveTab] = useState<"profile" | "privacy">("profile");

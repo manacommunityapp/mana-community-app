@@ -4,7 +4,7 @@ import {
   CheckCircle2, Plus, ArrowRight, ShieldCheck,
   FileText, Download, Share2, Check, AlertCircle
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 interface AgendaItem {
   id: number;

@@ -1,31 +1,31 @@
 /* ─── Chat Theme Variables ──────────────────────────────────────────────── */
 
 :root {
-  --chat-bg-main: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-3) 100%);
+  --chat-bg-main: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --chat-bg-panel: var(--card);
-  --chat-header-bg: color-mix(in srgb, var(--card) 85%, transparent);
-  --chat-header-border: color-mix(in srgb, var(--primary) 15%, transparent);
-  --chat-input-bg: var(--surface-3);
-  --chat-input-border: color-mix(in srgb, var(--primary) 25%, transparent);
-  --chat-bubble-received-bg: color-mix(in srgb, var(--primary) 8%, transparent);
-  --chat-bubble-received-border: color-mix(in srgb, var(--primary) 20%, transparent);
-  --chat-empty-bg: color-mix(in srgb, var(--surface-1) 80%, transparent);
-  --chat-divider-bg: color-mix(in srgb, var(--muted) 80%, transparent);
-  --chat-divider-border: color-mix(in srgb, var(--primary) 15%, transparent);
+  --chat-header-bg: rgba(255, 255, 255, 0.85);
+  --chat-header-border: rgba(99, 102, 241, 0.15);
+  --chat-input-bg: rgba(241, 245, 249, 1);
+  --chat-input-border: rgba(99, 102, 241, 0.25);
+  --chat-bubble-received-bg: rgba(99, 102, 241, 0.08);
+  --chat-bubble-received-border: rgba(99, 102, 241, 0.2);
+  --chat-empty-bg: rgba(248, 250, 252, 0.8);
+  --chat-divider-bg: rgba(226, 232, 240, 0.8);
+  --chat-divider-border: rgba(99, 102, 241, 0.15);
 }
 
 .dark {
-  --chat-bg-main: linear-gradient(135deg, color-mix(in srgb, var(--card) 50%, transparent) 0%, color-mix(in srgb, var(--background) 80%, transparent) 100%);
+  --chat-bg-main: linear-gradient(135deg, rgba(22, 22, 58, 0.5) 0%, rgba(13, 13, 31, 0.8) 100%);
   --chat-bg-panel: var(--card);
-  --chat-header-bg: color-mix(in srgb, var(--card) 85%, transparent);
-  --chat-header-border: color-mix(in srgb, var(--primary) 20%, transparent);
-  --chat-input-bg: color-mix(in srgb, var(--surface-3) 60%, transparent);
-  --chat-input-border: color-mix(in srgb, var(--primary) 20%, transparent);
-  --chat-bubble-received-bg: color-mix(in srgb, var(--primary) 12%, transparent);
-  --chat-bubble-received-border: color-mix(in srgb, var(--primary) 25%, transparent);
-  --chat-empty-bg: color-mix(in srgb, var(--surface-3) 70%, transparent);
-  --chat-divider-bg: color-mix(in srgb, var(--surface-3) 60%, transparent);
-  --chat-divider-border: color-mix(in srgb, var(--primary) 15%, transparent);
+  --chat-header-bg: rgba(22, 22, 58, 0.85);
+  --chat-header-border: rgba(99, 102, 241, 0.18);
+  --chat-input-bg: rgba(30, 27, 75, 0.5);
+  --chat-input-border: rgba(99, 102, 241, 0.2);
+  --chat-bubble-received-bg: rgba(99, 102, 241, 0.12);
+  --chat-bubble-received-border: rgba(99, 102, 241, 0.25);
+  --chat-empty-bg: rgba(30, 27, 75, 0.7);
+  --chat-divider-bg: rgba(30, 27, 75, 0.6);
+  --chat-divider-border: rgba(99, 102, 241, 0.15);
 }
 
 /* Chat scrollbar — subtle, themed */
