@@ -12,14 +12,16 @@ interface PermissionGuardProps {
   superAdminOnly?: boolean;
   /** Restrict strictly to admin roles (ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
   adminOnly?: boolean;
+  /** Restrict strictly to admin or sports admin roles (SPORTS_ADMIN, ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
+  sportsAdminOnly?: boolean;
   /** Community module key required (e.g. "SPORTS", "MARKETPLACE"). Blocked if module is disabled for the user's community. */
   requiredModule?: string;
   /** OR-based module check — community must have at least one of these enabled (e.g. ["FINANCE_MGMT", "PAYMENTS"]) */
   anyModules?: string[];
 }
 
-export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, requiredModule, anyModules }: PermissionGuardProps) {
-  const { user, isSuperAdmin, isAdmin } = useAuth();
+export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, sportsAdminOnly, requiredModule, anyModules }: PermissionGuardProps) {
+  const { user, isSuperAdmin, isAdmin, isSportsAdmin } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -48,6 +50,10 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   }
   // adminOnly views are restricted strictly to users with admin roles
   if (adminOnly && !isAdmin) {
+    return renderAccessDenied();
+  }
+  // sportsAdminOnly views are restricted strictly to admin or sports admin roles
+  if (sportsAdminOnly && !isAdmin && !isSportsAdmin) {
     return renderAccessDenied();
   }
   let hasAccess = false;
