@@ -1141,6 +1141,7 @@ export function SportsMultiRegister() {
             const resolvedSportName = ev.sportName || (targetTourney as any).sportName || (targetTourney as any).sport?.name || targetTourney.name || "Sports";
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
+            const defaultRole = cfg.categories[0]?.roles[0] || "Player";
             const isAlreadyRegistered = Boolean(
               ev.myRegistrationId &&
               ev.myRegistrationStatus !== "WITHDRAWN" &&

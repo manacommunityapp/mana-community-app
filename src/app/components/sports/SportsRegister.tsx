@@ -463,6 +463,27 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     eName.includes("boys") ||
     eName.includes("girls");
 
+  // If category name or event name specifically indicates a single format, prioritize it over tournament defaults
+  if (catName.includes("singles") && !catName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (catName.includes("mixed") || catName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (catName.includes("doubles") && !catName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+
+  if (eName.includes("singles") && !eName.includes("doubles")) {
+    return ["SINGLES"];
+  }
+  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
+    return ["MIXED_DOUBLES"];
+  }
+  if (eName.includes("doubles") && !eName.includes("singles")) {
+    return ["DOUBLES"];
+  }
+
   // 1. Check if event explicitly specifies formats
   const rawExplicit =
     event.format ||
@@ -477,7 +498,7 @@ export function getEventFormats(event: SportsEvent | null): string[] {
 
   const parsedExplicit = normalizeFormatList(rawExplicit);
   if (parsedExplicit.length > 0) {
-    if ((eName.includes("mixed") || eName.includes("mixed doubles")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
+    if ((eName.includes("mixed") || eName.includes("mixed doubles") || catName.includes("mixed")) && parsedExplicit.length === 1 && parsedExplicit.includes("MIXED_DOUBLES")) {
       return ["MIXED_DOUBLES"];
     }
     // Filter out MIXED_DOUBLES if event is strictly gender-restricted to Men or Women
@@ -492,18 +513,9 @@ export function getEventFormats(event: SportsEvent | null): string[] {
     return ["TEAM"];
   }
 
-  // 2. Check event name keywords for specific format
-  if (eName.includes("singles") && eName.includes("doubles")) {
-    return (eName.includes("mixed") && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
-  }
-  if (eName.includes("mixed") || eName.includes("mixed doubles")) {
-    return ["MIXED_DOUBLES"];
-  }
-  if (eName.includes("doubles") && !eName.includes("singles")) {
-    return ["DOUBLES"];
-  }
-  if (eName.includes("singles") && !eName.includes("doubles")) {
-    return ["SINGLES"];
+  // 2. Check event name keywords for combined formats
+  if ((eName.includes("singles") || catName.includes("singles")) && (eName.includes("doubles") || catName.includes("doubles"))) {
+    return ((eName.includes("mixed") || catName.includes("mixed")) && !isGenderRestricted) ? ["SINGLES", "DOUBLES", "MIXED_DOUBLES"] : ["SINGLES", "DOUBLES"];
   }
 
   // 3. Default available formats based on sport type
@@ -3663,6 +3675,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                           </p>
                           <div className="space-y-1.5 max-h-[14rem] overflow-y-auto pr-1">
                             {otherCategories.map(sib => {
+                              const sibReg = getParticipantRegistration(sib.id, formData.regType, formData.familyMemberId, formData.playerName);
                               const sibBackendStatus = (sib.myRegistrationStatus || "").toUpperCase().trim();
                               const isSibBackendActive = sib.myRegistrationId != null && sibBackendStatus !== "WITHDRAWN" && sibBackendStatus !== "CANCELLED" && sibBackendStatus !== "REJECTED";
                               const isRegistered = Boolean(sibReg) || (formData.regType === "self" && isSibBackendActive);
