@@ -1311,9 +1311,9 @@ export function Feed() {
   const composerTypeConfig = getPostTypeConfig(composerType);
 
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3 items-start">
-        <div className="lg:col-span-3 space-y-2 sm:space-y-2.5">
+    <div className="w-full max-w-[1040px] xl:max-w-[1080px] mx-auto px-1 sm:px-2">
+      <div className="flex flex-col lg:flex-row justify-center gap-3 sm:gap-4 lg:gap-5 items-start">
+        <div className="w-full max-w-[640px] xl:max-w-[680px] mx-auto lg:mx-0 flex-1 space-y-2 sm:space-y-2.5 min-w-0">
           <AlertTicker />
 
           {/* Filter Tabs */}
@@ -2089,7 +2089,7 @@ export function Feed() {
         </div>
 
         {/* Sidebar */}
-        <div className="hidden lg:block sticky top-20 space-y-4">
+        <div className="hidden lg:block w-72 xl:w-80 shrink-0 sticky top-20 space-y-4">
           <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <EventsNotificationCard badgeCount={summaryCounts?.upcomingEventsCount} passCount={summaryCounts?.myPassCount} />
           <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
