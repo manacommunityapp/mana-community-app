@@ -2054,7 +2054,7 @@ export function SportsDashboard() {
                   setOpenTournaments(prev => prev.map(tourney => ({
                     ...tourney,
                     mappedEvents: tourney.mappedEvents.map(ev => {
-                      const isTarget = ev.id === item.id || isEventMatch({ id: item.id, ...item }, ev);
+                      const isTarget = ev.id === item.id || isEventMatch(item, ev);
                       if (isTarget) {
                         return {
                           ...ev,
@@ -2074,7 +2074,7 @@ export function SportsDashboard() {
                   })));
 
                   // 4. Optimistically update stats count
-                  setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - regs.length) } : prev);
+                  setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - regs.length) } : s) : prev);
 
                   try {
                     for (const r of regs) {
@@ -2601,7 +2601,7 @@ export function SportsDashboard() {
                          setOpenTournaments(prev => prev.map(tourney => ({
                            ...tourney,
                            mappedEvents: tourney.mappedEvents.map(ev => {
-                             if (Number(ev.registrationId) === regId || Number(ev.id) === Number(regItem.id) || isEventMatch({ id: regItem.id, ...regItem }, ev)) {
+                             if (Number(ev.registrationId) === regId || Number(ev.id) === Number(regItem.id) || isEventMatch(regItem as any, ev)) {
                                return {
                                  ...ev,
                                  registrationId: undefined,
@@ -2613,7 +2613,7 @@ export function SportsDashboard() {
                              return ev;
                            })
                          })));
-                         setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - 1) } : prev);
+                         setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
                          try {
                            await sportsService.withdraw(regItem.registrationId);
                            toast.success(`Successfully withdrawn from ${regItem.name}`);
@@ -3270,7 +3270,7 @@ export function SportsDashboard() {
                                       return ev;
                                     })
                                   })));
-                                  setStats(prev => prev ? { ...prev, myRegistrations: Math.max(0, prev.myRegistrations - 1) } : prev);
+                                  setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
                                   try {
                                     await sportsService.withdraw(reg.id);
                                     toast.success(`Unregistered from ${evName}`);
