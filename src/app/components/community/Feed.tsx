@@ -339,7 +339,7 @@ function FeedVideoPlayer({ mediaUrl, thumbnailUrl, altText, isSingle = false }: 
         }}
         className={cn(
           "relative w-full overflow-hidden bg-slate-950 group cursor-pointer select-none flex items-center justify-center",
-          isSingle ? "max-h-96 min-h-56" : "h-full min-h-40"
+          isSingle ? "max-h-72 min-h-44" : "h-full min-h-40"
         )}
         title="Play video"
       >
@@ -389,7 +389,7 @@ function FeedVideoPlayer({ mediaUrl, thumbnailUrl, altText, isSingle = false }: 
       controls
       playsInline
       preload="auto"
-      className={isSingle ? "w-full max-h-96 object-contain bg-black" : "w-full h-full object-cover bg-black"}
+      className={isSingle ? "w-full max-h-72 object-contain bg-black" : "w-full h-full object-cover bg-black"}
     />
   );
 }
@@ -2787,7 +2787,7 @@ const PostCard = React.memo(function PostCard({
       {post.media && post.media.length > 0 && (
         <div className={`mb-3 gap-1 rounded-xl overflow-hidden ${post.media.length === 1 ? "" : "grid grid-cols-2"}`}>
           {post.media.slice(0, 4).map((m: any, idx: number) => (
-            <div key={m.id || `${m.mediaUrl}-${idx}`} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-96" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
+            <div key={m.id || `${m.mediaUrl}-${idx}`} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-72" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
               {isVideoMedia(m.mediaType, m.mediaUrl) ? (
                 <FeedVideoPlayer
                   mediaUrl={m.mediaUrl}
@@ -2804,7 +2804,7 @@ const PostCard = React.memo(function PostCard({
       )}
 
       {post.imageUrl && (!post.media || post.media.length === 0) && (
-        <div className="mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-96 bg-slate-50 flex items-center justify-center">
+        <div className="mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-72 bg-slate-50 flex items-center justify-center">
           {isVideoMedia(undefined, post.imageUrl) ? (
             <FeedVideoPlayer mediaUrl={post.imageUrl} isSingle />
           ) : (
