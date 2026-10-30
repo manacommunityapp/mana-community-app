@@ -7,7 +7,9 @@ export function CommunitySavingsDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState<CommunitySavings | null>(null);
 
-  useEffect(() => { setData(groupBuyingService.getCommunitySavings()); }, []);
+  useEffect(() => {
+    groupBuyingService.fetchCommunitySavings().then(d => setData(d));
+  }, []);
 
   if (!data) return null;
 

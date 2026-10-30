@@ -16,12 +16,13 @@ export function DealCheckout() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
   const [pickupPoint, setPickupPoint] = useState("");
   const [success, setSuccess] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
-    if (dealId) {
-      const d = groupBuyingService.getDealById(dealId);
+    if (!dealId) return;
+    groupBuyingService.fetchDealById(dealId).then(d => {
       if (d) { setDeal(d); setPickupPoint(d.pickupPoints[0]); }
-    }
+    });
   }, [dealId]);
 
   if (!deal) return (
@@ -37,10 +38,15 @@ export function DealCheckout() {
   const platformFee = 0;
   const total = subtotal + deliveryFee + platformFee;
 
-  const handleConfirm = () => {
-    groupBuyingService.joinDeal(deal.id, quantity, user?.userId || "user-1", fulfillment, paymentMethod, pickupPoint);
-    setSuccess(true);
-    setTimeout(() => navigate("/group-buying/my-orders"), 2000);
+  const handleConfirm = async () => {
+    setJoining(true);
+    try {
+      await groupBuyingService.joinDeal(deal.id, quantity, user?.userId || "user-1", fulfillment, paymentMethod, pickupPoint);
+      setSuccess(true);
+      setTimeout(() => navigate("/group-buying/my-orders"), 2000);
+    } finally {
+      setJoining(false);
+    }
   };
 
   if (success) return (

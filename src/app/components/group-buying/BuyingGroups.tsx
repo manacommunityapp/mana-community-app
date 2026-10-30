@@ -14,7 +14,9 @@ export function BuyingGroups() {
   const navigate = useNavigate();
   const [groups, setGroups] = useState<BuyingGroup[]>([]);
 
-  useEffect(() => { setGroups(groupBuyingService.getBuyingGroups()); }, []);
+  useEffect(() => {
+    groupBuyingService.fetchBuyingGroups().then(g => setGroups(g));
+  }, []);
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>

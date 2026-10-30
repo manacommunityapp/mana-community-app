@@ -10,12 +10,14 @@ export function DealDetail() {
   const { dealId } = useParams<{ dealId: string }>();
   const navigate = useNavigate();
   const [deal, setDeal] = useState<GroupDeal | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (dealId) {
-      const d = groupBuyingService.getDealById(dealId);
+    if (!dealId) { setLoading(false); return; }
+    groupBuyingService.fetchDealById(dealId).then(d => {
       if (d) setDeal(d);
-    }
+      setLoading(false);
+    });
   }, [dealId]);
 
   if (!deal) return (

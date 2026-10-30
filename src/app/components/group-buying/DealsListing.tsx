@@ -11,10 +11,15 @@ export function DealsListing() {
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [category, setCategory] = useState("All");
   const [deals, setDeals] = useState<GroupDeal[]>([]);
+  const [loading, setLoading] = useState(true);
   const categories = groupBuyingService.getCategories();
 
   useEffect(() => {
-    setDeals(groupBuyingService.getDeals(category, search));
+    setLoading(true);
+    groupBuyingService.fetchDeals(category, search).then(list => {
+      setDeals(list);
+      setLoading(false);
+    });
   }, [category, search]);
 
   return (

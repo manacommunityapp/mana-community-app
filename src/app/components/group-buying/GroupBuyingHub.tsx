@@ -54,12 +54,15 @@ export function GroupBuyingHub() {
   const [trending, setTrending] = useState<GroupDeal[]>([]);
   const [endingSoon, setEndingSoon] = useState<GroupDeal[]>([]);
   const [almostUnlocked, setAlmostUnlocked] = useState<GroupDeal[]>([]);
-  const savings = groupBuyingService.getCommunitySavings();
+  const [savings, setSavings] = useState(groupBuyingService.getCommunitySavings());
 
   useEffect(() => {
-    setTrending(groupBuyingService.getTrendingDeals());
-    setEndingSoon(groupBuyingService.getEndingSoonDeals());
-    setAlmostUnlocked(groupBuyingService.getAlmostUnlockedDeals());
+    groupBuyingService.fetchDeals().then(() => {
+      setTrending(groupBuyingService.getTrendingDeals());
+      setEndingSoon(groupBuyingService.getEndingSoonDeals());
+      setAlmostUnlocked(groupBuyingService.getAlmostUnlockedDeals());
+    });
+    groupBuyingService.fetchCommunitySavings().then(s => setSavings(s));
   }, []);
 
   const handleSearch = () => {

@@ -13,21 +13,25 @@ export function DemandBoard() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("Groceries");
 
-  useEffect(() => { setItems(groupBuyingService.getDemandBoard()); }, []);
+  useEffect(() => {
+    groupBuyingService.fetchDemandBoard().then(list => setItems(list));
+  }, []);
 
   const handleUpvote = (id: string) => {
     groupBuyingService.upvoteDemand(id);
     setItems([...groupBuyingService.getDemandBoard()]);
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!title.trim()) return;
-    const newItem: DemandItem = {
-      id: "dem-" + Date.now(), title, description: description || "Community requested group deal.",
-      category, requestedBy: user?.fullName || "Resident", upvotes: 1,
-      createdAt: new Date().toISOString(), status: "OPEN",
-    };
-    setItems([newItem, ...items]);
+    await groupBuyingService.createDemand({
+      title,
+      description: description || "Community requested group deal.",
+      category,
+      requestedBy: user?.fullName || "Resident",
+    });
+    const refreshed = await groupBuyingService.fetchDemandBoard();
+    setItems(refreshed);
     setShowForm(false);
     setTitle("");
     setDescription("");
