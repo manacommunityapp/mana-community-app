@@ -1682,6 +1682,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     const isSelf =
       rel === "SELF" ||
       rel === "HEAD" ||
+      rel === "SELF (HEAD)" ||
+      rel.includes("SELF") ||
+      rel.includes("HEAD") ||
+      rel === "PRIMARY" ||
+      rel === "OWNER" ||
       m.id === "self" ||
       m.id === "member-self" ||
       (user?.fullName && m.name.trim().toLowerCase() === user.fullName.trim().toLowerCase());
