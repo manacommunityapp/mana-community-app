@@ -434,6 +434,71 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     expect(activeRemaining[0].id).toBe(101);
     expect(activeRemaining[0].matchType).toBe("SINGLES");
   });
+
+  it("strictly isolates Spouse registration from Self even with identical surnames", () => {
+    const headName = "Sandeep Kamarapu";
+    const spouseMember = { id: 201, name: "Sunita Kamarapu", relation: "Spouse" };
+    const familyMembersList = [spouseMember];
+
+    // 1. isSelfRelationOrMember checks
+    expect(isSelfRelationOrMember("Spouse", 201, "Sunita Kamarapu", headName)).toBe(false);
+    expect(isSelfRelationOrMember("Wife", 201, "Sunita Kamarapu", headName)).toBe(false);
+    expect(isSelfRelationOrMember(null, 201, "Sunita Kamarapu", headName)).toBe(false);
+    expect(isSelfRelationOrMember(null, null, "Sunita Kamarapu", headName)).toBe(false);
+
+    // 2. Spouse registration with full backend DTO fields
+    const spouseReg = {
+      id: 701,
+      eventId: 50,
+      eventName: "Table Tennis Open",
+      status: "CONFIRMED",
+      playerName: "Sunita Kamarapu",
+      relation: "Spouse",
+      familyMemberId: 201,
+    };
+
+    // When viewing as Self: MUST be false
+    expect(isRegistrationForMemberHelper(spouseReg, "self", familyMembersList, headName)).toBe(false);
+    expect(isRegistrationForMemberHelper(spouseReg, "fam-self", familyMembersList, headName)).toBe(false);
+
+    // When viewing as Spouse: MUST be true
+    expect(isRegistrationForMemberHelper(spouseReg, 201, familyMembersList, headName)).toBe(true);
+    expect(isRegistrationForMemberHelper(spouseReg, "201", familyMembersList, headName)).toBe(true);
+
+    // 3. Spouse registration with nested familyMember object fallback
+    const spouseRegNested = {
+      id: 702,
+      eventId: 50,
+      eventName: "Table Tennis Open",
+      status: "CONFIRMED",
+      playerName: "Sunita Kamarapu",
+      relation: "Spouse",
+      familyMember: { id: 201 },
+    };
+    expect(isRegistrationForMemberHelper(spouseRegNested, "self", familyMembersList, headName)).toBe(false);
+    expect(isRegistrationForMemberHelper(spouseRegNested, 201, familyMembersList, headName)).toBe(true);
+
+    // 4. Simulate getMemberRegsForEvent behavior
+    const allRegistrations = [spouseReg];
+    const eventCard = { id: 50, name: "Table Tennis Open" };
+
+    const getMemberRegs = (selectedMember: string | number) => {
+      return allRegistrations.filter(r =>
+        r.eventId === eventCard.id &&
+        isRegistrationForMemberHelper(r, selectedMember, familyMembersList, headName) &&
+        isActiveRegistrationStatus(r.status)
+      );
+    };
+
+    // Self has no registrations for this event
+    const selfRegs = getMemberRegs("self");
+    expect(selfRegs).toHaveLength(0);
+
+    // Spouse has 1 registration for this event
+    const spouseRegs = getMemberRegs(201);
+    expect(spouseRegs).toHaveLength(1);
+    expect(spouseRegs[0].playerName).toBe("Sunita Kamarapu");
+  });
 });
 
 
