@@ -2202,14 +2202,21 @@ export function SportsDashboard() {
                   return getUnregisteredFormats(ev).length === 0;
                 };
 
-                const handleUnregisterCategory = async (item: OpenRegistration) => {
-                  const regs = getMemberRegsForEvent(item);
+                const handleUnregisterCategory = async (item: OpenRegistration, targetRegId?: number) => {
+                  const allMemberRegs = getMemberRegsForEvent(item);
+                  const regs = targetRegId
+                    ? allMemberRegs.filter(r => Number(r.id) === targetRegId)
+                    : allMemberRegs;
                   if (regs.length === 0) return;
+
                   const displayName = item.categoryName || item.name;
+                  const isSelfMember = !selectedMemberId || selectedMemberId === "self" || isSelfRelationOrMember(undefined, selectedMemberId);
+                  const participantName = isSelfMember ? "yourself" : (familyMembers.find(m => String(m.id) === String(selectedMemberId))?.name || "this family member");
+
                   const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
                   const confirmMsg = fmtList
-                    ? `Are you sure you want to unregister from ${displayName} (${fmtList})? You will lose your reserved spot.`
-                    : `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`;
+                    ? `Are you sure you want to unregister ${participantName} from ${displayName} (${fmtList})? You will lose your reserved spot.`
+                    : `Are you sure you want to unregister ${participantName} from ${displayName}? You will lose your reserved spot.`;
 
                   if (!(await confirmAction("Unregister", confirmMsg))) return;
 
@@ -2227,28 +2234,31 @@ export function SportsDashboard() {
                     prev.map(r => withdrawnIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
                   );
 
-                  // 3. Optimistically update openTournaments: reset event card to Register Now
-                  setOpenTournaments(prev => prev.map(tourney => ({
-                    ...tourney,
-                    mappedEvents: tourney.mappedEvents.map(ev => {
-                      const isTarget = ev.id === item.id || isEventMatch(item, ev);
-                      if (isTarget) {
-                        return {
-                          ...ev,
-                          registrationId: undefined,
-                          action: "Register",
-                          progress: 0,
-                          progressColor: "#e2e8f0",
-                          rawEvent: {
-                            ...ev.rawEvent,
-                            myRegistrationId: null,
-                            myRegistrationStatus: "WITHDRAWN",
-                          },
-                        };
-                      }
-                      return ev;
-                    })
-                  })));
+                  // 3. Optimistically update openTournaments: only if all active registrations for this event are withdrawn
+                  const remainingActiveCount = allMemberRegs.filter(r => !withdrawnIds.includes(Number(r.id))).length;
+                  if (remainingActiveCount === 0) {
+                    setOpenTournaments(prev => prev.map(tourney => ({
+                      ...tourney,
+                      mappedEvents: tourney.mappedEvents.map(ev => {
+                        const isTarget = ev.id === item.id || isEventMatch(item, ev);
+                        if (isTarget) {
+                          return {
+                            ...ev,
+                            registrationId: undefined,
+                            action: "Register",
+                            progress: 0,
+                            progressColor: "#e2e8f0",
+                            rawEvent: {
+                              ...ev.rawEvent,
+                              myRegistrationId: null,
+                              myRegistrationStatus: "WITHDRAWN",
+                            },
+                          };
+                        }
+                        return ev;
+                      })
+                    })));
+                  }
 
                   // 4. Optimistically update stats count
                   setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - regs.length) } : s) : prev);
@@ -2270,7 +2280,8 @@ export function SportsDashboard() {
                         }
                       }
                     }
-                    toast.success(`Unregistered from ${displayName}`);
+                    const unregLabel = fmtList ? `${displayName} (${fmtList})` : displayName;
+                    toast.success(`Unregistered from ${unregLabel}`);
                     window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
                     await fetchData();
                   } catch (err: any) {
@@ -2310,8 +2321,9 @@ export function SportsDashboard() {
                   const sportName = (item.category?.split(" · ")[0]) || "Sport";
                   const emoji = item.sportEmoji || getSportEmoji(sportName);
                   const isTeam = Boolean(item.isTeamSport || isTeamSport(sportName) || isTeamSport(item.name || "") || (item as any).matchType === "TEAM" || (item as any).eventType === "TEAM");
-                  const memberReg = getMemberRegForEvent(item);
-                  const isReg = Boolean(memberReg);
+                  const regs = getMemberRegsForEvent(item);
+                  const memberReg = regs[0];
+                  const isReg = regs.length > 0;
                   const elig = checkCategoryEligibility(item, targetMember.age, targetMember.gender);
                   const isBlocked = !elig.eligible;
                   const eventFormats = isTeam ? ["TEAM"] : getEventFormats(item as any);
@@ -2418,33 +2430,71 @@ export function SportsDashboard() {
                           {/* Action / Registration button */}
                           <div className="shrink-0 ml-auto">
                             {isFullyReg ? (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                  <span>Registered</span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnregisterCategory(item)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                  title="Unregister from this category"
-                                >
-                                  Unregister
-                                </button>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {regs.length > 1 ? (
+                                  regs.map(r => {
+                                    const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
+                                    const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                    return (
+                                      <span
+                                        key={r.id}
+                                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                        <span>✓ {fmtLabel}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                          className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                          title={`Unregister from ${fmtLabel}`}
+                                          aria-label={`Unregister from ${fmtLabel}`}
+                                        >
+                                          ✕
+                                        </button>
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Registered</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
+                                      className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                      title="Unregister from this category"
+                                    >
+                                      Unregister
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             ) : isPartiallyReg ? (
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  ✓ {regFormats.join(", ")}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnregisterCategory(item)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                  title="Unregister from this category"
-                                >
-                                  Unregister
-                                </button>
+                                {regs.map(r => {
+                                  const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
+                                  const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                  return (
+                                    <span
+                                      key={r.id}
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                                    >
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                      <span>✓ {fmtLabel}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                        className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                        title={`Unregister from ${fmtLabel}`}
+                                        aria-label={`Unregister from ${fmtLabel}`}
+                                      >
+                                        ✕
+                                      </button>
+                                    </span>
+                                  );
+                                })}
                                 <button
                                   type="button"
                                   onClick={() => {

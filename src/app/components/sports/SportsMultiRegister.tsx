@@ -1656,6 +1656,7 @@ export function SportsMultiRegister() {
             matchType: fmt,
             role: ev.role || "Player",
             age: calculatedAge,
+            gender: gender || undefined,
             dateOfBirth: dateOfBirth,
             playerName: playerName.trim(),
             email: email.trim() || undefined,

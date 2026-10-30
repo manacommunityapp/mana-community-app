@@ -408,5 +408,32 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
 
     expect(validIds).toEqual([12, 34]);
   });
+
+  it("verifies format-specific withdrawal isolates target registration without withdrawing all formats", () => {
+    const registrations = [
+      { id: 101, eventId: 20, matchType: "SINGLES", familyMemberId: 2, status: "CONFIRMED" },
+      { id: 102, eventId: 20, matchType: "DOUBLES", familyMemberId: 2, status: "CONFIRMED" },
+    ];
+
+    const targetRegIdToWithdraw = 102; // Withdraw Doubles only
+    const targetRegs = targetRegIdToWithdraw
+      ? registrations.filter(r => Number(r.id) === targetRegIdToWithdraw)
+      : registrations;
+
+    expect(targetRegs).toHaveLength(1);
+    expect(targetRegs[0].matchType).toBe("DOUBLES");
+
+    const withdrawnIds = targetRegs.map(r => Number(r.id));
+    const updatedRegistrations = registrations.map(r =>
+      withdrawnIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r
+    );
+
+    // Doubles is now WITHDRAWN, Singles remains CONFIRMED
+    const activeRemaining = updatedRegistrations.filter(r => isActiveRegistrationStatus(r.status));
+    expect(activeRemaining).toHaveLength(1);
+    expect(activeRemaining[0].id).toBe(101);
+    expect(activeRemaining[0].matchType).toBe("SINGLES");
+  });
 });
+
 
