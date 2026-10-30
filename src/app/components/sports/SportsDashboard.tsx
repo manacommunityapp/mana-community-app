@@ -153,16 +153,7 @@ export function isSelfRelationOrMember(
   name?: string | null,
   currentUserName?: string | null
 ): boolean {
-  if (id != null) {
-    const idStr = String(id).toLowerCase().trim();
-    if (idStr === "self" || idStr === "fam-self" || idStr === "member-self" || idStr === "head" || idStr === "primary") {
-      return true;
-    }
-    // A positive numeric id is a database id for a family member entity, never Self
-    if (!isNaN(Number(idStr)) && Number(idStr) > 0) {
-      return false;
-    }
-  }
+  // 1. Check explicit family or self relation strings
   if (rel) {
     const r = String(rel).toUpperCase().trim();
     if (
@@ -186,6 +177,16 @@ export function isSelfRelationOrMember(
       return true;
     }
   }
+
+  // 2. Check explicit Self ID aliases
+  if (id != null) {
+    const idStr = String(id).toLowerCase().trim();
+    if (idStr === "self" || idStr === "fam-self" || idStr === "member-self" || idStr === "head" || idStr === "primary") {
+      return true;
+    }
+  }
+
+  // 3. Check exact full-name match against logged-in user
   if (name && currentUserName) {
     const n = name.toLowerCase().trim();
     const c = currentUserName.toLowerCase().trim();
@@ -194,6 +195,7 @@ export function isSelfRelationOrMember(
       return true;
     }
   }
+
   return false;
 }
 

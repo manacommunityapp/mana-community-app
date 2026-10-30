@@ -499,6 +499,45 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     expect(spouseRegs).toHaveLength(1);
     expect(spouseRegs[0].playerName).toBe("Sunita Kamarapu");
   });
+
+  it("filters out Self (Head) with positive numeric database ID from familyMembersOnly to prevent duplicate dropdown entries", () => {
+    const currentUserName = "sandeep kamarapu";
+    const rawFamilyMembers = [
+      { id: 18, name: "sandeep kamarapu", relation: "Self (Head)" },
+      { id: 136, name: "Sindhuja Chinthala", relation: "Spouse" },
+      { id: 154, name: "Udvith Sai", relation: "Son" },
+      { id: 155, name: "Rithika", relation: "Daughter" },
+    ];
+
+    // 1. isSelfRelationOrMember checks
+    expect(isSelfRelationOrMember("Self (Head)", 18, "sandeep kamarapu", currentUserName)).toBe(true);
+    expect(isSelfRelationOrMember(null, 18, "sandeep kamarapu", currentUserName)).toBe(true);
+    expect(isSelfRelationOrMember("Spouse", 136, "Sindhuja Chinthala", currentUserName)).toBe(false);
+    expect(isSelfRelationOrMember("Son", 154, "Udvith Sai", currentUserName)).toBe(false);
+    expect(isSelfRelationOrMember("Daughter", 155, "Rithika", currentUserName)).toBe(false);
+
+    // 2. Filter familyMembersOnly
+    const familyMembersOnly = rawFamilyMembers.filter(m => {
+      const rel = m.relation || (m as any).relationship || "";
+      const isSelf = isSelfRelationOrMember(rel, m.id, m.name, currentUserName);
+      return !isSelf;
+    });
+
+    // Self (Head) with ID 18 MUST be excluded
+    expect(familyMembersOnly).toHaveLength(3);
+    expect(familyMembersOnly.map(m => m.id)).toEqual([136, 154, 155]);
+    expect(familyMembersOnly.some(m => m.name === "sandeep kamarapu")).toBe(false);
+
+    // 3. Dropdown options simulation
+    const dropdownOptions = [
+      { value: "self", label: `👤 ${currentUserName}` },
+      ...familyMembersOnly.map(m => ({ value: String(m.id), label: `👥 ${m.name} (${m.relation})` })),
+    ];
+
+    expect(dropdownOptions).toHaveLength(4);
+    expect(dropdownOptions[0]).toEqual({ value: "self", label: "👤 sandeep kamarapu" });
+    expect(dropdownOptions.filter(opt => opt.label.includes("sandeep kamarapu"))).toHaveLength(1);
+  });
 });
 
 
