@@ -95,6 +95,9 @@ export const resourceBookingService = {
   async getBookingsByResource(resourceId: number, date: string): Promise<ResourceBookingResponse[]> {
     return apiClient.get<ResourceBookingResponse[]>(`/resource-booking/resources/${resourceId}/bookings?date=${date}`);
   },
+  async confirmBookingPayment(id: number, fee: number, note?: string): Promise<ResourceBookingResponse> {
+    return apiClient.post<ResourceBookingResponse>(`/resource-booking/bookings/${id}/confirm-payment`, { fee, note });
+  },
 
   // ── Waitlist ──
   async joinWaitlist(resourceId: number, date: string, startTime: string, endTime: string): Promise<WaitlistResponse> {
