@@ -53,6 +53,7 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { AdminAccessManagement } from "./AdminAccessManagement";
 import { SmartDashboard } from "../commons/SmartDashboard";
 import { PlatformOperationsConsole } from "./PlatformOperationsConsole";
+import { AdminSportsMeta } from "./AdminSportsMeta";
 import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { NoticeBoard } from "../notices/NoticeBoard";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
@@ -89,6 +90,7 @@ const TAB_ITEMS = [
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
+  { id: "sports-meta", label: "Sports Meta",  icon: Dumbbell },
   { id: "operations", label: "Platform Ops", icon: Server },
   { id: "privacy", label: "Privacy & Retention", icon: Shield },
 ] as const;
@@ -724,6 +726,7 @@ export function AdminHub() {
     if (t.id === "modules") return isSuperAdmin;
     if (t.id === "community") return canManageCommunities;
     if (t.id === "users-roles" || t.id === "access-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
+    if (t.id === "sports-meta") return isSuperAdmin || isAdmin;
     return true;
   });
 
@@ -816,6 +819,7 @@ export function AdminHub() {
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
+        {activeTab === "sports-meta" && <AdminSportsMeta isTab />}
         {activeTab === "operations" && <PlatformOperationsConsole />}
         {activeTab === "privacy" && <PrivacyAdminHub />}
       </div>
