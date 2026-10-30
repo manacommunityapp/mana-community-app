@@ -33,6 +33,7 @@ import { EventsGallery } from "./components/events/EventsGallery";
 import { EventsReports } from "./components/events/EventsReports";
 
 import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
+import { AdminAccessManagement } from "./components/admin/AdminAccessManagement";
 import { EventEditor } from "./components/events/EventEditor";
 import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
 import { Login } from "./components/commons/login/Login";
@@ -592,7 +593,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "access-roles",
-            element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><EventsAccessManagement /></PermissionGuard>
+            element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><AdminAccessManagement /></PermissionGuard>
           },
           {
             path: "audit-logs",
