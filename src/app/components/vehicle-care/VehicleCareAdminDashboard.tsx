@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Car, Wrench, Calendar, TrendingUp, Users, CheckCircle2,
   Clock, AlertCircle, Star, ChevronRight, RefreshCw, MapPin,
 } from "lucide-react";
+import {
+  vehicleCareService,
+  type VehicleCareBookingResponse,
+  type VehicleServiceCatalogResponse,
+  type VehicleCarePlanCatalogResponse,
+} from "../../../services/vehicleCareService";
 
 const TABS = ["Overview", "Bookings", "Technicians", "Catalog", "Plans"] as const;
 type Tab = typeof TABS[number];
@@ -18,7 +24,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PENDING_PAYMENT:{ bg: "rgba(107,114,128,0.1)", text: "#6b7280" },
 };
 
-const STATS = [
+const DEFAULT_STATS = [
   { label: "Today's Bookings", value: "24",   icon: Calendar,    color: "#3b82f6" },
   { label: "Completed",        value: "18",   icon: CheckCircle2,color: "#10b981" },
   { label: "Active Jobs",      value: "6",    icon: Wrench,      color: "#f59e0b" },
@@ -40,7 +46,7 @@ const TECHNICIANS = [
   { name: "Mohan Singh",  jobs: 3, completed: 3, rating: 4.7, status: "Available" },
 ];
 
-const CATALOG = [
+const DEFAULT_CATALOG = [
   { name: "Express Exterior Wash", duration: "30 min", price: "₹249", popular: true,  bookings: 112 },
   { name: "Interior Vacuum",       duration: "45 min", price: "₹299", popular: false, bookings: 68  },
   { name: "Full Detail Wash",      duration: "90 min", price: "₹599", popular: true,  bookings: 94  },
@@ -49,17 +55,17 @@ const CATALOG = [
   { name: "Engine Bay Cleaning",   duration: "60 min", price: "₹699", popular: false, bookings: 23  },
 ];
 
-const PLANS = [
+const DEFAULT_PLANS = [
   { name: "Basic Plan",    freq: "Every 4 Days",  price: "₹999",  active: 34 },
   { name: "Standard Plan", freq: "Every 3 Days",  price: "₹1,299",active: 21 },
   { name: "Premium Plan",  freq: "Every 2 Days",  price: "₹1,799",active: 14 },
   { name: "Daily Shine",   freq: "Daily",         price: "₹2,999",active: 8  },
 ];
 
-function StatCard({ stat }: { stat: typeof STATS[number] }) {
+function StatCard({ stat }: { stat: typeof DEFAULT_STATS[number] }) {
   const Icon = stat.icon;
   return (
-    <div style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", border: "1px solid #e5e7eb", flex: 1 }}>
+    <div style={{ background: "#fff", borderRadius: 12, padding: "16px 20px", border: "1px solid #e5e7eb", flex: 1, minWidth: 200 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: `${stat.color}1a`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Icon size={18} style={{ color: stat.color }} />
@@ -82,6 +88,77 @@ function StatusBadge({ status }: { status: string }) {
 
 export function VehicleCareAdminDashboard() {
   const [tab, setTab] = useState<Tab>("Overview");
+  const [liveBookings, setLiveBookings] = useState<any[]>(SAMPLE_BOOKINGS);
+  const [catalogItems, setCatalogItems] = useState<any[]>(DEFAULT_CATALOG);
+  const [planItems, setPlanItems] = useState<any[]>(DEFAULT_PLANS);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [bookingsPage, catalogRes, plansRes] = await Promise.allSettled([
+        vehicleCareService.getAdminBookings("ALL", 0, 50),
+        vehicleCareService.getCatalog(),
+        vehicleCareService.getPlanCatalog(),
+      ]);
+
+      if (bookingsPage.status === "fulfilled" && bookingsPage.value?.content?.length) {
+        setLiveBookings(bookingsPage.value.content.map((b: VehicleCareBookingResponse) => ({
+          id: b.bookingNumber || `VC-${b.id}`,
+          status: b.status || "CONFIRMED",
+          resident: b.vehicleNickname || "Resident",
+          flat: b.locationNotes || "Apartment",
+          service: b.serviceName || "Wash Service",
+          vehicle: b.vehicleDisplay || b.vehiclePlate || "Vehicle",
+          time: `${b.scheduledStart || b.startTime || "09:00"}–${b.scheduledEnd || b.endTime || "10:00"}`,
+          tech: b.technicianName || "Unassigned",
+          amount: `₹${b.totalAmount || b.paidAmount || 0}`,
+        })));
+      }
+
+      if (catalogRes.status === "fulfilled" && catalogRes.value?.length) {
+        setCatalogItems(catalogRes.value.map((c: VehicleServiceCatalogResponse) => ({
+          name: c.name,
+          duration: `${c.durationMinutes || 30} min`,
+          price: `₹${c.communityPrice || c.basePrice}`,
+          popular: !!c.isPopular,
+          bookings: 45,
+        })));
+      }
+
+      if (plansRes.status === "fulfilled" && plansRes.value?.length) {
+        setPlanItems(plansRes.value.map((p: VehicleCarePlanCatalogResponse) => ({
+          name: p.name,
+          freq: p.frequencyLabel || p.frequency || "Monthly",
+          price: `₹${p.price}`,
+          active: p.creditsPerCycle || p.washesPerMonth || 12,
+        })));
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const stats = [
+    { label: "Today's Bookings", value: String(liveBookings.length), icon: Calendar, color: "#3b82f6" },
+    { label: "Completed", value: String(liveBookings.filter(b => b.status === "COMPLETED").length), icon: CheckCircle2, color: "#10b981" },
+    { label: "Active Jobs", value: String(liveBookings.filter(b => ["CONFIRMED", "ASSIGNED", "EN_ROUTE", "ARRIVED", "IN_PROGRESS"].includes(b.status)).length), icon: Wrench, color: "#f59e0b" },
+    {
+      label: "Total Revenue",
+      value: `₹${liveBookings.reduce((sum, b) => {
+        const val = parseInt(b.amount?.replace(/[^\d]/g, "") || "0", 10);
+        return sum + (isNaN(val) ? 0 : val);
+      }, 0).toLocaleString("en-IN")}`,
+      icon: TrendingUp,
+      color: "#8b5cf6"
+    },
+  ];
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px" }}>
@@ -96,8 +173,8 @@ export function VehicleCareAdminDashboard() {
             <div style={{ fontSize: 12, color: "#6b7280" }}>Powered by Washcaro · Admin Dashboard</div>
           </div>
         </div>
-        <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", fontSize: 13 }}>
-          <RefreshCw size={14} />Refresh
+        <button onClick={loadData} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1 }}>
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />{loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
@@ -117,7 +194,7 @@ export function VehicleCareAdminDashboard() {
       {tab === "Overview" && (
         <>
           <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-            {STATS.map(s => <StatCard key={s.label} stat={s} />)}
+            {stats.map(s => <StatCard key={s.label} stat={s} />)}
           </div>
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -135,7 +212,7 @@ export function VehicleCareAdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {SAMPLE_BOOKINGS.map((b, i) => (
+                {liveBookings.map((b, i) => (
                   <tr key={b.id} style={{ borderTop: i > 0 ? "1px solid #f3f4f6" : "none" }}>
                     <td style={{ padding: "12px 14px", fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{b.id}</td>
                     <td style={{ padding: "12px 14px" }}>
@@ -171,7 +248,7 @@ export function VehicleCareAdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {SAMPLE_BOOKINGS.map((b, i) => (
+              {liveBookings.map((b, i) => (
                 <tr key={b.id} style={{ borderTop: i > 0 ? "1px solid #f3f4f6" : "none" }}>
                   <td style={{ padding: "12px 14px", fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{b.id}</td>
                   <td style={{ padding: "12px 14px" }}>
@@ -254,7 +331,7 @@ export function VehicleCareAdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {CATALOG.map((c, i) => (
+              {catalogItems.map((c, i) => (
                 <tr key={c.name} style={{ borderTop: i > 0 ? "1px solid #f3f4f6" : "none" }}>
                   <td style={{ padding: "12px 14px", fontSize: 14, fontWeight: 600, color: "#111827" }}>{c.name}</td>
                   <td style={{ padding: "12px 14px", fontSize: 13, color: "#6b7280" }}>{c.duration}</td>
@@ -285,7 +362,7 @@ export function VehicleCareAdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {PLANS.map((p, i) => (
+              {planItems.map((p, i) => (
                 <tr key={p.name} style={{ borderTop: i > 0 ? "1px solid #f3f4f6" : "none" }}>
                   <td style={{ padding: "12px 14px", fontSize: 14, fontWeight: 600, color: "#111827" }}>{p.name}</td>
                   <td style={{ padding: "12px 14px", fontSize: 13, color: "#6b7280" }}>{p.freq}</td>

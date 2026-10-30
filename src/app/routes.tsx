@@ -704,8 +704,8 @@ export const router = createBrowserRouter([
       {
         path: "vehicle-care",
         children: [
-          { index: true, Component: VehicleCareAdminDashboard },
-          { path: "vendor", Component: VehicleCareVendorPortal },
+          { index: true, element: <PermissionGuard anyPermissions={[VIEW_HOME_SERVICE, VIEW_ADMIN]} requiredModule="HOME_SERVICES"><VehicleCareAdminDashboard /></PermissionGuard> },
+          { path: "vendor", element: <PermissionGuard anyPermissions={[VIEW_HOME_SERVICE, VIEW_ADMIN]} requiredModule="HOME_SERVICES"><VehicleCareVendorPortal /></PermissionGuard> },
         ],
       },
       {
