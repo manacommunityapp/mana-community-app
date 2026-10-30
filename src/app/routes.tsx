@@ -483,7 +483,7 @@ export const router = createBrowserRouter([
           },
           { 
             path: "my-sports", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
+            element: <PermissionGuard sportsAdminOnly permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
           },
           {
             path: "tournaments",
@@ -551,7 +551,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "analytics",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard>
+            element: <PermissionGuard sportsAdminOnly requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard>
           },
           {
             path: "match/:matchId",

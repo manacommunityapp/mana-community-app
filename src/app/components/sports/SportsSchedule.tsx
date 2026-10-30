@@ -398,11 +398,11 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
-  const { user, hasPermission } = useAuth();
-  const isAdmin = hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false;
+  const { user, hasPermission, isAdmin: authIsAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const isAdmin = isSuperAdmin || authIsAdmin || isSportsAdmin || (hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false);
 
   const [activeTab, setActiveTab] = useState<Tab>(() => {
-    if (eventId) return "Setup Schedule";
+    if (eventId && isAdmin) return "Setup Schedule";
     return "Overview";
   });
   const [allEvents, setAllEvents] = useState<EventListItem[]>([]);
@@ -2094,13 +2094,37 @@ export function SportsSchedule() {
       {activeTab === "Brackets" && <BracketView eventId={eventId} tournamentConfigs={tournamentConfigs} initialConfigId={selectedTournamentId} />}
 
       {/* Config */}
-      {activeTab === "Config" && <TournamentScheduler />}
+      {activeTab === "Config" && (
+        isAdmin ? <TournamentScheduler /> : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Tournament Configuration is restricted to administrators.</p>
+          </div>
+        )
+      )}
 
       {/* Setup Schedule */}
-      {activeTab === "Setup Schedule" && <SetupSchedule initialEventId={eventId} />}
+      {activeTab === "Setup Schedule" && (
+        isAdmin ? <SetupSchedule initialEventId={eventId} /> : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Schedule Setup is restricted to administrators.</p>
+          </div>
+        )
+      )}
 
       {/* Manual Scheduler */}
-      {activeTab === "Manual" && <ManualScheduler configId={selectedTournamentId ?? (tournamentConfigs[0]?.id)} />}
+      {activeTab === "Manual" && (
+        isAdmin ? <ManualScheduler configId={selectedTournamentId ?? (tournamentConfigs[0]?.id)} /> : (
+          <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
+            <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
+            <div className="font-bold text-slate-800">Access Restricted</div>
+            <p className="text-xs text-slate-500 mt-1">Manual Scheduler is restricted to administrators.</p>
+          </div>
+        )
+      )}
 
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (

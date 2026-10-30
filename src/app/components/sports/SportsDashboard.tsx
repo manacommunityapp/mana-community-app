@@ -160,7 +160,7 @@ export function isSelfRelationOrMember(
     }
   }
   if (rel) {
-    const r = rel.toUpperCase().trim();
+    const r = String(rel).toUpperCase().trim();
     if (
       r === "SELF" ||
       r === "HEAD" ||
@@ -184,6 +184,21 @@ export function isSelfRelationOrMember(
 }
 
 /**
+ * Helper to safely extract string from matchType / format across primitives, arrays, and objects
+ */
+export function extractFormatStr(val: any): string {
+  if (!val) return "";
+  if (typeof val === "string") return val.trim().toUpperCase();
+  if (Array.isArray(val)) {
+    return val.map(v => (typeof v === "string" ? v : String(v || ""))).join(" ").trim().toUpperCase();
+  }
+  if (typeof val === "object") {
+    return String(val.name || val.code || val.format || val.matchType || "").trim().toUpperCase();
+  }
+  return String(val).trim().toUpperCase();
+}
+
+/**
  * Format compatibility checker to ensure Singles registrations do not match Doubles events,
  * and vice-versa, especially for events sharing the same category name (e.g. "Men's Above 19").
  */
@@ -191,15 +206,25 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   if (!r || !ev) return true;
 
   const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-  const evFormats = isEvTeam ? ["TEAM"] : (getEventFormats ? getEventFormats(ev as any) : []);
+  const rawEvFormats = isEvTeam ? ["TEAM"] : (getEventFormats ? getEventFormats(ev as any) : []);
+  const evFormats: string[] = (Array.isArray(rawEvFormats) ? rawEvFormats : [])
+    .map(f => (typeof f === "string" ? f : String(f || "")).trim().toUpperCase())
+    .filter(Boolean);
 
   // Determine registration matchType/format
-  let rFmt = (r.matchType || (r as any).format || "").toUpperCase().trim();
+  let rFmt = extractFormatStr(r.matchType) || extractFormatStr((r as any).format) || "";
   if (!rFmt && ((r as any).partnerUserId || (r as any).partnerFamilyMemberId)) {
     rFmt = "DOUBLES";
   }
 
-  const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const norm = (s?: any) => {
+    if (!s) return "";
+    if (typeof s === "string") return s.trim().toLowerCase();
+    if (Array.isArray(s)) return s.map(x => typeof x === "string" ? x : String(x || "")).join(" ").trim().toLowerCase();
+    if (typeof s === "object") return String(s.name || s.title || "").trim().toLowerCase();
+    return String(s).trim().toLowerCase();
+  };
+
   const rName = norm(r.eventName || r.event?.name);
   const rCatName = norm(r.categoryName || r.category?.name);
   const evName = norm(ev.name);
@@ -220,45 +245,50 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   const evStrictlyDoubles = (evName.includes("doubles") || evCatName.includes("doubles")) && !evName.includes("singles") && !evCatName.includes("singles");
   const evStrictlySingles = (evName.includes("singles") || evCatName.includes("singles")) && !evName.includes("doubles") && !evCatName.includes("doubles");
 
-  // If r is Singles:
-  if (rFmt === "SINGLES") {
+  const rHasSingles = rFmt.includes("SINGLES");
+  const rHasDoubles = rFmt.includes("DOUBLES") && !rFmt.includes("MIXED");
+  const rHasMixed = rFmt.includes("MIXED");
+  const rHasTeam = rFmt === "TEAM" || rFmt.includes("TEAM");
+
+  // If r is strictly Singles (does NOT also support doubles/team):
+  if (rHasSingles && !rHasDoubles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlyDoubles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase() === "SINGLES")) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("SINGLES"))) {
       return false;
     }
   }
 
-  // If r is Doubles (excluding Mixed):
-  if (rFmt === "DOUBLES" || (rFmt.includes("DOUBLES") && !rFmt.includes("MIXED"))) {
+  // If r is strictly Doubles (excluding Mixed, and does NOT also support singles):
+  if (rHasDoubles && !rHasSingles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("DOUBLES") && !f.toUpperCase().includes("MIXED"))) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("DOUBLES") && !f.includes("MIXED"))) {
       return false;
     }
   }
 
-  // If r is Mixed Doubles:
-  if (rFmt === "MIXED_DOUBLES" || rFmt.includes("MIXED")) {
+  // If r is strictly Mixed Doubles:
+  if (rHasMixed && !rHasSingles && !rHasDoubles && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("MIXED"))) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("MIXED"))) {
       return false;
     }
   }
 
-  // If r is Team:
-  if (rFmt === "TEAM") {
+  // If r is strictly Team:
+  if (rHasTeam && !rHasSingles && !rHasDoubles && !rHasMixed) {
     if (!isEvTeam && evFormats.length > 0 && !evFormats.includes("TEAM")) {
       return false;
     }
   }
 
   // Vice versa: if ev is strictly Singles or Doubles and r keywords conflict
-  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles"))) {
+  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles")) && !rName.includes("doubles") && !rCatName.includes("doubles")) {
     return false;
   }
-  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles"))) {
+  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles")) && !rName.includes("singles") && !rCatName.includes("singles")) {
     return false;
   }
 
@@ -344,7 +374,7 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
  */
 export function isActiveRegistrationStatus(status?: string | null): boolean {
   if (!status) return false;
-  const s = status.toUpperCase().trim();
+  const s = String(status).toUpperCase().trim();
   return s !== "CANCELLED" && s !== "WITHDRAWN" && s !== "REJECTED";
 }
 
@@ -400,11 +430,11 @@ export function isRegistrationForMemberHelper(
   const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
   if (targetMember) {
     const targetMemberName = (targetMember.name || "").trim().toLowerCase();
-    const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
+    const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
     if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
       return true;
     }
-    if (targetMemberRelation && regRelation.toUpperCase() === targetMemberRelation) {
+    if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
       return true;
     }
   }
@@ -457,8 +487,8 @@ function EventRow({ event, onClick, onShowInfo }: EventRowProps) {
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
             {event.registrantBadge &&
-              !event.registrantBadge.toUpperCase().includes("SELF") &&
-              !event.registrantBadge.toUpperCase().includes("HEAD") && (
+              !String(event.registrantBadge).toUpperCase().includes("SELF") &&
+              !String(event.registrantBadge).toUpperCase().includes("HEAD") && (
               <span className="text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
               </span>
@@ -736,7 +766,8 @@ type DashboardTournamentWithEvents = Omit<DashboardTournamentCard, "sponsors"> &
 };
 
 export function SportsDashboard() {
-  const { user, hasPermission, hasAnyPermission, isSuperAdmin } = useAuth();
+  const { user, hasPermission, hasAnyPermission, isSuperAdmin, isAdmin, isSportsAdmin } = useAuth();
+  const canAccessAdminSports = isAdmin || isSuperAdmin || isSportsAdmin;
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
@@ -1103,7 +1134,7 @@ export function SportsDashboard() {
         );
 
         // Check if backend e.myRegistrationStatus itself says WITHDRAWN, CANCELLED, or REJECTED:
-        const backendStatus = (e.myRegistrationStatus || "").toUpperCase().trim();
+        const backendStatus = String(e.myRegistrationStatus || "").toUpperCase().trim();
         const isBackendInactive = backendStatus === "CANCELLED" || backendStatus === "WITHDRAWN" || backendStatus === "REJECTED";
 
         // Check if locally marked withdrawn in this session:
@@ -1632,7 +1663,16 @@ export function SportsDashboard() {
     }
   }, [selectedCaptainEventId, fetchCaptainRegs]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const handleRegUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener("mana_registrations_updated", handleRegUpdate);
+    return () => {
+      window.removeEventListener("mana_registrations_updated", handleRegUpdate);
+    };
+  }, [fetchData]);
 
   const handleNominateSubmit = async () => {
     if ((isAdminNomination && !selectedRegForNomination) || (!isAdminNomination && !nominatingRegId)) {
@@ -1663,6 +1703,7 @@ export function SportsDashboard() {
       setNominatingRegId(null);
       setSelectedRegForNomination(null);
       setIsAdminNomination(false);
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       fetchData();
     } catch {
       toast.error("Failed to nominate");
@@ -1778,8 +1819,8 @@ export function SportsDashboard() {
             { label: "Auction", emoji: "🔨", to: "/sports/auction", color: "#8b5cf6" },
             { label: "Badges", emoji: "🎖️", to: "/sports/badges", color: "#10b981" },
             { label: "Leaderboard", emoji: "📊", to: "/sports/leaderboard", color: "#0ea5e9" },
-            { label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" },
-            { label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" },
+            ...(canAccessAdminSports ? [{ label: "My Sports", emoji: "🏅", to: "/sports/my-sports", color: "#ec4899" }] : []),
+            ...(canAccessAdminSports ? [{ label: "Analytics", emoji: "📈", to: "/sports/analytics", color: "#14b8a6" }] : []),
           ].map(action => (
             <Link
               key={action.label}
@@ -2130,7 +2171,7 @@ export function SportsDashboard() {
                   }
 
                   const registered = regs.map(r => {
-                    const rawFmt = (r.matchType || "").toUpperCase();
+                    const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
                     if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
                       return rawFmt;
                     }
@@ -2165,9 +2206,14 @@ export function SportsDashboard() {
                   const regs = getMemberRegsForEvent(item);
                   if (regs.length === 0) return;
                   const displayName = item.categoryName || item.name;
-                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`))) return;
+                  const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
+                  const confirmMsg = fmtList
+                    ? `Are you sure you want to unregister from ${displayName} (${fmtList})? You will lose your reserved spot.`
+                    : `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`;
 
-                  const withdrawnIds = regs.map(r => Number(r.id));
+                  if (!(await confirmAction("Unregister", confirmMsg))) return;
+
+                  const withdrawnIds = regs.map(r => Number(r.id)).filter(id => !isNaN(id) && id > 0);
 
                   // 1. Mark IDs as locally withdrawn immediately
                   setWithdrawnRegistrationIds(prev => {
@@ -2209,12 +2255,27 @@ export function SportsDashboard() {
 
                   try {
                     for (const r of regs) {
-                      await sportsService.withdraw(r.id);
+                      const rId = Number(r.id);
+                      if (!isNaN(rId) && rId > 0) {
+                        try {
+                          await sportsService.withdraw(rId);
+                        } catch (withdrawErr: any) {
+                          const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+                          // If event has started and caller has admin/sports admin rights, use admin rejection/cancellation
+                          if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                            await sportsService.rejectRegistration(rId, "Withdrawn by Admin");
+                          } else {
+                            throw withdrawErr;
+                          }
+                        }
+                      }
                     }
                     toast.success(`Unregistered from ${displayName}`);
+                    window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
                     await fetchData();
                   } catch (err: any) {
-                    toast.error(err?.message || "Failed to unregister");
+                    const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+                    toast.error(msg);
                     fetchData();
                   }
                 };
@@ -3284,7 +3345,7 @@ export function SportsDashboard() {
                         Your Registrations
                       </h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
-                        {myRegistrations.length} Total
+                        {myRegistrations.filter(r => isActiveRegistrationStatus(r.status)).length} Active ({myRegistrations.length} Total)
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 m-0">
@@ -3375,43 +3436,56 @@ export function SportsDashboard() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
+                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(String(reg.status || "").toUpperCase().trim()) && (
                               <button
                                 type="button"
                                 onClick={async () => {
                                   const evName = reg.event?.name || reg.eventName || "this event";
                                   if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
                                   const regId = Number(reg.id);
-                                  setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
-                                  setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
-                                  setOpenTournaments(prev => prev.map(tourney => ({
-                                    ...tourney,
-                                    mappedEvents: tourney.mappedEvents.map(ev => {
-                                      if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
-                                        return {
-                                          ...ev,
-                                          registrationId: undefined,
-                                          action: "Register",
-                                          progress: 0,
-                                          progressColor: "#e2e8f0",
-                                          rawEvent: {
-                                            ...ev.rawEvent,
-                                            myRegistrationId: null,
-                                            myRegistrationStatus: "WITHDRAWN",
-                                          },
-                                        };
+                                  if (!isNaN(regId) && regId > 0) {
+                                    setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
+                                    setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
+                                    setOpenTournaments(prev => prev.map(tourney => ({
+                                      ...tourney,
+                                      mappedEvents: tourney.mappedEvents.map(ev => {
+                                        if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
+                                          return {
+                                            ...ev,
+                                            registrationId: undefined,
+                                            action: "Register",
+                                            progress: 0,
+                                            progressColor: "#e2e8f0",
+                                            rawEvent: {
+                                              ...ev.rawEvent,
+                                              myRegistrationId: null,
+                                              myRegistrationStatus: "WITHDRAWN",
+                                            },
+                                          };
+                                        }
+                                        return ev;
+                                      })
+                                    })));
+                                    setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
+                                    try {
+                                      try {
+                                        await sportsService.withdraw(regId);
+                                      } catch (withdrawErr: any) {
+                                        const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+                                        if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                                          await sportsService.rejectRegistration(regId, "Withdrawn by Admin");
+                                        } else {
+                                          throw withdrawErr;
+                                        }
                                       }
-                                      return ev;
-                                    })
-                                  })));
-                                  setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
-                                  try {
-                                    await sportsService.withdraw(reg.id);
-                                    toast.success(`Unregistered from ${evName}`);
-                                    await fetchData();
-                                  } catch (err: any) {
-                                    toast.error(err?.message || "Failed to unregister");
-                                    fetchData();
+                                      toast.success(`Unregistered from ${evName}`);
+                                      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+                                      await fetchData();
+                                    } catch (err: any) {
+                                      const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+                                      toast.error(msg);
+                                      fetchData();
+                                    }
                                   }
                                 }}
                                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"
@@ -3421,13 +3495,15 @@ export function SportsDashboard() {
                                 <span>Unregister</span>
                               </button>
                             )}
-                            <Link
-                              to="/sports/my-sports"
-                              onClick={() => setActiveStatsModal(null)}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
-                            >
-                              Manage →
-                            </Link>
+                            {canAccessAdminSports && (
+                              <Link
+                                to="/sports/my-sports"
+                                onClick={() => setActiveStatsModal(null)}
+                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline inline-flex items-center gap-1"
+                              >
+                                Manage →
+                              </Link>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3438,13 +3514,15 @@ export function SportsDashboard() {
 
               {/* Modal Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 flex-shrink-0">
-                <Link
-                  to="/sports/my-sports"
-                  onClick={() => setActiveStatsModal(null)}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
-                >
-                  Go to My Sports Dashboard →
-                </Link>
+                {canAccessAdminSports ? (
+                  <Link
+                    to="/sports/my-sports"
+                    onClick={() => setActiveStatsModal(null)}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    Go to My Sports Dashboard →
+                  </Link>
+                ) : <span />}
                 <button
                   type="button"
                   onClick={() => setActiveStatsModal(null)}

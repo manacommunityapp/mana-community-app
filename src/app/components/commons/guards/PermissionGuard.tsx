@@ -12,6 +12,8 @@ interface PermissionGuardProps {
   superAdminOnly?: boolean;
   /** Restrict strictly to admin roles (ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
   adminOnly?: boolean;
+  /** Restrict strictly to admin or sports admin roles (SPORTS_ADMIN, ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
+  sportsAdminOnly?: boolean;
   /** Restrict strictly to vendor roles (VENDOR, SPORTS_VENDOR, VENDOR_ADMIN, or admin override) */
   vendorOnly?: boolean;
   /** Community module key required (e.g. "SPORTS", "MARKETPLACE"). Blocked if module is disabled for the user's community. */
@@ -20,8 +22,8 @@ interface PermissionGuardProps {
   anyModules?: string[];
 }
 
-export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, vendorOnly, requiredModule, anyModules }: PermissionGuardProps) {
-  const { user, isSuperAdmin, isAdmin } = useAuth();
+export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, sportsAdminOnly, vendorOnly, requiredModule, anyModules }: PermissionGuardProps) {
+  const { user, isSuperAdmin, isAdmin, isSportsAdmin } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -50,6 +52,10 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   }
   // adminOnly views are restricted strictly to users with admin roles
   if (adminOnly && !isAdmin) {
+    return renderAccessDenied();
+  }
+  // sportsAdminOnly views are restricted strictly to admin or sports admin roles
+  if (sportsAdminOnly && !isAdmin && !isSportsAdmin) {
     return renderAccessDenied();
   }
   // vendorOnly views are restricted strictly to vendors or managing admins

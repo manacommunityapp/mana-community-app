@@ -100,10 +100,12 @@ export interface SportMeta {
   tournamentType?: string;
 }
 
+export type PlayerCategoryType = "MENS" | "WOMENS" | "BOYS" | "GIRLS" | "KIDS" | "SENIORS" | "MIXED";
+
 export interface PlayerCategory {
   id: number;
   name: string;
-  categoryType: string;       // MENS, WOMENS, BOYS, GIRLS, KIDS, SENIORS
+  categoryType: string;       // MENS, WOMENS, BOYS, GIRLS, KIDS, SENIORS, MIXED
   description?: string;
   minAge: number;
   maxAge: number;

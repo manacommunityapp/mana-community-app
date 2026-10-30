@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2 } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
-import { isTeamSport } from "../utils/sportsConstants";
+import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
@@ -53,6 +53,77 @@ export function TournamentSection({
   const [exportDropdownEventId, setExportDropdownEventId] = useState<number | null>(null);
   const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
   const [shareTournament, setShareTournament] = useState<any | null>(null);
+  const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; search?: string }>>({});
+
+  const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "search", value: string) => {
+    setEventFilters(prev => ({
+      ...prev,
+      [tournamentId]: {
+        ...(prev[tournamentId] || {}),
+        [key]: value,
+      }
+    }));
+  };
+
+  const clearTournamentFilter = (tournamentId: number) => {
+    setEventFilters(prev => {
+      const copy = { ...prev };
+      delete copy[tournamentId];
+      return copy;
+    });
+  };
+
+  const getSportName = (ev: any): string => {
+    if (ev.sport?.name) return ev.sport.name;
+    if (ev.sportName) return ev.sportName;
+    const nameLower = (ev.name || "").toLowerCase();
+    for (const ps of PREDEFINED_SPORTS) {
+      if (ps.name && nameLower.includes(ps.name.toLowerCase())) {
+        return ps.name;
+      }
+    }
+    return "";
+  };
+
+  const getCategoryName = (ev: any): string => {
+    if (ev.categoryName) return ev.categoryName;
+    if (typeof ev.category === "string") return ev.category;
+    if (ev.category?.name) return ev.category.name;
+    if (Array.isArray(ev.categories) && ev.categories.length > 0 && ev.categories[0]?.name) {
+      return ev.categories[0].name;
+    }
+    const nameLower = (ev.name || "").toLowerCase();
+    if (nameLower.includes("mixed doubles")) return "Mixed Doubles";
+    if (nameLower.includes("women's doubles") || nameLower.includes("womens doubles") || nameLower.includes("women doubles")) return "Women's Doubles";
+    if (nameLower.includes("men's doubles") || nameLower.includes("mens doubles") || nameLower.includes("men doubles")) return "Men's Doubles";
+    if (nameLower.includes("women's singles") || nameLower.includes("womens singles") || nameLower.includes("women singles")) return "Women's Singles";
+    if (nameLower.includes("men's singles") || nameLower.includes("mens singles") || nameLower.includes("men singles")) return "Men's Singles";
+    if (nameLower.includes("doubles")) return "Doubles";
+    if (nameLower.includes("singles")) return "Singles";
+    return "";
+  };
+
+  const getAgeCategory = (ev: any): string => {
+    if (ev.ageCategory) return String(ev.ageCategory);
+    if (ev.ageGroup) return String(ev.ageGroup);
+    const min = ev.minAge != null ? Number(ev.minAge) : null;
+    const max = ev.maxAge != null ? Number(ev.maxAge) : null;
+    if (min != null || max != null) {
+      if ((min == null || min <= 0) && (max == null || max >= 90)) return "Open (All Ages)";
+      if ((min == null || min <= 0) && max != null && max < 90) return `Under ${max} (U-${max})`;
+      if (min != null && min > 0 && (max == null || max >= 90)) return `${min}+ Yrs`;
+      if (min != null && max != null) return `${min}–${max} Yrs`;
+    }
+    const nameLower = (ev.name || "").toLowerCase();
+    const uMatch = nameLower.match(/\b(?:u-?|under\s*)(\d+)\b/i);
+    if (uMatch) return `Under ${uMatch[1]} (U-${uMatch[1]})`;
+    const plusMatch = nameLower.match(/\b(\d+)\s*\+/);
+    if (plusMatch) return `${plusMatch[1]}+ Yrs`;
+    const rangeMatch = nameLower.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
+    if (rangeMatch) return `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+    if (/\bopen\b/i.test(nameLower)) return "Open (All Ages)";
+    return "";
+  };
 
   async function handleSeedSave(regId: number) {
     const raw = seedDrafts[regId];
@@ -409,6 +480,50 @@ export function TournamentSection({
           // ── Multi-event tournaments (nested sportsEvents array) ──
           if (item.sportsEvents && item.sportsEvents.length > 0) {
             const isExpanded = !!expandedTournamentIds[item.id];
+            const allSportsInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getSportName(ev)).filter(Boolean))).sort() as string[];
+            const allCategoriesInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getCategoryName(ev)).filter(Boolean))).sort() as string[];
+            const allAgeCategoriesInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getAgeCategory(ev)).filter(Boolean))).sort() as string[];
+
+            const currentFilter = eventFilters[item.id] || {};
+            const selectedSport = currentFilter.sport || "";
+            const selectedCategory = currentFilter.category || "";
+            const selectedAge = currentFilter.age || "";
+            const searchQuery = (currentFilter.search || "").toLowerCase().trim();
+            const isFilterActive = Boolean(selectedSport || selectedCategory || selectedAge || searchQuery);
+
+            const filteredSportsEvents = item.sportsEvents.filter((ev: any) => {
+              if (selectedSport) {
+                const s = getSportName(ev);
+                if (!s || s.toLowerCase() !== selectedSport.toLowerCase()) return false;
+              }
+              if (selectedCategory) {
+                const c = getCategoryName(ev);
+                const nameLower = (ev.name || "").toLowerCase();
+                const targetLower = selectedCategory.toLowerCase();
+                const directMatch = c && c.toLowerCase() === targetLower;
+                const nameMatch = nameLower.includes(targetLower);
+                const arrMatch = Array.isArray(ev.categories) && ev.categories.some((cat: any) => cat?.name?.toLowerCase() === targetLower);
+                if (!directMatch && !nameMatch && !arrMatch) return false;
+              }
+              if (selectedAge) {
+                const a = getAgeCategory(ev);
+                const nameLower = (ev.name || "").toLowerCase();
+                const targetLower = selectedAge.toLowerCase();
+                const directMatch = a && a.toLowerCase() === targetLower;
+                const nameMatch = nameLower.includes(targetLower);
+                if (!directMatch && !nameMatch) return false;
+              }
+              if (searchQuery) {
+                const nameLower = (ev.name || "").toLowerCase();
+                const sLower = getSportName(ev).toLowerCase();
+                const cLower = getCategoryName(ev).toLowerCase();
+                if (!nameLower.includes(searchQuery) && !sLower.includes(searchQuery) && !cLower.includes(searchQuery)) {
+                  return false;
+                }
+              }
+              return true;
+            });
+
             return (
               <div key={item.id} className="p-3 sm:p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
@@ -446,6 +561,11 @@ export function TournamentSection({
                       }`}
                     >
                       Events ({item.sportsEvents.length})
+                      {isExpanded && isFilterActive && (
+                        <span className="ml-1.5 px-1.5 py-0.2 bg-indigo-600 text-white text-[10px] rounded-full font-bold">
+                          {filteredSportsEvents.length}
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -477,25 +597,149 @@ export function TournamentSection({
                 {/* Nested sports events */}
                 {isExpanded && (
                   <div className="space-y-3 pl-2 sm:pl-3.5 border-l-2 border-slate-200 mt-2">
-                    {item.sportsEvents.map((ev: any) => {
-                      const registrationStatus = ev.registrationStatus || ev.status;
-                      return (
-                        <div key={ev.id} className="space-y-2">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
-                            <div className="min-w-0 flex-1 text-left">
-                              <div className="text-xs font-semibold text-slate-800 break-words">{ev.name}</div>
-                              <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                                {ev.gender && <span>Gender: {ev.gender}</span>}
-                                {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
-                                {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                    {/* Filter bar for nested events */}
+                    <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-2 sm:p-2.5 mb-2 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                        <div className="flex items-center gap-1 text-[11px] sm:text-xs font-bold text-slate-700 mr-0.5">
+                          <Filter className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span className="hidden xs:inline">Filter Events:</span>
+                        </div>
+
+                        {/* Sports filter dropdown */}
+                        {allSportsInItem.length > 0 && (
+                          <div className="relative min-w-[110px] sm:min-w-[135px]">
+                            <select
+                              value={selectedSport}
+                              onChange={(e) => setTournamentFilter(item.id, "sport", e.target.value)}
+                              className="w-full text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
+                              aria-label="Filter by sport"
+                            >
+                              <option value="">All Sports ({allSportsInItem.length})</option>
+                              {allSportsInItem.map((s) => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Category filter dropdown */}
+                        {allCategoriesInItem.length > 0 && (
+                          <div className="relative min-w-[115px] sm:min-w-[140px]">
+                            <select
+                              value={selectedCategory}
+                              onChange={(e) => setTournamentFilter(item.id, "category", e.target.value)}
+                              className="w-full text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
+                              aria-label="Filter by category"
+                            >
+                              <option value="">All Categories ({allCategoriesInItem.length})</option>
+                              {allCategoriesInItem.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Age category dropdown if present */}
+                        {allAgeCategoriesInItem.length > 0 && (
+                          <div className="relative min-w-[110px] sm:min-w-[135px]">
+                            <select
+                              value={selectedAge}
+                              onChange={(e) => setTournamentFilter(item.id, "age", e.target.value)}
+                              className="w-full text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
+                              aria-label="Filter by age"
+                            >
+                              <option value="">All Ages ({allAgeCategoriesInItem.length})</option>
+                              {allAgeCategoriesInItem.map((a) => (
+                                <option key={a} value={a}>{a}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Quick Search Input */}
+                        <div className="relative min-w-[110px] sm:min-w-[140px] flex-1 max-w-[180px]">
+                          <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <input
+                            type="text"
+                            value={currentFilter.search || ""}
+                            onChange={(e) => setTournamentFilter(item.id, "search", e.target.value)}
+                            placeholder="Search event..."
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-6 pr-2 py-1.5 text-slate-700 placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs"
+                          />
+                        </div>
+
+                        {/* Clear filter button */}
+                        {isFilterActive && (
+                          <button
+                            type="button"
+                            onClick={() => clearTournamentFilter(item.id)}
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
+                            title="Clear filters"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Clear</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] font-semibold text-slate-500 shrink-0">
+                        Showing <span className="font-bold text-slate-700">{filteredSportsEvents.length}</span> of {item.sportsEvents.length}
+                      </div>
+                    </div>
+
+                    {filteredSportsEvents.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-white rounded-lg border border-dashed border-slate-200">
+                        <div className="text-xs font-bold text-slate-700 mb-1">No events match the selected filters</div>
+                        <p className="text-[11px] text-slate-500 mb-2">Try adjusting your sport or category selection.</p>
+                        <button
+                          type="button"
+                          onClick={() => clearTournamentFilter(item.id)}
+                          className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
+                        >
+                          Reset filters
+                        </button>
+                      </div>
+                    ) : (
+                      filteredSportsEvents.map((ev: any) => {
+                        const registrationStatus = ev.registrationStatus || ev.status;
+                        const evSport = getSportName(ev);
+                        const evCat = getCategoryName(ev);
+                        const evAge = getAgeCategory(ev);
+
+                        return (
+                          <div key={ev.id} className="space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+                              <div className="min-w-0 flex-1 text-left">
+                                <div className="text-xs font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
+                                  <span>{ev.name}</span>
+                                  {evSport && (
+                                    <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded font-bold uppercase tracking-wide">
+                                      {evSport}
+                                    </span>
+                                  )}
+                                  {evCat && (
+                                    <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
+                                      {evCat}
+                                    </span>
+                                  )}
+                                  {evAge && (
+                                    <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-bold tracking-wide">
+                                      {evAge}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                                  {ev.gender && <span>Gender: {ev.gender}</span>}
+                                  {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
+                                  {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                              {registrationStatus && registrationStatus !== "DRAFT" && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? "bg-green-500/20 text-[#10b981]" : registrationStatus === "COMPLETED" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-[#f97316]/20 text-[#f97316]" }`}>
-                                  {registrationStatus}
-                                </span>
-                              )}
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                {registrationStatus && registrationStatus !== "DRAFT" && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? "bg-green-500/20 text-[#10b981]" : registrationStatus === "COMPLETED" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-[#f97316]/20 text-[#f97316]" }`}>
+                                    {registrationStatus}
+                                  </span>
+                                )}
                               {onEditEvent && (
                                 <button
                                   type="button"
@@ -542,7 +786,7 @@ export function TournamentSection({
                           {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 )}
               </div>

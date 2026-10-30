@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
@@ -322,4 +322,91 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
 
     expect(activeRegs.length).toBe(0);
   });
+
+  it("isFormatCompatible and isEventMatch safely handle non-string format or matchType (array, object, number, null)", () => {
+    const eventCard = {
+      id: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      formats: ["SINGLES"],
+    } as any;
+
+    // OpenRegistration object where format is an array (reproducing the reported TypeError)
+    const openRegWithArrayFormat = {
+      id: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      format: ["SINGLES", "DOUBLES"],
+      formats: ["SINGLES", "DOUBLES"],
+    } as any;
+
+    // OpenRegistration where matchType is null and format is an array
+    expect(() => isFormatCompatible(openRegWithArrayFormat, eventCard)).not.toThrow();
+    expect(isFormatCompatible(openRegWithArrayFormat, eventCard)).toBe(true);
+    expect(() => isEventMatch(openRegWithArrayFormat, eventCard)).not.toThrow();
+    expect(isEventMatch(openRegWithArrayFormat, eventCard)).toBe(true);
+
+    // Object where format is an object or number
+    const objWithComplexFormat = {
+      id: 101,
+      eventId: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      matchType: { code: "SINGLES" },
+      format: 1,
+    } as any;
+    expect(() => isFormatCompatible(objWithComplexFormat, eventCard)).not.toThrow();
+    expect(() => isEventMatch(objWithComplexFormat, eventCard)).not.toThrow();
+
+    // Incompatible format (strictly DOUBLES array against strictly Singles event card)
+    const doublesArrayReg = {
+      id: 101,
+      eventId: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      format: ["DOUBLES"],
+    } as any;
+    expect(isFormatCompatible(doublesArrayReg, eventCard)).toBe(false);
+  });
+
+  it("isActiveRegistrationStatus safely normalizes casing and rejects cancelled, withdrawn, rejected, or null statuses", () => {
+    // Active statuses
+    expect(isActiveRegistrationStatus("CONFIRMED")).toBe(true);
+    expect(isActiveRegistrationStatus("confirmed")).toBe(true);
+    expect(isActiveRegistrationStatus("PENDING")).toBe(true);
+    expect(isActiveRegistrationStatus("pending")).toBe(true);
+    expect(isActiveRegistrationStatus("REGISTERED")).toBe(true);
+    expect(isActiveRegistrationStatus("registered")).toBe(true);
+
+    // Inactive statuses
+    expect(isActiveRegistrationStatus("WITHDRAWN")).toBe(false);
+    expect(isActiveRegistrationStatus("withdrawn")).toBe(false);
+    expect(isActiveRegistrationStatus("CANCELLED")).toBe(false);
+    expect(isActiveRegistrationStatus("cancelled")).toBe(false);
+    expect(isActiveRegistrationStatus("REJECTED")).toBe(false);
+    expect(isActiveRegistrationStatus("rejected")).toBe(false);
+
+    // Edge cases
+    expect(isActiveRegistrationStatus(null)).toBe(false);
+    expect(isActiveRegistrationStatus(undefined)).toBe(false);
+    expect(isActiveRegistrationStatus("")).toBe(false);
+  });
+
+  it("filters out invalid/non-numeric registration IDs during withdrawal process", () => {
+    const rawRegs = [
+      { id: 12, playerName: "Player A" },
+      { id: "34", playerName: "Player B" },
+      { id: undefined, playerName: "Player C" },
+      { id: "not-a-number", playerName: "Player D" },
+      { id: -5, playerName: "Player E" },
+      { id: 0, playerName: "Player F" },
+    ];
+
+    const validIds = rawRegs
+      .map(r => Number(r.id))
+      .filter(id => !isNaN(id) && id > 0);
+
+    expect(validIds).toEqual([12, 34]);
+  });
 });
+

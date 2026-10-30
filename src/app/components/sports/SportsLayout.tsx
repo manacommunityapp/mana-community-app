@@ -46,11 +46,11 @@ export function SportsLayout() {
       case "Dashboard":
         return hasPermission(VIEW_SPORTS_MAIN);
       case "My Sports":
-        return hasPermission(VIEW_EVENT_REGISTRATIONS);
+        return canAccessAdminSportsTabs && hasPermission(VIEW_EVENT_REGISTRATIONS);
       case "Tournaments":
         return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Schedule":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs || hasPermission(VIEW_SPORTS_MAIN);
       case "My Teams":
         return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
       case "Trainers":
@@ -74,7 +74,7 @@ export function SportsLayout() {
           CREATE_EDIT_EVENT_REGISTRATIONS
         );
       case "Analytics":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs;
       default:
         return true;
     }

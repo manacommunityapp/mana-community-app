@@ -75,7 +75,8 @@ function SkeletonChart({ className = "", height = 240 }: { className?: string; h
 }
 
 export function SportsAnalytics() {
-  const { user } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const canAccess = isAdmin || isSuperAdmin || isSportsAdmin;
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,6 +89,10 @@ export function SportsAnalytics() {
   const [leaderboardTab, setLeaderboardTab] = useState<string>("Cricket");
 
   const fetchData = useCallback(async (isManualRefresh = false) => {
+    if (!canAccess) {
+      setLoading(false);
+      return;
+    }
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -152,6 +157,21 @@ export function SportsAnalytics() {
       toast.error("Failed to export analytics");
     }
   };
+
+  // ── Access check ─────────────────────────────────────────────────────────
+  if (!canAccess) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm max-w-lg mx-auto mt-12 animate-in fade-in duration-300">
+        <div className="p-4 bg-rose-50 text-rose-600 rounded-full border border-rose-100 mb-4">
+          <ShieldAlert className="w-10 h-10 text-rose-600" />
+        </div>
+        <h3 className="text-base font-bold text-slate-800">Access Restricted</h3>
+        <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+          Sports Analytics is only accessible to Administrators and Sports Administrators.
+        </p>
+      </div>
+    );
+  }
 
   // ── Loading state ────────────────────────────────────────────────────────
   if (loading && !data) {
