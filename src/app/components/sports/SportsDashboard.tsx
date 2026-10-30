@@ -184,6 +184,21 @@ export function isSelfRelationOrMember(
 }
 
 /**
+ * Helper to safely extract string from matchType / format across primitives, arrays, and objects
+ */
+export function extractFormatStr(val: any): string {
+  if (!val) return "";
+  if (typeof val === "string") return val.trim().toUpperCase();
+  if (Array.isArray(val)) {
+    return val.map(v => (typeof v === "string" ? v : String(v || ""))).join(" ").trim().toUpperCase();
+  }
+  if (typeof val === "object") {
+    return String(val.name || val.code || val.format || val.matchType || "").trim().toUpperCase();
+  }
+  return String(val).trim().toUpperCase();
+}
+
+/**
  * Format compatibility checker to ensure Singles registrations do not match Doubles events,
  * and vice-versa, especially for events sharing the same category name (e.g. "Men's Above 19").
  */
@@ -195,19 +210,6 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   const evFormats: string[] = (Array.isArray(rawEvFormats) ? rawEvFormats : [])
     .map(f => (typeof f === "string" ? f : String(f || "")).trim().toUpperCase())
     .filter(Boolean);
-
-  // Helper to safely extract string from matchType / format
-  const extractFormatStr = (val: any): string => {
-    if (!val) return "";
-    if (typeof val === "string") return val.trim().toUpperCase();
-    if (Array.isArray(val)) {
-      return val.map(v => (typeof v === "string" ? v : String(v || ""))).join(" ").trim().toUpperCase();
-    }
-    if (typeof val === "object") {
-      return String(val.name || val.code || val.format || val.matchType || "").trim().toUpperCase();
-    }
-    return String(val).trim().toUpperCase();
-  };
 
   // Determine registration matchType/format
   let rFmt = extractFormatStr(r.matchType) || extractFormatStr((r as any).format) || "";
@@ -1661,7 +1663,16 @@ export function SportsDashboard() {
     }
   }, [selectedCaptainEventId, fetchCaptainRegs]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const handleRegUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener("mana_registrations_updated", handleRegUpdate);
+    return () => {
+      window.removeEventListener("mana_registrations_updated", handleRegUpdate);
+    };
+  }, [fetchData]);
 
   const handleNominateSubmit = async () => {
     if ((isAdminNomination && !selectedRegForNomination) || (!isAdminNomination && !nominatingRegId)) {
@@ -1692,6 +1703,7 @@ export function SportsDashboard() {
       setNominatingRegId(null);
       setSelectedRegForNomination(null);
       setIsAdminNomination(false);
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       fetchData();
     } catch {
       toast.error("Failed to nominate");
@@ -2194,9 +2206,14 @@ export function SportsDashboard() {
                   const regs = getMemberRegsForEvent(item);
                   if (regs.length === 0) return;
                   const displayName = item.categoryName || item.name;
-                  if (!(await confirmAction("Unregister", `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`))) return;
+                  const fmtList = regs.map(r => extractFormatStr(r.matchType || (r as any).format)).filter(Boolean).join(", ");
+                  const confirmMsg = fmtList
+                    ? `Are you sure you want to unregister from ${displayName} (${fmtList})? You will lose your reserved spot.`
+                    : `Are you sure you want to unregister from ${displayName}? You will lose your reserved spot.`;
 
-                  const withdrawnIds = regs.map(r => Number(r.id));
+                  if (!(await confirmAction("Unregister", confirmMsg))) return;
+
+                  const withdrawnIds = regs.map(r => Number(r.id)).filter(id => !isNaN(id) && id > 0);
 
                   // 1. Mark IDs as locally withdrawn immediately
                   setWithdrawnRegistrationIds(prev => {
@@ -2238,12 +2255,27 @@ export function SportsDashboard() {
 
                   try {
                     for (const r of regs) {
-                      await sportsService.withdraw(r.id);
+                      const rId = Number(r.id);
+                      if (!isNaN(rId) && rId > 0) {
+                        try {
+                          await sportsService.withdraw(rId);
+                        } catch (withdrawErr: any) {
+                          const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+                          // If event has started and caller has admin/sports admin rights, use admin rejection/cancellation
+                          if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                            await sportsService.rejectRegistration(rId, "Withdrawn by Admin");
+                          } else {
+                            throw withdrawErr;
+                          }
+                        }
+                      }
                     }
                     toast.success(`Unregistered from ${displayName}`);
+                    window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
                     await fetchData();
                   } catch (err: any) {
-                    toast.error(err?.message || "Failed to unregister");
+                    const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+                    toast.error(msg);
                     fetchData();
                   }
                 };
@@ -3310,7 +3342,7 @@ export function SportsDashboard() {
                         Your Registrations
                       </h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
-                        {myRegistrations.length} Total
+                        {myRegistrations.filter(r => isActiveRegistrationStatus(r.status)).length} Active ({myRegistrations.length} Total)
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 m-0">
@@ -3401,43 +3433,56 @@ export function SportsDashboard() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(reg.status) && (
+                            {["PENDING", "REGISTERED", "CONFIRMED"].includes(String(reg.status || "").toUpperCase().trim()) && (
                               <button
                                 type="button"
                                 onClick={async () => {
                                   const evName = reg.event?.name || reg.eventName || "this event";
                                   if (!(await confirmAction("Unregister", `Are you sure you want to unregister ${reg.playerName || "yourself"} from ${evName}? You will lose your reserved spot.`))) return;
                                   const regId = Number(reg.id);
-                                  setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
-                                  setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
-                                  setOpenTournaments(prev => prev.map(tourney => ({
-                                    ...tourney,
-                                    mappedEvents: tourney.mappedEvents.map(ev => {
-                                      if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
-                                        return {
-                                          ...ev,
-                                          registrationId: undefined,
-                                          action: "Register",
-                                          progress: 0,
-                                          progressColor: "#e2e8f0",
-                                          rawEvent: {
-                                            ...ev.rawEvent,
-                                            myRegistrationId: null,
-                                            myRegistrationStatus: "WITHDRAWN",
-                                          },
-                                        };
+                                  if (!isNaN(regId) && regId > 0) {
+                                    setWithdrawnRegistrationIds(prev => new Set(prev).add(regId));
+                                    setMyRegistrations(prev => prev.map(r => Number(r.id) === regId ? { ...r, status: "WITHDRAWN" } : r));
+                                    setOpenTournaments(prev => prev.map(tourney => ({
+                                      ...tourney,
+                                      mappedEvents: tourney.mappedEvents.map(ev => {
+                                        if (Number(ev.registrationId) === regId || Number(ev.id) === Number(reg.eventId) || isEventMatch(reg, ev)) {
+                                          return {
+                                            ...ev,
+                                            registrationId: undefined,
+                                            action: "Register",
+                                            progress: 0,
+                                            progressColor: "#e2e8f0",
+                                            rawEvent: {
+                                              ...ev.rawEvent,
+                                              myRegistrationId: null,
+                                              myRegistrationStatus: "WITHDRAWN",
+                                            },
+                                          };
+                                        }
+                                        return ev;
+                                      })
+                                    })));
+                                    setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
+                                    try {
+                                      try {
+                                        await sportsService.withdraw(regId);
+                                      } catch (withdrawErr: any) {
+                                        const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+                                        if (canAccessAdminSports && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+                                          await sportsService.rejectRegistration(regId, "Withdrawn by Admin");
+                                        } else {
+                                          throw withdrawErr;
+                                        }
                                       }
-                                      return ev;
-                                    })
-                                  })));
-                                  setStats(prev => Array.isArray(prev) ? prev.map(s => s.id === 1 ? { ...s, value: Math.max(0, Number(s.value || 0) - 1) } : s) : prev);
-                                  try {
-                                    await sportsService.withdraw(reg.id);
-                                    toast.success(`Unregistered from ${evName}`);
-                                    await fetchData();
-                                  } catch (err: any) {
-                                    toast.error(err?.message || "Failed to unregister");
-                                    fetchData();
+                                      toast.success(`Unregistered from ${evName}`);
+                                      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+                                      await fetchData();
+                                    } catch (err: any) {
+                                      const msg = err?.message || err?.response?.data?.message || "Failed to unregister";
+                                      toast.error(msg);
+                                      fetchData();
+                                    }
                                   }
                                 }}
                                 className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors inline-flex items-center gap-1"

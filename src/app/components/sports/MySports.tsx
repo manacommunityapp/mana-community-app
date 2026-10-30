@@ -332,7 +332,16 @@ export function MySports() {
     // Optimistic UI update
     setRegistrations(prev => prev.map(r => r.id === regId ? { ...r, status: "WITHDRAWN" } : r));
     try {
-      await sportsService.withdraw(regId);
+      try {
+        await sportsService.withdraw(regId);
+      } catch (withdrawErr: any) {
+        const msg = String(withdrawErr?.message || withdrawErr?.response?.data?.message || "");
+        if ((isAdmin || isSuperAdmin || isSportsAdmin) && (msg.toLowerCase().includes("started") || msg.toLowerCase().includes("organizer"))) {
+          await sportsService.rejectRegistration(regId, "Withdrawn by Admin");
+        } else {
+          throw withdrawErr;
+        }
+      }
       toast.success("Withdrawn from tournament successfully");
       fetchCoreData();
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));

@@ -94,6 +94,7 @@ export function SportsTeamRegistration({ eventId, event, onClose, onSuccess }: P
         captainUserId: captainId ?? undefined,
       });
       setSuccess(true);
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       onSuccess?.();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? err?.message ?? "Registration failed");

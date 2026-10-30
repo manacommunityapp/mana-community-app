@@ -1360,7 +1360,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         String(r.eventId) === String(targetEventId) ||
         String(r.event?.id) === String(targetEventId);
       if (!matchesEvent) return false;
-      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+      const st = String(r.status || "").toUpperCase().trim();
+      if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
         const regRelation = (r.relation || "").trim().toUpperCase();
@@ -1385,6 +1386,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           return true;
         }
         return false;
+      } else if (pType === "other") {
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
       }
       return false;
     });
@@ -1402,7 +1408,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         String(r.eventId) === String(targetEventId) ||
         String(r.event?.id) === String(targetEventId);
       if (!matchesEvent) return false;
-      if (r.status === "CANCELLED" || r.status === "WITHDRAWN") return false;
+      const st = String(r.status || "").toUpperCase().trim();
+      if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
         const regRelation = (r.relation || "").trim().toUpperCase();
@@ -1423,6 +1430,11 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
           return true;
         }
+        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
+          return true;
+        }
+        return false;
+      } else if (pType === "other") {
         if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
           return true;
         }
@@ -2195,6 +2207,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
             }
           }
           toast.success("You're registered! See you on the court.");
+          window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
           props.onSuccess?.();
           if (!props.isModal) navigate(-1);
         } catch (err: any) {
@@ -2273,6 +2286,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       if (formData.captainNomination) {
         toast.info(`Captain nomination recorded${formData.proposedTeamName ? ` for team "${formData.proposedTeamName.trim()}"` : ""}.`);
       }
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       if (props.onSuccess) props.onSuccess();
       if (isModal) {
         handleClose();
