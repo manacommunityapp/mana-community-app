@@ -413,8 +413,8 @@ function OverviewTab({
           <QuickAction icon={FileSpreadsheet} label="Bulk Upload" desc="Import users via CSV/Excel" color="#8b5cf6" bg="rgba(139,92,246,0.12)" onClick={() => onNavigate("bulk")} />
           <QuickAction icon={Building2} label="Community" desc="Manage community settings" color="#10b981" bg="rgba(16,185,129,0.12)" onClick={() => onNavigate("community")} />
           <QuickAction icon={Crown} label="Roles & Permissions" desc="Configure access control" color="#f59e0b" bg="rgba(245,158,11,0.12)" onClick={() => onNavigate("users-roles")} />
-          <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#ec4899" bg="rgba(236,72,153,0.12)" onClick={() => navigate("/inventory?tab=upload")} />
-          <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#0ea5e9" bg="rgba(14,165,233,0.12)" onClick={() => navigate("/inventory?tab=approve")} />
+          <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#ec4899" bg="rgba(236,72,153,0.12)" onClick={() => navigate("/community/inventory?tab=upload")} />
+          <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#0ea5e9" bg="rgba(14,165,233,0.12)" onClick={() => navigate("/community/inventory?tab=approve")} />
         </div>
       </div>
     </div>
