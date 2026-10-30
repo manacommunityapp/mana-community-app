@@ -1,13 +1,15 @@
 import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
-  Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload, 
-  History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye
+  Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
+  History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
+  Trash2, QrCode
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
+import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken } from "../../../services/security/securityService";
 import { userService } from "../../../services/common/userService";
 import type { UserResponse } from "../../../types/api";
 import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
@@ -16,7 +18,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type PortalView = "resident" | "guard" | "admin";
+type PortalView = "resident" | "guard" | "admin" | "security-lists";
 type PassTypeKey = "GUEST" | "DELIVERY" | "MAID" | "VENDOR" | "FAMILY" | "RECURRING" | "PRE_APPROVED" | "WALK_IN" | "OTHER";
 
 const passTypeLabels: Record<PassTypeKey, string> = {
@@ -249,6 +251,16 @@ export function VisitorManagement() {
             <BarChart3 className="w-4 h-4" />
             Management Committee
           </button>
+          <button
+            onClick={() => setPortal("security-lists")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              portal === "security-lists" ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <Ban className="w-4 h-4" />
+            Security Lists
+          </button>
         </div>
       </div>
 
@@ -283,6 +295,8 @@ export function VisitorManagement() {
             loading={loading}
           />
         )}
+
+        {portal === "security-lists" && <SecurityListsView />}
       </div>
 
       {/* Create Pass Modal */}
@@ -1473,6 +1487,356 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Security Lists View ─────────────────────────────────────────────────────
+
+type SecurityTab = "visitor-blacklist" | "vehicle-passes" | "temp-tokens";
+
+function SecurityListsView() {
+  const [activeTab, setActiveTab] = useState<SecurityTab>("visitor-blacklist");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 bg-slate-100 border border-slate-200/60 rounded-2xl p-1 w-fit shadow-inner">
+        {([
+          { key: "visitor-blacklist", label: "Visitor Blacklist", icon: Ban },
+          { key: "vehicle-passes", label: "Vehicle Passes", icon: Car },
+          { key: "temp-tokens", label: "Temp Day-Pass", icon: QrCode },
+        ] as { key: SecurityTab; label: string; icon: (p: { className?: string }) => JSX.Element | null }[]).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              activeTab === key ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "visitor-blacklist" && <VisitorBlacklistTab />}
+      {activeTab === "vehicle-passes" && <VisitorVehiclePassesTab />}
+      {activeTab === "temp-tokens" && <TempAccessTokensTab />}
+    </div>
+  );
+}
+
+function VisitorBlacklistTab() {
+  const [entries, setEntries] = useState<VisitorBlacklistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ visitorName: "", phone: "", reason: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    visitorBlacklistService.getBlacklist()
+      .then(setEntries)
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async () => {
+    if (!form.visitorName || !form.reason) return;
+    setSaving(true);
+    try {
+      await visitorBlacklistService.addEntry({ communityId: 0, ...form });
+      setForm({ visitorName: "", phone: "", reason: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to add entry."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRemove = async (id: number) => {
+    if (!confirm("Remove this entry from the blacklist?")) return;
+    try {
+      await visitorBlacklistService.removeEntry(id);
+      load();
+    } catch { alert("Failed to remove entry."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><Ban className="w-4 h-4 text-red-500" /> Visitor Blacklist</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Add Entry
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} placeholder="Full name" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Phone</label>
+              <input className={inputCls} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="Mobile number" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1 block">Reason *</label>
+            <input className={inputCls} value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} placeholder="Reason for blacklisting" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} disabled={saving || !form.visitorName || !form.reason} className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 disabled:opacity-50">
+              {saving ? "Saving..." : "Add to Blacklist"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        entries.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No blacklisted visitors.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Name</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Phone</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Reason</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Date</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{entries.map(e => (
+                <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{e.visitorName}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{e.phone ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-600 max-w-xs truncate">{e.reason}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-xs">{e.createdAt.slice(0, 10)}</td>
+                  <td className="px-3 py-2.5">
+                    <button onClick={() => handleRemove(e.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function VisitorVehiclePassesTab() {
+  const [passes, setPasses] = useState<VisitorVehiclePass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ visitorName: "", vehicleNumber: "", passDate: new Date().toISOString().slice(0,10), flatNumber: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    visitorVehiclePassService.getPasses()
+      .then(setPasses)
+      .catch(() => setPasses([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.visitorName || !form.vehicleNumber) return;
+    setSaving(true);
+    try {
+      await visitorVehiclePassService.createPass({ communityId: 0, ...form });
+      setForm({ visitorName: "", vehicleNumber: "", passDate: new Date().toISOString().slice(0,10), flatNumber: "", notes: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to create pass."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    if (!confirm("Revoke this vehicle pass?")) return;
+    try { await visitorVehiclePassService.revokePass(id); load(); } catch { alert("Failed to revoke."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><Car className="w-4 h-4 text-indigo-500" /> Visitor Vehicle Passes</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Issue Pass
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Vehicle Number *</label>
+              <input className={inputCls} value={form.vehicleNumber} onChange={e => setForm({...form, vehicleNumber: e.target.value.toUpperCase()})} placeholder="KA01AB1234" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Pass Date *</label>
+              <input type="date" className={inputCls} value={form.passDate} onChange={e => setForm({...form, passDate: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Flat Number</label>
+              <input className={inputCls} value={form.flatNumber} onChange={e => setForm({...form, flatNumber: e.target.value})} placeholder="e.g. A-101" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={saving || !form.visitorName || !form.vehicleNumber} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? "Issuing..." : "Issue Pass"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        passes.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No vehicle passes issued.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Vehicle</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Flat</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Date</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{passes.map(p => (
+                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
+                  <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
+                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
+                  <td className="px-3 py-2.5">
+                    {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function TempAccessTokensTab() {
+  const [tokens, setTokens] = useState<TemporaryAccessToken[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ visitorName: "", validFrom: today, validUntil: today, purpose: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    tempAccessTokenService.getTokens()
+      .then(setTokens)
+      .catch(() => setTokens([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.visitorName || !form.validFrom || !form.validUntil) return;
+    setSaving(true);
+    try {
+      await tempAccessTokenService.createToken({ communityId: 0, ...form });
+      setForm({ visitorName: "", validFrom: today, validUntil: today, purpose: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to create token."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    if (!confirm("Revoke this access token?")) return;
+    try { await tempAccessTokenService.revokeToken(id); load(); } catch { alert("Failed to revoke."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><QrCode className="w-4 h-4 text-purple-500" /> Temporary QR Day-Pass</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Generate Pass
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Purpose</label>
+              <input className={inputCls} value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} placeholder="e.g. Delivery, Meeting" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Valid From *</label>
+              <input type="date" className={inputCls} value={form.validFrom} onChange={e => setForm({...form, validFrom: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Valid Until *</label>
+              <input type="date" className={inputCls} value={form.validUntil} onChange={e => setForm({...form, validUntil: e.target.value})} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={saving || !form.visitorName} className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 disabled:opacity-50">
+              {saving ? "Generating..." : "Generate QR Pass"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        tokens.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No temporary tokens issued.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Purpose</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Valid</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{tokens.map(t => (
+                <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{t.visitorName}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{t.purpose ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-400">{t.validFrom} → {t.validUntil}</td>
+                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", t.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{t.status}</span></td>
+                  <td className="px-3 py-2.5">
+                    {t.status === "ACTIVE" && <button onClick={() => handleRevoke(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
     </div>
   );
 }

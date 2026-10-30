@@ -1,6 +1,7 @@
 import {
   Shield, Plus, X, Loader2, Trash2, Edit3, Search, Clock,
-  UserCheck, LogIn, LogOut, Calendar, Phone, BadgeCheck
+  UserCheck, LogIn, LogOut, Calendar, Phone, BadgeCheck,
+  AlertTriangle, BookOpen, ClipboardCheck
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -10,8 +11,10 @@ import {
   type GuardShiftResponse,
   type GuardShiftRequest,
 } from "../../../services/guard/guardService";
+import { guardSosService, guardDiaryService, type GuardSosAlert, type GuardDiaryEntry } from "../../../services/security/securityService";
+import { getStoredUser } from "../../../services/common/apiClient";
 
-type TabKey = "guards" | "shifts";
+type TabKey = "guards" | "shifts" | "sos" | "diary";
 
 const guardStatusColors: Record<string, { label: string; bg: string; text: string }> = {
   ACTIVE: { label: "Active", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -215,6 +218,8 @@ export function GuardManagement() {
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; count: number }[] = [
     { key: "guards", label: "Guard Profiles", icon: <Shield className="w-4 h-4" />, count: guards.length },
     { key: "shifts", label: "Shift Schedule", icon: <Calendar className="w-4 h-4" />, count: shifts.length },
+    { key: "sos", label: "SOS Alerts", icon: <AlertTriangle className="w-4 h-4" />, count: 0 },
+    { key: "diary", label: "Daily Log", icon: <BookOpen className="w-4 h-4" />, count: 0 },
   ];
 
   if (loading) {
@@ -436,6 +441,12 @@ export function GuardManagement() {
         </div>
       )}
 
+      {/* SOS Alerts Tab */}
+      {tab === "sos" && <GuardSosTab />}
+
+      {/* Daily Log Tab */}
+      {tab === "diary" && <GuardDiaryTab />}
+
       {/* Guard Modal */}
       {showGuardModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -612,6 +623,171 @@ export function GuardManagement() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SOS Alerts ────────────────────────────────────────────────────────────────
+
+function GuardSosTab() {
+  const [alerts, setAlerts] = useState<GuardSosAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setAlerts(await guardSosService.getActiveAlerts()); } catch { setAlerts([]); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const acknowledge = async (id: number) => {
+    try { await guardSosService.acknowledgeAlert(id); load(); } catch { alert("Failed to acknowledge."); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900">Active SOS Alerts</h3>
+        <button onClick={load} className="text-sm text-blue-600 hover:underline">Refresh</button>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+      ) : alerts.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p>No active SOS alerts</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map((a) => (
+            <div key={a.id} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  <span className="font-semibold text-red-800">{a.guardName ?? "Unknown Guard"}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">{a.status}</span>
+                </div>
+                {a.location && <p className="text-sm text-red-700">📍 {a.location}</p>}
+                {a.description && <p className="text-sm text-slate-700">{a.description}</p>}
+                <p className="text-xs text-slate-500">{new Date(a.createdAt).toLocaleString()}</p>
+              </div>
+              {a.status === "ACTIVE" && (
+                <button
+                  onClick={() => acknowledge(a.id)}
+                  className="shrink-0 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Acknowledge
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Daily Log ─────────────────────────────────────────────────────────────────
+
+function GuardDiaryTab() {
+  const [entries, setEntries] = useState<GuardDiaryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ category: "", description: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setEntries(await guardDiaryService.getEntries(date)); } catch { setEntries([]); }
+    finally { setLoading(false); }
+  }, [date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    if (!form.description.trim()) return;
+    setSaving(true);
+    try {
+      const user = getStoredUser() as { communityId?: number } | null;
+      await guardDiaryService.addEntry({
+        communityId: user?.communityId ?? 0,
+        entryDate: date,
+        category: form.category || undefined,
+        description: form.description,
+      });
+      setForm({ category: "", description: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to save entry."); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="font-semibold text-slate-900">Daily Log</h3>
+        <div className="flex items-center gap-2">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+            <Plus className="w-4 h-4" /> Add Entry
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+              <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder="e.g. Incident, Routine, Visitor"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description *</label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              rows={3} placeholder="Describe the event or observation..."
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)}
+              className="px-4 py-2 border border-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-50">Cancel</button>
+            <button onClick={save} disabled={saving || !form.description.trim()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />} Save
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+      ) : entries.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p>No entries for this date</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.map((e) => (
+            <div key={e.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-slate-900">{e.guardName ?? "Guard"}</span>
+                {e.category && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">{e.category}</span>
+                )}
+                <span className="text-xs text-slate-400 ml-auto">{new Date(e.createdAt).toLocaleTimeString()}</span>
+              </div>
+              <p className="text-sm text-slate-700">{e.description}</p>
+            </div>
+          ))}
         </div>
       )}
     </div>
