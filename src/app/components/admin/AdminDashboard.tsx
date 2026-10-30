@@ -145,8 +145,8 @@ export function AdminDashboard() {
       const users = await userService.getAllUsers(backendStatus);
       const mapped: UserApplication[] = users.map((u) => {
         let status: VerificationStatus = "pending";
-        if (u.kycStatus === "VERIFIED") status = "approved";
-        else if (u.kycStatus === "REJECTED") status = "rejected";
+        if (["VERIFIED", "APPROVED"].includes(u.kycStatus?.toUpperCase())) status = "approved";
+        else if (u.kycStatus?.toUpperCase() === "REJECTED") status = "rejected";
 
         return {
           id: String(u.id),
