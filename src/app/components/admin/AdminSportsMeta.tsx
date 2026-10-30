@@ -49,7 +49,6 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
       const data = await sportsService.getSportsMeta();
       setSports(data || []);
     } catch (err) {
-      console.error(err);
       toast.error("Failed to load sports metadata list");
     } finally {
       setLoading(false);
@@ -120,7 +119,6 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
       resetForm();
       fetchSports();
     } catch (err: any) {
-      console.error(err);
       toast.error(err.message || "Failed to save sport metadata");
     } finally {
       setSubmitting(false);

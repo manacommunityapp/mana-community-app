@@ -179,8 +179,6 @@ export function AdminVenues() {
         pinCode
       };
 
-      console.log("Submitting venue payload:", payload);
-
       if (isEditing && editingId) {
         await venueService.updateVenue(editingId, payload);
         toast.success("Venue updated successfully!");
@@ -195,7 +193,6 @@ export function AdminVenues() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save venue details";
       toast.error(msg);
-      console.error("Venue save error:", err);
     } finally {
       setSubmitting(false);
     }

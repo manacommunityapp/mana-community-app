@@ -63,13 +63,6 @@ export const TEMPLATE_DATA = [
   ["Vikram", "Singh", "vikram.singh@example.com", "+91 98765 88888", "resident", "APT-TOWER-A-2024", "Flat 102", "Voter ID", "VOT1234567"],
 ];
 
-export const SAMPLE_PARSED_RAW = [
-  { "First Name": "Priya", "Last Name": "Sharma", "Email": "priya.sharma@example.com", "Phone": "+91 98765 43210", "Role": "member", "Community Code": "APT-TOWER-A-2024", "Flat/Unit": "Apt 402", "ID Type": "Aadhaar Card", "ID Number": "XXXX-XXXX-1234" },
-  { "First Name": "Rahul", "Last Name": "Verma", "Email": "rahul.verma@example.com", "Phone": "+91 98765 12345", "Role": "vendor", "Community Code": "APT-TOWER-B-2024", "Flat/Unit": "Apt 1205", "ID Type": "PAN Card", "ID Number": "ABCDE1234F" },
-  { "First Name": "Anita", "Last Name": "Desai", "Email": "anita.desai@example.com", "Phone": "+91 98765 98765", "Role": "admin", "Community Code": "APT-TOWER-A-2024", "Flat/Unit": "", "ID Type": "Passport", "ID Number": "P-XXXX-5678" },
-  { "First Name": "Sanjay", "Last Name": "", "Email": "sanjay@example.com", "Phone": "+91 98765 11111", "Role": "member", "Community Code": "APT-TOWER-A-2024", "Flat/Unit": "", "ID Type": "", "ID Number": "" },
-  { "First Name": "Deepa", "Last Name": "Nair", "Email": "deepa.nair", "Phone": "+91 98765 22222", "Role": "superadmin", "Community Code": "APT-TOWER-A-2024", "Flat/Unit": "", "ID Type": "", "ID Number": "" },
-];
 
 /**
  * Prefixes formula-injection characters so spreadsheet apps treat the value as text.

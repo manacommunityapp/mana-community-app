@@ -384,7 +384,6 @@ export function AdminCreateUser() {
         setIsSuccess(true);
       }
     } catch (err: any) {
-      console.error("Failed to create user:", err);
       toast.error(err?.message || "Failed to create user. Please try again.");
     } finally {
       setIsSubmitting(false);
