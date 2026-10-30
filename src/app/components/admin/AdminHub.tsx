@@ -812,11 +812,11 @@ export function AdminHub() {
   const hydratedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (activeTab === "overview" && !hydratedRef.current.has("overview")) {
+    if (!hydratedRef.current.has("overview")) {
       hydratedRef.current.add("overview");
       fetchOverview();
     }
-    if (activeTab === "users-roles" && !hydratedRef.current.has("users-roles") && !hydratedRef.current.has("overview")) {
+    if (activeTab === "users-roles" && !hydratedRef.current.has("users-roles")) {
       hydratedRef.current.add("users-roles");
       setUsersLoading(true);
       userService.getAllUsers()
