@@ -18,6 +18,8 @@ import type {
   ServiceCategoryCode,
   BookingFrequency,
 } from "../../types/homeServices";
+import { homeServiceBackendApi } from "./homeServiceBackendApi";
+import type { BackendCategory, BackendProvider, BackendBooking } from "./homeServiceBackendApi";
 
 const STORAGE_KEY_CATEGORIES = "mana_hs_categories_v1";
 const STORAGE_KEY_WORKERS = "mana_hs_workers_v1";
@@ -650,7 +652,28 @@ export const homeServiceApi = {
 
   // Categories
   async getCategories(): Promise<ServiceCategory[]> {
-    return getStorage(STORAGE_KEY_CATEGORIES, DEFAULT_CATEGORIES).filter((c) => c.active);
+    try {
+      const data = await homeServiceBackendApi.getCategories();
+      return data
+        .filter((c: BackendCategory) => c.isActive)
+        .map((c: BackendCategory, i: number): ServiceCategory => ({
+          id: String(c.id),
+          name: c.name,
+          code: "OTHER" as ServiceCategoryCode,
+          description: c.description ?? "",
+          icon: c.icon ?? "🔧",
+          supportsRecurring: true,
+          supportsMonthly: true,
+          supportsDaily: true,
+          supportsHourly: true,
+          active: c.isActive,
+          displayOrder: i + 1,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }));
+    } catch {
+      return getStorage(STORAGE_KEY_CATEGORIES, DEFAULT_CATEGORIES).filter((c) => c.active);
+    }
   },
 
   async getAllCategoriesAdmin(): Promise<ServiceCategory[]> {
@@ -678,33 +701,99 @@ export const homeServiceApi = {
     frequency?: string;
     maxPrice?: number;
   }): Promise<HomeServiceWorker[]> {
-    let workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
-
-    if (filters?.categoryId) {
-      workers = workers.filter((w) => w.skills.some((s) => s.categoryId === filters.categoryId && s.active));
+    try {
+      const params: { categoryId?: number } = {};
+      if (filters?.categoryId && !isNaN(Number(filters.categoryId))) {
+        params.categoryId = Number(filters.categoryId);
+      }
+      const providers = await homeServiceBackendApi.getProviders(params);
+      let workers: HomeServiceWorker[] = providers.map((p: BackendProvider): HomeServiceWorker => ({
+        id: String(p.id),
+        communityId: String(p.communityId),
+        workerType: "COMMUNITY_WORKER",
+        displayName: p.providerName,
+        phoneMasked: p.phoneMasked ?? "**masked**",
+        phone: p.phone ?? "",
+        experienceYears: p.experienceYears ?? 0,
+        languages: [],
+        verificationStatus: (p.verificationStatus as any) ?? "PENDING",
+        mobileVerified: false,
+        communityVerified: false,
+        securityVerified: false,
+        policeVerified: false,
+        aadhaarVerified: false,
+        gatePresenceStatus: "UNKNOWN",
+        gateLastSeen: null,
+        rating: p.rating ?? 0,
+        reviewCount: p.reviewCount ?? 0,
+        status: (p.status as any) ?? "ACTIVE",
+        servingSince: new Date().toISOString().slice(0, 10),
+        bio: p.bio ?? "",
+        skills: p.categoryId ? [{
+          id: `sk-${p.id}`,
+          workerId: String(p.id),
+          categoryId: String(p.categoryId),
+          categoryName: p.categoryName ?? "",
+          categoryCode: "OTHER" as ServiceCategoryCode,
+          experienceYears: p.experienceYears ?? 0,
+          isPrimary: true,
+          active: true,
+        }] : [],
+        availability: [],
+        flatAssignments: [],
+      }));
+      if (filters?.minRating) workers = workers.filter((w) => w.rating >= filters.minRating!);
+      if (filters?.searchQuery) {
+        const q = filters.searchQuery.toLowerCase();
+        workers = workers.filter((w) => w.displayName.toLowerCase().includes(q) || w.bio?.toLowerCase().includes(q));
+      }
+      return workers;
+    } catch {
+      let workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
+      if (filters?.categoryId) workers = workers.filter((w) => w.skills.some((s) => s.categoryId === filters.categoryId && s.active));
+      if (filters?.minRating) workers = workers.filter((w) => w.rating >= filters.minRating!);
+      if (filters?.searchQuery) {
+        const q = filters.searchQuery.toLowerCase();
+        workers = workers.filter((w) => w.displayName.toLowerCase().includes(q) || w.skills.some((s) => s.categoryName?.toLowerCase().includes(q)));
+      }
+      if (filters?.tower) workers = workers.filter((w) => w.flatAssignments.some((f) => f.tower === filters.tower));
+      if (filters?.maxPrice) workers = workers.filter((w) => w.packages?.some((p) => p.price <= filters.maxPrice!));
+      return workers;
     }
-    if (filters?.minRating) {
-      workers = workers.filter((w) => w.rating >= filters.minRating!);
-    }
-    if (filters?.searchQuery) {
-      const q = filters.searchQuery.toLowerCase();
-      workers = workers.filter(
-        (w) =>
-          w.displayName.toLowerCase().includes(q) ||
-          w.skills.some((s) => s.categoryName?.toLowerCase().includes(q)) ||
-          w.languages.some((l) => l.toLowerCase().includes(q))
-      );
-    }
-    if (filters?.tower) {
-      workers = workers.filter((w) => w.flatAssignments.some((f) => f.tower === filters.tower));
-    }
-    if (filters?.maxPrice) {
-      workers = workers.filter((w) => w.packages?.some((p) => p.price <= filters.maxPrice!));
-    }
-    return workers;
   },
 
   async getWorkerById(workerId: string): Promise<HomeServiceWorker | null> {
+    try {
+      if (!isNaN(Number(workerId))) {
+        const p = await homeServiceBackendApi.getProvider(Number(workerId));
+        return {
+          id: String(p.id),
+          communityId: String(p.communityId),
+          workerType: "COMMUNITY_WORKER",
+          displayName: p.providerName,
+          phoneMasked: p.phoneMasked ?? "**masked**",
+          phone: p.phone ?? "",
+          experienceYears: p.experienceYears ?? 0,
+          languages: [],
+          verificationStatus: (p.verificationStatus as any) ?? "PENDING",
+          mobileVerified: false,
+          communityVerified: false,
+          securityVerified: false,
+          policeVerified: false,
+          aadhaarVerified: false,
+          gatePresenceStatus: "UNKNOWN",
+          gateLastSeen: null,
+          rating: p.rating ?? 0,
+          reviewCount: p.reviewCount ?? 0,
+          status: (p.status as any) ?? "ACTIVE",
+          servingSince: new Date().toISOString().slice(0, 10),
+          bio: p.bio ?? "",
+          skills: [],
+          availability: [],
+          flatAssignments: [],
+        };
+      }
+    } catch { /* fall through */ }
     const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
     return workers.find((w) => w.id === workerId) || null;
   },
@@ -745,11 +834,44 @@ export const homeServiceApi = {
 
   // Bookings
   async getBookings(userId?: string): Promise<HomeServiceBooking[]> {
-    const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
-    if (userId) {
-      return bookings.filter((b) => b.residentUserId === userId || b.residentUserId === "user-current");
+    try {
+      const data = await homeServiceBackendApi.getMyBookings();
+      return data.map((b: BackendBooking): HomeServiceBooking => ({
+        id: String(b.id),
+        communityId: String(b.communityId),
+        flatId: "",
+        tower: "",
+        flatNumber: "",
+        residentUserId: String(b.userId ?? ""),
+        residentName: b.userName ?? "",
+        residentPhoneMasked: "",
+        workerId: String(b.providerId),
+        workerName: b.providerName ?? "",
+        categoryId: String(b.categoryId ?? ""),
+        categoryName: b.categoryName ?? "",
+        bookingType: "ONE_TIME",
+        pricingModel: "MONTHLY",
+        startDate: b.bookingDate,
+        recurringDays: [],
+        startTime: b.timeSlot ?? "09:00",
+        endTime: "",
+        price: b.amount ?? 0,
+        status: (b.status as BookingStatus) ?? "REQUESTED",
+        notes: b.notes ?? undefined,
+        slaHours: 24,
+        slaDueAt: "",
+        slaBreached: false,
+        paymentStatus: "PENDING",
+        rating: b.rating ?? undefined,
+        review: b.review ?? undefined,
+        createdAt: b.createdAt.slice(0, 10),
+        updatedAt: b.createdAt.slice(0, 10),
+      }));
+    } catch {
+      const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
+      if (userId) return bookings.filter((b) => b.residentUserId === userId || b.residentUserId === "user-current");
+      return bookings;
     }
-    return bookings;
   },
 
   async getBookingById(bookingId: string): Promise<HomeServiceBooking | null> {
@@ -880,6 +1002,36 @@ export const homeServiceApi = {
     status: BookingStatus,
     reason?: string
   ): Promise<HomeServiceBooking> {
+    const numericId = Number(bookingId);
+    if (!isNaN(numericId)) {
+      try {
+        if (status === "CANCELLED_BY_RESIDENT" || status === "CANCELLED_BY_WORKER") {
+          const b = await homeServiceBackendApi.cancelBooking(numericId);
+          return {
+            id: String(b.id), communityId: String(b.communityId), flatId: "", tower: "", flatNumber: "",
+            residentUserId: String(b.userId ?? ""), residentName: b.userName ?? "", residentPhoneMasked: "",
+            workerId: String(b.providerId), workerName: b.providerName ?? "", categoryId: String(b.categoryId ?? ""),
+            categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "MONTHLY",
+            startDate: b.bookingDate, recurringDays: [], startTime: b.timeSlot ?? "09:00", endTime: "",
+            price: b.amount ?? 0, status: (b.status as BookingStatus) ?? status,
+            slaHours: 24, slaDueAt: "", slaBreached: false, paymentStatus: "PENDING",
+            createdAt: b.createdAt.slice(0, 10), updatedAt: b.createdAt.slice(0, 10),
+          };
+        }
+        const b = await homeServiceBackendApi.updateBookingStatus(numericId, status);
+        return {
+          id: String(b.id), communityId: String(b.communityId), flatId: "", tower: "", flatNumber: "",
+          residentUserId: String(b.userId ?? ""), residentName: b.userName ?? "", residentPhoneMasked: "",
+          workerId: String(b.providerId), workerName: b.providerName ?? "", categoryId: String(b.categoryId ?? ""),
+          categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "MONTHLY",
+          startDate: b.bookingDate, recurringDays: [], startTime: b.timeSlot ?? "09:00", endTime: "",
+          price: b.amount ?? 0, status: (b.status as BookingStatus) ?? status,
+          slaHours: 24, slaDueAt: "", slaBreached: false, paymentStatus: "PENDING",
+          createdAt: b.createdAt.slice(0, 10), updatedAt: b.createdAt.slice(0, 10),
+        };
+      } catch { /* fall through to localStorage */ }
+    }
+
     const bookings = getStorage(STORAGE_KEY_BOOKINGS, DEFAULT_BOOKINGS);
     const booking = bookings.find((b) => b.id === bookingId);
     if (!booking) throw new Error("Booking not found");
@@ -893,7 +1045,6 @@ export const homeServiceApi = {
       booking.cancellationReason = reason || "Cancelled by user request.";
     }
 
-    // When booking is accepted/confirmed, assign worker to flat
     if (status === "CONFIRMED" || status === "ACCEPTED") {
       const workers = getStorage(STORAGE_KEY_WORKERS, DEFAULT_WORKERS);
       const worker = workers.find((w) => w.id === booking.workerId);

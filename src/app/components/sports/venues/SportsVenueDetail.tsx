@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Share2,
   ExternalLink,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsVendorService } from "../../../../services/sports/sportsVendorService";
@@ -249,6 +250,33 @@ export function SportsVenueDetail() {
               </div>
             </div>
           )}
+
+          {/* Tournament Organizer & Group Booking Callout */}
+          <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-slate-50 rounded-3xl border border-amber-200/80 p-6 shadow-xs space-y-3">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                Tournament Organizers
+              </h3>
+            </div>
+            <p className="text-xs text-amber-900 leading-relaxed">
+              Hosting a community tournament, corporate cup, or weekend league? Reserve multi-court blocks and certified match referees.
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <Link
+                to="/vendor-portal/sports/events"
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold text-center shadow-xs transition-colors"
+              >
+                Book Court Block for Tournament
+              </Link>
+              <Link
+                to="/sports/tournaments"
+                className="px-3.5 py-2 rounded-xl bg-white border border-amber-200 text-amber-900 hover:bg-amber-50 text-xs font-semibold text-center transition-colors"
+              >
+                View Community Tournaments
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 

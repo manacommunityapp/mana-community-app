@@ -26,6 +26,8 @@ export interface VisitorPassResponse {
   guardIn?: string | null;
   guardOut?: string | null;
   visitorPhoto?: string | null;
+  photoUrl?: string | null;
+  photoCapturedAt?: string | null;
   encryptedToken?: string | null;
 }
 
@@ -163,4 +165,89 @@ export const visitorService = {
   async reject(id: number): Promise<VisitorPassResponse> {
     return apiClient.put<VisitorPassResponse>(`/visitors/${id}/reject`, {});
   },
+<<<<<<< HEAD
+
+  // ── Whitelist ────────────────────────────────────────────────
+  async getWhitelist(): Promise<WhitelistEntry[]> {
+    return apiClient.get<WhitelistEntry[]>("/visitors/whitelist");
+  },
+
+  async addToWhitelist(data: WhitelistRequest): Promise<WhitelistEntry> {
+    return apiClient.post<WhitelistEntry>("/visitors/whitelist", data);
+  },
+
+  async updateWhitelistEntry(id: number, data: WhitelistRequest): Promise<WhitelistEntry> {
+    return apiClient.put<WhitelistEntry>(`/visitors/whitelist/${id}`, data);
+  },
+
+  async removeFromWhitelist(id: number): Promise<void> {
+    return apiClient.delete(`/visitors/whitelist/${id}`);
+  },
+
+  async toggleWhitelistStatus(id: number, isActive: boolean): Promise<WhitelistEntry> {
+    return apiClient.patch<WhitelistEntry>(`/visitors/whitelist/${id}/status`, { isActive });
+  },
+
+  // ── Group Invites ────────────────────────────────────────────
+  async getGroupInvites(): Promise<GroupInvite[]> {
+    return apiClient.get<GroupInvite[]>("/visitors/group-invites");
+  },
+
+  async createGroupInvite(data: CreateGroupInviteRequest): Promise<GroupInvite> {
+    return apiClient.post<GroupInvite>("/visitors/group-invites", data);
+  },
+
+  async cancelGroupInvite(id: number): Promise<void> {
+    return apiClient.delete(`/visitors/group-invites/${id}`);
+  },
+
+  async addGroupGuest(id: number, guest: GroupGuest): Promise<GroupInvite> {
+    return apiClient.post<GroupInvite>(`/visitors/group-invites/${id}/guests`, guest);
+  },
 };
+
+export interface WhitelistEntry {
+  id: number;
+  name: string;
+  phone?: string;
+  category?: string;
+  vehicleNumber?: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface WhitelistRequest {
+  name: string;
+  phone?: string;
+  category?: string;
+  vehicleNumber?: string;
+  notes?: string;
+}
+
+export interface GroupGuest {
+  name: string;
+  phone?: string;
+  vehicleNumber?: string;
+}
+
+export interface GroupInvite {
+  id: number;
+  title: string;
+  eventDate?: string;
+  passCode: string;
+  status: string;
+  guests?: GroupGuest[];
+  createdAt?: string;
+}
+
+export interface CreateGroupInviteRequest {
+  title: string;
+  eventDate?: string;
+  startTime?: string;
+  endTime?: string;
+  guests?: GroupGuest[];
+}
+=======
+};
+>>>>>>> 9020008 (Merge pull request #323 from manacommunityapp/feat/menu-verification-and-hybrid-permissions)

@@ -27,6 +27,7 @@ interface AuthContextValue {
   isEventsAdmin: boolean;
   isAuctionAdmin: boolean;
   isAnyAdmin: boolean;
+  isVendor: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -274,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isEventsAdmin: userRoleSet.has("EVENTS_ADMIN") || userRoleSet.has("EVENT_ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
     isAuctionAdmin: isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("SPORTS_ADMIN") || userRoleSet.has("ADMIN"),
     isAnyAdmin,
+    isVendor: isSuperAdmin || userRoleSet.has("ADMIN") || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("VENDOR") || userRoleSet.has("SPORTS_VENDOR") || userRoleSet.has("VENDOR_ADMIN"),
     login,
     register,
     logout,

@@ -16,7 +16,7 @@ export const foodRestaurantService = {
     return apiClient.get<FoodRestaurant>(`/food/restaurants/${id}`);
   },
   async getMyRestaurant(): Promise<FoodRestaurant> {
-    return apiClient.get<FoodRestaurant>("/food/restaurants/mine");
+    return apiClient.get<FoodRestaurant>("/food/restaurants/my-restaurant");
   },
   async createRestaurant(data: RestaurantRequest): Promise<FoodRestaurant> {
     return apiClient.post<FoodRestaurant>("/food/restaurants", data);
@@ -33,16 +33,16 @@ export const foodRestaurantService = {
 
   // ── Menu Categories ──
   async getMenuCategories(restaurantId: number): Promise<MenuCategory[]> {
-    return apiClient.get<MenuCategory[]>(`/food/restaurants/${restaurantId}/categories`);
+    return apiClient.get<MenuCategory[]>(`/food/restaurants/${restaurantId}/menu/categories`);
   },
   async createMenuCategory(restaurantId: number, data: MenuCategoryRequest): Promise<MenuCategory> {
-    return apiClient.post<MenuCategory>(`/food/restaurants/${restaurantId}/categories`, data);
+    return apiClient.post<MenuCategory>(`/food/restaurants/${restaurantId}/menu/categories`, data);
   },
   async updateMenuCategory(restaurantId: number, categoryId: number, data: MenuCategoryRequest): Promise<MenuCategory> {
-    return apiClient.put<MenuCategory>(`/food/restaurants/${restaurantId}/categories/${categoryId}`, data);
+    return apiClient.put<MenuCategory>(`/food/restaurants/${restaurantId}/menu/categories/${categoryId}`, data);
   },
   async deleteMenuCategory(restaurantId: number, categoryId: number): Promise<void> {
-    await apiClient.delete<void>(`/food/restaurants/${restaurantId}/categories/${categoryId}`);
+    await apiClient.delete<void>(`/food/restaurants/${restaurantId}/menu/categories/${categoryId}`);
   },
 
   // ── Menu Items ──

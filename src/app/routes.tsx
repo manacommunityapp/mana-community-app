@@ -138,6 +138,10 @@ import {
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { ParkingManagement } from "./components/parking/ParkingManagement";
 import { GuardManagement } from "./components/guard/GuardManagement";
+import { ParcelRoom } from "./components/parcels/ParcelRoom";
+import { StaffManagement } from "./components/staff/StaffManagement";
+import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
+import { AccessCardsManagement } from "./components/access/AccessCardsManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
 import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
@@ -179,6 +183,12 @@ import { SportsVenueManager } from "./components/vendor/portal/sports/SportsVenu
 import { SportsSlotCalendar } from "./components/vendor/portal/sports/SportsSlotCalendar";
 import { SportsBookingManager } from "./components/vendor/portal/sports/SportsBookingManager";
 import { SportsPricingMatrix } from "./components/vendor/portal/sports/SportsPricingMatrix";
+import { SportsCoachingPortal } from "./components/vendor/portal/sports/SportsCoachingPortal";
+import { SportsMembershipsPortal } from "./components/vendor/portal/sports/SportsMembershipsPortal";
+import { SportsEventsOrganizerPortal } from "./components/vendor/portal/sports/SportsEventsOrganizerPortal";
+import { SportsSuppliersPortal } from "./components/vendor/portal/sports/SportsSuppliersPortal";
+import { SportsIntelligencePortal } from "./components/vendor/portal/sports/SportsIntelligencePortal";
+import { SportsMultiVenuePortal } from "./components/vendor/portal/sports/SportsMultiVenuePortal";
 
 // Commerce pages
 import { VendorCommerceProfile } from "./components/commerce/vendors/VendorCommerceProfile";
@@ -713,6 +723,22 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
       },
       {
+        path: "parcels",
+        element: <PermissionGuard anyPermissions={[VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><ParcelRoom /></PermissionGuard>
+      },
+      {
+        path: "access/cards",
+        element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><AccessCardsManagement /></PermissionGuard>
+      },
+      {
+        path: "staff",
+        element: <PermissionGuard anyPermissions={[VIEW_GUARDS, MANAGE_GUARDS, VIEW_ADMIN]} requiredModule="GUARDS"><StaffManagement /></PermissionGuard>
+      },
+      {
+        path: "maintenance/schedules",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><MaintenanceScheduleAdmin /></PermissionGuard>
+      },
+      {
         path: "parking",
         element: <PermissionGuard permission={VIEW_PARKING} requiredModule="PARKING"><ParkingManagement /></PermissionGuard>
       },
@@ -853,7 +879,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "vendor-portal",
-        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
+        element: (
+          <PermissionGuard vendorOnly permission={VIEW_VENDOR_MANAGEMENT}>
+            <VendorPortalLayout />
+          </PermissionGuard>
+        ),
         children: [
           { index: true, Component: VendorPortalDashboard },
           { path: "sports", Component: SportsVendorDashboard },
@@ -861,6 +891,12 @@ export const router = createBrowserRouter([
           { path: "sports/calendar", Component: SportsSlotCalendar },
           { path: "sports/bookings", Component: SportsBookingManager },
           { path: "sports/pricing", Component: SportsPricingMatrix },
+          { path: "sports/coaching", Component: SportsCoachingPortal },
+          { path: "sports/memberships", Component: SportsMembershipsPortal },
+          { path: "sports/events", Component: SportsEventsOrganizerPortal },
+          { path: "sports/suppliers", Component: SportsSuppliersPortal },
+          { path: "sports/intelligence", Component: SportsIntelligencePortal },
+          { path: "sports/branches", Component: SportsMultiVenuePortal },
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
@@ -882,6 +918,7 @@ export const router = createBrowserRouter([
           },
           { path: "payments", Component: MyPayments },
           { path: "merchant-payments", Component: VendorMerchantPayments },
+          { path: "verification", Component: VendorVerification },
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
           { path: "profile", Component: VendorProfile },
