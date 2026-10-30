@@ -72,6 +72,17 @@ export const SAMPLE_PARSED_RAW = [
 ];
 
 /**
+ * Prefixes formula-injection characters so spreadsheet apps treat the value as text.
+ * Covers =, +, -, @, tab, and carriage-return per OWASP CSV injection guidance.
+ */
+export function sanitizeCsvField(value: string): string {
+  if (value && /^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/**
  * Validates a single parsed row and checks across previously seen entries in the same CSV
  */
 export function validateUser(
@@ -83,16 +94,16 @@ export function validateUser(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const firstName = (data["firstName"] || data["First Name"] || data["first_name"] || "").trim();
-  const lastName = (data["lastName"] || data["Last Name"] || data["last_name"] || "").trim();
+  const firstName = sanitizeCsvField((data["firstName"] || data["First Name"] || data["first_name"] || "").trim());
+  const lastName = sanitizeCsvField((data["lastName"] || data["Last Name"] || data["last_name"] || "").trim());
   const email = (data["email"] || data["Email"] || "").trim();
   const phone = (data["phone"] || data["Phone"] || data["mobile"] || data["Mobile"] || "").trim();
   const rawRole = (data["role"] || data["Role"] || "").trim();
   const role = rawRole.toLowerCase();
   const communityCode = (data["communityCode"] || data["Community Code"] || data["community_code"] || data["inviteCode"] || data["Invite Code"] || "").trim();
-  const flatUnit = (data["flatUnit"] || data["Flat/Unit"] || data["flat_unit"] || data["Flat"] || data["Unit"] || "").trim();
-  const idType = (data["idType"] || data["ID Type"] || data["id_type"] || "").trim();
-  const idNumber = (data["idNumber"] || data["ID Number"] || data["id_number"] || "").trim();
+  const flatUnit = sanitizeCsvField((data["flatUnit"] || data["Flat/Unit"] || data["flat_unit"] || data["Flat"] || data["Unit"] || "").trim());
+  const idType = sanitizeCsvField((data["idType"] || data["ID Type"] || data["id_type"] || "").trim());
+  const idNumber = sanitizeCsvField((data["idNumber"] || data["ID Number"] || data["id_number"] || "").trim());
 
   // 1. Mandatory Field Checks
   if (!firstName) {
@@ -393,18 +404,18 @@ export function AdminBulkUpload() {
       return;
     }
     const csvRows = errorRows.map(r => ({
-      "First Name": r.firstName,
-      "Last Name": r.lastName,
+      "First Name": sanitizeCsvField(r.firstName),
+      "Last Name": sanitizeCsvField(r.lastName),
       "Email": r.email,
       "Phone": r.phone,
       "Role": r.role,
       "Community Code": r.communityCode,
-      "Flat/Unit": r.flatUnit,
-      "ID Type": r.idType,
-      "ID Number": r.idNumber,
-      "Error Reason": r.uploadStatus === "failed"
+      "Flat/Unit": sanitizeCsvField(r.flatUnit),
+      "ID Type": sanitizeCsvField(r.idType),
+      "ID Number": sanitizeCsvField(r.idNumber),
+      "Error Reason": sanitizeCsvField(r.uploadStatus === "failed"
         ? (r.uploadMessage || r.remarks)
-        : r.errors.join("; "),
+        : r.errors.join("; ")),
     }));
     const csvContent = Papa.unparse(csvRows, { header: true });
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
