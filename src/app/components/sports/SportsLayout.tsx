@@ -50,7 +50,7 @@ export function SportsLayout() {
       case "Tournaments":
         return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Schedule":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs || hasPermission(VIEW_SPORTS_MAIN);
       case "My Teams":
         return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
       case "Trainers":
