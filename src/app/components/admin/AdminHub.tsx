@@ -547,8 +547,17 @@ const ALL_MODULES = [
   { key: "JOBS",            label: "Jobs & Referrals",  icon: Dumbbell,    color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
   { key: "EVENTS",          label: "Events",           icon: Clock,        color: "#c084fc", bg: "rgba(192,132,252,0.12)" },
   { key: "COMMUNITY_MGMT",  label: "Community Mgmt",   icon: Package,     color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
-  { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,    color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
   { key: "ADMIN_HUB",       label: "Admin Hub",        icon: ShieldCheck,  color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+  { key: "GROUP_BUYING",    label: "Group Buying",     icon: Package,      color: "#10b981", bg: "rgba(16,185,129,0.12)" },
+  { key: "SERVICE_PLATFORM",label: "Home Services",    icon: Server,       color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
+  { key: "EMERGENCY",       label: "Emergency & SOS",  icon: AlertTriangle,color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+  { key: "TRIPS",           label: "Community Trips",  icon: MapPin,       color: "#0ea5e9", bg: "rgba(14,165,233,0.12)" },
+  { key: "DISCOVER",        label: "Discover",         icon: Search,       color: "#8b5cf6", bg: "rgba(139,92,246,0.12)" },
+  { key: "MAINTENANCE",     label: "Maintenance",      icon: RefreshCw,    color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+  { key: "INSURANCE",       label: "Insurance Hub",    icon: Shield,       color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
+  { key: "COMMERCE",        label: "Commerce",         icon: TrendingUp,   color: "#84cc16", bg: "rgba(132,204,22,0.12)" },
+  { key: "ACADEMY",         label: "Academy Hub",      icon: Crown,        color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
 ];
 
 // ── Modules Tab ──────────────────────────────────────────────────────────────
