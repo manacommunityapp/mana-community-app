@@ -232,22 +232,476 @@ export interface AIDemandMatch {
   suggestions: string[];
 }
 
-// ── In-Memory Live State (Defaults empty) ──
-let liveDeals: GroupDeal[] = [];
-let liveDemands: DemandItem[] = [];
-let liveSavings: CommunitySavings = {
-  totalSaved: 0,
-  totalSavedThisMonth: 0,
-  ordersCompleted: 0,
-  totalOrders: 0,
-  activeDeals: 0,
-  avgSavingsPercent: 0,
-  milestones: [],
-  towerLeaderboard: [],
-  monthlyTrend: [],
-  topCategories: [],
+// ── Sample / Seed Data ────────────────────────────────────────────────────────
+
+const SAMPLE_DEALS: GroupDeal[] = [
+  {
+    id: "sd-1",
+    title: "Fresh Devgad Alphonso Mangoes",
+    category: "Groceries",
+    subCategory: "Fruits",
+    description: "GI-tagged Devgad Alphonso mangoes sourced direct from Konkan orchards — sweet, fibre-free, zero wax coating.",
+    imageUrl: "https://images.unsplash.com/photo-1553279768-865429fa0078?w=800&auto=format&fit=crop&q=80",
+    imagePlaceholderColor: "#f59e0b",
+    currentParticipants: 32,
+    targetParticipants: 100,
+    tiers: [
+      { minQty: 1,   maxQty: 49,  pricePerUnit: 850,  label: "1–49 dozen" },
+      { minQty: 50,  maxQty: 99,  pricePerUnit: 750,  label: "50–99 dozen" },
+      { minQty: 100, maxQty: null, pricePerUnit: 680,  label: "100+ dozen" },
+    ],
+    vendor: "Konkan Farms Direct",
+    vendorId: "vnd-1",
+    vendorRating: 4.8,
+    vendorVerified: true,
+    endDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+    status: "ACTIVE",
+    deliveryDate: new Date(Date.now() + 10 * 86400000).toISOString(),
+    pickupPoints: ["Clubhouse Desk", "Tower A Lobby"],
+    pickupPoint: "Clubhouse Desk",
+    tags: ["Seasonal", "Farm-Direct", "GI-Tagged"],
+    isTrending: true,
+    mrp: 1200,
+    currentTierPrice: 850,
+    nextTierPrice: 750,
+    nextTierUnitsNeeded: 18,
+    committedQty: 32,
+    targetQty: 100,
+    daysLeft: 7,
+    isAlmostUnlocked: false,
+  },
+  {
+    id: "sd-2",
+    title: "Aashirvaad Whole Wheat Atta 10 kg",
+    category: "Groceries",
+    description: "Community bulk purchase of ITC Aashirvaad Atta — warehouse-direct pricing with zero middlemen.",
+    imageUrl: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+    imagePlaceholderColor: "#d97706",
+    currentParticipants: 127,
+    targetParticipants: 200,
+    tiers: [
+      { minQty: 1,   maxQty: 99,  pricePerUnit: 590, label: "1–99 bags" },
+      { minQty: 100, maxQty: 199, pricePerUnit: 565, label: "100–199 bags" },
+      { minQty: 200, maxQty: null, pricePerUnit: 545, label: "200+ bags" },
+    ],
+    vendor: "Metro Cash & Carry",
+    vendorId: "vnd-2",
+    vendorRating: 4.6,
+    vendorVerified: true,
+    endDate: new Date(Date.now() + 5 * 86400000).toISOString(),
+    status: "ACTIVE",
+    deliveryDate: new Date(Date.now() + 8 * 86400000).toISOString(),
+    pickupPoints: ["Tower A Lobby", "Tower B Lobby"],
+    pickupPoint: "Tower A Lobby",
+    tags: ["Staples", "Bulk"],
+    isTrending: false,
+    mrp: 680,
+    currentTierPrice: 565,
+    nextTierPrice: 545,
+    nextTierUnitsNeeded: 73,
+    committedQty: 127,
+    targetQty: 200,
+    daysLeft: 5,
+    isAlmostUnlocked: false,
+  },
+  {
+    id: "sd-3",
+    title: "Diwali Dry Fruits Premium Box 1 kg",
+    category: "Food & Festive",
+    description: "Celebrate Diwali with premium Afghani almonds, Californian cashews, pistachios & figs — gift-wrapped with community discount.",
+    imageUrl: "https://images.unsplash.com/photo-1512470876302-972faa2aa9a4?w=500",
+    imagePlaceholderColor: "#8b5cf6",
+    currentParticipants: 138,
+    targetParticipants: 150,
+    tiers: [
+      { minQty: 1,   maxQty: 49,  pricePerUnit: 1250, label: "1–49 boxes" },
+      { minQty: 50,  maxQty: 149, pricePerUnit: 1150, label: "50–149 boxes" },
+      { minQty: 150, maxQty: null, pricePerUnit: 1100, label: "150+ boxes" },
+    ],
+    vendor: "Diwali Dhamaka Co-op",
+    vendorId: "vnd-3",
+    vendorRating: 4.9,
+    vendorVerified: true,
+    endDate: new Date(Date.now() + 3 * 86400000).toISOString(),
+    status: "ACTIVE",
+    deliveryDate: new Date(Date.now() + 4 * 86400000).toISOString(),
+    pickupPoints: ["Clubhouse Desk"],
+    pickupPoint: "Clubhouse Desk",
+    tags: ["Festival", "Gift", "Premium"],
+    isFestival: true,
+    festivalName: "Diwali",
+    isTrending: true,
+    isAlmostUnlocked: true,
+    mrp: 1850,
+    currentTierPrice: 1150,
+    nextTierPrice: 1100,
+    nextTierUnitsNeeded: 12,
+    committedQty: 138,
+    targetQty: 150,
+    daysLeft: 3,
+  },
+  {
+    id: "sd-4",
+    title: "Philips LED Bulbs Pack of 10 (9W)",
+    category: "Household",
+    description: "Energy-saving Philips 9W LED bulbs — 2-year warranty, BEE 5-star rated, perfect for all fittings.",
+    imageUrl: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600",
+    imagePlaceholderColor: "#0ea5e9",
+    currentParticipants: 56,
+    targetParticipants: 80,
+    tiers: [
+      { minQty: 1,  maxQty: 79,  pricePerUnit: 385, label: "1–79 packs" },
+      { minQty: 80, maxQty: null, pricePerUnit: 340, label: "80+ packs" },
+    ],
+    vendor: "Philips Authorized Dealer",
+    vendorId: "vnd-4",
+    vendorRating: 4.7,
+    vendorVerified: true,
+    endDate: new Date(Date.now() + 9 * 86400000).toISOString(),
+    status: "ACTIVE",
+    deliveryDate: new Date(Date.now() + 12 * 86400000).toISOString(),
+    pickupPoints: ["Tower A Lobby", "Clubhouse Desk"],
+    pickupPoint: "Tower A Lobby",
+    tags: ["Electronics", "Energy-Saving"],
+    isTrending: false,
+    isAlmostUnlocked: true,
+    mrp: 490,
+    currentTierPrice: 385,
+    nextTierPrice: 340,
+    nextTierUnitsNeeded: 24,
+    committedQty: 56,
+    targetQty: 80,
+    daysLeft: 9,
+  },
+];
+
+const DEMAND_ITEMS: DemandItem[] = [
+  {
+    id: "dem-1",
+    title: "Organic A2 Milk Daily Subscription",
+    description: "Looking for certified A2 cow milk with daily doorstep delivery by 7 AM — 500 ml packets, no preservatives.",
+    category: "Groceries",
+    requestedBy: "Flat 402, Tower B",
+    upvotes: 34,
+    targetUpvotes: 50,
+    hasUpvoted: false,
+    createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
+    expectedQty: 200,
+    preferredPriceMin: 25,
+    preferredPriceMax: 35,
+    preferredBrand: "Country Delight / Pride of Cows",
+    status: "OPEN",
+    vendorOffers: [],
+  },
+  {
+    id: "dem-2",
+    title: "Himalayan Pink Salt 5 kg Bulk Pack",
+    description: "Community request for natural unrefined Himalayan pink salt at wholesale rates — no iodine, no anti-caking agents.",
+    category: "Groceries",
+    requestedBy: "Flat 104, Tower A",
+    upvotes: 22,
+    targetUpvotes: 30,
+    hasUpvoted: false,
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    expectedQty: 110,
+    preferredPriceMin: 120,
+    preferredPriceMax: 180,
+    status: "MATCHED",
+    vendorOffers: [
+      { vendorId: "vnd-2", vendorName: "Metro Cash & Carry", price: 145, moq: 50, rating: 4.6, deliveryDays: 3, score: 88 },
+    ],
+  },
+  {
+    id: "dem-3",
+    title: "Organic Cold-Pressed Groundnut Oil 5L",
+    description: "Traditional wooden cold-press (kachi ghani) groundnut oil — no heat treatment, full nutrient retention.",
+    category: "Groceries",
+    requestedBy: "Flat 205, Tower C",
+    upvotes: 18,
+    targetUpvotes: 25,
+    hasUpvoted: false,
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    expectedQty: 90,
+    preferredPriceMin: 350,
+    preferredPriceMax: 450,
+    status: "OPEN",
+    vendorOffers: [],
+  },
+];
+
+const VENDOR_PROFILES: VendorProfile[] = [
+  {
+    id: "vnd-1",
+    name: "Konkan Farms Direct",
+    category: "Fruits & Vegetables",
+    rating: 4.8,
+    totalOrders: 1420,
+    onTimeRate: 97.2,
+    qualityScore: 4.9,
+    responseTime: "< 2 hrs",
+    verified: true,
+    gstVerified: true,
+    fssaiVerified: true,
+    since: "2021-04",
+    badges: ["Farm-Direct", "Zero Pesticide", "GI Partner"],
+    products: [
+      { name: "Alphonso Mangoes (1 Dozen)", price: 850, unit: "Dozen" },
+      { name: "Kokum Dried (250 g)", price: 180, unit: "Pack" },
+      { name: "Cashew W240 (500 g)", price: 420, unit: "Pack" },
+    ],
+  },
+  {
+    id: "vnd-2",
+    name: "Metro Cash & Carry",
+    category: "Grocery & Staples",
+    rating: 4.6,
+    totalOrders: 6800,
+    onTimeRate: 98.5,
+    qualityScore: 4.6,
+    responseTime: "< 1 hr",
+    verified: true,
+    gstVerified: true,
+    fssaiVerified: true,
+    since: "2018-06",
+    badges: ["ISO 22000", "ITC Authorized", "Bulk Specialist"],
+    products: [
+      { name: "Aashirvaad Atta 10 kg", price: 565, unit: "Bag" },
+      { name: "Fortune Sunflower Oil 5L", price: 640, unit: "Jar" },
+      { name: "Tata Salt 1 kg", price: 22, unit: "Pack" },
+    ],
+  },
+  {
+    id: "vnd-3",
+    name: "Diwali Dhamaka Co-op",
+    category: "Festive & Gifting",
+    rating: 4.9,
+    totalOrders: 3200,
+    onTimeRate: 99.1,
+    qualityScore: 4.9,
+    responseTime: "< 3 hrs",
+    verified: true,
+    gstVerified: true,
+    fssaiVerified: true,
+    since: "2019-09",
+    badges: ["Festival Specialist", "FSSAI Certified", "Premium Packaging"],
+    products: [
+      { name: "Dry Fruits Premium Box 1 kg", price: 1150, unit: "Box" },
+      { name: "Kaju Katli 500 g", price: 480, unit: "Box" },
+      { name: "Puja Samagri Kit", price: 350, unit: "Kit" },
+    ],
+  },
+  {
+    id: "vnd-4",
+    name: "Philips Authorized Dealer",
+    category: "Electronics & Appliances",
+    rating: 4.7,
+    totalOrders: 2100,
+    onTimeRate: 96.8,
+    qualityScore: 4.7,
+    responseTime: "< 4 hrs",
+    verified: true,
+    gstVerified: true,
+    fssaiVerified: false,
+    since: "2020-01",
+    badges: ["Philips Gold Partner", "BEE Certified", "2-Year Warranty"],
+    products: [
+      { name: "LED Bulb 9W Pack of 10", price: 385, unit: "Pack" },
+      { name: "LED Batten 20W", price: 420, unit: "Unit" },
+      { name: "Smart LED Strip 5m", price: 1250, unit: "Roll" },
+    ],
+  },
+];
+
+const SAMPLE_COMMUNITY_SAVINGS: CommunitySavings = {
+  totalSaved: 1840000,
+  totalSavedThisMonth: 184520,
+  ordersCompleted: 12480,
+  totalOrders: 12480,
+  activeDeals: 38,
+  avgSavingsPercent: 23.8,
+  milestones: [
+    { label: "₹10 Lakh Saved", target: 1000000, current: 1840000 },
+    { label: "₹25 Lakh Saved", target: 2500000, current: 1840000 },
+    { label: "10,000 Orders", target: 10000, current: 12480 },
+  ],
+  towerLeaderboard: [
+    { tower: "Tower A", savings: 62450, orders: 412 },
+    { tower: "Tower B", savings: 58200, orders: 386 },
+    { tower: "Tower C", savings: 42870, orders: 298 },
+    { tower: "Tower D", savings: 21000, orders: 152 },
+  ],
+  monthlyTrend: [
+    { month: "May", savings: 96400 },
+    { month: "Jun", savings: 112800 },
+    { month: "Jul", savings: 138600 },
+    { month: "Aug", savings: 155200 },
+    { month: "Sep", savings: 168900 },
+    { month: "Oct", savings: 184520 },
+  ],
+  topCategories: [
+    { category: "Groceries & Staples", saved: 72400 },
+    { category: "Fresh Produce", saved: 48200 },
+    { category: "Household & Home", saved: 35600 },
+    { category: "Food & Festive", saved: 28320 },
+  ],
 };
-let liveBuyingGroups: BuyingGroup[] = [];
+
+const BUYING_GROUPS: BuyingGroup[] = [
+  { id: "bg-1", name: "Tower A Collective",  type: "TOWER", members: 42, maxMembers: 60, admin: "Priya Sharma (402A)",  activeDealCount: 5, totalSavings: 248600 },
+  { id: "bg-2", name: "Tower B Residents",   type: "TOWER", members: 38, maxMembers: 60, admin: "Rohit Mehta (301B)",   activeDealCount: 4, totalSavings: 192300 },
+  { id: "bg-3", name: "Tower C Community",   type: "TOWER", members: 31, maxMembers: 60, admin: "Aisha Khan (205C)",    activeDealCount: 3, totalSavings: 142800 },
+  { id: "bg-4", name: "Premium Wing Buyers", type: "WING",  members: 18, maxMembers: 30, admin: "Suresh Iyer (108D)",   activeDealCount: 6, totalSavings: 86500 },
+  { id: "bg-5", name: "Floor 4 Neighbours",  type: "FLOOR", members: 12, maxMembers: 20, admin: "Kavita Nair (401A)",   activeDealCount: 2, totalSavings: 34200 },
+];
+
+const MONTHLY_BASKETS: MonthlyBasket[] = [
+  {
+    id: "mb-1",
+    name: "Essential Monthly Grocery Kit",
+    title: "Essential Monthly Grocery Kit",
+    description: "Atta, rice, oil, pulses & spices for a family of 4 — sourced in bulk at 15% below retail.",
+    items: [
+      { name: "Aashirvaad Atta 10 kg", qty: "1 Bag", price: 565 },
+      { name: "India Gate Basmati Rice 5 kg", qty: "1 Bag", price: 480 },
+      { name: "Fortune Sunflower Oil 5L", qty: "1 Jar", price: 640 },
+      { name: "Toor Dal 2 kg", qty: "1 Pack", price: 320 },
+      { name: "Spices Combo Pack", qty: "1 Set", price: 180 },
+    ],
+    totalPrice: 2185,
+    regularPrice: 2620,
+    communityPrice: 2185,
+    savings: 435,
+    subscribers: 78,
+    targetFamilies: 100,
+    enrolledFamilies: 78,
+    frequency: "MONTHLY",
+    nextDelivery: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+    nextDeliveryDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+    vendor: "Metro Cash & Carry",
+    vendorRating: 4.6,
+  },
+  {
+    id: "mb-2",
+    name: "Fresh Dairy Weekly Box",
+    title: "Fresh Dairy Weekly Box",
+    description: "Milk, curd, paneer & ghee — farm-fresh, no preservatives, weekly delivery to your door.",
+    items: [
+      { name: "A2 Milk 500 ml × 7", qty: "7 Packets", price: 196 },
+      { name: "Dahi 400 g", qty: "2 Packs", price: 90 },
+      { name: "Paneer 200 g", qty: "1 Pack", price: 85 },
+      { name: "Desi Ghee 250 ml", qty: "1 Bottle", price: 280 },
+    ],
+    totalPrice: 651,
+    regularPrice: 790,
+    communityPrice: 651,
+    savings: 139,
+    subscribers: 55,
+    targetFamilies: 80,
+    enrolledFamilies: 55,
+    frequency: "WEEKLY",
+    nextDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
+    nextDeliveryDate: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
+    vendor: "Konkan Farms Direct",
+    vendorRating: 4.8,
+  },
+];
+
+const FESTIVAL_CAMPAIGNS: FestivalCampaign[] = [
+  {
+    id: "fc-diwali",
+    festivalName: "Diwali",
+    tagline: "Save up to 40% on Dry Fruits, Sweets & Puja Essentials — biggest community deal of the year!",
+    color: "#f59e0b",
+    startDate: new Date(Date.now() - 86400000).toISOString(),
+    endDate: new Date(Date.now() + 12 * 86400000).toISOString(),
+    deals: SAMPLE_DEALS.filter(d => d.isFestival),
+  },
+  {
+    id: "fc-winter",
+    festivalName: "Winter Harvest",
+    tagline: "Fresh winter produce at farm-gate prices — carrots, peas, strawberries & more in season.",
+    color: "#0ea5e9",
+    startDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+    endDate: new Date(Date.now() + 50 * 86400000).toISOString(),
+    deals: [],
+  },
+];
+
+const FESTIVAL_CATEGORIES: FestivalCategory[] = [
+  { id: "fc-cat-1", festivalName: "Diwali Sweets & Snacks",   tagline: "Mithai, Namkeen & Chocolates",      bannerImage: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500", deals: SAMPLE_DEALS.filter(d => d.isFestival) },
+  { id: "fc-cat-2", festivalName: "Puja Samagri",             tagline: "Incense, Flowers & Diyas",          bannerImage: "https://images.unsplash.com/photo-1604697964538-2d0e62ae9b2e?w=500", deals: [] },
+  { id: "fc-cat-3", festivalName: "Premium Dry Fruits",       tagline: "Almonds, Cashews & Pistachios",     bannerImage: "https://images.unsplash.com/photo-1512470876302-972faa2aa9a4?w=500", deals: SAMPLE_DEALS.filter(d => d.id === "sd-3") },
+  { id: "fc-cat-4", festivalName: "Gifting & Hampers",        tagline: "Corporate & Personal Gift Boxes",   bannerImage: "https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=500", deals: [] },
+];
+
+const BUY_AGAIN_ITEMS: BuyAgainItem[] = [
+  { dealId: "sd-1", title: "Fresh Devgad Alphonso Mangoes",   category: "Groceries",       lastOrderDate: new Date(Date.now() - 14 * 86400000).toISOString(), vendor: "Konkan Farms Direct",    daysAgo: 14, lastPrice: 850,  currentPrice: 850,  isAvailable: true },
+  { dealId: "sd-2", title: "Aashirvaad Whole Wheat Atta 10kg", category: "Groceries",      lastOrderDate: new Date(Date.now() - 30 * 86400000).toISOString(), vendor: "Metro Cash & Carry",     daysAgo: 30, lastPrice: 590,  currentPrice: 565,  isAvailable: true },
+  { dealId: "sd-4", title: "Philips LED Bulbs Pack of 10",    category: "Household",        lastOrderDate: new Date(Date.now() - 60 * 86400000).toISOString(), vendor: "Philips Auth. Dealer",   daysAgo: 60, lastPrice: 420,  currentPrice: 385,  isAvailable: true },
+];
+
+const SEED_ORDERS: GroupOrder[] = [
+  {
+    id: "seed-ord-1",
+    orderNumber: "ORD-2610-0042",
+    dealId: "sd-2",
+    dealTitle: "Aashirvaad Whole Wheat Atta 10 kg",
+    title: "Aashirvaad Whole Wheat Atta 10 kg",
+    quantity: 2,
+    pricePerUnit: 565,
+    totalAmount: 1130,
+    status: "READY",
+    orderedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    qrCode: "QR-SD2-SEED-0042",
+    fulfillment: "PICKUP",
+    paymentMethod: "UPI",
+    pickupPoint: "Tower A Lobby",
+    vendorName: "Metro Cash & Carry",
+    reviewed: false,
+  },
+  {
+    id: "seed-ord-2",
+    orderNumber: "ORD-2610-0038",
+    dealId: "sd-3",
+    dealTitle: "Diwali Dry Fruits Premium Box 1 kg",
+    title: "Diwali Dry Fruits Premium Box 1 kg",
+    quantity: 1,
+    pricePerUnit: 1150,
+    totalAmount: 1150,
+    status: "CONFIRMED",
+    orderedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    qrCode: "QR-SD3-SEED-0038",
+    fulfillment: "PICKUP",
+    paymentMethod: "UPI",
+    pickupPoint: "Clubhouse Desk",
+    vendorName: "Diwali Dhamaka Co-op",
+    reviewed: false,
+  },
+  {
+    id: "seed-ord-3",
+    orderNumber: "ORD-2609-0021",
+    dealId: "sd-1",
+    dealTitle: "Fresh Devgad Alphonso Mangoes",
+    title: "Fresh Devgad Alphonso Mangoes",
+    quantity: 1,
+    pricePerUnit: 850,
+    totalAmount: 850,
+    status: "DELIVERED",
+    orderedAt: new Date(Date.now() - 16 * 86400000).toISOString(),
+    qrCode: "QR-SD1-SEED-0021",
+    fulfillment: "PICKUP",
+    paymentMethod: "UPI",
+    pickupPoint: "Clubhouse Desk",
+    vendorName: "Konkan Farms Direct",
+    reviewed: false,
+  },
+];
+
+// ── In-Memory Live State ──────────────────────────────────────────────────────
+let liveDeals: GroupDeal[] = [...SAMPLE_DEALS];
+let liveDemands: DemandItem[] = [...DEMAND_ITEMS];
+let liveSavings: CommunitySavings = { ...SAMPLE_COMMUNITY_SAVINGS };
+let liveBuyingGroups: BuyingGroup[] = [...BUYING_GROUPS];
 
 const ORDERS_KEY = "mana_group_orders";
 const REVIEWS_KEY = "mana_group_reviews";
@@ -256,9 +710,14 @@ const DISPUTES_KEY = "mana_group_disputes";
 function loadOrders(): GroupOrder[] {
   try {
     const raw = localStorage.getItem(ORDERS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed: GroupOrder[] = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
   } catch {}
-  return [];
+  // Seed with default orders on first load so pickup/review/dispute flows work out-of-the-box
+  saveOrders(SEED_ORDERS);
+  return SEED_ORDERS;
 }
 
 function saveOrders(orders: GroupOrder[]) {
@@ -386,11 +845,12 @@ export const groupBuyingService = {
   async fetchDeals(category?: string, search?: string): Promise<GroupDeal[]> {
     try {
       const data = await apiClient.get<any[]>("/group-buying/deals");
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         liveDeals = data.map(mapBackendDeal);
       }
+      // else keep SAMPLE_DEALS already loaded into liveDeals
     } catch {
-      // Backend returned error or unavailable
+      // keep SAMPLE_DEALS already in liveDeals
     }
     return this.getDeals(category, search);
   },
@@ -552,9 +1012,10 @@ export const groupBuyingService = {
   async fetchDemandBoard(): Promise<DemandItem[]> {
     try {
       const data = await apiClient.get<any[]>("/group-buying/demand");
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         liveDemands = data.map(mapBackendDemand);
       }
+      // else keep DEMAND_ITEMS already in liveDemands
     } catch {}
     return this.getDemandBoard();
   },
@@ -607,8 +1068,29 @@ export const groupBuyingService = {
     return deal;
   },
 
-  getVendorProfile(_id: string): VendorProfile | undefined {
-    return undefined;
+  getVendorProfile(id: string): VendorProfile {
+    const known = VENDOR_PROFILES.find(v => v.id === id);
+    if (known) return known;
+    // Construct a dynamic fallback from a deal that references this vendor so the page never crashes
+    const deal = liveDeals.find(d => d.vendorId === id);
+    return {
+      id,
+      name: deal?.vendor || "Community Vendor",
+      category: deal?.category || "General",
+      rating: deal?.vendorRating ?? 4.5,
+      totalOrders: 0,
+      onTimeRate: 95,
+      qualityScore: 4.5,
+      responseTime: "< 4 hrs",
+      verified: deal?.vendorVerified ?? false,
+      gstVerified: false,
+      fssaiVerified: false,
+      since: new Date().getFullYear() + "-01",
+      badges: deal?.vendorVerified ? ["Verified Vendor"] : [],
+      products: deal
+        ? [{ name: deal.title, price: deal.currentTierPrice ?? 0, unit: "Unit" }]
+        : [],
+    };
   },
 
   async createDemand(demand: Partial<DemandItem>): Promise<DemandItem> {
@@ -649,29 +1131,34 @@ export const groupBuyingService = {
   },
 
   getFestivalCategories(): FestivalCategory[] {
-    return [];
+    return FESTIVAL_CATEGORIES;
   },
 
   getFeaturedDeals(): GroupDeal[] {
-    return liveDeals.slice(0, 3);
+    const live = liveDeals.filter(d => d.isTrending || d.isAlmostUnlocked);
+    return (live.length > 0 ? live : liveDeals).slice(0, 3);
   },
 
   getMonthlyBaskets(): MonthlyBasket[] {
-    return [];
+    return MONTHLY_BASKETS;
   },
 
   getFestivalCampaigns(): FestivalCampaign[] {
-    return [];
+    // Attach live deals tagged as festival to the matching campaign
+    return FESTIVAL_CAMPAIGNS.map(c => ({
+      ...c,
+      deals: liveDeals.filter(d => d.isFestival && (!d.festivalName || d.festivalName === c.festivalName)),
+    }));
   },
 
   getBuyAgainSuggestions(): BuyAgainItem[] {
-    return [];
+    return BUY_AGAIN_ITEMS;
   },
 
   async fetchBuyingGroups(): Promise<BuyingGroup[]> {
     try {
       const data = await apiClient.get<any[]>("/group-buying/tower-groups");
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         liveBuyingGroups = data.map((g: any) => ({
           id: String(g.id || g.groupCode),
           name: g.groupName || g.name || "Buying Group",
