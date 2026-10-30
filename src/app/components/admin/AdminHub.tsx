@@ -25,10 +25,6 @@ import {
   Loader2,
   Trophy,
   Crown,
-  LogOut,
-  Eye,
-  UserX,
-  Filter,
   Search,
   AlertTriangle,
   UploadCloud,
@@ -50,28 +46,19 @@ import { userService } from "../../../services/common/userService";
 import { venueService } from "../../../services/bookings/venueService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { AdminDashboard } from "./AdminDashboard";
-import { AdminCreateUser } from "./AdminCreateUser";
 import { AdminBulkUpload } from "./AdminBulkUpload";
-import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
 import { AdminAccessManagement } from "./AdminAccessManagement";
 import { SmartDashboard } from "../commons/SmartDashboard";
-import { LogsDashboard } from "./LogsDashboard";
 import { PlatformOperationsConsole } from "./PlatformOperationsConsole";
-import { AuditTrail } from "./AuditTrail";
-import { AdminSportsMeta } from "./AdminSportsMeta";
 import { EmailTemplatesTab } from "./EmailTemplatesTab";
-import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
+import { NoticeBoard } from "../notices/NoticeBoard";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
-import { ExpenseUpload } from "../assets/ExpenseUpload";
-import { TreasurerQueue } from "../assets/TreasurerQueue";
-import { assetService } from "../../../services/inventory/assetService";
 import { communityService } from "../../../services/community/communityService";
-import type { Asset } from "../../../services/inventory/assetService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
 
@@ -420,118 +407,6 @@ function OverviewTab({
     </div>
   );
 }
-
-// ── Users Tab ─────────────────────────────────────────────────────────────────
-function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean }) {
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
-  const [filterKyc, setFilterKyc] = useState("all");
-
-  const roles = ["all", ...sortRoleStrings(Array.from(new Set(users.map((u) => u.role))))];
-  const kycStatuses = ["all", "APPROVED", "PENDING", "REJECTED"];
-
-  const filtered = users.filter((u) => {
-    const matchSearch =
-      !search ||
-      u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === "all" || u.role === filterRole;
-    const matchKyc = filterKyc === "all" || u.kycStatus === filterKyc;
-    return matchSearch && matchRole && matchKyc;
-  });
-
-  return (
-    <div className="space-y-3 animate-fade-in-up">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-input border border-border/80 rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
-          >
-            {roles.map((r) => (
-              <option key={r} value={r}>{r === "all" ? "All Roles" : r.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-          <select
-            value={filterKyc}
-            onChange={(e) => setFilterKyc(e.target.value)}
-            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
-          >
-            {kycStatuses.map((s) => (
-              <option key={s} value={s}>{s === "all" ? "All KYC" : s}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Summary pill */}
-      <p className="text-[11px] text-muted-foreground">
-        Showing <span className="font-semibold text-foreground">{filtered.length}</span> of <span className="font-semibold text-foreground">{users.length}</span> users
-      </p>
-
-      {/* Table */}
-      <div className="bg-card border border-border/80 rounded-xl shadow-2xs overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground text-xs">No users found</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/60 bg-input/40">
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">User</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Role</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">KYC</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {filtered.slice(0, 100).map((u) => (
-                  <tr key={u.id} className="hover:bg-input/30 transition-colors">
-                    <td className="px-3.5 py-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-2xs">
-                          {u.fullName?.charAt(0)?.toUpperCase() || "?"}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground truncate max-w-[160px] leading-tight">{u.fullName}</p>
-                          <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-2"><RoleBadge role={u.role} /></td>
-                    <td className="px-3.5 py-2"><KycBadge status={u.kycStatus} /></td>
-                    <td className="px-3.5 py-2">
-                      <span className={`inline-flex h-1.5 w-1.5 rounded-full ${u.isActive !== false ? "bg-success" : "bg-muted-foreground"}`} />
-                      <span className="text-[11px] text-muted-foreground ml-1.5">{u.isActive !== false ? "Active" : "Inactive"}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 
 
 // ── All available feature modules ────────────────────────────────────────────
@@ -936,7 +811,7 @@ export function AdminHub() {
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
-        {activeTab === "announcements" && <AnnouncementsPlanner />}
+        {activeTab === "announcements" && <NoticeBoard />}
         {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
