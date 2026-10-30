@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
@@ -321,5 +321,51 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     );
 
     expect(activeRegs.length).toBe(0);
+  });
+
+  it("isFormatCompatible and isEventMatch safely handle non-string format or matchType (array, object, number, null)", () => {
+    const eventCard = {
+      id: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      formats: ["SINGLES"],
+    } as any;
+
+    // OpenRegistration object where format is an array (reproducing the reported TypeError)
+    const openRegWithArrayFormat = {
+      id: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      format: ["SINGLES", "DOUBLES"],
+      formats: ["SINGLES", "DOUBLES"],
+    } as any;
+
+    // OpenRegistration where matchType is null and format is an array
+    expect(() => isFormatCompatible(openRegWithArrayFormat, eventCard)).not.toThrow();
+    expect(isFormatCompatible(openRegWithArrayFormat, eventCard)).toBe(true);
+    expect(() => isEventMatch(openRegWithArrayFormat, eventCard)).not.toThrow();
+    expect(isEventMatch(openRegWithArrayFormat, eventCard)).toBe(true);
+
+    // Object where format is an object or number
+    const objWithComplexFormat = {
+      id: 101,
+      eventId: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      matchType: { code: "SINGLES" },
+      format: 1,
+    } as any;
+    expect(() => isFormatCompatible(objWithComplexFormat, eventCard)).not.toThrow();
+    expect(() => isEventMatch(objWithComplexFormat, eventCard)).not.toThrow();
+
+    // Incompatible format (strictly DOUBLES array against strictly Singles event card)
+    const doublesArrayReg = {
+      id: 101,
+      eventId: 101,
+      name: "Monsoon Badminton Premier Cup 2026",
+      categoryName: "Men's Singles",
+      format: ["DOUBLES"],
+    } as any;
+    expect(isFormatCompatible(doublesArrayReg, eventCard)).toBe(false);
   });
 });

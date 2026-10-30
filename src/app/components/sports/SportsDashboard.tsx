@@ -160,7 +160,7 @@ export function isSelfRelationOrMember(
     }
   }
   if (rel) {
-    const r = rel.toUpperCase().trim();
+    const r = String(rel).toUpperCase().trim();
     if (
       r === "SELF" ||
       r === "HEAD" ||
@@ -191,15 +191,38 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   if (!r || !ev) return true;
 
   const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
-  const evFormats = isEvTeam ? ["TEAM"] : (getEventFormats ? getEventFormats(ev as any) : []);
+  const rawEvFormats = isEvTeam ? ["TEAM"] : (getEventFormats ? getEventFormats(ev as any) : []);
+  const evFormats: string[] = (Array.isArray(rawEvFormats) ? rawEvFormats : [])
+    .map(f => (typeof f === "string" ? f : String(f || "")).trim().toUpperCase())
+    .filter(Boolean);
+
+  // Helper to safely extract string from matchType / format
+  const extractFormatStr = (val: any): string => {
+    if (!val) return "";
+    if (typeof val === "string") return val.trim().toUpperCase();
+    if (Array.isArray(val)) {
+      return val.map(v => (typeof v === "string" ? v : String(v || ""))).join(" ").trim().toUpperCase();
+    }
+    if (typeof val === "object") {
+      return String(val.name || val.code || val.format || val.matchType || "").trim().toUpperCase();
+    }
+    return String(val).trim().toUpperCase();
+  };
 
   // Determine registration matchType/format
-  let rFmt = (r.matchType || (r as any).format || "").toUpperCase().trim();
+  let rFmt = extractFormatStr(r.matchType) || extractFormatStr((r as any).format) || "";
   if (!rFmt && ((r as any).partnerUserId || (r as any).partnerFamilyMemberId)) {
     rFmt = "DOUBLES";
   }
 
-  const norm = (s?: string | null) => (s || "").trim().toLowerCase();
+  const norm = (s?: any) => {
+    if (!s) return "";
+    if (typeof s === "string") return s.trim().toLowerCase();
+    if (Array.isArray(s)) return s.map(x => typeof x === "string" ? x : String(x || "")).join(" ").trim().toLowerCase();
+    if (typeof s === "object") return String(s.name || s.title || "").trim().toLowerCase();
+    return String(s).trim().toLowerCase();
+  };
+
   const rName = norm(r.eventName || r.event?.name);
   const rCatName = norm(r.categoryName || r.category?.name);
   const evName = norm(ev.name);
@@ -220,45 +243,50 @@ export function isFormatCompatible(r: any, ev: OpenRegistration): boolean {
   const evStrictlyDoubles = (evName.includes("doubles") || evCatName.includes("doubles")) && !evName.includes("singles") && !evCatName.includes("singles");
   const evStrictlySingles = (evName.includes("singles") || evCatName.includes("singles")) && !evName.includes("doubles") && !evCatName.includes("doubles");
 
-  // If r is Singles:
-  if (rFmt === "SINGLES") {
+  const rHasSingles = rFmt.includes("SINGLES");
+  const rHasDoubles = rFmt.includes("DOUBLES") && !rFmt.includes("MIXED");
+  const rHasMixed = rFmt.includes("MIXED");
+  const rHasTeam = rFmt === "TEAM" || rFmt.includes("TEAM");
+
+  // If r is strictly Singles (does NOT also support doubles/team):
+  if (rHasSingles && !rHasDoubles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlyDoubles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase() === "SINGLES")) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("SINGLES"))) {
       return false;
     }
   }
 
-  // If r is Doubles (excluding Mixed):
-  if (rFmt === "DOUBLES" || (rFmt.includes("DOUBLES") && !rFmt.includes("MIXED"))) {
+  // If r is strictly Doubles (excluding Mixed, and does NOT also support singles):
+  if (rHasDoubles && !rHasSingles && !rHasMixed && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("DOUBLES") && !f.toUpperCase().includes("MIXED"))) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("DOUBLES") && !f.includes("MIXED"))) {
       return false;
     }
   }
 
-  // If r is Mixed Doubles:
-  if (rFmt === "MIXED_DOUBLES" || rFmt.includes("MIXED")) {
+  // If r is strictly Mixed Doubles:
+  if (rHasMixed && !rHasSingles && !rHasDoubles && !rHasTeam) {
     if (isEvTeam) return false;
     if (evStrictlySingles) return false;
-    if (evFormats.length > 0 && !evFormats.some(f => f.toUpperCase().includes("MIXED"))) {
+    if (evFormats.length > 0 && !evFormats.some(f => f.includes("MIXED"))) {
       return false;
     }
   }
 
-  // If r is Team:
-  if (rFmt === "TEAM") {
+  // If r is strictly Team:
+  if (rHasTeam && !rHasSingles && !rHasDoubles && !rHasMixed) {
     if (!isEvTeam && evFormats.length > 0 && !evFormats.includes("TEAM")) {
       return false;
     }
   }
 
   // Vice versa: if ev is strictly Singles or Doubles and r keywords conflict
-  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles"))) {
+  if (evStrictlyDoubles && (rName.includes("singles") || rCatName.includes("singles")) && !rName.includes("doubles") && !rCatName.includes("doubles")) {
     return false;
   }
-  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles"))) {
+  if (evStrictlySingles && (rName.includes("doubles") || rCatName.includes("doubles")) && !rName.includes("singles") && !rCatName.includes("singles")) {
     return false;
   }
 
@@ -344,7 +372,7 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
  */
 export function isActiveRegistrationStatus(status?: string | null): boolean {
   if (!status) return false;
-  const s = status.toUpperCase().trim();
+  const s = String(status).toUpperCase().trim();
   return s !== "CANCELLED" && s !== "WITHDRAWN" && s !== "REJECTED";
 }
 
@@ -400,11 +428,11 @@ export function isRegistrationForMemberHelper(
   const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
   if (targetMember) {
     const targetMemberName = (targetMember.name || "").trim().toLowerCase();
-    const targetMemberRelation = (targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
+    const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
     if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
       return true;
     }
-    if (targetMemberRelation && regRelation.toUpperCase() === targetMemberRelation) {
+    if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
       return true;
     }
   }
@@ -457,8 +485,8 @@ function EventRow({ event, onClick, onShowInfo }: EventRowProps) {
               <CompactMatchBadge targetDate={event.targetDate} />
             )}
             {event.registrantBadge &&
-              !event.registrantBadge.toUpperCase().includes("SELF") &&
-              !event.registrantBadge.toUpperCase().includes("HEAD") && (
+              !String(event.registrantBadge).toUpperCase().includes("SELF") &&
+              !String(event.registrantBadge).toUpperCase().includes("HEAD") && (
               <span className="text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-700 rounded border border-indigo-100 font-semibold inline-flex items-center gap-1">
                 {event.registrantBadge}
               </span>
@@ -1104,7 +1132,7 @@ export function SportsDashboard() {
         );
 
         // Check if backend e.myRegistrationStatus itself says WITHDRAWN, CANCELLED, or REJECTED:
-        const backendStatus = (e.myRegistrationStatus || "").toUpperCase().trim();
+        const backendStatus = String(e.myRegistrationStatus || "").toUpperCase().trim();
         const isBackendInactive = backendStatus === "CANCELLED" || backendStatus === "WITHDRAWN" || backendStatus === "REJECTED";
 
         // Check if locally marked withdrawn in this session:
@@ -2131,7 +2159,7 @@ export function SportsDashboard() {
                   }
 
                   const registered = regs.map(r => {
-                    const rawFmt = (r.matchType || "").toUpperCase();
+                    const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
                     if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
                       return rawFmt;
                     }

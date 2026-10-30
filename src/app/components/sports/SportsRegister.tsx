@@ -1460,7 +1460,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       return [singleFmt.toUpperCase()];
     }
     return activeParticipantRegistrations.map(r => {
-      const rawFmt = (r.matchType || "").toUpperCase();
+      const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
       if (rawFmt && evFormats.map(f => f.toUpperCase()).includes(rawFmt)) {
         return rawFmt;
       }
