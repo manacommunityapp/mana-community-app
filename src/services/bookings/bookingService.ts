@@ -178,4 +178,30 @@ export const resourceBookingService = {
     if (resourceId) params.set("resourceId", String(resourceId));
     return apiClient.get<BookingAnalyticsResponse[]>(`/resource-booking/analytics?${params}`);
   },
+
+  // ── Blackout Dates ──
+  async getBlackoutDates(resourceId?: number): Promise<BlackoutDateResponse[]> {
+    const params = resourceId ? `?resourceId=${resourceId}` : "";
+    return apiClient.get<BlackoutDateResponse[]>(`/resource-booking/blackout${params}`);
+  },
+  async createBlackoutDate(data: BlackoutDateRequest): Promise<BlackoutDateResponse> {
+    return apiClient.post<BlackoutDateResponse>("/resource-booking/blackout", data);
+  },
+  async deleteBlackoutDate(id: number): Promise<void> {
+    return apiClient.delete(`/resource-booking/blackout/${id}`);
+  },
 };
+
+export interface BlackoutDateRequest {
+  resourceId?: number;
+  date: string;
+  reason: string;
+}
+
+export interface BlackoutDateResponse {
+  id: number;
+  resourceId: number | null;
+  date: string;
+  reason: string;
+  createdAt: string;
+}

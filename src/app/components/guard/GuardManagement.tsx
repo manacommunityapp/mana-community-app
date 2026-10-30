@@ -1,7 +1,8 @@
 import {
   Shield, Plus, X, Loader2, Trash2, Edit3, Search, Clock,
   UserCheck, LogIn, LogOut, Calendar, Phone, BadgeCheck,
-  AlertTriangle, BookOpen, ClipboardCheck, MapPin, Route, CheckSquare
+  AlertTriangle, BookOpen, ClipboardCheck, MapPin, Route, CheckSquare,
+  BarChart3, TrendingUp
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -14,7 +15,7 @@ import {
 import { guardSosService, guardDiaryService, guardHandoverService, guardPatrolService, guardRosterService, type GuardSosAlert, type GuardDiaryEntry, type GuardHandoverRecord, type CreateHandoverRequest, type PatrolSession, type PatrolCheckpoint, type RosterEntry, type CreateRosterEntryRequest } from "../../../services/security/securityService";
 import { getStoredUser } from "../../../services/common/apiClient";
 
-type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover" | "patrol" | "roster";
+type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover" | "patrol" | "roster" | "performance";
 
 const guardStatusColors: Record<string, { label: string; bg: string; text: string }> = {
   ACTIVE: { label: "Active", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -223,6 +224,7 @@ export function GuardManagement() {
     { key: "handover", label: "Shift Handover", icon: <ClipboardCheck className="w-4 h-4" />, count: 0 },
     { key: "patrol", label: "Patrol", icon: <Route className="w-4 h-4" />, count: 0 },
     { key: "roster", label: "Duty Roster", icon: <CheckSquare className="w-4 h-4" />, count: 0 },
+    { key: "performance", label: "Performance", icon: <BarChart3 className="w-4 h-4" />, count: 0 },
   ];
 
   if (loading) {
@@ -374,6 +376,22 @@ export function GuardManagement() {
 
       {/* Shifts Tab */}
       {tab === "shifts" && (
+        <>
+        {/* Attendance summary */}
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-emerald-700">{shifts.filter(s => s.status === "IN_PROGRESS").length}</p>
+            <p className="text-xs text-emerald-600 mt-0.5">On Duty Now</p>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-slate-700">{shifts.filter(s => s.status === "COMPLETED").length}</p>
+            <p className="text-xs text-slate-500 mt-0.5">Completed</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-red-700">{shifts.filter(s => s.status === "MISSED").length}</p>
+            <p className="text-xs text-red-600 mt-0.5">Missed / Absent</p>
+          </div>
+        </div>
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -413,7 +431,16 @@ export function GuardManagement() {
                         {shift.checkInTime ? new Date(shift.checkInTime).toLocaleTimeString() : "—"}
                       </td>
                       <td className="px-4 py-3 text-slate-600 text-xs">
-                        {shift.checkOutTime ? new Date(shift.checkOutTime).toLocaleTimeString() : "—"}
+                        {shift.checkOutTime ? (
+                          <span>
+                            {new Date(shift.checkOutTime).toLocaleTimeString()}
+                            {shift.checkInTime && (
+                              <span className="ml-1 text-slate-400">
+                                ({Math.round((new Date(shift.checkOutTime).getTime() - new Date(shift.checkInTime).getTime()) / 3600000 * 10) / 10}h)
+                              </span>
+                            )}
+                          </span>
+                        ) : "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -442,6 +469,7 @@ export function GuardManagement() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* SOS Alerts Tab */}
@@ -458,6 +486,9 @@ export function GuardManagement() {
 
       {/* Duty Roster Tab */}
       {tab === "roster" && <GuardRosterTab guards={activeGuards} />}
+
+      {/* Performance Tab */}
+      {tab === "performance" && <GuardPerformanceTab guards={activeGuards} />}
 
       {/* Guard Modal */}
       {showGuardModal && (
@@ -1501,6 +1532,124 @@ function GuardRosterTab({ guards }: { guards: GuardProfileResponse[] }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Guard Performance Tab ──────────────────────────────────────────────────────
+
+interface GuardPerf {
+  id: number;
+  name: string;
+  punctuality: number;
+  completionRate: number;
+  sosHandled: number;
+  patrols: number;
+  incidents: number;
+}
+
+function GuardPerformanceTab({ guards }: { guards: GuardProfileResponse[] }) {
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [perfs, setPerfs] = useState<GuardPerf[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const communityId = getStoredUser()?.communityId;
+
+  const load = useCallback(async () => {
+    if (!communityId || guards.length === 0) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { apiClient } = await import("../../../services/common/apiClient");
+      const results = await Promise.all(
+        guards.map(async (g) => {
+          try {
+            const data = await apiClient.get<any>(`/guard/performance?communityId=${communityId}&guardId=${g.id}&month=${month}&year=${year}`);
+            return {
+              id: g.id, name: g.fullName,
+              punctuality: data.punctualityPercent ?? 0,
+              completionRate: data.completionRatePercent ?? 0,
+              sosHandled: data.sosHandled ?? 0,
+              patrols: data.patrolsCompleted ?? 0,
+              incidents: data.incidentsReported ?? 0,
+            } as GuardPerf;
+          } catch {
+            return { id: g.id, name: g.fullName, punctuality: 0, completionRate: 0, sosHandled: 0, patrols: 0, incidents: 0 };
+          }
+        })
+      );
+      setPerfs(results);
+    } catch {
+      setError("Failed to load performance data");
+    } finally {
+      setLoading(false);
+    }
+  }, [communityId, guards, month, year]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <select value={month} onChange={e => setMonth(Number(e.target.value))}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+        </select>
+        <select value={year} onChange={e => setYear(Number(e.target.value))}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <button onClick={load} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1.5">
+          <TrendingUp className="w-4 h-4" /> Load
+        </button>
+      </div>
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {loading ? (
+        <div className="flex items-center justify-center h-32"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+      ) : perfs.length === 0 ? (
+        <div className="text-center text-slate-400 py-12 bg-white rounded-xl border border-slate-200">
+          No guards to display. Add active guards first.
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Guard</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Punctuality</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Completion</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">SOS Handled</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Patrols</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Incidents</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {perfs.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-semibold ${p.punctuality >= 90 ? "text-emerald-600" : p.punctuality >= 70 ? "text-amber-600" : "text-red-600"}`}>
+                      {p.punctuality}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-semibold ${p.completionRate >= 90 ? "text-emerald-600" : p.completionRate >= 70 ? "text-amber-600" : "text-red-600"}`}>
+                      {p.completionRate}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-700">{p.sosHandled}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{p.patrols}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{p.incidents}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

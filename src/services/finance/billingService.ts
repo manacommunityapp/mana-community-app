@@ -80,4 +80,33 @@ export const billingService = {
   async getGstPreview(amount: number): Promise<{ taxableAmount: number; cgst: number; sgst: number; totalAmount: number }> {
     return apiClient.get(`/billing/gst-preview?amount=${amount}`);
   },
+
+  // ── Demand Notes ──
+  async getDemandNotes(): Promise<DemandNote[]> {
+    return apiClient.get<DemandNote[]>("/finance/demand-notes");
+  },
+  async createDemandNote(data: CreateDemandNoteRequest): Promise<DemandNote> {
+    return apiClient.post<DemandNote>("/finance/demand-notes", data);
+  },
+  async generateInvoicesFromDemandNote(id: number): Promise<BillingInvoice[]> {
+    return apiClient.post<BillingInvoice[]>(`/finance/demand-notes/${id}/generate-invoices`, {});
+  },
 };
+
+export interface DemandNote {
+  id: number;
+  title: string;
+  description?: string;
+  amount: number;
+  dueDate: string;
+  status: "DRAFT" | "PUBLISHED" | "INVOICED";
+  createdAt: string;
+  invoiceCount?: number;
+}
+
+export interface CreateDemandNoteRequest {
+  title: string;
+  description?: string;
+  amount: number;
+  dueDate: string;
+}

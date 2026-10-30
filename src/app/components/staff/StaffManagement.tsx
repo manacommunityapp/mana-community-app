@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Users, Shield, Calendar, Plus, X, Loader2, Trash2 } from "lucide-react";
+import { Users, Shield, Calendar, Plus, X, Loader2, Trash2, BarChart3, CheckCircle, XCircle, Clock } from "lucide-react";
 import {
   staffAccessRuleService, staffLeaveService,
   type StaffAccessRule, type StaffLeave,
 } from "../../../services/security/securityService";
 
-type TabKey = "access-rules" | "leaves";
+type TabKey = "access-rules" | "leaves" | "attendance";
 
 export function StaffManagement() {
   const [tab, setTab] = useState<TabKey>("access-rules");
@@ -13,6 +13,7 @@ export function StaffManagement() {
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "access-rules", label: "Access Rules", icon: <Shield className="w-4 h-4" /> },
     { key: "leaves", label: "Leave Management", icon: <Calendar className="w-4 h-4" /> },
+    { key: "attendance", label: "Attendance", icon: <BarChart3 className="w-4 h-4" /> },
   ];
 
   return (
@@ -41,6 +42,7 @@ export function StaffManagement() {
 
       {tab === "access-rules" && <StaffAccessRulesTab />}
       {tab === "leaves" && <StaffLeavesTab />}
+      {tab === "attendance" && <StaffAttendanceTab />}
     </div>
   );
 }
@@ -323,6 +325,132 @@ function StaffLeavesTab() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Staff Attendance Tab ──────────────────────────────────────────────────────
+
+interface AttendanceRecord {
+  id: number;
+  staffId: string;
+  staffName: string;
+  date: string;
+  scheduledShift: string;
+  status: "PRESENT" | "ABSENT" | "LATE" | "HALF_DAY" | "ON_LEAVE";
+  checkInTime?: string;
+  checkOutTime?: string;
+}
+
+function StaffAttendanceTab() {
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { apiClient } = await import("../../../services/common/apiClient");
+      const data = await apiClient.get<AttendanceRecord[]>(`/staff/attendance?date=${date}`);
+      setRecords(data);
+    } catch {
+      setError("Failed to load attendance data");
+      setRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const attStatusConfig: Record<AttendanceRecord["status"], { label: string; icon: React.ReactNode; bg: string; text: string }> = {
+    PRESENT: { label: "Present", icon: <CheckCircle className="w-3.5 h-3.5" />, bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
+    ABSENT: { label: "Absent", icon: <XCircle className="w-3.5 h-3.5" />, bg: "bg-red-50 border-red-200", text: "text-red-700" },
+    LATE: { label: "Late", icon: <Clock className="w-3.5 h-3.5" />, bg: "bg-amber-50 border-amber-200", text: "text-amber-700" },
+    HALF_DAY: { label: "Half Day", icon: <Clock className="w-3.5 h-3.5" />, bg: "bg-blue-50 border-blue-200", text: "text-blue-700" },
+    ON_LEAVE: { label: "On Leave", icon: <Calendar className="w-3.5 h-3.5" />, bg: "bg-slate-50 border-slate-200", text: "text-slate-500" },
+  };
+
+  const summary = {
+    present: records.filter(r => r.status === "PRESENT").length,
+    absent: records.filter(r => r.status === "ABSENT").length,
+    late: records.filter(r => r.status === "LATE").length,
+    onLeave: records.filter(r => r.status === "ON_LEAVE").length,
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button onClick={load} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Load</button>
+      </div>
+
+      {!loading && records.length > 0 && (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-emerald-700">{summary.present}</p>
+            <p className="text-xs text-emerald-600">Present</p>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-red-700">{summary.absent}</p>
+            <p className="text-xs text-red-600">Absent</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-amber-700">{summary.late}</p>
+            <p className="text-xs text-amber-600">Late</p>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+            <p className="text-xl font-bold text-slate-600">{summary.onLeave}</p>
+            <p className="text-xs text-slate-500">On Leave</p>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {loading ? (
+        <div className="flex items-center justify-center h-32"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+      ) : records.length === 0 && !error ? (
+        <div className="text-center py-12 text-slate-400 bg-white rounded-xl border border-slate-200">
+          No attendance records for this date.
+        </div>
+      ) : !loading && records.length > 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Staff</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">ID</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Scheduled Shift</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Check In</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Check Out</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {records.map(r => {
+                const sc = attStatusConfig[r.status];
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-900">{r.staffName}</td>
+                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{r.staffId}</td>
+                    <td className="px-4 py-3 text-slate-600">{r.scheduledShift}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded border ${sc.bg} ${sc.text}`}>
+                        {sc.icon} {sc.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 text-xs">{r.checkInTime ? new Date(r.checkInTime).toLocaleTimeString() : "—"}</td>
+                    <td className="px-4 py-3 text-slate-600 text-xs">{r.checkOutTime ? new Date(r.checkOutTime).toLocaleTimeString() : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }

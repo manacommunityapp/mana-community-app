@@ -1117,6 +1117,27 @@ interface AdminPortalProps {
 }
 
 function AdminPortalView({ allPasses, analytics, auditLogs, loading }: AdminPortalProps) {
+  const [alertingSend, setAlertingSend] = useState<number | null>(null);
+
+  const overstays = allPasses.filter(p => {
+    if (p.status !== "CHECKED_IN" || !p.expectedAt) return false;
+    const due = new Date(p.expectedAt).getTime() + 30 * 60 * 1000;
+    return Date.now() > due;
+  });
+
+  const sendOverstayAlert = async (id: number) => {
+    setAlertingSend(id);
+    try {
+      await import("../../../services/common/apiClient").then(m =>
+        m.apiClient.post(`/visitors/${id}/overstay-alert`, {})
+      );
+    } catch {
+      // alert sent best-effort
+    } finally {
+      setAlertingSend(null);
+    }
+  };
+
   if (loading || !analytics) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1128,7 +1149,40 @@ function AdminPortalView({ allPasses, analytics, auditLogs, loading }: AdminPort
 
   return (
     <div className="space-y-6">
-      
+
+      {/* Overstay Alerts */}
+      {overstays.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+          <h3 className="text-xs font-black text-orange-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4" /> Overstay Alerts ({overstays.length})
+          </h3>
+          <div className="space-y-2">
+            {overstays.map(p => {
+              const minsOver = Math.round((Date.now() - new Date(p.expectedAt!).getTime() - 30 * 60 * 1000) / 60000);
+              return (
+                <div key={p.id} className="flex items-center justify-between bg-white border border-orange-200 rounded-xl px-4 py-2 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900">{p.visitorName}</span>
+                    <span className="ml-2 text-slate-500">Flat {p.flatNumber}</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">
+                      {minsOver} min overdue
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => sendOverstayAlert(p.id)}
+                    disabled={alertingSend === p.id}
+                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {alertingSend === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+                    Send Alert
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Analytics widgets */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         {[
