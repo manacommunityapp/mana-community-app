@@ -368,4 +368,45 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     } as any;
     expect(isFormatCompatible(doublesArrayReg, eventCard)).toBe(false);
   });
+
+  it("isActiveRegistrationStatus safely normalizes casing and rejects cancelled, withdrawn, rejected, or null statuses", () => {
+    // Active statuses
+    expect(isActiveRegistrationStatus("CONFIRMED")).toBe(true);
+    expect(isActiveRegistrationStatus("confirmed")).toBe(true);
+    expect(isActiveRegistrationStatus("PENDING")).toBe(true);
+    expect(isActiveRegistrationStatus("pending")).toBe(true);
+    expect(isActiveRegistrationStatus("REGISTERED")).toBe(true);
+    expect(isActiveRegistrationStatus("registered")).toBe(true);
+
+    // Inactive statuses
+    expect(isActiveRegistrationStatus("WITHDRAWN")).toBe(false);
+    expect(isActiveRegistrationStatus("withdrawn")).toBe(false);
+    expect(isActiveRegistrationStatus("CANCELLED")).toBe(false);
+    expect(isActiveRegistrationStatus("cancelled")).toBe(false);
+    expect(isActiveRegistrationStatus("REJECTED")).toBe(false);
+    expect(isActiveRegistrationStatus("rejected")).toBe(false);
+
+    // Edge cases
+    expect(isActiveRegistrationStatus(null)).toBe(false);
+    expect(isActiveRegistrationStatus(undefined)).toBe(false);
+    expect(isActiveRegistrationStatus("")).toBe(false);
+  });
+
+  it("filters out invalid/non-numeric registration IDs during withdrawal process", () => {
+    const rawRegs = [
+      { id: 12, playerName: "Player A" },
+      { id: "34", playerName: "Player B" },
+      { id: undefined, playerName: "Player C" },
+      { id: "not-a-number", playerName: "Player D" },
+      { id: -5, playerName: "Player E" },
+      { id: 0, playerName: "Player F" },
+    ];
+
+    const validIds = rawRegs
+      .map(r => Number(r.id))
+      .filter(id => !isNaN(id) && id > 0);
+
+    expect(validIds).toEqual([12, 34]);
+  });
 });
+

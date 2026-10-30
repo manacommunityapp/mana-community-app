@@ -1142,11 +1142,13 @@ export function SportsMultiRegister() {
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
+            const rawStatus = String(ev.myRegistrationStatus || "").toUpperCase().trim();
             const isAlreadyRegistered = Boolean(
               ev.myRegistrationId &&
-              ev.myRegistrationStatus !== "WITHDRAWN" &&
-              ev.myRegistrationStatus !== "CANCELLED" &&
-              ev.myRegistrationStatus !== "REJECTED"
+              rawStatus &&
+              rawStatus !== "WITHDRAWN" &&
+              rawStatus !== "CANCELLED" &&
+              rawStatus !== "REJECTED"
             );
 
             // Find single related category from service categories for this specific event
@@ -1696,6 +1698,7 @@ export function SportsMultiRegister() {
       if (nominatedCount > 0) {
         toast.info(`Captain nomination recorded for ${nominatedCount} event${nominatedCount > 1 ? "s" : ""}.`);
       }
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
       navigate("/sports");
     } else if (successCount > 0 && failedCount > 0) {
       toast.warning(`Registered for ${successCount} event(s), but ${failedCount} failed. Please check errors.`);
