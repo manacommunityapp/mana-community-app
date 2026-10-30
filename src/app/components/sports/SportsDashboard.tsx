@@ -158,9 +158,22 @@ export function isSelfRelationOrMember(
     if (idStr === "self" || idStr === "fam-self" || idStr === "member-self" || idStr === "head" || idStr === "primary") {
       return true;
     }
+    // A positive numeric id is a database id for a family member entity, never Self
+    if (!isNaN(Number(idStr)) && Number(idStr) > 0) {
+      return false;
+    }
   }
   if (rel) {
     const r = String(rel).toUpperCase().trim();
+    if (
+      r === "SPOUSE" || r === "WIFE" || r === "HUSBAND" ||
+      r === "SON" || r === "DAUGHTER" || r === "CHILD" ||
+      r === "FATHER" || r === "MOTHER" || r === "PARENT" ||
+      r === "BROTHER" || r === "SISTER" || r === "SIBLING" ||
+      r === "OTHER" || r.includes("SPOUSE") || r.includes("WIFE") || r.includes("HUSBAND")
+    ) {
+      return false;
+    }
     if (
       r === "SELF" ||
       r === "HEAD" ||
@@ -176,7 +189,8 @@ export function isSelfRelationOrMember(
   if (name && currentUserName) {
     const n = name.toLowerCase().trim();
     const c = currentUserName.toLowerCase().trim();
-    if (n && c && (n === c || n.includes(c) || c.includes(n))) {
+    // Must be exact full-name match, not partial substring match which collides on shared surnames
+    if (n && c && n === c) {
       return true;
     }
   }
@@ -397,7 +411,7 @@ export function isRegistrationForMemberHelper(
 
   const regPlayerName = (reg.playerName || "").trim();
   const regRelation = (reg.relation || "").trim();
-  const regFamilyMemberId = reg.familyMemberId;
+  const regFamilyMemberId = reg.familyMemberId || reg.familyMember?.id;
   const targetFullName = (currentUserName || "").trim();
 
   const isExplicitFamily = Boolean(
@@ -1114,15 +1128,16 @@ export function SportsDashboard() {
         captainConfirmation: r.captainConfirmation,
         playerName: r.playerName || (r as any).user?.fullName,
         relation: r.relation,
-        familyMemberId: r.familyMemberId,
+        familyMemberId: r.familyMemberId || (r as any).familyMember?.id,
       }));
       setMyRegistrations(fetchedMyRegs);
 
       // Helper event mapping function
       const mapEventCard = (e: any): OpenRegistration => {
-        // ONLY match active registrations from fetchedMyRegs
+        // ONLY match active registrations from fetchedMyRegs for SELF (family member registrations are mapped dynamically per selected dropdown member)
         const matchingReg = fetchedMyRegs.find(r =>
           isEventMatch(r, e) &&
+          isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName) &&
           isActiveRegistrationStatus(r.status) &&
           !withdrawnRegistrationIds.has(Number(r.id))
         );
@@ -2136,6 +2151,8 @@ export function SportsDashboard() {
                   if (isSelf && (ev.registrationId || (ev as any).myRegistrationId)) {
                     const rawId = ev.registrationId || (ev as any).myRegistrationId;
                     if (withdrawnRegistrationIds.has(Number(rawId))) return [];
+                    const isForFamily = myRegistrations.some(r => Number(r.id) === Number(rawId) && !isRegistrationForMember(r, "self"));
+                    if (isForFamily) return [];
                     const isEvTeam = Boolean(ev.isTeamSport || isTeamSport(ev.category || ev.name || ""));
                     const evFormats = isEvTeam ? ["TEAM"] : getEventFormats(ev as any);
                     const defaultFmt = evFormats[0] || (isEvTeam ? "TEAM" : "SINGLES");

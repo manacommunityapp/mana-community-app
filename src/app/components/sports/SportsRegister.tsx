@@ -1011,30 +1011,63 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const [liveUser, setLiveUser] = useState<any>(user);
 
-  const [formData, setFormData] = useState<RegistrationFormData>({
-    categoryIds: [] as number[],
-    matchTypes: ["SINGLES"],
-    matchType: "SINGLES",
-    role: "",
-    gender: (user as any)?.gender || "",
-    dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
-    age: (user as any)?.dateOfBirth || (user as any)?.dob
-      ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
-      : 25,
-    matches: 0,
-    runs: 0,
-    wickets: 0,
-    strikeRate: 0,
-    avgScore: 0,
-    regType: "self" as "self" | "family" | "other",
-    playerName: user?.fullName || "",
-    relation: "",
-    flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
-    familyMemberId: undefined as number | string | undefined,
-    partnerUserId: null,
-    partnerInfo: null,
-    captainNomination: false,
-    proposedTeamName: "",
+  const initialFamMember = (props.initialFor === "family" && props.initialMemberId && props.familyMembers)
+    ? props.familyMembers.find(m => String(m.id) === String(props.initialMemberId))
+    : undefined;
+
+  const [formData, setFormData] = useState<RegistrationFormData>(() => {
+    const isFamilyInit = props.initialFor === "family";
+    if (isFamilyInit && initialFamMember) {
+      const calcAge = (initialFamMember.dob ? calculateAge(initialFamMember.dob) : null) ?? initialFamMember.age ?? 25;
+      return {
+        categoryIds: [] as number[],
+        matchTypes: ["SINGLES"],
+        matchType: "SINGLES",
+        role: "",
+        gender: initialFamMember.gender || "",
+        dateOfBirth: initialFamMember.dob || "",
+        age: calcAge,
+        matches: 0,
+        runs: 0,
+        wickets: 0,
+        strikeRate: 0,
+        avgScore: 0,
+        regType: "family",
+        playerName: initialFamMember.name || "",
+        relation: initialFamMember.relation || "OTHER",
+        flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
+        familyMemberId: initialFamMember.id,
+        partnerUserId: null,
+        partnerInfo: null,
+        captainNomination: false,
+        proposedTeamName: "",
+      };
+    }
+    return {
+      categoryIds: [] as number[],
+      matchTypes: ["SINGLES"],
+      matchType: "SINGLES",
+      role: "",
+      gender: (user as any)?.gender || "",
+      dateOfBirth: (user as any)?.dateOfBirth || (user as any)?.dob || "",
+      age: (user as any)?.dateOfBirth || (user as any)?.dob
+        ? Math.max(0, new Date().getFullYear() - new Date((user as any)?.dateOfBirth || (user as any)?.dob).getFullYear())
+        : 25,
+      matches: 0,
+      runs: 0,
+      wickets: 0,
+      strikeRate: 0,
+      avgScore: 0,
+      regType: (isFamilyInit ? "family" : "self") as "self" | "family" | "other",
+      playerName: isFamilyInit ? "" : (user?.fullName || ""),
+      relation: isFamilyInit ? "OTHER" : "",
+      flatNumber: (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "",
+      familyMemberId: isFamilyInit ? (props.initialMemberId as any) : undefined,
+      partnerUserId: null,
+      partnerInfo: null,
+      captainNomination: false,
+      proposedTeamName: "",
+    };
   });
 
   useEffect(() => {
@@ -1127,7 +1160,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     return missing;
   }, [userFullName, userGender, userDob, userFlat]);
 
-  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>(props.familyMembers || []);
 
   // Admin On-Behalf Community Player Search States
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
