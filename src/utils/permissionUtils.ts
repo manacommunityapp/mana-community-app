@@ -16,6 +16,9 @@ import {
   VIEW_JOBS,
   VIEW_ADMIN,
   VIEW_SERVICE_CATALOG,
+  VERIFY_KYC,
+  BULK_UPLOAD,
+  MANAGE_ROLES,
 } from "../constants/permissions";
 
 export interface EndpointAccessRule {
@@ -70,6 +73,16 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
 
   // Admin
   { pathPrefix: "/admin", module: "ADMIN_HUB", anyPermissions: [VIEW_ADMIN] },
+
+  // User admin mutations — /users/me is already allowed above; these gate PUT/POST on other user paths
+  { pathPrefix: "/users", module: "ADMIN_HUB", methods: ["POST"], anyPermissions: [BULK_UPLOAD, VIEW_ADMIN] },
+  { pathPrefix: "/users", module: "ADMIN_HUB", methods: ["PUT"], anyPermissions: [VERIFY_KYC, MANAGE_ROLES, VIEW_ADMIN] },
+
+  // Role management — GET, POST, PUT on /roles/*
+  { pathPrefix: "/roles", module: "ADMIN_HUB", anyPermissions: [MANAGE_ROLES] },
+
+  // Privacy admin endpoints (deletion requests, retention policies)
+  { pathPrefix: "/privacy/admin", module: "ADMIN_HUB", anyPermissions: [VIEW_ADMIN] },
 ];
 
 export function isUserSuperAdmin(user?: StoredUser | null): boolean {
