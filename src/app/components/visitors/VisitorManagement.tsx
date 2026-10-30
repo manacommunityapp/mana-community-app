@@ -9,7 +9,7 @@ import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
-import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken } from "../../../services/security/securityService";
+import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, guestPassService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken, type GuestPass, type CreateGuestPassRequest, type GuestPassScanLog } from "../../../services/security/securityService";
 import { userService } from "../../../services/common/userService";
 import type { UserResponse } from "../../../types/api";
 import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
@@ -18,7 +18,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type PortalView = "resident" | "guard" | "admin" | "security-lists";
+type PortalView = "resident" | "guard" | "admin" | "security-lists" | "guest-passes";
 type PassTypeKey = "GUEST" | "DELIVERY" | "MAID" | "VENDOR" | "FAMILY" | "RECURRING" | "PRE_APPROVED" | "WALK_IN" | "OTHER";
 
 const passTypeLabels: Record<PassTypeKey, string> = {
@@ -261,6 +261,16 @@ export function VisitorManagement() {
             <Ban className="w-4 h-4" />
             Security Lists
           </button>
+          <button
+            onClick={() => setPortal("guest-passes")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              portal === "guest-passes" ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <QrCode className="w-4 h-4" />
+            Guest Passes
+          </button>
         </div>
       </div>
 
@@ -297,6 +307,7 @@ export function VisitorManagement() {
         )}
 
         {portal === "security-lists" && <SecurityListsView />}
+        {portal === "guest-passes" && <GuestPassesView />}
       </div>
 
       {/* Create Pass Modal */}
@@ -1869,6 +1880,220 @@ function TempAccessTokensTab() {
             </table>
           </div>
         )
+      )}
+    </div>
+  );
+}
+
+// ── Guest Passes (Pre-approved QR) ──────────────────────────────────────────
+function GuestPassesView() {
+  const [passes, setPasses] = useState<GuestPass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [qrPass, setQrPass] = useState<GuestPass | null>(null);
+  const [scanLog, setScanLog] = useState<{ passId: number; logs: GuestPassScanLog[] } | null>(null);
+  const [form, setForm] = useState<Partial<CreateGuestPassRequest>>({ maxEntries: 1 });
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try { setPasses(await guestPassService.getPasses()); } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.guestName || !form.validFrom || !form.validUntil) {
+      setError("Guest name, valid from, and valid until are required.");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      const created = await guestPassService.createPass(form as CreateGuestPassRequest);
+      setShowCreate(false);
+      setForm({ maxEntries: 1 });
+      await load();
+      setQrPass(created);
+    } catch { setError("Failed to create pass. Please try again."); }
+    finally { setCreating(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    try { await guestPassService.revokePass(id); await load(); } catch { /* ignore */ }
+  };
+
+  const handleScanLog = async (id: number) => {
+    if (scanLog?.passId === id) { setScanLog(null); return; }
+    try {
+      const logs = await guestPassService.getScanLog(id);
+      setScanLog({ passId: id, logs });
+    } catch { /* ignore */ }
+  };
+
+  const statusColor = (s: string) => {
+    if (s === "ACTIVE") return "bg-green-50 border-green-200 text-green-700";
+    if (s === "REVOKED") return "bg-red-50 border-red-200 text-red-700";
+    if (s === "EXPIRED") return "bg-slate-50 border-slate-200 text-slate-500";
+    return "bg-amber-50 border-amber-200 text-amber-700";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">Pre-Approved Guest Passes</h2>
+          <p className="text-sm text-slate-500">Generate QR passes for expected guests</p>
+        </div>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          <Plus className="w-4 h-4" /> Generate Pass
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-10 text-center text-slate-400 text-sm flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading passes...</div>
+      ) : passes.length === 0 ? (
+        <div className="py-10 text-center text-slate-400 text-sm">No guest passes found. Generate one for an expected visitor.</div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead><tr className="bg-slate-50 text-left">
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Guest</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Valid Period</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Entries</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Pass Code</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Status</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500"></th>
+            </tr></thead>
+            <tbody>
+              {passes.map(p => (
+                <>
+                  <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-800">{p.guestName}</div>
+                      {p.guestPhone && <div className="text-xs text-slate-400">{p.guestPhone}</div>}
+                      {p.flatNumber && <div className="text-xs text-slate-400">Flat {p.flatNumber}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      <div>{formatIndianDate(p.validFrom)}</div>
+                      <div className="text-slate-400">to {formatIndianDate(p.validUntil)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-slate-800 font-semibold">{p.usedEntries}</span>
+                      <span className="text-slate-400">/{p.maxEntries}</span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{p.passCode}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", statusColor(p.status))}>{p.status}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setQrPass(p)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500" title="Show QR"><QrCode className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleScanLog(p.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="Scan log"><History className="w-3.5 h-3.5" /></button>
+                        {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                      </div>
+                    </td>
+                  </tr>
+                  {scanLog?.passId === p.id && (
+                    <tr key={`log-${p.id}`} className="bg-slate-50">
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="text-xs font-semibold text-slate-500 mb-2">Scan History</div>
+                        {scanLog.logs.length === 0 ? (
+                          <div className="text-xs text-slate-400">No scans recorded yet.</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {scanLog.logs.map(l => (
+                              <div key={l.id} className="flex items-center gap-3 text-xs text-slate-600">
+                                <span className="text-slate-400">{formatIndianTime(l.scannedAt)}</span>
+                                {l.gate && <span className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-500">{l.gate}</span>}
+                                {l.scannedBy && <span>{l.scannedBy}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Pass Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Generate Guest Pass</h3>
+              <button onClick={() => { setShowCreate(false); setError(null); setForm({ maxEntries: 1 }); }} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            {error && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{error}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Guest Name *</label>
+                <input value={form.guestName ?? ""} onChange={e => setForm(f => ({ ...f, guestName: e.target.value }))} placeholder="Full name" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Guest Phone</label>
+                <input value={form.guestPhone ?? ""} onChange={e => setForm(f => ({ ...f, guestPhone: e.target.value }))} placeholder="Mobile number" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Valid From *</label>
+                  <input type="date" value={form.validFrom ?? ""} onChange={e => setForm(f => ({ ...f, validFrom: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Valid Until *</label>
+                  <input type="date" value={form.validUntil ?? ""} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Max Entries (1–10)</label>
+                <input type="number" min={1} max={10} value={form.maxEntries ?? 1} onChange={e => setForm(f => ({ ...f, maxEntries: Number(e.target.value) }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Purpose</label>
+                <input value={form.purpose ?? ""} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Birthday party, Work delivery" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setShowCreate(false); setError(null); setForm({ maxEntries: 1 }); }} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleCreate} disabled={creating} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+                {creating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : "Generate Pass"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {qrPass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Guest Pass QR</h3>
+              <button onClick={() => setQrPass(null)} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            <div className="font-semibold text-slate-800">{qrPass.guestName}</div>
+            {qrPass.qrCodeImageUrl ? (
+              <img src={qrPass.qrCodeImageUrl} alt="QR Code" className="mx-auto w-48 h-48 object-contain rounded-xl border border-slate-200" />
+            ) : (
+              <div className="mx-auto w-48 h-48 bg-slate-100 rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-2">
+                <QrCode className="w-12 h-12 text-slate-400" />
+                <span className="text-xs text-slate-400">QR not available</span>
+              </div>
+            )}
+            <div className="bg-slate-50 rounded-xl border border-slate-200 py-3 px-4">
+              <div className="text-xs text-slate-500 mb-1">Pass Code</div>
+              <div className="font-mono text-lg font-bold text-indigo-600 tracking-widest">{qrPass.passCode}</div>
+            </div>
+            <div className="text-xs text-slate-400">Valid: {formatIndianDate(qrPass.validFrom)} → {formatIndianDate(qrPass.validUntil)} · Max {qrPass.maxEntries} {qrPass.maxEntries === 1 ? "entry" : "entries"}</div>
+          </div>
+        </div>
       )}
     </div>
   );

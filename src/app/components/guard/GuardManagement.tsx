@@ -11,10 +11,10 @@ import {
   type GuardShiftResponse,
   type GuardShiftRequest,
 } from "../../../services/guard/guardService";
-import { guardSosService, guardDiaryService, guardHandoverService, guardPatrolService, type GuardSosAlert, type GuardDiaryEntry, type GuardHandoverRecord, type CreateHandoverRequest, type PatrolSession, type PatrolCheckpoint } from "../../../services/security/securityService";
+import { guardSosService, guardDiaryService, guardHandoverService, guardPatrolService, guardRosterService, type GuardSosAlert, type GuardDiaryEntry, type GuardHandoverRecord, type CreateHandoverRequest, type PatrolSession, type PatrolCheckpoint, type RosterEntry, type CreateRosterEntryRequest } from "../../../services/security/securityService";
 import { getStoredUser } from "../../../services/common/apiClient";
 
-type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover" | "patrol";
+type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover" | "patrol" | "roster";
 
 const guardStatusColors: Record<string, { label: string; bg: string; text: string }> = {
   ACTIVE: { label: "Active", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -222,6 +222,7 @@ export function GuardManagement() {
     { key: "diary", label: "Daily Log", icon: <BookOpen className="w-4 h-4" />, count: 0 },
     { key: "handover", label: "Shift Handover", icon: <ClipboardCheck className="w-4 h-4" />, count: 0 },
     { key: "patrol", label: "Patrol", icon: <Route className="w-4 h-4" />, count: 0 },
+    { key: "roster", label: "Duty Roster", icon: <CheckSquare className="w-4 h-4" />, count: 0 },
   ];
 
   if (loading) {
@@ -454,6 +455,9 @@ export function GuardManagement() {
 
       {/* Patrol Tab */}
       {tab === "patrol" && <GuardPatrolTab guards={activeGuards} />}
+
+      {/* Duty Roster Tab */}
+      {tab === "roster" && <GuardRosterTab guards={activeGuards} />}
 
       {/* Guard Modal */}
       {showGuardModal && (
@@ -1285,6 +1289,218 @@ function GuardHandoverTab({ guards }: GuardHandoverTabProps) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Guard Duty Roster Tab ────────────────────────────────────────────────────
+
+function GuardRosterTab({ guards }: { guards: GuardProfileResponse[] }) {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [entries, setEntries] = useState<RosterEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Partial<CreateRosterEntryRequest>>({ shiftType: "MORNING", startTime: "06:00", endTime: "14:00" });
+  const [saving, setSaving] = useState(false);
+  const user = getStoredUser();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setEntries(await guardRosterService.getEntries(month, year)); } catch { setEntries([]); } finally { setLoading(false); }
+  }, [month, year]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const shiftColors: Record<string, string> = {
+    MORNING: "bg-blue-100 text-blue-700 border-blue-200",
+    EVENING: "bg-orange-100 text-orange-700 border-orange-200",
+    NIGHT: "bg-slate-700 text-slate-100 border-slate-600",
+  };
+  const statusColors: Record<string, string> = {
+    SCHEDULED: "bg-slate-100 text-slate-600 border-slate-200",
+    COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    ABSENT: "bg-red-100 text-red-700 border-red-200",
+  };
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstDow = new Date(year, month - 1, 1).getDay();
+  const weeks: (number | null)[][] = [];
+  let week: (number | null)[] = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length) weeks.push([...week, ...Array(7 - week.length).fill(null)]);
+
+  const entriesForDay = (d: number) => entries.filter(e => new Date(e.date).getDate() === d);
+  const scheduled = entries.filter(e => e.status === "SCHEDULED").length;
+  const completed = entries.filter(e => e.status === "COMPLETED").length;
+  const absent = entries.filter(e => e.status === "ABSENT").length;
+
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+  const addEntry = async () => {
+    if (!form.guardId || !selectedDay) return;
+    setSaving(true);
+    try {
+      const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(selectedDay).padStart(2,"0")}`;
+      await guardRosterService.createEntry({ communityId: user?.communityId ?? 0, guardId: form.guardId, date: dateStr, shiftType: form.shiftType!, startTime: form.startTime!, endTime: form.endTime! });
+      setShowForm(false);
+      load();
+    } catch { /* ignore */ } finally { setSaving(false); }
+  };
+
+  const markStatus = async (id: number, status: string) => {
+    try { await guardRosterService.updateEntry(id, { status }); load(); } catch { /* ignore */ }
+  };
+
+  const removeEntry = async (id: number) => {
+    try { await guardRosterService.deleteEntry(id); load(); } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[{ label: "Scheduled", val: scheduled, cls: "text-slate-700" }, { label: "Completed", val: completed, cls: "text-emerald-700" }, { label: "Absent", val: absent, cls: "text-red-600" }].map(s => (
+          <div key={s.label} className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+            <div className={`text-2xl font-bold ${s.cls}`}>{s.val}</div>
+            <div className="text-xs text-slate-500 mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500">&#8249;</button>
+          <h3 className="font-semibold text-slate-800">{monthNames[month - 1]} {year}</h3>
+          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-500">&#8250;</button>
+        </div>
+        {loading ? <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div> : (
+          <div>
+            <div className="grid grid-cols-7 mb-1">
+              {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => (
+                <div key={d} className="text-center text-xs font-medium text-slate-400 py-1">{d}</div>
+              ))}
+            </div>
+            {weeks.map((wk, wi) => (
+              <div key={wi} className="grid grid-cols-7 gap-1 mb-1">
+                {wk.map((day, di) => {
+                  const dayEntries = day ? entriesForDay(day) : [];
+                  return (
+                    <div key={di} onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
+                      className={`min-h-16 rounded-lg border p-1 cursor-pointer transition-colors ${
+                        !day ? "bg-transparent border-transparent" :
+                        day === selectedDay ? "border-blue-400 bg-blue-50" :
+                        "border-slate-100 bg-white hover:border-slate-300"}`}>
+                      {day && (
+                        <>
+                          <div className="text-xs font-medium text-slate-600 mb-1">{day}</div>
+                          <div className="space-y-0.5">
+                            {dayEntries.slice(0, 3).map(e => (
+                              <div key={e.id} className={`text-[10px] px-1 rounded border truncate ${shiftColors[e.shiftType] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                                {e.guardName?.split(" ")[0] || "Guard"}
+                              </div>
+                            ))}
+                            {dayEntries.length > 3 && <div className="text-[10px] text-slate-400">+{dayEntries.length - 3}</div>}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedDay && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-semibold text-slate-800">{monthNames[month - 1]} {selectedDay}, {year}</h4>
+            <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <Plus className="w-3.5 h-3.5" /> Add Shift
+            </button>
+          </div>
+          {entriesForDay(selectedDay).length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">No shifts assigned for this day</p>
+          ) : (
+            <div className="space-y-2">
+              {entriesForDay(selectedDay).map(e => (
+                <div key={e.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <div className={`text-xs px-2 py-0.5 rounded border font-medium ${shiftColors[e.shiftType] || "bg-slate-100 text-slate-600 border-slate-200"}`}>{e.shiftType}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-slate-800">{e.guardName || "Unknown Guard"}</div>
+                    <div className="text-xs text-slate-500">{e.startTime} – {e.endTime}</div>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded border ${statusColors[e.status] || "bg-slate-100 text-slate-600 border-slate-200"}`}>{e.status}</span>
+                  <div className="flex gap-1">
+                    {e.status === "SCHEDULED" && <>
+                      <button onClick={() => markStatus(e.id, "COMPLETED")} className="text-xs px-2 py-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors">Done</button>
+                      <button onClick={() => markStatus(e.id, "ABSENT")} className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition-colors">Absent</button>
+                    </>}
+                    <button onClick={() => removeEntry(e.id)} className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-slate-900">Add Shift — {monthNames[month - 1]} {selectedDay}</h3>
+              <button onClick={() => setShowForm(false)} className="p-1 rounded hover:bg-slate-100"><X className="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Guard</label>
+                <select value={form.guardId ?? ""} onChange={e => setForm(f => ({ ...f, guardId: Number(e.target.value) }))}
+                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select guard…</option>
+                  {guards.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Shift</label>
+                <select value={form.shiftType} onChange={e => setForm(f => ({ ...f, shiftType: e.target.value }))}
+                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="MORNING">Morning</option>
+                  <option value="EVENING">Evening</option>
+                  <option value="NIGHT">Night</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Start</label>
+                  <input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">End</label>
+                  <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Cancel</button>
+              <button onClick={addEntry} disabled={saving || !form.guardId}
+                className="px-4 py-2 text-sm bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2">
+                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Assign Shift
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

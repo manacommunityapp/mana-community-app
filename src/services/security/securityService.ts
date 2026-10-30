@@ -471,6 +471,147 @@ export const guardPatrolService = {
   },
 };
 
+// ── Guard Duty Roster ────────────────────────────────────────────────────────
+
+export interface RosterEntry {
+  id: number;
+  communityId: number;
+  guardId: number | null;
+  guardName: string | null;
+  date: string;
+  shiftType: "MORNING" | "EVENING" | "NIGHT" | string;
+  startTime: string;
+  endTime: string;
+  status: "SCHEDULED" | "COMPLETED" | "ABSENT" | string;
+  createdAt: string;
+}
+
+export interface CreateRosterEntryRequest {
+  communityId: number;
+  guardId: number;
+  date: string;
+  shiftType: string;
+  startTime: string;
+  endTime: string;
+}
+
+export const guardRosterService = {
+  async getEntries(month: number, year: number): Promise<RosterEntry[]> {
+    const cid = communityId();
+    return apiClient.get<RosterEntry[]>(`/guard/roster?communityId=${cid}&month=${month}&year=${year}`);
+  },
+  async createEntry(data: CreateRosterEntryRequest): Promise<RosterEntry> {
+    return apiClient.post<RosterEntry>("/guard/roster", data);
+  },
+  async updateEntry(id: number, data: Partial<CreateRosterEntryRequest & { status: string }>): Promise<RosterEntry> {
+    return apiClient.put<RosterEntry>(`/guard/roster/${id}`, data);
+  },
+  async deleteEntry(id: number): Promise<void> {
+    return apiClient.delete(`/guard/roster/${id}`);
+  },
+};
+
+// ── Guest Passes (Pre-approved QR) ──────────────────────────────────────────
+
+export interface GuestPass {
+  id: number;
+  communityId: number;
+  residentId: number | null;
+  residentName: string | null;
+  flatNumber: string | null;
+  guestName: string;
+  guestPhone: string | null;
+  validFrom: string;
+  validUntil: string;
+  maxEntries: number;
+  usedEntries: number;
+  purpose: string | null;
+  passCode: string;
+  qrCodeData: string | null;
+  qrCodeImageUrl: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface CreateGuestPassRequest {
+  communityId: number;
+  residentId?: number;
+  guestName: string;
+  guestPhone?: string;
+  validFrom: string;
+  validUntil: string;
+  maxEntries: number;
+  purpose?: string;
+}
+
+export interface GuestPassScanLog {
+  id: number;
+  passId: number;
+  scannedAt: string;
+  scannedBy: string | null;
+  gate: string | null;
+}
+
+export const guestPassService = {
+  async getPasses(): Promise<GuestPass[]> {
+    const cid = communityId();
+    return apiClient.get<GuestPass[]>(`/visitors/guest-pass?communityId=${cid}`);
+  },
+  async createPass(data: CreateGuestPassRequest): Promise<GuestPass> {
+    return apiClient.post<GuestPass>("/visitors/guest-pass", data);
+  },
+  async revokePass(id: number): Promise<void> {
+    return apiClient.put(`/visitors/guest-pass/${id}/revoke`, {});
+  },
+  async getScanLog(id: number): Promise<GuestPassScanLog[]> {
+    return apiClient.get<GuestPassScanLog[]>(`/visitors/guest-pass/${id}/scan-log`);
+  },
+};
+
+// ── Vehicle Stickers ─────────────────────────────────────────────────────────
+
+export interface VehicleSticker {
+  id: number;
+  communityId: number;
+  stickerNumber: string;
+  residentId: number | null;
+  residentName: string | null;
+  flatNumber: string | null;
+  vehicleNumber: string;
+  vehicleType: "CAR" | "BIKE" | "OTHER" | string;
+  color: string | null;
+  status: "ACTIVE" | "EXPIRED" | "LOST" | "SURRENDERED" | string;
+  issuedDate: string;
+  expiryDate: string | null;
+  createdAt: string;
+}
+
+export interface IssueVehicleStickerRequest {
+  communityId: number;
+  residentId?: number;
+  stickerNumber: string;
+  vehicleNumber: string;
+  vehicleType: string;
+  flatNumber?: string;
+  expiryDate?: string;
+}
+
+export const vehicleStickerService = {
+  async getStickers(): Promise<VehicleSticker[]> {
+    const cid = communityId();
+    return apiClient.get<VehicleSticker[]>(`/vehicles/stickers?communityId=${cid}`);
+  },
+  async issueSticker(data: IssueVehicleStickerRequest): Promise<VehicleSticker> {
+    return apiClient.post<VehicleSticker>("/vehicles/stickers", data);
+  },
+  async updateStatus(id: number, status: string): Promise<VehicleSticker> {
+    return apiClient.put<VehicleSticker>(`/vehicles/stickers/${id}/status`, { status });
+  },
+  async deleteSticker(id: number): Promise<void> {
+    return apiClient.delete(`/vehicles/stickers/${id}`);
+  },
+};
+
 // ── Maintenance Schedule ─────────────────────────────────────────────────────
 
 export interface MaintenanceSchedule {

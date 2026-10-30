@@ -1,16 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import { CreditCard, Plus, X, Loader2, Ban } from "lucide-react";
+import { CreditCard, Plus, X, Loader2, Ban, Car } from "lucide-react";
 import {
   accessCardService,
   vehicleBlacklistService,
+  vehicleStickerService,
   type AccessCard,
   type IssueAccessCardRequest,
   type VehicleBlacklistEntry,
   type AddVehicleBlacklistRequest,
+  type VehicleSticker,
+  type IssueVehicleStickerRequest,
 } from "../../../services/security/securityService";
 import { getStoredUser } from "../../../services/common/apiClient";
 
-type TabKey = "cards" | "vehicle-blacklist";
+type TabKey = "cards" | "vehicle-blacklist" | "vehicle-stickers";
 
 const cardStatusColors: Record<string, { bg: string; text: string }> = {
   ACTIVE: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -35,6 +38,7 @@ export function AccessCardsManagement() {
         {([
           { key: "cards" as TabKey, label: "Access Cards", icon: <CreditCard className="w-4 h-4" /> },
           { key: "vehicle-blacklist" as TabKey, label: "Vehicle Blacklist", icon: <Ban className="w-4 h-4" /> },
+          { key: "vehicle-stickers" as TabKey, label: "Vehicle Stickers", icon: <Car className="w-4 h-4" /> },
         ]).map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -47,6 +51,7 @@ export function AccessCardsManagement() {
 
       {tab === "cards" && <AccessCardsTab />}
       {tab === "vehicle-blacklist" && <VehicleBlacklistTab />}
+      {tab === "vehicle-stickers" && <VehicleStickersTab />}
     </div>
   );
 }
@@ -353,6 +358,193 @@ function VehicleBlacklistTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Vehicle Stickers ─────────────────────────────────────────────────────────
+
+type StickerFilter = "ALL" | "ACTIVE" | "EXPIRED" | "LOST";
+
+function VehicleStickersTab() {
+  const [stickers, setStickers] = useState<VehicleSticker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<StickerFilter>("ALL");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Partial<IssueVehicleStickerRequest>>({ vehicleType: "CAR" });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try { setStickers(await vehicleStickerService.getStickers()); } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleIssue = async () => {
+    if (!form.vehicleNumber || !form.stickerNumber) {
+      setFormError("Vehicle number and sticker number are required.");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await vehicleStickerService.issueSticker(form as IssueVehicleStickerRequest);
+      setShowForm(false);
+      setForm({ vehicleType: "CAR" });
+      await load();
+    } catch { setFormError("Failed to issue sticker. Please try again."); }
+    finally { setSaving(false); }
+  };
+
+  const handleStatus = async (id: number, status: string) => {
+    try { await vehicleStickerService.updateStatus(id, status); await load(); } catch { /* ignore */ }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Delete this sticker record?")) return;
+    try { await vehicleStickerService.deleteSticker(id); await load(); } catch { /* ignore */ }
+  };
+
+  const statusColor = (s: string) => {
+    if (s === "ACTIVE") return "bg-green-50 border-green-200 text-green-700";
+    if (s === "EXPIRED") return "bg-amber-50 border-amber-200 text-amber-700";
+    if (s === "LOST") return "bg-red-50 border-red-200 text-red-700";
+    if (s === "SURRENDERED") return "bg-slate-50 border-slate-200 text-slate-500";
+    return "bg-slate-50 border-slate-200 text-slate-500";
+  };
+
+  const filtered = filter === "ALL" ? stickers : stickers.filter(s => s.status === filter);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">Vehicle Stickers</h2>
+          <p className="text-sm text-slate-500">Issue and manage vehicle stickers for residents</p>
+        </div>
+        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          <Plus className="w-4 h-4" /> Issue Sticker
+        </button>
+      </div>
+
+      <div className="flex gap-2">
+        {(["ALL", "ACTIVE", "EXPIRED", "LOST"] as StickerFilter[]).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="py-10 text-center text-slate-400 text-sm flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading stickers...</div>
+      ) : filtered.length === 0 ? (
+        <div className="py-10 text-center text-slate-400 text-sm">No stickers found.</div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead><tr className="bg-slate-50 text-left">
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Sticker #</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Vehicle</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Flat</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Issued</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Expiry</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Status</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500"></th>
+            </tr></thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700">{s.stickerNumber}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-slate-800">{s.vehicleNumber}</div>
+                    <div className="text-xs text-slate-400">{s.vehicleType}{s.color ? ` · ${s.color}` : ""}</div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{s.flatNumber ?? "—"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{s.issuedDate}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{s.expiryDate ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${statusColor(s.status)}`}>{s.status}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      {s.status === "ACTIVE" && (
+                        <>
+                          <button onClick={() => handleStatus(s.id, "LOST")} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 text-xs" title="Mark Lost"><X className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => handleStatus(s.id, "SURRENDERED")} className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-500 text-xs" title="Surrender">
+                            <Car className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                      <button onClick={() => handleDelete(s.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400" title="Delete record"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Issue Sticker Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Issue Vehicle Sticker</h3>
+              <button onClick={() => { setShowForm(false); setFormError(null); setForm({ vehicleType: "CAR" }); }} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            {formError && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{formError}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Sticker Number *</label>
+                <input value={form.stickerNumber ?? ""} onChange={e => setForm(f => ({ ...f, stickerNumber: e.target.value }))} placeholder="e.g. STK-2024-001" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Vehicle Number *</label>
+                <input value={form.vehicleNumber ?? ""} onChange={e => setForm(f => ({ ...f, vehicleNumber: e.target.value }))} placeholder="e.g. MH12AB1234" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Vehicle Type</label>
+                  <select value={form.vehicleType ?? "CAR"} onChange={e => setForm(f => ({ ...f, vehicleType: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="CAR">Car</option>
+                    <option value="BIKE">Bike</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Color</label>
+                  <input value={form.color ?? ""} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} placeholder="e.g. White" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Flat Number</label>
+                <input value={form.flatNumber ?? ""} onChange={e => setForm(f => ({ ...f, flatNumber: e.target.value }))} placeholder="e.g. A-101" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Issued Date</label>
+                  <input type="date" value={form.issuedDate ?? ""} onChange={e => setForm(f => ({ ...f, issuedDate: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Expiry Date</label>
+                  <input type="date" value={form.expiryDate ?? ""} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setShowForm(false); setFormError(null); setForm({ vehicleType: "CAR" }); }} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleIssue} disabled={saving} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Issuing...</> : "Issue Sticker"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
