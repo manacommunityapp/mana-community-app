@@ -367,6 +367,49 @@ export const staffLeaveService = {
   },
 };
 
+// ── Guard Handover ───────────────────────────────────────────────────────────
+
+export interface GuardHandoverRecord {
+  id: number;
+  communityId: number;
+  guardId: number | null;
+  guardName: string | null;
+  nextGuardId: number | null;
+  nextGuardName: string | null;
+  date: string;
+  shiftType: "MORNING" | "EVENING" | "NIGHT" | string;
+  handoverNotes: string | null;
+  pendingTasks: string[] | null;
+  incidentSummary: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface CreateHandoverRequest {
+  communityId: number;
+  date: string;
+  shiftType: string;
+  handoverNotes?: string;
+  pendingTasks?: string[];
+  incidentSummary?: string;
+  nextGuardId?: number;
+}
+
+export const guardHandoverService = {
+  async getHandovers(date?: string): Promise<GuardHandoverRecord[]> {
+    const cid = communityId();
+    const q = new URLSearchParams({ communityId: String(cid) });
+    if (date) q.set("date", date);
+    return apiClient.get<GuardHandoverRecord[]>(`/guard/handover?${q}`);
+  },
+  async createHandover(data: CreateHandoverRequest): Promise<GuardHandoverRecord> {
+    return apiClient.post<GuardHandoverRecord>("/guard/handover", data);
+  },
+  async getHandover(id: number): Promise<GuardHandoverRecord> {
+    return apiClient.get<GuardHandoverRecord>(`/guard/handover/${id}`);
+  },
+};
+
 // ── Maintenance Schedule ─────────────────────────────────────────────────────
 
 export interface MaintenanceSchedule {

@@ -338,8 +338,30 @@ interface ResidentPortalProps {
 function ResidentPortalView({
   myPasses, pendingApprovals, loading, onCreateOpen, onApprove, onReject, actionLoading
 }: ResidentPortalProps) {
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string; capturedAt?: string | null } | null>(null);
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Photo Modal */}
+      {photoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setPhotoModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900">{photoModal.name}</h3>
+                {photoModal.capturedAt && (
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                    Captured: {formatDate(photoModal.capturedAt)} {formatTime(photoModal.capturedAt)}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setPhotoModal(null)} className="p-1 rounded hover:bg-slate-100">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <img src={photoModal.url} alt={photoModal.name} className="w-full object-contain max-h-80" />
+          </div>
+        </div>
+      )}
       
       {/* Left side: Main history and list */}
       <div className="xl:col-span-2 space-y-6">
@@ -424,11 +446,22 @@ function ResidentPortalView({
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {myPasses.map((pass) => (
+              {myPasses.map((pass) => {
+                const photo = pass.visitorPhoto || pass.photoUrl;
+                const capturedAt = pass.photoCapturedAt;
+                return (
                 <div key={pass.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-indigo-600 border border-slate-200 shrink-0">
-                      {pass.visitorName.charAt(0)}
+                    <div
+                      className={cn("w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-indigo-600 border border-slate-200 shrink-0 overflow-hidden", photo && "cursor-pointer ring-2 ring-indigo-200 hover:ring-indigo-400 transition-all")}
+                      onClick={photo ? () => setPhotoModal({ url: photo, name: pass.visitorName, capturedAt }) : undefined}
+                      title={photo ? "Click to view photo" : undefined}
+                    >
+                      {photo ? (
+                        <img src={photo} alt={pass.visitorName} className="w-full h-full object-cover" />
+                      ) : (
+                        pass.visitorName.charAt(0)
+                      )}
                     </div>
                     <div>
                       <h4 className="text-xs font-extrabold text-slate-900">{pass.visitorName}</h4>
@@ -463,7 +496,7 @@ function ResidentPortalView({
                     )}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
