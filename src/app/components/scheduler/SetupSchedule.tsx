@@ -44,8 +44,8 @@ interface SetupScheduleProps {
 
 export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   // Data
-  const { hasPermission, user } = useAuth();
-  const canEditTiming = hasPermission("Edit Venue Timing");
+  const { hasPermission, user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const canEditTiming = isSuperAdmin || isAdmin || isSportsAdmin || (hasPermission ? hasPermission("Edit Venue Timing") : false);
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
 
   const [events, setEvents] = useState<EventInfo[]>([]);
