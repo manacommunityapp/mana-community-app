@@ -136,6 +136,10 @@ import {
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { ParkingManagement } from "./components/parking/ParkingManagement";
 import { GuardManagement } from "./components/guard/GuardManagement";
+import { ParcelRoom } from "./components/parcels/ParcelRoom";
+import { StaffManagement } from "./components/staff/StaffManagement";
+import { MaintenanceScheduleAdmin } from "./components/maintenance/MaintenanceScheduleAdmin";
+import { AccessCardsManagement } from "./components/access/AccessCardsManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
 import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
 import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
@@ -694,6 +698,22 @@ export const router = createBrowserRouter([
       {
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
+      },
+      {
+        path: "parcels",
+        element: <PermissionGuard anyPermissions={[VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><ParcelRoom /></PermissionGuard>
+      },
+      {
+        path: "access/cards",
+        element: <PermissionGuard anyPermissions={[VIEW_SAFETY, VIEW_VISITORS, VIEW_ADMIN]} requiredModule="VISITORS"><AccessCardsManagement /></PermissionGuard>
+      },
+      {
+        path: "staff",
+        element: <PermissionGuard anyPermissions={[VIEW_GUARDS, MANAGE_GUARDS, VIEW_ADMIN]} requiredModule="GUARDS"><StaffManagement /></PermissionGuard>
+      },
+      {
+        path: "maintenance/schedules",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><MaintenanceScheduleAdmin /></PermissionGuard>
       },
       {
         path: "parking",
