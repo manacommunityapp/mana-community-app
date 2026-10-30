@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Car, CheckCircle2, Clock, Navigation, MapPin, Wrench,
   Star, ChevronDown, ChevronUp, IndianRupee, User, Hash,
 } from "lucide-react";
+import { vehicleCareService, type VehicleCareBookingResponse } from "../../../services/vehicleCareService";
 
 const TABS = ["Today", "Upcoming", "History"] as const;
 type Tab = typeof TABS[number];
@@ -205,9 +206,61 @@ function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
 export function VehicleCareVendorPortal() {
   const [tab, setTab] = useState<Tab>("Today");
   const [jobs, setJobs] = useState<Job[]>(JOBS);
-  const historyJobs = HISTORY;
+  const [historyJobs, setHistoryJobs] = useState<Job[]>(HISTORY);
 
-  const handleStatusUpdate = (id: number, newStatus: string) => {
+  const loadJobs = useCallback(async () => {
+    try {
+      const [activeRes, histRes] = await Promise.allSettled([
+        vehicleCareService.getVendorJobs("active"),
+        vehicleCareService.getVendorJobs("history"),
+      ]);
+      if (activeRes.status === "fulfilled" && activeRes.value?.length) {
+        setJobs(activeRes.value.map((j: VehicleCareBookingResponse) => ({
+          id: j.id,
+          bookingNumber: j.bookingNumber || `VC-${j.id}`,
+          status: j.status || "CONFIRMED",
+          resident: j.vehicleNickname || "Resident",
+          flat: j.locationNotes || "Apartment",
+          address: j.locationNotes || "Community Flat",
+          service: j.serviceName || "Wash Service",
+          vehicle: j.vehicleDisplay || j.vehiclePlate || "Vehicle",
+          vehicleType: j.vehicleType || "CAR",
+          time: `${j.scheduledStart || j.startTime || "09:00"} – ${j.scheduledEnd || j.endTime || "10:00"}`,
+          amount: `₹${j.totalAmount || j.paidAmount || 0}`,
+          rating: j.rating ?? null,
+        })));
+      }
+      if (histRes.status === "fulfilled" && histRes.value?.length) {
+        setHistoryJobs(histRes.value.map((j: VehicleCareBookingResponse) => ({
+          id: j.id,
+          bookingNumber: j.bookingNumber || `VC-${j.id}`,
+          status: j.status || "COMPLETED",
+          resident: j.vehicleNickname || "Resident",
+          flat: j.locationNotes || "Apartment",
+          address: j.locationNotes || "Community Flat",
+          service: j.serviceName || "Wash Service",
+          vehicle: j.vehicleDisplay || j.vehiclePlate || "Vehicle",
+          vehicleType: j.vehicleType || "CAR",
+          time: `${j.scheduledStart || j.startTime || "09:00"} – ${j.scheduledEnd || j.endTime || "10:00"}`,
+          amount: `₹${j.totalAmount || j.paidAmount || 0}`,
+          rating: j.rating ?? 5,
+        })));
+      }
+    } catch {
+      // Fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  const handleStatusUpdate = async (id: number, newStatus: string) => {
+    try {
+      await vehicleCareService.updateJobStatus(id, newStatus);
+    } catch {
+      // Optimistic fallback
+    }
     setJobs(prev => prev.map(j => j.id === id ? { ...j, status: newStatus } : j));
   };
 
