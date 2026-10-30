@@ -410,6 +410,67 @@ export const guardHandoverService = {
   },
 };
 
+// ── Guard Patrol ─────────────────────────────────────────────────────────────
+
+export interface PatrolSession {
+  id: number;
+  communityId: number;
+  guardId: number | null;
+  guardName: string | null;
+  routeName: string;
+  startTime: string;
+  endTime: string | null;
+  status: string;
+  checkpoints: PatrolCheckpoint[];
+  summary: string | null;
+  createdAt: string;
+}
+
+export interface PatrolCheckpoint {
+  id: number;
+  patrolId: number;
+  checkpointName: string;
+  notes: string | null;
+  loggedAt: string;
+}
+
+export interface StartPatrolRequest {
+  communityId: number;
+  guardId?: number;
+  routeName: string;
+  startTime: string;
+}
+
+export interface LogCheckpointRequest {
+  checkpointName: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+}
+
+export interface CompletePatrolRequest {
+  endTime: string;
+  summary?: string;
+}
+
+export const guardPatrolService = {
+  async getPatrols(date?: string): Promise<PatrolSession[]> {
+    const cid = communityId();
+    const q = new URLSearchParams({ communityId: String(cid) });
+    if (date) q.set("date", date);
+    return apiClient.get<PatrolSession[]>(`/guard/patrol?${q}`);
+  },
+  async startPatrol(data: StartPatrolRequest): Promise<PatrolSession> {
+    return apiClient.post<PatrolSession>("/guard/patrol", data);
+  },
+  async logCheckpoint(id: number, data: LogCheckpointRequest): Promise<PatrolSession> {
+    return apiClient.put<PatrolSession>(`/guard/patrol/${id}/checkpoint`, data);
+  },
+  async completePatrol(id: number, data: CompletePatrolRequest): Promise<PatrolSession> {
+    return apiClient.put<PatrolSession>(`/guard/patrol/${id}/complete`, data);
+  },
+};
+
 // ── Maintenance Schedule ─────────────────────────────────────────────────────
 
 export interface MaintenanceSchedule {

@@ -1,7 +1,7 @@
 import {
   Shield, Plus, X, Loader2, Trash2, Edit3, Search, Clock,
   UserCheck, LogIn, LogOut, Calendar, Phone, BadgeCheck,
-  AlertTriangle, BookOpen, ClipboardCheck
+  AlertTriangle, BookOpen, ClipboardCheck, MapPin, Route, CheckSquare
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -11,10 +11,10 @@ import {
   type GuardShiftResponse,
   type GuardShiftRequest,
 } from "../../../services/guard/guardService";
-import { guardSosService, guardDiaryService, guardHandoverService, type GuardSosAlert, type GuardDiaryEntry, type GuardHandoverRecord, type CreateHandoverRequest } from "../../../services/security/securityService";
+import { guardSosService, guardDiaryService, guardHandoverService, guardPatrolService, type GuardSosAlert, type GuardDiaryEntry, type GuardHandoverRecord, type CreateHandoverRequest, type PatrolSession, type PatrolCheckpoint } from "../../../services/security/securityService";
 import { getStoredUser } from "../../../services/common/apiClient";
 
-type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover";
+type TabKey = "guards" | "shifts" | "sos" | "diary" | "handover" | "patrol";
 
 const guardStatusColors: Record<string, { label: string; bg: string; text: string }> = {
   ACTIVE: { label: "Active", bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-700" },
@@ -221,6 +221,7 @@ export function GuardManagement() {
     { key: "sos", label: "SOS Alerts", icon: <AlertTriangle className="w-4 h-4" />, count: 0 },
     { key: "diary", label: "Daily Log", icon: <BookOpen className="w-4 h-4" />, count: 0 },
     { key: "handover", label: "Shift Handover", icon: <ClipboardCheck className="w-4 h-4" />, count: 0 },
+    { key: "patrol", label: "Patrol", icon: <Route className="w-4 h-4" />, count: 0 },
   ];
 
   if (loading) {
@@ -450,6 +451,9 @@ export function GuardManagement() {
 
       {/* Shift Handover Tab */}
       {tab === "handover" && <GuardHandoverTab guards={activeGuards} />}
+
+      {/* Patrol Tab */}
+      {tab === "patrol" && <GuardPatrolTab guards={activeGuards} />}
 
       {/* Guard Modal */}
       {showGuardModal && (
@@ -797,6 +801,255 @@ function GuardDiaryTab() {
     </div>
   );
 }
+// ── Patrol Tracking ───────────────────────────────────────────────────────────
+
+interface GuardPatrolTabProps {
+  guards: { id: number; fullName: string }[];
+}
+
+function GuardPatrolTab({ guards }: GuardPatrolTabProps) {
+  const [patrols, setPatrols] = useState<PatrolSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [showForm, setShowForm] = useState(false);
+  const [detail, setDetail] = useState<PatrolSession | null>(null);
+  const [checkpointPatrol, setCheckpointPatrol] = useState<PatrolSession | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ routeName: "", guardId: "" });
+  const [cpForm, setCpForm] = useState({ checkpointName: "", notes: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setPatrols(await guardPatrolService.getPatrols(date)); } catch { setPatrols([]); }
+    finally { setLoading(false); }
+  }, [date]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const startPatrol = async () => {
+    if (!form.routeName.trim()) return;
+    setSaving(true);
+    try {
+      const user = getStoredUser() as { communityId?: number } | null;
+      await guardPatrolService.startPatrol({
+        communityId: user?.communityId ?? 0,
+        routeName: form.routeName,
+        startTime: new Date().toISOString(),
+        guardId: form.guardId ? Number(form.guardId) : undefined,
+      });
+      setShowForm(false);
+      setForm({ routeName: "", guardId: "" });
+      load();
+    } catch { alert("Failed to start patrol."); }
+    finally { setSaving(false); }
+  };
+
+  const logCheckpoint = async () => {
+    if (!checkpointPatrol || !cpForm.checkpointName.trim()) return;
+    setSaving(true);
+    try {
+      await guardPatrolService.logCheckpoint(checkpointPatrol.id, {
+        checkpointName: cpForm.checkpointName,
+        notes: cpForm.notes || undefined,
+      });
+      setCpForm({ checkpointName: "", notes: "" });
+      setCheckpointPatrol(null);
+      load();
+    } catch { alert("Failed to log checkpoint."); }
+    finally { setSaving(false); }
+  };
+
+  const completePatrol = async (id: number) => {
+    if (!confirm("Mark this patrol as complete?")) return;
+    try {
+      await guardPatrolService.completePatrol(id, { endTime: new Date().toISOString() });
+      load();
+    } catch { alert("Failed to complete patrol."); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="font-semibold text-slate-900">Patrol Sessions</h3>
+        <div className="flex items-center gap-2">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+            className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+            <Plus className="w-4 h-4" /> Start Patrol
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <h4 className="font-semibold text-slate-800 text-sm">Start New Patrol</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Route Name *</label>
+              <input value={form.routeName} onChange={e => setForm(f => ({ ...f, routeName: e.target.value }))}
+                placeholder="e.g. North Wing, Perimeter Round"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Guard</label>
+              <select value={form.guardId} onChange={e => setForm(f => ({ ...f, guardId: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">— Select guard (optional) —</option>
+                {guards.map(g => <option key={g.id} value={g.id}>{g.fullName}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)}
+              className="px-4 py-2 border border-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-50">Cancel</button>
+            <button onClick={startPatrol} disabled={saving || !form.routeName.trim()}
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />} Start
+            </button>
+          </div>
+        </div>
+      )}
+
+      {checkpointPatrol && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCheckpointPatrol(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">Log Checkpoint</h3>
+              <button onClick={() => setCheckpointPatrol(null)}><X className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            <p className="text-xs text-slate-500">Patrol: {checkpointPatrol.routeName}</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Checkpoint Name *</label>
+              <input value={cpForm.checkpointName} onChange={e => setCpForm(f => ({ ...f, checkpointName: e.target.value }))}
+                placeholder="e.g. Gate A, Building 3 Lobby"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+              <input value={cpForm.notes} onChange={e => setCpForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Observations at this checkpoint"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setCheckpointPatrol(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-50">Cancel</button>
+              <button onClick={logCheckpoint} disabled={saving || !cpForm.checkpointName.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckSquare className="w-4 h-4" />} Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDetail(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-5 space-y-3 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">Patrol Detail</h3>
+              <button onClick={() => setDetail(null)}><X className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            <div className="text-sm space-y-1">
+              <p className="font-medium text-slate-800">{detail.routeName}</p>
+              {detail.guardName && <p className="text-slate-600">Guard: {detail.guardName}</p>}
+              <p className="text-slate-500 text-xs">
+                {new Date(detail.startTime).toLocaleTimeString()} – {detail.endTime ? new Date(detail.endTime).toLocaleTimeString() : "In Progress"}
+              </p>
+              {detail.summary && <p className="text-slate-600 bg-slate-50 rounded-lg p-2 text-xs mt-2">{detail.summary}</p>}
+            </div>
+            {detail.checkpoints && detail.checkpoints.length > 0 ? (
+              <div>
+                <p className="text-sm font-semibold text-slate-700 mb-2">Checkpoints ({detail.checkpoints.length})</p>
+                <div className="space-y-2">
+                  {detail.checkpoints.map((cp, i) => (
+                    <div key={cp.id || i} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center mt-1">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                        {i < detail.checkpoints.length - 1 && <div className="w-0.5 h-full bg-blue-200 mt-1" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-800">{cp.checkpointName}</p>
+                        {cp.notes && <p className="text-xs text-slate-500">{cp.notes}</p>}
+                        <p className="text-xs text-slate-400">{new Date(cp.loggedAt).toLocaleTimeString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-4">No checkpoints logged yet</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+      ) : patrols.length === 0 ? (
+        <div className="text-center py-12 text-slate-400">
+          <Route className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <p>No patrol sessions for this date</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Route</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Guard</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Start</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">End</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Checkpoints</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {patrols.map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-slate-900">{p.routeName}</td>
+                  <td className="px-4 py-3 text-slate-600">{p.guardName || "—"}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{new Date(p.startTime).toLocaleTimeString()}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{p.endTime ? new Date(p.endTime).toLocaleTimeString() : "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">{p.checkpoints?.length ?? 0}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs px-2 py-0.5 rounded border ${
+                      p.status === "IN_PROGRESS"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-600 border-slate-200"
+                    }`}>{p.status === "IN_PROGRESS" ? "In Progress" : p.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setDetail(p)}
+                        className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                        View
+                      </button>
+                      {p.status === "IN_PROGRESS" && (
+                        <>
+                          <button onClick={() => setCheckpointPatrol(p)}
+                            className="px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            Checkpoint
+                          </button>
+                          <button onClick={() => completePatrol(p.id)}
+                            className="px-2 py-1 text-xs text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                            Complete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Shift Handover ────────────────────────────────────────────────────────────
 
 interface GuardHandoverTabProps {

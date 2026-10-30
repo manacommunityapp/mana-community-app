@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
-import { Wrench, Plus, X, Loader2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Wrench, Plus, X, Loader2, ToggleLeft, ToggleRight, Clock, Activity, Play } from "lucide-react";
 import {
   maintenanceScheduleService,
   type MaintenanceSchedule,
   type CreateMaintenanceScheduleRequest,
 } from "../../../services/security/securityService";
 import { getStoredUser } from "../../../services/common/apiClient";
+
+function nextSevenAM(): string {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(7, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  return next.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
 
 export function MaintenanceScheduleAdmin() {
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
@@ -50,8 +58,47 @@ export function MaintenanceScheduleAdmin() {
     try { await maintenanceScheduleService.toggleSchedule(id); load(); } catch { alert("Failed."); }
   };
 
+  const activeSchedules = schedules.filter(s => s.isActive);
+  const lastRun = schedules.reduce<string | null>((acc, s) => {
+    if (!s.lastRunDate) return acc;
+    if (!acc || s.lastRunDate > acc) return s.lastRunDate;
+    return acc;
+  }, null);
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
+      {/* Scheduler Status Card */}
+      {!loading && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Activity className="w-5 h-5 text-blue-600" />
+            <h2 className="font-semibold text-blue-900 text-sm">Daily Scheduler Status</h2>
+            <span className="ml-auto text-xs text-blue-500 font-mono">runs daily at 07:00</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg p-3 border border-blue-100">
+              <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Last Run</p>
+              <p className="text-sm font-semibold text-slate-800">{lastRun ? new Date(lastRun).toLocaleDateString("en-IN", { dateStyle: "medium" }) : "Never"}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-blue-100">
+              <p className="text-xs text-slate-500 mb-1 flex items-center gap-1"><Play className="w-3 h-3" /> Next Run</p>
+              <p className="text-sm font-semibold text-slate-800">{nextSevenAM()}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-blue-100">
+              <p className="text-xs text-slate-500 mb-1">Total Schedules</p>
+              <p className="text-2xl font-bold text-slate-800">{schedules.length}</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-blue-100">
+              <p className="text-xs text-slate-500 mb-1">Active</p>
+              <p className="text-2xl font-bold text-emerald-600">{activeSchedules.length}</p>
+            </div>
+          </div>
+          <p className="text-xs text-blue-600 mt-3">
+            The scheduler auto-generates helpdesk tickets for all active schedules each morning. Pause a schedule to skip ticket generation.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
