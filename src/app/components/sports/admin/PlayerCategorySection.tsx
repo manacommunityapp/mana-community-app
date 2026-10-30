@@ -2,6 +2,18 @@ import { Plus, Loader2, Users, Edit2, Trash2, Clock } from "lucide-react";
 import type { PlayerCategory, CommunityResponse } from "../../../../types/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 
+export const PLAYER_CATEGORY_TYPES = [
+  "MENS",
+  "WOMENS",
+  "BOYS",
+  "GIRLS",
+  "KIDS",
+  "SENIORS",
+  "MIXED",
+] as const;
+
+export type PlayerCategoryType = (typeof PLAYER_CATEGORY_TYPES)[number];
+
 interface PlayerCategorySectionProps {
   user: any;
   communities: CommunityResponse[];
@@ -123,12 +135,9 @@ export function PlayerCategorySection({
               <div className="relative">
                 <select value={categoryType} onChange={e => setCategoryType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors">
                   <option value="">Select...</option>
-                  <option value="MENS">MENS</option>
-                  <option value="WOMENS">WOMENS</option>
-                  <option value="BOYS">BOYS</option>
-                  <option value="GIRLS">GIRLS</option>
-                  <option value="KIDS">KIDS</option>
-                  <option value="SENIORS">SENIORS</option>
+                  {PLAYER_CATEGORY_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
                   <Clock className="w-4 h-4 rotate-90" />
