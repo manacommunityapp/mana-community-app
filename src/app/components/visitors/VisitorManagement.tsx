@@ -1,13 +1,15 @@
 import {
   Shield, Plus, X, Loader2, LogIn, LogOut, UserCheck, Clock, Car, Phone,
-  Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload, 
-  History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye
+  Search, Ban, Copy, Check, Users, ChevronDown, Sparkles, Upload,
+  History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye,
+  Trash2, QrCode
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
+import { visitorBlacklistService, visitorVehiclePassService, tempAccessTokenService, guestPassService, type VisitorBlacklistEntry, type VisitorVehiclePass, type TemporaryAccessToken, type GuestPass, type CreateGuestPassRequest, type GuestPassScanLog } from "../../../services/security/securityService";
 import { userService } from "../../../services/common/userService";
 import type { UserResponse } from "../../../types/api";
 import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
@@ -16,7 +18,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type PortalView = "resident" | "guard" | "admin";
+type PortalView = "resident" | "guard" | "admin" | "security-lists" | "guest-passes";
 type PassTypeKey = "GUEST" | "DELIVERY" | "MAID" | "VENDOR" | "FAMILY" | "RECURRING" | "PRE_APPROVED" | "WALK_IN" | "OTHER";
 
 const passTypeLabels: Record<PassTypeKey, string> = {
@@ -249,6 +251,26 @@ export function VisitorManagement() {
             <BarChart3 className="w-4 h-4" />
             Management Committee
           </button>
+          <button
+            onClick={() => setPortal("security-lists")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              portal === "security-lists" ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <Ban className="w-4 h-4" />
+            Security Lists
+          </button>
+          <button
+            onClick={() => setPortal("guest-passes")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              portal === "guest-passes" ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <QrCode className="w-4 h-4" />
+            Guest Passes
+          </button>
         </div>
       </div>
 
@@ -283,6 +305,9 @@ export function VisitorManagement() {
             loading={loading}
           />
         )}
+
+        {portal === "security-lists" && <SecurityListsView />}
+        {portal === "guest-passes" && <GuestPassesView />}
       </div>
 
       {/* Create Pass Modal */}
@@ -324,8 +349,30 @@ interface ResidentPortalProps {
 function ResidentPortalView({
   myPasses, pendingApprovals, loading, onCreateOpen, onApprove, onReject, actionLoading
 }: ResidentPortalProps) {
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string; capturedAt?: string | null } | null>(null);
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Photo Modal */}
+      {photoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setPhotoModal(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900">{photoModal.name}</h3>
+                {photoModal.capturedAt && (
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                    Captured: {formatDate(photoModal.capturedAt)} {formatTime(photoModal.capturedAt)}
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setPhotoModal(null)} className="p-1 rounded hover:bg-slate-100">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <img src={photoModal.url} alt={photoModal.name} className="w-full object-contain max-h-80" />
+          </div>
+        </div>
+      )}
       
       {/* Left side: Main history and list */}
       <div className="xl:col-span-2 space-y-6">
@@ -410,11 +457,22 @@ function ResidentPortalView({
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {myPasses.map((pass) => (
+              {myPasses.map((pass) => {
+                const photo = pass.visitorPhoto || pass.photoUrl;
+                const capturedAt = pass.photoCapturedAt;
+                return (
                 <div key={pass.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-indigo-600 border border-slate-200 shrink-0">
-                      {pass.visitorName.charAt(0)}
+                    <div
+                      className={cn("w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-black text-indigo-600 border border-slate-200 shrink-0 overflow-hidden", photo && "cursor-pointer ring-2 ring-indigo-200 hover:ring-indigo-400 transition-all")}
+                      onClick={photo ? () => setPhotoModal({ url: photo, name: pass.visitorName, capturedAt }) : undefined}
+                      title={photo ? "Click to view photo" : undefined}
+                    >
+                      {photo ? (
+                        <img src={photo} alt={pass.visitorName} className="w-full h-full object-cover" />
+                      ) : (
+                        pass.visitorName.charAt(0)
+                      )}
                     </div>
                     <div>
                       <h4 className="text-xs font-extrabold text-slate-900">{pass.visitorName}</h4>
@@ -449,7 +507,7 @@ function ResidentPortalView({
                     )}
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           )}
         </div>
@@ -1059,6 +1117,27 @@ interface AdminPortalProps {
 }
 
 function AdminPortalView({ allPasses, analytics, auditLogs, loading }: AdminPortalProps) {
+  const [alertingSend, setAlertingSend] = useState<number | null>(null);
+
+  const overstays = allPasses.filter(p => {
+    if (p.status !== "CHECKED_IN" || !p.expectedAt) return false;
+    const due = new Date(p.expectedAt).getTime() + 30 * 60 * 1000;
+    return Date.now() > due;
+  });
+
+  const sendOverstayAlert = async (id: number) => {
+    setAlertingSend(id);
+    try {
+      await import("../../../services/common/apiClient").then(m =>
+        m.apiClient.post(`/visitors/${id}/overstay-alert`, {})
+      );
+    } catch {
+      // alert sent best-effort
+    } finally {
+      setAlertingSend(null);
+    }
+  };
+
   if (loading || !analytics) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -1070,7 +1149,40 @@ function AdminPortalView({ allPasses, analytics, auditLogs, loading }: AdminPort
 
   return (
     <div className="space-y-6">
-      
+
+      {/* Overstay Alerts */}
+      {overstays.length > 0 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+          <h3 className="text-xs font-black text-orange-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4" /> Overstay Alerts ({overstays.length})
+          </h3>
+          <div className="space-y-2">
+            {overstays.map(p => {
+              const minsOver = Math.round((Date.now() - new Date(p.expectedAt!).getTime() - 30 * 60 * 1000) / 60000);
+              return (
+                <div key={p.id} className="flex items-center justify-between bg-white border border-orange-200 rounded-xl px-4 py-2 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-900">{p.visitorName}</span>
+                    <span className="ml-2 text-slate-500">Flat {p.flatNumber}</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">
+                      {minsOver} min overdue
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => sendOverstayAlert(p.id)}
+                    disabled={alertingSend === p.id}
+                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {alertingSend === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertTriangle className="w-3 h-3" />}
+                    Send Alert
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Analytics widgets */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         {[
@@ -1473,6 +1585,570 @@ function InvitationModal({ pass, onClose }: InvitationProps) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Security Lists View ─────────────────────────────────────────────────────
+
+type SecurityTab = "visitor-blacklist" | "vehicle-passes" | "temp-tokens";
+
+function SecurityListsView() {
+  const [activeTab, setActiveTab] = useState<SecurityTab>("visitor-blacklist");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 bg-slate-100 border border-slate-200/60 rounded-2xl p-1 w-fit shadow-inner">
+        {([
+          { key: "visitor-blacklist", label: "Visitor Blacklist", icon: Ban },
+          { key: "vehicle-passes", label: "Vehicle Passes", icon: Car },
+          { key: "temp-tokens", label: "Temp Day-Pass", icon: QrCode },
+        ] as { key: SecurityTab; label: string; icon: (p: { className?: string }) => JSX.Element | null }[]).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+              activeTab === key ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50" : "text-slate-500 hover:text-slate-800"
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "visitor-blacklist" && <VisitorBlacklistTab />}
+      {activeTab === "vehicle-passes" && <VisitorVehiclePassesTab />}
+      {activeTab === "temp-tokens" && <TempAccessTokensTab />}
+    </div>
+  );
+}
+
+function VisitorBlacklistTab() {
+  const [entries, setEntries] = useState<VisitorBlacklistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ visitorName: "", phone: "", reason: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    visitorBlacklistService.getBlacklist()
+      .then(setEntries)
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleAdd = async () => {
+    if (!form.visitorName || !form.reason) return;
+    setSaving(true);
+    try {
+      await visitorBlacklistService.addEntry({ communityId: 0, ...form });
+      setForm({ visitorName: "", phone: "", reason: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to add entry."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRemove = async (id: number) => {
+    if (!confirm("Remove this entry from the blacklist?")) return;
+    try {
+      await visitorBlacklistService.removeEntry(id);
+      load();
+    } catch { alert("Failed to remove entry."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><Ban className="w-4 h-4 text-red-500" /> Visitor Blacklist</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Add Entry
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} placeholder="Full name" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Phone</label>
+              <input className={inputCls} value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="Mobile number" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1 block">Reason *</label>
+            <input className={inputCls} value={form.reason} onChange={e => setForm({...form, reason: e.target.value})} placeholder="Reason for blacklisting" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} disabled={saving || !form.visitorName || !form.reason} className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 disabled:opacity-50">
+              {saving ? "Saving..." : "Add to Blacklist"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        entries.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No blacklisted visitors.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Name</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Phone</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Reason</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Date</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{entries.map(e => (
+                <tr key={e.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{e.visitorName}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{e.phone ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-600 max-w-xs truncate">{e.reason}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-xs">{e.createdAt.slice(0, 10)}</td>
+                  <td className="px-3 py-2.5">
+                    <button onClick={() => handleRemove(e.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function VisitorVehiclePassesTab() {
+  const [passes, setPasses] = useState<VisitorVehiclePass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ visitorName: "", vehicleNumber: "", passDate: new Date().toISOString().slice(0,10), flatNumber: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    visitorVehiclePassService.getPasses()
+      .then(setPasses)
+      .catch(() => setPasses([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.visitorName || !form.vehicleNumber) return;
+    setSaving(true);
+    try {
+      await visitorVehiclePassService.createPass({ communityId: 0, ...form });
+      setForm({ visitorName: "", vehicleNumber: "", passDate: new Date().toISOString().slice(0,10), flatNumber: "", notes: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to create pass."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    if (!confirm("Revoke this vehicle pass?")) return;
+    try { await visitorVehiclePassService.revokePass(id); load(); } catch { alert("Failed to revoke."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><Car className="w-4 h-4 text-indigo-500" /> Visitor Vehicle Passes</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Issue Pass
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Vehicle Number *</label>
+              <input className={inputCls} value={form.vehicleNumber} onChange={e => setForm({...form, vehicleNumber: e.target.value.toUpperCase()})} placeholder="KA01AB1234" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Pass Date *</label>
+              <input type="date" className={inputCls} value={form.passDate} onChange={e => setForm({...form, passDate: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Flat Number</label>
+              <input className={inputCls} value={form.flatNumber} onChange={e => setForm({...form, flatNumber: e.target.value})} placeholder="e.g. A-101" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={saving || !form.visitorName || !form.vehicleNumber} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? "Issuing..." : "Issue Pass"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        passes.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No vehicle passes issued.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Vehicle</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Flat</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Date</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{passes.map(p => (
+                <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{p.visitorName}</td>
+                  <td className="px-3 py-2.5 font-mono text-xs">{p.vehicleNumber}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{p.flatNumber ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-slate-400 text-xs">{p.passDate}</td>
+                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", p.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{p.status}</span></td>
+                  <td className="px-3 py-2.5">
+                    {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function TempAccessTokensTab() {
+  const [tokens, setTokens] = useState<TemporaryAccessToken[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ visitorName: "", validFrom: today, validUntil: today, purpose: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    tempAccessTokenService.getTokens()
+      .then(setTokens)
+      .catch(() => setTokens([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.visitorName || !form.validFrom || !form.validUntil) return;
+    setSaving(true);
+    try {
+      await tempAccessTokenService.createToken({ communityId: 0, ...form });
+      setForm({ visitorName: "", validFrom: today, validUntil: today, purpose: "" });
+      setShowForm(false);
+      load();
+    } catch { alert("Failed to create token."); }
+    finally { setSaving(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    if (!confirm("Revoke this access token?")) return;
+    try { await tempAccessTokenService.revokeToken(id); load(); } catch { alert("Failed to revoke."); }
+  };
+
+  const inputCls = "bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-300";
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2"><QrCode className="w-4 h-4 text-purple-500" /> Temporary QR Day-Pass</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">
+          <Plus className="w-3.5 h-3.5" /> Generate Pass
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Visitor Name *</label>
+              <input className={inputCls} value={form.visitorName} onChange={e => setForm({...form, visitorName: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Purpose</label>
+              <input className={inputCls} value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} placeholder="e.g. Delivery, Meeting" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Valid From *</label>
+              <input type="date" className={inputCls} value={form.validFrom} onChange={e => setForm({...form, validFrom: e.target.value})} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1 block">Valid Until *</label>
+              <input type="date" className={inputCls} value={form.validUntil} onChange={e => setForm({...form, validUntil: e.target.value})} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={saving || !form.visitorName} className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700 disabled:opacity-50">
+              {saving ? "Generating..." : "Generate QR Pass"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <div className="py-10 text-center text-slate-400 text-sm">Loading...</div> : (
+        tokens.length === 0 ? <div className="py-10 text-center text-slate-400 text-sm">No temporary tokens issued.</div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-left">
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Visitor</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Purpose</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Valid</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
+                <th className="px-3 py-2 text-xs font-semibold text-slate-500"></th>
+              </tr></thead>
+              <tbody>{tokens.map(t => (
+                <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2.5 font-medium">{t.visitorName}</td>
+                  <td className="px-3 py-2.5 text-slate-500">{t.purpose ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-xs text-slate-400">{t.validFrom} → {t.validUntil}</td>
+                  <td className="px-3 py-2.5"><span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", t.status === "ACTIVE" ? "bg-green-50 border-green-200 text-green-700" : "bg-slate-50 border-slate-200 text-slate-500")}>{t.status}</span></td>
+                  <td className="px-3 py-2.5">
+                    {t.status === "ACTIVE" && <button onClick={() => handleRevoke(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+// ── Guest Passes (Pre-approved QR) ──────────────────────────────────────────
+function GuestPassesView() {
+  const [passes, setPasses] = useState<GuestPass[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [qrPass, setQrPass] = useState<GuestPass | null>(null);
+  const [scanLog, setScanLog] = useState<{ passId: number; logs: GuestPassScanLog[] } | null>(null);
+  const [form, setForm] = useState<Partial<CreateGuestPassRequest>>({ maxEntries: 1 });
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try { setPasses(await guestPassService.getPasses()); } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.guestName || !form.validFrom || !form.validUntil) {
+      setError("Guest name, valid from, and valid until are required.");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      const created = await guestPassService.createPass(form as CreateGuestPassRequest);
+      setShowCreate(false);
+      setForm({ maxEntries: 1 });
+      await load();
+      setQrPass(created);
+    } catch { setError("Failed to create pass. Please try again."); }
+    finally { setCreating(false); }
+  };
+
+  const handleRevoke = async (id: number) => {
+    try { await guestPassService.revokePass(id); await load(); } catch { /* ignore */ }
+  };
+
+  const handleScanLog = async (id: number) => {
+    if (scanLog?.passId === id) { setScanLog(null); return; }
+    try {
+      const logs = await guestPassService.getScanLog(id);
+      setScanLog({ passId: id, logs });
+    } catch { /* ignore */ }
+  };
+
+  const statusColor = (s: string) => {
+    if (s === "ACTIVE") return "bg-green-50 border-green-200 text-green-700";
+    if (s === "REVOKED") return "bg-red-50 border-red-200 text-red-700";
+    if (s === "EXPIRED") return "bg-slate-50 border-slate-200 text-slate-500";
+    return "bg-amber-50 border-amber-200 text-amber-700";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">Pre-Approved Guest Passes</h2>
+          <p className="text-sm text-slate-500">Generate QR passes for expected guests</p>
+        </div>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors">
+          <Plus className="w-4 h-4" /> Generate Pass
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-10 text-center text-slate-400 text-sm flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading passes...</div>
+      ) : passes.length === 0 ? (
+        <div className="py-10 text-center text-slate-400 text-sm">No guest passes found. Generate one for an expected visitor.</div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead><tr className="bg-slate-50 text-left">
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Guest</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Valid Period</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Entries</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Pass Code</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500">Status</th>
+              <th className="px-4 py-3 text-xs font-semibold text-slate-500"></th>
+            </tr></thead>
+            <tbody>
+              {passes.map(p => (
+                <>
+                  <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-800">{p.guestName}</div>
+                      {p.guestPhone && <div className="text-xs text-slate-400">{p.guestPhone}</div>}
+                      {p.flatNumber && <div className="text-xs text-slate-400">Flat {p.flatNumber}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-500">
+                      <div>{formatIndianDate(p.validFrom)}</div>
+                      <div className="text-slate-400">to {formatIndianDate(p.validUntil)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-slate-800 font-semibold">{p.usedEntries}</span>
+                      <span className="text-slate-400">/{p.maxEntries}</span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{p.passCode}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full font-semibold border", statusColor(p.status))}>{p.status}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setQrPass(p)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500" title="Show QR"><QrCode className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleScanLog(p.id)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="Scan log"><History className="w-3.5 h-3.5" /></button>
+                        {p.status === "ACTIVE" && <button onClick={() => handleRevoke(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Revoke"><X className="w-3.5 h-3.5" /></button>}
+                      </div>
+                    </td>
+                  </tr>
+                  {scanLog?.passId === p.id && (
+                    <tr key={`log-${p.id}`} className="bg-slate-50">
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="text-xs font-semibold text-slate-500 mb-2">Scan History</div>
+                        {scanLog.logs.length === 0 ? (
+                          <div className="text-xs text-slate-400">No scans recorded yet.</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {scanLog.logs.map(l => (
+                              <div key={l.id} className="flex items-center gap-3 text-xs text-slate-600">
+                                <span className="text-slate-400">{formatIndianTime(l.scannedAt)}</span>
+                                {l.gate && <span className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-500">{l.gate}</span>}
+                                {l.scannedBy && <span>{l.scannedBy}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Pass Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Generate Guest Pass</h3>
+              <button onClick={() => { setShowCreate(false); setError(null); setForm({ maxEntries: 1 }); }} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            {error && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{error}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Guest Name *</label>
+                <input value={form.guestName ?? ""} onChange={e => setForm(f => ({ ...f, guestName: e.target.value }))} placeholder="Full name" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Guest Phone</label>
+                <input value={form.guestPhone ?? ""} onChange={e => setForm(f => ({ ...f, guestPhone: e.target.value }))} placeholder="Mobile number" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Valid From *</label>
+                  <input type="date" value={form.validFrom ?? ""} onChange={e => setForm(f => ({ ...f, validFrom: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Valid Until *</label>
+                  <input type="date" value={form.validUntil ?? ""} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Max Entries (1–10)</label>
+                <input type="number" min={1} max={10} value={form.maxEntries ?? 1} onChange={e => setForm(f => ({ ...f, maxEntries: Number(e.target.value) }))} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Purpose</label>
+                <input value={form.purpose ?? ""} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Birthday party, Work delivery" className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setShowCreate(false); setError(null); setForm({ maxEntries: 1 }); }} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+              <button onClick={handleCreate} disabled={creating} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+                {creating ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : "Generate Pass"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {qrPass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg">Guest Pass QR</h3>
+              <button onClick={() => setQrPass(null)} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            <div className="font-semibold text-slate-800">{qrPass.guestName}</div>
+            {qrPass.qrCodeImageUrl ? (
+              <img src={qrPass.qrCodeImageUrl} alt="QR Code" className="mx-auto w-48 h-48 object-contain rounded-xl border border-slate-200" />
+            ) : (
+              <div className="mx-auto w-48 h-48 bg-slate-100 rounded-xl border border-slate-200 flex flex-col items-center justify-center gap-2">
+                <QrCode className="w-12 h-12 text-slate-400" />
+                <span className="text-xs text-slate-400">QR not available</span>
+              </div>
+            )}
+            <div className="bg-slate-50 rounded-xl border border-slate-200 py-3 px-4">
+              <div className="text-xs text-slate-500 mb-1">Pass Code</div>
+              <div className="font-mono text-lg font-bold text-indigo-600 tracking-widest">{qrPass.passCode}</div>
+            </div>
+            <div className="text-xs text-slate-400">Valid: {formatIndianDate(qrPass.validFrom)} → {formatIndianDate(qrPass.validUntil)} · Max {qrPass.maxEntries} {qrPass.maxEntries === 1 ? "entry" : "entries"}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

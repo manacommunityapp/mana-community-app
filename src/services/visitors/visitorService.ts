@@ -26,6 +26,8 @@ export interface VisitorPassResponse {
   guardIn?: string | null;
   guardOut?: string | null;
   visitorPhoto?: string | null;
+  photoUrl?: string | null;
+  photoCapturedAt?: string | null;
   encryptedToken?: string | null;
 }
 
@@ -163,6 +165,7 @@ export const visitorService = {
   async reject(id: number): Promise<VisitorPassResponse> {
     return apiClient.put<VisitorPassResponse>(`/visitors/${id}/reject`, {});
   },
+<<<<<<< HEAD
 
   // ── Whitelist ────────────────────────────────────────────────
   async getWhitelist(): Promise<WhitelistEntry[]> {
@@ -245,3 +248,6 @@ export interface CreateGroupInviteRequest {
   endTime?: string;
   guests?: GroupGuest[];
 }
+=======
+};
+>>>>>>> 9020008 (Merge pull request #323 from manacommunityapp/feat/menu-verification-and-hybrid-permissions)

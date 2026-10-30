@@ -525,6 +525,27 @@ function BookingsTab() {
   const [filterStatus, setFilterStatus] = useState("");
   const [page, setPage] = useState(0);
   const pageSize = 10;
+  const [paymentBookingId, setPaymentBookingId] = useState<number | null>(null);
+  const [paymentFee, setPaymentFee] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const handleConfirmPayment = async () => {
+    if (!paymentBookingId || !paymentFee) return;
+    setPaymentLoading(true);
+    try {
+      await resourceBookingService.confirmBookingPayment(paymentBookingId, parseFloat(paymentFee), paymentNote || undefined);
+      setPaymentBookingId(null);
+      setPaymentFee("");
+      setPaymentNote("");
+      loadBookings();
+    } catch (err) {
+      console.error("Failed to confirm payment:", err);
+      alert("Failed to confirm payment.");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   const loadBookings = () => {
     setLoading(true);
@@ -604,12 +625,39 @@ function BookingsTab() {
                     {!["CANCELLED", "COMPLETED", "REJECTED"].includes(b.status) && (
                       <button onClick={() => updateStatus(b.id, "CANCELLED")} className="p-1.5 rounded-lg hover:bg-muted text-red-500" title="Cancel"><Trash2 className="h-3.5 w-3.5" /></button>
                     )}
+                    {["CONFIRMED", "CHECKED_IN"].includes(b.status) && (
+                      <button onClick={() => setPaymentBookingId(b.id)} className="p-1.5 rounded-lg hover:bg-muted text-indigo-600" title="Confirm Payment"><IndianRupee className="h-3.5 w-3.5" /></button>
+                    )}
                     <button className="p-1.5 rounded-lg hover:bg-muted" title="View Details"><Eye className="h-3.5 w-3.5" /></button>
                   </div>
                 </td>
               </tr>
             ))}</tbody>
           </table>
+        </div>
+      )}
+
+      {paymentBookingId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setPaymentBookingId(null)}>
+          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold mb-4">Confirm Payment — Booking #{paymentBookingId}</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Fee Amount (₹)</label>
+                <input type="number" value={paymentFee} onChange={(e) => setPaymentFee(e.target.value)} className={cn(inputCls, "mt-1")} placeholder="0.00" min="0" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Note (optional)</label>
+                <input type="text" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} className={cn(inputCls, "mt-1")} placeholder="e.g. Cash received" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleConfirmPayment} disabled={!paymentFee || paymentLoading} className={cn(primaryBtn, "flex-1 disabled:opacity-50")}>
+                {paymentLoading ? "Saving..." : "Confirm Payment"}
+              </button>
+              <button onClick={() => setPaymentBookingId(null)} className={cn(secondaryBtn, "flex-1")}>Cancel</button>
+            </div>
+          </div>
         </div>
       )}
 
