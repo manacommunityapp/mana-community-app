@@ -25,10 +25,6 @@ import {
   Loader2,
   Trophy,
   Crown,
-  LogOut,
-  Eye,
-  UserX,
-  Filter,
   Search,
   AlertTriangle,
   UploadCloud,
@@ -51,28 +47,19 @@ import { userService } from "../../../services/common/userService";
 import { venueService } from "../../../services/bookings/venueService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { AdminDashboard } from "./AdminDashboard";
-import { AdminCreateUser } from "./AdminCreateUser";
 import { AdminBulkUpload } from "./AdminBulkUpload";
-import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
 import { AdminAccessManagement } from "./AdminAccessManagement";
 import { SmartDashboard } from "../commons/SmartDashboard";
-import { LogsDashboard } from "./LogsDashboard";
 import { PlatformOperationsConsole } from "./PlatformOperationsConsole";
-import { AuditTrail } from "./AuditTrail";
-import { AdminSportsMeta } from "./AdminSportsMeta";
 import { EmailTemplatesTab } from "./EmailTemplatesTab";
-import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
+import { NoticeBoard } from "../notices/NoticeBoard";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { PrivacyAdminHub } from "../privacy/admin/PrivacyAdminHub";
-import { ExpenseUpload } from "../assets/ExpenseUpload";
-import { TreasurerQueue } from "../assets/TreasurerQueue";
-import { assetService } from "../../../services/inventory/assetService";
 import { communityService } from "../../../services/community/communityService";
-import type { Asset } from "../../../services/inventory/assetService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
 
@@ -414,125 +401,13 @@ function OverviewTab({
           <QuickAction icon={FileSpreadsheet} label="Bulk Upload" desc="Import users via CSV/Excel" color="#8b5cf6" bg="rgba(139,92,246,0.12)" onClick={() => onNavigate("bulk")} />
           <QuickAction icon={Building2} label="Community" desc="Manage community settings" color="#10b981" bg="rgba(16,185,129,0.12)" onClick={() => onNavigate("community")} />
           <QuickAction icon={Crown} label="Roles & Permissions" desc="Configure access control" color="#f59e0b" bg="rgba(245,158,11,0.12)" onClick={() => onNavigate("users-roles")} />
-          <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#ec4899" bg="rgba(236,72,153,0.12)" onClick={() => navigate("/inventory?tab=upload")} />
-          <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#0ea5e9" bg="rgba(14,165,233,0.12)" onClick={() => navigate("/inventory?tab=approve")} />
+          <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#ec4899" bg="rgba(236,72,153,0.12)" onClick={() => navigate("/community/inventory?tab=upload")} />
+          <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#0ea5e9" bg="rgba(14,165,233,0.12)" onClick={() => navigate("/community/inventory?tab=approve")} />
         </div>
       </div>
     </div>
   );
 }
-
-// ── Users Tab ─────────────────────────────────────────────────────────────────
-function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean }) {
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
-  const [filterKyc, setFilterKyc] = useState("all");
-
-  const roles = ["all", ...sortRoleStrings(Array.from(new Set(users.map((u) => u.role))))];
-  const kycStatuses = ["all", "APPROVED", "PENDING", "REJECTED"];
-
-  const filtered = users.filter((u) => {
-    const matchSearch =
-      !search ||
-      u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase());
-    const matchRole = filterRole === "all" || u.role === filterRole;
-    const matchKyc = filterKyc === "all" || u.kycStatus === filterKyc;
-    return matchSearch && matchRole && matchKyc;
-  });
-
-  return (
-    <div className="space-y-3 animate-fade-in-up">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-input border border-border/80 rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
-          >
-            {roles.map((r) => (
-              <option key={r} value={r}>{r === "all" ? "All Roles" : r.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-          <select
-            value={filterKyc}
-            onChange={(e) => setFilterKyc(e.target.value)}
-            className="bg-input border border-border/80 rounded-lg text-xs px-2.5 py-1.5 text-foreground focus:outline-none cursor-pointer"
-          >
-            {kycStatuses.map((s) => (
-              <option key={s} value={s}>{s === "all" ? "All KYC" : s}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Summary pill */}
-      <p className="text-[11px] text-muted-foreground">
-        Showing <span className="font-semibold text-foreground">{filtered.length}</span> of <span className="font-semibold text-foreground">{users.length}</span> users
-      </p>
-
-      {/* Table */}
-      <div className="bg-card border border-border/80 rounded-xl shadow-2xs overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground text-xs">No users found</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/60 bg-input/40">
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">User</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Role</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">KYC</th>
-                  <th className="px-3.5 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {filtered.slice(0, 100).map((u) => (
-                  <tr key={u.id} className="hover:bg-input/30 transition-colors">
-                    <td className="px-3.5 py-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-2xs">
-                          {u.fullName?.charAt(0)?.toUpperCase() || "?"}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground truncate max-w-[160px] leading-tight">{u.fullName}</p>
-                          <p className="text-[10px] text-muted-foreground truncate max-w-[160px]">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-2"><RoleBadge role={u.role} /></td>
-                    <td className="px-3.5 py-2"><KycBadge status={u.kycStatus} /></td>
-                    <td className="px-3.5 py-2">
-                      <span className={`inline-flex h-1.5 w-1.5 rounded-full ${u.isActive !== false ? "bg-success" : "bg-muted-foreground"}`} />
-                      <span className="text-[11px] text-muted-foreground ml-1.5">{u.isActive !== false ? "Active" : "Inactive"}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 
 
 // ── All available feature modules ────────────────────────────────────────────
@@ -549,8 +424,17 @@ const ALL_MODULES = [
   { key: "EVENTS",          label: "Events",           icon: Clock,        color: "#c084fc", bg: "rgba(192,132,252,0.12)" },
   { key: "ENTERTAINMENT",   label: "Entertainment & Movies", icon: Film,   color: "#ec4899", bg: "rgba(236,72,153,0.12)" },
   { key: "COMMUNITY_MGMT",  label: "Community Mgmt",   icon: Package,     color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
-  { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  { key: "ADMIN_HUB",       label: "Admin Hub",        icon: ShieldCheck,  color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+  { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,    color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  // ADMIN_HUB is intentionally excluded: disabling it would lock all admins out of this panel.
+  { key: "GROUP_BUYING",    label: "Group Buying",     icon: Package,      color: "#10b981", bg: "rgba(16,185,129,0.12)" },
+  { key: "SERVICE_PLATFORM",label: "Home Services",    icon: Server,       color: "#6366f1", bg: "rgba(99,102,241,0.12)" },
+  { key: "EMERGENCY",       label: "Emergency & SOS",  icon: AlertTriangle,color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+  { key: "TRIPS",           label: "Community Trips",  icon: MapPin,       color: "#0ea5e9", bg: "rgba(14,165,233,0.12)" },
+  { key: "DISCOVER",        label: "Discover",         icon: Search,       color: "#8b5cf6", bg: "rgba(139,92,246,0.12)" },
+  { key: "MAINTENANCE",     label: "Maintenance",      icon: RefreshCw,    color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+  { key: "INSURANCE",       label: "Insurance Hub",    icon: Shield,       color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
+  { key: "COMMERCE",        label: "Commerce",         icon: TrendingUp,   color: "#84cc16", bg: "rgba(132,204,22,0.12)" },
+  { key: "ACADEMY",         label: "Academy Hub",      icon: Crown,        color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
 ];
 
 // ── Modules Tab ──────────────────────────────────────────────────────────────
@@ -805,11 +689,11 @@ export function AdminHub() {
   const hydratedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (activeTab === "overview" && !hydratedRef.current.has("overview")) {
+    if (!hydratedRef.current.has("overview")) {
       hydratedRef.current.add("overview");
       fetchOverview();
     }
-    if (activeTab === "users-roles" && !hydratedRef.current.has("users-roles") && !hydratedRef.current.has("overview")) {
+    if (activeTab === "users-roles" && !hydratedRef.current.has("users-roles")) {
       hydratedRef.current.add("users-roles");
       setUsersLoading(true);
       userService.getAllUsers()
@@ -929,7 +813,7 @@ export function AdminHub() {
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
-        {activeTab === "announcements" && <AnnouncementsPlanner />}
+        {activeTab === "announcements" && <NoticeBoard />}
         {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}

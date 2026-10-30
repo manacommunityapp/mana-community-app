@@ -72,6 +72,17 @@ export const SAMPLE_PARSED_RAW = [
 ];
 
 /**
+ * Prefixes formula-injection characters so spreadsheet apps treat the value as text.
+ * Covers =, +, -, @, tab, and carriage-return per OWASP CSV injection guidance.
+ */
+export function sanitizeCsvField(value: string): string {
+  if (value && /^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+/**
  * Validates a single parsed row and checks across previously seen entries in the same CSV
  */
 export function validateUser(
@@ -83,16 +94,16 @@ export function validateUser(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  const firstName = (data["firstName"] || data["First Name"] || data["first_name"] || "").trim();
-  const lastName = (data["lastName"] || data["Last Name"] || data["last_name"] || "").trim();
+  const firstName = sanitizeCsvField((data["firstName"] || data["First Name"] || data["first_name"] || "").trim());
+  const lastName = sanitizeCsvField((data["lastName"] || data["Last Name"] || data["last_name"] || "").trim());
   const email = (data["email"] || data["Email"] || "").trim();
   const phone = (data["phone"] || data["Phone"] || data["mobile"] || data["Mobile"] || "").trim();
   const rawRole = (data["role"] || data["Role"] || "").trim();
   const role = rawRole.toLowerCase();
   const communityCode = (data["communityCode"] || data["Community Code"] || data["community_code"] || data["inviteCode"] || data["Invite Code"] || "").trim();
-  const flatUnit = (data["flatUnit"] || data["Flat/Unit"] || data["flat_unit"] || data["Flat"] || data["Unit"] || "").trim();
-  const idType = (data["idType"] || data["ID Type"] || data["id_type"] || "").trim();
-  const idNumber = (data["idNumber"] || data["ID Number"] || data["id_number"] || "").trim();
+  const flatUnit = sanitizeCsvField((data["flatUnit"] || data["Flat/Unit"] || data["flat_unit"] || data["Flat"] || data["Unit"] || "").trim());
+  const idType = sanitizeCsvField((data["idType"] || data["ID Type"] || data["id_type"] || "").trim());
+  const idNumber = sanitizeCsvField((data["idNumber"] || data["ID Number"] || data["id_number"] || "").trim());
 
   // 1. Mandatory Field Checks
   if (!firstName) {
@@ -262,14 +273,14 @@ export function AdminBulkUpload() {
           parseAndSetRows(results.data, file.name);
         } catch {
           toast.error("Failed to process file. Ensure it follows the template format.");
-          parseAndSetRows(SAMPLE_PARSED_RAW, "Sample Template Data");
+          setFileName(null);
         } finally {
           setIsProcessing(false);
         }
       },
       error: () => {
         toast.error("Failed to parse CSV file.");
-        parseAndSetRows(SAMPLE_PARSED_RAW, "Sample Template Data");
+        setFileName(null);
         setIsProcessing(false);
       }
     });
@@ -287,8 +298,12 @@ export function AdminBulkUpload() {
     if (file) processFile(file);
   };
 
+  const UPLOAD_BATCH_SIZE = 5;
+
   /**
-   * Real Sequential Bulk Save calling the backend /api/users endpoint
+   * Parallel batch upload — processes UPLOAD_BATCH_SIZE rows concurrently,
+   * advancing to the next batch only after the current one settles.
+   * Network failures within a batch are isolated per-row; the rest continue.
    */
   const handleUpload = async () => {
     if (!parsedData || parsedData.length === 0) return;
@@ -304,59 +319,67 @@ export function AdminBulkUpload() {
 
     let successCount = 0;
     let failCount = 0;
-
     const updatedData = [...parsedData];
 
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i];
-      const targetIndex = updatedData.findIndex(u => u.row === candidate.row);
-      if (targetIndex === -1) continue;
+    for (let batchStart = 0; batchStart < candidates.length; batchStart += UPLOAD_BATCH_SIZE) {
+      const batch = candidates.slice(batchStart, batchStart + UPLOAD_BATCH_SIZE);
 
-      // Mark row as uploading
-      updatedData[targetIndex] = {
-        ...updatedData[targetIndex],
-        uploadStatus: "uploading",
-        remarks: "Submitting to database...",
-      };
+      // Mark entire batch as uploading before firing requests
+      batch.forEach(candidate => {
+        const idx = updatedData.findIndex(u => u.row === candidate.row);
+        if (idx !== -1) {
+          updatedData[idx] = { ...updatedData[idx], uploadStatus: "uploading", remarks: "Submitting to database..." };
+        }
+      });
       setParsedData([...updatedData]);
-      setUploadProgress({ current: i + 1, total: candidates.length });
 
-      try {
-        const payload = {
-          firstName: candidate.firstName,
-          lastName: candidate.lastName,
-          email: candidate.email,
-          phone: candidate.phone,
-          role: candidate.role,
-          inviteCode: candidate.communityCode,
-          flatNo: candidate.flatUnit || undefined,
-          govtIdType: candidate.idType || undefined,
-          govtIdNumber: candidate.idNumber || undefined,
-          isActive: true,
-        };
+      const results = await Promise.allSettled(
+        batch.map(candidate =>
+          userService.createUser({
+            firstName: candidate.firstName,
+            lastName: candidate.lastName,
+            email: candidate.email,
+            phone: candidate.phone,
+            role: candidate.role,
+            inviteCode: candidate.communityCode,
+            flatNo: candidate.flatUnit || undefined,
+            govtIdType: candidate.idType || undefined,
+            govtIdNumber: candidate.idNumber || undefined,
+            isActive: true,
+          }).then(res => ({ candidate, res }))
+        )
+      );
 
-        const res = await userService.createUser(payload);
+      // results[i] corresponds to batch[i] — Promise.allSettled preserves order
+      results.forEach((result, i) => {
+        const candidate = batch[i];
+        const idx = updatedData.findIndex(u => u.row === candidate.row);
+        if (idx === -1) return;
 
-        successCount++;
-        updatedData[targetIndex] = {
-          ...updatedData[targetIndex],
-          uploadStatus: "success",
-          createdUserId: res.id,
-          uploadMessage: `User #${res.id} created successfully`,
-          remarks: `✅ Successfully saved in database (User ID #${res.id}). Account is active & pre-verified.`,
-        };
-      } catch (err: unknown) {
-        failCount++;
-        const errorMessage = (err as { message?: string })?.message || "Failed to save user in database.";
-        updatedData[targetIndex] = {
-          ...updatedData[targetIndex],
-          uploadStatus: "failed",
-          uploadMessage: errorMessage,
-          remarks: `❌ Insertion Error: ${errorMessage}`,
-        };
-      }
+        if (result.status === "fulfilled") {
+          successCount++;
+          const res = result.value.res;
+          updatedData[idx] = {
+            ...updatedData[idx],
+            uploadStatus: "success",
+            createdUserId: res.id,
+            uploadMessage: `User #${res.id} created successfully`,
+            remarks: `✅ Successfully saved in database (User ID #${res.id}). Account is active & pre-verified.`,
+          };
+        } else {
+          failCount++;
+          const errorMessage = (result.reason as { message?: string })?.message || "Failed to save user in database.";
+          updatedData[idx] = {
+            ...updatedData[idx],
+            uploadStatus: "failed",
+            uploadMessage: errorMessage,
+            remarks: `❌ Insertion Error: ${errorMessage}`,
+          };
+        }
+      });
 
       setParsedData([...updatedData]);
+      setUploadProgress({ current: Math.min(batchStart + UPLOAD_BATCH_SIZE, candidates.length), total: candidates.length });
     }
 
     setIsUploading(false);
@@ -393,18 +416,18 @@ export function AdminBulkUpload() {
       return;
     }
     const csvRows = errorRows.map(r => ({
-      "First Name": r.firstName,
-      "Last Name": r.lastName,
+      "First Name": sanitizeCsvField(r.firstName),
+      "Last Name": sanitizeCsvField(r.lastName),
       "Email": r.email,
       "Phone": r.phone,
       "Role": r.role,
       "Community Code": r.communityCode,
-      "Flat/Unit": r.flatUnit,
-      "ID Type": r.idType,
-      "ID Number": r.idNumber,
-      "Error Reason": r.uploadStatus === "failed"
+      "Flat/Unit": sanitizeCsvField(r.flatUnit),
+      "ID Type": sanitizeCsvField(r.idType),
+      "ID Number": sanitizeCsvField(r.idNumber),
+      "Error Reason": sanitizeCsvField(r.uploadStatus === "failed"
         ? (r.uploadMessage || r.remarks)
-        : r.errors.join("; "),
+        : r.errors.join("; ")),
     }));
     const csvContent = Papa.unparse(csvRows, { header: true });
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");

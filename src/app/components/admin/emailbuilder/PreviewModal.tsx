@@ -114,7 +114,7 @@ export function PreviewModal({
 
         <div className="flex-1 overflow-auto bg-muted/40 p-6">
           <div className="mx-auto h-full transition-all" style={{ width: deviceWidths[device], maxWidth: "100%" }}>
-            <iframe title="Email template preview" srcDoc={previewHtml} className="h-full w-full rounded-xl border border-border bg-white shadow-xl" />
+            <iframe title="Email template preview" srcDoc={previewHtml} sandbox="allow-same-origin" className="h-full w-full rounded-xl border border-border bg-white shadow-xl" />
           </div>
         </div>
       </div>

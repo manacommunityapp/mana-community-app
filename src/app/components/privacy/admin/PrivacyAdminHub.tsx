@@ -6,10 +6,14 @@ import { AdminRetentionPolicies } from "./AdminRetentionPolicies";
 
 export const PrivacyAdminHub: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "deletion-requests";
+  const activeTab = searchParams.get("privacyTab") || "deletion-requests";
 
   const setTab = (tab: string) => {
-    setSearchParams({ tab });
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("privacyTab", tab);
+      return next;
+    });
   };
 
   return (
