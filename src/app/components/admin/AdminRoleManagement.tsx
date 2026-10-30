@@ -521,7 +521,6 @@ export function AdminRoleManagement() {
       const perms = saved?.permissions;
 
       toast.success(`Roles saved for ${selectedUser.name}: ${rolesArr.join(", ")}`);
-      toast.info(`API response — role: "${saved?.role ?? "(none)"}" | roles: [${saved?.roles?.join(", ") ?? "(none)"}] | type: ${typeof saved}`, { duration: 8000 });
 
       // Update the users table immediately
       setUsers((prev) =>
