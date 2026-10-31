@@ -15,6 +15,14 @@ export interface EventRegistrationDetailsResponse {
   siblingCategories?: any[];
 }
 
+export interface SportsCommunityFamilyMember {
+  id: number;
+  name: string;
+  relation?: string;
+  age?: number;
+  gender?: string;
+}
+
 export const sportsEventService = {
   mapEvent(e: SportsEvent): SportsEvent {
     if (e) {
@@ -85,6 +93,11 @@ export const sportsEventService = {
   async getEventByUuid(uuid: string): Promise<SportsEvent> {
     return apiClient.get<SportsEvent>(`/sports/events/by-uuid/${uuid}`)
       .then((x: any) => this.mapEvent(x));
+  },
+
+  /** GET /api/sports/community-residents/{userId}/family-members — safe family choices for community registration */
+  async getCommunityResidentFamilyMembers(userId: number): Promise<SportsCommunityFamilyMember[]> {
+    return apiClient.get<SportsCommunityFamilyMember[]>(`/sports/community-residents/${userId}/family-members`);
   },
 
   /** GET /api/sports/tournament-list-map — lightweight list of tournament ID and Name */
@@ -204,6 +217,23 @@ export const sportsEventService = {
       }
     }
     return apiClient.post<TournamentRegistration>("/sports/register", data);
+  },
+  /** POST /api/sports/register — register a saved family member for a tournament */
+  async registerForFamilyMember(data: RegistrationRequest): Promise<TournamentRegistration> {
+    if (data.familyMemberId == null || String(data.familyMemberId).trim() === "") {
+      throw new Error("Family member is required for family registration.");
+    }
+    return this.registerForTournament(data);
+  },
+  /** POST /api/sports/register-others — register a community resident or their family member */
+  async registerForOthers(data: RegistrationRequest): Promise<TournamentRegistration> {
+    if (!data.eventId) {
+      throw new Error("Event ID is mandatory for registration.");
+    }
+    if (data.participantUserId == null) {
+      throw new Error("Select a community resident before registering for someone else.");
+    }
+    return apiClient.post<TournamentRegistration>("/sports/register-others", data);
   },
   async registerForEvent(data: RegistrationRequest): Promise<EventRegistration> {
     return this.registerForTournament(data);

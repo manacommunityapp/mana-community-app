@@ -344,6 +344,8 @@ export interface RegistrationRequest {
   relation?: string;
   flatNumber?: string;
   familyMemberId?: number | string | null;
+  /** Community resident selected as the participant for Register Others. */
+  participantUserId?: number;
   cricHeroesUrl?: string;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
