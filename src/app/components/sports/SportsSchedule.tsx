@@ -68,35 +68,64 @@ const safeFormatDate = (dateStr: string, formatStr: string) => {
 // ─── Timeline item ────────────────────────────────────────────────────────────
 
 interface ScheduleEntry {
+  id: number;
   date: string;
+  endDate: string;
+  time: string;
+  sport: string;
   name: string;
   venue: string;
+  venueCity: string;
+  category: string;
   status: string;
   statusColor: string;
-  badges: { label: string; color: string }[];
 }
 
 
+function MyMatchCard({ item }: { item: ScheduleEntry }) {
+  const SportIcon = getSportIcon(item.sport);
+  const sportColors = getSportColor(item.sport);
+  const statusLabel = item.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase()) || "Registered";
+  const statusTone = item.statusColor === "#10b981"
+    ? "bg-emerald-50 text-emerald-700 ring-emerald-600/15"
+    : item.statusColor === "#6366f1"
+      ? "bg-indigo-50 text-indigo-700 ring-indigo-600/15"
+      : "bg-amber-50 text-amber-700 ring-amber-600/15";
 
-function TimelineItem({ item, isLast }: { item: ScheduleEntry; isLast: boolean }) {
   return (
-    <div className="relative flex gap-2.5 sm:gap-4 pb-4 sm:pb-5">
-      {/* Dot + line */}
-      <div className="flex flex-col items-center">
-        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0 mt-1" style={{ background: item.statusColor, boxShadow: `0 0 6px ${item.statusColor}` }} />
-        {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1" />}
-      </div>
-      <div className="flex-1 min-w-0 pb-1 text-left">
-        <div className="text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
-        <div className="text-[13px] sm:text-sm font-bold mb-1 text-slate-800">{item.name}</div>
-        <div className="text-xs mb-1.5 sm:mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
-        <div className="flex flex-wrap gap-2">
-          {item.badges.map(b => (
-            <span key={b.label} className="text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${b.color}15`, color: b.color }}>{b.label}</span>
-          ))}
+    <article className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
+          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl border" style={{ backgroundColor: sportColors.bg, borderColor: `${sportColors.color}25`, color: sportColors.color }}>
+            <SportIcon className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: sportColors.color }}>{item.sport}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ring-inset ${statusTone}`}>{statusLabel}</span>
+            </div>
+            <h3 className="truncate text-sm font-bold text-slate-900 sm:text-base">{item.name}</h3>
+            <p className="mt-1 text-xs text-slate-500">{item.category}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 sm:w-[310px] sm:shrink-0 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+          <div className="flex items-start gap-2">
+            <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-800">{item.date ? safeFormatDate(item.date, "EEE, d MMM yyyy") : "Date to be announced"}</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{item.time || "Time to be announced"}{item.endDate && item.endDate.slice(0, 10) !== item.date.slice(0, 10) ? ` · until ${safeFormatDate(item.endDate, "d MMM")}` : ""}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-slate-800">{item.venue}</p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-500">{item.venueCity || "Community venue"}</p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -740,19 +769,45 @@ export function SportsSchedule() {
     setLoading(true);
 
     if (activeTab === "My Matches") {
-      sportsScheduleService.getMyEvents()
-        .then(events => {
-          setMyMatches(events.map(e => ({
-            date: e.eventDateStart ?? "",
-            name: `${e.sportName ?? "Event"} — ${e.name}`,
-            venue: e.venueName ?? "TBD",
-            status: e.registrationStatus ?? "",
-            statusColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-            badges: [
-              { label: e.registrationStatus ?? "", color: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316" },
-              { label: e.categoryName ?? "General", color: "#3b82f6" }
-            ]
-          })));
+      sportsScheduleService.getMyRegistrations()
+        .then(response => {
+          const registrations = Array.isArray(response)
+            ? response
+            : Array.isArray((response as any)?.data)
+              ? (response as any).data
+              : Array.isArray((response as any)?.content)
+                ? (response as any).content
+                : [];
+          const activeRegistrations = registrations.filter((registration: any) =>
+            !["WITHDRAWN", "CANCELLED", "REJECTED"].includes(String(registration.status ?? "").toUpperCase())
+          );
+          const registeredEvents = new Map<string, ScheduleEntry>();
+
+          activeRegistrations.forEach((registration: any) => {
+            const eventName = registration.eventName ?? registration.event?.name ?? "Sports event";
+            const sport = registration.sportName ?? registration.event?.sportName ?? "Other";
+            const eventKey = registration.eventId != null
+              ? String(registration.eventId)
+              : `${sport.toLowerCase()}:${eventName.toLowerCase()}`;
+            if (registeredEvents.has(eventKey)) return;
+
+            const status = String(registration.status ?? "REGISTERED").toUpperCase();
+            registeredEvents.set(eventKey, {
+              id: Number(registration.eventId ?? registration.id),
+              date: registration.eventDateStart ?? registration.event?.eventDateStart ?? "",
+              endDate: registration.eventDateEnd ?? registration.event?.eventDateEnd ?? "",
+              time: registration.startTime ?? registration.event?.startTime ?? "",
+              sport,
+              name: eventName,
+              venue: registration.venueName ?? registration.event?.venueName ?? "TBD",
+              venueCity: registration.venueCity ?? registration.event?.venueCity ?? "",
+              category: registration.categoryName ?? registration.category?.name ?? "General category",
+              status,
+              statusColor: status === "CONFIRMED" || status === "REGISTERED" ? "#10b981" : "#f97316",
+            });
+          });
+
+          setMyMatches(Array.from(registeredEvents.values()));
         })
         .catch(() => { })
         .finally(() => setLoading(false));
@@ -924,38 +979,17 @@ export function SportsSchedule() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr flex items-center justify-between">
+          <div className="page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="page-title">{activeTab}</div>
-              <div className="page-sub">Sports scheduling & event matches</div>
+              <div className="page-title">{activeTab === "Overview" ? "Sports overview" : activeTab}</div>
+              <div className="page-sub">{activeTab === "Overview" ? "Your community sports schedule, live matches and latest results." : "Sports scheduling & event matches"}</div>
             </div>
-            {fixturesList.length > 0 && renderExportDropdown()}
+            {activeTab !== "My Matches" && fixturesList.length > 0 && <div className="self-start sm:self-auto">{renderExportDropdown()}</div>}
           </div>
 
       {/* Overview */}
       {activeTab === "Overview" && (
         <div className="space-y-3 sm:space-y-6 animate-fade-in-up text-left">
-          {/* Welcome/Hero Banner */}
-          <div
-            className="rounded-2xl sm:rounded-3xl py-2 px-3 sm:py-3 sm:px-5 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
-            style={{
-              background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
-            }}
-          >
-            <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-              <Trophy className="w-12 h-12 sm:w-28 sm:h-28 rotate-12" />
-            </div>
-            <div className="max-w-xl relative z-10 space-y-0.5 sm:space-y-1">
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
-                Tournament Hub
-              </span>
-              <h2 className="text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white">Schedule & Live Center</h2>
-              <p className="text-xs text-indigo-200 leading-relaxed max-w-lg">
-                Track tournament match scheduling, ongoing live scores, team brackets, and complete event results all in one place.
-              </p>
-            </div>
-          </div>
-
           {/* Tournament Sponsors Banner */}
           <TournamentSponsorBanner
             sponsors={DEFAULT_TOURNAMENT_SPONSORS}
@@ -964,58 +998,64 @@ export function SportsSchedule() {
 
           {/* Tournament & Sport Event Quick Selector */}
           {tournamentConfigs.length > 0 && (
-            <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-2 mb-2 sm:mb-3">
-                <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Active Tournaments</h3>
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Active tournaments</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Choose a tournament to view its fixtures</p>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {tournamentConfigs.map(cfg => {
-                  const sportName = cfg.eventName || "Tournament";
-                  const IconComponent = getSportIcon(sportName);
-                  const colors = getSportColor(sportName);
-                  const isActive = cfg.status === "IN_PROGRESS" || cfg.status === "PUBLISHED";
-                  return (
-                    <button
-                      key={cfg.id}
-                      onClick={() => { setSelectedTournamentId(cfg.id); setActiveTab("All Events"); }}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border transition-all duration-150 cursor-pointer hover:shadow-md active:scale-[0.97] text-left"
-                      style={{
-                        borderColor: isActive ? colors.color + "40" : "rgba(226, 232, 240, 0.8)",
-                        backgroundColor: isActive ? colors.bg : "white",
-                      }}
-                    >
-                      <div className="p-1 rounded" style={{ backgroundColor: colors.bg, color: colors.color }}>
-                        <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate max-w-[120px] sm:max-w-[180px]">{cfg.tournamentName}</div>
-                        <div className="text-xs text-slate-500">{cfg.eventName} · {cfg.totalTeams} teams</div>
-                      </div>
-                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <label className="relative block w-full sm:max-w-sm">
+                <span className="sr-only">Select a tournament</span>
+                <select
+                  value={selectedTournamentId ?? ""}
+                  onChange={e => {
+                    const tournamentId = Number(e.target.value);
+                    if (!tournamentId) return;
+                    setSelectedTournamentId(tournamentId);
+                    setActiveTab("All Events");
+                  }}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-10 text-sm font-semibold text-slate-800 outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                >
+                  <option value="">Select a tournament…</option>
+                  {tournamentConfigs.map(cfg => (
+                    <option key={cfg.id} value={cfg.id}>
+                      {cfg.tournamentName} · {cfg.eventName || "Sport"} · {cfg.totalTeams} teams
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              </label>
+              {selectedTournamentId && (
+                <button
+                  onClick={() => setSelectedTournamentId(null)}
+                  className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           )}
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Scheduled</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total matches</span>
                 <div className="p-1 sm:p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                   <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Total</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Fixtures</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
                 <div className="p-1 sm:p-1.5 bg-red-50 text-red-600 rounded-lg">
@@ -1030,7 +1070,7 @@ export function SportsSchedule() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                 <div className="p-1 sm:p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -1045,33 +1085,33 @@ export function SportsSchedule() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-150">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
                 <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                  <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{venues.length || "—"}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Active</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
           </div>
 
           {/* Two Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
             {/* Left Column: Live Matches & Navigation */}
             <div className="lg:col-span-2 space-y-3 sm:space-y-6">
               {/* Ongoing Matches Section */}
-              <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 m-0 mb-0">
-                    <span className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-red-500 animate-pulse"></span>
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 m-0">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
                     Live Matches
                   </h3>
-                  <button onClick={() => setActiveTab("All Events")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-[0.95] transition">
-                    View All →
+                  <button onClick={() => setActiveTab("All Events")} className="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                    View all <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
                   </button>
                 </div>
 
@@ -1091,9 +1131,9 @@ export function SportsSchedule() {
                               <IconComponent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </div>
                             <div className="text-left">
-                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{fixture.sport}</p>
-                              <h4 className="text-xs font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
-                              <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[160px] sm:max-w-[220px]">{fixture.venue}</p>
+                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{fixture.sport}</p>
+                              <h4 className="text-sm font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
+                              <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[160px] sm:max-w-[220px]">{fixture.venue}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200/60 shadow-sm font-mono text-xs sm:text-sm font-bold text-slate-800">
@@ -1109,25 +1149,25 @@ export function SportsSchedule() {
               </div>
 
               {/* Quick Navigation Cards */}
-              <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 m-0">
                   Quick Navigation
                 </h3>
                 <div className="flex overflow-x-auto gap-2 sm:grid sm:grid-cols-3 sm:gap-4 pb-1 sm:pb-0 -mx-0.5 px-0.5 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide">
                   <div
                     onClick={() => setActiveTab("My Matches")}
-                    className="min-w-[120px] sm:min-w-0 snap-start shrink-0 sm:shrink p-2.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-lg sm:rounded-xl border border-slate-100 hover:border-indigo-100 active:scale-[0.96] transition-all duration-150 cursor-pointer text-left space-y-1.5 sm:space-y-2 group"
+                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
                   >
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
                       <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">My Timeline</h4>
+                    <h4 className="text-xs font-bold text-slate-800">My Matches</h4>
                     <p className="text-xs text-slate-500 leading-relaxed hidden sm:block">Check matches registered for your personal schedule.</p>
                   </div>
 
                   <div
                     onClick={() => setActiveTab("All Events")}
-                    className="min-w-[120px] sm:min-w-0 snap-start shrink-0 sm:shrink p-2.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-lg sm:rounded-xl border border-slate-100 hover:border-indigo-100 active:scale-[0.96] transition-all duration-150 cursor-pointer text-left space-y-1.5 sm:space-y-2 group"
+                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
                   >
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
                       <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1138,7 +1178,7 @@ export function SportsSchedule() {
 
                   <div
                     onClick={() => setActiveTab("Brackets")}
-                    className="min-w-[120px] sm:min-w-0 snap-start shrink-0 sm:shrink p-2.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-lg sm:rounded-xl border border-slate-100 hover:border-indigo-100 active:scale-[0.96] transition-all duration-150 cursor-pointer text-left space-y-1.5 sm:space-y-2 group"
+                    className="min-w-[145px] sm:min-w-0 snap-start shrink-0 sm:shrink p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/60 rounded-xl border border-slate-200/70 hover:border-indigo-200 transition-all duration-150 cursor-pointer text-left space-y-2 group"
                   >
                     <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
                       <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1152,8 +1192,8 @@ export function SportsSchedule() {
 
             {/* Right Column: Recent Results & Timeline */}
             <div className="space-y-3 sm:space-y-6">
-              <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2.5 sm:space-y-4">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 m-0 mb-0">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-sm space-y-4">
+                <h3 className="text-sm font-extrabold text-slate-900 border-b border-slate-100 pb-3 m-0">
                   Recent Results
                 </h3>
                 <div className="space-y-2.5 sm:space-y-3.5">
@@ -1178,12 +1218,12 @@ export function SportsSchedule() {
                           </div>
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className={`text-[10px] ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
-                              <span className={`text-[10px] font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
+                              <span className={`text-xs ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
+                              <span className={`text-xs font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className={`text-[10px] ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
-                              <span className={`text-[10px] font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
+                              <span className={`text-xs ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
+                              <span className={`text-xs font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
                             </div>
                           </div>
                         </div>
@@ -1194,7 +1234,7 @@ export function SportsSchedule() {
               </div>
 
               {/* Quick Info Box */}
-              <div className="bg-slate-50 rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 text-left space-y-1.5 sm:space-y-2">
+              <div className="bg-indigo-50/70 rounded-2xl p-4 sm:p-5 border border-indigo-100 text-left space-y-2">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Administrative Note</h4>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   If you are an organizer, use the operations panel (Config, Setup Schedule, Manual) to run automated round robin schedulers or create custom matches. Match results are synchronized live.
@@ -1207,61 +1247,79 @@ export function SportsSchedule() {
 
       {/* My Matches */}
       {activeTab === "My Matches" && (
-        <div className="space-y-3 sm:space-y-4 animate-fade-in-up text-left">
-          {/* Sport Event Filter for My Matches */}
-          {sportsMeta.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {["All", ...sportsMeta.map(s => s.name)].map(s => {
-                const isActive = selectedSportFilter === s;
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setSelectedSportFilter(s)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
-                      isActive
-                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm"
-                        : "bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/60"
-                    }`}
+        <div className="space-y-4 sm:space-y-5 animate-fade-in-up text-left">
+          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 p-4 text-white shadow-lg sm:rounded-3xl sm:px-6 sm:py-4">
+            <div className="pointer-events-none absolute -right-4 -top-8 opacity-10"><Trophy className="h-28 w-28 rotate-12" /></div>
+            <div className="relative flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-white sm:text-base">
+                <Calendar className="h-4 w-4 shrink-0 text-indigo-200" />
+                <span className="truncate">Sports calendar</span>
+              </div>
+              <label className="relative z-10 flex w-[min(62%,16rem)] shrink-0 items-center gap-2 sm:w-64">
+                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-indigo-100/80 sm:text-xs">My Sports</span>
+                <span className="relative block min-w-0 flex-1">
+                  <select
+                    value={selectedSportFilter}
+                    onChange={e => setSelectedSportFilter(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-white/20 bg-white/10 py-2 pl-2.5 pr-8 text-xs font-semibold text-white outline-none transition focus:border-white/50 focus:ring-2 focus:ring-white/20 sm:min-w-40 sm:text-sm [&>option]:text-slate-900"
+                    aria-label="My sports"
                   >
-                    {s}
-                  </button>
-                );
-              })}
+                    <option value="All">All sports</option>
+                    {Array.from(new Set(myMatches.map(match => match.sport))).filter(Boolean).sort((a, b) => a.localeCompare(b)).map(sport => <option key={sport} value={sport}>{sport}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-100" />
+                </span>
+              </label>
             </div>
-          )}
+          </section>
 
-          <div className="rounded-xl sm:rounded-2xl p-3 sm:p-4"
-            style={{
-              background: "white",
-              border: "1px solid rgba(99, 102, 241, 0.12)",
-              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-            }}
-          >
-            <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">My events</p>
+              <p className="mt-1 text-2xl font-extrabold text-slate-900">{myMatches.length}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sports</p>
+              <p className="mt-1 text-2xl font-extrabold text-slate-900">{new Set(myMatches.map(match => match.sport)).size}</p>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm sm:col-span-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Showing</p>
+              <p className="mt-1 text-sm font-bold text-indigo-950">{selectedSportFilter === "All" ? "All registered sports" : selectedSportFilter}</p>
+            </div>
+          </div>
+
+          <section>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Your schedule</h3>
+                <p className="mt-0.5 text-xs text-slate-500">{loading ? "Loading your registered events…" : "Event details and venue information"}</p>
+              </div>
+              {!loading && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{myMatches.filter(item => selectedSportFilter === "All" || item.sport === selectedSportFilter).length} events</span>}
+            </div>
             {loading ? (
-              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
+              <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white py-12"><Loader2 className="h-6 w-6 animate-spin text-indigo-600" /><span className="ml-2 text-sm text-slate-500">Loading your matches</span></div>
             ) : myMatches.length === 0 ? (
-              <div className="text-center py-8 space-y-3">
-                <CalendarIcon className="w-10 h-10 text-slate-300 mx-auto" />
-                <p className="text-sm text-[#6b7094]">No matches found in your schedule.</p>
-                <button
-                  onClick={() => setActiveTab("All Events")}
-                  className="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition"
-                >
-                  Browse Events
-                </button>
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center shadow-sm">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500"><CalendarIcon className="h-6 w-6" /></div>
+                <h4 className="mt-4 text-sm font-bold text-slate-900">No registered events yet</h4>
+                <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-500">When you register for a sports event, its schedule and venue will appear here.</p>
+                <button onClick={() => setActiveTab("All Events")} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700">Browse sports events</button>
+              </div>
+            ) : myMatches.filter(item => selectedSportFilter === "All" || item.sport === selectedSportFilter).length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm">
+                <Filter className="mx-auto h-7 w-7 text-slate-300" />
+                <h4 className="mt-3 text-sm font-bold text-slate-900">No {selectedSportFilter} events</h4>
+                <p className="mt-1 text-xs text-slate-500">Try another sport from the dropdown to see your matches.</p>
               </div>
             ) : (
-              myMatches
-                .filter(item => {
-                  if (selectedSportFilter === "All") return true;
-                  return item.name.toLowerCase().includes(selectedSportFilter.toLowerCase());
-                })
-                .map((item, i, arr) => (
-                <TimelineItem key={i} item={item} isLast={i === arr.length - 1} />
-              ))
+              <div className="space-y-3">
+                {myMatches
+                  .filter(item => selectedSportFilter === "All" || item.sport === selectedSportFilter)
+                  .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
+                  .map(item => <MyMatchCard key={item.id} item={item} />)}
+              </div>
             )}
-          </div>
+          </section>
         </div>
       )}
 
