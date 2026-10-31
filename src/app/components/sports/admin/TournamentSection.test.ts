@@ -2,6 +2,15 @@ import { describe, it, expect } from "vitest";
 import { groupRegistrationsByPlayer } from "./TournamentSection";
 import type { TournamentRegistration } from "../../../../types/api";
 
+const createMockUser = (id: number, fullName: string) => ({
+  id,
+  fullName,
+  email: `${fullName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+  role: "RESIDENT",
+  phone: "9876543210",
+  kycStatus: "VERIFIED",
+});
+
 describe("TournamentSection: groupRegistrationsByPlayer", () => {
   it("returns empty array when registrations is empty or undefined", () => {
     expect(groupRegistrationsByPlayer([])).toEqual([]);
@@ -13,7 +22,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 1,
         playerName: "Chetan Kumar Reddy",
-        user: { id: 10, fullName: "Chetan Kumar Reddy", email: "chetan@example.com", role: "RESIDENT" },
+        user: createMockUser(10, "Chetan Kumar Reddy") as any,
         status: "CONFIRMED",
         flatNumber: "Block B, Flat 504",
         relation: "SELF",
@@ -33,7 +42,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 101,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         flatNumber: "Block B, Flat 504",
         relation: "SELF",
@@ -42,7 +51,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 102,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         flatNumber: "Block B, Flat 504",
         relation: "SELF",
@@ -51,7 +60,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 103,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         flatNumber: "Block B, Flat 504",
         relation: "SELF",
@@ -74,7 +83,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 201,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         flatNumber: "Block B, Flat 504",
         registeredAt: "2026-10-28T10:00:00Z",
@@ -82,7 +91,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 202,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "CONFIRMED",
         flatNumber: "Block B, Flat 504",
         registeredAt: "2026-10-29T12:00:00Z",
@@ -90,7 +99,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 200,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         flatNumber: "Block B, Flat 504",
         registeredAt: "2026-10-27T10:00:00Z",
@@ -111,7 +120,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 301,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "CONFIRMED",
         relation: "SELF",
         flatNumber: "Block B, Flat 504",
@@ -119,7 +128,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 302,
         playerName: "Aarav Reddy",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "CONFIRMED",
         relation: "CHILD",
         flatNumber: "Block B, Flat 504",
@@ -127,7 +136,7 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
       {
         id: 300,
         playerName: "Sunil Kumar Reddy K",
-        user: { id: 20, fullName: "Sunil Kumar Reddy K", email: "sunil@example.com", role: "RESIDENT" },
+        user: createMockUser(20, "Sunil Kumar Reddy K") as any,
         status: "WITHDRAWN",
         relation: "SELF",
         flatNumber: "Block B, Flat 504",
