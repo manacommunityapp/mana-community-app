@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible } from "./SportsDashboard";
+import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
@@ -537,6 +537,24 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     expect(dropdownOptions).toHaveLength(4);
     expect(dropdownOptions[0]).toEqual({ value: "self", label: "👤 sandeep kamarapu" });
     expect(dropdownOptions.filter(opt => opt.label.includes("sandeep kamarapu"))).toHaveLength(1);
+  });
+
+  it("getFamilyMembersOnly helper function strictly filters out Self regardless of case, relation, or ID format", () => {
+    const rawList = [
+      { id: "fam-1", name: "Sandeep Kamarapu", relation: "Self (Head)" },
+      { id: "fam-2", name: "Sindhuja Chinthala", relation: "Spouse" },
+      { id: "fam-3", name: "Udvith Sai", relation: "Son" },
+      { id: "fam-4", name: "Sandeep Kamarapu", relation: "Head" },
+      { id: "self", name: "Sandeep Kamarapu", relation: "Self" },
+    ];
+
+    const result = getFamilyMembersOnly(rawList, "Sandeep Kamarapu");
+    expect(result).toHaveLength(2);
+    expect(result.map(m => m.name)).toEqual(["Sindhuja Chinthala", "Udvith Sai"]);
+
+    // Test with empty or undefined
+    expect(getFamilyMembersOnly(undefined as any, "Sandeep Kamarapu")).toEqual([]);
+    expect(getFamilyMembersOnly([], "Sandeep Kamarapu")).toEqual([]);
   });
 });
 

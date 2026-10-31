@@ -21,6 +21,7 @@ import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 import { inferGender } from "./SportsRegister";
+import { getFamilyMembersOnly } from "./utils/sportsMemberHelpers";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -765,21 +766,7 @@ export function SportsMultiRegister() {
   }, [userProfileName, userProfileGender, userProfileDob, userProfileFlat]);
 
   const familyMembersOnly = useMemo(() => {
-    return savedFamilyMembers.filter((m) => {
-      const rel = (m.relation || (m as any).relationship || "").toUpperCase().trim();
-      const isSelf =
-        rel === "SELF" ||
-        rel === "HEAD" ||
-        rel === "SELF (HEAD)" ||
-        rel.includes("SELF") ||
-        rel.includes("HEAD") ||
-        rel === "PRIMARY" ||
-        rel === "OWNER" ||
-        m.id === "self" ||
-        m.id === "member-self" ||
-        (user?.fullName && m.name?.trim().toLowerCase() === user.fullName.trim().toLowerCase());
-      return !isSelf;
-    });
+    return getFamilyMembersOnly(savedFamilyMembers, user?.fullName);
   }, [savedFamilyMembers, user?.fullName]);
 
   // Unified Edit / Add Details Modal State (Self or Family Member)

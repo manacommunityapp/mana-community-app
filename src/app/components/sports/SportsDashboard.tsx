@@ -147,72 +147,20 @@ function CompactMatchBadge({ targetDate }: { targetDate?: Date }) {
 /**
  * Robust helper to determine if a member, relation, ID, or name represents the logged-in user / Self / Head.
  */
-export function isSelfRelationOrMember(
-  rel?: string | null,
-  id?: string | number | null,
-  name?: string | null,
-  currentUserName?: string | null
-): boolean {
-  // 1. Check explicit family or self relation strings
-  if (rel) {
-    const r = String(rel).toUpperCase().trim();
-    if (
-      r === "SPOUSE" || r === "WIFE" || r === "HUSBAND" ||
-      r === "SON" || r === "DAUGHTER" || r === "CHILD" ||
-      r === "FATHER" || r === "MOTHER" || r === "PARENT" ||
-      r === "BROTHER" || r === "SISTER" || r === "SIBLING" ||
-      r === "OTHER" || r.includes("SPOUSE") || r.includes("WIFE") || r.includes("HUSBAND")
-    ) {
-      return false;
-    }
-    if (
-      r === "SELF" ||
-      r === "HEAD" ||
-      r === "SELF (HEAD)" ||
-      r.includes("SELF") ||
-      r.includes("HEAD") ||
-      r === "PRIMARY" ||
-      r === "OWNER"
-    ) {
-      return true;
-    }
-  }
-
-  // 2. Check explicit Self ID aliases
-  if (id != null) {
-    const idStr = String(id).toLowerCase().trim();
-    if (idStr === "self" || idStr === "fam-self" || idStr === "member-self" || idStr === "head" || idStr === "primary") {
-      return true;
-    }
-  }
-
-  // 3. Check exact full-name match against logged-in user
-  if (name && currentUserName) {
-    const n = name.toLowerCase().trim();
-    const c = currentUserName.toLowerCase().trim();
-    // Must be exact full-name match, not partial substring match which collides on shared surnames
-    if (n && c && n === c) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Helper to safely extract string from matchType / format across primitives, arrays, and objects
- */
-export function extractFormatStr(val: any): string {
-  if (!val) return "";
-  if (typeof val === "string") return val.trim().toUpperCase();
-  if (Array.isArray(val)) {
-    return val.map(v => (typeof v === "string" ? v : String(v || ""))).join(" ").trim().toUpperCase();
-  }
-  if (typeof val === "object") {
-    return String(val.name || val.code || val.format || val.matchType || "").trim().toUpperCase();
-  }
-  return String(val).trim().toUpperCase();
-}
+export {
+  isSelfRelationOrMember,
+  getFamilyMembersOnly,
+  extractFormatStr,
+  isActiveRegistrationStatus,
+  isRegistrationForMemberHelper,
+} from "./utils/sportsMemberHelpers";
+import {
+  isSelfRelationOrMember,
+  getFamilyMembersOnly,
+  extractFormatStr,
+  isActiveRegistrationStatus,
+  isRegistrationForMemberHelper,
+} from "./utils/sportsMemberHelpers";
 
 /**
  * Format compatibility checker to ensure Singles registrations do not match Doubles events,
@@ -385,78 +333,7 @@ export function isEventMatch(r: any, ev: OpenRegistration): boolean {
   return false;
 }
 
-/**
- * Robust helper to check if a registration status is active (not cancelled, withdrawn, or rejected).
- */
-export function isActiveRegistrationStatus(status?: string | null): boolean {
-  if (!status) return false;
-  const s = String(status).toUpperCase().trim();
-  return s !== "CANCELLED" && s !== "WITHDRAWN" && s !== "REJECTED";
-}
 
-/**
- * Robust helper to determine if a registration belongs to a specific family member or the logged-in user (Self).
- */
-export function isRegistrationForMemberHelper(
-  reg: any,
-  selectedMemberId: string | number | undefined,
-  familyMembersOnly: Array<{ id: string | number; name?: string; relation?: string }> = [],
-  currentUserName?: string | null
-): boolean {
-  if (!reg) return false;
-  const isSelfTarget =
-    !selectedMemberId ||
-    selectedMemberId === "self" ||
-    selectedMemberId === "SELF" ||
-    selectedMemberId === "member-self" ||
-    selectedMemberId === "fam-self";
-
-  const regPlayerName = (reg.playerName || "").trim();
-  const regRelation = (reg.relation || "").trim();
-  const regFamilyMemberId = reg.familyMemberId || reg.familyMember?.id;
-  const targetFullName = (currentUserName || "").trim();
-
-  const isExplicitFamily = Boolean(
-    (regFamilyMemberId && !isSelfRelationOrMember(undefined, regFamilyMemberId)) ||
-    (regRelation && !isSelfRelationOrMember(regRelation))
-  );
-
-  const matchesFamilyMemberName = Boolean(
-    regPlayerName && familyMembersOnly.some(m => m.name && m.name.trim().toLowerCase() === regPlayerName.toLowerCase())
-  );
-
-  // A registration belongs to Self if it's explicitly Self, OR not an explicit family member and not matching any family member's name
-  const isSelfReg =
-    isSelfRelationOrMember(regRelation, regFamilyMemberId, regPlayerName, targetFullName) ||
-    (!isExplicitFamily && !matchesFamilyMemberName);
-
-  if (isSelfTarget) {
-    return isSelfReg;
-  }
-
-  // When filtering by an actual family member, exclude Self registrations
-  if (isSelfReg) {
-    return false;
-  }
-
-  if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
-    return true;
-  }
-
-  const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
-  if (targetMember) {
-    const targetMemberName = (targetMember.name || "").trim().toLowerCase();
-    const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-    if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
-      return true;
-    }
-    if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
-      return true;
-    }
-  }
-
-  return false;
-}
 
 // ─── Event Row ───────────────────────────────────────────────────────────────
 
@@ -847,12 +724,7 @@ export function SportsDashboard() {
   }, []);
 
   const familyMembersOnly = useMemo(() => {
-    const currentName = user?.fullName?.trim().toLowerCase();
-    return familyMembers.filter((m) => {
-      const rel = m.relation || (m as any).relationship || "";
-      const isSelf = isSelfRelationOrMember(rel, m.id, m.name, currentName);
-      return !isSelf;
-    });
+    return getFamilyMembersOnly(familyMembers, user?.fullName);
   }, [familyMembers, user?.fullName]);
 
   const isRegistrationForMember = useCallback((
@@ -2517,7 +2389,7 @@ export function SportsDashboard() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const isSelfMember = selectedMemberId === "self";
+                                    const isSelfMember = isSelf;
                                     handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
                                   }}
                                   className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer flex items-center gap-0.5 transition-colors"
@@ -2549,7 +2421,7 @@ export function SportsDashboard() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const isSelfMember = selectedMemberId === "self";
+                                  const isSelfMember = isSelf;
                                   handleOpenRegistration(item.uuid ?? item.id, isSelfMember ? "self" : "family", isSelfMember ? undefined : selectedMemberId);
                                 }}
                                 className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
@@ -2851,7 +2723,10 @@ export function SportsDashboard() {
                   <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                     <RegCard
                        item={item}
-                       onRegister={() => handleOpenRegistration(item.uuid ?? item.id)}
+                       onRegister={() => {
+                         const isSelfTarget = !upcomingFamilyFilter || upcomingFamilyFilter === "ALL" || upcomingFamilyFilter === "SELF" || upcomingFamilyFilter === "self";
+                         handleOpenRegistration(item.uuid ?? item.id, isSelfTarget ? "self" : "family", isSelfTarget ? undefined : upcomingFamilyFilter);
+                       }}
                        onView={() => navigate("/sports/auction")}
                        onWithdraw={async (regItem) => {
                          if (!regItem.registrationId) return;
