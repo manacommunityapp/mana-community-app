@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, History } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
@@ -39,6 +39,117 @@ interface TournamentSectionProps {
   onAddEventToTournament?: (tournamentId: number, tournamentName: string) => void;
 }
 
+export interface GroupedPlayerRegistration {
+  key: string;
+  primary: TournamentRegistration;
+  history: TournamentRegistration[];
+}
+
+/**
+ * Group registrations by participant identity so that multiple registration attempts,
+ * re-registrations, or withdrawn history records for the same player are not displayed as duplicate cards.
+ * Active registrations take precedence as primary; older/withdrawn attempts are tucked into history.
+ */
+export function groupRegistrationsByPlayer(regs: TournamentRegistration[]): GroupedPlayerRegistration[] {
+  if (!regs || regs.length === 0) return [];
+
+  const getBasePlayerKey = (reg: TournamentRegistration): string => {
+    const normName = (reg.playerName || reg.user?.fullName || "").trim().toLowerCase();
+    const flat = (reg.flatNumber || "").trim().toLowerCase();
+    const phone = (reg.phone || "").trim();
+    const relation = (reg.relation || "").trim().toLowerCase();
+
+    if (reg.user?.id) {
+      return `u_${reg.user.id}_${normName || relation || "self"}`;
+    }
+    if (phone) {
+      return `p_${phone}_${normName}`;
+    }
+    if (flat && normName) {
+      return `f_${flat}_${normName}`;
+    }
+    return normName ? `n_${normName}` : `id_${reg.id}`;
+  };
+
+  const isActiveStatus = (status: string) =>
+    status === "CONFIRMED" || status === "REGISTERED" || status === "PENDING";
+
+  const mapByPlayer = new Map<string, TournamentRegistration[]>();
+  for (const reg of regs) {
+    const pKey = getBasePlayerKey(reg);
+    if (!mapByPlayer.has(pKey)) {
+      mapByPlayer.set(pKey, []);
+    }
+    mapByPlayer.get(pKey)!.push(reg);
+  }
+
+  const result: GroupedPlayerRegistration[] = [];
+
+  const STATUS_WEIGHT: Record<string, number> = {
+    CONFIRMED: 4,
+    REGISTERED: 3,
+    PENDING: 2,
+    WITHDRAWN: 1,
+    REJECTED: 0,
+  };
+
+  const sortRegs = (list: TournamentRegistration[]) => {
+    return [...list].sort((a, b) => {
+      const wA = STATUS_WEIGHT[a.status] ?? -1;
+      const wB = STATUS_WEIGHT[b.status] ?? -1;
+      if (wA !== wB) return wB - wA;
+      const tA = a.registeredAt ? new Date(a.registeredAt).getTime() : 0;
+      const tB = b.registeredAt ? new Date(b.registeredAt).getTime() : 0;
+      if (tA !== tB) return tB - tA;
+      return b.id - a.id;
+    });
+  };
+
+  for (const [pKey, playerRegs] of mapByPlayer.entries()) {
+    if (playerRegs.length === 1) {
+      result.push({
+        key: `${pKey}_${playerRegs[0].id}`,
+        primary: playerRegs[0],
+        history: [],
+      });
+      continue;
+    }
+
+    const sorted = sortRegs(playerRegs);
+    const active = sorted.filter(r => isActiveStatus(r.status));
+    const inactive = sorted.filter(r => !isActiveStatus(r.status));
+
+    if (active.length <= 1) {
+      const primary = sorted[0];
+      const history = sorted.slice(1);
+      result.push({
+        key: `${pKey}_${primary.id}`,
+        primary,
+        history,
+      });
+    } else {
+      const firstActive = active[0];
+      const otherActives = active.slice(1);
+
+      result.push({
+        key: `${pKey}_${firstActive.id}`,
+        primary: firstActive,
+        history: inactive,
+      });
+
+      for (const act of otherActives) {
+        result.push({
+          key: `${pKey}_${act.id}`,
+          primary: act,
+          history: [],
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
 export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
   onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCloseEvent, onAnnounce,
@@ -54,6 +165,18 @@ export function TournamentSection({
   const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
   const [shareTournament, setShareTournament] = useState<any | null>(null);
   const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; search?: string }>>({});
+  const [expandedHistoryKeys, setExpandedHistoryKeys] = useState<Record<string, boolean>>({});
+
+  const toggleHistory = (key: string) => {
+    setExpandedHistoryKeys(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const groupedRegistrations = useMemo(() => {
+    return groupRegistrationsByPlayer(registrations || []);
+  }, [registrations]);
 
   const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "search", value: string) => {
     setEventFilters(prev => ({
@@ -169,8 +292,11 @@ export function TournamentSection({
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded bg-[#3b82f6]/20 text-[#3b82f6]">
-            {viewMode === "captains" ? (nominatedCaptains?.length ?? 0) : (registrations?.length ?? 0)}{" "}
-            {viewMode === "captains" ? "captains" : "players"}
+            {viewMode === "captains"
+              ? `${nominatedCaptains?.length ?? 0} captains`
+              : groupedRegistrations.length === (registrations?.length ?? 0)
+                ? `${groupedRegistrations.length} players`
+                : `${groupedRegistrations.length} players (${registrations?.length ?? 0} total records)`}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 relative">
@@ -274,83 +400,179 @@ export function TournamentSection({
       )}
 
       {/* Players list */}
-      {!loadingRegs && viewMode === "players" && registrations && registrations.length > 0 && (
-        <div className="space-y-2">
-          {registrations.map((reg, idx) => (
-            <div key={reg.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
-              <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
-                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
-                  {idx + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <span className="text-[10px] font-medium text-slate-800 break-words">{reg.playerName || reg.user?.fullName || "—"}</span>
-                    {reg.registrationSource === "GOOGLE_FORMS" && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
-                        Google Form
-                      </span>
+      {!loadingRegs && viewMode === "players" && groupedRegistrations.length > 0 && (
+        <div className="space-y-2.5">
+          {groupedRegistrations.map((group, idx) => {
+            const reg = group.primary;
+            const isHistoryExpanded = !!expandedHistoryKeys[group.key];
+
+            return (
+              <div key={group.key} className="space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm transition-all hover:border-slate-300">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <span className="text-[10px] font-medium text-slate-800 break-words">
+                          {reg.playerName || reg.user?.fullName || "—"}
+                        </span>
+                        {reg.registrationSource === "GOOGLE_FORMS" && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                            Google Form
+                          </span>
+                        )}
+                        {reg.isExternalGuest && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
+                            Guest
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                        {reg.category?.name && <span>{reg.category.name}</span>}
+                        {reg.age && <span>Age: {reg.age}</span>}
+                        {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
+                        {reg.relation && <span>({reg.relation})</span>}
+                        {reg.registeredAt && <span>· {format(new Date(reg.registeredAt), "MMM d, h:mm a")}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                    <div className="flex items-center gap-1 mr-1">
+                      <span className="text-[10px] text-slate-400 font-medium">Seed</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={seedDrafts[reg.id] ?? (reg.seed != null ? String(reg.seed) : "")}
+                        onChange={e => setSeedDrafts(prev => ({ ...prev, [reg.id]: e.target.value }))}
+                        onBlur={() => handleSeedSave(reg.id)}
+                        onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); handleSeedSave(reg.id); } }}
+                        placeholder="—"
+                        className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
+                        disabled={!!savingSeeds[reg.id]}
+                      />
+                    </div>
+                    <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
+                      {reg.status}
+                    </span>
+                    {group.history.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleHistory(group.key)}
+                        className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          isHistoryExpanded
+                            ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                            : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
+                        }`}
+                        title={`View ${group.history.length} past registration records`}
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        <span>History ({group.history.length})</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isHistoryExpanded ? "rotate-180" : ""}`} />
+                      </button>
                     )}
-                    {reg.isExternalGuest && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-semibold border border-amber-200">
-                        Guest
-                      </span>
+                    {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
+                      <button
+                        onClick={() => onConfirmRegistration(reg.id)}
+                        className="text-xs px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
+                      >
+                        <CheckCircle2 className="w-3 h-3" /> Confirm
+                      </button>
+                    )}
+                    {(reg.status === "REGISTERED" || reg.status === "PENDING") && onRejectRegistration && (
+                      <button
+                        onClick={() => onRejectRegistration(reg.id)}
+                        className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
+                      >
+                        <XCircle className="w-3 h-3" /> Reject
+                      </button>
+                    )}
+                    {reg.status === "CONFIRMED" && onRejectRegistration && (
+                      <button
+                        onClick={() => onRejectRegistration(reg.id)}
+                        className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
+                        title="Remove / unregister this player"
+                      >
+                        <XCircle className="w-3 h-3" /> Remove
+                      </button>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                    {reg.category?.name && <span>{reg.category.name}</span>}
-                    {reg.age && <span>Age: {reg.age}</span>}
-                    {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
-                    {reg.relation && <span>({reg.relation})</span>}
-                    {reg.registeredAt && <span>· {format(new Date(reg.registeredAt), "MMM d, h:mm a")}</span>}
+                </div>
+
+                {/* Collapsible registration history panel */}
+                {isHistoryExpanded && group.history.length > 0 && (
+                  <div className="ml-3 sm:ml-8 p-3 bg-slate-50/90 rounded-lg border border-slate-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 text-slate-700 font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <History className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Registration History for {reg.playerName || reg.user?.fullName}</span>
+                        <span className="text-[10px] px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full font-bold">
+                          {group.history.length} previous record{group.history.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleHistory(group.key)}
+                        className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {group.history.map((hist, hIdx) => (
+                        <div
+                          key={hist.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded border border-slate-200/80 text-slate-600 shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span className="text-[10px] font-bold text-slate-400 w-5 text-center flex-shrink-0">
+                              #{hIdx + 1}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-semibold text-slate-700">Reg ID: #{hist.id}</span>
+                                {hist.category?.name && (
+                                  <span className="text-[10px] px-1.5 py-0.2 bg-violet-50 text-violet-700 border border-violet-200 rounded font-medium">
+                                    {hist.category.name}
+                                  </span>
+                                )}
+                                {hist.registrationSource && hist.registrationSource !== "MANA_APP" && (
+                                  <span className="text-[10px] px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+                                    {hist.registrationSource}
+                                  </span>
+                                )}
+                                {hist.isExternalGuest && (
+                                  <span className="text-[10px] px-1.5 py-0.2 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium">
+                                    Guest
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 mt-0.5">
+                                {hist.registeredAt && (
+                                  <span>Registered: {format(new Date(hist.registeredAt), "MMM d, yyyy · h:mm a")}</span>
+                                )}
+                                {hist.relation && <span>({hist.relation})</span>}
+                                {hist.flatNumber && <span>Flat: {hist.flatNumber}</span>}
+                                {hist.seed != null && <span>Seed: {hist.seed}</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${statusBadge(hist.status)}`}>
+                              {hist.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                <div className="flex items-center gap-1 mr-1">
-                  <span className="text-[10px] text-slate-400 font-medium">Seed</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={seedDrafts[reg.id] ?? (reg.seed != null ? String(reg.seed) : "")}
-                    onChange={e => setSeedDrafts(prev => ({ ...prev, [reg.id]: e.target.value }))}
-                    onBlur={() => handleSeedSave(reg.id)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.currentTarget.blur(); handleSeedSave(reg.id); } }}
-                    placeholder="—"
-                    className="w-12 text-center border border-slate-200 rounded px-1 py-0.5 text-xs focus:ring-1 focus:ring-indigo-200 focus:outline-none tabular-nums disabled:opacity-50"
-                    disabled={!!savingSeeds[reg.id]}
-                  />
-                </div>
-                <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
-                  {reg.status}
-                </span>
-                {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
-                  <button
-                    onClick={() => onConfirmRegistration(reg.id)}
-                    className="text-xs px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
-                  >
-                    <CheckCircle2 className="w-3 h-3" /> Confirm
-                  </button>
-                )}
-                {(reg.status === "REGISTERED" || reg.status === "PENDING") && onRejectRegistration && (
-                  <button
-                    onClick={() => onRejectRegistration(reg.id)}
-                    className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
-                  >
-                    <XCircle className="w-3 h-3" /> Reject
-                  </button>
-                )}
-                {reg.status === "CONFIRMED" && onRejectRegistration && (
-                  <button
-                    onClick={() => onRejectRegistration(reg.id)}
-                    className="text-xs px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
-                    title="Remove / unregister this player"
-                  >
-                    <XCircle className="w-3 h-3" /> Remove
-                  </button>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

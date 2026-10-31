@@ -22,6 +22,7 @@ import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/a
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 import { useCashfree } from "../../../hooks/useCashfree";
 import CashfreeCheckout from "../payments/CashfreeCheckout";
+import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
 
 export function detectSport(name: string): string {
   const n = (name || "").toLowerCase();
@@ -1162,6 +1163,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>(props.familyMembers || []);
 
+  const familyMembersOnly = useMemo(() => {
+    return getFamilyMembersOnly(savedFamilyMembers, userFullName || user?.fullName);
+  }, [savedFamilyMembers, userFullName, user?.fullName]);
+
   // Admin On-Behalf Community Player Search States
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [playerSearchResults, setPlayerSearchResults] = useState<UserResponse[]>([]);
@@ -1445,28 +1450,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
-        const regRelation = (r.relation || "").trim().toUpperCase();
-        const regFamilyId = r.familyMemberId;
-        const regPlayerName = (r.playerName || "").trim().toLowerCase();
-        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
-
-        return (
-          !regFamilyId ||
-          regFamilyId === "self" ||
-          regFamilyId === "member-self" ||
-          regRelation === "SELF" ||
-          regRelation === "HEAD" ||
-          (!regFamilyId && !regRelation) ||
-          (userFullNameLower && regPlayerName === userFullNameLower)
-        );
+        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName);
       } else if (pType === "family") {
-        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
-          return true;
-        }
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
+        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName);
       } else if (pType === "other") {
         if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
           return true;
@@ -1475,7 +1461,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
       return false;
     });
-  }, [myRegistrations, userFullName, user?.fullName]);
+  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName]);
 
   const getParticipantRegistration = useCallback((
     targetEventId: number | string | undefined,
@@ -1676,22 +1662,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       setSavingProfileModal(false);
     }
   };
-
-  const familyMembersOnly = savedFamilyMembers.filter((m) => {
-    const rel = (m.relation || "").toUpperCase().trim();
-    const isSelf =
-      rel === "SELF" ||
-      rel === "HEAD" ||
-      rel === "SELF (HEAD)" ||
-      rel.includes("SELF") ||
-      rel.includes("HEAD") ||
-      rel === "PRIMARY" ||
-      rel === "OWNER" ||
-      m.id === "self" ||
-      m.id === "member-self" ||
-      (user?.fullName && m.name.trim().toLowerCase() === user.fullName.trim().toLowerCase());
-    return !isSelf;
-  });
 
   useEffect(() => {
     if (props.familyMembers && props.familyMembers.length > 0) {
@@ -3018,6 +2988,83 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                     </button>
                   </div>
                 </div>
+
+                {/* Household Member Quick-Selection Chips */}
+                {familyMembersOnly.length > 0 && formData.regType !== "other" && (
+                  <div className="mb-2 pb-2 border-b border-slate-100 dark:border-slate-800 space-y-1 text-left">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Select Participant:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openUpdateDetailsModal("family_add")}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add Member</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const computedUserAge = (userDob ? calculateAge(userDob) : null) ?? 25;
+                          setFormData(prev => ({
+                            ...prev,
+                            regType: "self",
+                            playerName: userFullName || user?.fullName || "",
+                            familyMemberId: undefined,
+                            gender: userGender,
+                            dateOfBirth: userDob,
+                            flatNumber: userFlat,
+                            age: computedUserAge,
+                            relation: "SELF",
+                          }));
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition border cursor-pointer flex items-center gap-1 ${
+                          formData.regType === "self"
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-bold"
+                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                        }`}
+                      >
+                        <span>👤 {userFullName || user?.fullName || "Self"}</span>
+                      </button>
+
+                      {familyMembersOnly.map(m => {
+                        const isSelected = formData.regType === "family" && String(formData.familyMemberId) === String(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              const mAge = (m.dob ? calculateAge(m.dob) : null) ?? m.age ?? 25;
+                              const inferredGen = inferGender(m, userGender);
+                              setFormData(prev => ({
+                                ...prev,
+                                regType: "family",
+                                playerName: m.name,
+                                familyMemberId: m.id,
+                                gender: inferredGen || m.gender || "",
+                                dateOfBirth: m.dob || "",
+                                flatNumber: userFlat,
+                                age: mAge,
+                                relation: m.relation || "OTHER",
+                              }));
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition border cursor-pointer flex items-center gap-1 ${
+                              isSelected
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs font-bold"
+                                : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                            }`}
+                          >
+                            <span>👥 {m.name}{m.relation && m.relation !== "Family" ? ` (${m.relation})` : ""}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {formData.regType === "family" && formData.playerName && (!formData.gender || !formData.dateOfBirth) && (
                   <div className="mb-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 sm:p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-left animate-in fade-in">
