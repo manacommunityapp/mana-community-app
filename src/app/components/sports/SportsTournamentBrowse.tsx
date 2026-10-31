@@ -6,14 +6,12 @@ import {
   MapPin,
   Loader2,
   ChevronRight,
-  Search,
   Medal,
   TrendingUp,
   ChevronDown,
   ArrowUpRight,
   Info,
   Clock,
-  Sparkles,
   Award,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
@@ -21,8 +19,7 @@ import { sportsDashboardService, type DashboardTournamentCard } from "../../../s
 import { sportsService } from "../../../services/sports/sportsService";
 import { tournamentService } from "../../../services/sports/tournamentService";
 import type { SportsEvent } from "../../../types/api";
-import { useAuth } from "../../../contexts/AuthContext";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { SportsTournamentStandings } from "./SportsTournamentStandings";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
 
@@ -47,14 +44,14 @@ function getSportEmoji(sportName: string | null | undefined): string {
 type BrowseTab = "open" | "my" | "closed";
 
 export function SportsTournamentBrowse() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
   const [activeTab, setActiveTab] = useState<BrowseTab>("open");
   const [openTournaments, setOpenTournaments] = useState<DashboardTournamentCard[]>([]);
   const [closedTournaments, setClosedTournaments] = useState<DashboardTournamentCard[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<SportsEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [sportFilter, setSportFilter] = useState<string>("All");
 
   // Selected tournament for details modal
@@ -100,26 +97,20 @@ export function SportsTournamentBrowse() {
   const filteredOpen = useMemo(() => {
     let list = openTournaments;
     if (sportFilter !== "All") list = list.filter(matchesSportFilter);
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(t => t.name.toLowerCase().includes(q) || (t.communityName && t.communityName.toLowerCase().includes(q)));
-  }, [openTournaments, search, sportFilter, matchesSportFilter]);
+    return list;
+  }, [openTournaments, sportFilter, matchesSportFilter]);
 
   const filteredClosed = useMemo(() => {
     let list = closedTournaments;
     if (sportFilter !== "All") list = list.filter(matchesSportFilter);
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(t => t.name.toLowerCase().includes(q) || (t.communityName && t.communityName.toLowerCase().includes(q)));
-  }, [closedTournaments, search, sportFilter, matchesSportFilter]);
+    return list;
+  }, [closedTournaments, sportFilter, matchesSportFilter]);
 
   const filteredMy = useMemo(() => {
     let list = myRegistrations;
     if (sportFilter !== "All") list = list.filter(ev => ev.sportName === sportFilter);
-    if (!search) return list;
-    const q = search.toLowerCase();
-    return list.filter(t => t.name.toLowerCase().includes(q) || (t.venueName && t.venueName.toLowerCase().includes(q)));
-  }, [myRegistrations, search, sportFilter]);
+    return list;
+  }, [myRegistrations, sportFilter]);
 
   const handleOpenDetails = (tournament: DashboardTournamentCard | SportsEvent) => {
     setSelectedTournament(tournament);
@@ -136,33 +127,9 @@ export function SportsTournamentBrowse() {
   }
 
   return (
-    <div className="space-y-4 text-left">
-      {/* Top Banner / Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-sm">
-            <Trophy className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-slate-900 leading-tight m-0 mb-0">Community Tournaments</h3>
-            <p className="text-xs text-slate-500 font-medium m-0">Browse active championships, view tournament details, and register sports groups</p>
-          </div>
-        </div>
-
-        {/* Search Input */}
-        <div className="relative min-w-[220px]">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search tournaments, sports, venues..."
-            className="w-full text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800"
-          />
-        </div>
-      </div>
-
+    <div className="w-full min-w-0 space-y-5 text-left sm:space-y-6">
       {/* Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl">
+      <div className="flex gap-1.5 overflow-x-auto rounded-2xl border border-slate-200/80 bg-slate-100/80 p-1.5 hide-scrollbar sm:gap-2">
         {tabs.map(tab => {
           const active = activeTab === tab.key;
           const Icon = tab.icon;
@@ -170,17 +137,18 @@ export function SportsTournamentBrowse() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              aria-pressed={active}
+              className={`flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition-all cursor-pointer sm:px-4 ${
                 active
-                  ? "bg-white text-indigo-600 shadow-xs font-bold"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/40"
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/70 font-bold"
+                  : "text-slate-500 hover:bg-white/60 hover:text-slate-800"
               }`}
             >
               <Icon size={14} className={active ? "text-indigo-600" : "text-slate-400"} />
               <span>{tab.label}</span>
               {tab.count > 0 && (
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${ active ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600" }`}
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${ active ? "bg-indigo-50 text-indigo-700" : "bg-slate-200/70 text-slate-600" }`}
                 >
                   {tab.count}
                 </span>
@@ -190,33 +158,30 @@ export function SportsTournamentBrowse() {
         })}
       </div>
 
-      {/* Sport Filter Chips */}
+      {/* Sport filter */}
       {allSports.length > 2 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 hide-scrollbar">
-          {allSports.map(sport => {
-            const active = sportFilter === sport;
-            const emoji = sport === "All" ? "🏅" : getSportEmoji(sport);
-            return (
-              <button
-                key={sport}
-                onClick={() => setSportFilter(sport)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  active
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                <span>{emoji}</span>
-                <span>{sport}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <h2 className="m-0 text-sm font-bold text-slate-900">Browse by sport</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Narrow the tournament list to a sport</p>
+          </div>
+          <label className="relative block w-full sm:max-w-xs">
+            <span className="sr-only">Filter tournaments by sport</span>
+            <select
+              value={sportFilter}
+              onChange={e => setSportFilter(e.target.value)}
+              className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-10 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-300 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10"
+            >
+              {allSports.map(sport => <option key={sport} value={sport}>{sport === "All" ? "All sports" : sport}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </label>
         </div>
       )}
 
       {/* Open Tournaments List */}
       {activeTab === "open" && (
-        <div className="space-y-3.5">
+      <div className="space-y-4">
           {filteredOpen.length === 0 ? (
             <EmptyState message="No tournaments are open for registration right now" />
           ) : (
@@ -226,7 +191,8 @@ export function SportsTournamentBrowse() {
                 tournament={t}
                 onViewDetails={() => handleOpenDetails(t)}
                 onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
-                onRegister={() => navigate(`/sports/register-tournament/${t.id}`)}
+                onRegister={() => navigate(`/sports/register-tournament/${t.id}`, { state: { returnTo } })}
+                onRegisterOthers={() => navigate(`/sports/register-tournament/${t.id}?for=community`, { state: { returnTo } })}
               />
             ))
           )}
@@ -235,7 +201,7 @@ export function SportsTournamentBrowse() {
 
       {/* My Tournaments */}
       {activeTab === "my" && (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           {filteredMy.length === 0 ? (
             <EmptyState message="You haven't joined any tournaments yet" />
           ) : (
@@ -253,7 +219,7 @@ export function SportsTournamentBrowse() {
 
       {/* Completed Tournaments */}
       {activeTab === "closed" && (
-        <div className="space-y-3.5">
+        <div className="space-y-4">
           {filteredClosed.length === 0 ? (
             <EmptyState message="No completed tournaments found" />
           ) : (
@@ -274,7 +240,7 @@ export function SportsTournamentBrowse() {
       <TournamentDetailsModal
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
-        tournament={selectedTournament as any}
+        tournament={selectedTournament}
         onRegisterEvent={(eventIdOrUuid) => navigate(`/sports/register/${eventIdOrUuid}`)}
         onViewSchedule={(tournamentId) => navigate(`/sports/schedule/${tournamentId}`)}
       />
@@ -290,6 +256,7 @@ interface TournamentCardProps {
   onViewDetails: () => void;
   onViewSchedule: () => void;
   onRegister?: () => void;
+  onRegisterOthers?: () => void;
 }
 
 function TournamentCard({
@@ -298,6 +265,7 @@ function TournamentCard({
   onViewDetails,
   onViewSchedule,
   onRegister,
+  onRegisterOthers,
 }: TournamentCardProps) {
   const [showStandings, setShowStandings] = useState(false);
   const [configIds, setConfigIds] = useState<number[]>([]);
@@ -324,8 +292,8 @@ function TournamentCard({
         .getConfigs()
         .then(configs => {
           const ids = configs
-            .filter((c: any) => tournament.events?.some(e => e.id === c.eventId))
-            .map((c: any) => c.id);
+            .filter(c => tournament.events?.some(e => e.id === c.eventId))
+            .map(c => c.id);
           setConfigIds(ids);
         })
         .catch(() => setConfigIds([]));
@@ -333,34 +301,34 @@ function TournamentCard({
   }, [showStandings, tournament.events, configIds.length]);
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 hover:shadow-md transition-all duration-200 text-left group">
+    <article className="group rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md sm:p-5">
       {/* Top Details Row */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
           <div
-            className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
+            className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 transition group-hover:bg-indigo-100"
             onClick={onViewDetails}
           >
-            <Trophy className="w-5 h-5 text-white" />
+            <Trophy className="h-5 w-5" />
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 onClick={onViewDetails}
-                className="text-xs font-bold text-slate-900 hover:text-indigo-600 transition-colors cursor-pointer truncate"
+                className="m-0 cursor-pointer truncate text-base font-extrabold tracking-tight text-slate-900 transition-colors hover:text-indigo-700 sm:text-lg"
               >
                 {tournament.name}
               </h3>
 
               <span
-                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${ completed ? "bg-slate-100 text-slate-600 border border-slate-200" : isOpen ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-blue-50 text-blue-700 border border-blue-200" }`}
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${ completed ? "border-slate-200 bg-slate-100 text-slate-600" : isOpen ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700" }`}
               >
                 {completed ? "Completed" : isOpen ? "Open for Registration" : status}
               </span>
 
               {daysLeft !== null && daysLeft >= 0 && isOpen && (
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
                   <Clock className="w-3 h-3" />
                   {daysLeft === 0 ? "Starts Today!" : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} to go`}
                 </span>
@@ -368,11 +336,11 @@ function TournamentCard({
             </div>
 
             {tournament.communityName && (
-              <div className="text-xs text-slate-500 font-medium mt-0.5">{tournament.communityName}</div>
+              <div className="mt-1 text-xs font-medium text-slate-500">{tournament.communityName}</div>
             )}
 
             {/* Tournament Meta Badges Row */}
-            <div className="flex items-center gap-3 sm:gap-4 mt-2.5 flex-wrap text-xs text-slate-600 font-medium">
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-600">
               {startDate && (
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -401,28 +369,38 @@ function TournamentCard({
         </div>
 
         {/* Action Buttons on the card */}
-        <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:self-start">
           <button
             onClick={onViewDetails}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 sm:flex-none"
           >
-            <Info className="w-3.5 h-3.5 text-slate-500" />
-            <span>Tournament Details</span>
+            <Info className="h-3.5 w-3.5 text-slate-500" />
+            <span>Details</span>
           </button>
 
           {isOpen && onRegister && (
             <button
               onClick={onRegister}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.98] sm:flex-none"
             >
               <span>Register</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
           )}
 
+          {isOpen && onRegisterOthers && (
+            <button
+              onClick={onRegisterOthers}
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 active:scale-[0.98] sm:flex-none"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Register Others</span>
+            </button>
+          )}
+
           <button
             onClick={onViewSchedule}
-            className="p-1.5 rounded-xl border border-slate-200 hover:border-indigo-300 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
             title="View Match Schedule"
           >
             <ChevronRight className="w-4 h-4" />
@@ -432,15 +410,15 @@ function TournamentCard({
 
       {/* Child Sports Category Groups Preview Chips */}
       {tournament.events && tournament.events.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mr-1">Groups:</span>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3.5">
+          <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Events:</span>
           {tournament.events.slice(0, 5).map(ev => {
             const emoji = getSportEmoji(ev.sportName);
             return (
               <span
                 key={ev.id}
                 onClick={onViewDetails}
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-slate-100/80 text-slate-700 border border-slate-200/60 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
               >
                 <span>{emoji}</span>
                 <span>{ev.categoryName || ev.name}</span>
@@ -462,10 +440,10 @@ function TournamentCard({
       )}
 
       {/* Standings Toggle */}
-      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
         <button
           onClick={() => setShowStandings(!showStandings)}
-          className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-all ${
             showStandings
               ? "bg-amber-50 text-amber-800 border-amber-200"
               : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -499,7 +477,7 @@ function TournamentCard({
           )}
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -518,21 +496,21 @@ function MyTournamentCard({
   const startDate = event.eventDateStart ? new Date(event.eventDateStart) : null;
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl bg-white border border-amber-200/80 hover:border-amber-400 hover:shadow-md transition-all text-left group">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
+    <article className="group rounded-2xl border border-slate-200/80 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-start gap-3.5">
           <div
-            className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer"
+            className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-2xl bg-amber-50 text-base ring-1 ring-amber-100"
             onClick={onViewDetails}
           >
-            <span className="text-[10px]">{emoji}</span>
+            <span>{emoji}</span>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3
                 onClick={onViewDetails}
-                className="text-xs font-sans font-bold text-slate-900 hover:text-amber-700 transition-colors cursor-pointer truncate max-w-full"
+                className="m-0 max-w-full cursor-pointer truncate text-base font-extrabold tracking-tight text-slate-900 transition-colors hover:text-amber-700"
               >
                 {event.name}
               </h3>
@@ -546,19 +524,19 @@ function MyTournamentCard({
             <div className="flex items-center gap-3 sm:gap-4 mt-1.5 flex-wrap text-xs text-slate-500 font-medium">
               {event.sportName && (
                 <span className="inline-flex items-center gap-1">
-                  <Trophy size={12} className="text-amber-500" />
+                  <Trophy size={14} className="text-amber-500" />
                   <span>{event.sportName}</span>
                 </span>
               )}
               {startDate && (
                 <span className="inline-flex items-center gap-1">
-                  <Calendar size={12} className="text-slate-400" />
+                  <Calendar size={14} className="text-slate-400" />
                   <span>{format(startDate, "MMM d, yyyy")}</span>
                 </span>
               )}
               {event.venueName && (
                 <span className="inline-flex items-center gap-1">
-                  <MapPin size={12} className="text-slate-400" />
+                  <MapPin size={14} className="text-slate-400" />
                   <span>{event.venueName}</span>
                 </span>
               )}
@@ -566,33 +544,35 @@ function MyTournamentCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
           <button
             onClick={onViewDetails}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-50 sm:flex-none"
           >
             <Info className="w-3.5 h-3.5 text-slate-500" />
             <span>Details</span>
           </button>
           <button
             onClick={onViewSchedule}
-            className="p-1.5 rounded-xl border border-slate-200 hover:border-indigo-300 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
             title="View Match Schedule"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="text-center py-12 px-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-slate-500">
-      <Trophy size={36} className="mx-auto mb-2 text-slate-300" />
-      <div className="text-sm font-semibold text-slate-700">{message}</div>
-      <div className="text-xs text-slate-400 mt-1">Check back later or explore other sports tabs above.</div>
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-14 text-center text-slate-500 shadow-sm">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-400">
+        <Trophy size={28} />
+      </div>
+      <div className="mt-4 text-sm font-bold text-slate-800">{message}</div>
+      <div className="mt-1 text-xs text-slate-500">Try another tab or sport filter, or check back later.</div>
     </div>
   );
 }

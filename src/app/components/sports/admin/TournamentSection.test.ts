@@ -158,4 +158,89 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
     expect(aarav?.primary.id).toBe(302);
     expect(aarav?.history).toHaveLength(0);
   });
+
+  it("strictly produces 1 card when a participant has multiple PENDING registrations (user scenario: Mady, Sunil Kanthala)", () => {
+    const regs: TournamentRegistration[] = [
+      // Mady (2 PENDING registrations)
+      {
+        id: 401,
+        playerName: "Mady",
+        user: createMockUser(50, "Mady") as any,
+        status: "PENDING",
+        relation: "SELF",
+        flatNumber: "Block D, Flat 107",
+        registeredAt: "2026-09-26T01:17:00Z",
+      },
+      {
+        id: 402,
+        playerName: "Mady",
+        user: createMockUser(50, "Mady") as any,
+        status: "PENDING",
+        relation: "SELF",
+        flatNumber: "Block D, Flat 107",
+        registeredAt: "2026-09-23T10:28:00Z",
+      },
+      // Sunil Kanthala (2 PENDING registrations)
+      {
+        id: 403,
+        playerName: "Sunil Kanthala",
+        user: createMockUser(60, "Sunil Kanthala") as any,
+        status: "PENDING",
+        relation: "SELF",
+        flatNumber: "Block C, Flat 212",
+        registeredAt: "2026-10-19T23:08:00Z",
+      },
+      {
+        id: 404,
+        playerName: "Sunil Kanthala",
+        user: createMockUser(60, "Sunil Kanthala") as any,
+        status: "PENDING",
+        relation: "SELF",
+        flatNumber: "Block C, Flat 212",
+        registeredAt: "2026-10-19T23:07:00Z",
+      },
+      // Sandeep Kamarapu (1 PENDING, 1 WITHDRAWN)
+      {
+        id: 405,
+        playerName: "Sandeep Kamarapu",
+        user: createMockUser(70, "Sandeep Kamarapu") as any,
+        status: "PENDING",
+        relation: "SELF",
+        flatNumber: "Block B, Flat 806",
+        registeredAt: "2026-10-31T16:27:00Z",
+      },
+      {
+        id: 406,
+        playerName: "Sandeep Kamarapu",
+        user: createMockUser(70, "Sandeep Kamarapu") as any,
+        status: "WITHDRAWN",
+        relation: "SELF",
+        flatNumber: "Block B, Flat 806",
+        registeredAt: "2026-10-31T15:00:00Z",
+      },
+    ];
+
+    const grouped = groupRegistrationsByPlayer(regs);
+
+    // MUST be strictly 3 unique player cards from 6 records
+    expect(grouped).toHaveLength(3);
+
+    const mady = grouped.find(g => g.primary.playerName === "Mady");
+    expect(mady).toBeDefined();
+    expect(mady?.primary.id).toBe(401); // latest PENDING
+    expect(mady?.history).toHaveLength(1);
+    expect(mady?.history[0].id).toBe(402); // older PENDING
+
+    const sunil = grouped.find(g => g.primary.playerName === "Sunil Kanthala");
+    expect(sunil).toBeDefined();
+    expect(sunil?.primary.id).toBe(403); // latest PENDING
+    expect(sunil?.history).toHaveLength(1);
+    expect(sunil?.history[0].id).toBe(404); // older PENDING
+
+    const sandeep = grouped.find(g => g.primary.playerName === "Sandeep Kamarapu");
+    expect(sandeep).toBeDefined();
+    expect(sandeep?.primary.id).toBe(405); // PENDING
+    expect(sandeep?.history).toHaveLength(1);
+    expect(sandeep?.history[0].id).toBe(406); // WITHDRAWN
+  });
 });

@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
 import { sportsRankingService } from "../../../../services/sports/sportsRankingService";
+import { sportsService } from "../../../../services/sports/sportsService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
 import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
@@ -116,35 +117,16 @@ export function groupRegistrationsByPlayer(regs: TournamentRegistration[]): Grou
     }
 
     const sorted = sortRegs(playerRegs);
-    const active = sorted.filter(r => isActiveStatus(r.status));
-    const inactive = sorted.filter(r => !isActiveStatus(r.status));
-
-    if (active.length <= 1) {
-      const primary = sorted[0];
-      const history = sorted.slice(1);
-      result.push({
-        key: `${pKey}_${primary.id}`,
-        primary,
-        history,
-      });
-    } else {
-      const firstActive = active[0];
-      const otherActives = active.slice(1);
-
-      result.push({
-        key: `${pKey}_${firstActive.id}`,
-        primary: firstActive,
-        history: inactive,
-      });
-
-      for (const act of otherActives) {
-        result.push({
-          key: `${pKey}_${act.id}`,
-          primary: act,
-          history: [],
-        });
-      }
-    }
+    // Strictly ONE primary card per participant identity.
+    // The highest precedence / latest registration is primary,
+    // and all other registrations (e.g. earlier PENDING attempts, withdrawals) are placed in history.
+    const primary = sorted[0];
+    const history = sorted.slice(1);
+    result.push({
+      key: `${pKey}_${primary.id}`,
+      primary,
+      history,
+    });
   }
 
   return result;
@@ -166,12 +148,43 @@ export function TournamentSection({
   const [shareTournament, setShareTournament] = useState<any | null>(null);
   const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; search?: string }>>({});
   const [expandedHistoryKeys, setExpandedHistoryKeys] = useState<Record<string, boolean>>({});
+  const [lazyHistoryMap, setLazyHistoryMap] = useState<Record<number, TournamentRegistration[]>>({});
+  const [loadingHistoryMap, setLoadingHistoryMap] = useState<Record<number, boolean>>({});
 
-  const toggleHistory = (key: string) => {
-    setExpandedHistoryKeys(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const handleToggleHistory = async (
+    groupKey: string,
+    eventId: number,
+    primaryRegId: number,
+    localHistory: TournamentRegistration[]
+  ) => {
+    const isCurrentlyExpanded = !!expandedHistoryKeys[groupKey];
+    if (isCurrentlyExpanded) {
+      setExpandedHistoryKeys(prev => ({ ...prev, [groupKey]: false }));
+      return;
+    }
+
+    setExpandedHistoryKeys(prev => ({ ...prev, [groupKey]: true }));
+
+    // If already loaded or fetched, no need to re-fetch
+    if (lazyHistoryMap[primaryRegId]) {
+      return;
+    }
+
+    // Attempt lazy loading from backend endpoint
+    setLoadingHistoryMap(prev => ({ ...prev, [primaryRegId]: true }));
+    try {
+      const fetched = await sportsService.getRegistrationHistory(eventId, primaryRegId);
+      if (fetched && Array.isArray(fetched) && fetched.length > 0) {
+        setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: fetched }));
+      } else {
+        setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: localHistory }));
+      }
+    } catch {
+      // Graceful fallback to client-grouped history if network or older backend
+      setLazyHistoryMap(prev => ({ ...prev, [primaryRegId]: localHistory }));
+    } finally {
+      setLoadingHistoryMap(prev => ({ ...prev, [primaryRegId]: false }));
+    }
   };
 
   const groupedRegistrations = useMemo(() => {
@@ -459,7 +472,7 @@ export function TournamentSection({
                     {group.history.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => toggleHistory(group.key)}
+                        onClick={() => handleToggleHistory(group.key, ev.id, reg.id, group.history)}
                         className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                           isHistoryExpanded
                             ? "bg-slate-800 text-white border-slate-800 shadow-sm"
@@ -467,7 +480,11 @@ export function TournamentSection({
                         }`}
                         title={`View ${group.history.length} past registration records`}
                       >
-                        <History className="w-3.5 h-3.5" />
+                        {loadingHistoryMap[reg.id] ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                        ) : (
+                          <History className="w-3.5 h-3.5" />
+                        )}
                         <span>History ({group.history.length})</span>
                         <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isHistoryExpanded ? "rotate-180" : ""}`} />
                       </button>
@@ -500,7 +517,7 @@ export function TournamentSection({
                   </div>
                 </div>
 
-                {/* Collapsible registration history panel */}
+                {/* Collapsible registration history panel with lazy loading */}
                 {isHistoryExpanded && group.history.length > 0 && (
                   <div className="ml-3 sm:ml-8 p-3 bg-slate-50/90 rounded-lg border border-slate-200 space-y-2 text-xs">
                     <div className="flex items-center justify-between border-b border-slate-200 pb-1.5 text-slate-700 font-semibold">
@@ -513,61 +530,68 @@ export function TournamentSection({
                       </div>
                       <button
                         type="button"
-                        onClick={() => toggleHistory(group.key)}
+                        onClick={() => handleToggleHistory(group.key, ev.id, reg.id, group.history)}
                         className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer"
                       >
                         Close
                       </button>
                     </div>
 
-                    <div className="space-y-1.5">
-                      {group.history.map((hist, hIdx) => (
-                        <div
-                          key={hist.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded border border-slate-200/80 text-slate-600 shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <span className="text-[10px] font-bold text-slate-400 w-5 text-center flex-shrink-0">
-                              #{hIdx + 1}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="text-xs font-semibold text-slate-700">Reg ID: #{hist.id}</span>
-                                {hist.category?.name && (
-                                  <span className="text-[10px] px-1.5 py-0.2 bg-violet-50 text-violet-700 border border-violet-200 rounded font-medium">
-                                    {hist.category.name}
-                                  </span>
-                                )}
-                                {hist.registrationSource && hist.registrationSource !== "MANA_APP" && (
-                                  <span className="text-[10px] px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
-                                    {hist.registrationSource}
-                                  </span>
-                                )}
-                                {hist.isExternalGuest && (
-                                  <span className="text-[10px] px-1.5 py-0.2 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium">
-                                    Guest
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 mt-0.5">
-                                {hist.registeredAt && (
-                                  <span>Registered: {format(new Date(hist.registeredAt), "MMM d, yyyy · h:mm a")}</span>
-                                )}
-                                {hist.relation && <span>({hist.relation})</span>}
-                                {hist.flatNumber && <span>Flat: {hist.flatNumber}</span>}
-                                {hist.seed != null && <span>Seed: {hist.seed}</span>}
+                    {loadingHistoryMap[reg.id] ? (
+                      <div className="flex items-center justify-center gap-2 py-4 text-slate-500">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#f97316]" />
+                        <span>Loading history records...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {(lazyHistoryMap[reg.id] ?? group.history).map((hist, hIdx) => (
+                          <div
+                            key={hist.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded border border-slate-200/80 text-slate-600 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="text-[10px] font-bold text-slate-400 w-5 text-center flex-shrink-0">
+                                #{hIdx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-xs font-semibold text-slate-700">Reg ID: #{hist.id}</span>
+                                  {hist.category?.name && (
+                                    <span className="text-[10px] px-1.5 py-0.2 bg-violet-50 text-violet-700 border border-violet-200 rounded font-medium">
+                                      {hist.category.name}
+                                    </span>
+                                  )}
+                                  {hist.registrationSource && hist.registrationSource !== "MANA_APP" && (
+                                    <span className="text-[10px] px-1.5 py-0.2 bg-purple-50 text-purple-700 border border-purple-200 rounded font-medium">
+                                      {hist.registrationSource}
+                                    </span>
+                                  )}
+                                  {hist.isExternalGuest && (
+                                    <span className="text-[10px] px-1.5 py-0.2 bg-amber-50 text-amber-700 border border-amber-200 rounded font-medium">
+                                      Guest
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 mt-0.5">
+                                  {hist.registeredAt && (
+                                    <span>Registered: {format(new Date(hist.registeredAt), "MMM d, yyyy · h:mm a")}</span>
+                                  )}
+                                  {hist.relation && <span>({hist.relation})</span>}
+                                  {hist.flatNumber && <span>Flat: {hist.flatNumber}</span>}
+                                  {hist.seed != null && <span>Seed: {hist.seed}</span>}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${statusBadge(hist.status)}`}>
-                              {hist.status}
-                            </span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${statusBadge(hist.status)}`}>
+                                {hist.status}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

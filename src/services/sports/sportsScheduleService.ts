@@ -41,6 +41,7 @@ export interface RegistrationListItem {
   // Event & venue details
   eventDateStart?: string | null;
   eventDateEnd?: string | null;
+  startTime?: string | null;
   venueName?: string | null;
   venueCity?: string | null;
   format?: string[] | null;

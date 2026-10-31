@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
-  Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle,
+  Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle, Search,
   ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -12,13 +12,13 @@ import { sportsDashboardService, type DashboardTournamentCard } from "../../../s
 import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
-import { familyService, type FamilyMember } from "../../../services/common/familyService";
+import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { DatePicker } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
-import type { PlayerCategory } from "../../../types/api";
+import type { PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 import { inferGender } from "./SportsRegister";
 import { getFamilyMembersOnly } from "./utils/sportsMemberHelpers";
@@ -704,7 +704,15 @@ interface SportEventSelection {
 export function SportsMultiRegister() {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo;
+  const backDestination = typeof requestedReturnTo === "string" && requestedReturnTo.startsWith("/")
+    ? requestedReturnTo
+    : "/sports";
   const { user, updateUser } = useAuth();
+  const [searchParams] = useSearchParams();
+  const queryFor = searchParams.get("for");
+  const queryMemberId = searchParams.get("memberId");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -714,15 +722,21 @@ export function SportsMultiRegister() {
 
   // User / Registrant details
   const [liveUser, setLiveUser] = useState<any>(user);
-  const [regType, setRegType] = useState<"self" | "family">("self");
-  const [playerName, setPlayerName] = useState(user?.fullName || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [gender, setGender] = useState((user as any)?.gender || "");
-  const [dateOfBirth, setDateOfBirth] = useState((user as any)?.dateOfBirth || (user as any)?.dob || "");
+  const [regType, setRegType] = useState<"self" | "family">(() => queryFor === "family" || queryFor === "community" ? "family" : "self");
+  const [playerName, setPlayerName] = useState(() => queryFor === "community" ? "" : user?.fullName || "");
+  const [email, setEmail] = useState(() => queryFor === "community" ? "" : user?.email || "");
+  const [gender, setGender] = useState(() => queryFor === "community" ? "" : (user as any)?.gender || "");
+  const [dateOfBirth, setDateOfBirth] = useState(() => queryFor === "community" ? "" : (user as any)?.dateOfBirth || (user as any)?.dob || "");
   const [relation, setRelation] = useState("");
-  const [flatNumber, setFlatNumber] = useState((user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "");
+  const [flatNumber, setFlatNumber] = useState(() => queryFor === "community" ? "" : (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "");
   const [familyMemberId, setFamilyMemberId] = useState<number | string | undefined>();
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+  const [communitySearch, setCommunitySearch] = useState("");
+  const [communityResults, setCommunityResults] = useState<UserResponse[]>([]);
+  const [communitySearching, setCommunitySearching] = useState(false);
+  const [selectedCommunityResident, setSelectedCommunityResident] = useState<UserResponse | null>(null);
+  const [communityFamilyMembers, setCommunityFamilyMembers] = useState<FamilyMemberSlim[]>([]);
+  const [communityFamilyLoading, setCommunityFamilyLoading] = useState(false);
 
   const userProfileName = liveUser?.fullName || user?.fullName || "";
   const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
@@ -768,6 +782,24 @@ export function SportsMultiRegister() {
   const familyMembersOnly = useMemo(() => {
     return getFamilyMembersOnly(savedFamilyMembers, user?.fullName);
   }, [savedFamilyMembers, user?.fullName]);
+
+  useEffect(() => {
+    if (regType !== "family" || communitySearch.trim().length < 2) return;
+    let isActive = true;
+    const timer = setTimeout(async () => {
+      setCommunitySearching(true);
+      try {
+        const results = await userService.searchUsersGlobal(communitySearch.trim(), user?.communityId);
+        if (isActive) setCommunityResults(results.filter(resident => String(resident.id) !== String(user?.userId)));
+      } catch (error) {
+        console.warn("Failed to search community residents for sports registration:", error);
+        if (isActive) setCommunityResults([]);
+      } finally {
+        if (isActive) setCommunitySearching(false);
+      }
+    }, 300);
+    return () => { isActive = false; clearTimeout(timer); };
+  }, [communitySearch, regType, user?.communityId, user?.userId]);
 
   // Unified Edit / Add Details Modal State (Self or Family Member)
   const [profileModalState, setProfileModalState] = useState<{
@@ -1025,21 +1057,26 @@ export function SportsMultiRegister() {
     return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
   }, [updateUser, regType]);
 
-  const [searchParams] = useSearchParams();
-  const queryFor = searchParams.get("for");
-  const queryMemberId = searchParams.get("memberId");
-
   useEffect(() => {
-    if (queryFor === "family" && queryMemberId && savedFamilyMembers.length > 0) {
-      const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
+    if (queryFor === "family") {
+      const targetMember = queryMemberId
+        ? familyMembersOnly.find(m => String(m.id) === String(queryMemberId))
+        : familyMembersOnly[0];
+      setRegType("family");
       if (targetMember) {
-        setRegType("family");
         setPlayerName(targetMember.name);
         setEmail(targetMember.email || "");
         setGender(inferGender(targetMember, userProfileGender) || targetMember.gender || "");
         setDateOfBirth(targetMember.dob || (targetMember as any).dateOfBirth || "");
         setRelation(targetMember.relation || (targetMember as any).relationship || "");
         setFamilyMemberId(targetMember.id);
+      } else {
+        setPlayerName("");
+        setEmail("");
+        setGender("");
+        setDateOfBirth("");
+        setRelation("");
+        setFamilyMemberId(undefined);
       }
     } else if (queryFor === "self") {
       setRegType("self");
@@ -1050,7 +1087,7 @@ export function SportsMultiRegister() {
       setRelation("");
       setFamilyMemberId(undefined);
     }
-  }, [queryFor, queryMemberId, savedFamilyMembers, userProfileName, userProfileGender, userProfileDob, liveUser?.email, user?.email]);
+  }, [queryFor, queryMemberId, familyMembersOnly, userProfileName, userProfileGender, userProfileDob, liveUser?.email, user?.email]);
 
   // Load tournament, open events, and player categories directly from service repository
   useEffect(() => {
@@ -1223,6 +1260,10 @@ export function SportsMultiRegister() {
 
   // Handle registrant type switch
   const handleRegTypeChange = (type: "self" | "family") => {
+    setSelectedCommunityResident(null);
+    setCommunityFamilyMembers([]);
+    setCommunitySearch("");
+    setCommunityResults([]);
     setRegType(type);
     setFormErrors({});
     setEventErrors({});
@@ -1258,6 +1299,8 @@ export function SportsMultiRegister() {
   const handleFamilyMemberSelect = (memberId: string | number) => {
     const member = familyMembersOnly.find(m => String(m.id) === String(memberId));
     if (member) {
+      setSelectedCommunityResident(null);
+      setCommunityFamilyMembers([]);
       setPlayerName(member.name);
       setEmail(member.email || "");
       setGender(member.gender || "");
@@ -1268,6 +1311,52 @@ export function SportsMultiRegister() {
       setFormErrors({});
       setEventErrors({});
     }
+  };
+
+  const handleCommunityResidentSelect = async (resident: UserResponse) => {
+    const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
+    const block = resident.block || resident.tower || residentDetails.wing || "";
+    const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
+    const residentFlat = block && flat
+      ? (flat.toUpperCase().includes(block.toUpperCase()) ? flat : `Block ${block}, Flat ${flat}`)
+      : flat || (block ? `Block ${block}` : "");
+    const dob = resident.dateOfBirth || "";
+    setSelectedCommunityResident(resident);
+    setCommunitySearch("");
+    setCommunityResults([]);
+    setCommunityFamilyMembers([]);
+    setPlayerName(resident.fullName || "");
+    setEmail(resident.email || "");
+    setGender(resident.gender?.toUpperCase() || "");
+    setDateOfBirth(dob);
+    setRelation("SELF");
+    setFlatNumber(residentFlat);
+    setFamilyMemberId(undefined);
+    setFormErrors({});
+    setEventErrors({});
+
+    setCommunityFamilyLoading(true);
+    try {
+      const members = await sportsService.getCommunityResidentFamilyMembers(Number(resident.id));
+      setCommunityFamilyMembers(members || []);
+    } catch (error) {
+      console.warn("Failed to load this resident's family members:", error);
+      setCommunityFamilyMembers([]);
+    } finally {
+      setCommunityFamilyLoading(false);
+    }
+  };
+
+  const handleCommunityFamilyMemberSelect = (member: FamilyMemberSlim) => {
+    const memberDob = member.dob || "";
+    setPlayerName(member.name);
+    setEmail(member.email || selectedCommunityResident?.email || "");
+    setGender(member.gender?.toUpperCase() || "");
+    setDateOfBirth(memberDob);
+    setRelation(member.relation || "Family Member");
+    setFamilyMemberId(member.id);
+    setFormErrors({});
+    setEventErrors({});
   };
 
   const toggleEventSelection = (eventId: number) => {
@@ -1344,14 +1433,22 @@ export function SportsMultiRegister() {
 
   // Single Event Direct Registration Handler
   const handleSingleRegister = async (eventId: number) => {
+    if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
+      toast.error("Select or add a family member before registering.");
+      return;
+    }
     if (regType === "self" && (!gender || !dateOfBirth)) {
       openUpdateDetailsModal("self");
       toast.error("Please update your Gender and Date of Birth to proceed with registration.");
       return;
     }
     if (regType === "family" && (!gender || !dateOfBirth)) {
-      openUpdateDetailsModal(familyMemberId ? "family_edit" : "family_add", familyMemberId);
-      toast.error("Please update Gender and Date of Birth for the selected family member.");
+      if (selectedCommunityResident) {
+        toast.error("The selected community participant needs a Gender and Date of Birth in their profile before registration.");
+      } else {
+        openUpdateDetailsModal(familyMemberId ? "family_edit" : "family_add", familyMemberId);
+        toast.error("Please update Gender and Date of Birth for the selected family member.");
+      }
       return;
     }
 
@@ -1409,23 +1506,30 @@ export function SportsMultiRegister() {
     try {
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
-        await sportsService.registerForEvent({
+        const registrationRequest = {
           eventId: ev.eventId,
           categoryId: selectedCategory.id,
           matchType: fmt,
           role: ev.role || "Player",
           age: calculatedAge,
+          gender: gender || undefined,
           dateOfBirth: dateOfBirth,
           playerName: playerName.trim(),
           email: email.trim() || undefined,
           relation: relation || undefined,
           flatNumber: flatNumber || undefined,
           familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
+          participantUserId: selectedCommunityResident ? Number(selectedCommunityResident.id) : undefined,
           partnerUserId: isDoubles && (ev.partnerInfo?.userId || ev.partnerUserId) ? (ev.partnerInfo?.userId || ev.partnerUserId) : undefined,
           partnerFamilyMemberId: isDoubles && (ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) ? Number(ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) : undefined,
           captainNomination: ev.captainNomination || undefined,
           proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
-        });
+        };
+        await (selectedCommunityResident
+          ? sportsService.registerForOthers(registrationRequest)
+          : regType === "family" && familyMemberId
+            ? sportsService.registerForFamilyMember(registrationRequest)
+            : sportsService.registerForEvent(registrationRequest));
       }
 
       if (ev.captainNomination && ev.eventId) {
@@ -1575,9 +1679,15 @@ export function SportsMultiRegister() {
 
   // Comprehensive Submission Handler with Client-Side Eligibility Validation
   const handleSubmit = async () => {
+    if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
+      toast.error("Select or add a family member before registering.");
+      return;
+    }
     if (!gender || !dateOfBirth || currentAge === null) {
       toast.error("Please provide Gender and Date of Birth to proceed with sports registration.");
-      openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId);
+      if (!selectedCommunityResident) {
+        openUpdateDetailsModal(regType === "family" ? (familyMemberId ? "family_edit" : "family_add") : "self", familyMemberId);
+      }
       return;
     }
 
@@ -1642,7 +1752,7 @@ export function SportsMultiRegister() {
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
         try {
-          await sportsService.registerForEvent({
+          const registrationRequest = {
             eventId: ev.eventId,
             categoryId: catId,
             matchType: fmt,
@@ -1655,11 +1765,17 @@ export function SportsMultiRegister() {
             relation: relation || undefined,
             flatNumber: flatNumber || undefined,
             familyMemberId: regType === "family" && familyMemberId && !isNaN(Number(familyMemberId)) ? Number(familyMemberId) : undefined,
+            participantUserId: selectedCommunityResident ? Number(selectedCommunityResident.id) : undefined,
             partnerUserId: isDoubles && (ev.partnerInfo?.userId || ev.partnerUserId) ? (ev.partnerInfo?.userId || ev.partnerUserId) : undefined,
             partnerFamilyMemberId: isDoubles && (ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) ? Number(ev.partnerInfo?.familyMemberId || (ev as any).partnerFamilyMemberId) : undefined,
             captainNomination: ev.captainNomination || undefined,
             proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
-          });
+          };
+          await (selectedCommunityResident
+            ? sportsService.registerForOthers(registrationRequest)
+            : regType === "family" && familyMemberId
+              ? sportsService.registerForFamilyMember(registrationRequest)
+              : sportsService.registerForEvent(registrationRequest));
           successCount++;
         } catch (err: any) {
           const fmtLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -1728,7 +1844,7 @@ export function SportsMultiRegister() {
           This tournament does not have open events or registrations have closed.
         </p>
         <button
-          onClick={() => navigate("/sports")}
+          onClick={() => navigate(backDestination)}
           className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-base font-semibold rounded-xl hover:opacity-95 shadow-md shadow-indigo-500/20 transition cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -1743,11 +1859,11 @@ export function SportsMultiRegister() {
       {/* ── Top Navigation Bar with Tournament Title ──────────────────── */}
       <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
         <button
-          onClick={() => navigate("/sports")}
+          onClick={() => navigate(backDestination)}
           className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-200 text-xs font-medium text-slate-700 hover:text-indigo-600 transition-all cursor-pointer shrink-0"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Back to Hub</span>
+          <span className="hidden sm:inline">{backDestination.startsWith("/sports/tournaments") ? "Back to Tournaments" : "Back to Hub"}</span>
           <span className="sm:hidden">Back</span>
         </button>
 
@@ -1807,7 +1923,7 @@ export function SportsMultiRegister() {
             </div>
 
             {/* Self vs Family Member Toggle */}
-            <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-100/90 rounded-lg mb-2.5">
+            {queryFor !== "community" && <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-100/90 rounded-lg mb-2.5">
               <button
                 type="button"
                 onClick={() => handleRegTypeChange("self")}
@@ -1832,25 +1948,97 @@ export function SportsMultiRegister() {
                 <Users className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Family</span>
               </button>
-            </div>
+            </div>}
 
             {/* Quick Family Member Pills & Add Button */}
             {regType === "family" && (
               <div className="mb-2.5 p-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-indigo-900">
-                    Select Family Member:
+                    Select a participant
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => openUpdateDetailsModal("family_add")}
-                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Member</span>
-                  </button>
+                  {!selectedCommunityResident && (
+                    <button
+                      type="button"
+                      onClick={() => openUpdateDetailsModal("family_add")}
+                      className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Member</span>
+                    </button>
+                  )}
                 </div>
-                {familyMembersOnly.length > 0 ? (
+                <div className="relative mb-2.5">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    autoFocus={queryFor === "community"}
+                    value={communitySearch}
+                    onChange={e => {
+                      const value = e.target.value;
+                      setCommunitySearch(value);
+                      setCommunityResults([]);
+                      setCommunitySearching(false);
+                    }}
+                    placeholder="Search community by name, block, or flat…"
+                    aria-label="Search community residents by name, block, or flat"
+                    className="w-full rounded-lg border border-indigo-100 bg-white py-2 pl-8 pr-9 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10"
+                  />
+                  {communitySearching && <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-indigo-600" />}
+                  {!communitySearching && communitySearch && (
+                    <button type="button" aria-label="Clear community search" onClick={() => { setCommunitySearch(""); setCommunityResults([]); setCommunitySearching(false); }} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-700"><X className="h-3.5 w-3.5" /></button>
+                  )}
+                  {communityResults.length > 0 && (
+                    <div className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                      {communityResults.slice(0, 8).map(resident => {
+                        const residentDetails = resident as UserResponse & { wing?: string; flatNumber?: string; flat?: string };
+                        const block = resident.block || resident.tower || residentDetails.wing || "";
+                        const flat = resident.flatNo || residentDetails.flatNumber || residentDetails.flat || "";
+                        const location = [block ? `Block ${block}` : "", flat ? `Flat ${flat}` : ""].filter(Boolean).join(" · ");
+                        return (
+                          <button key={resident.id} type="button" onClick={() => void handleCommunityResidentSelect(resident)} className="flex w-full items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-indigo-50/60">
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-semibold text-slate-800">{resident.fullName}</span>
+                              <span className="mt-0.5 block truncate text-[10px] text-slate-500">{location || resident.email || "Community resident"}</span>
+                            </span>
+                            <span className="shrink-0 text-[10px] font-bold text-indigo-600">Select</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {communitySearch.trim().length >= 2 && !communitySearching && communityResults.length === 0 && (
+                    <p className="mt-1 rounded-lg bg-white px-2.5 py-2 text-[10px] text-slate-500">No community resident found. Try a name, block, or flat number.</p>
+                  )}
+                </div>
+                {selectedCommunityResident ? (
+                  <div className="mb-2 space-y-2 rounded-lg border border-indigo-200 bg-white p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-slate-800">{selectedCommunityResident.fullName}</p>
+                        <p className="truncate text-[10px] text-slate-500">{flatNumber || "Community resident"}</p>
+                      </div>
+                      <button type="button" onClick={() => { setSelectedCommunityResident(null); setCommunityFamilyMembers([]); setFamilyMemberId(undefined); setPlayerName(""); setEmail(""); setGender(""); setDateOfBirth(""); setRelation(""); setFlatNumber(userProfileFlat); }} className="shrink-0 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Change resident</button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
+                      <button type="button" onClick={() => { setPlayerName(selectedCommunityResident.fullName || ""); setEmail(selectedCommunityResident.email || ""); setGender(selectedCommunityResident.gender?.toUpperCase() || ""); setDateOfBirth(selectedCommunityResident.dateOfBirth || ""); setRelation("SELF"); setFamilyMemberId(undefined); }} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${!familyMemberId ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"}`}>
+                        {selectedCommunityResident.fullName} · Self
+                      </button>
+                      {communityFamilyLoading ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-500"><Loader2 className="h-3 w-3 animate-spin" />Loading family…</span>
+                      ) : communityFamilyMembers.map(member => (
+                        <button key={member.id} type="button" onClick={() => handleCommunityFamilyMemberSelect(member)} className={`rounded-md border px-2.5 py-1.5 text-[11px] font-semibold ${String(familyMemberId) === String(member.id) ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300"}`}>
+                          {member.relation ? `${member.relation}: ` : ""}{member.name}{member.age ? ` · ${member.age} yrs` : ""}
+                        </button>
+                      ))}
+                      {!communityFamilyLoading && communityFamilyMembers.length === 0 && <span className="text-[10px] text-slate-500">No family members listed for this resident.</span>}
+                    </div>
+                  </div>
+                ) : queryFor === "community" ? (
+                  <div className="rounded-lg border border-dashed border-indigo-200 bg-white/80 px-3 py-3 text-center text-[10px] text-slate-500">
+                    Search for a community resident above to choose who to register.
+                  </div>
+                ) : familyMembersOnly.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {familyMembersOnly.map((m) => {
                       const isSelected = String(familyMemberId) === String(m.id);
@@ -1911,7 +2099,7 @@ export function SportsMultiRegister() {
                   </div>
                 )}
 
-                {regType === "family" && playerName && (!gender || !dateOfBirth) && (
+                {regType === "family" && !selectedCommunityResident && playerName && (!gender || !dateOfBirth) && (
                   <div className="mt-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-2 flex items-center justify-between gap-2 text-left animate-in fade-in">
                     <div className="flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -2043,7 +2231,7 @@ export function SportsMultiRegister() {
                         Block & Flat
                       </label>
                       <div className="w-full h-8 text-xs font-medium border border-slate-200 rounded-lg px-2.5 bg-white text-slate-900 flex items-center truncate">
-                        {userProfileFlat || "Not specified"}
+                        {flatNumber || userProfileFlat || "Not specified"}
                       </div>
                     </div>
                   </div>
