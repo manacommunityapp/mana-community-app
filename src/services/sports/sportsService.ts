@@ -85,6 +85,7 @@ export const sportsService = {
   withdraw: sportsEventService.withdraw,
   getTournamentRegistrations: sportsEventService.getTournamentRegistrations,
   getEventRegistrations: sportsEventService.getEventRegistrations,
+  getRegistrationHistory: sportsEventService.getRegistrationHistory,
   getMyRegistrations: sportsEventService.getMyRegistrations,
   confirmRegistration: sportsEventService.confirmRegistration,
   rejectRegistration: sportsEventService.rejectRegistration,

@@ -216,11 +216,17 @@ export const sportsEventService = {
   },
 
   /** GET /api/sports/tournaments/{eventId}/registrations — list all registrations for a tournament */
-  async getTournamentRegistrations(eventId: number): Promise<TournamentRegistration[]> {
-    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations`);
+  async getTournamentRegistrations(eventId: number, latestOnly = false): Promise<TournamentRegistration[]> {
+    const qs = latestOnly ? "?latestOnly=true" : "";
+    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations${qs}`);
   },
-  async getEventRegistrations(eventId: number): Promise<EventRegistration[]> {
-    return this.getTournamentRegistrations(eventId);
+  async getEventRegistrations(eventId: number, latestOnly = false): Promise<EventRegistration[]> {
+    return this.getTournamentRegistrations(eventId, latestOnly);
+  },
+
+  /** GET /api/sports/tournaments/{eventId}/registrations/{registrationId}/history — lazy load player registration history */
+  async getRegistrationHistory(eventId: number, registrationId: number): Promise<TournamentRegistration[]> {
+    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations/${registrationId}/history`);
   },
 
   /** GET /api/sports/registrations/mine — list all registrations for the current user */
