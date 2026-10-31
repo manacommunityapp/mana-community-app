@@ -411,9 +411,36 @@ export const HealthPortal: React.FC = () => {
 
       {/* Tab 1: Doctors & Clinics Directory */}
       {activeTab === "doctors" && (
-        <HealthcareDirectory
-          onCampRegister={() => setActiveTab("camps")}
-        />
+        <div className="space-y-4">
+          {/* Condition-Based Quick Access (Round 6) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <p className="text-sm font-black text-gray-900 mb-1">What are you looking for?</p>
+            <p className="text-xs text-gray-500 mb-3">Select a condition or specialty — consult in ~15 min from ₹199</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Cold & Fever", icon: "🌡️", specialty: "General Medicine" },
+                { label: "Skin & Hair", icon: "✨", specialty: "Dermatology" },
+                { label: "Stomach Issues", icon: "🫁", specialty: "Gastroenterology" },
+                { label: "Back & Joints", icon: "🦴", specialty: "Orthopedics" },
+                { label: "Heart Issues", icon: "❤️", specialty: "Cardiology" },
+                { label: "Pregnancy", icon: "🤰", specialty: "Gynecology" },
+                { label: "Child & Infant", icon: "👶", specialty: "Pediatrics" },
+                { label: "Report Analysis", icon: "📋", specialty: "Lab Report Analysis" },
+                { label: "Sexual Health", icon: "🔒", specialty: "Sexual Health" },
+                { label: "Weight Loss", icon: "⚖️", specialty: "Nutrition" },
+                { label: "I Don't Know", icon: "❓", specialty: "" },
+              ].map((cg, i) => (
+                <button key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100 transition-colors">
+                  <span>{cg.icon}</span>
+                  <span>{cg.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <HealthcareDirectory
+            onCampRegister={() => setActiveTab("camps")}
+          />
+        </div>
       )}
 
       {/* Tab 2: Community Health Camps */}
@@ -1498,6 +1525,16 @@ export const HealthPortal: React.FC = () => {
       {/* ── Surgery Care ─────────────────────────────────────────────────────── */}
       {activeTab === "surgery" && (
         <div className="space-y-5">
+          {/* Free First Consultation CTA (Round 6) */}
+          <div className="bg-teal-600 rounded-2xl p-4 flex items-center gap-3 text-white">
+            <span className="text-2xl">💬</span>
+            <div className="flex-1">
+              <p className="font-black text-sm">Book Free Consultation</p>
+              <p className="text-xs text-teal-100">Talk to a surgical specialist first — free, no obligation</p>
+            </div>
+            <button onClick={() => alert("Free Consultation\n\nA surgical specialist will call you within 2 hours to understand your condition and guide you — completely free.")} className="bg-white text-teal-700 font-black text-xs px-3 py-2 rounded-xl">Book Free →</button>
+          </div>
+
           {/* Care Buddy Banner */}
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-black">P</div>
@@ -1506,6 +1543,25 @@ export const HealthPortal: React.FC = () => {
               <p className="text-xs text-purple-700 mt-0.5">Dedicated coordinator · Available 24×7 · Free service</p>
             </div>
             <button onClick={() => alert("Care Buddy: +91 98765 43210")} className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Call</button>
+          </div>
+
+          {/* Insurance Coverage Check (Round 6) */}
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-green-600">🛡️</span>
+              <p className="font-black text-green-900 text-sm flex-1">Insurance Coverage Check</p>
+              <span className="bg-green-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">✓ COVERED</span>
+            </div>
+            <p className="text-xs text-green-700 mb-3">Your surgery is covered under Star Health (SH-2026-XXXXX)</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[{ label: "Sum Insured", val: "₹5,00,000" }, { label: "Used", val: "₹1,20,000" }, { label: "Available", val: "₹3,80,000" }].map((d, i) => (
+                <div key={i} className="bg-white rounded-xl p-2 text-center">
+                  <p className="text-[10px] text-gray-500">{d.label}</p>
+                  <p className="text-sm font-black text-gray-800 mt-0.5">{d.val}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-green-600 mt-2 italic">Cashless pre-auth will be initiated by your Care Buddy.</p>
           </div>
 
           {/* Procedure Grid */}
@@ -1901,26 +1957,44 @@ export const HealthPortal: React.FC = () => {
           <div className="bg-gradient-to-br from-amber-700 to-amber-500 rounded-2xl p-6 text-center text-white space-y-2">
             <div className="text-4xl">⭐</div>
             <p className="font-black text-xl text-yellow-200">Mana Gold</p>
-            <p className="text-sm text-amber-200">Your Premium Health Membership</p>
-            <p className="text-xs text-amber-100">Unlimited consultations, priority care, exclusive discounts.</p>
+            <p className="text-sm text-amber-200 font-bold">Family of 6 · 22+ Specialties · 12+ Languages</p>
+            <p className="text-xs text-amber-100">Unlimited video consultations for your entire family, 24×7, in your language.</p>
+          </div>
+
+          {/* Family Coverage */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-black text-amber-800 mb-1">Covers Your Whole Family</p>
+            <p className="text-xs text-amber-600 mb-3">Add up to 6 members — free for all on one plan</p>
+            <div className="flex gap-3 flex-wrap">
+              {["You", "Spouse", "Child 1", "Child 2", "Parent 1", "Parent 2"].map((m, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-full bg-amber-200 border-2 border-amber-500 flex items-center justify-center text-lg">👤</div>
+                  <span className="text-[10px] text-amber-700 font-semibold">{m}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Benefits */}
           <div className="space-y-2">
             <h3 className="text-sm font-black text-gray-900">What's Included</h3>
             {[
-              { icon: "📹", title: "Unlimited Video Consultations", value: "Unlimited" },
-              { icon: "🧪", title: "30% Off Lab Tests", value: "30% off" },
-              { icon: "💊", title: "20% Off Pharmacy", value: "20% off" },
-              { icon: "⚡", title: "Priority Booking", value: "Priority" },
-              { icon: "🩺", title: "Annual Health Check-up", value: "1 free/yr" },
-              { icon: "🧠", title: "4 Free Therapy Sessions/mo", value: "4/mo" },
-              { icon: "📞", title: "24×7 Doctor Helpline", value: "24×7" },
+              { icon: "📹", title: "Unlimited Video Consultations", detail: "22+ specialties, family of 6, 24×7", value: "Family of 6" },
+              { icon: "🌐", title: "12+ Languages Supported", detail: "Hindi, Telugu, Tamil, Kannada, Bengali & more", value: "12+ langs" },
+              { icon: "🧪", title: "30% Off Lab Tests", detail: "All lab packages & home collection", value: "30% off" },
+              { icon: "💊", title: "20% Off Pharmacy", detail: "All pharmacy orders", value: "20% off" },
+              { icon: "⚡", title: "Priority Booking", detail: "Skip the queue — instant slot confirmation", value: "Priority" },
+              { icon: "🩺", title: "Annual Health Check-up", detail: "Comprehensive check-up included", value: "1 free/yr" },
+              { icon: "🧠", title: "4 Free Therapy Sessions/mo", detail: "Mental health & counselling sessions", value: "4/mo" },
+              { icon: "📞", title: "24×7 Doctor Helpline", detail: "On-call doctor anytime", value: "24×7" },
             ].map((b, i) => (
               <div key={i} className="bg-white border border-amber-200 rounded-2xl p-3 flex items-center gap-3">
                 <span className="text-xl">{b.icon}</span>
-                <p className="flex-1 text-sm font-semibold text-gray-800">{b.title}</p>
-                <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-lg">{b.value}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{b.title}</p>
+                  <p className="text-xs text-gray-500">{b.detail}</p>
+                </div>
+                <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-lg whitespace-nowrap">{b.value}</span>
               </div>
             ))}
           </div>

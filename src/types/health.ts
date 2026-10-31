@@ -245,6 +245,35 @@ export interface GoldMembershipDto {
   createdAt: string;
 }
 
+// ── Round 6 types ─────────────────────────────────────────────────────────────
+
+export type ConsultLanguage = "ENGLISH" | "HINDI" | "TELUGU" | "TAMIL" | "KANNADA" | "MARATHI" | "BENGALI" | "MALAYALAM" | "GUJARATI" | "PUNJABI" | "ODIA" | "ASSAMESE";
+export type ConditionGroup = "COLD_COUGH_FEVER" | "SKIN_HAIR" | "STOMACH_ISSUES" | "BACK_JOINT_PAIN" | "CARDIAC" | "SEXUAL_HEALTH" | "PREGNANCY" | "CONCEIVING" | "CHILD_INFANT" | "LAB_REPORT_ANALYSIS" | "WEIGHT_MANAGEMENT" | "NOT_SURE";
+export type InsuranceCoverageStatus = "COVERED" | "PARTIALLY_COVERED" | "NOT_COVERED" | "VERIFICATION_PENDING";
+
+export interface ConditionGroupDto {
+  id: string;
+  group: ConditionGroup;
+  label: string;
+  mappedSpecialty: string;
+  availableDoctors: number;
+  avgWaitMin: string;
+  startingPrice: string;
+}
+
+export interface InsuranceCoverageDto {
+  procedureId: string;
+  procedureName: string;
+  status: InsuranceCoverageStatus;
+  policyNumber: string;
+  insurer: string;
+  sumInsured: number;
+  amountUsed: number;
+  amountAvailable: number;
+  cashlessEligible: boolean;
+  notes: string;
+}
+
 export type AppointmentStatus = "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | "NO_SHOW";
 export type DoctorVerificationStatus = "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type FamilyRelationship = "SELF" | "SPOUSE" | "CHILD" | "PARENT" | "DEPENDENT";
