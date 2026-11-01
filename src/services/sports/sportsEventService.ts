@@ -7,6 +7,7 @@ import type {
   EventRegistration,
   SportsTournamentRequest,
   TournamentRegistration,
+  PaginatedResponse,
 } from "../../types/api";
 
 export interface EventRegistrationDetailsResponse {
@@ -22,6 +23,9 @@ export interface SportsCommunityFamilyMember {
   age?: number;
   gender?: string;
 }
+
+// Deduplicate concurrent in-flight requests for event/tournament registrations
+const registrationsInFlight = new Map<string, Promise<TournamentRegistration[]>>();
 
 export const sportsEventService = {
   mapEvent(e: SportsEvent): SportsEvent {
@@ -72,6 +76,22 @@ export const sportsEventService = {
   /** GET /api/sports/events/all — list of all events (ignored for now) */
   async getAllEvents(): Promise<SportsEvent[]> {
     return Promise.resolve([]);
+  },
+
+  /** GET /api/sports/events/all — fetch all admin-visible sports events across server pages. */
+  async getAllSportsEventsPaged(): Promise<SportsEvent[]> {
+    const pageSize = 200;
+    const events: SportsEvent[] = [];
+    let page = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const response = await apiClient.get<PaginatedResponse<SportsEvent>>(`/sports/events/all?page=${page}&size=${pageSize}`);
+      const currentPage = Array.isArray(response?.content) ? response.content : [];
+      events.push(...currentPage.map((event) => this.mapEvent(event)));
+      hasMore = Boolean(currentPage.length && !response.last);
+      page += 1;
+    }
+    return events;
   },
 
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */
@@ -248,7 +268,22 @@ export const sportsEventService = {
   /** GET /api/sports/tournaments/{eventId}/registrations — list all registrations for a tournament */
   async getTournamentRegistrations(eventId: number, latestOnly = false): Promise<TournamentRegistration[]> {
     const qs = latestOnly ? "?latestOnly=true" : "";
-    return apiClient.get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations${qs}`);
+    const cacheKey = `${eventId}${qs}`;
+
+    const inFlight = registrationsInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const requestPromise = apiClient
+      .get<TournamentRegistration[]>(`/sports/tournaments/${eventId}/registrations${qs}`)
+      .finally(() => {
+        // Clear in-flight reference once settled so future calls fetch fresh data
+        registrationsInFlight.delete(cacheKey);
+      });
+
+    registrationsInFlight.set(cacheKey, requestPromise);
+    return requestPromise;
   },
   async getEventRegistrations(eventId: number, latestOnly = false): Promise<EventRegistration[]> {
     return this.getTournamentRegistrations(eventId, latestOnly);

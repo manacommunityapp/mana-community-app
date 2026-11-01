@@ -118,31 +118,52 @@ export function TournamentPlayersPaymentModal({
   const [notes, setNotes] = useState("");
   const [submittingPayment, setSubmittingPayment] = useState(false);
 
+  const tournamentId = tournament?.id;
+  const eventIdsKey = useMemo(() => {
+    return (tournament?.events || []).map((e) => e.id).join(",");
+  }, [tournament?.events]);
+
   useEffect(() => {
-    if (!isOpen || !tournament) return;
+    if (!isOpen || !tournament || !tournamentId) return;
 
     let isMounted = true;
     setLoading(true);
 
     const loadData = async () => {
       try {
-        const events = tournament.events || [];
-        const paymentsPromise = tournamentPaymentService.getPayments(tournament.id);
+        const rawEvents = tournament.events || [];
+        const paymentsPromise = tournamentPaymentService.getPayments(tournamentId);
 
-        // Fetch registrations for each event under this tournament
-        const regPromises = events.map(async (ev) => {
-          try {
-            const regs = await sportsService.getTournamentRegistrations(ev.id);
-            return { event: ev, registrations: regs || [] };
-          } catch {
-            return { event: ev, registrations: [] as TournamentRegistration[] };
-          }
-        });
+        // Deduplicate event IDs so each unique eventId is only queried once from the backend
+        const uniqueEventIds = Array.from(
+          new Set(
+            rawEvents
+              .map((ev) => ev.id)
+              .filter((id): id is number => typeof id === "number" && id > 0)
+          )
+        );
 
-        const [paymentsMap, eventsWithRegs] = await Promise.all([
-          paymentsPromise,
-          Promise.all(regPromises),
-        ]);
+        // Fetch registrations in parallel only once per unique event ID
+        const registrationsByEventId = new Map<number, TournamentRegistration[]>();
+        await Promise.all(
+          uniqueEventIds.map(async (eventId) => {
+            try {
+              const regs = await sportsService.getTournamentRegistrations(eventId);
+              registrationsByEventId.set(eventId, regs || []);
+            } catch (err) {
+              console.error(`Failed to load registrations for event ${eventId}:`, err);
+              registrationsByEventId.set(eventId, []);
+            }
+          })
+        );
+
+        // Map back to each event entry in rawEvents so category and format mappings are preserved
+        const eventsWithRegs = rawEvents.map((ev) => ({
+          event: ev,
+          registrations: registrationsByEventId.get(ev.id) || [],
+        }));
+
+        const paymentsMap = await paymentsPromise;
 
         if (!isMounted) return;
 
@@ -164,7 +185,7 @@ export function TournamentPlayersPaymentModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, tournament]);
+  }, [isOpen, tournamentId, eventIdsKey]);
 
   // Quick stats
   const stats = useMemo(() => {
