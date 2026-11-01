@@ -32,6 +32,7 @@ interface DashboardTabProps {
   rejectTeam?: (id: number) => void;
   setActiveTab: (tab: any) => void;
   setSportsEventSubTab?: (tab: "list" | "config") => void;
+  setTeamsViewMode?: (mode: "approved" | "pending" | "all") => void;
 }
 
 export function DashboardTab({
@@ -44,6 +45,7 @@ export function DashboardTab({
   rejectTeam,
   setActiveTab,
   setSportsEventSubTab,
+  setTeamsViewMode,
 }: DashboardTabProps) {
   const [showAllPending, setShowAllPending] = useState(false);
   const [showAllTournaments, setShowAllTournaments] = useState(false);
@@ -153,15 +155,17 @@ export function DashboardTab({
           role="button"
           tabIndex={0}
           onClick={() => {
+            setTeamsViewMode?.("approved");
             setActiveTab("teams");
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
+              setTeamsViewMode?.("approved");
               setActiveTab("teams");
             }
           }}
-          title="Go to Teams Management"
+          title="Go to Approved Teams in Teams Management"
           className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-md hover:border-emerald-300 hover:scale-[1.02] active:scale-[0.99] transition-all duration-200 cursor-pointer group text-left"
         >
           <div className="flex items-center justify-between">
@@ -183,11 +187,13 @@ export function DashboardTab({
           role="button"
           tabIndex={0}
           onClick={() => {
+            setTeamsViewMode?.("pending");
             setActiveTab("teams");
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
+              setTeamsViewMode?.("pending");
               setActiveTab("teams");
             }
           }}

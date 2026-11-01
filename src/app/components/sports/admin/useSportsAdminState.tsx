@@ -208,6 +208,7 @@ export function useSportsAdminState() {
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
   const [activeTournamentName, setActiveTournamentName] = useState<string>("");
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [teamsViewMode, setTeamsViewMode] = useState<"approved" | "pending" | "all">("all");
 
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -3022,6 +3023,7 @@ export function useSportsAdminState() {
     // Tournament-first flow
     activeTournamentId, activeTournamentName, clearTournamentContext, setTournamentContext,
     sportsEventSubTab, setSportsEventSubTab,
+    teamsViewMode, setTeamsViewMode,
 
     // Tournament data
     activeTournaments, activeEvents,

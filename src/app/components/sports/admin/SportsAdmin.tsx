@@ -58,6 +58,7 @@ export function SportsAdmin() {
               rejectTeam={s.rejectTeam}
               setActiveTab={s.setActiveTab}
               setSportsEventSubTab={s.setSportsEventSubTab}
+              setTeamsViewMode={s.setTeamsViewMode}
             />
           )}
 
@@ -209,6 +210,8 @@ export function SportsAdmin() {
               activeEvents={s.activeEvents}
               communityId={s.user?.role !== "SUPER_ADMIN" ? s.user?.communityId : null}
               isSuperAdmin={s.user?.role === "SUPER_ADMIN"}
+              viewMode={s.teamsViewMode}
+              setViewMode={s.setTeamsViewMode}
             />
           )}
 
