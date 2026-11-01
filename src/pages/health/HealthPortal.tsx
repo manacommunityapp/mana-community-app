@@ -399,7 +399,9 @@ export const HealthPortal: React.FC = () => {
           { id: "cancer", label: "🎗️ Cancer Care" },
           { id: "mental-health", label: "🧠 Mental Health" },
           { id: "hospitals", label: "🏥 Hospital Finder" },
-          { id: "gold", label: "⭐ Mana Gold" }
+          { id: "gold", label: "⭐ Mana Gold" },
+          { id: "homecare", label: "🏡 Home Healthcare" },
+          { id: "radiology", label: "🩻 Radiology & Imaging" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -3942,6 +3944,114 @@ export const HealthPortal: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Home Healthcare ───────────────────────────────────────────────────── */}
+      {activeTab === "homecare" && (
+        <div className="space-y-5">
+          <div className="bg-gradient-to-br from-pink-700 to-pink-500 rounded-2xl p-5 text-white">
+            <p className="font-black text-lg">🏡 Home Healthcare</p>
+            <p className="text-sm text-pink-100 mt-1">Professional caregivers at your doorstep · Nursing, Physio, Elder Care & more</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Nursing Care", icon: "💉", priceFrom: "₹599/visit", desc: "Wound care, IV, injections" },
+              { label: "Physiotherapy", icon: "🏃", priceFrom: "₹699/visit", desc: "Mobility, post-surgery rehab" },
+              { label: "Attendant / Caregiver", icon: "🤝", priceFrom: "₹499/visit", desc: "Daily living assistance" },
+              { label: "Elder Care", icon: "👴", priceFrom: "₹599/visit", desc: "Dedicated senior companion" },
+              { label: "Post-Surgery Care", icon: "🩹", priceFrom: "₹799/visit", desc: "ICU step-down homecare" },
+              { label: "Medical Equipment", icon: "🛏️", priceFrom: "₹299/day", desc: "Hospital bed, wheelchair, O₂" },
+            ].map((s, i) => (
+              <div key={i} className="bg-white border border-pink-100 rounded-2xl p-3 flex flex-col gap-1 hover:border-pink-400 cursor-pointer transition-colors">
+                <span className="text-2xl">{s.icon}</span>
+                <p className="text-sm font-bold text-gray-800">{s.label}</p>
+                <p className="text-xs text-gray-500">{s.desc}</p>
+                <p className="text-xs font-black text-pink-600 mt-1">From {s.priceFrom}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Care Plans</h3>
+            {[
+              { name: "Basic Care", price: "₹3,499/mo", features: ["2 daily visits", "Vitals monitoring", "Medication reminders", "Daily report to family"] },
+              { name: "Comprehensive Care", price: "₹7,999/mo", features: ["3 daily visits", "All Basic features", "Physio 3×/week", "Doctor teleconsult 2×/month"] },
+              { name: "ICU Step-Down", price: "₹14,999/mo", features: ["24-hr caregiver", "Trained post-ICU nurse", "Equipment provided", "Daily doctor review"] },
+            ].map((plan, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-black text-gray-900">{plan.name}</p>
+                    <p className="text-xs font-bold text-pink-600 mt-0.5">{plan.price}</p>
+                  </div>
+                  <button onClick={() => alert(`Enquiring about ${plan.name}…`)} className="bg-pink-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Enquire</button>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {plan.features.map((f, j) => <li key={j} className="text-xs text-gray-600 flex items-center gap-1"><span className="text-pink-400">✓</span>{f}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={() => alert("Booking home care… Our coordinator will call within 30 minutes.")} className="w-full bg-pink-600 text-white font-black text-sm py-3.5 rounded-2xl">
+            Book Home Care Visit
+          </button>
+        </div>
+      )}
+
+      {/* ── Radiology & Imaging ───────────────────────────────────────────────── */}
+      {activeTab === "radiology" && (
+        <div className="space-y-5">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-600 rounded-2xl p-5 text-white">
+            <p className="font-black text-lg">🩻 Radiology & Imaging</p>
+            <p className="text-sm text-slate-300 mt-1">X-Ray · Ultrasound · CT · MRI · PET-CT · Mammography</p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Scan Types</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "X-Ray", icon: "🩻", price: "from ₹300", color: "bg-cyan-50 border-cyan-200" },
+                { label: "Ultrasound", icon: "🔵", price: "from ₹799", color: "bg-blue-50 border-blue-200" },
+                { label: "CT Scan", icon: "🔮", price: "from ₹2,500", color: "bg-purple-50 border-purple-200" },
+                { label: "MRI", icon: "🧲", price: "from ₹5,000", color: "bg-emerald-50 border-emerald-200" },
+                { label: "PET-CT", icon: "☢️", price: "from ₹18,000", color: "bg-red-50 border-red-200" },
+                { label: "Mammography", icon: "🩷", price: "from ₹1,500", color: "bg-pink-50 border-pink-200" },
+              ].map((scan, i) => (
+                <div key={i} className={`${scan.color} border rounded-xl p-3 text-center cursor-pointer hover:shadow-sm transition-shadow`}>
+                  <span className="text-xl">{scan.icon}</span>
+                  <p className="text-xs font-bold text-gray-800 mt-1">{scan.label}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{scan.price}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Imaging Centres Near You</h3>
+            {[
+              { name: "SRL Diagnostics @ Mana", dist: "0.1 km", accred: ["NABL", "CAP"], scans: "X-Ray · USG", turnaround: "1–3 hrs", open: true },
+              { name: "Manipal Imaging & Diagnostics", dist: "2.3 km", accred: ["NABH", "ACR"], scans: "Full modalities", turnaround: "4–6 hrs", open: true },
+              { name: "Apollo Radiology Centre", dist: "3.7 km", accred: ["NABH", "JCI"], scans: "All incl. PET-CT", turnaround: "2–4 hrs", open: true },
+            ].map((c, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-bold text-gray-900">{c.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{c.dist} · {c.scans}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Report: {c.turnaround}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${c.open ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{c.open ? "Open" : "Closed"}</span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  {c.accred.map((a, j) => <span key={j} className="text-[9px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{a}</span>)}
+                </div>
+                <button onClick={() => alert(`Booking at ${c.name}…`)} className="mt-3 w-full bg-slate-800 text-white text-xs font-bold py-2 rounded-xl">Book Scan Here</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
