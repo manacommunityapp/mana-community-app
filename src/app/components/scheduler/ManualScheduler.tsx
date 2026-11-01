@@ -721,9 +721,15 @@ export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetu
                   onChange={e => setQuickEventId(e.target.value)}
                   className="w-full text-xs font-semibold rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 outline-none"
                 >
-                  {availableEvents.map(e => (
-                    <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>
-                  ))}
+                  {availableEvents.map(e => {
+                    const rawFmt = e.formats || e.format;
+                    const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+                    const fmt = fmtList.map(f => String(f).toUpperCase() === 'SINGLES' ? 'Singles' : String(f).toUpperCase() === 'DOUBLES' ? 'Doubles' : String(f).toUpperCase().includes('MIXED') ? 'Mixed Doubles' : String(f).toUpperCase() === 'TEAM' ? 'Team' : f).join(' / ');
+                    const fmtPart = fmt && !e.name.toLowerCase().includes(fmt.toLowerCase()) ? ` — ${fmt}` : '';
+                    return (
+                      <option key={e.id} value={e.id}>{e.name}{fmtPart} ({e.sportName})</option>
+                    );
+                  })}
                 </select>
               </div>
               <div>

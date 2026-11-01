@@ -265,6 +265,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState('');
   const [selectedAgeFilter, setSelectedAgeFilter] = useState('');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState('');
+  const [selectedFormatFilter, setSelectedFormatFilter] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('');
 
   // UI
@@ -353,6 +354,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         const minAge = item.minAge != null ? item.minAge : (ce?.minAge != null ? ce.minAge : undefined);
         const maxAge = item.maxAge != null ? item.maxAge : (ce?.maxAge != null ? ce.maxAge : undefined);
         const categoryName = item.categoryName || ce?.categoryName || undefined;
+        const rawFormats = item.formats || item.format || ce?.format || (ce as any)?.formats;
+        const formats = Array.isArray(rawFormats) ? rawFormats : (rawFormats ? [rawFormats] : []);
 
         return {
           ...item,
@@ -362,6 +365,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           minAge,
           maxAge,
           categoryName,
+          formats,
+          minPlayers: item.minPlayers ?? ce?.minPlayers,
+          maxPlayers: item.maxPlayers ?? ce?.maxPlayers,
         };
       });
       setEvents(enrichedEvents);
@@ -411,6 +417,69 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return 'All Ages / Open';
   };
 
+  const formatParticipantFormat = (e: EventInfo): string => {
+    // 1. Check formats array from e or enriched data
+    const rawFormats = e.formats || e.format;
+    const list = Array.isArray(rawFormats) ? rawFormats : (rawFormats ? [rawFormats] : []);
+    const normalized = list.map(f => String(f).toUpperCase().trim()).filter(Boolean);
+
+    if (normalized.length > 0) {
+      const labels = normalized.map(f => {
+        if (f === 'SINGLES') return 'Singles';
+        if (f === 'DOUBLES') return 'Doubles';
+        if (f === 'MIXED_DOUBLES' || f === 'MIXED') return 'Mixed Doubles';
+        if (f === 'TEAM') return 'Team';
+        return f.charAt(0).toUpperCase() + f.slice(1).toLowerCase();
+      });
+      return Array.from(new Set(labels)).join(' / ');
+    }
+
+    // 2. Infer from name or category keywords
+    const text = `${e.name || ''} ${e.categoryName || ''}`.toLowerCase();
+    if (text.includes('mixed doubles') || (text.includes('mixed') && text.includes('doubles'))) {
+      return 'Mixed Doubles';
+    }
+    if (text.includes('singles') && text.includes('doubles')) {
+      return 'Singles / Doubles';
+    }
+    if (text.includes('singles')) {
+      return 'Singles';
+    }
+    if (text.includes('doubles')) {
+      return 'Doubles';
+    }
+    if (text.includes('mixed')) {
+      return 'Mixed Doubles';
+    }
+
+    // 3. Infer from min/max players
+    if (e.minPlayers === 1 && e.maxPlayers === 1) return 'Singles';
+    if (e.minPlayers === 2 && e.maxPlayers === 2) return 'Doubles';
+    if (e.minPlayers && e.minPlayers > 2) return 'Team';
+
+    // 4. Team sports
+    const sport = (e.sportName || '').toLowerCase();
+    if (['cricket', 'football', 'volleyball', 'basketball', 'kabaddi', 'hockey', 'throwball', 'rugby', 'soccer'].includes(sport)) {
+      return 'Team';
+    }
+
+    return '';
+  };
+
+  const getEventOptionLabel = (e: EventInfo): string => {
+    const fmt = formatParticipantFormat(e);
+    const sportPart = e.sportName ? ` (${e.sportName})` : '';
+    if (!fmt) {
+      return `${e.name}${sportPart}`;
+    }
+    const nameLower = (e.name || '').toLowerCase();
+    const fmtLower = fmt.toLowerCase();
+    if (nameLower.includes(fmtLower) || (fmtLower.includes('mixed') && nameLower.includes('mixed'))) {
+      return `${e.name}${sportPart}`;
+    }
+    return `${e.name} — ${fmt}${sportPart}`;
+  };
+
   const availableGenders = useMemo(() => {
     const set = new Set<string>();
     events.forEach(e => {
@@ -442,6 +511,32 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     });
   }, [events]);
 
+  const availableFormats = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach(e => {
+      const fmt = formatParticipantFormat(e);
+      if (fmt) {
+        if (fmt.includes(' / ')) {
+          fmt.split(' / ').forEach(part => set.add(part.trim()));
+        } else {
+          set.add(fmt);
+        }
+      }
+    });
+    if (set.size === 0) {
+      ['Singles', 'Doubles', 'Mixed Doubles', 'Team'].forEach(f => set.add(f));
+    }
+    const preferredOrder = ['Singles', 'Doubles', 'Mixed Doubles', 'Mixed', 'Team'];
+    return Array.from(set).sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a);
+      const idxB = preferredOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [events]);
+
   const filteredEvents = useMemo(() => {
     return events.filter(e => {
       if (selectedTournamentFilter) {
@@ -457,9 +552,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       if (selectedGenderFilter) {
         if (formatGender(e.gender) !== selectedGenderFilter) return false;
       }
+      if (selectedFormatFilter) {
+        const fmt = formatParticipantFormat(e);
+        if (!fmt) return false;
+        if (fmt !== selectedFormatFilter && !fmt.includes(selectedFormatFilter)) return false;
+      }
       return true;
     });
-  }, [events, selectedTournamentFilter, selectedAgeFilter, selectedGenderFilter]);
+  }, [events, selectedTournamentFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
 
   const handleTournamentFilterChange = (tournId: string) => {
     setSelectedTournamentFilter(tournId);
@@ -495,10 +595,24 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     }
   };
 
+  const handleFormatFilterChange = (format: string) => {
+    setSelectedFormatFilter(format);
+    if (selectedEvent && format) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev) {
+        const fmt = formatParticipantFormat(ev);
+        if (fmt !== format && !fmt.includes(format)) {
+          handleEventChange('');
+        }
+      }
+    }
+  };
+
   const handleResetFilters = () => {
     setSelectedTournamentFilter('');
     setSelectedAgeFilter('');
     setSelectedGenderFilter('');
+    setSelectedFormatFilter('');
   };
 
   const handleSaveTimingSuccess = (updatedVenue: Venue) => {
@@ -1520,10 +1634,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <Trophy className="w-4 h-4 text-[#4f46e5]" />
               <h3 className="text-sm font-bold text-[#0d0d2b]">Tournament & Event Selection</h3>
               <span className="text-xs text-[#6b7094] hidden md:inline">
-                Filter by tournament, age, or gender to narrow down sports events
+                Filter by tournament, age, gender, or participant format to narrow down sports events
               </span>
             </div>
-            {(selectedTournamentFilter || selectedAgeFilter || selectedGenderFilter) && (
+            {(selectedTournamentFilter || selectedAgeFilter || selectedGenderFilter || selectedFormatFilter) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -1535,7 +1649,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             {/* Tournament Filter */}
             <div>
               <label className={labelCls}>
@@ -1596,6 +1710,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </select>
             </div>
 
+            {/* Participant Format Filter */}
+            <div>
+              <label className={labelCls}>
+                Participant Format
+                {selectedFormatFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedFormatFilter}
+                onChange={e => handleFormatFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Formats ({availableFormats.length})</option>
+                {availableFormats.map(f => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Sports Event Selection */}
             <div>
               <label className={labelCls}>
@@ -1609,7 +1743,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <option value="">— Select Event ({filteredEvents.length}) —</option>
                 {filteredEvents.map(e => (
                   <option key={e.id} value={e.id}>
-                    {e.name} ({e.sportName})
+                    {getEventOptionLabel(e)}
                   </option>
                 ))}
               </select>
@@ -1644,6 +1778,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-100">
                   Age: {formatAgeCategory(ev)}
                 </span>
+                {formatParticipantFormat(ev) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-medium border border-purple-100">
+                    Format: {formatParticipantFormat(ev)}
+                  </span>
+                )}
                 {(ev.eventDateStart || ev.eventDateEnd) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 font-medium border border-amber-100">
                     <Calendar className="w-3 h-3 text-amber-500" />
