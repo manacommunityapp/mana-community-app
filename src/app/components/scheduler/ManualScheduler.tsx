@@ -13,6 +13,8 @@ import type { Venue } from '../../../types/api';
 
 interface ManualSchedulerProps {
   configId?: number;
+  onNavigateToConfig?: () => void;
+  onNavigateToSetup?: () => void;
 }
 
 interface TeamItem {
@@ -67,7 +69,7 @@ const TBD_OPTIONS = [
   { value: 'TBD_GRP_B2', label: '2nd Place Group B' },
 ];
 
-export function ManualScheduler({ configId }: ManualSchedulerProps) {
+export function ManualScheduler({ configId, onNavigateToConfig, onNavigateToSetup }: ManualSchedulerProps) {
   // Navigation & Config
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(configId ?? null);
@@ -121,6 +123,12 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
   const [masterSearch, setMasterSearch] = useState('');
   const [masterStageFilter, setMasterStageFilter] = useState('ALL');
 
+  // Quick Configuration for unconfigured sports events
+  const [availableEvents, setAvailableEvents] = useState<any[]>([]);
+  const [quickEventId, setQuickEventId] = useState<number | string>('');
+  const [quickFormat, setQuickFormat] = useState('GROUP_PLAYOFF');
+  const [initializingQuickConfig, setInitializingQuickConfig] = useState(false);
+
   // Load configs on mount
   useEffect(() => {
     tournamentService.getConfigs()
@@ -140,11 +148,64 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
         }
       })
       .catch(() => {});
+
+    tournamentService.getEventsForDropdown()
+      .then(evs => {
+        setAvailableEvents(evs || []);
+        if (evs && evs.length > 0) {
+          setQuickEventId(evs[0].id);
+        }
+      })
+      .catch(() => {});
     
     venueService.getVenues()
       .then(vList => setVenues(vList || []))
       .catch(() => {});
   }, []);
+
+  const handleQuickCreateConfig = async () => {
+    if (!quickEventId) {
+      showWarning('Please select an event to initialize.');
+      return;
+    }
+    const ev = availableEvents.find(e => String(e.id) === String(quickEventId));
+    if (!ev) return;
+
+    setInitializingQuickConfig(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      const payload = {
+        tournamentName: `${ev.name} Tournament`,
+        sportId: ev.sportId || 1,
+        communityId: ev.communityId || 1,
+        eventId: ev.id,
+        tournamentType: quickFormat,
+        totalTeams: ev.totalTeams && ev.totalTeams >= 2 ? ev.totalTeams : 8,
+        numberOfGroups: quickFormat === 'GROUP_PLAYOFF' ? 2 : 1,
+        teamsAdvancingPerGroup: 2,
+        startDate: ev.eventDateStart ? ev.eventDateStart.split('T')[0] : today,
+        endDate: ev.eventDateEnd ? ev.eventDateEnd.split('T')[0] : nextWeek,
+        matchDurationMinutes: 60,
+        breakBetweenMatchesMinutes: 15,
+        pointsForWin: 2,
+        pointsForDraw: 1,
+        pointsForLoss: 0,
+        thirdPlaceMatch: true,
+        hasSeeding: false,
+      };
+
+      const newCfg = await tournamentService.createConfig(payload);
+      showSuccess(`Tournament configured successfully for "${ev.name}"!`);
+      const updatedConfigs = await tournamentService.getConfigs();
+      setConfigs(updatedConfigs);
+      setSelectedConfigId(newCfg.id);
+    } catch {
+      showError('Failed to initialize tournament configuration. Please use the Config tab.');
+    } finally {
+      setInitializingQuickConfig(false);
+    }
+  };
 
   useEffect(() => {
     if (configId) {
@@ -634,14 +695,82 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
 
   if (!selectedConfigId && configs.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-500 max-w-xl mx-auto shadow-xs">
-        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Trophy className="w-7 h-7" />
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-center text-slate-500 max-w-xl mx-auto shadow-sm space-y-6">
+        <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+          <Trophy className="w-8 h-8" />
         </div>
-        <h3 className="font-bold text-slate-800 text-lg">No tournament configurations found</h3>
-        <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-          Create a tournament configuration in the "Config" tab to begin manual group draws and fixture scheduling.
-        </p>
+        <div>
+          <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl">No tournament configurations found</h3>
+          <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+            Every match schedule requires a tournament configuration to set the competition format (Group stage, Knockout, or Round Robin), match duration, and pool rules.
+          </p>
+        </div>
+
+        {/* 1-Click Quick initialize if sports events exist */}
+        {availableEvents.length > 0 && (
+          <div className="p-4 sm:p-5 bg-slate-50 border border-slate-200/80 rounded-2xl text-left space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-indigo-600" />
+              <span>1-Click Quick Setup For Existing Event</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Select Event</label>
+                <select
+                  value={quickEventId}
+                  onChange={e => setQuickEventId(e.target.value)}
+                  className="w-full text-xs font-semibold rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 outline-none"
+                >
+                  {availableEvents.map(e => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tournament Format</label>
+                <select
+                  value={quickFormat}
+                  onChange={e => setQuickFormat(e.target.value)}
+                  className="w-full text-xs font-semibold rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 outline-none"
+                >
+                  <option value="GROUP_PLAYOFF">Group Stage + Playoff</option>
+                  <option value="ROUND_ROBIN">Round Robin</option>
+                  <option value="KNOCKOUT_SINGLE">Single Elimination Knockout</option>
+                </select>
+              </div>
+            </div>
+            <button
+              onClick={handleQuickCreateConfig}
+              disabled={initializingQuickConfig}
+              className="w-full mt-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {initializingQuickConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Initialize Tournament & Start Scheduling</span>
+            </button>
+          </div>
+        )}
+
+        {/* Action navigation buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          {onNavigateToConfig && (
+            <button
+              onClick={onNavigateToConfig}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Open Config Tab (Custom Rules)</span>
+            </button>
+          )}
+          {onNavigateToSetup && (
+            <button
+              onClick={onNavigateToSetup}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span>Automated Scheduler</span>
+            </button>
+          )}
+        </div>
       </div>
     );
   }

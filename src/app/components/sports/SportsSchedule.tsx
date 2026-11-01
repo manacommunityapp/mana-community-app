@@ -2393,6 +2393,8 @@ export function SportsSchedule() {
               (tournamentConfigs[0]?.id) ??
               (eventId ? Number(eventId) : undefined)
             }
+            onNavigateToConfig={() => setActiveTab("Config")}
+            onNavigateToSetup={() => setActiveTab("Setup Schedule")}
           />
         ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
