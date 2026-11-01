@@ -537,11 +537,17 @@ export function TournamentScheduler() {
                         ? "— No events under this tournament —"
                         : "— Select Sport Event / Category —"}
                     </option>
-                    {filteredEvents.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.name} {e.sportName ? `(${e.sportName})` : ""}
-                      </option>
-                    ))}
+                    {filteredEvents.map((e) => {
+                      const rawFmt = e.formats || e.format;
+                      const fmtList = Array.isArray(rawFmt) ? rawFmt : (rawFmt ? [rawFmt] : []);
+                      const fmt = fmtList.map(f => String(f).toUpperCase() === 'SINGLES' ? 'Singles' : String(f).toUpperCase() === 'DOUBLES' ? 'Doubles' : String(f).toUpperCase().includes('MIXED') ? 'Mixed Doubles' : String(f).toUpperCase() === 'TEAM' ? 'Team' : f).join(' / ');
+                      const fmtPart = fmt && !e.name.toLowerCase().includes(fmt.toLowerCase()) ? ` — ${fmt}` : '';
+                      return (
+                        <option key={e.id} value={e.id}>
+                          {e.name}{fmtPart} {e.sportName ? `(${e.sportName})` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>

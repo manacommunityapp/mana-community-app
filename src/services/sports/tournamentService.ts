@@ -38,6 +38,10 @@ export interface EventInfo {
   minAge?: number | null;
   maxAge?: number | null;
   categoryName?: string;
+  format?: string[] | string;
+  formats?: string[];
+  minPlayers?: number;
+  maxPlayers?: number;
 }
 
 export interface ConfigInfo {
