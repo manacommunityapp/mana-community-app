@@ -101,6 +101,7 @@ export function SportsEventSection({
   const [selectedSportFilter, setSelectedSportFilter] = React.useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState<string>("");
   const [selectedAgeCategoryFilter, setSelectedAgeCategoryFilter] = React.useState<string>("");
+  const [selectedGenderFilter, setSelectedGenderFilter] = React.useState<string>("");
 
   const getEventSportName = React.useCallback((e: any): string => {
     if (e.sport?.name) return e.sport.name;
@@ -347,6 +348,66 @@ export function SportsEventSection({
     });
   }, [activeEvents, playerCategories, getEventAgeCategory, formatAgeCategoryLabel]);
 
+  const getEventGender = React.useCallback((e: any): string => {
+    // 1. Direct event gender property
+    let raw = e.gender;
+
+    // 2. Direct category or categories array
+    if (!raw && e.category?.gender) raw = e.category.gender;
+    if (!raw && Array.isArray(e.categories) && e.categories[0]?.gender) raw = e.categories[0].gender;
+
+    // 3. Category IDs matching playerCategories
+    if (!raw && Array.isArray(e.categoryIds) && e.categoryIds.length > 0) {
+      const matched = playerCategories.find(pc => e.categoryIds.some((id: any) => Number(id) === Number(pc.id)));
+      if (matched?.gender) raw = matched.gender;
+    }
+
+    // 4. Infer from event name
+    if (!raw) {
+      const nameLower = (e.name || "").toLowerCase();
+      if (/\b(women|female|girls?)\b/i.test(nameLower)) return "Female";
+      if (/\b(men|male|boys?)\b/i.test(nameLower)) return "Male";
+      if (/\bmixed\b/i.test(nameLower)) return "Mixed";
+      return "Open (All Genders)";
+    }
+
+    const upper = String(raw).trim().toUpperCase();
+    if (upper === "MALE" || upper === "MEN" || upper === "BOYS" || upper === "BOY") return "Male";
+    if (upper === "FEMALE" || upper === "WOMEN" || upper === "GIRLS" || upper === "GIRL") return "Female";
+    if (upper === "MIXED") return "Mixed";
+    if (upper === "ALL" || upper === "ANY" || upper === "OPEN") return "Open (All Genders)";
+
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }, [playerCategories]);
+
+  const matchesEventGender = React.useCallback((e: any, targetGender: string): boolean => {
+    if (!targetGender) return true;
+    const eventGender = getEventGender(e);
+    return eventGender.toLowerCase() === targetGender.toLowerCase();
+  }, [getEventGender]);
+
+  const availableGenders = React.useMemo(() => {
+    const set = new Set<string>();
+    activeEvents.forEach(e => {
+      const g = getEventGender(e);
+      if (g) set.add(g);
+    });
+
+    if (set.size === 0) {
+      ["Male", "Female", "Mixed", "Open (All Genders)"].forEach(g => set.add(g));
+    }
+
+    const order = ["Male", "Female", "Mixed", "Open (All Genders)"];
+    return Array.from(set).sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [activeEvents, getEventGender]);
+
   const filteredEvents = React.useMemo(() => {
     return activeEvents.filter(e => {
       if (selectedSportFilter) {
@@ -365,11 +426,26 @@ export function SportsEventSection({
           return false;
         }
       }
+      if (selectedGenderFilter) {
+        if (!matchesEventGender(e, selectedGenderFilter)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [activeEvents, selectedSportFilter, selectedCategoryFilter, selectedAgeCategoryFilter, getEventSportName, matchesEventCategory, matchesEventAgeCategory]);
+  }, [
+    activeEvents,
+    selectedSportFilter,
+    selectedCategoryFilter,
+    selectedAgeCategoryFilter,
+    selectedGenderFilter,
+    getEventSportName,
+    matchesEventCategory,
+    matchesEventAgeCategory,
+    matchesEventGender,
+  ]);
 
-  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter);
+  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter || selectedGenderFilter);
 
   const isTournamentMode = Boolean(activeTournamentId || activeTournamentName);
   const [tournamentViewMode, setTournamentViewMode] = React.useState<"all" | "added" | "not-added">("all");
@@ -1370,11 +1446,11 @@ export function SportsEventSection({
                   </span>
                 </div>
 
-                {/* Filters for sports type, player category, and age category */}
+                {/* Filters for sports type, player category, age category, and gender */}
                 <div className="flex flex-wrap items-center gap-2">
                   {isFiltered && (
                     <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
-                      {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+                      {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter), Boolean(selectedGenderFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter), Boolean(selectedGenderFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
                     </span>
                   )}
 
@@ -1412,6 +1488,23 @@ export function SportsEventSection({
                     </select>
                   </div>
 
+                  {/* Gender Filter */}
+                  <div className="relative min-w-[120px] sm:min-w-[140px]">
+                    <select
+                      value={selectedGenderFilter}
+                      onChange={(e) => setSelectedGenderFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by gender"
+                    >
+                      <option value="">All Genders {availableGenders.length > 0 ? `(${availableGenders.length})` : ""}</option>
+                      {availableGenders.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Age Category Filter */}
                   <div className="relative min-w-[135px] sm:min-w-[165px]">
                     <select
@@ -1437,6 +1530,7 @@ export function SportsEventSection({
                         setSelectedSportFilter("");
                         setSelectedCategoryFilter("");
                         setSelectedAgeCategoryFilter("");
+                        setSelectedGenderFilter("");
                       }}
                       className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
                       title="Clear filters"
@@ -1504,7 +1598,7 @@ export function SportsEventSection({
                 </div>
                 <h4 className="text-xs font-bold text-slate-700 mb-1">No matching events found</h4>
                 <p className="text-[11px] text-slate-500 max-w-sm mx-auto mb-3">
-                  No scheduled events match the selected sports type, player category, or age category filter.
+                  No scheduled events match the selected sports type, player category, gender, or age category filter.
                 </p>
                 <button
                   type="button"
@@ -1512,6 +1606,7 @@ export function SportsEventSection({
                     setSelectedSportFilter("");
                     setSelectedCategoryFilter("");
                     setSelectedAgeCategoryFilter("");
+                    setSelectedGenderFilter("");
                   }}
                   className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
                 >
