@@ -447,6 +447,20 @@ export function SportsEventSection({
 
   const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter || selectedGenderFilter);
 
+  const isEditing = sportForms.some(f => Boolean(f.editingSportId));
+
+  // Close edit modal on Escape key press
+  React.useEffect(() => {
+    if (!isEditing || !showSportForm) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !sportSubmitting) {
+        resetSportForm();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, showSportForm, sportSubmitting, resetSportForm]);
+
   const isTournamentMode = Boolean(activeTournamentId || activeTournamentName);
   const [tournamentViewMode, setTournamentViewMode] = React.useState<"all" | "added" | "not-added">("all");
 
@@ -651,171 +665,15 @@ export function SportsEventSection({
     if (showSportForm) onLoadCategories?.();
   }, [showSportForm, onLoadCategories]);
 
-  return (
+  const renderSportFormCards = () => (
     <div className="space-y-4">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="text-left">
-          <h3 className="text-xs font-bold text-slate-800 tracking-tight">Sports Management</h3>
-          <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">Configure and manage active sports metadata in the system</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (showSportForm) {
-              resetSportForm();
-            } else {
-              resetSportForm();
-              setShowSportPicker(true);
-            }
-          }}
-          className="px-3.5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shadow-xs hover:brightness-105 shrink-0 self-start sm:self-auto"
-          style={{
-            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-            boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
-          }}
-        >
-          <Plus className="w-3.5 h-3.5" /> {showSportForm ? "Close Form" : "Select a Sport"}
-        </button>
-      </div>
-
-      {/* ─── Sport Picker Modal ─── */}
-      {showSportPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
-              <div className="text-left">
-                <h2 className="text-xs font-bold text-slate-800">Select a Sport</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Search */}
-            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-white">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={sportPickerSearch}
-                  onChange={e => setSportPickerSearch(e.target.value)}
-                  placeholder="Search sports..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs sm:text-[13px] text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-2xs"
-                />
-              </div>
-            </div>
-
-            {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
-                  const alreadyAdded = sportsMeta.some(meta => meta.name.toLowerCase() === sp.name.toLowerCase());
-                  const alreadyQueued = sportForms.some(form => form.name.toLowerCase() === sp.name.toLowerCase());
-                  const isUnavailable = alreadyQueued;
-
-                  return (
-                    <button
-                      key={sp.name}
-                      type="button"
-                      onClick={() => !isUnavailable && handleSportPickerSelect(sp)}
-                      disabled={isUnavailable}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all duration-200 cursor-pointer shadow-2xs",
-                        isUnavailable
-                          ? "bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed text-slate-400"
-                          : "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20 hover:scale-[1.02] hover:shadow-sm"
-                      )}
-                    >
-                       {sp.icon && (sp.icon.startsWith("data:image/") || sp.icon.startsWith("http")) ? (
-                         <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
-                           <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
-                         </div>
-                       ) : (
-                         <span className="text-[10px] leading-none">{sp.icon}</span>
-                       )}
-                      <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
-                      {alreadyAdded && (
-                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
-                      )}
-                      {alreadyQueued && (
-                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
-                <div className="text-center py-10">
-                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No predefined sports match your search.</p>
-                  <button
-                    type="button"
-                    onClick={handleCreateCustomSport}
-                    disabled={sportSubmitting}
-                    className="px-3.5 py-2 text-white text-xs font-semibold rounded-xl border-none cursor-pointer transition-colors flex items-center justify-center gap-1.5 mx-auto shadow-sm hover:brightness-105"
-                    style={{
-                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
-                    }}
-                  >
-                    {sportSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                    Create Custom Sport: "{sportPickerSearch}"
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
-                className="px-3.5 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors bg-white cursor-pointer shadow-2xs font-medium"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Form Section (When showSportForm is active) ─── */}
-      {showSportForm && sportForms.length > 0 && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          {/* Header bar with count and actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-              <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
-                {sportForms.some(f => f.editingSportId) ? "Edit Sport Event" : `Configure Sport Events (${sportForms.length})`}
-              </h3>
-            </div>
-            {!sportForms.some(f => f.editingSportId) && (
-              <button
-                type="button"
-                onClick={() => setShowSportPicker(true)}
-                className="px-3 py-1.5 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-semibold shadow-2xs"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Another Sport
-              </button>
-            )}
-          </div>
-
-          {/* Sport Form Cards */}
-          <div className="space-y-4">
             {sportForms.map((form, idx) => (
               <div
                 key={form.id}
                 className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs transition-all text-left space-y-4"
               >
                 {/* Sport Header with icon, name, index badge and remove button */}
+                {!isEditing && (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-3 bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2 flex-1">
                      {form.iconUrl ? (
@@ -830,7 +688,7 @@ export function SportsEventSection({
                       <h4 className="text-xs font-bold text-slate-800 truncate">{form.name}</h4>
                     </div>
                   </div>
-                  {!form.editingSportId && sportForms.length > 1 && (
+                  {sportForms.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeSportForm(form.id)}
@@ -841,6 +699,7 @@ export function SportsEventSection({
                     </button>
                   )}
                 </div>
+                )}
 
                 {/* Event Configurations */}
                 <div className="space-y-3">
@@ -851,8 +710,8 @@ export function SportsEventSection({
                     >
                       {/* Event header */}
                       <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Configuration #{eIdx + 1}</span>
-                        {form.events.length > 1 && (
+                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">{isEditing ? "Event Configuration & Rules" : `Configuration #${eIdx + 1}`}</span>
+                        {!isEditing && form.events.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeEventFromSportForm(form.id, ev.id)}
@@ -1003,7 +862,7 @@ export function SportsEventSection({
                                 <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[280px] sm:w-[320px] p-0 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl" align="start">
+                            <PopoverContent className="w-[280px] sm:w-[320px] p-0 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl z-[60]" align="start">
                               <div className="flex items-center border-b border-slate-100 px-3 py-2">
                                 <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50 text-slate-400" />
                                 <input
@@ -1379,6 +1238,255 @@ export function SportsEventSection({
               </div>
             ))}
           </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="text-left">
+          <h3 className="text-xs font-bold text-slate-800 tracking-tight">Sports Management</h3>
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">Configure and manage active sports metadata in the system</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (showSportForm) {
+              resetSportForm();
+            } else {
+              resetSportForm();
+              setShowSportPicker(true);
+            }
+          }}
+          className="px-3.5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shadow-xs hover:brightness-105 shrink-0 self-start sm:self-auto"
+          style={{
+            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+            boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" /> {showSportForm && !isEditing ? "Close Form" : "Select a Sport"}
+        </button>
+      </div>
+
+      {/* ─── Sport Picker Modal ─── */}
+      {showSportPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <div className="text-left">
+                <h2 className="text-xs font-bold text-slate-800">Select a Sport</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-white">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={sportPickerSearch}
+                  onChange={e => setSportPickerSearch(e.target.value)}
+                  placeholder="Search sports..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs sm:text-[13px] text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
+                  const alreadyAdded = sportsMeta.some(meta => meta.name.toLowerCase() === sp.name.toLowerCase());
+                  const alreadyQueued = sportForms.some(form => form.name.toLowerCase() === sp.name.toLowerCase());
+                  const isUnavailable = alreadyQueued;
+
+                  return (
+                    <button
+                      key={sp.name}
+                      type="button"
+                      onClick={() => !isUnavailable && handleSportPickerSelect(sp)}
+                      disabled={isUnavailable}
+                      className={cn(
+                        "flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all duration-200 cursor-pointer shadow-2xs",
+                        isUnavailable
+                          ? "bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed text-slate-400"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20 hover:scale-[1.02] hover:shadow-sm"
+                      )}
+                    >
+                       {sp.icon && (sp.icon.startsWith("data:image/") || sp.icon.startsWith("http")) ? (
+                         <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
+                           <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
+                         </div>
+                       ) : (
+                         <span className="text-[10px] leading-none">{sp.icon}</span>
+                       )}
+                      <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
+                      {alreadyAdded && (
+                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
+                      )}
+                      {alreadyQueued && (
+                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
+                <div className="text-center py-10">
+                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No predefined sports match your search.</p>
+                  <button
+                    type="button"
+                    onClick={handleCreateCustomSport}
+                    disabled={sportSubmitting}
+                    className="px-3.5 py-2 text-white text-xs font-semibold rounded-xl border-none cursor-pointer transition-colors flex items-center justify-center gap-1.5 mx-auto shadow-sm hover:brightness-105"
+                    style={{
+                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
+                    }}
+                  >
+                    {sportSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Create Custom Sport: "{sportPickerSearch}"
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
+                className="px-3.5 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors bg-white cursor-pointer shadow-2xs font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Edit Sport Event Popup Modal ─── */}
+      {showSportForm && sportForms.length > 0 && isEditing && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => {
+            if (!sportSubmitting) resetSportForm();
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden text-left"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  {sportForms[0]?.iconUrl ? (
+                    <img src={sportForms[0].iconUrl} alt={sportForms[0].name} className="w-6 h-6 object-cover rounded" />
+                  ) : sportForms[0]?.icon ? (
+                    <span className="text-lg leading-none">{sportForms[0].icon}</span>
+                  ) : (
+                    <Edit2 className="w-5 h-5 text-indigo-600" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-base font-bold text-slate-800">Edit Sport Event</h2>
+                    {sportForms[0]?.name && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
+                        {sportForms[0].name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {sportForms[0]?.events?.[0]?.eventName
+                      ? `Editing: ${sportForms[0].events[0].eventName}`
+                      : "Update event schedule, format, and configuration rules"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resetSportForm}
+                disabled={sportSubmitting}
+                className="p-1.5 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer disabled:opacity-50"
+                title="Close Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {renderSportFormCards()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={resetSportForm}
+                disabled={sportSubmitting}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs sm:text-[13px] font-semibold rounded-xl hover:bg-slate-100 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSportSave}
+                disabled={sportSubmitting}
+                className="px-5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm hover:brightness-105 disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                  boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
+                }}
+              >
+                {sportSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <span>Update Event</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Inline Form Section (When configuring new sports) ─── */}
+      {showSportForm && sportForms.length > 0 && !isEditing && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Header bar with count and actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+              <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                Configure Sport Events ({sportForms.length})
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSportPicker(true)}
+              className="px-3 py-1.5 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-semibold shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Another Sport
+            </button>
+          </div>
+
+          {/* Sport Form Cards */}
+          {renderSportFormCards()}
 
           {/* Submission and Save Actions */}
           <div className="flex gap-2.5 pt-2">
@@ -1398,7 +1506,7 @@ export function SportsEventSection({
                 boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
               }}
             >
-              {sportSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : (sportForms.some(f => f.editingSportId) ? "Update Event" : "Save Event ↗")}
+              {sportSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : "Save Event ↗"}
             </button>
           </div>
         </div>
