@@ -723,7 +723,7 @@ export const homeServiceApi = {
         policeVerified: false,
         aadhaarVerified: false,
         gatePresenceStatus: "UNKNOWN",
-        gateLastSeen: null,
+        gateLastSeen: undefined,
         rating: p.rating ?? 0,
         reviewCount: p.reviewCount ?? 0,
         status: (p.status as any) ?? "ACTIVE",
@@ -741,6 +741,8 @@ export const homeServiceApi = {
         }] : [],
         availability: [],
         flatAssignments: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }));
       if (filters?.minRating) workers = workers.filter((w) => w.rating >= filters.minRating!);
       if (filters?.searchQuery) {
@@ -782,7 +784,7 @@ export const homeServiceApi = {
           policeVerified: false,
           aadhaarVerified: false,
           gatePresenceStatus: "UNKNOWN",
-          gateLastSeen: null,
+          gateLastSeen: undefined,
           rating: p.rating ?? 0,
           reviewCount: p.reviewCount ?? 0,
           status: (p.status as any) ?? "ACTIVE",
@@ -791,6 +793,8 @@ export const homeServiceApi = {
           skills: [],
           availability: [],
           flatAssignments: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
       }
     } catch { /* fall through */ }
@@ -850,7 +854,7 @@ export const homeServiceApi = {
         categoryId: String(b.categoryId ?? ""),
         categoryName: b.categoryName ?? "",
         bookingType: "ONE_TIME",
-        pricingModel: "MONTHLY",
+        pricingModel: "FIXED_MONTHLY",
         startDate: b.bookingDate,
         recurringDays: [],
         startTime: b.timeSlot ?? "09:00",
@@ -1011,7 +1015,7 @@ export const homeServiceApi = {
             id: String(b.id), communityId: String(b.communityId), flatId: "", tower: "", flatNumber: "",
             residentUserId: String(b.userId ?? ""), residentName: b.userName ?? "", residentPhoneMasked: "",
             workerId: String(b.providerId), workerName: b.providerName ?? "", categoryId: String(b.categoryId ?? ""),
-            categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "MONTHLY",
+            categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "FIXED_MONTHLY",
             startDate: b.bookingDate, recurringDays: [], startTime: b.timeSlot ?? "09:00", endTime: "",
             price: b.amount ?? 0, status: (b.status as BookingStatus) ?? status,
             slaHours: 24, slaDueAt: "", slaBreached: false, paymentStatus: "PENDING",
@@ -1023,7 +1027,7 @@ export const homeServiceApi = {
           id: String(b.id), communityId: String(b.communityId), flatId: "", tower: "", flatNumber: "",
           residentUserId: String(b.userId ?? ""), residentName: b.userName ?? "", residentPhoneMasked: "",
           workerId: String(b.providerId), workerName: b.providerName ?? "", categoryId: String(b.categoryId ?? ""),
-          categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "MONTHLY",
+          categoryName: b.categoryName ?? "", bookingType: "ONE_TIME", pricingModel: "FIXED_MONTHLY",
           startDate: b.bookingDate, recurringDays: [], startTime: b.timeSlot ?? "09:00", endTime: "",
           price: b.amount ?? 0, status: (b.status as BookingStatus) ?? status,
           slaHours: 24, slaDueAt: "", slaBreached: false, paymentStatus: "PENDING",

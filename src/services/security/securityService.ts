@@ -593,6 +593,8 @@ export interface IssueVehicleStickerRequest {
   vehicleNumber: string;
   vehicleType: string;
   flatNumber?: string;
+  color?: string;
+  issuedDate?: string;
   expiryDate?: string;
 }
 

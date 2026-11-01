@@ -1499,7 +1499,7 @@ function GuardRosterTab({ guards }: { guards: GuardProfileResponse[] }) {
                 <select value={form.guardId ?? ""} onChange={e => setForm(f => ({ ...f, guardId: Number(e.target.value) }))}
                   className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <option value="">Select guard…</option>
-                  {guards.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  {guards.map(g => <option key={g.id} value={g.id}>{g.fullName || (g as any).name}</option>)}
                 </select>
               </div>
               <div>

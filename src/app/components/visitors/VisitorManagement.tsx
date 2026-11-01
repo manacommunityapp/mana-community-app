@@ -1603,7 +1603,7 @@ function SecurityListsView() {
           { key: "visitor-blacklist", label: "Visitor Blacklist", icon: Ban },
           { key: "vehicle-passes", label: "Vehicle Passes", icon: Car },
           { key: "temp-tokens", label: "Temp Day-Pass", icon: QrCode },
-        ] as { key: SecurityTab; label: string; icon: (p: { className?: string }) => JSX.Element | null }[]).map(({ key, label, icon: Icon }) => (
+        ] as { key: SecurityTab; label: string; icon: any }[]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
