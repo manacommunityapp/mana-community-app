@@ -112,14 +112,11 @@ import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 import { SportsTournamentBrowse } from "./components/sports/SportsTournamentBrowse";
 import { SportsMyTeams }      from "./components/sports/SportsMyTeams";
-import { SportsBadgeShowcase } from "./components/sports/SportsBadgeShowcase";
 import { SportsMyAuctions }   from "./components/sports/SportsMyAuctions";
 import { SportsTeamRegistration } from "./components/sports/SportsTeamRegistration";
-import { SportsTrainers }        from "./components/sports/SportsTrainers";
 import { SportsExternalPublicRegister } from "./components/sports/SportsExternalPublicRegister";
 import { SportsVenueBrowse } from "./components/sports/venues/SportsVenueBrowse";
 import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
-import { SportsWallet }     from "./components/sports/SportsWallet";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -496,14 +493,6 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMyTeams /></PermissionGuard>
           },
           {
-            path: "badges",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsBadgeShowcase /></PermissionGuard>
-          },
-          {
-            path: "wallet",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsWallet /></PermissionGuard>
-          },
-          {
             path: "my-auctions",
             element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG]} requiredModule="SPORTS"><SportsMyAuctions /></PermissionGuard>
           },
@@ -530,10 +519,6 @@ export const router = createBrowserRouter([
           {
             path: "schedule/:eventId",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
-          },
-          {
-            path: "trainers",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsTrainers /></PermissionGuard>
           },
           {
             path: "venues",

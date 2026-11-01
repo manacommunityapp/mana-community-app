@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Wallet } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Shield, Users } from "lucide-react";
 import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -22,11 +22,8 @@ const sportsNav = [
   { to: "/sports/my-sports", label: "My Sports", icon: Medal },
   { to: "/sports/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/sports/schedule", label: "Schedule", icon: CalendarDays },
-  { to: "/sports/trainers", label: "Trainers", icon: Dumbbell },
   { to: "/sports/my-teams", label: "My Teams", icon: Shield },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
-  { to: "/sports/badges", label: "Badges", icon: Award },
-  { to: "/sports/wallet", label: "Wallet", icon: Wallet },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -54,12 +51,6 @@ export function SportsLayout() {
         return canAccessAdminSportsTabs || hasPermission(VIEW_SPORTS_MAIN);
       case "My Teams":
         return hasAnyPermission(VIEW_SPORTS_MAIN, VIEW_LIVE_AUCTION);
-      case "Trainers":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
-      case "Badges":
-        return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
-      case "Wallet":
-        return hasPermission(VIEW_SPORTS_MAIN);
       case "Auction":
         return hasAnyPermission(
           VIEW_AUCTION_CONFIG,
