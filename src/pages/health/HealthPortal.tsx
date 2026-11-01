@@ -119,6 +119,12 @@ export const HealthPortal: React.FC = () => {
 
   // Department filter for doctors
   const [doctorDept, setDoctorDept] = useState("All");
+  const [doctorSort, setDoctorSort] = useState<"relevance" | "rating" | "fee_asc" | "experience">("relevance");
+  const [walkInOnly, setWalkInOnly] = useState(false);
+  const [instantOnly, setInstantOnly] = useState(false);
+
+  // Lab category filter
+  const [labCategoryFilter, setLabCategoryFilter] = useState("all");
 
   // State for Lab Home Collection booking modal
   const [labBookingPkg, setLabBookingPkg] = useState<LabPackageDto | null>(null);
@@ -393,7 +399,9 @@ export const HealthPortal: React.FC = () => {
           { id: "cancer", label: "🎗️ Cancer Care" },
           { id: "mental-health", label: "🧠 Mental Health" },
           { id: "hospitals", label: "🏥 Hospital Finder" },
-          { id: "gold", label: "⭐ Mana Gold" }
+          { id: "gold", label: "⭐ Mana Gold" },
+          { id: "homecare", label: "🏡 Home Healthcare" },
+          { id: "radiology", label: "🩻 Radiology & Imaging" }
         ].map(tab => (
           <button
             key={tab.id}
@@ -411,9 +419,88 @@ export const HealthPortal: React.FC = () => {
 
       {/* Tab 1: Doctors & Clinics Directory */}
       {activeTab === "doctors" && (
-        <HealthcareDirectory
-          onCampRegister={() => setActiveTab("camps")}
-        />
+        <div className="space-y-4">
+          {/* Condition-Based Quick Access (Round 6) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <p className="text-sm font-black text-gray-900 mb-1">What are you looking for?</p>
+            <p className="text-xs text-gray-500 mb-3">Select a condition or specialty — consult in ~15 min from ₹199</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Cold & Fever", icon: "🌡️", specialty: "General Medicine" },
+                { label: "Skin & Hair", icon: "✨", specialty: "Dermatology" },
+                { label: "Stomach Issues", icon: "🫁", specialty: "Gastroenterology" },
+                { label: "Back & Joints", icon: "🦴", specialty: "Orthopedics" },
+                { label: "Heart Issues", icon: "❤️", specialty: "Cardiology" },
+                { label: "Pregnancy", icon: "🤰", specialty: "Gynecology" },
+                { label: "Child & Infant", icon: "👶", specialty: "Pediatrics" },
+                { label: "Report Analysis", icon: "📋", specialty: "Lab Report Analysis" },
+                { label: "Sexual Health", icon: "🔒", specialty: "Sexual Health" },
+                { label: "Weight Loss", icon: "⚖️", specialty: "Nutrition" },
+                { label: "I Don't Know", icon: "❓", specialty: "" },
+              ].map((cg, i) => (
+                <button key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-200 bg-teal-50 text-teal-700 text-xs font-semibold hover:bg-teal-100 transition-colors">
+                  <span>{cg.icon}</span>
+                  <span>{cg.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Sort & Filter row (Round 7) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs font-bold text-gray-600">Sort:</span>
+              {[
+                { id: "relevance", label: "Relevance" },
+                { id: "rating", label: "Top Rated" },
+                { id: "fee_asc", label: "Fee: Low→High" },
+                { id: "experience", label: "Experience" },
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setDoctorSort(opt.id as any)}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition ${doctorSort === opt.id ? "bg-teal-600 text-white border-teal-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-teal-400"}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setWalkInOnly(!walkInOnly)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition flex items-center gap-1 ${walkInOnly ? "bg-emerald-600 text-white border-emerald-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-emerald-400"}`}
+              >
+                🚶 Walk-in
+              </button>
+              <button
+                onClick={() => setInstantOnly(!instantOnly)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition flex items-center gap-1 ${instantOnly ? "bg-amber-500 text-white border-amber-500" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-400"}`}
+              >
+                ⚡ Instant Confirm
+              </button>
+            </div>
+            {/* AYUSH quick access */}
+            <div className="flex gap-2 flex-wrap">
+              <span className="text-xs font-bold text-gray-500 self-center">AYUSH:</span>
+              {["Ayurveda", "Homeopathy", "Unani", "Naturopathy"].map(s => (
+                <button key={s} className="text-xs px-3 py-1 rounded-full border border-green-200 bg-green-50 text-green-700 font-semibold hover:bg-green-100 transition">
+                  🌿 {s}
+                </button>
+              ))}
+              <span className="text-xs font-bold text-gray-500 self-center ml-2">Paediatric:</span>
+              {["Paediatric Cardiology", "Paediatric Neurology", "Paediatric ENT"].map(s => (
+                <button key={s} className="text-xs px-3 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition">
+                  👶 {s}
+                </button>
+              ))}
+            </div>
+            {walkInOnly && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs text-emerald-700 font-medium">
+                🚶 Showing doctors available for same-day walk-in visits
+              </div>
+            )}
+          </div>
+          <HealthcareDirectory
+            onCampRegister={() => setActiveTab("camps")}
+          />
+        </div>
       )}
 
       {/* Tab 2: Community Health Camps */}
@@ -787,45 +874,106 @@ export const HealthPortal: React.FC = () => {
       {/* Tab 6: Lab Packages */}
       {activeTab === "labs" && (
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-bold text-gray-900">🧪 Preventive Diagnostic Packages & Home Sample Collection</h2>
-            <p className="text-xs text-gray-500 mt-1">Partner diagnostic labs with doorstep phlebotomist collection at your flat.</p>
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex items-start gap-4">
+            <span className="text-3xl">🧪</span>
+            <div>
+              <h2 className="text-xl font-bold text-amber-900">Lab Tests & Health Packages</h2>
+              <p className="text-xs text-amber-700 mt-1">Home collection · Reports in 8–72 hrs · NABL certified labs · 50%+ OFF MRP</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {SEED_LAB_PACKAGES.map(pkg => (
-              <div key={pkg.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-extrabold text-lg text-gray-900">{pkg.name}</h4>
-                    <p className="text-xs text-gray-500">{pkg.testCount} Parameters Included • Reports in {pkg.reportTurnaroundHours}h</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-teal-700">₹{pkg.price}</span>
-                    <span className="text-xs text-gray-400 line-through block">₹{pkg.originalPrice}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {pkg.testsIncluded.map((t, idx) => (
-                    <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-md font-medium">{t}</span>
-                  ))}
-                </div>
-
-                <div className="bg-emerald-50 p-2.5 rounded-xl text-xs text-emerald-900 flex justify-between font-medium">
-                  <span>🏠 Doorstep Home Collection: {pkg.homeCollectionAvailable ? "Available" : "No"}</span>
-                  <span>🍵 Fasting: {pkg.fastingRequired ? "Required (10 hrs)" : "Not Required"}</span>
-                </div>
-
-                <button
-                  onClick={() => { setLabBookingPkg(pkg); setLabBookingSuccess(false); }}
-                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition text-sm"
-                >
-                  Schedule Home Collection Slot
-                </button>
-              </div>
+          {/* Category tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { id: "all", label: "All Packages" },
+              { id: "full-body", label: "Full Body" },
+              { id: "diabetes", label: "Diabetes" },
+              { id: "heart", label: "Heart" },
+              { id: "cancer", label: "Cancer Screening" },
+              { id: "women", label: "Women Health" },
+              { id: "men", label: "Men Health" },
+              { id: "vitamin", label: "Vitamins" },
+              { id: "senior", label: "Senior Citizen" },
+              { id: "individual", label: "Individual Tests" },
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setLabCategoryFilter(cat.id)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${labCategoryFilter === cat.id ? "bg-amber-600 text-white border-amber-600" : "bg-white text-gray-600 border-gray-200 hover:border-amber-400"}`}
+              >
+                {cat.label}
+              </button>
             ))}
           </div>
+
+          {labCategoryFilter === "individual" ? (
+            <div className="space-y-3">
+              <h3 className="font-bold text-gray-800">Popular Individual Tests</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { name: "Vitamin B12 – Serum", price: 822, orig: 1259, turnaround: "8–72 Hrs" },
+                  { name: "Vitamin D (25-OH)", price: 1225, orig: 2519, turnaround: "8–72 Hrs" },
+                  { name: "HbA1c", price: 549, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Thyroid Profile (T3, T4 & TSH)", price: 601, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Complete Blood Count (CBC)", price: 416, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Lipid Profile", price: 380, orig: 650, turnaround: "8–72 Hrs" },
+                  { name: "Liver Function Test (LFT)", price: 480, orig: 750, turnaround: "8–72 Hrs" },
+                  { name: "Kidney Function Test (KFT)", price: 520, orig: 800, turnaround: "8–72 Hrs" },
+                ].map((t, i) => (
+                  <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-800">{t.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Reports in {t.turnaround} · Home Collection</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-700 text-lg">₹{t.price}/-</p>
+                      <p className="text-xs text-gray-400 line-through">₹{t.orig}</p>
+                      <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
+                        {Math.round((1 - t.price / t.orig) * 100)}% OFF
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {SEED_LAB_PACKAGES.map(pkg => (
+                <div key={pkg.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 pr-4">
+                      <h4 className="font-extrabold text-lg text-gray-900">{pkg.name}</h4>
+                      <p className="text-xs text-gray-500">{pkg.testCount} Parameters · Reports in {pkg.reportTurnaroundHours}h</p>
+                      {pkg.fastingRequired && <p className="text-xs text-amber-600 font-semibold mt-1">🕐 Fasting required</p>}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-amber-700">₹{pkg.price}</span>
+                      <span className="text-xs text-gray-400 line-through block">₹{pkg.originalPrice}</span>
+                      <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
+                        {Math.round((1 - pkg.price / pkg.originalPrice) * 100)}% OFF
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pkg.testsIncluded.slice(0, 5).map((t, idx) => (
+                      <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-md font-medium">{t}</span>
+                    ))}
+                    {pkg.testsIncluded.length > 5 && <span className="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-md">+{pkg.testsIncluded.length - 5} more</span>}
+                  </div>
+                  <div className="bg-emerald-50 p-2.5 rounded-xl text-xs text-emerald-900 flex justify-between font-medium">
+                    <span>🏠 Home Collection Available</span>
+                    <span>🛡️ NABL Certified</span>
+                  </div>
+                  <button
+                    onClick={() => { setLabBookingPkg(pkg); setLabBookingSuccess(false); }}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl transition text-sm"
+                  >
+                    Book Slot
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1498,6 +1646,37 @@ export const HealthPortal: React.FC = () => {
       {/* ── Surgery Care ─────────────────────────────────────────────────────── */}
       {activeTab === "surgery" && (
         <div className="space-y-5">
+          {/* Condition Shortcuts (Round 7) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <p className="text-sm font-bold text-gray-700 mb-3">Condition Shortcuts — Jump directly to relevant surgeons</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Piles", color: "red" },
+                { label: "Kidney Stones", color: "blue" },
+                { label: "Lipoma", color: "green" },
+                { label: "Gallstones", color: "amber" },
+                { label: "Fissure", color: "purple" },
+                { label: "Knee Replacement", color: "teal" },
+                { label: "Cataract", color: "indigo" },
+                { label: "Hernia", color: "pink" },
+              ].map(cs => (
+                <button key={cs.label} className={`text-xs px-3 py-1.5 rounded-full border font-semibold bg-${cs.color}-50 text-${cs.color}-700 border-${cs.color}-200 hover:bg-${cs.color}-100 transition`}>
+                  {cs.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Free First Consultation CTA (Round 6) */}
+          <div className="bg-teal-600 rounded-2xl p-4 flex items-center gap-3 text-white">
+            <span className="text-2xl">💬</span>
+            <div className="flex-1">
+              <p className="font-black text-sm">Book Free Consultation</p>
+              <p className="text-xs text-teal-100">Talk to a surgical specialist first — free, no obligation</p>
+            </div>
+            <button onClick={() => alert("Free Consultation\n\nA surgical specialist will call you within 2 hours to understand your condition and guide you — completely free.")} className="bg-white text-teal-700 font-black text-xs px-3 py-2 rounded-xl">Book Free →</button>
+          </div>
+
           {/* Care Buddy Banner */}
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-purple-700 font-black">P</div>
@@ -1506,6 +1685,25 @@ export const HealthPortal: React.FC = () => {
               <p className="text-xs text-purple-700 mt-0.5">Dedicated coordinator · Available 24×7 · Free service</p>
             </div>
             <button onClick={() => alert("Care Buddy: +91 98765 43210")} className="bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Call</button>
+          </div>
+
+          {/* Insurance Coverage Check (Round 6) */}
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-green-600">🛡️</span>
+              <p className="font-black text-green-900 text-sm flex-1">Insurance Coverage Check</p>
+              <span className="bg-green-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">✓ COVERED</span>
+            </div>
+            <p className="text-xs text-green-700 mb-3">Your surgery is covered under Star Health (SH-2026-XXXXX)</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[{ label: "Sum Insured", val: "₹5,00,000" }, { label: "Used", val: "₹1,20,000" }, { label: "Available", val: "₹3,80,000" }].map((d, i) => (
+                <div key={i} className="bg-white rounded-xl p-2 text-center">
+                  <p className="text-[10px] text-gray-500">{d.label}</p>
+                  <p className="text-sm font-black text-gray-800 mt-0.5">{d.val}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-green-600 mt-2 italic">Cashless pre-auth will be initiated by your Care Buddy.</p>
           </div>
 
           {/* Procedure Grid */}
@@ -1698,10 +1896,41 @@ export const HealthPortal: React.FC = () => {
       {/* ── Cancer Care ───────────────────────────────────────────────────────── */}
       {activeTab === "cancer" && (
         <div className="space-y-5">
+          {/* Expert Tumor Board Panel (Round 7 — Tata Memorial / Navya style) */}
+          <div className="bg-white border-2 border-purple-700 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🎗️</span>
+              <div className="flex-1">
+                <p className="font-black text-purple-900 text-base">Expert Tumor Board Opinion</p>
+                <p className="text-xs text-purple-700 mt-0.5">In partnership with Tata Memorial Centre & National Cancer Grid</p>
+              </div>
+              <span className="bg-purple-800 text-white text-xs font-black px-3 py-1 rounded-full">1–3 Days</span>
+            </div>
+            <div className="space-y-2">
+              {[
+                { n: "1", t: "Submit Reports", d: "Upload biopsy, scan & pathology reports" },
+                { n: "2", t: "Expert Review", d: "Tumor board of 3–5 oncologists analyze your case" },
+                { n: "3", t: "Receive Opinion", d: "Personalised Expert Opinion Report in 1–3 days" },
+              ].map(s => (
+                <div key={s.n} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-purple-700 text-white flex items-center justify-center text-xs font-black flex-shrink-0">{s.n}</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">{s.t}</p>
+                    <p className="text-xs text-gray-500">{s.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => alert("Expert Opinion Requested\n\nYour case will be reviewed by a tumor board. A patient advocate will contact you within 2 hours.")} className="w-full bg-purple-700 hover:bg-purple-800 text-white font-black text-sm py-3 rounded-xl transition">
+              Submit Reports for Expert Review
+            </button>
+            <p className="text-xs text-gray-400 text-center">Your dedicated patient advocate will guide you through document submission.</p>
+          </div>
+
           {/* Second Opinion Banner */}
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
-            <p className="font-black text-purple-900 text-sm">💬 Get a Second Opinion</p>
-            <p className="text-xs text-purple-700 mt-1 mb-3">25% of cancer diagnoses benefit from a second expert review. It's your right — and often covered by insurance.</p>
+            <p className="font-black text-purple-900 text-sm">💬 Individual Second Opinion</p>
+            <p className="text-xs text-purple-700 mt-1 mb-3">Consult directly with an oncologist for a second opinion on your diagnosis.</p>
             <button onClick={() => alert("Second opinion request submitted.\n\nA specialist will review your diagnosis and contact you within 24–48 hours.")} className="bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl">Request Second Opinion</button>
           </div>
 
@@ -1901,26 +2130,44 @@ export const HealthPortal: React.FC = () => {
           <div className="bg-gradient-to-br from-amber-700 to-amber-500 rounded-2xl p-6 text-center text-white space-y-2">
             <div className="text-4xl">⭐</div>
             <p className="font-black text-xl text-yellow-200">Mana Gold</p>
-            <p className="text-sm text-amber-200">Your Premium Health Membership</p>
-            <p className="text-xs text-amber-100">Unlimited consultations, priority care, exclusive discounts.</p>
+            <p className="text-sm text-amber-200 font-bold">Family of 6 · 22+ Specialties · 12+ Languages</p>
+            <p className="text-xs text-amber-100">Unlimited video consultations for your entire family, 24×7, in your language.</p>
+          </div>
+
+          {/* Family Coverage */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <p className="text-sm font-black text-amber-800 mb-1">Covers Your Whole Family</p>
+            <p className="text-xs text-amber-600 mb-3">Add up to 6 members — free for all on one plan</p>
+            <div className="flex gap-3 flex-wrap">
+              {["You", "Spouse", "Child 1", "Child 2", "Parent 1", "Parent 2"].map((m, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <div className="w-10 h-10 rounded-full bg-amber-200 border-2 border-amber-500 flex items-center justify-center text-lg">👤</div>
+                  <span className="text-[10px] text-amber-700 font-semibold">{m}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Benefits */}
           <div className="space-y-2">
             <h3 className="text-sm font-black text-gray-900">What's Included</h3>
             {[
-              { icon: "📹", title: "Unlimited Video Consultations", value: "Unlimited" },
-              { icon: "🧪", title: "30% Off Lab Tests", value: "30% off" },
-              { icon: "💊", title: "20% Off Pharmacy", value: "20% off" },
-              { icon: "⚡", title: "Priority Booking", value: "Priority" },
-              { icon: "🩺", title: "Annual Health Check-up", value: "1 free/yr" },
-              { icon: "🧠", title: "4 Free Therapy Sessions/mo", value: "4/mo" },
-              { icon: "📞", title: "24×7 Doctor Helpline", value: "24×7" },
+              { icon: "📹", title: "Unlimited Video Consultations", detail: "22+ specialties, family of 6, 24×7", value: "Family of 6" },
+              { icon: "🌐", title: "12+ Languages Supported", detail: "Hindi, Telugu, Tamil, Kannada, Bengali & more", value: "12+ langs" },
+              { icon: "🧪", title: "30% Off Lab Tests", detail: "All lab packages & home collection", value: "30% off" },
+              { icon: "💊", title: "20% Off Pharmacy", detail: "All pharmacy orders", value: "20% off" },
+              { icon: "⚡", title: "Priority Booking", detail: "Skip the queue — instant slot confirmation", value: "Priority" },
+              { icon: "🩺", title: "Annual Health Check-up", detail: "Comprehensive check-up included", value: "1 free/yr" },
+              { icon: "🧠", title: "4 Free Therapy Sessions/mo", detail: "Mental health & counselling sessions", value: "4/mo" },
+              { icon: "📞", title: "24×7 Doctor Helpline", detail: "On-call doctor anytime", value: "24×7" },
             ].map((b, i) => (
               <div key={i} className="bg-white border border-amber-200 rounded-2xl p-3 flex items-center gap-3">
                 <span className="text-xl">{b.icon}</span>
-                <p className="flex-1 text-sm font-semibold text-gray-800">{b.title}</p>
-                <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-lg">{b.value}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{b.title}</p>
+                  <p className="text-xs text-gray-500">{b.detail}</p>
+                </div>
+                <span className="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-1 rounded-lg whitespace-nowrap">{b.value}</span>
               </div>
             ))}
           </div>
@@ -3697,6 +3944,114 @@ export const HealthPortal: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Home Healthcare ───────────────────────────────────────────────────── */}
+      {activeTab === "homecare" && (
+        <div className="space-y-5">
+          <div className="bg-gradient-to-br from-pink-700 to-pink-500 rounded-2xl p-5 text-white">
+            <p className="font-black text-lg">🏡 Home Healthcare</p>
+            <p className="text-sm text-pink-100 mt-1">Professional caregivers at your doorstep · Nursing, Physio, Elder Care & more</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Nursing Care", icon: "💉", priceFrom: "₹599/visit", desc: "Wound care, IV, injections" },
+              { label: "Physiotherapy", icon: "🏃", priceFrom: "₹699/visit", desc: "Mobility, post-surgery rehab" },
+              { label: "Attendant / Caregiver", icon: "🤝", priceFrom: "₹499/visit", desc: "Daily living assistance" },
+              { label: "Elder Care", icon: "👴", priceFrom: "₹599/visit", desc: "Dedicated senior companion" },
+              { label: "Post-Surgery Care", icon: "🩹", priceFrom: "₹799/visit", desc: "ICU step-down homecare" },
+              { label: "Medical Equipment", icon: "🛏️", priceFrom: "₹299/day", desc: "Hospital bed, wheelchair, O₂" },
+            ].map((s, i) => (
+              <div key={i} className="bg-white border border-pink-100 rounded-2xl p-3 flex flex-col gap-1 hover:border-pink-400 cursor-pointer transition-colors">
+                <span className="text-2xl">{s.icon}</span>
+                <p className="text-sm font-bold text-gray-800">{s.label}</p>
+                <p className="text-xs text-gray-500">{s.desc}</p>
+                <p className="text-xs font-black text-pink-600 mt-1">From {s.priceFrom}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Care Plans</h3>
+            {[
+              { name: "Basic Care", price: "₹3,499/mo", features: ["2 daily visits", "Vitals monitoring", "Medication reminders", "Daily report to family"] },
+              { name: "Comprehensive Care", price: "₹7,999/mo", features: ["3 daily visits", "All Basic features", "Physio 3×/week", "Doctor teleconsult 2×/month"] },
+              { name: "ICU Step-Down", price: "₹14,999/mo", features: ["24-hr caregiver", "Trained post-ICU nurse", "Equipment provided", "Daily doctor review"] },
+            ].map((plan, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-black text-gray-900">{plan.name}</p>
+                    <p className="text-xs font-bold text-pink-600 mt-0.5">{plan.price}</p>
+                  </div>
+                  <button onClick={() => alert(`Enquiring about ${plan.name}…`)} className="bg-pink-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Enquire</button>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {plan.features.map((f, j) => <li key={j} className="text-xs text-gray-600 flex items-center gap-1"><span className="text-pink-400">✓</span>{f}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={() => alert("Booking home care… Our coordinator will call within 30 minutes.")} className="w-full bg-pink-600 text-white font-black text-sm py-3.5 rounded-2xl">
+            Book Home Care Visit
+          </button>
+        </div>
+      )}
+
+      {/* ── Radiology & Imaging ───────────────────────────────────────────────── */}
+      {activeTab === "radiology" && (
+        <div className="space-y-5">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-600 rounded-2xl p-5 text-white">
+            <p className="font-black text-lg">🩻 Radiology & Imaging</p>
+            <p className="text-sm text-slate-300 mt-1">X-Ray · Ultrasound · CT · MRI · PET-CT · Mammography</p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Scan Types</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "X-Ray", icon: "🩻", price: "from ₹300", color: "bg-cyan-50 border-cyan-200" },
+                { label: "Ultrasound", icon: "🔵", price: "from ₹799", color: "bg-blue-50 border-blue-200" },
+                { label: "CT Scan", icon: "🔮", price: "from ₹2,500", color: "bg-purple-50 border-purple-200" },
+                { label: "MRI", icon: "🧲", price: "from ₹5,000", color: "bg-emerald-50 border-emerald-200" },
+                { label: "PET-CT", icon: "☢️", price: "from ₹18,000", color: "bg-red-50 border-red-200" },
+                { label: "Mammography", icon: "🩷", price: "from ₹1,500", color: "bg-pink-50 border-pink-200" },
+              ].map((scan, i) => (
+                <div key={i} className={`${scan.color} border rounded-xl p-3 text-center cursor-pointer hover:shadow-sm transition-shadow`}>
+                  <span className="text-xl">{scan.icon}</span>
+                  <p className="text-xs font-bold text-gray-800 mt-1">{scan.label}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{scan.price}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-black text-gray-900 mb-2">Imaging Centres Near You</h3>
+            {[
+              { name: "SRL Diagnostics @ Mana", dist: "0.1 km", accred: ["NABL", "CAP"], scans: "X-Ray · USG", turnaround: "1–3 hrs", open: true },
+              { name: "Manipal Imaging & Diagnostics", dist: "2.3 km", accred: ["NABH", "ACR"], scans: "Full modalities", turnaround: "4–6 hrs", open: true },
+              { name: "Apollo Radiology Centre", dist: "3.7 km", accred: ["NABH", "JCI"], scans: "All incl. PET-CT", turnaround: "2–4 hrs", open: true },
+            ].map((c, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-bold text-gray-900">{c.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{c.dist} · {c.scans}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Report: {c.turnaround}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${c.open ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{c.open ? "Open" : "Closed"}</span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  {c.accred.map((a, j) => <span key={j} className="text-[9px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{a}</span>)}
+                </div>
+                <button onClick={() => alert(`Booking at ${c.name}…`)} className="mt-3 w-full bg-slate-800 text-white text-xs font-bold py-2 rounded-xl">Book Scan Here</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

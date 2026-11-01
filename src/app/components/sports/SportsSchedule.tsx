@@ -282,32 +282,147 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
     fetchAndGenerateBracket();
   }, [eventId, selectedConfigId]);
 
+  const distinctTournaments = useMemo(() => {
+    const set = new Set<string>();
+    tournamentConfigs.forEach(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      if (name) set.add(name);
+    });
+    return Array.from(set);
+  }, [tournamentConfigs]);
+
+  const activeTournamentConfig = useMemo(() => {
+    return tournamentConfigs.find(c => c.id === selectedConfigId) || null;
+  }, [tournamentConfigs, selectedConfigId]);
+
+  const activeTournamentName = useMemo(() => {
+    if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
+    return distinctTournaments[0] || '';
+  }, [activeTournamentConfig, distinctTournaments]);
+
+  const eventsForActiveTournament = useMemo(() => {
+    if (!activeTournamentName) return tournamentConfigs;
+    const match = tournamentConfigs.filter(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      return name === activeTournamentName;
+    });
+    return match.length > 0 ? match : tournamentConfigs;
+  }, [tournamentConfigs, activeTournamentName]);
+
+  const tournamentResults = useMemo(() => {
+    const finalMatch = bracketMatches.find(m => {
+      const rName = (m.roundName || m.round || m.stage || '').toLowerCase();
+      return rName.includes('final') && !rName.includes('semi') && !rName.includes('quarter');
+    });
+
+    if (!finalMatch) {
+      return {
+        winner: "TBD (Tournament in progress)",
+        runnerUp: "TBD (Tournament in progress)",
+        isDecided: false,
+      };
+    }
+
+    if (finalMatch.status === 'COMPLETED' || finalMatch.winnerTeamName || finalMatch.winnerTeamId) {
+      let winner = finalMatch.winnerTeamName;
+      if (!winner && finalMatch.winnerTeamId) {
+        if (String(finalMatch.winnerTeamId) === String(finalMatch.teamAId || finalMatch.homeTeamId)) {
+          winner = finalMatch.teamAName || finalMatch.homeTeamName;
+        } else if (String(finalMatch.winnerTeamId) === String(finalMatch.teamBId || finalMatch.awayTeamId)) {
+          winner = finalMatch.teamBName || finalMatch.awayTeamName;
+        }
+      }
+      winner = winner || "Winner Decided";
+
+      let runnerUp = "Runner-up";
+      if (winner === (finalMatch.teamAName || finalMatch.homeTeamName)) {
+        runnerUp = finalMatch.teamBName || finalMatch.awayTeamName || "Runner-up";
+      } else if (winner === (finalMatch.teamBName || finalMatch.awayTeamName)) {
+        runnerUp = finalMatch.teamAName || finalMatch.homeTeamName || "Runner-up";
+      }
+
+      return { winner, runnerUp, isDecided: true };
+    }
+
+    const tA = finalMatch.teamAName || finalMatch.homeTeamName;
+    const tB = finalMatch.teamBName || finalMatch.awayTeamName;
+    if (tA && tB && tA !== 'TBD' && tB !== 'TBD') {
+      return {
+        winner: `Awaiting Final (${tA} vs ${tB})`,
+        runnerUp: `Awaiting Final (${tA} vs ${tB})`,
+        isDecided: false,
+      };
+    }
+
+    return {
+      winner: "TBD (Finals stage)",
+      runnerUp: "TBD (Finals stage)",
+      isDecided: false,
+    };
+  }, [bracketMatches]);
+
   return (
     <div className="space-y-4">
-      {/* Tournament Selector */}
+      {/* Dual Tournament & Event Selector */}
       {tournamentConfigs.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Tournament</label>
-              <select
-                value={selectedConfigId ?? ""}
-                onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
-              >
-                {tournamentConfigs.map(c => (
-                  <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
-                ))}
-              </select>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tournament Bracket Fixtures</span>
             </div>
-            {selectedConfigId && (
-              <div className="text-xs text-slate-500 sm:pt-4">
-                {(() => {
-                  const cfg = tournamentConfigs.find(c => c.id === selectedConfigId);
-                  return cfg ? `${cfg.tournamentType} · ${cfg.totalTeams} teams` : "";
-                })()}
+            {activeTournamentConfig && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                  {activeTournamentConfig.tournamentType}
+                </span>
+                <span>· {activeTournamentConfig.totalTeams} teams</span>
               </div>
             )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <label htmlFor="bracketTournamentSelect" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Tournament
+              </label>
+              <div className="relative">
+                <select
+                  id="bracketTournamentSelect"
+                  value={activeTournamentName}
+                  onChange={e => {
+                    const tName = e.target.value;
+                    const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
+                    if (first) setSelectedConfigId(first.id);
+                  }}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
+                >
+                  {distinctTournaments.map(tName => (
+                    <option key={tName} value={tName}>{tName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              </div>
+            </div>
+            <div className="relative">
+              <label htmlFor="bracketEventSelect" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Sports Event / Category
+              </label>
+              <div className="relative">
+                <select
+                  id="bracketEventSelect"
+                  value={selectedConfigId ?? ''}
+                  onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
+                >
+                  {eventsForActiveTournament.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.eventName || c.tournamentName} ({c.tournamentType})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -349,24 +464,36 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
               <div className="flex-1 h-px bg-slate-200" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { label: "Winner", icon: "🏆", name: "Winner Of Final" },
-                { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
-              ].map(r => (
-                <div key={r.label} className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
-                  style={{
-                    background: "white",
-                    border: "1px solid rgba(99, 102, 241, 0.12)",
-                    boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-                  }}
-                >
-                  <span className="text-[10px]">{r.icon}</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
-                    <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
+              <div className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(99, 102, 241, 0.12)",
+                  boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                }}
+              >
+                <span className="text-xl">🏆</span>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">Winner</div>
+                  <div className={`text-sm mt-0.5 ${tournamentResults.isDecided ? 'font-bold text-emerald-600' : 'text-[#6b7094] italic'}`}>
+                    {tournamentResults.winner}
                   </div>
                 </div>
-              ))}
+              </div>
+              <div className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(99, 102, 241, 0.12)",
+                  boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                }}
+              >
+                <span className="text-xl">🥈</span>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">Runner-up</div>
+                  <div className={`text-sm mt-0.5 ${tournamentResults.isDecided ? 'font-bold text-slate-700' : 'text-[#6b7094] italic'}`}>
+                    {tournamentResults.runnerUp}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </>
@@ -523,6 +650,33 @@ export function SportsSchedule() {
       })
       .catch(() => {});
   }, []);
+
+  const distinctTournaments = useMemo(() => {
+    const set = new Set<string>();
+    tournamentConfigs.forEach(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      if (name) set.add(name);
+    });
+    return Array.from(set);
+  }, [tournamentConfigs]);
+
+  const activeTournamentConfig = useMemo(() => {
+    return tournamentConfigs.find(c => c.id === selectedTournamentId) || null;
+  }, [tournamentConfigs, selectedTournamentId]);
+
+  const activeTournamentName = useMemo(() => {
+    if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
+    return '';
+  }, [activeTournamentConfig]);
+
+  const eventsForActiveTournament = useMemo(() => {
+    if (!activeTournamentName) return tournamentConfigs;
+    const match = tournamentConfigs.filter(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      return name === activeTournamentName;
+    });
+    return match.length > 0 ? match : tournamentConfigs;
+  }, [tournamentConfigs, activeTournamentName]);
 
   const handleFixtureSave = () => {
     if (!fixtureName.trim() || !fixtureSport || !fixtureVenue || !fixtureDate || !fixtureTime || !fixtureTeam1 || !fixtureTeam2) {
@@ -981,10 +1135,20 @@ export function SportsSchedule() {
         <div className="page active">
           <div className="page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="page-title">{activeTab === "Overview" ? "Sports overview" : activeTab}</div>
-              <div className="page-sub">{activeTab === "Overview" ? "Your community sports schedule, live matches and latest results." : "Sports scheduling & event matches"}</div>
+              <div className="page-title">
+                {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
+              </div>
+              <div className="page-sub">
+                {activeTab === "Overview"
+                  ? "Your community sports schedule, live matches and latest results."
+                  : activeTab === "Config"
+                  ? "Configure tournament formats, dates, venues and match rules."
+                  : activeTab === "Manual"
+                  ? "Custom group pools, interactive team draws, round-robin fixture generator, and knockout bracket matchups."
+                  : "Sports scheduling & event matches"}
+              </div>
             </div>
-            {activeTab !== "My Matches" && fixturesList.length > 0 && <div className="self-start sm:self-auto">{renderExportDropdown()}</div>}
+            {activeTab !== "My Matches" && activeTab !== "Teams & Squads" && activeTab !== "Leaderboard" && fixturesList.length > 0 && <div className="self-start sm:self-auto">{renderExportDropdown()}</div>}
           </div>
 
       {/* Overview */}
@@ -996,47 +1160,93 @@ export function SportsSchedule() {
             variant="compact"
           />
 
-          {/* Tournament & Sport Event Quick Selector */}
+          {/* Tournament & Sport Event Quick Selector (Separate Dropdowns) */}
           {tournamentConfigs.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  <Trophy className="h-5 w-5" />
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <Trophy className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Active Tournaments & Sports Events</h3>
+                    <p className="mt-0.5 text-xs text-slate-500">Filter fixtures by tournament championship and sports event category</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Active tournaments</h3>
-                  <p className="mt-0.5 text-xs text-slate-500">Choose a tournament to view its fixtures</p>
+                {selectedTournamentId && (
+                  <button
+                    onClick={() => setSelectedTournamentId(null)}
+                    className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto cursor-pointer"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-0.5">
+                {/* 1. Tournament Dropdown */}
+                <div className="relative flex flex-col gap-1.5">
+                  <label htmlFor="overviewTournamentSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Trophy className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Tournament</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="overviewTournamentSelect"
+                      value={activeTournamentName}
+                      onChange={e => {
+                        const tName = e.target.value;
+                        if (!tName) {
+                          setSelectedTournamentId(null);
+                          return;
+                        }
+                        const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
+                        if (first) {
+                          setSelectedTournamentId(first.id);
+                          setActiveTab("All Events");
+                        }
+                      }}
+                      className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3.5 pr-10 py-2.5 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-xs"
+                    >
+                      <option value="">All Tournaments</option>
+                      {distinctTournaments.map(tName => (
+                        <option key={tName} value={tName}>{tName}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
+                </div>
+
+                {/* 2. Sports Event Dropdown */}
+                <div className="relative flex flex-col gap-1.5">
+                  <label htmlFor="overviewEventSelect" className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <Calendar className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Sports Event / Category</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="overviewEventSelect"
+                      value={selectedTournamentId ?? ""}
+                      onChange={e => {
+                        const tournamentId = Number(e.target.value);
+                        setSelectedTournamentId(tournamentId ? tournamentId : null);
+                        if (tournamentId) {
+                          setActiveTab("All Events");
+                        }
+                      }}
+                      className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3.5 pr-10 py-2.5 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-sky-500 focus:ring-2 focus:ring-sky-100 cursor-pointer shadow-xs"
+                    >
+                      <option value="">All Events / Categories</option>
+                      {eventsForActiveTournament.map(cfg => (
+                        <option key={cfg.id} value={cfg.id}>
+                          {cfg.eventName || cfg.tournamentName} {cfg.totalTeams ? `• ${cfg.totalTeams} teams` : ''} {cfg.sportName ? `• ${cfg.sportName}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
                 </div>
               </div>
-              <label className="relative block w-full sm:max-w-sm">
-                <span className="sr-only">Select a tournament</span>
-                <select
-                  value={selectedTournamentId ?? ""}
-                  onChange={e => {
-                    const tournamentId = Number(e.target.value);
-                    if (!tournamentId) return;
-                    setSelectedTournamentId(tournamentId);
-                    setActiveTab("All Events");
-                  }}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 pr-10 text-sm font-semibold text-slate-800 outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                >
-                  <option value="">Select a tournament…</option>
-                  {tournamentConfigs.map(cfg => (
-                    <option key={cfg.id} value={cfg.id}>
-                      {cfg.tournamentName} · {cfg.eventName || "Sport"} · {cfg.totalTeams} teams
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </label>
-              {selectedTournamentId && (
-                <button
-                  onClick={() => setSelectedTournamentId(null)}
-                  className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto"
-                >
-                  Clear
-                </button>
-              )}
             </div>
           )}
 
@@ -2097,9 +2307,7 @@ export function SportsSchedule() {
 
       {/* Teams & Squads */}
       {activeTab === "Teams & Squads" && (
-        <TeamsHubShowcase
-          tournamentId={selectedTournamentId ?? undefined}
-        />
+        <TeamsHubShowcase />
       )}
 
       {/* Leaderboard */}
@@ -2116,16 +2324,17 @@ export function SportsSchedule() {
           : (activeTournament ? activeTournamentIsCricket : (hasCricketConfig || activeIsCricket));
 
         return (
-          <div className="space-y-4">
+          <div className="w-full min-w-0 space-y-4">
             {hasCricketConfig && hasGenericConfig && (
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl w-fit">
+              <div className="flex w-full justify-end">
+                <div className="grid w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setLeaderboardViewType("cricket")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition cursor-pointer ${
                     showCricketLeaderboard
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/70"
+                      : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
                   }`}
                 >
                   Cricket Leaderboard (Caps & MVP)
@@ -2133,14 +2342,15 @@ export function SportsSchedule() {
                 <button
                   type="button"
                   onClick={() => setLeaderboardViewType("generic")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  className={`rounded-lg px-3 py-2 text-xs font-bold transition cursor-pointer ${
                     !showCricketLeaderboard
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/70"
+                      : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
                   }`}
                 >
                   Multi-Sport Leaderboard
                 </button>
+                </div>
               </div>
             )}
             {showCricketLeaderboard ? <Leaderboard /> : <GenericLeaderboard />}
@@ -2175,7 +2385,18 @@ export function SportsSchedule() {
 
       {/* Manual Scheduler */}
       {activeTab === "Manual" && (
-        isAdmin ? <ManualScheduler configId={selectedTournamentId ?? (tournamentConfigs[0]?.id)} /> : (
+        isAdmin ? (
+          <ManualScheduler
+            configId={
+              selectedTournamentId ??
+              (tournamentConfigs.find(c => eventId && (c.eventId === Number(eventId) || c.id === Number(eventId)))?.id) ??
+              (tournamentConfigs[0]?.id) ??
+              (eventId ? Number(eventId) : undefined)
+            }
+            onNavigateToConfig={() => setActiveTab("Config")}
+            onNavigateToSetup={() => setActiveTab("Setup Schedule")}
+          />
+        ) : (
           <div className="bg-white rounded-xl p-8 text-center text-slate-500 border border-slate-200">
             <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-2" />
             <div className="font-bold text-slate-800">Access Restricted</div>

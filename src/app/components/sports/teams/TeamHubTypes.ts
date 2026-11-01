@@ -40,7 +40,7 @@ export interface SquadMember {
   role: PlayerRoleType;
   category?: string; // e.g. 'Icon', 'Gold', 'Silver', 'Tier 1', 'Open'
   jerseyNumber?: number | string;
-  acquiredPrice: number; // in ₹
+  acquiredPrice?: number; // in ₹
   status: PlayerAcquisitionStatus;
   flatNumber?: string;
   isCommunityResident?: boolean;
@@ -69,10 +69,10 @@ export interface TeamProfile {
   tournamentId?: number;
   tournamentName?: string;
   season?: string;
-  totalBudget: number;
-  spentBudget: number;
-  remainingBudget: number;
-  maxSquadSize: number;
+  totalBudget?: number;
+  spentBudget?: number;
+  remainingBudget?: number;
+  maxSquadSize?: number;
   squad: SquadMember[];
   titlesCount?: number;
   winLossRatio?: string;
