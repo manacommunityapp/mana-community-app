@@ -1,7 +1,6 @@
 import { apiClient } from "../common/apiClient";
 import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../../app/components/scheduler/playoffSchedule";
 import type { ScheduleGenerationLog, PaginatedResponse } from "../../types/api";
-import { SAMPLE_TOURNAMENT_CONFIGS, getSampleMatchesForConfig } from "../../app/components/sports/sampleSportsScheduleData";
 
 export interface TournamentTypeInfo {
   id: string;
@@ -460,14 +459,10 @@ export const tournamentService = {
   async getConfigs(): Promise<ConfigInfo[]> {
     try {
       const data = await apiClient.get<ConfigInfo[]>("/tournament/configs");
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
-      }
+      return Array.isArray(data) ? data : [];
     } catch (_err) {
-      // Fallback for local development or when backend is unreachable
+      return [];
     }
-    const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-    return isLocalEnv ? SAMPLE_TOURNAMENT_CONFIGS : [];
   },
 
   /** POST /api/tournament/config */
@@ -551,14 +546,10 @@ export const tournamentService = {
   async getMatchesByConfigId(configId: number): Promise<any[]> {
     try {
       const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
-      }
+      return Array.isArray(data) ? data : [];
     } catch (_err) {
-      // Fallback for local development or when backend is unreachable
+      return [];
     }
-    const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-    return isLocalEnv ? getSampleMatchesForConfig(configId) : [];
   },
 
   /** Alias for getMatchesByConfigId */

@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { tournamentService, type ConfigInfo } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
-import { SAMPLE_TOURNAMENT_TEAMS } from '../sports/teams/sampleTeamsData';
 import { showSuccess, showError, showWarning } from '../../../utils/ToastUtils';
 import { confirmAction } from '../../../utils/AlertUtils';
 import type { Venue } from '../../../types/api';
@@ -162,9 +161,6 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
   const loadConfigData = useCallback(async (cfgId: number) => {
     setLoadingData(true);
     try {
-      const isLocal = typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || (import.meta as any).env?.DEV);
-
       // Fetch teams, schedule (groups), and matches concurrently
       const [teamsRes, scheduleRes, matchesRes] = await Promise.allSettled([
         tournamentService.getConfigTeams?.(cfgId),
@@ -172,8 +168,13 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
         tournamentService.getMatchesByConfigId?.(cfgId),
       ]);
 
-      // 1. Process Groups from Schedule if available
-      const detectedGroups = new Set<string>(['GROUP_A', 'GROUP_B']);
+      // 1. Process Groups dynamically based on config & schedule
+      const activeCfg = configs.find(c => c.id === cfgId);
+      const numGroups = activeCfg?.numberOfGroups && activeCfg.numberOfGroups > 0 ? activeCfg.numberOfGroups : 2;
+      const detectedGroups = new Set<string>();
+      for (let i = 0; i < numGroups; i++) {
+        detectedGroups.add(`GROUP_${String.fromCharCode(65 + i)}`);
+      }
       const teamGroupMap: Record<string, string> = {};
 
       if (scheduleRes.status === 'fulfilled' && scheduleRes.value?.groups) {
@@ -191,7 +192,7 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
 
       setAvailableGroups(Array.from(detectedGroups));
 
-      // 2. Process Teams
+      // 2. Process Teams (Strictly Real Records, Empty if None)
       let loadedTeams: TeamItem[] = [];
       if (teamsRes.status === 'fulfilled' && Array.isArray(teamsRes.value) && teamsRes.value.length > 0) {
         loadedTeams = teamsRes.value.map((t, idx) => {
@@ -203,13 +204,6 @@ export function ManualScheduler({ configId }: ManualSchedulerProps) {
             color: t.colorHex || TEAM_COLORS[idx % TEAM_COLORS.length],
           };
         });
-      } else if (isLocal && SAMPLE_TOURNAMENT_TEAMS.length > 0) {
-        loadedTeams = SAMPLE_TOURNAMENT_TEAMS.slice(0, 8).map((t, idx) => ({
-          id: String(t.id),
-          name: t.name,
-          group: idx < 3 ? 'GROUP_A' : idx < 6 ? 'GROUP_B' : 'UNASSIGNED',
-          color: t.colorHex || TEAM_COLORS[idx % TEAM_COLORS.length],
-        }));
       }
       setTeams(loadedTeams);
 

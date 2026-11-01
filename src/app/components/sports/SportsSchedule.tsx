@@ -282,32 +282,147 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
     fetchAndGenerateBracket();
   }, [eventId, selectedConfigId]);
 
+  const distinctTournaments = useMemo(() => {
+    const set = new Set<string>();
+    tournamentConfigs.forEach(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      if (name) set.add(name);
+    });
+    return Array.from(set);
+  }, [tournamentConfigs]);
+
+  const activeTournamentConfig = useMemo(() => {
+    return tournamentConfigs.find(c => c.id === selectedConfigId) || null;
+  }, [tournamentConfigs, selectedConfigId]);
+
+  const activeTournamentName = useMemo(() => {
+    if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
+    return distinctTournaments[0] || '';
+  }, [activeTournamentConfig, distinctTournaments]);
+
+  const eventsForActiveTournament = useMemo(() => {
+    if (!activeTournamentName) return tournamentConfigs;
+    const match = tournamentConfigs.filter(c => {
+      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
+      return name === activeTournamentName;
+    });
+    return match.length > 0 ? match : tournamentConfigs;
+  }, [tournamentConfigs, activeTournamentName]);
+
+  const tournamentResults = useMemo(() => {
+    const finalMatch = bracketMatches.find(m => {
+      const rName = (m.roundName || m.round || m.stage || '').toLowerCase();
+      return rName.includes('final') && !rName.includes('semi') && !rName.includes('quarter');
+    });
+
+    if (!finalMatch) {
+      return {
+        winner: "TBD (Tournament in progress)",
+        runnerUp: "TBD (Tournament in progress)",
+        isDecided: false,
+      };
+    }
+
+    if (finalMatch.status === 'COMPLETED' || finalMatch.winnerTeamName || finalMatch.winnerTeamId) {
+      let winner = finalMatch.winnerTeamName;
+      if (!winner && finalMatch.winnerTeamId) {
+        if (String(finalMatch.winnerTeamId) === String(finalMatch.teamAId || finalMatch.homeTeamId)) {
+          winner = finalMatch.teamAName || finalMatch.homeTeamName;
+        } else if (String(finalMatch.winnerTeamId) === String(finalMatch.teamBId || finalMatch.awayTeamId)) {
+          winner = finalMatch.teamBName || finalMatch.awayTeamName;
+        }
+      }
+      winner = winner || "Winner Decided";
+
+      let runnerUp = "Runner-up";
+      if (winner === (finalMatch.teamAName || finalMatch.homeTeamName)) {
+        runnerUp = finalMatch.teamBName || finalMatch.awayTeamName || "Runner-up";
+      } else if (winner === (finalMatch.teamBName || finalMatch.awayTeamName)) {
+        runnerUp = finalMatch.teamAName || finalMatch.homeTeamName || "Runner-up";
+      }
+
+      return { winner, runnerUp, isDecided: true };
+    }
+
+    const tA = finalMatch.teamAName || finalMatch.homeTeamName;
+    const tB = finalMatch.teamBName || finalMatch.awayTeamName;
+    if (tA && tB && tA !== 'TBD' && tB !== 'TBD') {
+      return {
+        winner: `Awaiting Final (${tA} vs ${tB})`,
+        runnerUp: `Awaiting Final (${tA} vs ${tB})`,
+        isDecided: false,
+      };
+    }
+
+    return {
+      winner: "TBD (Finals stage)",
+      runnerUp: "TBD (Finals stage)",
+      isDecided: false,
+    };
+  }, [bracketMatches]);
+
   return (
     <div className="space-y-4">
-      {/* Tournament Selector */}
+      {/* Dual Tournament & Event Selector */}
       {tournamentConfigs.length > 0 && (
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Tournament</label>
-              <select
-                value={selectedConfigId ?? ""}
-                onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
-              >
-                {tournamentConfigs.map(c => (
-                  <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
-                ))}
-              </select>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tournament Bracket Fixtures</span>
             </div>
-            {selectedConfigId && (
-              <div className="text-xs text-slate-500 sm:pt-4">
-                {(() => {
-                  const cfg = tournamentConfigs.find(c => c.id === selectedConfigId);
-                  return cfg ? `${cfg.tournamentType} · ${cfg.totalTeams} teams` : "";
-                })()}
+            {activeTournamentConfig && (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                  {activeTournamentConfig.tournamentType}
+                </span>
+                <span>· {activeTournamentConfig.totalTeams} teams</span>
               </div>
             )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative">
+              <label htmlFor="bracketTournamentSelect" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Tournament
+              </label>
+              <div className="relative">
+                <select
+                  id="bracketTournamentSelect"
+                  value={activeTournamentName}
+                  onChange={e => {
+                    const tName = e.target.value;
+                    const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
+                    if (first) setSelectedConfigId(first.id);
+                  }}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
+                >
+                  {distinctTournaments.map(tName => (
+                    <option key={tName} value={tName}>{tName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              </div>
+            </div>
+            <div className="relative">
+              <label htmlFor="bracketEventSelect" className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Sports Event / Category
+              </label>
+              <div className="relative">
+                <select
+                  id="bracketEventSelect"
+                  value={selectedConfigId ?? ''}
+                  onChange={e => setSelectedConfigId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3 pr-8 py-2 text-xs sm:text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer"
+                >
+                  {eventsForActiveTournament.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.eventName || c.tournamentName} ({c.tournamentType})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -349,24 +464,36 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
               <div className="flex-1 h-px bg-slate-200" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { label: "Winner", icon: "🏆", name: "Winner Of Final" },
-                { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
-              ].map(r => (
-                <div key={r.label} className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
-                  style={{
-                    background: "white",
-                    border: "1px solid rgba(99, 102, 241, 0.12)",
-                    boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-                  }}
-                >
-                  <span className="text-[10px]">{r.icon}</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
-                    <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
+              <div className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(99, 102, 241, 0.12)",
+                  boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                }}
+              >
+                <span className="text-xl">🏆</span>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">Winner</div>
+                  <div className={`text-sm mt-0.5 ${tournamentResults.isDecided ? 'font-bold text-emerald-600' : 'text-[#6b7094] italic'}`}>
+                    {tournamentResults.winner}
                   </div>
                 </div>
-              ))}
+              </div>
+              <div className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+                style={{
+                  background: "white",
+                  border: "1px solid rgba(99, 102, 241, 0.12)",
+                  boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                }}
+              >
+                <span className="text-xl">🥈</span>
+                <div>
+                  <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">Runner-up</div>
+                  <div className={`text-sm mt-0.5 ${tournamentResults.isDecided ? 'font-bold text-slate-700' : 'text-[#6b7094] italic'}`}>
+                    {tournamentResults.runnerUp}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </>
