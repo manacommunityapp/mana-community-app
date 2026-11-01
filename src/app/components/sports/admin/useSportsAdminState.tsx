@@ -207,6 +207,7 @@ export function useSportsAdminState() {
   const [announcingTournament, setAnnouncingTournament] = useState<{ id: number; name: string } | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
   const [activeTournamentName, setActiveTournamentName] = useState<string>("");
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
 
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -3020,6 +3021,7 @@ export function useSportsAdminState() {
 
     // Tournament-first flow
     activeTournamentId, activeTournamentName, clearTournamentContext, setTournamentContext,
+    sportsEventSubTab, setSportsEventSubTab,
 
     // Tournament data
     activeTournaments, activeEvents,

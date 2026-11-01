@@ -57,6 +57,7 @@ export function SportsAdmin() {
               approveTeam={s.approveTeam}
               rejectTeam={s.rejectTeam}
               setActiveTab={s.setActiveTab}
+              setSportsEventSubTab={s.setSportsEventSubTab}
             />
           )}
 
@@ -135,6 +136,8 @@ export function SportsAdmin() {
                 setTournamentContext={s.setTournamentContext}
                 tournamentStartDate={tourneyStart}
                 tournamentEndDate={tourneyEnd}
+                sportsEventSubTab={s.sportsEventSubTab}
+                setSportsEventSubTab={s.setSportsEventSubTab}
               />
             );
           })()}

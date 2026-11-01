@@ -75,6 +75,8 @@ interface SportsEventTabProps {
   setTournamentContext?: (id: number, name: string) => void;
   tournamentStartDate?: Date;
   tournamentEndDate?: Date;
+  sportsEventSubTab?: "list" | "config";
+  setSportsEventSubTab?: (tab: "list" | "config") => void;
 }
 
 export function SportsEventTab({
@@ -145,8 +147,12 @@ export function SportsEventTab({
   setTournamentContext,
   tournamentStartDate,
   tournamentEndDate,
+  sportsEventSubTab: controlledSubTab,
+  setSportsEventSubTab: setControlledSubTab,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [internalSubTab, setInternalSubTab] = useState<"list" | "config">("list");
+  const sportsEventSubTab = controlledSubTab ?? internalSubTab;
+  const setSportsEventSubTab = setControlledSubTab ?? setInternalSubTab;
 
   const onEditEventFromList = (ev: any) => {
     setShowSportPicker(false);
