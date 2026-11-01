@@ -219,7 +219,7 @@ export function TournamentPlayersPaymentModal({
     });
   }, [players, searchQuery, statusFilter, categoryFilter]);
 
-  // Group by Flat Number Category (Head & Family)
+  // Group by Flat Number Category
   const flatGroups = useMemo<FlatGroup[]>(() => {
     const map = new Map<string, UniqueTournamentPlayer[]>();
 
@@ -252,11 +252,14 @@ export function TournamentPlayersPaymentModal({
       const unpaidCount = members.length - paidCount;
       const allPaid = members.length > 0 && unpaidCount === 0;
 
+      // Ordered members: heads first, then family members
+      const sortedMembers = [...heads, ...familyMembers];
+
       groups.push({
         flatNumber,
         heads,
         familyMembers,
-        allMembers: members,
+        allMembers: sortedMembers,
         totalEvents,
         paidCount,
         unpaidCount,
@@ -348,7 +351,7 @@ export function TournamentPlayersPaymentModal({
 
   if (!isOpen || !tournament) return null;
 
-  // Helper renderer for a single player card
+  // Single-row player card matching application design and compact typography
   const renderPlayerCard = (player: UniqueTournamentPlayer, isUnderFlatView = false) => {
     const isPaid = player.paymentStatus === "PAID" || player.paymentStatus === "WAIVED";
     const categoryInfo = getPlayerCategory(player);
@@ -356,17 +359,18 @@ export function TournamentPlayersPaymentModal({
     return (
       <div
         key={player.playerKey}
-        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 rounded-xl border transition-all ${
+        className={`flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl border transition-all ${
           isUnderFlatView
             ? categoryInfo.isHead
-              ? "border-indigo-100 bg-indigo-50/20 hover:border-indigo-300"
-              : "border-purple-100 bg-purple-50/15 hover:border-purple-300"
+              ? "border-indigo-100 bg-indigo-50/25 hover:border-indigo-300"
+              : "border-purple-100 bg-purple-50/20 hover:border-purple-300"
             : "border-slate-200/90 bg-white hover:border-indigo-200 hover:shadow-2xs"
         }`}
       >
-        <div className="flex items-start gap-3 min-w-0 flex-1">
+        {/* Single Row: Avatar, Name, Category Badge, Flat (if needed), Registered Events, Phone */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold text-sm shadow-2xs ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs shadow-2xs ${
               categoryInfo.isHead
                 ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200"
                 : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
@@ -374,95 +378,78 @@ export function TournamentPlayersPaymentModal({
           >
             {player.playerName.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-slate-900 truncate">
-                {player.playerName}
-              </span>
 
-              {/* Head vs Family Category Badge */}
-              {categoryInfo.isHead ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
-                  <Crown className="w-3 h-3 text-indigo-600" />
-                  <span>Head ({categoryInfo.relationLabel})</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
-                  <Users className="w-3 h-3 text-purple-600" />
-                  <span>Family ({categoryInfo.relationLabel})</span>
-                </span>
-              )}
+          {/* Participant Name */}
+          <span className="text-xs font-bold text-slate-900 truncate max-w-[160px] sm:max-w-none">
+            {player.playerName}
+          </span>
 
-              {/* Flat Number (if not already under a flat section) */}
-              {!isUnderFlatView && player.flatNumber && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                  <Home className="w-3 h-3 text-slate-400" />
-                  <span>{player.flatNumber}</span>
-                </span>
-              )}
-            </div>
+          {/* Head vs Family Category Badge */}
+          {categoryInfo.isHead ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 shrink-0">
+              <Crown className="w-2.5 h-2.5 text-indigo-600" />
+              <span>Head ({categoryInfo.relationLabel})</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 shrink-0">
+              <Users className="w-2.5 h-2.5 text-purple-600" />
+              <span>Family ({categoryInfo.relationLabel})</span>
+            </span>
+          )}
 
-            {/* Action Buttons: Registered Events & Payment Receipt Button */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setViewingEventsPlayer(player)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs group active:scale-[0.98]"
-              >
-                <Trophy className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition-transform" />
-                <span>Registered Events ({player.registeredEvents.length})</span>
-                <ChevronRight className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-transform font-bold" />
-              </button>
+          {/* Flat Number (shown in All Players view) */}
+          {!isUnderFlatView && player.flatNumber && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 shrink-0">
+              <Home className="w-3 h-3 text-slate-400" />
+              <span>{player.flatNumber}</span>
+            </span>
+          )}
 
-              {/* Payment Info Button (Requested by User) */}
-              {isPaid && player.payment && (
-                <button
-                  type="button"
-                  onClick={() => setViewingPaymentDetailsPlayer(player)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/90 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs group active:scale-[0.98]"
-                  title="Click to view full payment audit details"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
-                  <span>Paid ₹{player.payment.amount} ({player.payment.paymentMode})</span>
-                  <Receipt className="w-3 h-3 text-emerald-500 group-hover:text-emerald-700 transition-colors ml-0.5" />
-                </button>
-              )}
+          {/* Registered Events Button */}
+          <button
+            type="button"
+            onClick={() => setViewingEventsPlayer(player)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 text-xs font-semibold transition-all cursor-pointer shadow-2xs hover:shadow-xs group shrink-0 active:scale-[0.98]"
+          >
+            <Trophy className="w-3 h-3 text-indigo-600 group-hover:scale-110 transition-transform" />
+            <span>Registered Events ({player.registeredEvents.length})</span>
+            <ChevronRight className="w-3 h-3 text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
+          </button>
 
-              {player.phone && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                  <Phone className="w-3 h-3" />
-                  <span>{player.phone}</span>
-                </span>
-              )}
-            </div>
-          </div>
+          {player.phone && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 shrink-0 hidden md:inline-flex">
+              <Phone className="w-2.5 h-2.5" />
+              <span>{player.phone}</span>
+            </span>
+          )}
         </div>
 
-        {/* Actions / Status */}
-        <div className="flex items-center gap-2.5 shrink-0 sm:self-center">
+        {/* Right Action: Just Paid (Receipt Button) or Unpaid & Mark as Paid */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {isPaid ? (
             <button
               type="button"
               onClick={() => player.payment && setViewingPaymentDetailsPlayer(player)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs transition-all cursor-pointer"
-              title="Click to view payment receipt"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs transition-all cursor-pointer group"
+              title="Click to view payment receipt & audit log"
             >
-              <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
               <span>Paid</span>
+              <Receipt className="w-3 h-3 text-emerald-500 group-hover:text-emerald-700 transition-colors ml-0.5" />
             </button>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
-                <Clock className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                <Clock className="w-3 h-3" />
                 <span>Unpaid</span>
               </span>
               {canManagePayments && (
                 <button
                   type="button"
                   onClick={() => handleOpenMarkPaid(player)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.98]"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                 >
-                  <CreditCard className="w-3.5 h-3.5" />
+                  <CreditCard className="w-3 h-3" />
                   <span>Mark as Paid</span>
                 </button>
               )}
@@ -483,118 +470,118 @@ export function TournamentPlayersPaymentModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-slate-50">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
-              <Trophy className="h-5 w-5" />
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-slate-50">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100">
+              <Trophy className="h-4 w-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 line-clamp-1">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 line-clamp-1">
                   {tournament.name}
                 </h2>
-                <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider">
                   Payment Hub
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Tournament participants fee collection &amp; flat-family hierarchy
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Tournament participant fee collection &amp; flat-family hierarchy
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 sm:px-6 bg-slate-50/70 border-b border-slate-100 text-xs">
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-            <span className="text-slate-500 font-medium">Total Registered</span>
-            <div className="text-lg font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-indigo-500" />
+        {/* Compact Stats Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 sm:px-5 bg-slate-50/70 border-b border-slate-100 text-xs">
+          <div className="bg-white rounded-xl p-2.5 border border-slate-200/80 shadow-2xs">
+            <span className="text-[11px] text-slate-500 font-medium">Total Registered</span>
+            <div className="text-sm sm:text-base font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-500" />
               <span>{stats.total} Players</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-            <span className="text-slate-500 font-medium">Flats Registered</span>
-            <div className="text-lg font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
-              <Home className="w-4 h-4 text-blue-500" />
+          <div className="bg-white rounded-xl p-2.5 border border-slate-200/80 shadow-2xs">
+            <span className="text-[11px] text-slate-500 font-medium">Flats Registered</span>
+            <div className="text-sm sm:text-base font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5 text-blue-500" />
               <span>{stats.uniqueFlats} Flats</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-            <span className="text-slate-500 font-medium">Paid Participants</span>
-            <div className="text-lg font-black text-emerald-600 mt-0.5 flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4" />
+          <div className="bg-white rounded-xl p-2.5 border border-slate-200/80 shadow-2xs">
+            <span className="text-[11px] text-slate-500 font-medium">Paid Participants</span>
+            <div className="text-sm sm:text-base font-black text-emerald-600 mt-0.5 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" />
               <span>{stats.paid}</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
-            <span className="text-slate-500 font-medium">Unpaid Pending</span>
-            <div className="text-lg font-black text-amber-600 mt-0.5 flex items-center gap-1.5">
-              <Clock className="w-4 h-4" />
+          <div className="bg-white rounded-xl p-2.5 border border-slate-200/80 shadow-2xs">
+            <span className="text-[11px] text-slate-500 font-medium">Unpaid Pending</span>
+            <div className="text-sm sm:text-base font-black text-amber-600 mt-0.5 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
               <span>{stats.unpaid}</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
-            <span className="text-slate-500 font-medium">Total Collected</span>
-            <div className="text-lg font-black text-indigo-600 mt-0.5 flex items-center gap-1">
-              <IndianRupee className="w-4 h-4" />
+          <div className="bg-white rounded-xl p-2.5 border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
+            <span className="text-[11px] text-slate-500 font-medium">Total Collected</span>
+            <div className="text-sm sm:text-base font-black text-indigo-600 mt-0.5 flex items-center gap-1">
+              <IndianRupee className="w-3.5 h-3.5" />
               <span>{stats.totalCollected.toLocaleString("en-IN")}</span>
             </div>
           </div>
         </div>
 
         {/* Search, View Switcher & Filter Toolbar */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-6 py-3 border-b border-slate-100 bg-white">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 px-5 py-2.5 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search player, flat (e.g. A-101), sport..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-200 pl-8 pr-3 py-1.5 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* View Mode Toggle: Flat & Family vs All Players */}
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {/* View Mode Toggle */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 text-xs">
               <button
                 type="button"
                 onClick={() => setViewMode("FLAT")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                   viewMode === "FLAT"
                     ? "bg-white text-indigo-600 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Building2 className="w-3.5 h-3.5" />
+                <Building2 className="w-3 h-3" />
                 <span>By Flat &amp; Family</span>
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("PLAYER")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                   viewMode === "PLAYER"
                     ? "bg-white text-indigo-600 shadow-2xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <User className="w-3.5 h-3.5" />
+                <User className="w-3 h-3" />
                 <span>All Players</span>
               </button>
             </div>
 
-            {/* Category Filter: All / Heads / Family */}
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
+            {/* Category Filter */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 text-xs">
               {(
                 [
                   { id: "ALL", label: "All" },
@@ -605,7 +592,7 @@ export function TournamentPlayersPaymentModal({
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                  className={`px-2 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
                     categoryFilter === cat.id
                       ? "bg-indigo-600 text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -617,12 +604,12 @@ export function TournamentPlayersPaymentModal({
             </div>
 
             {/* Payment Status Filter */}
-            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
+            <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200/80 text-xs">
               {(["ALL", "PAID", "UNPAID"] as const).map((st) => (
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
+                  className={`px-2 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
                     statusFilter === st
                       ? "bg-slate-900 text-white shadow-2xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -636,19 +623,19 @@ export function TournamentPlayersPaymentModal({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
               <span className="text-xs font-medium">Gathering registered players across tournament events...</span>
             </div>
           ) : filteredPlayers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
-                <Users className="w-6 h-6" />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+                <Users className="w-5 h-5" />
               </div>
-              <div className="text-sm font-bold text-slate-700">No players found</div>
-              <p className="text-xs text-slate-400 max-w-xs mt-1">
+              <div className="text-xs font-bold text-slate-700">No players found</div>
+              <p className="text-[11px] text-slate-400 max-w-xs mt-1">
                 {searchQuery || statusFilter !== "ALL" || categoryFilter !== "ALL"
                   ? "Try adjusting your search or filters"
                   : "No participants have registered for events in this tournament yet."}
@@ -656,106 +643,76 @@ export function TournamentPlayersPaymentModal({
             </div>
           ) : viewMode === "FLAT" ? (
             /* By Flat & Family Category View */
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {flatGroups.map((group) => (
                 <div
                   key={group.flatNumber}
-                  className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden"
+                  className="rounded-xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden"
                 >
                   {/* Flat Header Banner */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-5 py-3.5 bg-gradient-to-r from-slate-50 via-slate-50/70 to-white border-b border-slate-200/80">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold">
-                        <Home className="w-4 h-4" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2 bg-gradient-to-r from-slate-50 via-slate-50/70 to-white border-b border-slate-200/80">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold">
+                        <Home className="w-3.5 h-3.5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-slate-900">
-                            Flat {group.flatNumber}
-                          </h3>
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-600">
-                            {group.allMembers.length} {group.allMembers.length === 1 ? "Member" : "Members"}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-semibold text-indigo-700">
-                            {group.totalEvents} {group.totalEvents === 1 ? "Event" : "Events"}
-                          </span>
-                        </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          Flat {group.flatNumber}
+                        </h3>
+                        <span className="px-1.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] font-semibold text-slate-600">
+                          {group.allMembers.length} {group.allMembers.length === 1 ? "Member" : "Members"}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[9px] font-semibold text-indigo-700">
+                          {group.totalEvents} {group.totalEvents === 1 ? "Event" : "Events"}
+                        </span>
                       </div>
                     </div>
 
                     {/* Flat Payment Status Badge */}
                     <div className="flex items-center gap-2">
                       {group.allPaid ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold">
+                          <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
                           <span>Flat Fully Paid ({group.paidCount}/{group.allMembers.length})</span>
                         </span>
                       ) : group.paidCount > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
-                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold">
+                          <Clock className="w-3 h-3 text-amber-600" />
                           <span>Partial ({group.paidCount}/{group.allMembers.length} Paid)</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold">
+                          <Clock className="w-3 h-3 text-slate-400" />
                           <span>Flat Unpaid (0/{group.allMembers.length})</span>
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Flat Body: Head & Family Subsections */}
-                  <div className="p-4 sm:p-5 space-y-4">
-                    {/* Head of Household Category */}
-                    {group.heads.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2.5">
-                          <Crown className="w-3.5 h-3.5 text-indigo-600" />
-                          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-900">
-                            Head of Household ({group.heads.length})
-                          </span>
-                        </div>
-                        <div className="space-y-2.5">
-                          {group.heads.map((player) => renderPlayerCard(player, true))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Family Members Category */}
-                    {group.familyMembers.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2.5">
-                          <Users className="w-3.5 h-3.5 text-purple-600" />
-                          <span className="text-[11px] font-black uppercase tracking-wider text-purple-900">
-                            Family Members ({group.familyMembers.length})
-                          </span>
-                        </div>
-                        <div className="space-y-2.5">
-                          {group.familyMembers.map((player) => renderPlayerCard(player, true))}
-                        </div>
-                      </div>
-                    )}
+                  {/* Flat Body: Members directly rendered without bulky section headers */}
+                  <div className="p-2 sm:p-2.5 space-y-1.5">
+                    {group.allMembers.map((player) => renderPlayerCard(player, true))}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             /* Flat Linear All Players View */
-            <div className="space-y-2.5">
+            <div className="space-y-1.5">
               {filteredPlayers.map((player) => renderPlayerCard(player, false))}
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50/50">
-          <div className="text-xs text-slate-500">
+        <div className="flex items-center justify-between px-5 py-2.5 border-t border-slate-100 bg-slate-50/50">
+          <div className="text-[11px] text-slate-500">
             Showing <strong className="text-slate-700">{filteredPlayers.length}</strong> unique registered players across <strong className="text-slate-700">{flatGroups.length}</strong> flats
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+            className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
           >
             Close
           </button>
@@ -773,16 +730,16 @@ export function TournamentPlayersPaymentModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 via-white to-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
-                  <Trophy className="h-5 w-5" />
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 via-white to-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                  <Trophy className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900">
                     Registered Events
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[11px] text-slate-500">
                     Enrolled tournament activities &amp; participant formats
                   </p>
                 </div>
@@ -790,45 +747,45 @@ export function TournamentPlayersPaymentModal({
               <button
                 type="button"
                 onClick={() => setViewingEventsPlayer(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Participant Banner */}
-            <div className="px-6 py-3.5 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-800 font-bold text-sm shadow-2xs">
+            <div className="px-5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-800 font-bold text-xs shadow-2xs">
                   {viewingEventsPlayer.playerName.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-slate-900">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-slate-900">
                       {viewingEventsPlayer.playerName}
                     </span>
                     {(() => {
                       const cat = getPlayerCategory(viewingEventsPlayer);
                       return cat.isHead ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700">
-                          <Crown className="w-3 h-3 text-indigo-600" />
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[9px] font-bold text-indigo-700">
+                          <Crown className="w-2.5 h-2.5 text-indigo-600" />
                           <span>Head ({cat.relationLabel})</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-[10px] font-bold text-purple-700">
-                          <Users className="w-3 h-3 text-purple-600" />
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-[9px] font-bold text-purple-700">
+                          <Users className="w-2.5 h-2.5 text-purple-600" />
                           <span>Family ({cat.relationLabel})</span>
                         </span>
                       );
                     })()}
                     {viewingEventsPlayer.flatNumber && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-semibold text-slate-600">
-                        <Home className="w-3 h-3 text-slate-400" />
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-600">
+                        <Home className="w-2.5 h-2.5 text-slate-400" />
                         <span>Flat {viewingEventsPlayer.flatNumber}</span>
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
+                  <div className="text-[11px] text-slate-500 mt-0.5">
                     Enrolled in <strong className="text-slate-700">{viewingEventsPlayer.registeredEvents.length}</strong> event(s) in this tournament
                   </div>
                 </div>
@@ -842,16 +799,16 @@ export function TournamentPlayersPaymentModal({
                       const p = viewingEventsPlayer;
                       setViewingPaymentDetailsPlayer(p);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs cursor-pointer transition-colors"
-                    title="Click to view full payment audit receipt"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs cursor-pointer transition-colors"
+                    title="Click to view payment receipt & audit log"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Paid ₹{viewingEventsPlayer.payment?.amount ?? 500}</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                    <span>Paid</span>
                     <Receipt className="w-3 h-3 text-emerald-500 ml-0.5" />
                   </button>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
-                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                    <Clock className="w-3 h-3 text-amber-600" />
                     <span>Tournament Fee Unpaid</span>
                   </span>
                 )}
@@ -859,30 +816,30 @@ export function TournamentPlayersPaymentModal({
             </div>
 
             {/* Events List Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5">
               {viewingEventsPlayer.registeredEvents.map((ev, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-2xs transition-all space-y-2"
+                  className="p-3 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-2xs transition-all space-y-1.5"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2.5">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px]">
                           {ev.sportName || "Sports"}
                         </span>
-                        <h4 className="text-sm font-bold text-slate-900">
+                        <h4 className="text-xs font-bold text-slate-900">
                           {ev.eventName}
                         </h4>
                         {ev.matchType && (
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[10px] font-black uppercase text-indigo-700">
+                          <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[9px] font-black uppercase text-indigo-700">
                             {ev.matchType.replace(/_/g, " ")}
                           </span>
                         )}
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         ev.status === "CONFIRMED"
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : ev.status === "REGISTERED"
@@ -894,10 +851,10 @@ export function TournamentPlayersPaymentModal({
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 pt-1.5 border-t border-slate-100">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                     {ev.registeredAt && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-slate-400" />
                         <span>
                           Registered:{" "}
                           <strong className="text-slate-700 font-medium">
@@ -907,8 +864,8 @@ export function TournamentPlayersPaymentModal({
                       </span>
                     )}
                     {ev.partnerName && (
-                      <span className="inline-flex items-center gap-1.5 text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-2 py-0.5 rounded-md">
-                        <Users className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="inline-flex items-center gap-1 text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-1.5 py-0.5 rounded-md">
+                        <Users className="w-3 h-3 text-indigo-600" />
                         <span>
                           Partner: <strong className="font-semibold">{ev.partnerName}</strong>
                           {ev.partnerPhone ? ` (${ev.partnerPhone})` : ""}
@@ -921,8 +878,8 @@ export function TournamentPlayersPaymentModal({
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/60">
-              <div className="text-xs text-slate-500">
+            <div className="flex items-center justify-between px-5 py-2.5 border-t border-slate-100 bg-slate-50/60">
+              <div className="text-[11px] text-slate-500">
                 Total <strong>{viewingEventsPlayer.registeredEvents.length}</strong> event(s)
               </div>
               <div className="flex items-center gap-2">
@@ -936,16 +893,16 @@ export function TournamentPlayersPaymentModal({
                         setViewingEventsPlayer(null);
                         handleOpenMarkPaid(p);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
                     >
-                      <CreditCard className="w-3.5 h-3.5" />
-                      <span>Mark Tournament Fee as Paid</span>
+                      <CreditCard className="w-3 h-3" />
+                      <span>Mark as Paid</span>
                     </button>
                   )}
                 <button
                   type="button"
                   onClick={() => setViewingEventsPlayer(null)}
-                  className="px-4 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
                 >
                   Close
                 </button>
@@ -966,16 +923,16 @@ export function TournamentPlayersPaymentModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                  <Receipt className="h-5 w-5" />
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                  <Receipt className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900">
                     Payment Receipt &amp; Audit
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-[11px] text-slate-500">
                     Official tournament fee registration log
                   </p>
                 </div>
@@ -983,51 +940,51 @@ export function TournamentPlayersPaymentModal({
               <button
                 type="button"
                 onClick={() => setViewingPaymentDetailsPlayer(null)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Receipt Body */}
-            <div className="p-6 space-y-4 overflow-y-auto">
+            <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto">
               {/* Highlight Card */}
-              <div className="text-center p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 shadow-2xs">
-                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+              <div className="text-center p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 shadow-2xs">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
                   Tournament Fee Paid
                 </span>
-                <div className="text-3xl font-black text-emerald-700 mt-1 flex items-center justify-center gap-1">
-                  <IndianRupee className="w-6 h-6" />
+                <div className="text-2xl font-black text-emerald-700 mt-0.5 flex items-center justify-center gap-1">
+                  <IndianRupee className="w-5 h-5" />
                   <span>{viewingPaymentDetailsPlayer.payment.amount.toLocaleString("en-IN")}</span>
                 </div>
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white border border-emerald-200 text-[11px] font-bold text-emerald-800 shadow-2xs">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   <span>Mode: {viewingPaymentDetailsPlayer.payment.paymentMode}</span>
                 </div>
               </div>
 
               {/* Key Details Rows */}
               <div className="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
-                <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                <div className="flex justify-between items-center p-2.5 bg-slate-50/50">
                   <span className="text-slate-500">Participant</span>
                   <span className="font-bold text-slate-900">{viewingPaymentDetailsPlayer.playerName}</span>
                 </div>
 
                 {viewingPaymentDetailsPlayer.flatNumber && (
-                  <div className="flex justify-between items-center p-3">
+                  <div className="flex justify-between items-center p-2.5">
                     <span className="text-slate-500">Flat Number</span>
                     <span className="font-bold text-slate-900">Flat {viewingPaymentDetailsPlayer.flatNumber}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                <div className="flex justify-between items-center p-2.5 bg-slate-50/50">
                   <span className="text-slate-500">Category</span>
                   <span className="font-semibold text-slate-800">
                     {getPlayerCategory(viewingPaymentDetailsPlayer).categoryLabel}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center p-3">
+                <div className="flex justify-between items-center p-2.5">
                   <span className="text-slate-500">Tournament</span>
                   <span className="font-semibold text-slate-800 text-right max-w-[200px] truncate">
                     {tournament.name}
@@ -1035,7 +992,7 @@ export function TournamentPlayersPaymentModal({
                 </div>
 
                 {viewingPaymentDetailsPlayer.payment.paidAt && (
-                  <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                  <div className="flex justify-between items-center p-2.5 bg-slate-50/50">
                     <span className="text-slate-500">Payment Date &amp; Time</span>
                     <span className="font-bold text-slate-900">
                       {format(new Date(viewingPaymentDetailsPlayer.payment.paidAt), "MMM d, yyyy h:mm a")}
@@ -1044,16 +1001,16 @@ export function TournamentPlayersPaymentModal({
                 )}
 
                 {viewingPaymentDetailsPlayer.payment.markedByUserName && (
-                  <div className="flex justify-between items-center p-3">
+                  <div className="flex justify-between items-center p-2.5">
                     <span className="text-slate-500">Logged By Admin</span>
-                    <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                    <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-md">
                       {viewingPaymentDetailsPlayer.payment.markedByUserName}
                     </span>
                   </div>
                 )}
 
                 {viewingPaymentDetailsPlayer.payment.transactionRef && (
-                  <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                  <div className="flex justify-between items-center p-2.5 bg-slate-50/50">
                     <span className="text-slate-500">Transaction / UTR Ref</span>
                     <span className="font-mono text-[11px] font-bold text-slate-800">
                       {viewingPaymentDetailsPlayer.payment.transactionRef}
@@ -1062,9 +1019,9 @@ export function TournamentPlayersPaymentModal({
                 )}
 
                 {viewingPaymentDetailsPlayer.payment.notes && (
-                  <div className="p-3">
+                  <div className="p-2.5">
                     <span className="text-slate-500 block mb-1">Admin Remark / Notes</span>
-                    <p className="text-slate-800 font-medium italic bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                    <p className="text-slate-800 font-medium italic bg-slate-50 p-2 rounded-lg border border-slate-100">
                       "{viewingPaymentDetailsPlayer.payment.notes}"
                     </p>
                   </div>
@@ -1073,11 +1030,11 @@ export function TournamentPlayersPaymentModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-100 bg-slate-50/60">
+            <div className="flex items-center justify-end px-5 py-2.5 border-t border-slate-100 bg-slate-50/60">
               <button
                 type="button"
                 onClick={() => setViewingPaymentDetailsPlayer(null)}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-colors"
+                className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-colors"
               >
                 Close Receipt
               </button>
@@ -1093,13 +1050,13 @@ export function TournamentPlayersPaymentModal({
           onClick={() => setActivePaymentPlayer(null)}
         >
           <div
-            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200"
+            className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-bold text-slate-900">Mark Player as Paid</h3>
+                <Receipt className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">Mark Player as Paid</h3>
               </div>
               <button
                 type="button"
@@ -1110,10 +1067,10 @@ export function TournamentPlayersPaymentModal({
               </button>
             </div>
 
-            <form onSubmit={handleSavePayment} className="mt-4 space-y-4">
-              <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs">
+            <form onSubmit={handleSavePayment} className="mt-3.5 space-y-3.5">
+              <div className="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100 text-xs">
                 <div className="font-bold text-indigo-900">{activePaymentPlayer.playerName}</div>
-                <div className="text-indigo-700 mt-0.5">
+                <div className="text-indigo-700 mt-0.5 text-[11px]">
                   {activePaymentPlayer.flatNumber ? `Flat: ${activePaymentPlayer.flatNumber} • ` : ""}
                   Registered for {activePaymentPlayer.registeredEvents.length} event(s) in this tournament
                 </div>
@@ -1125,7 +1082,7 @@ export function TournamentPlayersPaymentModal({
                   Amount Received (₹) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <IndianRupee className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <IndianRupee className="absolute left-3 top-2 h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="number"
                     required
@@ -1133,7 +1090,7 @@ export function TournamentPlayersPaymentModal({
                     step="1"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 pl-9 pr-4 py-2 text-sm font-bold text-slate-900 focus:border-indigo-600 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-1.5 text-xs font-bold text-slate-900 focus:border-indigo-600 focus:outline-none"
                     placeholder="500"
                   />
                 </div>
@@ -1147,7 +1104,7 @@ export function TournamentPlayersPaymentModal({
                 <select
                   value={paymentMode}
                   onChange={(e) => setPaymentMode(e.target.value as any)}
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-indigo-600 focus:outline-none bg-white"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-800 focus:border-indigo-600 focus:outline-none bg-white"
                 >
                   <option value="UPI">UPI / QR Code / GPay / PhonePe</option>
                   <option value="CASH">Cash in Hand</option>
@@ -1167,26 +1124,26 @@ export function TournamentPlayersPaymentModal({
                   value={transactionRef}
                   onChange={(e) => setTransactionRef(e.target.value)}
                   placeholder="e.g. UPI Ref #439281982312"
-                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-600 focus:outline-none"
                 />
               </div>
 
               {/* Notes */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Notes / Receipt Remark (Optional)
+                  Notes / Remark (Optional)
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="e.g. Paid at clubhouse desk"
-                  className="w-full rounded-xl border border-slate-300 p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-600 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 p-2 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-600 focus:outline-none"
                 />
               </div>
 
               {/* Submitting Admin Info */}
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-200">
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                 <span>
                   Will be logged under admin: <strong className="text-slate-700">{(user as any)?.fullName || (user as any)?.name || "Sports Admin"}</strong>
@@ -1194,19 +1151,19 @@ export function TournamentPlayersPaymentModal({
               </div>
 
               {/* Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1.5">
                 <button
                   type="button"
                   onClick={() => setActivePaymentPlayer(null)}
                   disabled={submittingPayment}
-                  className="flex-1 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                  className="flex-1 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingPayment}
-                  className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  className="flex-1 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   {submittingPayment ? (
                     <>
