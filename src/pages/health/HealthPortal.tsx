@@ -119,6 +119,12 @@ export const HealthPortal: React.FC = () => {
 
   // Department filter for doctors
   const [doctorDept, setDoctorDept] = useState("All");
+  const [doctorSort, setDoctorSort] = useState<"relevance" | "rating" | "fee_asc" | "experience">("relevance");
+  const [walkInOnly, setWalkInOnly] = useState(false);
+  const [instantOnly, setInstantOnly] = useState(false);
+
+  // Lab category filter
+  const [labCategoryFilter, setLabCategoryFilter] = useState("all");
 
   // State for Lab Home Collection booking modal
   const [labBookingPkg, setLabBookingPkg] = useState<LabPackageDto | null>(null);
@@ -436,6 +442,58 @@ export const HealthPortal: React.FC = () => {
                 </button>
               ))}
             </div>
+          </div>
+          {/* Sort & Filter row (Round 7) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs font-bold text-gray-600">Sort:</span>
+              {[
+                { id: "relevance", label: "Relevance" },
+                { id: "rating", label: "Top Rated" },
+                { id: "fee_asc", label: "Fee: Low→High" },
+                { id: "experience", label: "Experience" },
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setDoctorSort(opt.id as any)}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition ${doctorSort === opt.id ? "bg-teal-600 text-white border-teal-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-teal-400"}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setWalkInOnly(!walkInOnly)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition flex items-center gap-1 ${walkInOnly ? "bg-emerald-600 text-white border-emerald-600" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-emerald-400"}`}
+              >
+                🚶 Walk-in
+              </button>
+              <button
+                onClick={() => setInstantOnly(!instantOnly)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition flex items-center gap-1 ${instantOnly ? "bg-amber-500 text-white border-amber-500" : "bg-gray-50 text-gray-600 border-gray-200 hover:border-amber-400"}`}
+              >
+                ⚡ Instant Confirm
+              </button>
+            </div>
+            {/* AYUSH quick access */}
+            <div className="flex gap-2 flex-wrap">
+              <span className="text-xs font-bold text-gray-500 self-center">AYUSH:</span>
+              {["Ayurveda", "Homeopathy", "Unani", "Naturopathy"].map(s => (
+                <button key={s} className="text-xs px-3 py-1 rounded-full border border-green-200 bg-green-50 text-green-700 font-semibold hover:bg-green-100 transition">
+                  🌿 {s}
+                </button>
+              ))}
+              <span className="text-xs font-bold text-gray-500 self-center ml-2">Paediatric:</span>
+              {["Paediatric Cardiology", "Paediatric Neurology", "Paediatric ENT"].map(s => (
+                <button key={s} className="text-xs px-3 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition">
+                  👶 {s}
+                </button>
+              ))}
+            </div>
+            {walkInOnly && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-xs text-emerald-700 font-medium">
+                🚶 Showing doctors available for same-day walk-in visits
+              </div>
+            )}
           </div>
           <HealthcareDirectory
             onCampRegister={() => setActiveTab("camps")}
@@ -814,45 +872,106 @@ export const HealthPortal: React.FC = () => {
       {/* Tab 6: Lab Packages */}
       {activeTab === "labs" && (
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-bold text-gray-900">🧪 Preventive Diagnostic Packages & Home Sample Collection</h2>
-            <p className="text-xs text-gray-500 mt-1">Partner diagnostic labs with doorstep phlebotomist collection at your flat.</p>
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl flex items-start gap-4">
+            <span className="text-3xl">🧪</span>
+            <div>
+              <h2 className="text-xl font-bold text-amber-900">Lab Tests & Health Packages</h2>
+              <p className="text-xs text-amber-700 mt-1">Home collection · Reports in 8–72 hrs · NABL certified labs · 50%+ OFF MRP</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {SEED_LAB_PACKAGES.map(pkg => (
-              <div key={pkg.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-extrabold text-lg text-gray-900">{pkg.name}</h4>
-                    <p className="text-xs text-gray-500">{pkg.testCount} Parameters Included • Reports in {pkg.reportTurnaroundHours}h</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-black text-teal-700">₹{pkg.price}</span>
-                    <span className="text-xs text-gray-400 line-through block">₹{pkg.originalPrice}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {pkg.testsIncluded.map((t, idx) => (
-                    <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-md font-medium">{t}</span>
-                  ))}
-                </div>
-
-                <div className="bg-emerald-50 p-2.5 rounded-xl text-xs text-emerald-900 flex justify-between font-medium">
-                  <span>🏠 Doorstep Home Collection: {pkg.homeCollectionAvailable ? "Available" : "No"}</span>
-                  <span>🍵 Fasting: {pkg.fastingRequired ? "Required (10 hrs)" : "Not Required"}</span>
-                </div>
-
-                <button
-                  onClick={() => { setLabBookingPkg(pkg); setLabBookingSuccess(false); }}
-                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition text-sm"
-                >
-                  Schedule Home Collection Slot
-                </button>
-              </div>
+          {/* Category tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { id: "all", label: "All Packages" },
+              { id: "full-body", label: "Full Body" },
+              { id: "diabetes", label: "Diabetes" },
+              { id: "heart", label: "Heart" },
+              { id: "cancer", label: "Cancer Screening" },
+              { id: "women", label: "Women Health" },
+              { id: "men", label: "Men Health" },
+              { id: "vitamin", label: "Vitamins" },
+              { id: "senior", label: "Senior Citizen" },
+              { id: "individual", label: "Individual Tests" },
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setLabCategoryFilter(cat.id)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${labCategoryFilter === cat.id ? "bg-amber-600 text-white border-amber-600" : "bg-white text-gray-600 border-gray-200 hover:border-amber-400"}`}
+              >
+                {cat.label}
+              </button>
             ))}
           </div>
+
+          {labCategoryFilter === "individual" ? (
+            <div className="space-y-3">
+              <h3 className="font-bold text-gray-800">Popular Individual Tests</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { name: "Vitamin B12 – Serum", price: 822, orig: 1259, turnaround: "8–72 Hrs" },
+                  { name: "Vitamin D (25-OH)", price: 1225, orig: 2519, turnaround: "8–72 Hrs" },
+                  { name: "HbA1c", price: 549, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Thyroid Profile (T3, T4 & TSH)", price: 601, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Complete Blood Count (CBC)", price: 416, orig: 839, turnaround: "8–72 Hrs" },
+                  { name: "Lipid Profile", price: 380, orig: 650, turnaround: "8–72 Hrs" },
+                  { name: "Liver Function Test (LFT)", price: 480, orig: 750, turnaround: "8–72 Hrs" },
+                  { name: "Kidney Function Test (KFT)", price: 520, orig: 800, turnaround: "8–72 Hrs" },
+                ].map((t, i) => (
+                  <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-800">{t.name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Reports in {t.turnaround} · Home Collection</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-700 text-lg">₹{t.price}/-</p>
+                      <p className="text-xs text-gray-400 line-through">₹{t.orig}</p>
+                      <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
+                        {Math.round((1 - t.price / t.orig) * 100)}% OFF
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {SEED_LAB_PACKAGES.map(pkg => (
+                <div key={pkg.id} className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 pr-4">
+                      <h4 className="font-extrabold text-lg text-gray-900">{pkg.name}</h4>
+                      <p className="text-xs text-gray-500">{pkg.testCount} Parameters · Reports in {pkg.reportTurnaroundHours}h</p>
+                      {pkg.fastingRequired && <p className="text-xs text-amber-600 font-semibold mt-1">🕐 Fasting required</p>}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-amber-700">₹{pkg.price}</span>
+                      <span className="text-xs text-gray-400 line-through block">₹{pkg.originalPrice}</span>
+                      <span className="text-xs bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
+                        {Math.round((1 - pkg.price / pkg.originalPrice) * 100)}% OFF
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {pkg.testsIncluded.slice(0, 5).map((t, idx) => (
+                      <span key={idx} className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-md font-medium">{t}</span>
+                    ))}
+                    {pkg.testsIncluded.length > 5 && <span className="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-md">+{pkg.testsIncluded.length - 5} more</span>}
+                  </div>
+                  <div className="bg-emerald-50 p-2.5 rounded-xl text-xs text-emerald-900 flex justify-between font-medium">
+                    <span>🏠 Home Collection Available</span>
+                    <span>🛡️ NABL Certified</span>
+                  </div>
+                  <button
+                    onClick={() => { setLabBookingPkg(pkg); setLabBookingSuccess(false); }}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl transition text-sm"
+                  >
+                    Book Slot
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1525,6 +1644,27 @@ export const HealthPortal: React.FC = () => {
       {/* ── Surgery Care ─────────────────────────────────────────────────────── */}
       {activeTab === "surgery" && (
         <div className="space-y-5">
+          {/* Condition Shortcuts (Round 7) */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <p className="text-sm font-bold text-gray-700 mb-3">Condition Shortcuts — Jump directly to relevant surgeons</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Piles", color: "red" },
+                { label: "Kidney Stones", color: "blue" },
+                { label: "Lipoma", color: "green" },
+                { label: "Gallstones", color: "amber" },
+                { label: "Fissure", color: "purple" },
+                { label: "Knee Replacement", color: "teal" },
+                { label: "Cataract", color: "indigo" },
+                { label: "Hernia", color: "pink" },
+              ].map(cs => (
+                <button key={cs.label} className={`text-xs px-3 py-1.5 rounded-full border font-semibold bg-${cs.color}-50 text-${cs.color}-700 border-${cs.color}-200 hover:bg-${cs.color}-100 transition`}>
+                  {cs.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Free First Consultation CTA (Round 6) */}
           <div className="bg-teal-600 rounded-2xl p-4 flex items-center gap-3 text-white">
             <span className="text-2xl">💬</span>
@@ -1754,10 +1894,41 @@ export const HealthPortal: React.FC = () => {
       {/* ── Cancer Care ───────────────────────────────────────────────────────── */}
       {activeTab === "cancer" && (
         <div className="space-y-5">
+          {/* Expert Tumor Board Panel (Round 7 — Tata Memorial / Navya style) */}
+          <div className="bg-white border-2 border-purple-700 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🎗️</span>
+              <div className="flex-1">
+                <p className="font-black text-purple-900 text-base">Expert Tumor Board Opinion</p>
+                <p className="text-xs text-purple-700 mt-0.5">In partnership with Tata Memorial Centre & National Cancer Grid</p>
+              </div>
+              <span className="bg-purple-800 text-white text-xs font-black px-3 py-1 rounded-full">1–3 Days</span>
+            </div>
+            <div className="space-y-2">
+              {[
+                { n: "1", t: "Submit Reports", d: "Upload biopsy, scan & pathology reports" },
+                { n: "2", t: "Expert Review", d: "Tumor board of 3–5 oncologists analyze your case" },
+                { n: "3", t: "Receive Opinion", d: "Personalised Expert Opinion Report in 1–3 days" },
+              ].map(s => (
+                <div key={s.n} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-purple-700 text-white flex items-center justify-center text-xs font-black flex-shrink-0">{s.n}</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">{s.t}</p>
+                    <p className="text-xs text-gray-500">{s.d}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => alert("Expert Opinion Requested\n\nYour case will be reviewed by a tumor board. A patient advocate will contact you within 2 hours.")} className="w-full bg-purple-700 hover:bg-purple-800 text-white font-black text-sm py-3 rounded-xl transition">
+              Submit Reports for Expert Review
+            </button>
+            <p className="text-xs text-gray-400 text-center">Your dedicated patient advocate will guide you through document submission.</p>
+          </div>
+
           {/* Second Opinion Banner */}
           <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
-            <p className="font-black text-purple-900 text-sm">💬 Get a Second Opinion</p>
-            <p className="text-xs text-purple-700 mt-1 mb-3">25% of cancer diagnoses benefit from a second expert review. It's your right — and often covered by insurance.</p>
+            <p className="font-black text-purple-900 text-sm">💬 Individual Second Opinion</p>
+            <p className="text-xs text-purple-700 mt-1 mb-3">Consult directly with an oncologist for a second opinion on your diagnosis.</p>
             <button onClick={() => alert("Second opinion request submitted.\n\nA specialist will review your diagnosis and contact you within 24–48 hours.")} className="bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl">Request Second Opinion</button>
           </div>
 

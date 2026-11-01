@@ -274,6 +274,78 @@ export interface InsuranceCoverageDto {
   notes: string;
 }
 
+// ── Round 7 types ──────────────────────────────────────────────────────────────
+
+export type LabCategory =
+  | "FULL_BODY" | "DIABETES" | "HEART" | "CANCER"
+  | "WOMEN_HEALTH" | "MEN_HEALTH" | "VITAMIN" | "SENIOR_CITIZEN" | "KIDS"
+  | "INDIVIDUAL_TEST";
+
+export type SortOption = "RELEVANCE" | "TOP_RATED" | "FEE_ASC" | "EXPERIENCE";
+
+export type DoctorAvailabilityType = "WALK_IN" | "APPOINTMENT_ONLY" | "BOTH";
+
+export type SurgeryCondition =
+  | "PILES" | "KIDNEY_STONES" | "LIPOMA" | "GALLSTONES" | "FISSURE"
+  | "KNEE_REPLACEMENT" | "CATARACT" | "HERNIA" | "APPENDIX" | "BARIATRIC";
+
+export type ExpertOpinionStatus =
+  | "REPORTS_SUBMITTED" | "UNDER_REVIEW" | "EXPERT_ASSIGNED" | "OPINION_READY" | "CLOSED";
+
+export interface LabCategoryDto {
+  id: string;
+  category: LabCategory;
+  label: string;
+  icon: string;
+  packageCount: number;
+}
+
+export interface IndividualLabTestDto {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  reportTurnaround: string;
+  availability: string[];
+  fastingRequired: boolean;
+  fastingHours?: number;
+  sampleType: string;
+}
+
+export interface SurgeryConditionShortcutDto {
+  id: string;
+  condition: SurgeryCondition;
+  label: string;
+  mappedCategory: string;
+  icon: string;
+  color: string;
+  availableSurgeons: number;
+  startingCost: string;
+}
+
+export interface ExpertOpinionRequestDto {
+  patientId: string;
+  cancerType: string;
+  reportNotes?: string;
+}
+
+export interface ExpertOpinionStatusDto {
+  requestId: string;
+  status: ExpertOpinionStatus;
+  assignedExperts: string;
+  expectedCompletionDate: string;
+  partnerInstitution: string;
+  notes: string;
+}
+
+export interface DoctorAvailabilityFilterDto {
+  walkInOnly?: boolean;
+  instantConfirmationOnly?: boolean;
+  sortBy?: SortOption;
+  specialty?: string;
+  department?: string;
+}
+
 export type AppointmentStatus = "REQUESTED" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | "NO_SHOW";
 export type DoctorVerificationStatus = "SUBMITTED" | "UNDER_REVIEW" | "VERIFIED" | "REJECTED";
 export type FamilyRelationship = "SELF" | "SPOUSE" | "CHILD" | "PARENT" | "DEPENDENT";
@@ -479,7 +551,9 @@ export interface LabPackageDto {
   testsIncluded: string[];
   homeCollectionAvailable: boolean;
   fastingRequired: boolean;
+  fastingHours?: number;
   reportTurnaroundHours: number;
+  category?: string;
 }
 
 export interface HomecareProviderDto {
