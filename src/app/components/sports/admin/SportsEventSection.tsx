@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers } from "lucide-react";
+import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers, Trophy, AlertCircle } from "lucide-react";
 import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
@@ -52,6 +52,7 @@ interface SportsEventSectionProps {
   onLoadCategories?: () => void;
   activeTournamentId?: number | null;
   activeTournamentName?: string | null;
+  activeTournaments?: any[];
 }
 
 export function SportsEventSection({
@@ -94,6 +95,7 @@ export function SportsEventSection({
   onLoadCategories,
   activeTournamentId,
   activeTournamentName,
+  activeTournaments,
 }: SportsEventSectionProps) {
   const [openDatePickerKey, setOpenDatePickerKey] = React.useState<string | null>(null);
 
@@ -703,7 +705,18 @@ export function SportsEventSection({
 
                 {/* Event Configurations */}
                 <div className="space-y-3">
-                  {form.events.map((ev, eIdx) => (
+                  {form.events.map((ev, eIdx) => {
+                    const effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
+                      ? (ev as any).tournamentId
+                      : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+                    const selectedTournament = (activeTournaments || []).find(
+                      (t: any) => Number(t.id) === Number(effectiveTourneyId)
+                    );
+                    const tourneyStartStr = selectedTournament?.eventDateStart || selectedTournament?.startDate || (selectedTournament?.event?.eventDateStart || selectedTournament?.event?.startDate);
+                    const tourneyEndStr = selectedTournament?.eventDateEnd || selectedTournament?.endDate || (selectedTournament?.event?.eventDateEnd || selectedTournament?.event?.endDate);
+                    const isChangingTournament = (ev as any).tournamentId === "change";
+
+                    return (
                     <div
                       key={ev.id}
                       className="bg-slate-50/60 border border-slate-200/80 rounded-xl p-3.5 sm:p-4 space-y-3 relative shadow-2xs"
@@ -720,6 +733,101 @@ export function SportsEventSection({
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                        )}
+                      </div>
+
+                      {/* Tournament Selection */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-slate-600 font-semibold block">
+                            Tournament <span className="text-red-500">*</span>
+                          </label>
+                          {!isEditing && selectedTournament && !isChangingTournament && (
+                            <button
+                              type="button"
+                              onClick={() => updateSportFormEvent(form.id, ev.id, "tournamentId", "change")}
+                              className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                            >
+                              Change Tournament
+                            </button>
+                          )}
+                        </div>
+
+                        {selectedTournament && !isChangingTournament ? (
+                          <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-200/80 rounded-xl px-3.5 py-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <Trophy className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-indigo-900 truncate">
+                                  {selectedTournament.name || activeTournamentName || `Tournament #${selectedTournament.id}`}
+                                </p>
+                                {tourneyStartStr && tourneyEndStr && (
+                                  <p className="text-[11px] text-indigo-600 font-medium">
+                                    Timeline: {format(new Date(tourneyStartStr), "MMM d")} - {format(new Date(tourneyEndStr), "MMM d, yyyy")}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
+                              Linked
+                            </span>
+                          </div>
+                        ) : activeTournaments && activeTournaments.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="relative">
+                              <select
+                                value={isChangingTournament ? "" : (effectiveTourneyId || "")}
+                                onChange={e => {
+                                  const val = e.target.value ? Number(e.target.value) : undefined;
+                                  updateSportFormEvent(form.id, ev.id, "tournamentId", val);
+                                }}
+                                className={`w-full bg-white border rounded-xl px-3 py-2 text-xs sm:text-[13px] text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none transition-all shadow-2xs cursor-pointer ${
+                                  !effectiveTourneyId || isChangingTournament ? "border-red-300" : "border-slate-200"
+                                }`}
+                              >
+                                <option value="" disabled>-- Select Tournament (Required) * --</option>
+                                {activeTournaments.map((t: any) => {
+                                  const sDate = t.eventDateStart || t.startDate || t.event?.eventDateStart;
+                                  const eDate = t.eventDateEnd || t.endDate || t.event?.eventDateEnd;
+                                  const dateStr = sDate && eDate
+                                    ? ` (${format(new Date(sDate), "MMM d")} - ${format(new Date(eDate), "MMM d, yyyy")})`
+                                    : "";
+                                  return (
+                                    <option key={t.id} value={t.id}>
+                                      {t.name}{dateStr}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+                            {(!effectiveTourneyId || isChangingTournament) && (
+                              <span className="text-[10px] text-red-500 font-medium block">
+                                Please select a tournament for this event. All events must belong to a tournament.
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 text-xs text-amber-800">
+                              <p className="font-semibold">No Tournaments Available</p>
+                              <p className="text-[11px] text-amber-700 mt-0.5">
+                                All sports events must belong to a tournament. Please create a tournament first.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("create-tournament")}
+                                className="mt-2 text-xs px-2.5 py-1 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition cursor-pointer"
+                              >
+                                + Create Tournament
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
 
@@ -744,6 +852,8 @@ export function SportsEventSection({
                           <label className="text-xs text-slate-600 font-semibold">Start Date <span className="text-red-500">*</span></label>
                           <DatePicker
                             value={ev.startDate}
+                            min={tourneyStartStr}
+                            max={tourneyEndStr}
                             onChange={(v) => updateSportFormEvent(form.id, ev.id, "startDate", v)}
                             placeholder="Pick start date"
                             size="sm"
@@ -756,7 +866,8 @@ export function SportsEventSection({
                           <label className="text-xs text-slate-600 font-semibold">End Date <span className="text-red-500">*</span></label>
                           <DatePicker
                             value={ev.endDate}
-                            min={ev.startDate || undefined}
+                            min={ev.startDate || tourneyStartStr}
+                            max={tourneyEndStr}
                             onChange={(v) => updateSportFormEvent(form.id, ev.id, "endDate", v)}
                             placeholder="Pick end date"
                             size="sm"
@@ -769,6 +880,11 @@ export function SportsEventSection({
                           )}
                         </div>
                       </div>
+                      {tourneyStartStr && tourneyEndStr && (
+                        <span className="text-[11px] text-indigo-600 font-medium block -mt-1">
+                          Tournament window: {format(new Date(tourneyStartStr), "MMM d")} - {format(new Date(tourneyEndStr), "MMM d, yyyy")}
+                        </span>
+                      )}
 
                       {/* Venue Selection */}
                       <div>
@@ -1222,7 +1338,8 @@ export function SportsEventSection({
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
 
                 {/* Add sub-event configuration trigger button */}

@@ -71,6 +71,7 @@ interface SportsEventTabProps {
   onLoadCategories?: () => void;
   activeTournamentId?: number | null;
   activeTournamentName?: string;
+  activeTournaments?: any[];
   clearTournamentContext?: () => void;
   setTournamentContext?: (id: number, name: string) => void;
   tournamentStartDate?: Date;
@@ -143,6 +144,7 @@ export function SportsEventTab({
   onLoadCategories,
   activeTournamentId,
   activeTournamentName,
+  activeTournaments,
   clearTournamentContext,
   setTournamentContext,
   tournamentStartDate,
@@ -294,6 +296,7 @@ export function SportsEventTab({
           tournamentEndDate={tournamentEndDate}
           activeTournamentId={activeTournamentId}
           activeTournamentName={activeTournamentName}
+          activeTournaments={activeTournaments}
         />
       )}
     </div>

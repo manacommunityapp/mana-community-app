@@ -2746,9 +2746,14 @@ export function useSportsAdminState() {
         let tourneyStartStr: string | undefined = undefined;
         let tourneyEndStr: string | undefined = undefined;
 
-        const effectiveTourneyId = (ev as any).tournamentId !== undefined
+        const effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
           ? (ev as any).tournamentId
           : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+        if (!effectiveTourneyId) {
+          toast.error(`Event "${ev.eventName || 'Event'}": Please select a Tournament. All sports events must belong to a tournament.`);
+          return;
+        }
 
         if (effectiveTourneyId) {
           const currentTournament = activeTournaments.find((t: any) => t.id === Number(effectiveTourneyId));
@@ -2817,7 +2822,7 @@ export function useSportsAdminState() {
         const isTeam = isTeamSport(form.name);
         for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
           const ev = form.events[eIdx];
-          let effectiveTourneyId = (ev as any).tournamentId !== undefined
+          let effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
             ? (ev as any).tournamentId
             : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
 

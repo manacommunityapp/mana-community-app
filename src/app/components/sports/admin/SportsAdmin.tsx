@@ -133,6 +133,7 @@ export function SportsAdmin() {
                 onLoadCategories={s.refreshCategories}
                 activeTournamentId={s.activeTournamentId}
                 activeTournamentName={s.activeTournamentName}
+                activeTournaments={s.activeTournaments}
                 clearTournamentContext={s.clearTournamentContext}
                 setTournamentContext={s.setTournamentContext}
                 tournamentStartDate={tourneyStart}
