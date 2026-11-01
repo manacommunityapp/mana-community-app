@@ -344,6 +344,8 @@ export interface RegistrationRequest {
   relation?: string;
   flatNumber?: string;
   familyMemberId?: number | string | null;
+  /** Community resident selected as the participant for Register Others. */
+  participantUserId?: number;
   cricHeroesUrl?: string;
   /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
   recaptchaToken?: string;
@@ -495,7 +497,20 @@ export interface AuctionTeam {
   captainConfirmation: boolean;
   eventId: number;
   configId?: number;
-  players?: Array<{ name: string; soldPrice: number; category?: string }>;
+  players?: Array<{
+    id?: number | string;
+    playerId?: number | string;
+    userId?: number | string;
+    name?: string;
+    playerName?: string;
+    role?: string;
+    playerRole?: string;
+    soldPrice?: number;
+    category?: string;
+    status?: string;
+    jerseyNumber?: number | string;
+    flatNumber?: string;
+  }>;
 }
 
 export interface BidRequest {

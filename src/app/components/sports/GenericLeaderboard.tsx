@@ -39,7 +39,7 @@ export function GenericLeaderboard() {
     tournamentService
       .getConfigs()
       .then((cfgs) => {
-        const nonCricket = cfgs.filter((c) => !isCricketSport(c.tournamentName));
+        const nonCricket = cfgs.filter((config) => !isCricketSport(config.eventName || config.tournamentName));
         setConfigs(nonCricket);
         if (nonCricket.length > 0) setSelectedConfigId(nonCricket[0].id);
       })
@@ -49,13 +49,19 @@ export function GenericLeaderboard() {
 
   useEffect(() => {
     if (!selectedConfigId) return;
+    setCategories([]);
+    setEntries([]);
     tournamentService
       .getGenericLeaderboardCategories(selectedConfigId)
       .then((cats) => {
         setCategories(cats);
         if (cats.length > 0) setActiveCategory(cats[0]);
       })
-      .catch(() => setCategories(["points"]));
+      .catch(() => {
+        setCategories([]);
+        setActiveCategory("");
+        toast.error("Failed to load leaderboard categories");
+      });
   }, [selectedConfigId]);
 
   useEffect(() => {
@@ -73,7 +79,7 @@ export function GenericLeaderboard() {
 
   if (configsLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
         <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" />
       </div>
     );
@@ -81,23 +87,28 @@ export function GenericLeaderboard() {
 
   if (configs.length === 0) {
     return (
-      <div className="text-center py-12 text-sm text-slate-500">
+      <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-5 py-8 text-center text-sm text-slate-500">
         No tournaments available for leaderboard.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 space-y-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-5 lg:p-6">
       {/* Tournament Selector */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Tournament
-        </label>
+      <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+        <div>
+          <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-600">Multi-sport standings</p>
+          <h3 className="mt-1 text-sm font-extrabold text-slate-900">Player leaderboard</h3>
+        </div>
         <select
           value={selectedConfigId ?? ""}
-          onChange={(e) => setSelectedConfigId(Number(e.target.value))}
-          className="text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 focus:ring-2 focus:ring-indigo-300 outline-none"
+          onChange={(e) => {
+            setActiveCategory("");
+            setSelectedConfigId(Number(e.target.value));
+          }}
+          aria-label="Select tournament for multi-sport leaderboard"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 sm:w-auto sm:min-w-[240px]"
         >
           {configs.map((c) => (
             <option key={c.id} value={c.id}>
@@ -109,15 +120,15 @@ export function GenericLeaderboard() {
 
       {/* Category Tabs */}
       {categories.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto rounded-xl border border-slate-100 bg-slate-50 p-2 pb-1">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition ${
                 activeCategory === cat
-                  ? "bg-indigo-600 text-white shadow"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
+                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-indigo-50 hover:text-indigo-700"
               }`}
             >
               {CATEGORY_LABELS[cat] || cat}
@@ -127,9 +138,9 @@ export function GenericLeaderboard() {
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Trophy className="w-5 h-5 text-amber-500" />
-        <h3 className="text-xs font-bold text-slate-800 dark:text-white">
+      <div className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white px-3 py-2.5">
+        <Trophy className="h-4 w-4 text-amber-500" />
+        <h3 className="text-sm font-bold text-slate-800 dark:text-white">
           {CATEGORY_LABELS[activeCategory] || activeCategory}
         </h3>
       </div>
@@ -140,26 +151,21 @@ export function GenericLeaderboard() {
           <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
         </div>
       ) : entries.length === 0 ? (
-        <div className="text-center py-8 text-xs text-slate-500">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 py-12 text-center text-sm text-slate-500">
           No data available yet. Play some matches first!
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-2 rounded-2xl border border-slate-200/80 bg-slate-50 p-2">
           {entries.map((entry) => {
             const isTop3 = entry.rank <= 3;
             return (
               <div
                 key={entry.playerId}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition ${
+                className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
                   isTop3
-                    ? "border-transparent shadow-sm"
-                    : "border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    ? "border-amber-200 bg-amber-50/70 shadow-sm"
+                    : "border-slate-200/80 bg-white"
                 }`}
-                style={
-                  isTop3
-                    ? undefined
-                    : undefined
-                }
               >
                 {/* Rank Badge */}
                 <div
