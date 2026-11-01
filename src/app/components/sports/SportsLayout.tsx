@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Newspaper, MessageSquare } from "lucide-react";
 import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -26,6 +26,9 @@ const sportsNav = [
   { to: "/sports/my-teams", label: "My Teams", icon: Shield },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
   { to: "/sports/badges", label: "Badges", icon: Award },
+  { to: "/sports/feed", label: "Feed", icon: Newspaper },
+  { to: "/sports/find-players", label: "Find Players", icon: Users },
+  { to: "/sports/messages", label: "Messages", icon: MessageSquare },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -73,6 +76,12 @@ export function SportsLayout() {
           CREATE_EDIT_PLAYER_POOL,
           CREATE_EDIT_EVENT_REGISTRATIONS
         );
+      case "Feed":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Find Players":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Messages":
+        return hasPermission(VIEW_SPORTS_MAIN);
       case "Analytics":
         return canAccessAdminSportsTabs;
       default:
