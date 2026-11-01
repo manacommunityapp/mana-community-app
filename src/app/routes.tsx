@@ -121,6 +121,7 @@ import { SportsVenueBrowse } from "./components/sports/venues/SportsVenueBrowse"
 import { SportsFeed } from "./components/sports/SportsFeed";
 import { SportsMatchmaking } from "./components/sports/SportsMatchmaking";
 import { SportsMessages } from "./components/sports/SportsMessages";
+import { SportsInsuranceWidget } from "./components/sports/SportsInsuranceWidget";
 import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
 
 function TeamRegisterPage() {
@@ -512,6 +513,10 @@ export const router = createBrowserRouter([
           {
             path: "messages",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
+          },
+          {
+            path: "insurance",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
           },
           {
             path: "my-auctions",
