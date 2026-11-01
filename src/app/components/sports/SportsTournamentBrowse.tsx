@@ -22,6 +22,7 @@ import type { SportsEvent } from "../../../types/api";
 import { useLocation, useNavigate } from "react-router";
 import { SportsTournamentStandings } from "./SportsTournamentStandings";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
+import { TournamentPlayersPaymentModal } from "./TournamentPlayersPaymentModal";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -57,6 +58,10 @@ export function SportsTournamentBrowse() {
   // Selected tournament for details modal
   const [selectedTournament, setSelectedTournament] = useState<DashboardTournamentCard | SportsEvent | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Selected tournament for players payment modal
+  const [selectedTournamentForPayment, setSelectedTournamentForPayment] = useState<DashboardTournamentCard | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -191,6 +196,10 @@ export function SportsTournamentBrowse() {
                 tournament={t}
                 onViewDetails={() => handleOpenDetails(t)}
                 onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
+                onOpenPayments={() => {
+                  setSelectedTournamentForPayment(t);
+                  setIsPaymentModalOpen(true);
+                }}
                 onRegister={() => navigate(`/sports/register-tournament/${t.id}`, { state: { returnTo } })}
                 onRegisterOthers={() => navigate(`/sports/register-tournament/${t.id}?for=community`, { state: { returnTo } })}
               />
@@ -230,6 +239,10 @@ export function SportsTournamentBrowse() {
                 completed
                 onViewDetails={() => handleOpenDetails(t)}
                 onViewSchedule={() => navigate(`/sports/schedule/${t.id}`)}
+                onOpenPayments={() => {
+                  setSelectedTournamentForPayment(t);
+                  setIsPaymentModalOpen(true);
+                }}
               />
             ))
           )}
@@ -244,6 +257,16 @@ export function SportsTournamentBrowse() {
         onRegisterEvent={(eventIdOrUuid) => navigate(`/sports/register/${eventIdOrUuid}`)}
         onViewSchedule={(tournamentId) => navigate(`/sports/schedule/${tournamentId}`)}
       />
+
+      {/* Tournament Players Payment & Audit Modal */}
+      <TournamentPlayersPaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedTournamentForPayment(null);
+        }}
+        tournament={selectedTournamentForPayment}
+      />
     </div>
   );
 }
@@ -255,6 +278,7 @@ interface TournamentCardProps {
   completed?: boolean;
   onViewDetails: () => void;
   onViewSchedule: () => void;
+  onOpenPayments?: () => void;
   onRegister?: () => void;
   onRegisterOthers?: () => void;
 }
@@ -264,6 +288,7 @@ function TournamentCard({
   completed,
   onViewDetails,
   onViewSchedule,
+  onOpenPayments,
   onRegister,
   onRegisterOthers,
 }: TournamentCardProps) {
@@ -340,7 +365,7 @@ function TournamentCard({
             )}
 
             {/* Tournament Meta Badges Row */}
-            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-600">
               {startDate && (
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -358,12 +383,25 @@ function TournamentCard({
                 </span>
               )}
 
-              {totalRegistered > 0 && (
+              {/* Registered Players & Payment Action Button */}
+              {onOpenPayments ? (
+                <button
+                  type="button"
+                  onClick={onOpenPayments}
+                  className="inline-flex items-center gap-1.5 text-slate-700 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/90 hover:border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs group/btn active:scale-[0.98]"
+                  title="View registered players & payment status"
+                >
+                  <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
+                  <span className="underline decoration-slate-300 hover:decoration-indigo-400 underline-offset-2">
+                    {totalRegistered} Registered Players
+                  </span>
+                </button>
+              ) : totalRegistered > 0 ? (
                 <span className="inline-flex items-center gap-1.5 text-slate-600">
                   <Users className="w-3.5 h-3.5 text-emerald-500" />
                   <span>{totalRegistered} Registered Players</span>
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -407,37 +445,6 @@ function TournamentCard({
           </button>
         </div>
       </div>
-
-      {/* Child Sports Category Groups Preview Chips */}
-      {tournament.events && tournament.events.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3.5">
-          <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Events:</span>
-          {tournament.events.slice(0, 5).map(ev => {
-            const emoji = getSportEmoji(ev.sportName);
-            return (
-              <span
-                key={ev.id}
-                onClick={onViewDetails}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-              >
-                <span>{emoji}</span>
-                <span>{ev.categoryName || ev.name}</span>
-                {ev.registeredCount != null && (
-                  <span className="text-[10px] text-slate-400">({ev.registeredCount})</span>
-                )}
-              </span>
-            );
-          })}
-          {tournament.events.length > 5 && (
-            <button
-              onClick={onViewDetails}
-              className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
-            >
-              +{tournament.events.length - 5} more groups →
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Standings Toggle */}
       <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
