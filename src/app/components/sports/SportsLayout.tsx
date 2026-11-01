@@ -62,7 +62,7 @@ export function SportsLayout() {
       case "Badges":
         return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Wallet":
-        return hasPermission(VIEW_SPORTS_MAIN);
+        return canAccessAdminSportsTabs;
       case "Auction":
         return hasAnyPermission(
           VIEW_AUCTION_CONFIG,

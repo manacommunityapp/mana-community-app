@@ -514,7 +514,7 @@ export const router = createBrowserRouter([
             path: "messages",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
             path: "wallet",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsWallet /></PermissionGuard>
+            element: <PermissionGuard sportsAdminOnly requiredModule="SPORTS"><SportsWallet /></PermissionGuard>
           },
           {
             path: "my-auctions",

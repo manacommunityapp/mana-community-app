@@ -18,8 +18,10 @@ import {
   TrendingDown,
   Filter,
   CreditCard,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../../contexts/AuthContext";
 import { sportsWalletService } from "../../../services/sports/sportsWalletService";
 import type {
   WalletBalance,
@@ -70,6 +72,9 @@ function formatTime(iso: string) {
 }
 
 export function SportsWallet() {
+  const { isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const canAccess = isAdmin || isSuperAdmin || isSportsAdmin;
+
   const [tab, setTab] = useState<WalletTab>("overview");
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
@@ -82,8 +87,10 @@ export function SportsWallet() {
   const [expandedSplit, setExpandedSplit] = useState<string | null>(null);
 
   useEffect(() => {
-    reload();
-  }, []);
+    if (canAccess) {
+      reload();
+    }
+  }, [canAccess]);
 
   function reload() {
     setBalance(sportsWalletService.getBalance());
@@ -127,6 +134,20 @@ export function SportsWallet() {
     sportsWalletService.remindSplitMember(splitId, playerId);
     toast.success("Reminder sent");
     reload();
+  }
+
+  if (!canAccess) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm max-w-lg mx-auto mt-12 animate-in fade-in duration-300">
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-full border border-rose-100 dark:border-rose-900/50 mb-4">
+          <ShieldAlert className="w-10 h-10 text-rose-600 dark:text-rose-400" />
+        </div>
+        <h3 className="text-base font-bold text-slate-800 dark:text-white">Access Restricted</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs leading-relaxed">
+          Sports Wallet is currently restricted to Administrators and Sports Administrators.
+        </p>
+      </div>
+    );
   }
 
   const filteredTxns = transactions.filter((t) => {
