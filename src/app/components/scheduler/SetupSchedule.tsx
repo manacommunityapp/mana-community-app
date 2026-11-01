@@ -263,6 +263,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   // Event & Filter Selection
   const [tournaments, setTournaments] = useState<TournamentDropdownItem[]>([]);
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState('');
+  const [selectedSportFilter, setSelectedSportFilter] = useState('');
   const [selectedAgeFilter, setSelectedAgeFilter] = useState('');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState('');
   const [selectedFormatFilter, setSelectedFormatFilter] = useState('');
@@ -325,6 +326,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       handleEventChange(initialEventId);
       if (match.tournamentId) {
         setSelectedTournamentFilter(match.tournamentId.toString());
+      }
+      if (match.sportName) {
+        setSelectedSportFilter(match.sportName);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -480,6 +484,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return `${e.name} — ${fmt}${sportPart}`;
   };
 
+  const availableSports = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach(e => {
+      if (e.sportName && e.sportName.trim()) {
+        set.add(e.sportName.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [events]);
+
   const availableGenders = useMemo(() => {
     const set = new Set<string>();
     events.forEach(e => {
@@ -546,6 +560,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           if (String(e.tournamentId || '') !== selectedTournamentFilter) return false;
         }
       }
+      if (selectedSportFilter) {
+        if ((e.sportName || '').trim().toLowerCase() !== selectedSportFilter.trim().toLowerCase()) return false;
+      }
       if (selectedAgeFilter) {
         if (formatAgeCategory(e) !== selectedAgeFilter) return false;
       }
@@ -559,7 +576,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       }
       return true;
     });
-  }, [events, selectedTournamentFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
+  }, [events, selectedTournamentFilter, selectedSportFilter, selectedAgeFilter, selectedGenderFilter, selectedFormatFilter]);
 
   const handleTournamentFilterChange = (tournId: string) => {
     setSelectedTournamentFilter(tournId);
@@ -571,6 +588,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         } else if (tournId !== '__none__' && String(ev.tournamentId || '') !== tournId) {
           handleEventChange('');
         }
+      }
+    }
+  };
+
+  const handleSportFilterChange = (sport: string) => {
+    setSelectedSportFilter(sport);
+    if (selectedEvent && sport) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && (ev.sportName || '').trim().toLowerCase() !== sport.trim().toLowerCase()) {
+        handleEventChange('');
       }
     }
   };
@@ -610,6 +637,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const handleResetFilters = () => {
     setSelectedTournamentFilter('');
+    setSelectedSportFilter('');
     setSelectedAgeFilter('');
     setSelectedGenderFilter('');
     setSelectedFormatFilter('');
@@ -1634,10 +1662,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <Trophy className="w-4 h-4 text-[#4f46e5]" />
               <h3 className="text-sm font-bold text-[#0d0d2b]">Tournament & Event Selection</h3>
               <span className="text-xs text-[#6b7094] hidden md:inline">
-                Filter by tournament, age, gender, or participant format to narrow down sports events
+                Filter by tournament, sport, age, gender, or participant format to narrow down sports events
               </span>
             </div>
-            {(selectedTournamentFilter || selectedAgeFilter || selectedGenderFilter || selectedFormatFilter) && (
+            {(selectedTournamentFilter || selectedSportFilter || selectedAgeFilter || selectedGenderFilter || selectedFormatFilter) && (
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -1649,7 +1677,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
             {/* Tournament Filter */}
             <div>
               <label className={labelCls}>
@@ -1665,6 +1693,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 {tournaments.map(t => (
                   <option key={t.id} value={t.id.toString()}>
                     {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sport Type Filter */}
+            <div>
+              <label className={labelCls}>
+                Sport Type
+                {selectedSportFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedSportFilter}
+                onChange={e => handleSportFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Sports ({availableSports.length})</option>
+                {availableSports.map(s => (
+                  <option key={s} value={s}>
+                    {s}
                   </option>
                 ))}
               </select>
