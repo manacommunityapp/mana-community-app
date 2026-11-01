@@ -26,10 +26,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
   const color = team.colorHex || '#4f46e5';
   const squad = team.squad || [];
   const squadSize = squad.length;
-  const spent = team.spentBudget ?? 0;
-  const budget = team.totalBudget ?? 100000;
-  const remaining = budget - spent;
-  const spentPct = budget > 0 ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
+  const spent = team.spentBudget;
+  const budget = team.totalBudget;
+  const remaining = team.remainingBudget ?? (budget != null && spent != null ? Math.max(0, budget - spent) : undefined);
+  const spentPct = budget != null && budget > 0 && spent != null ? Math.min(100, Math.round((spent / budget) * 100)) : 0;
 
   // Role counters
   const batsmenCount = squad.filter((p) => p.role === 'BATSMAN').length;
@@ -39,7 +39,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between text-left hover:-translate-y-1 ${className}`}
+      className={`group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 ${className}`}
       style={{
         borderTop: `4px solid ${color}`,
       }}
@@ -72,8 +72,11 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                 {team.season && (
                   <span className="text-[10px] text-slate-400 font-semibold">• {team.season}</span>
                 )}
+                {team.sportName && (
+                  <span className="text-[10px] text-slate-400 font-semibold">• {team.sportName}</span>
+                )}
               </div>
-              <h3 className="text-xs font-black text-slate-900 dark:text-white truncate mt-0.5">
+              <h3 className="mt-1 truncate text-sm font-extrabold text-slate-900 dark:text-white sm:text-base">
                 {team.name}
               </h3>
               {team.motto && (
@@ -111,10 +114,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                 <Crown className="w-3.5 h-3.5 text-amber-300" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Captain
                 </span>
-                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">
+                <span className="block truncate text-[11px] font-bold text-slate-800 dark:text-slate-200">
                   {team.captainName.split('(')[0].trim()}
                 </span>
               </div>
@@ -127,10 +130,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
                 <Building className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Owner
                 </span>
-                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">
+                <span className="block truncate text-[11px] font-bold text-slate-800 dark:text-slate-200">
                   {team.ownerName}
                 </span>
               </div>
@@ -139,6 +142,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
         </div>
 
         {/* Purse Budget Breakdown & Progress Bar */}
+        {budget != null && spent != null && (
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -171,11 +175,10 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
 
           <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
             <span>{spentPct}% utilized</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">
-              ₹{remaining.toLocaleString('en-IN')} remaining
-            </span>
+            {remaining != null && <span className="font-bold text-emerald-600 dark:text-emerald-400">₹{remaining.toLocaleString('en-IN')} remaining</span>}
           </div>
         </div>
+        )}
 
         {/* Role Counters Pill Strip */}
         <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -211,9 +214,9 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
         {/* Squad Avatar Preview Stack */}
         <div className="flex items-center gap-1.5">
           <div className="flex -space-x-2 overflow-hidden">
-            {squad.slice(0, 4).map((p, idx) => (
+            {squad.slice(0, 4).map((p) => (
               <div
-                key={idx}
+                key={p.id}
                 className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-center"
                 title={`${p.name} (${p.role})`}
               >
@@ -222,7 +225,7 @@ export const TeamCardRich: React.FC<TeamCardRichProps> = ({
             ))}
           </div>
           <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
-            {squadSize} / {team.maxSquadSize} Players
+            {squadSize}{team.maxSquadSize != null ? ` / ${team.maxSquadSize}` : ''} {squadSize === 1 ? 'Player' : 'Players'}
           </span>
         </div>
 

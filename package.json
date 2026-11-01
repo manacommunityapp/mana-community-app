@@ -18,7 +18,9 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:sports": "playwright test e2e/sports",
     "test:e2e:profile": "playwright test e2e/profile",
-    "test:e2e:jewellery": "playwright test e2e/jewellery"
+    "test:e2e:jewellery": "playwright test e2e/jewellery",
+    "n8n:sports": "node automation/scripts/run-sports-workflows.cjs",
+    "n8n:start": "npx n8n"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Loader2, Trophy, X, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { tournamentService, type PlayerStatsData, type ConfigInfo } from "../../../services/sports/tournamentService";
+import { isCricketSport } from "./utils/sportScoringConstants";
 import { toast } from "sonner";
 
 const LEADERBOARD_TABS = ["runs", "wickets", "mvp"] as const;
@@ -125,8 +126,9 @@ export function Leaderboard() {
     setConfigsLoading(true);
     tournamentService.getConfigs()
       .then((cfgs) => {
-        setConfigs(cfgs);
-        if (cfgs.length > 0) setSelectedConfigId(cfgs[0].id);
+        const cricketConfigs = cfgs.filter((config) => isCricketSport(config.eventName || config.tournamentName));
+        setConfigs(cricketConfigs);
+        if (cricketConfigs.length > 0) setSelectedConfigId(cricketConfigs[0].id);
       })
       .catch(() => toast.error("Failed to load tournaments"))
       .finally(() => setConfigsLoading(false));
@@ -198,13 +200,19 @@ export function Leaderboard() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="w-full min-w-0 space-y-4 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:rounded-3xl sm:p-5 lg:p-6">
       {/* Tournament Selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+      <div className="flex w-full flex-col gap-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+        <div>
+          <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em] text-indigo-600">Cricket standings</p>
+          <h3 className="mt-1 text-sm font-extrabold text-slate-900">Player leaderboard</h3>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         <select
           value={selectedConfigId ?? ""}
           onChange={(e) => setSelectedConfigId(Number(e.target.value))}
-          className="border border-slate-200 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-slate-700 bg-white outline-none focus:border-indigo-500 w-full sm:w-auto sm:min-w-[200px]"
+          aria-label="Select tournament for cricket leaderboard"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none transition hover:border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 sm:w-auto sm:min-w-[240px]"
         >
           {configs.map((c) => (
             <option key={c.id} value={c.id}>{c.tournamentName}</option>
@@ -212,26 +220,27 @@ export function Leaderboard() {
         </select>
 
         {/* Type Tabs */}
-        <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 rounded-lg sm:rounded-xl p-0.5 sm:p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-200/70 p-1 sm:flex sm:gap-1">
           {LEADERBOARD_TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveType(tab)}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-md sm:rounded-lg transition active:scale-[0.96] ${
+              className={`rounded-lg px-2.5 py-2 text-xs font-bold transition active:scale-[0.98] ${
                 activeType === tab
-                  ? "bg-white text-slate-800 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-white text-indigo-700 shadow-sm ring-1 ring-slate-200/70"
+                  : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
               }`}
             >
               {TAB_CONFIG[tab].label.split(" ").slice(1).join(" ")}
             </button>
           ))}
         </div>
+        </div>
       </div>
 
       {/* Cap Badge */}
       <div
-        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl border"
+        className="inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2.5 shadow-sm"
         style={{ backgroundColor: cfg.capBg, borderColor: `${cfg.capColor}30`, color: cfg.capColor }}
       >
         <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -243,17 +252,21 @@ export function Leaderboard() {
 
       {/* Leaderboard Table */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50">
           <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
         </div>
       ) : stats.length === 0 ? (
-        <div className="bg-white rounded-xl sm:rounded-2xl p-5 sm:p-8 border border-slate-100 shadow-sm text-center">
-          <p className="text-xs sm:text-sm text-slate-500">No stats available yet. Record match results to populate the leaderboard.</p>
+        <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-5 py-8 text-center sm:min-h-56">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-amber-500 shadow-sm ring-1 ring-slate-200/80">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <p className="mt-3 text-sm font-semibold text-slate-700">No leaderboard stats yet</p>
+          <p className="mt-1 max-w-md text-xs leading-relaxed text-slate-500">Record and save match results to populate this tournament’s standings.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[700px] text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
                   <th className="text-left py-2 sm:py-3 pl-2.5 sm:pl-4 pr-1 sm:pr-2 font-semibold w-6 sm:w-8">#</th>

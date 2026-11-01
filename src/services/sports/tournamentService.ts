@@ -46,6 +46,7 @@ export interface ConfigInfo {
   pointsForLoss?: number;
   thirdPlaceMatch?: boolean;
   hasSeeding?: boolean;
+  sportName?: string;
 }
 
 // ─── Match Result Types ──────────────────────────────────────────────────────
@@ -481,22 +482,69 @@ export const tournamentService = {
 
   /** GET /api/tournament/{configId}/teams */
   async getConfigTeams(configId: number): Promise<any[]> {
-    return apiClient.get<any[]>(`/tournament/${configId}/teams`);
+    try {
+      const data = await apiClient.get<any[]>(`/tournament/${configId}/teams`);
+      return Array.isArray(data) ? data : [];
+    } catch (_err) {
+      return [];
+    }
   },
 
   /** POST /api/tournament/{configId}/manual/groups/assign */
-  async assignTeamsToGroups(configId: number, assignments: { teamId: string, groupId: string }[]): Promise<string> {
-    return apiClient.post<string>(`/tournament/${configId}/manual/groups/assign`, assignments);
+  async assignTeamsToGroups(configId: number, assignments: { teamId: number | string, groupId: string }[]): Promise<string> {
+    const payload = assignments.map(a => ({
+      teamId: Number(a.teamId),
+      groupId: a.groupId,
+    })).filter(a => !isNaN(a.teamId) && a.teamId > 0);
+    return apiClient.post<string>(`/tournament/${configId}/manual/groups/assign`, payload);
   },
 
   /** POST /api/tournament/{configId}/manual/matches */
-  async scheduleManualMatch(configId: number, matchData: { homeTeamId: string, awayTeamId: string, matchType: string, stage: string, startTime: string }): Promise<string> {
-    return apiClient.post<string>(`/tournament/${configId}/manual/matches`, matchData);
+  async scheduleManualMatch(configId: number, matchData: {
+    homeTeamId: number | string | null;
+    awayTeamId: number | string | null;
+    matchType: string;
+    stage: string;
+    startTime: string;
+    venueId?: number | null;
+    courtId?: number | null;
+    durationMinutes?: number;
+  }): Promise<any> {
+    const payload = {
+      homeTeamId: (matchData.homeTeamId && !isNaN(Number(matchData.homeTeamId))) ? Number(matchData.homeTeamId) : null,
+      awayTeamId: (matchData.awayTeamId && !isNaN(Number(matchData.awayTeamId))) ? Number(matchData.awayTeamId) : null,
+      matchType: matchData.matchType,
+      stage: matchData.stage,
+      startTime: matchData.startTime,
+      venueId: (matchData.venueId && !isNaN(Number(matchData.venueId))) ? Number(matchData.venueId) : null,
+      courtId: (matchData.courtId && !isNaN(Number(matchData.courtId))) ? Number(matchData.courtId) : null,
+      durationMinutes: matchData.durationMinutes || 60,
+    };
+    return apiClient.post<any>(`/tournament/${configId}/manual/matches`, payload);
+  },
+
+  /** DELETE /api/tournament/match/{matchId} - Delete an individual match */
+  async deleteMatch(matchId: number): Promise<void> {
+    return apiClient.delete<void>(`/tournament/match/${matchId}`);
+  },
+
+  /** PUT /api/tournament/{configId}/matches/status - Publish schedule */
+  async publishSchedule(configId: number): Promise<any> {
+    return this.updateMatchesStatus(configId, 'PUBLISHED');
   },
 
   /** POST /api/tournament/{configId}/matches/bulk - Save all generated matches */
   async saveMatchesBulk(configId: number, matches: any[]): Promise<any> {
     return apiClient.post<any>(`/tournament/${configId}/matches/bulk`, { matches });
+  },
+
+  /** GET /api/tournament/{configId}/schedule - Fetch full schedule including groups, standings, and matches */
+  async getSchedule(configId: number): Promise<any> {
+    try {
+      return await apiClient.get<any>(`/tournament/${configId}/schedule`);
+    } catch (_err) {
+      return { configId, groups: [], rounds: [], allMatches: [] };
+    }
   },
 
   /** GET /api/tournament/{configId}/matches - Fetch all matches for a config */
@@ -511,6 +559,11 @@ export const tournamentService = {
     }
     const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
     return isLocalEnv ? getSampleMatchesForConfig(configId) : [];
+  },
+
+  /** Alias for getMatchesByConfigId */
+  async getSavedMatchesByConfigId(configId: number): Promise<any[]> {
+    return this.getMatchesByConfigId(configId);
   },
 
   /** PUT /api/tournament/{configId}/matches/status - Update status of all matches */

@@ -58,6 +58,20 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
     };
   }, [squad]);
 
+  const roleOptions = useMemo(() => {
+    const presentRoles = [...new Set(squad.map((player) => player.role))];
+    return [
+      { key: 'ALL' as const, label: 'All Squad', count: roleCounts.ALL, icon: Users, emoji: undefined },
+      ...presentRoles.map((role) => ({
+        key: role,
+        label: role.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+        count: squad.filter((player) => player.role === role).length,
+        icon: role === 'BOWLER' ? Crosshair : role === 'ALL_ROUNDER' ? Zap : role === 'WICKET_KEEPER' || role === 'GOALKEEPER' ? Shield : null,
+        emoji: role === 'BATSMAN' ? '🏏' : undefined,
+      })),
+    ];
+  }, [roleCounts.ALL, squad]);
+
   // Highest buy player
   const marqueeBuy = useMemo(() => {
     if (squad.length === 0) return null;
@@ -110,25 +124,25 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-black/30 backdrop-blur-md p-3 rounded-xl border border-white/10 shrink-0">
+          <div className={`grid ${team.totalBudget != null ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'} gap-2.5 bg-black/30 backdrop-blur-md p-3 rounded-xl border border-white/10 shrink-0`}>
             <div className="text-center px-2">
               <span className="text-[10px] uppercase font-bold text-white/60 block">Squad Size</span>
               <strong className="text-sm sm:text-base font-black text-white">
-                {squad.length} / {team.maxSquadSize}
+                {squad.length}{team.maxSquadSize != null ? ` / ${team.maxSquadSize}` : ''}
               </strong>
             </div>
-            <div className="text-center px-2 border-x border-white/10">
-              <span className="text-[10px] uppercase font-bold text-white/60 block">Purse Spent</span>
-              <strong className="text-sm sm:text-base font-black text-amber-300">
-                ₹{(team.spentBudget || 0).toLocaleString('en-IN')}
-              </strong>
-            </div>
-            <div className="text-center px-2 col-span-2 sm:col-span-1">
-              <span className="text-[10px] uppercase font-bold text-white/60 block">Remaining</span>
-              <strong className="text-sm sm:text-base font-black text-emerald-400">
-                ₹{(team.remainingBudget || 0).toLocaleString('en-IN')}
-              </strong>
-            </div>
+            {team.totalBudget != null && <>
+              <div className="text-center px-2 border-x border-white/10">
+                <span className="text-[10px] uppercase font-bold text-white/60 block">Purse Spent</span>
+                <strong className="text-sm sm:text-base font-black text-amber-300">₹{(team.spentBudget ?? 0).toLocaleString('en-IN')}</strong>
+              </div>
+              <div className="text-center px-2 col-span-2 sm:col-span-1">
+                <span className="text-[10px] uppercase font-bold text-white/60 block">Remaining</span>
+                <strong className="text-sm sm:text-base font-black text-emerald-400">
+                  {team.remainingBudget != null ? `₹${team.remainingBudget.toLocaleString('en-IN')}` : '—'}
+                </strong>
+              </div>
+            </>}
           </div>
         </div>
 
@@ -168,13 +182,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
         {/* Role Filter Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          {[
-            { key: 'ALL' as const, label: 'All Squad', count: roleCounts.ALL, icon: Users },
-            { key: 'BATSMAN' as const, label: 'Batsmen', count: roleCounts.BATSMAN, icon: null, emoji: '🏏' },
-            { key: 'BOWLER' as const, label: 'Bowlers', count: roleCounts.BOWLER, icon: Crosshair },
-            { key: 'ALL_ROUNDER' as const, label: 'All-Rounders', count: roleCounts.ALL_ROUNDER, icon: Zap },
-            { key: 'WICKET_KEEPER' as const, label: 'Keepers', count: roleCounts.WICKET_KEEPER, icon: Shield },
-          ].map((tab) => {
+          {roleOptions.map((tab) => {
             const isActive = selectedRole === tab.key;
             const Icon = tab.icon;
             return (
@@ -281,7 +289,7 @@ export const TeamSquadRosterView: React.FC<TeamSquadRosterViewProps> = ({
                       Acquired
                     </span>
                     <strong className="text-xs font-black text-indigo-600 dark:text-indigo-400">
-                      ₹{player.acquiredPrice.toLocaleString('en-IN')}
+                      {player.acquiredPrice != null ? `₹${player.acquiredPrice.toLocaleString('en-IN')}` : 'Price unavailable'}
                     </strong>
                   </div>
                 </div>
