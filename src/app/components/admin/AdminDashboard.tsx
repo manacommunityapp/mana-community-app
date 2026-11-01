@@ -52,9 +52,9 @@ type UserApplication = {
   submittedAt: string;
   status: VerificationStatus;
   documents: {
-    idFront: string;
-    idBack: string;
-    selfie: string;
+    idFront?: string;
+    idBack?: string;
+    selfie?: string;
   };
 };
 
@@ -145,8 +145,8 @@ export function AdminDashboard() {
       const users = await userService.getAllUsers(backendStatus);
       const mapped: UserApplication[] = users.map((u) => {
         let status: VerificationStatus = "pending";
-        if (u.kycStatus === "VERIFIED") status = "approved";
-        else if (u.kycStatus === "REJECTED") status = "rejected";
+        if (["VERIFIED", "APPROVED"].includes(u.kycStatus?.toUpperCase())) status = "approved";
+        else if (u.kycStatus?.toUpperCase() === "REJECTED") status = "rejected";
 
         return {
           id: String(u.id),
@@ -155,16 +155,16 @@ export function AdminDashboard() {
           communityType: u.communityId ? "Apartment" : "None",
           communityCode: u.communityId ? `COMM-${u.communityId}` : "—",
           userType: u.role === "VENDOR" ? "vendor" : "member",
-          idType: "Aadhar Card",
-          idNumber: u.phone ? `XXXX-XXXX-${u.phone.slice(-4)}` : "XXXX-XXXX-1234",
+          idType: u.govtIdType || "—",
+          idNumber: u.govtIdNumber || "—",
           phoneNumber: u.phone || "—",
           address: u.flatNo && u.block ? `${u.block}, Apt ${u.flatNo}` : "—",
-          submittedAt: "2026-07-09T10:00:00",
+          submittedAt: u.createdAt || u.createdDate || new Date().toISOString(),
           status,
           documents: {
-            idFront: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-            idBack: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
-            selfie: u.profilePicUrl || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
+            idFront: undefined,
+            idBack: undefined,
+            selfie: u.profilePicUrl || undefined,
           },
         };
       });
@@ -471,36 +471,19 @@ export function AdminDashboard() {
               <div>
                 <h3 className="font-bold text-xs text-foreground mb-2">Verification Documents</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
-                    <img
-                      src={selectedApp.documents.idFront}
-                      alt="ID Front"
-                      className="w-full h-32 object-cover"
-                    />
-                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
-                      ID Front Side
-                    </div>
-                  </div>
-                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
-                    <img
-                      src={selectedApp.documents.idBack}
-                      alt="ID Back"
-                      className="w-full h-32 object-cover"
-                    />
-                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
-                      ID Back Side
-                    </div>
-                  </div>
-                  <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
-                    <img
-                      src={selectedApp.documents.selfie}
-                      alt="Selfie"
-                      className="w-full h-32 object-cover"
-                    />
-                    <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">
-                      Selfie Verification
-                    </div>
-                  </div>
+                  {(["idFront", "idBack", "selfie"] as const).map((key) => {
+                    const url = selectedApp.documents[key];
+                    const label = key === "idFront" ? "ID Front Side" : key === "idBack" ? "ID Back Side" : "Selfie Verification";
+                    return (
+                      <div key={key} className="border border-border/80 rounded-lg overflow-hidden bg-card">
+                        {url
+                          ? <img src={url} alt={label} className="w-full h-32 object-cover" />
+                          : <div className="w-full h-32 flex items-center justify-center bg-muted text-muted-foreground text-xs">Not uploaded</div>
+                        }
+                        <div className="p-1.5 bg-input/40 text-center text-[10.5px] font-semibold text-muted-foreground">{label}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

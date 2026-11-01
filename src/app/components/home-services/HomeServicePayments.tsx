@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { DollarSign, CheckCircle2, Clock, CreditCard, Download } from "lucide-react";
+import { DollarSign, CheckCircle2, Clock, CreditCard, Download, Smartphone, QrCode, X } from "lucide-react";
 import { homeServiceApi } from "../../../services/homeServices/homeServiceApi";
 
 interface PaymentRecord {
@@ -14,13 +14,33 @@ interface PaymentRecord {
   paymentMethod: string | null;
 }
 
+const UPI_ID = "mana@upi";
+
 export function HomeServicePayments() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [filter, setFilter] = useState<"ALL" | "PAID" | "PENDING">("ALL");
+  const [upiPayment, setUpiPayment] = useState<PaymentRecord | null>(null);
+  const [markingPaid, setMarkingPaid] = useState<string | null>(null);
 
   useEffect(() => {
     homeServiceApi.getPayments().then(setPayments);
   }, []);
+
+  const buildUpiUrl = (p: PaymentRecord) =>
+    `upi://pay?pa=${UPI_ID}&pn=ManaHomeServices&am=${p.amount}&cu=INR&tn=Payment for ${encodeURIComponent(p.workerName)} - ${p.billingMonth}`;
+
+  const markPaid = async (p: PaymentRecord) => {
+    setMarkingPaid(p.id);
+    try {
+      await homeServiceApi.payBooking(p.bookingId);
+      setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: "PAID", paidOn: new Date().toISOString() } : x));
+      setUpiPayment(null);
+    } catch {
+      // keep modal open so user can retry
+    } finally {
+      setMarkingPaid(null);
+    }
+  };
 
   const filtered = payments.filter((p) => {
     if (filter === "ALL") return true;
@@ -115,6 +135,14 @@ export function HomeServicePayments() {
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Pending</span>
                 )}
               </span>
+              {p.status === "PENDING" && (
+                <button
+                  onClick={() => setUpiPayment(p)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-xl flex items-center gap-1"
+                >
+                  <Smartphone className="w-3 h-3" /> Pay via UPI
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -125,6 +153,46 @@ export function HomeServicePayments() {
           </div>
         )}
       </div>
+
+      {/* UPI Payment Modal */}
+      {upiPayment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-blue-600" /> Pay via UPI
+              </h3>
+              <button onClick={() => setUpiPayment(null)} className="p-1 rounded hover:bg-slate-100">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm text-slate-600">{upiPayment.workerName} · {upiPayment.billingMonth}</p>
+              <p className="text-3xl font-black text-slate-900">₹{upiPayment.amount.toLocaleString("en-IN")}</p>
+              <p className="text-xs text-slate-400">UPI ID: <span className="font-mono font-bold text-slate-700">{UPI_ID}</span></p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <a
+                href={buildUpiUrl(upiPayment)}
+                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl w-full"
+              >
+                <Smartphone className="w-4 h-4" /> Open UPI App
+              </a>
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex-1 h-px bg-slate-200" /> or confirm payment manually <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <button
+                onClick={() => markPaid(upiPayment)}
+                disabled={markingPaid === upiPayment.id}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl w-full disabled:opacity-50"
+              >
+                {markingPaid === upiPayment.id ? <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Mark as Paid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

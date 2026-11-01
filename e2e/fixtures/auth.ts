@@ -30,6 +30,11 @@ export const MOCK_USER = {
     "Delete Event Registrations",
     "View Auction Results",
     "Create/Edit Auction Results",
+    "View Vendor Management",
+    "Create Vendor",
+    "Manage Vendors",
+    "View Resource Booking",
+    "Manage Resources",
   ],
 };
 

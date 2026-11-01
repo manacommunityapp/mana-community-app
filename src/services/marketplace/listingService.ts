@@ -314,7 +314,7 @@ export const reviewService = {
     return apiClient.post<ReviewResponse>("/marketplace/reviews", data);
   },
   async addSellerReply(reviewId: number, reply: string): Promise<ReviewResponse> {
-    return apiClient.put<ReviewResponse>(`/marketplace/reviews/${reviewId}/reply?reply=${encodeURIComponent(reply)}`, {});
+    return apiClient.post<ReviewResponse>(`/marketplace/reviews/${reviewId}/reply`, { reply });
   },
   async getListingStats(listingId: number): Promise<ReviewStats> {
     return apiClient.get<ReviewStats>(`/marketplace/reviews/listing/${listingId}/stats`);
@@ -359,7 +359,7 @@ export const donationService = {
     return apiClient.post<DonationResponse>("/marketplace/donations", data);
   },
   async claim(id: number): Promise<DonationResponse> {
-    return apiClient.put<DonationResponse>(`/marketplace/donations/${id}/claim`, {});
+    return apiClient.post<DonationResponse>(`/marketplace/donations/${id}/claim`, {});
   },
   async deleteDonation(id: number): Promise<void> {
     await apiClient.delete<void>(`/marketplace/donations/${id}`);

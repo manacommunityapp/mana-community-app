@@ -677,7 +677,7 @@ class SafetyService {
   /** Fetch active security watchlist from backend */
   async getWatchlistApi(communityId = 1): Promise<any[]> {
     try {
-      const res = await apiClient.get<any[]>('/v1/security/watchlist', {
+      const res = await apiClient.get<any[]>('/security/watchlist', {
         headers: { 'X-Community-Id': communityId.toString() },
       });
       if (res && Array.isArray(res)) {

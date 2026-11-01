@@ -22,7 +22,7 @@ export const foodLoyaltyService = {
 
   // ── Coupons ──
   async validateCoupon(code: string): Promise<LoyaltyCoupon> {
-    return apiClient.get<LoyaltyCoupon>(`/food/loyalty/coupons/validate?code=${code}`);
+    return apiClient.post<LoyaltyCoupon>(`/food/loyalty/coupons/validate`, { code });
   },
   async applyCoupon(code: string, orderId: number): Promise<{ discount: number }> {
     return apiClient.post<{ discount: number }>("/food/loyalty/coupons/apply", { code, orderId });

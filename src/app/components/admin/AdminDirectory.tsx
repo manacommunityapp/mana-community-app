@@ -166,7 +166,6 @@ export function AdminDirectory() {
       const list = await committeeGroupService.getAll();
       setCommitteeGroups(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      console.error("Failed to load committee groups:", err);
     } finally {
       setLoadingGroups(false);
     }
@@ -180,7 +179,6 @@ export function AdminDirectory() {
         setDesignations(Array.from(new Set([...names, ...DESIGNATIONS])));
       }
     } catch (err) {
-      console.error("Failed to load designations:", err);
     }
   }, []);
 
@@ -190,7 +188,6 @@ export function AdminDirectory() {
       const list = await communityDirectoryService.getDirectory();
       setLeaders(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      console.error("Failed to load leaders:", err);
     } finally {
       setLoadingLeaders(false);
     }
@@ -202,7 +199,6 @@ export function AdminDirectory() {
       const list = await whoToCallService.getAllWhoToCallList();
       setWhoToCallList(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      console.error("Failed to load Who to Call list:", err);
     } finally {
       setLoadingWhoToCall(false);
     }
@@ -223,7 +219,6 @@ export function AdminDirectory() {
         setLeaderHistoryList(leaderRes.value);
       }
     } catch (err: any) {
-      console.error("Failed to load community history audit log:", err);
     } finally {
       setLoadingHistory(false);
     }

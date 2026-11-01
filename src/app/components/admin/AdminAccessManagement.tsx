@@ -799,14 +799,13 @@ export function AdminAccessManagement() {
           }
         }
       })
-      .catch(err => console.error("Failed to load roles from database:", err));
+      .catch(() => {});
 
     userService.getRolePermissions()
       .then(roleMap => {
-        console.log("[AccessRoles] Loaded from backend:", roleMap);
         setPerms(buildStateFromMap(roleMap));
       })
-      .catch(err => console.error("Failed to load role permissions:", err));
+      .catch(() => {});
   }, []);
 
   const module = MODULES.find(m => m.id === activeModule)!;
@@ -905,7 +904,6 @@ export function AdminAccessManagement() {
         toast.success(`Loaded parent permissions for role '${activeRole.label}'.`);
       }
     } catch (err) {
-      console.error("Failed to import parent permissions:", err);
       toast.error("Failed to import parent permissions.");
     } finally {
       setImportingTemplate(false);
@@ -917,7 +915,6 @@ export function AdminAccessManagement() {
     setVerifying(true);
     try {
       const verified = await userService.getRolePermissions();
-      console.log("[AccessRoles] Backend verified state after save:", verified);
       return systemRoles.map(r => ({
         name: r.name, label: r.label, color: r.color,
         sent: sentMap[r.name] ?? 0,
@@ -961,7 +958,6 @@ export function AdminAccessManagement() {
 
       setTimeout(() => { setSaved(false); setSaveError(false); setSaveDetails(null); }, 8000);
     } catch (err) {
-      console.error("Failed to save permissions:", err);
       setSaveError(true);
       setTimeout(() => setSaveError(false), 4000);
     } finally {
@@ -993,7 +989,6 @@ export function AdminAccessManagement() {
 
       setTimeout(() => { setSaved(false); setSaveDetails(null); }, 5000);
     } catch (err) {
-      console.error("Failed to save role:", err);
       setSaveError(true);
       setTimeout(() => setSaveError(false), 4000);
     } finally {

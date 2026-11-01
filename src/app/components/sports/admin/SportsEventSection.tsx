@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel } from "lucide-react";
+import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers, Trophy, AlertCircle } from "lucide-react";
 import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
@@ -50,6 +50,9 @@ interface SportsEventSectionProps {
   tournamentEndDate?: Date;
   /** Loads player categories (GET /api/player-categories) — called when the add/update form opens. */
   onLoadCategories?: () => void;
+  activeTournamentId?: number | null;
+  activeTournamentName?: string | null;
+  activeTournaments?: any[];
 }
 
 export function SportsEventSection({
@@ -90,6 +93,9 @@ export function SportsEventSection({
   tournamentStartDate,
   tournamentEndDate,
   onLoadCategories,
+  activeTournamentId,
+  activeTournamentName,
+  activeTournaments,
 }: SportsEventSectionProps) {
   const [openDatePickerKey, setOpenDatePickerKey] = React.useState<string | null>(null);
 
@@ -97,6 +103,7 @@ export function SportsEventSection({
   const [selectedSportFilter, setSelectedSportFilter] = React.useState<string>("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState<string>("");
   const [selectedAgeCategoryFilter, setSelectedAgeCategoryFilter] = React.useState<string>("");
+  const [selectedGenderFilter, setSelectedGenderFilter] = React.useState<string>("");
 
   const getEventSportName = React.useCallback((e: any): string => {
     if (e.sport?.name) return e.sport.name;
@@ -343,6 +350,66 @@ export function SportsEventSection({
     });
   }, [activeEvents, playerCategories, getEventAgeCategory, formatAgeCategoryLabel]);
 
+  const getEventGender = React.useCallback((e: any): string => {
+    // 1. Direct event gender property
+    let raw = e.gender;
+
+    // 2. Direct category or categories array
+    if (!raw && e.category?.gender) raw = e.category.gender;
+    if (!raw && Array.isArray(e.categories) && e.categories[0]?.gender) raw = e.categories[0].gender;
+
+    // 3. Category IDs matching playerCategories
+    if (!raw && Array.isArray(e.categoryIds) && e.categoryIds.length > 0) {
+      const matched = playerCategories.find(pc => e.categoryIds.some((id: any) => Number(id) === Number(pc.id)));
+      if (matched?.gender) raw = matched.gender;
+    }
+
+    // 4. Infer from event name
+    if (!raw) {
+      const nameLower = (e.name || "").toLowerCase();
+      if (/\b(women|female|girls?)\b/i.test(nameLower)) return "Female";
+      if (/\b(men|male|boys?)\b/i.test(nameLower)) return "Male";
+      if (/\bmixed\b/i.test(nameLower)) return "Mixed";
+      return "Open (All Genders)";
+    }
+
+    const upper = String(raw).trim().toUpperCase();
+    if (upper === "MALE" || upper === "MEN" || upper === "BOYS" || upper === "BOY") return "Male";
+    if (upper === "FEMALE" || upper === "WOMEN" || upper === "GIRLS" || upper === "GIRL") return "Female";
+    if (upper === "MIXED") return "Mixed";
+    if (upper === "ALL" || upper === "ANY" || upper === "OPEN") return "Open (All Genders)";
+
+    return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  }, [playerCategories]);
+
+  const matchesEventGender = React.useCallback((e: any, targetGender: string): boolean => {
+    if (!targetGender) return true;
+    const eventGender = getEventGender(e);
+    return eventGender.toLowerCase() === targetGender.toLowerCase();
+  }, [getEventGender]);
+
+  const availableGenders = React.useMemo(() => {
+    const set = new Set<string>();
+    activeEvents.forEach(e => {
+      const g = getEventGender(e);
+      if (g) set.add(g);
+    });
+
+    if (set.size === 0) {
+      ["Male", "Female", "Mixed", "Open (All Genders)"].forEach(g => set.add(g));
+    }
+
+    const order = ["Male", "Female", "Mixed", "Open (All Genders)"];
+    return Array.from(set).sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [activeEvents, getEventGender]);
+
   const filteredEvents = React.useMemo(() => {
     return activeEvents.filter(e => {
       if (selectedSportFilter) {
@@ -361,11 +428,224 @@ export function SportsEventSection({
           return false;
         }
       }
+      if (selectedGenderFilter) {
+        if (!matchesEventGender(e, selectedGenderFilter)) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [activeEvents, selectedSportFilter, selectedCategoryFilter, selectedAgeCategoryFilter, getEventSportName, matchesEventCategory, matchesEventAgeCategory]);
+  }, [
+    activeEvents,
+    selectedSportFilter,
+    selectedCategoryFilter,
+    selectedAgeCategoryFilter,
+    selectedGenderFilter,
+    getEventSportName,
+    matchesEventCategory,
+    matchesEventAgeCategory,
+    matchesEventGender,
+  ]);
 
-  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter);
+  const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter || selectedGenderFilter);
+
+  const isEditing = sportForms.some(f => Boolean(f.editingSportId));
+
+  // Close edit modal on Escape key press
+  React.useEffect(() => {
+    if (!isEditing || !showSportForm) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !sportSubmitting) {
+        resetSportForm();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditing, showSportForm, sportSubmitting, resetSportForm]);
+
+  const isTournamentMode = Boolean(activeTournamentId || activeTournamentName);
+  const [tournamentViewMode, setTournamentViewMode] = React.useState<"all" | "added" | "not-added">("all");
+
+  const isEventInTournament = React.useCallback(
+    (e: any): boolean => {
+      if (!activeTournamentId && !activeTournamentName) return false;
+
+      if (activeTournamentId != null) {
+        const tid = Number(activeTournamentId);
+        if (e.tournament?.id != null && Number(e.tournament.id) === tid) return true;
+        if (e.tournamentId != null && Number(e.tournamentId) === tid) return true;
+        if (e.sportsTournamentId != null && Number(e.sportsTournamentId) === tid) return true;
+        if (e.sportsTournament?.id != null && Number(e.sportsTournament.id) === tid) return true;
+      }
+
+      if (activeTournamentName && activeTournamentName.trim()) {
+        const tName = activeTournamentName.trim().toLowerCase();
+        if (e.tournament?.name && e.tournament.name.trim().toLowerCase() === tName) return true;
+        if (e.sportsTournament?.name && e.sportsTournament.name.trim().toLowerCase() === tName) return true;
+        if (e.tournamentName && e.tournamentName.trim().toLowerCase() === tName) return true;
+        const evName = (e.name || "").toLowerCase();
+        if (evName.includes(`(${tName})`) || evName.includes(`[${tName}]`)) return true;
+      }
+
+      return false;
+    },
+    [activeTournamentId, activeTournamentName]
+  );
+
+  const { addedEvents, notAddedEvents } = React.useMemo(() => {
+    if (!isTournamentMode) {
+      return { addedEvents: [], notAddedEvents: filteredEvents };
+    }
+    const added: any[] = [];
+    const notAdded: any[] = [];
+    filteredEvents.forEach(e => {
+      if (isEventInTournament(e)) {
+        added.push(e);
+      } else {
+        notAdded.push(e);
+      }
+    });
+    return { addedEvents: added, notAddedEvents: notAdded };
+  }, [filteredEvents, isTournamentMode, isEventInTournament]);
+
+  const renderEventCard = (e: any, isAdded: boolean) => {
+    const iconUrl = e.sport?.iconUrl || e.iconUrl;
+    const icon = e.sport?.icon || e.icon || "🏆";
+    const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
+    const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
+    const sportLabel = getEventSportName(e);
+    const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
+    const ageCategoryLabel = getEventAgeCategory(e);
+
+    return (
+      <div
+        key={e.id}
+        className={cn(
+          "p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs",
+          isAdded
+            ? "bg-white border-emerald-300 ring-1 ring-emerald-500/20 hover:border-emerald-500 hover:shadow-xs"
+            : e.active !== false
+              ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs"
+              : "bg-slate-50 border-slate-200/60 opacity-75"
+        )}
+      >
+        <div className="flex gap-3">
+          {iconUrl ? (
+            <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
+              <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
+            </div>
+          ) : (
+            <span className="text-[10px] leading-none">{icon}</span>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
+              {e.name}
+              {e.tournament?.name && (
+                <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
+              )}
+            </h4>
+
+            <div className="flex flex-wrap items-center gap-1 mt-2">
+              {isAdded && (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                  <Check className="w-2.5 h-2.5" /> Added
+                </span>
+              )}
+              {e.active !== false ? (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  Active
+                </span>
+              ) : (
+                <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  Closed
+                </span>
+              )}
+              {sportLabel && (
+                <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  {sportLabel}
+                </span>
+              )}
+              {categoryLabel && (
+                <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                  {categoryLabel}
+                </span>
+              )}
+              {ageCategoryLabel && (
+                <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                  {ageCategoryLabel}
+                </span>
+              )}
+              {e.status && (
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
+                    e.status === "REGISTRATION_OPEN"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : e.status === "LIVE"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : e.status === "COMPLETED"
+                          ? "bg-slate-100 text-slate-600 border-slate-200"
+                          : e.status === "CANCELLED"
+                            ? "bg-red-50 text-red-600 border-red-200"
+                            : "bg-slate-50 text-slate-600 border-slate-200"
+                  )}
+                >
+                  {e.status.replace(/_/g, " ")}
+                </span>
+              )}
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                {e.format || "SINGLES"}
+              </span>
+              <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                {e.tournamentType ? e.tournamentType.replace(/_/g, " ") : "KNOCKOUT"}
+              </span>
+              {e.auctionEnabled && (
+                <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                  <Gavel className="w-2.5 h-2.5" /> Auction
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  {startStr} - {endStr}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  {e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => handleSportEdit(e)}
+            className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            title="Edit Event"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSportDelete(e.id)}
+            className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            title="Delete Event"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const isDateDisabled = React.useCallback((date: Date) => {
     if (tournamentStartDate) {
@@ -387,171 +667,15 @@ export function SportsEventSection({
     if (showSportForm) onLoadCategories?.();
   }, [showSportForm, onLoadCategories]);
 
-  return (
+  const renderSportFormCards = () => (
     <div className="space-y-4">
-      {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="text-left">
-          <h3 className="text-xs font-bold text-slate-800 tracking-tight">Sports Management</h3>
-          <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">Configure and manage active sports metadata in the system</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (showSportForm) {
-              resetSportForm();
-            } else {
-              resetSportForm();
-              setShowSportPicker(true);
-            }
-          }}
-          className="px-3.5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shadow-xs hover:brightness-105 shrink-0 self-start sm:self-auto"
-          style={{
-            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-            boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
-          }}
-        >
-          <Plus className="w-3.5 h-3.5" /> {showSportForm ? "Close Form" : "Select a Sport"}
-        </button>
-      </div>
-
-      {/* ─── Sport Picker Modal ─── */}
-      {showSportPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
-              <div className="text-left">
-                <h2 className="text-xs font-bold text-slate-800">Select a Sport</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Search */}
-            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-white">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={sportPickerSearch}
-                  onChange={e => setSportPickerSearch(e.target.value)}
-                  placeholder="Search sports..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs sm:text-[13px] text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-2xs"
-                />
-              </div>
-            </div>
-
-            {/* Grid */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
-                  const alreadyAdded = sportsMeta.some(meta => meta.name.toLowerCase() === sp.name.toLowerCase());
-                  const alreadyQueued = sportForms.some(form => form.name.toLowerCase() === sp.name.toLowerCase());
-                  const isUnavailable = alreadyQueued;
-
-                  return (
-                    <button
-                      key={sp.name}
-                      type="button"
-                      onClick={() => !isUnavailable && handleSportPickerSelect(sp)}
-                      disabled={isUnavailable}
-                      className={cn(
-                        "flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all duration-200 cursor-pointer shadow-2xs",
-                        isUnavailable
-                          ? "bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed text-slate-400"
-                          : "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20 hover:scale-[1.02] hover:shadow-sm"
-                      )}
-                    >
-                       {sp.icon && (sp.icon.startsWith("data:image/") || sp.icon.startsWith("http")) ? (
-                         <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
-                           <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
-                         </div>
-                       ) : (
-                         <span className="text-[10px] leading-none">{sp.icon}</span>
-                       )}
-                      <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
-                      {alreadyAdded && (
-                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
-                      )}
-                      {alreadyQueued && (
-                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
-                <div className="text-center py-10">
-                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No predefined sports match your search.</p>
-                  <button
-                    type="button"
-                    onClick={handleCreateCustomSport}
-                    disabled={sportSubmitting}
-                    className="px-3.5 py-2 text-white text-xs font-semibold rounded-xl border-none cursor-pointer transition-colors flex items-center justify-center gap-1.5 mx-auto shadow-sm hover:brightness-105"
-                    style={{
-                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
-                    }}
-                  >
-                    {sportSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                    Create Custom Sport: "{sportPickerSearch}"
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
-                className="px-3.5 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors bg-white cursor-pointer shadow-2xs font-medium"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Form Section (When showSportForm is active) ─── */}
-      {showSportForm && sportForms.length > 0 && (
-        <div className="space-y-4 animate-in fade-in duration-200">
-          {/* Header bar with count and actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-              <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
-                {sportForms.some(f => f.editingSportId) ? "Edit Sport Event" : `Configure Sport Events (${sportForms.length})`}
-              </h3>
-            </div>
-            {!sportForms.some(f => f.editingSportId) && (
-              <button
-                type="button"
-                onClick={() => setShowSportPicker(true)}
-                className="px-3 py-1.5 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-semibold shadow-2xs"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Another Sport
-              </button>
-            )}
-          </div>
-
-          {/* Sport Form Cards */}
-          <div className="space-y-4">
             {sportForms.map((form, idx) => (
               <div
                 key={form.id}
                 className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs transition-all text-left space-y-4"
               >
                 {/* Sport Header with icon, name, index badge and remove button */}
+                {!isEditing && (
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-3 bg-slate-50/80 border border-slate-200/80 rounded-xl px-3.5 py-2 flex-1">
                      {form.iconUrl ? (
@@ -566,7 +690,7 @@ export function SportsEventSection({
                       <h4 className="text-xs font-bold text-slate-800 truncate">{form.name}</h4>
                     </div>
                   </div>
-                  {!form.editingSportId && sportForms.length > 1 && (
+                  {sportForms.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeSportForm(form.id)}
@@ -577,18 +701,30 @@ export function SportsEventSection({
                     </button>
                   )}
                 </div>
+                )}
 
                 {/* Event Configurations */}
                 <div className="space-y-3">
-                  {form.events.map((ev, eIdx) => (
+                  {form.events.map((ev, eIdx) => {
+                    const effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
+                      ? (ev as any).tournamentId
+                      : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+                    const selectedTournament = (activeTournaments || []).find(
+                      (t: any) => Number(t.id) === Number(effectiveTourneyId)
+                    );
+                    const tourneyStartStr = selectedTournament?.eventDateStart || selectedTournament?.startDate || (selectedTournament?.event?.eventDateStart || selectedTournament?.event?.startDate);
+                    const tourneyEndStr = selectedTournament?.eventDateEnd || selectedTournament?.endDate || (selectedTournament?.event?.eventDateEnd || selectedTournament?.event?.endDate);
+                    const isChangingTournament = (ev as any).tournamentId === "change";
+
+                    return (
                     <div
                       key={ev.id}
                       className="bg-slate-50/60 border border-slate-200/80 rounded-xl p-3.5 sm:p-4 space-y-3 relative shadow-2xs"
                     >
                       {/* Event header */}
                       <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Configuration #{eIdx + 1}</span>
-                        {form.events.length > 1 && (
+                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">{isEditing ? "Event Configuration & Rules" : `Configuration #${eIdx + 1}`}</span>
+                        {!isEditing && form.events.length > 1 && (
                           <button
                             type="button"
                             onClick={() => removeEventFromSportForm(form.id, ev.id)}
@@ -597,6 +733,101 @@ export function SportsEventSection({
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                        )}
+                      </div>
+
+                      {/* Tournament Selection */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-slate-600 font-semibold block">
+                            Tournament <span className="text-red-500">*</span>
+                          </label>
+                          {!isEditing && selectedTournament && !isChangingTournament && (
+                            <button
+                              type="button"
+                              onClick={() => updateSportFormEvent(form.id, ev.id, "tournamentId", "change")}
+                              className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                            >
+                              Change Tournament
+                            </button>
+                          )}
+                        </div>
+
+                        {selectedTournament && !isChangingTournament ? (
+                          <div className="flex items-center justify-between bg-indigo-50/70 border border-indigo-200/80 rounded-xl px-3.5 py-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                <Trophy className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-indigo-900 truncate">
+                                  {selectedTournament.name || activeTournamentName || `Tournament #${selectedTournament.id}`}
+                                </p>
+                                {tourneyStartStr && tourneyEndStr && (
+                                  <p className="text-[11px] text-indigo-600 font-medium">
+                                    Timeline: {format(new Date(tourneyStartStr), "MMM d")} - {format(new Date(tourneyEndStr), "MMM d, yyyy")}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
+                              Linked
+                            </span>
+                          </div>
+                        ) : activeTournaments && activeTournaments.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="relative">
+                              <select
+                                value={isChangingTournament ? "" : (effectiveTourneyId || "")}
+                                onChange={e => {
+                                  const val = e.target.value ? Number(e.target.value) : undefined;
+                                  updateSportFormEvent(form.id, ev.id, "tournamentId", val);
+                                }}
+                                className={`w-full bg-white border rounded-xl px-3 py-2 text-xs sm:text-[13px] text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none appearance-none transition-all shadow-2xs cursor-pointer ${
+                                  !effectiveTourneyId || isChangingTournament ? "border-red-300" : "border-slate-200"
+                                }`}
+                              >
+                                <option value="" disabled>-- Select Tournament (Required) * --</option>
+                                {activeTournaments.map((t: any) => {
+                                  const sDate = t.eventDateStart || t.startDate || t.event?.eventDateStart;
+                                  const eDate = t.eventDateEnd || t.endDate || t.event?.eventDateEnd;
+                                  const dateStr = sDate && eDate
+                                    ? ` (${format(new Date(sDate), "MMM d")} - ${format(new Date(eDate), "MMM d, yyyy")})`
+                                    : "";
+                                  return (
+                                    <option key={t.id} value={t.id}>
+                                      {t.name}{dateStr}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+                            {(!effectiveTourneyId || isChangingTournament) && (
+                              <span className="text-[10px] text-red-500 font-medium block">
+                                Please select a tournament for this event. All events must belong to a tournament.
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 text-xs text-amber-800">
+                              <p className="font-semibold">No Tournaments Available</p>
+                              <p className="text-[11px] text-amber-700 mt-0.5">
+                                All sports events must belong to a tournament. Please create a tournament first.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab("create-tournament")}
+                                className="mt-2 text-xs px-2.5 py-1 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition cursor-pointer"
+                              >
+                                + Create Tournament
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
 
@@ -621,6 +852,8 @@ export function SportsEventSection({
                           <label className="text-xs text-slate-600 font-semibold">Start Date <span className="text-red-500">*</span></label>
                           <DatePicker
                             value={ev.startDate}
+                            min={tourneyStartStr}
+                            max={tourneyEndStr}
                             onChange={(v) => updateSportFormEvent(form.id, ev.id, "startDate", v)}
                             placeholder="Pick start date"
                             size="sm"
@@ -633,7 +866,8 @@ export function SportsEventSection({
                           <label className="text-xs text-slate-600 font-semibold">End Date <span className="text-red-500">*</span></label>
                           <DatePicker
                             value={ev.endDate}
-                            min={ev.startDate || undefined}
+                            min={ev.startDate || tourneyStartStr}
+                            max={tourneyEndStr}
                             onChange={(v) => updateSportFormEvent(form.id, ev.id, "endDate", v)}
                             placeholder="Pick end date"
                             size="sm"
@@ -646,6 +880,11 @@ export function SportsEventSection({
                           )}
                         </div>
                       </div>
+                      {tourneyStartStr && tourneyEndStr && (
+                        <span className="text-[11px] text-indigo-600 font-medium block -mt-1">
+                          Tournament window: {format(new Date(tourneyStartStr), "MMM d")} - {format(new Date(tourneyEndStr), "MMM d, yyyy")}
+                        </span>
+                      )}
 
                       {/* Venue Selection */}
                       <div>
@@ -739,7 +978,7 @@ export function SportsEventSection({
                                 <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[280px] sm:w-[320px] p-0 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl" align="start">
+                            <PopoverContent className="w-[280px] sm:w-[320px] p-0 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl z-[60]" align="start">
                               <div className="flex items-center border-b border-slate-100 px-3 py-2">
                                 <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50 text-slate-400" />
                                 <input
@@ -1099,7 +1338,8 @@ export function SportsEventSection({
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
 
                 {/* Add sub-event configuration trigger button */}
@@ -1115,6 +1355,255 @@ export function SportsEventSection({
               </div>
             ))}
           </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="text-left">
+          <h3 className="text-xs font-bold text-slate-800 tracking-tight">Sports Management</h3>
+          <p className="text-xs sm:text-[13px] text-slate-500 mt-0.5">Configure and manage active sports metadata in the system</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (showSportForm) {
+              resetSportForm();
+            } else {
+              resetSportForm();
+              setShowSportPicker(true);
+            }
+          }}
+          className="px-3.5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shadow-xs hover:brightness-105 shrink-0 self-start sm:self-auto"
+          style={{
+            background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+            boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
+          }}
+        >
+          <Plus className="w-3.5 h-3.5" /> {showSportForm && !isEditing ? "Close Form" : "Select a Sport"}
+        </button>
+      </div>
+
+      {/* ─── Sport Picker Modal ─── */}
+      {showSportPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/50">
+              <div className="text-left">
+                <h2 className="text-xs font-bold text-slate-800">Select a Sport</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Choose from the list below to configure its defaults</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-4 sm:px-5 py-2.5 border-b border-slate-100 bg-white">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={sportPickerSearch}
+                  onChange={e => setSportPickerSearch(e.target.value)}
+                  placeholder="Search sports..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-1.5 text-xs sm:text-[13px] text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+
+            {/* Grid */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
+                  const alreadyAdded = sportsMeta.some(meta => meta.name.toLowerCase() === sp.name.toLowerCase());
+                  const alreadyQueued = sportForms.some(form => form.name.toLowerCase() === sp.name.toLowerCase());
+                  const isUnavailable = alreadyQueued;
+
+                  return (
+                    <button
+                      key={sp.name}
+                      type="button"
+                      onClick={() => !isUnavailable && handleSportPickerSelect(sp)}
+                      disabled={isUnavailable}
+                      className={cn(
+                        "flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all duration-200 cursor-pointer shadow-2xs",
+                        isUnavailable
+                          ? "bg-slate-50 border-slate-100 opacity-40 cursor-not-allowed text-slate-400"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20 hover:scale-[1.02] hover:shadow-sm"
+                      )}
+                    >
+                       {sp.icon && (sp.icon.startsWith("data:image/") || sp.icon.startsWith("http")) ? (
+                         <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
+                           <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
+                         </div>
+                       ) : (
+                         <span className="text-[10px] leading-none">{sp.icon}</span>
+                       )}
+                      <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
+                      {alreadyAdded && (
+                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
+                      )}
+                      {alreadyQueued && (
+                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
+                <div className="text-center py-10">
+                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No predefined sports match your search.</p>
+                  <button
+                    type="button"
+                    onClick={handleCreateCustomSport}
+                    disabled={sportSubmitting}
+                    className="px-3.5 py-2 text-white text-xs font-semibold rounded-xl border-none cursor-pointer transition-colors flex items-center justify-center gap-1.5 mx-auto shadow-sm hover:brightness-105"
+                    style={{
+                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)"
+                    }}
+                  >
+                    {sportSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Create Custom Sport: "{sportPickerSearch}"
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setShowSportPicker(false); setSportPickerSearch(""); }}
+                className="px-3.5 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition-colors bg-white cursor-pointer shadow-2xs font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Edit Sport Event Popup Modal ─── */}
+      {showSportForm && sportForms.length > 0 && isEditing && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => {
+            if (!sportSubmitting) resetSportForm();
+          }}
+        >
+          <div
+            className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden text-left"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50/70 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  {sportForms[0]?.iconUrl ? (
+                    <img src={sportForms[0].iconUrl} alt={sportForms[0].name} className="w-6 h-6 object-cover rounded" />
+                  ) : sportForms[0]?.icon ? (
+                    <span className="text-lg leading-none">{sportForms[0].icon}</span>
+                  ) : (
+                    <Edit2 className="w-5 h-5 text-indigo-600" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-base font-bold text-slate-800">Edit Sport Event</h2>
+                    {sportForms[0]?.name && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold border border-indigo-100">
+                        {sportForms[0].name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {sportForms[0]?.events?.[0]?.eventName
+                      ? `Editing: ${sportForms[0].events[0].eventName}`
+                      : "Update event schedule, format, and configuration rules"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resetSportForm}
+                disabled={sportSubmitting}
+                className="p-1.5 hover:bg-slate-200/60 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer disabled:opacity-50"
+                title="Close Modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+              {renderSportFormCards()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={resetSportForm}
+                disabled={sportSubmitting}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs sm:text-[13px] font-semibold rounded-xl hover:bg-slate-100 cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSportSave}
+                disabled={sportSubmitting}
+                className="px-5 py-2 text-white text-xs sm:text-[13px] font-semibold rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm hover:brightness-105 disabled:opacity-50"
+                style={{
+                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                  boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
+                }}
+              >
+                {sportSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <span>Update Event</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Inline Form Section (When configuring new sports) ─── */}
+      {showSportForm && sportForms.length > 0 && !isEditing && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Header bar with count and actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+              <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                Configure Sport Events ({sportForms.length})
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSportPicker(true)}
+              className="px-3 py-1.5 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 font-semibold shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Another Sport
+            </button>
+          </div>
+
+          {/* Sport Form Cards */}
+          {renderSportFormCards()}
 
           {/* Submission and Save Actions */}
           <div className="flex gap-2.5 pt-2">
@@ -1134,7 +1623,7 @@ export function SportsEventSection({
                 boxShadow: "0 2px 8px rgba(99,102,241,0.25)"
               }}
             >
-              {sportSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : (sportForms.some(f => f.editingSportId) ? "Update Event" : "Save Event ↗")}
+              {sportSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving...</> : "Save Event ↗"}
             </button>
           </div>
         </div>
@@ -1170,93 +1659,161 @@ export function SportsEventSection({
           </div>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
-                  Scheduled Community Events
-                </h3>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                  {filteredEvents.length}
-                  {isFiltered ? ` / ${activeEvents.length}` : ""}
-                </span>
-              </div>
-
-              {/* Filters for sports type, player category, and age category */}
-              <div className="flex flex-wrap items-center gap-2">
-                {isFiltered && (
-                  <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
-                    {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+            <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
+                    Scheduled Community Events
+                  </h3>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    {filteredEvents.length}
+                    {isFiltered ? ` / ${activeEvents.length}` : ""}
                   </span>
-                )}
-
-                {/* Sports Type Filter */}
-                <div className="relative min-w-[125px] sm:min-w-[145px]">
-                  <select
-                    value={selectedSportFilter}
-                    onChange={(e) => setSelectedSportFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by sport type"
-                  >
-                    <option value="">All Sports {availableSports.length > 0 ? `(${availableSports.length})` : ""}</option>
-                    {availableSports.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
-                {/* Player Category Filter */}
-                <div className="relative min-w-[130px] sm:min-w-[155px]">
-                  <select
-                    value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by player category"
-                  >
-                    <option value="">All Categories {availableCategories.length > 0 ? `(${availableCategories.length})` : ""}</option>
-                    {availableCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Filters for sports type, player category, age category, and gender */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isFiltered && (
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
+                      {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter), Boolean(selectedGenderFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter), Boolean(selectedGenderFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+                    </span>
+                  )}
 
-                {/* Age Category Filter */}
-                <div className="relative min-w-[135px] sm:min-w-[165px]">
-                  <select
-                    value={selectedAgeCategoryFilter}
-                    onChange={(e) => setSelectedAgeCategoryFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by age category"
-                  >
-                    <option value="">All Ages {availableAgeCategories.length > 0 ? `(${availableAgeCategories.length})` : ""}</option>
-                    {availableAgeCategories.map((ac) => (
-                      <option key={ac} value={ac}>
-                        {ac}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  {/* Sports Type Filter */}
+                  <div className="relative min-w-[125px] sm:min-w-[145px]">
+                    <select
+                      value={selectedSportFilter}
+                      onChange={(e) => setSelectedSportFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by sport type"
+                    >
+                      <option value="">All Sports {availableSports.length > 0 ? `(${availableSports.length})` : ""}</option>
+                      {availableSports.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Clear filters button */}
-                {isFiltered && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSportFilter("");
-                      setSelectedCategoryFilter("");
-                      setSelectedAgeCategoryFilter("");
-                    }}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
-                    title="Clear filters"
-                  >
-                    <X className="w-3 h-3" />
-                    <span>Clear</span>
-                  </button>
-                )}
+                  {/* Player Category Filter */}
+                  <div className="relative min-w-[130px] sm:min-w-[155px]">
+                    <select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by player category"
+                    >
+                      <option value="">All Categories {availableCategories.length > 0 ? `(${availableCategories.length})` : ""}</option>
+                      {availableCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Gender Filter */}
+                  <div className="relative min-w-[120px] sm:min-w-[140px]">
+                    <select
+                      value={selectedGenderFilter}
+                      onChange={(e) => setSelectedGenderFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by gender"
+                    >
+                      <option value="">All Genders {availableGenders.length > 0 ? `(${availableGenders.length})` : ""}</option>
+                      {availableGenders.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Age Category Filter */}
+                  <div className="relative min-w-[135px] sm:min-w-[165px]">
+                    <select
+                      value={selectedAgeCategoryFilter}
+                      onChange={(e) => setSelectedAgeCategoryFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by age category"
+                    >
+                      <option value="">All Ages {availableAgeCategories.length > 0 ? `(${availableAgeCategories.length})` : ""}</option>
+                      {availableAgeCategories.map((ac) => (
+                        <option key={ac} value={ac}>
+                          {ac}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Clear filters button */}
+                  {isFiltered && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSportFilter("");
+                        setSelectedCategoryFilter("");
+                        setSelectedAgeCategoryFilter("");
+                        setSelectedGenderFilter("");
+                      }}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
+                      title="Clear filters"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {isTournamentMode && (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("all")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                        tournamentViewMode === "all"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      All Events ({filteredEvents.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("added")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer flex items-center gap-1.5",
+                        tournamentViewMode === "added"
+                          ? "bg-emerald-600 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      Added ({addedEvents.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("not-added")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                        tournamentViewMode === "not-added"
+                          ? "bg-slate-700 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Not Added ({notAddedEvents.length})
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Tournament Context: <span className="font-bold text-indigo-700">{activeTournamentName || `#${activeTournamentId}`}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -1266,7 +1823,7 @@ export function SportsEventSection({
                 </div>
                 <h4 className="text-xs font-bold text-slate-700 mb-1">No matching events found</h4>
                 <p className="text-[11px] text-slate-500 max-w-sm mx-auto mb-3">
-                  No scheduled events match the selected sports type, player category, or age category filter.
+                  No scheduled events match the selected sports type, player category, gender, or age category filter.
                 </p>
                 <button
                   type="button"
@@ -1274,131 +1831,91 @@ export function SportsEventSection({
                     setSelectedSportFilter("");
                     setSelectedCategoryFilter("");
                     setSelectedAgeCategoryFilter("");
+                    setSelectedGenderFilter("");
                   }}
                   className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
                 >
                   Reset filters
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {filteredEvents.map(e => {
-                  const iconUrl = e.sport?.iconUrl || e.iconUrl;
-                  const icon = e.sport?.icon || e.icon || "🏆";
-                  const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
-                  const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
-                  const sportLabel = getEventSportName(e);
-                  const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
-                  const ageCategoryLabel = getEventAgeCategory(e);
-
-                  return (
-                    <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs", e.active !== false ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs" : "bg-slate-50 border-slate-200/60 opacity-75")}>
-                      <div className="flex gap-3">
-                        {iconUrl ? (
-                          <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
-                            <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
-                          </div>
-                        ) : (
-                          <span className="text-[10px] leading-none">{icon}</span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
-                            {e.name}
-                            {e.tournament?.name && (
-                              <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
-                            )}
-                          </h4>
-                          
-                          <div className="flex flex-wrap items-center gap-1 mt-2">
-                            {e.active !== false ? (
-                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                Closed
-                              </span>
-                            )}
-                            {sportLabel && (
-                              <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                {sportLabel}
-                              </span>
-                            )}
-                            {categoryLabel && (
-                              <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
-                                {categoryLabel}
-                              </span>
-                            )}
-                            {ageCategoryLabel && (
-                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
-                                {ageCategoryLabel}
-                              </span>
-                            )}
-                            {e.status && (
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
-                                e.status === "REGISTRATION_OPEN"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : e.status === "LIVE"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : e.status === "COMPLETED"
-                                      ? "bg-slate-100 text-slate-600 border-slate-200"
-                                      : e.status === "CANCELLED"
-                                        ? "bg-red-50 text-red-600 border-red-200"
-                                        : "bg-slate-50 text-slate-600 border-slate-200"
-                              )}>
-                                {e.status.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                              {e.format || "SINGLES"}
+            ) : isTournamentMode ? (
+              <div className="space-y-8">
+                {/* Section 1: Already Added Events */}
+                {(tournamentViewMode === "all" || tournamentViewMode === "added") && (
+                  <div>
+                    <div className="flex items-center justify-between pb-2 mb-3.5 border-b border-emerald-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider m-0">
+                              Already Added Events
+                            </h4>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {addedEvents.length}
                             </span>
-                            <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                              {e.tournamentType ? e.tournamentType.replace(/_/g, ' ') : "KNOCKOUT"}
-                            </span>
-                            {e.auctionEnabled && (
-                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
-                                <Gavel className="w-2.5 h-2.5" /> Auction
-                              </span>
-                            )}
                           </div>
-
-                          <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                              <span className="truncate">{startStr} - {endStr}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                              <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
-                            </div>
-                          </div>
+                          <p className="text-[11px] text-emerald-700 m-0">
+                            Events associated with {activeTournamentName || "this tournament"}
+                          </p>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => handleSportEdit(e)}
-                          className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                          title="Edit Event"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSportDelete(e.id)}
-                          className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                          title="Delete Event"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
-                        </button>
+                    {addedEvents.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-emerald-50/40 rounded-xl border border-dashed border-emerald-200">
+                        <p className="text-xs font-medium text-emerald-700">No events currently linked to this tournament.</p>
+                        <p className="text-[11px] text-emerald-600/80 mt-0.5">Use the configuration form above to add sports events to this tournament.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {addedEvents.map(e => renderEventCard(e, true))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Section 2: Not Added Events (Other Community Events) */}
+                {(tournamentViewMode === "all" || tournamentViewMode === "not-added") && (
+                  <div>
+                    <div className="flex items-center justify-between pb-2 mb-3.5 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center">
+                          <Layers className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
+                              Not Added Events (Other Community Events)
+                            </h4>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                              {notAddedEvents.length}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 m-0">
+                            Scheduled community events not associated with {activeTournamentName || "this tournament"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {notAddedEvents.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <p className="text-xs font-medium text-slate-600">All available community events are linked to this tournament.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {notAddedEvents.map(e => renderEventCard(e, false))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredEvents.map(e => renderEventCard(e, false))}
               </div>
             )}
           </>

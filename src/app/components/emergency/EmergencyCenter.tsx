@@ -264,6 +264,11 @@ export function EmergencyCenter() {
     severity: "CRITICAL" as EmergencySeverity,
   });
 
+  // Broadcast Modal
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [broadcastForm, setBroadcastForm] = useState({ message: "", severity: "HIGH" as EmergencySeverity, channels: ["PUSH", "SMS"] as string[] });
+  const [broadcastSending, setBroadcastSending] = useState(false);
+
   // Action Drawer / Notes
   const [updateNote, setUpdateNote] = useState("");
   const [toastMessage, setToastMessage] = useState<{ title: string; desc: string; type: "success" | "warn" | "error" } | null>(null);
@@ -353,6 +358,29 @@ export function EmergencyCenter() {
     }
     loadData();
     showToast("Incident Advanced", `Status updated to ${nextStatus}.`, "success");
+  };
+
+  // Emergency Broadcast
+  const handleBroadcast = async () => {
+    if (!broadcastForm.message.trim()) return;
+    setBroadcastSending(true);
+    try {
+      const { apiClient, getStoredUser } = await import("../../../services/common/apiClient");
+      const stored = getStoredUser();
+      await apiClient.post("/emergency/broadcast", {
+        communityId: stored?.communityId,
+        message: broadcastForm.message.trim(),
+        severity: broadcastForm.severity,
+        channels: broadcastForm.channels,
+      });
+      showToast("📢 Broadcast Sent", "All residents have been notified.", "success");
+      setBroadcastOpen(false);
+      setBroadcastForm({ message: "", severity: "HIGH", channels: ["PUSH", "SMS"] });
+    } catch {
+      showToast("Broadcast Failed", "Could not send broadcast. Try again.", "error");
+    } finally {
+      setBroadcastSending(false);
+    }
   };
 
   // Filtered Incidents
@@ -473,6 +501,15 @@ export function EmergencyCenter() {
                   <VolumeX className="w-4 h-4 mr-1 text-slate-400" />
                 )}
                 {soundEnabled ? "Siren Alert: Active" : "Muted"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBroadcastOpen(true)}
+                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer active:scale-95"
+              >
+                <Radio className="w-4 h-4 mr-1.5" />
+                Broadcast Alert
               </button>
 
               <button
@@ -780,6 +817,20 @@ export function EmergencyCenter() {
                     <SelectItem value="RESOLVED">Resolved</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <button
+                  onClick={() => {
+                    const rows = [["Incident#","Category","Severity","Status","Title","Location","Reporter","Reported At"].join(","),
+                      ...filteredIncidents.map(i => [i.incidentNumber, i.category, i.severity, i.status, `"${i.title}"`, `"${i.location}"`, `"${i.reportedBy}"`, i.reportedAt].join(","))];
+                    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = "incidents.csv"; a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="h-9 px-3 text-xs font-bold border border-[#EBEFF2] dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Export CSV
+                </button>
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="h-9 text-xs rounded-xl border-[#EBEFF2] dark:border-slate-800 w-[150px]">
@@ -1373,6 +1424,73 @@ export function EmergencyCenter() {
               className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-red-500/25 w-full sm:w-auto"
             >
               <AlertTriangle className="w-4 h-4 mr-1.5" /> Confirm SOS Alert
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Emergency Broadcast Modal */}
+      <Dialog open={broadcastOpen} onOpenChange={setBroadcastOpen}>
+        <DialogContent className="rounded-2xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-700">
+              <Radio className="w-5 h-5" /> Broadcast Emergency Alert
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Send an urgent message to all residents via push and SMS.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-xs font-bold text-slate-700 mb-1 block">Message *</label>
+              <Textarea
+                rows={3}
+                placeholder="e.g. Water supply disrupted due to maintenance. Expected to resume by 6 PM."
+                value={broadcastForm.message}
+                onChange={(e) => setBroadcastForm(f => ({ ...f, message: e.target.value }))}
+                className="text-xs rounded-xl"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 mb-1 block">Severity</label>
+              <Select value={broadcastForm.severity} onValueChange={v => setBroadcastForm(f => ({ ...f, severity: v as EmergencySeverity }))}>
+                <SelectTrigger className="text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CRITICAL">Critical</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="LOW">Low / Info</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 mb-1 block">Channels</label>
+              <div className="flex gap-3">
+                {["PUSH", "SMS", "EMAIL"].map(ch => (
+                  <label key={ch} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox"
+                      checked={broadcastForm.channels.includes(ch)}
+                      onChange={e => setBroadcastForm(f => ({
+                        ...f,
+                        channels: e.target.checked ? [...f.channels, ch] : f.channels.filter(c => c !== ch)
+                      }))}
+                    />
+                    {ch}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={() => setBroadcastOpen(false)} className="rounded-xl text-xs">Cancel</Button>
+            <Button
+              onClick={handleBroadcast}
+              disabled={broadcastSending || !broadcastForm.message.trim()}
+              className="bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs rounded-xl"
+            >
+              {broadcastSending ? <><span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin mr-1.5 inline-block" />Sending…</> : <><Radio className="w-4 h-4 mr-1.5" /> Send Broadcast</>}
             </Button>
           </DialogFooter>
         </DialogContent>

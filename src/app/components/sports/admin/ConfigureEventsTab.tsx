@@ -39,6 +39,9 @@ interface ConfigureEventsTabProps {
   onLoadCategories?: () => void;
   tournamentStartDate?: Date;
   tournamentEndDate?: Date;
+  activeTournamentId?: number | null;
+  activeTournamentName?: string | null;
+  activeTournaments?: any[];
 }
 
 /** "Configure Events" sub-tab of the Sports Event screen. */
@@ -82,6 +85,9 @@ export function ConfigureEventsTab(props: ConfigureEventsTabProps) {
       onLoadCategories={props.onLoadCategories}
       tournamentStartDate={props.tournamentStartDate}
       tournamentEndDate={props.tournamentEndDate}
+      activeTournamentId={props.activeTournamentId}
+      activeTournamentName={props.activeTournamentName}
+      activeTournaments={props.activeTournaments}
     />
   );
 }

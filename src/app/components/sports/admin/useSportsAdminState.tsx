@@ -207,6 +207,8 @@ export function useSportsAdminState() {
   const [announcingTournament, setAnnouncingTournament] = useState<{ id: number; name: string } | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
   const [activeTournamentName, setActiveTournamentName] = useState<string>("");
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [teamsViewMode, setTeamsViewMode] = useState<"approved" | "pending" | "all">("all");
 
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -2744,9 +2746,14 @@ export function useSportsAdminState() {
         let tourneyStartStr: string | undefined = undefined;
         let tourneyEndStr: string | undefined = undefined;
 
-        const effectiveTourneyId = (ev as any).tournamentId !== undefined
+        const effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
           ? (ev as any).tournamentId
           : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
+
+        if (!effectiveTourneyId) {
+          toast.error(`Event "${ev.eventName || 'Event'}": Please select a Tournament. All sports events must belong to a tournament.`);
+          return;
+        }
 
         if (effectiveTourneyId) {
           const currentTournament = activeTournaments.find((t: any) => t.id === Number(effectiveTourneyId));
@@ -2815,7 +2822,7 @@ export function useSportsAdminState() {
         const isTeam = isTeamSport(form.name);
         for (let eIdx = 0; eIdx < form.events.length; eIdx++) {
           const ev = form.events[eIdx];
-          let effectiveTourneyId = (ev as any).tournamentId !== undefined
+          let effectiveTourneyId = (ev as any).tournamentId !== undefined && (ev as any).tournamentId !== "change"
             ? (ev as any).tournamentId
             : ((form as any).tournamentId !== undefined ? (form as any).tournamentId : activeTournamentId);
 
@@ -3020,6 +3027,8 @@ export function useSportsAdminState() {
 
     // Tournament-first flow
     activeTournamentId, activeTournamentName, clearTournamentContext, setTournamentContext,
+    sportsEventSubTab, setSportsEventSubTab,
+    teamsViewMode, setTeamsViewMode,
 
     // Tournament data
     activeTournaments, activeEvents,
