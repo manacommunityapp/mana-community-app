@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel } from "lucide-react";
+import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel, CheckCircle2, Layers } from "lucide-react";
 import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
@@ -50,6 +50,8 @@ interface SportsEventSectionProps {
   tournamentEndDate?: Date;
   /** Loads player categories (GET /api/player-categories) — called when the add/update form opens. */
   onLoadCategories?: () => void;
+  activeTournamentId?: number | null;
+  activeTournamentName?: string | null;
 }
 
 export function SportsEventSection({
@@ -90,6 +92,8 @@ export function SportsEventSection({
   tournamentStartDate,
   tournamentEndDate,
   onLoadCategories,
+  activeTournamentId,
+  activeTournamentName,
 }: SportsEventSectionProps) {
   const [openDatePickerKey, setOpenDatePickerKey] = React.useState<string | null>(null);
 
@@ -366,6 +370,190 @@ export function SportsEventSection({
   }, [activeEvents, selectedSportFilter, selectedCategoryFilter, selectedAgeCategoryFilter, getEventSportName, matchesEventCategory, matchesEventAgeCategory]);
 
   const isFiltered = Boolean(selectedSportFilter || selectedCategoryFilter || selectedAgeCategoryFilter);
+
+  const isTournamentMode = Boolean(activeTournamentId || activeTournamentName);
+  const [tournamentViewMode, setTournamentViewMode] = React.useState<"all" | "added" | "not-added">("all");
+
+  const isEventInTournament = React.useCallback(
+    (e: any): boolean => {
+      if (!activeTournamentId && !activeTournamentName) return false;
+
+      if (activeTournamentId != null) {
+        const tid = Number(activeTournamentId);
+        if (e.tournament?.id != null && Number(e.tournament.id) === tid) return true;
+        if (e.tournamentId != null && Number(e.tournamentId) === tid) return true;
+        if (e.sportsTournamentId != null && Number(e.sportsTournamentId) === tid) return true;
+        if (e.sportsTournament?.id != null && Number(e.sportsTournament.id) === tid) return true;
+      }
+
+      if (activeTournamentName && activeTournamentName.trim()) {
+        const tName = activeTournamentName.trim().toLowerCase();
+        if (e.tournament?.name && e.tournament.name.trim().toLowerCase() === tName) return true;
+        if (e.sportsTournament?.name && e.sportsTournament.name.trim().toLowerCase() === tName) return true;
+        if (e.tournamentName && e.tournamentName.trim().toLowerCase() === tName) return true;
+        const evName = (e.name || "").toLowerCase();
+        if (evName.includes(`(${tName})`) || evName.includes(`[${tName}]`)) return true;
+      }
+
+      return false;
+    },
+    [activeTournamentId, activeTournamentName]
+  );
+
+  const { addedEvents, notAddedEvents } = React.useMemo(() => {
+    if (!isTournamentMode) {
+      return { addedEvents: [], notAddedEvents: filteredEvents };
+    }
+    const added: any[] = [];
+    const notAdded: any[] = [];
+    filteredEvents.forEach(e => {
+      if (isEventInTournament(e)) {
+        added.push(e);
+      } else {
+        notAdded.push(e);
+      }
+    });
+    return { addedEvents: added, notAddedEvents: notAdded };
+  }, [filteredEvents, isTournamentMode, isEventInTournament]);
+
+  const renderEventCard = (e: any, isAdded: boolean) => {
+    const iconUrl = e.sport?.iconUrl || e.iconUrl;
+    const icon = e.sport?.icon || e.icon || "🏆";
+    const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
+    const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
+    const sportLabel = getEventSportName(e);
+    const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
+    const ageCategoryLabel = getEventAgeCategory(e);
+
+    return (
+      <div
+        key={e.id}
+        className={cn(
+          "p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs",
+          isAdded
+            ? "bg-white border-emerald-300 ring-1 ring-emerald-500/20 hover:border-emerald-500 hover:shadow-xs"
+            : e.active !== false
+              ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs"
+              : "bg-slate-50 border-slate-200/60 opacity-75"
+        )}
+      >
+        <div className="flex gap-3">
+          {iconUrl ? (
+            <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
+              <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
+            </div>
+          ) : (
+            <span className="text-[10px] leading-none">{icon}</span>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
+              {e.name}
+              {e.tournament?.name && (
+                <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
+              )}
+            </h4>
+
+            <div className="flex flex-wrap items-center gap-1 mt-2">
+              {isAdded && (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                  <Check className="w-2.5 h-2.5" /> Added
+                </span>
+              )}
+              {e.active !== false ? (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  Active
+                </span>
+              ) : (
+                <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  Closed
+                </span>
+              )}
+              {sportLabel && (
+                <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                  {sportLabel}
+                </span>
+              )}
+              {categoryLabel && (
+                <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                  {categoryLabel}
+                </span>
+              )}
+              {ageCategoryLabel && (
+                <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
+                  {ageCategoryLabel}
+                </span>
+              )}
+              {e.status && (
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
+                    e.status === "REGISTRATION_OPEN"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : e.status === "LIVE"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : e.status === "COMPLETED"
+                          ? "bg-slate-100 text-slate-600 border-slate-200"
+                          : e.status === "CANCELLED"
+                            ? "bg-red-50 text-red-600 border-red-200"
+                            : "bg-slate-50 text-slate-600 border-slate-200"
+                  )}
+                >
+                  {e.status.replace(/_/g, " ")}
+                </span>
+              )}
+              <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                {e.format || "SINGLES"}
+              </span>
+              <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                {e.tournamentType ? e.tournamentType.replace(/_/g, " ") : "KNOCKOUT"}
+              </span>
+              {e.auctionEnabled && (
+                <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
+                  <Gavel className="w-2.5 h-2.5" /> Auction
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  {startStr} - {endStr}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="truncate">
+                  {e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={() => handleSportEdit(e)}
+            className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            title="Edit Event"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Edit</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSportDelete(e.id)}
+            className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            title="Delete Event"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const isDateDisabled = React.useCallback((date: Date) => {
     if (tournamentStartDate) {
@@ -1170,93 +1358,143 @@ export function SportsEventSection({
           </div>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
-                  Scheduled Community Events
-                </h3>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                  {filteredEvents.length}
-                  {isFiltered ? ` / ${activeEvents.length}` : ""}
-                </span>
-              </div>
-
-              {/* Filters for sports type, player category, and age category */}
-              <div className="flex flex-wrap items-center gap-2">
-                {isFiltered && (
-                  <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
-                    {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+            <div className="flex flex-col gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
+                    Scheduled Community Events
+                  </h3>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    {filteredEvents.length}
+                    {isFiltered ? ` / ${activeEvents.length}` : ""}
                   </span>
-                )}
-
-                {/* Sports Type Filter */}
-                <div className="relative min-w-[125px] sm:min-w-[145px]">
-                  <select
-                    value={selectedSportFilter}
-                    onChange={(e) => setSelectedSportFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by sport type"
-                  >
-                    <option value="">All Sports {availableSports.length > 0 ? `(${availableSports.length})` : ""}</option>
-                    {availableSports.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
-                {/* Player Category Filter */}
-                <div className="relative min-w-[130px] sm:min-w-[155px]">
-                  <select
-                    value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by player category"
-                  >
-                    <option value="">All Categories {availableCategories.length > 0 ? `(${availableCategories.length})` : ""}</option>
-                    {availableCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* Filters for sports type, player category, and age category */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {isFiltered && (
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-1.5 py-0.5 rounded">
+                      {[Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length} { [Boolean(selectedSportFilter), Boolean(selectedCategoryFilter), Boolean(selectedAgeCategoryFilter)].filter(Boolean).length === 1 ? "filter" : "filters" }
+                    </span>
+                  )}
 
-                {/* Age Category Filter */}
-                <div className="relative min-w-[135px] sm:min-w-[165px]">
-                  <select
-                    value={selectedAgeCategoryFilter}
-                    onChange={(e) => setSelectedAgeCategoryFilter(e.target.value)}
-                    className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
-                    aria-label="Filter by age category"
-                  >
-                    <option value="">All Ages {availableAgeCategories.length > 0 ? `(${availableAgeCategories.length})` : ""}</option>
-                    {availableAgeCategories.map((ac) => (
-                      <option key={ac} value={ac}>
-                        {ac}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  {/* Sports Type Filter */}
+                  <div className="relative min-w-[125px] sm:min-w-[145px]">
+                    <select
+                      value={selectedSportFilter}
+                      onChange={(e) => setSelectedSportFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by sport type"
+                    >
+                      <option value="">All Sports {availableSports.length > 0 ? `(${availableSports.length})` : ""}</option>
+                      {availableSports.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Clear filters button */}
-                {isFiltered && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSportFilter("");
-                      setSelectedCategoryFilter("");
-                      setSelectedAgeCategoryFilter("");
-                    }}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
-                    title="Clear filters"
-                  >
-                    <X className="w-3 h-3" />
-                    <span>Clear</span>
-                  </button>
-                )}
+                  {/* Player Category Filter */}
+                  <div className="relative min-w-[130px] sm:min-w-[155px]">
+                    <select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by player category"
+                    >
+                      <option value="">All Categories {availableCategories.length > 0 ? `(${availableCategories.length})` : ""}</option>
+                      {availableCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Age Category Filter */}
+                  <div className="relative min-w-[135px] sm:min-w-[165px]">
+                    <select
+                      value={selectedAgeCategoryFilter}
+                      onChange={(e) => setSelectedAgeCategoryFilter(e.target.value)}
+                      className="w-full text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer transition-colors"
+                      aria-label="Filter by age category"
+                    >
+                      <option value="">All Ages {availableAgeCategories.length > 0 ? `(${availableAgeCategories.length})` : ""}</option>
+                      {availableAgeCategories.map((ac) => (
+                        <option key={ac} value={ac}>
+                          {ac}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Clear filters button */}
+                  {isFiltered && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSportFilter("");
+                        setSelectedCategoryFilter("");
+                        setSelectedAgeCategoryFilter("");
+                      }}
+                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-md transition-colors cursor-pointer border border-indigo-200 bg-white flex items-center gap-1 shadow-2xs"
+                      title="Clear filters"
+                    >
+                      <X className="w-3 h-3" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {isTournamentMode && (
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("all")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                        tournamentViewMode === "all"
+                          ? "bg-white text-slate-900 shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      All Events ({filteredEvents.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("added")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer flex items-center gap-1.5",
+                        tournamentViewMode === "added"
+                          ? "bg-emerald-600 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      Added ({addedEvents.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTournamentViewMode("not-added")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer",
+                        tournamentViewMode === "not-added"
+                          ? "bg-slate-700 text-white shadow-2xs font-bold"
+                          : "text-slate-600 hover:text-slate-900"
+                      )}
+                    >
+                      Not Added ({notAddedEvents.length})
+                    </button>
+                  </div>
+
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Tournament Context: <span className="font-bold text-indigo-700">{activeTournamentName || `#${activeTournamentId}`}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {filteredEvents.length === 0 ? (
@@ -1280,125 +1518,84 @@ export function SportsEventSection({
                   Reset filters
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {filteredEvents.map(e => {
-                  const iconUrl = e.sport?.iconUrl || e.iconUrl;
-                  const icon = e.sport?.icon || e.icon || "🏆";
-                  const startStr = e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d") : "";
-                  const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
-                  const sportLabel = getEventSportName(e);
-                  const categoryLabel = e.categoryName || (typeof e.category === 'string' ? e.category : e.category?.name) || (Array.isArray(e.categories) && e.categories[0]?.name);
-                  const ageCategoryLabel = getEventAgeCategory(e);
-
-                  return (
-                    <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-200 flex flex-col justify-between border shadow-2xs", e.active !== false ? "bg-white border-slate-200/90 hover:border-indigo-400 hover:shadow-xs" : "bg-slate-50 border-slate-200/60 opacity-75")}>
-                      <div className="flex gap-3">
-                        {iconUrl ? (
-                          <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-50 border border-slate-200 shadow-2xs">
-                            <img src={iconUrl} alt={e.name} className="w-7 h-7 object-cover rounded" />
-                          </div>
-                        ) : (
-                          <span className="text-[10px] leading-none">{icon}</span>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">
-                            {e.name}
-                            {e.tournament?.name && (
-                              <span className="font-medium text-slate-500"> ({e.tournament.name})</span>
-                            )}
-                          </h4>
-                          
-                          <div className="flex flex-wrap items-center gap-1 mt-2">
-                            {e.active !== false ? (
-                              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                Closed
-                              </span>
-                            )}
-                            {sportLabel && (
-                              <span className="text-[10px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                                {sportLabel}
-                              </span>
-                            )}
-                            {categoryLabel && (
-                              <span className="text-[10px] bg-violet-50 text-violet-700 border border-violet-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
-                                {categoryLabel}
-                              </span>
-                            )}
-                            {ageCategoryLabel && (
-                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold tracking-wide">
-                                {ageCategoryLabel}
-                              </span>
-                            )}
-                            {e.status && (
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
-                                e.status === "REGISTRATION_OPEN"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : e.status === "LIVE"
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : e.status === "COMPLETED"
-                                      ? "bg-slate-100 text-slate-600 border-slate-200"
-                                      : e.status === "CANCELLED"
-                                        ? "bg-red-50 text-red-600 border-red-200"
-                                        : "bg-slate-50 text-slate-600 border-slate-200"
-                              )}>
-                                {e.status.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                              {e.format || "SINGLES"}
+            ) : isTournamentMode ? (
+              <div className="space-y-8">
+                {/* Section 1: Already Added Events */}
+                {(tournamentViewMode === "all" || tournamentViewMode === "added") && (
+                  <div>
+                    <div className="flex items-center justify-between pb-2 mb-3.5 border-b border-emerald-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-emerald-900 uppercase tracking-wider m-0">
+                              Already Added Events
+                            </h4>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {addedEvents.length}
                             </span>
-                            <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
-                              {e.tournamentType ? e.tournamentType.replace(/_/g, ' ') : "KNOCKOUT"}
-                            </span>
-                            {e.auctionEnabled && (
-                              <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide flex items-center gap-0.5">
-                                <Gavel className="w-2.5 h-2.5" /> Auction
-                              </span>
-                            )}
                           </div>
-
-                          <div className="flex flex-col gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <CalendarIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                              <span className="truncate">{startStr} - {endStr}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                              <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                              <span className="truncate">{e.gender || "ALL"} • {e.minAge != null ? e.minAge : 0}-{e.maxAge != null ? e.maxAge : 99} Yrs</span>
-                            </div>
-                          </div>
+                          <p className="text-[11px] text-emerald-700 m-0">
+                            Events associated with {activeTournamentName || "this tournament"}
+                          </p>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="flex items-center justify-end gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => handleSportEdit(e)}
-                          className="p-1.5 hover:bg-indigo-50 text-slate-500 hover:text-indigo-700 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                          title="Edit Event"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSportDelete(e.id)}
-                          className="p-1.5 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors border-none bg-transparent cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                          title="Delete Event"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
-                        </button>
+                    {addedEvents.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-emerald-50/40 rounded-xl border border-dashed border-emerald-200">
+                        <p className="text-xs font-medium text-emerald-700">No events currently linked to this tournament.</p>
+                        <p className="text-[11px] text-emerald-600/80 mt-0.5">Use the configuration form above to add sports events to this tournament.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {addedEvents.map(e => renderEventCard(e, true))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Section 2: Not Added Events (Other Community Events) */}
+                {(tournamentViewMode === "all" || tournamentViewMode === "not-added") && (
+                  <div>
+                    <div className="flex items-center justify-between pb-2 mb-3.5 border-b border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center">
+                          <Layers className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider m-0">
+                              Not Added Events (Other Community Events)
+                            </h4>
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                              {notAddedEvents.length}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 m-0">
+                            Scheduled community events not associated with {activeTournamentName || "this tournament"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {notAddedEvents.length === 0 ? (
+                      <div className="text-center py-6 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <p className="text-xs font-medium text-slate-600">All available community events are linked to this tournament.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        {notAddedEvents.map(e => renderEventCard(e, false))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {filteredEvents.map(e => renderEventCard(e, false))}
               </div>
             )}
           </>

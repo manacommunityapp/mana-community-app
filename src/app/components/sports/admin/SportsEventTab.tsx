@@ -290,6 +290,8 @@ export function SportsEventTab({
           onLoadCategories={onLoadCategories}
           tournamentStartDate={tournamentStartDate}
           tournamentEndDate={tournamentEndDate}
+          activeTournamentId={activeTournamentId}
+          activeTournamentName={activeTournamentName}
         />
       )}
     </div>
