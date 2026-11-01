@@ -75,6 +75,8 @@ interface SportsEventTabProps {
   setTournamentContext?: (id: number, name: string) => void;
   tournamentStartDate?: Date;
   tournamentEndDate?: Date;
+  sportsEventSubTab?: "list" | "config";
+  setSportsEventSubTab?: (tab: "list" | "config") => void;
 }
 
 export function SportsEventTab({
@@ -145,8 +147,12 @@ export function SportsEventTab({
   setTournamentContext,
   tournamentStartDate,
   tournamentEndDate,
+  sportsEventSubTab: controlledSubTab,
+  setSportsEventSubTab: setControlledSubTab,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [internalSubTab, setInternalSubTab] = useState<"list" | "config">("list");
+  const sportsEventSubTab = controlledSubTab ?? internalSubTab;
+  const setSportsEventSubTab = setControlledSubTab ?? setInternalSubTab;
 
   const onEditEventFromList = (ev: any) => {
     setShowSportPicker(false);
@@ -197,16 +203,12 @@ export function SportsEventTab({
           Tournaments List
         </button>
         <button
-          disabled={!activeTournamentId}
           onClick={() => setSportsEventSubTab("config")}
-          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all ${
-            !activeTournamentId
-              ? "border-transparent text-slate-300 cursor-not-allowed"
-              : sportsEventSubTab === "config"
-              ? "border-indigo-600 text-indigo-600 font-bold cursor-pointer"
-              : "border-transparent text-slate-500 hover:text-indigo-600 cursor-pointer"
+          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            sportsEventSubTab === "config"
+              ? "border-indigo-600 text-indigo-600 font-bold"
+              : "border-transparent text-slate-500 hover:text-indigo-600"
           }`}
-          title={!activeTournamentId ? "Select a tournament first to configure events" : ""}
         >
           Configure Events
         </button>
@@ -290,6 +292,8 @@ export function SportsEventTab({
           onLoadCategories={onLoadCategories}
           tournamentStartDate={tournamentStartDate}
           tournamentEndDate={tournamentEndDate}
+          activeTournamentId={activeTournamentId}
+          activeTournamentName={activeTournamentName}
         />
       )}
     </div>
