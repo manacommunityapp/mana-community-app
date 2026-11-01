@@ -197,16 +197,12 @@ export function SportsEventTab({
           Tournaments List
         </button>
         <button
-          disabled={!activeTournamentId}
           onClick={() => setSportsEventSubTab("config")}
-          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all ${
-            !activeTournamentId
-              ? "border-transparent text-slate-300 cursor-not-allowed"
-              : sportsEventSubTab === "config"
-              ? "border-indigo-600 text-indigo-600 font-bold cursor-pointer"
-              : "border-transparent text-slate-500 hover:text-indigo-600 cursor-pointer"
+          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            sportsEventSubTab === "config"
+              ? "border-indigo-600 text-indigo-600 font-bold"
+              : "border-transparent text-slate-500 hover:text-indigo-600"
           }`}
-          title={!activeTournamentId ? "Select a tournament first to configure events" : ""}
         >
           Configure Events
         </button>
