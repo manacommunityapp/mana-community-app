@@ -3,7 +3,7 @@ import { Loader2, Plus, Calendar, Trophy, X, Eye, MapPin, Users, Clock } from "l
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { tournamentService } from "../../../services/sports/tournamentService";
-import type { TournamentTypeInfo, EventInfo, ConfigInfo } from "../../../services/sports/tournamentService";
+import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { sportsService } from "../../../services/sports/sportsService";
 import type { EventRegistration } from "../../../types/api";
 import { venueService } from "../../../services/bookings/venueService";
@@ -12,6 +12,7 @@ import type { Venue } from "../../../types/api";
 export function TournamentScheduler() {
   const { token, user } = useAuth() as any;
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
+  const [tournaments, setTournaments] = useState<TournamentDropdownItem[]>([]);
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -25,6 +26,7 @@ export function TournamentScheduler() {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   // Form State
+  const [fTournamentId, setFTournamentId] = useState("");
   const [fName, setFName] = useState("");
   const [fEvent, setFEvent] = useState("");
   const [fType, setFType] = useState("");
@@ -57,12 +59,14 @@ export function TournamentScheduler() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [resTypes, resEvents, resConfigs] = await Promise.all([
+      const [resTypes, resTournaments, resEvents, resConfigs] = await Promise.all([
         tournamentService.getTournamentTypes(),
+        tournamentService.getTournamentsForDropdown(),
         tournamentService.getEventsForDropdown(),
         tournamentService.getConfigs(),
       ]);
       setTypes(resTypes);
+      setTournaments(resTournaments);
       setEvents(resEvents);
       setConfigs(resConfigs);
     } catch (e) {
@@ -83,8 +87,48 @@ export function TournamentScheduler() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const tournamentOptions = React.useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    // 1. Add canonical tournaments
+    for (const t of tournaments) {
+      if (t && t.id) {
+        map.set(t.id.toString(), { id: t.id.toString(), name: t.name });
+      }
+    }
+    // 2. Add any tournaments referenced in events that might not be in tournaments list
+    for (const e of events) {
+      if (e.tournamentId) {
+        const tid = e.tournamentId.toString();
+        if (!map.has(tid)) {
+          map.set(tid, { id: tid, name: e.tournamentName || `Tournament #${tid}` });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [tournaments, events]);
+
+  const hasStandaloneEvents = React.useMemo(() => {
+    return events.some(e => !e.tournamentId && !e.tournamentName);
+  }, [events]);
+
+  const filteredEvents = React.useMemo(() => {
+    if (!fTournamentId) return [];
+    if (fTournamentId === "standalone") {
+      return events.filter(e => !e.tournamentId && !e.tournamentName);
+    }
+    return events.filter(e => {
+      if (e.tournamentId && e.tournamentId.toString() === fTournamentId) return true;
+      const t = tournamentOptions.find(opt => opt.id === fTournamentId);
+      if (t && e.tournamentName && e.tournamentName.trim().toLowerCase() === t.name.trim().toLowerCase()) {
+        return true;
+      }
+      return false;
+    });
+  }, [fTournamentId, events, tournamentOptions]);
+
   const resetForm = () => {
     setEditingId(null);
+    setFTournamentId("");
     setFName("");
     setFEvent("");
     setFType("");
@@ -104,11 +148,69 @@ export function TournamentScheduler() {
     setFSeeding(false);
   };
 
+  const handleTournamentChange = (tId: string) => {
+    setFTournamentId(tId);
+    setFEvent("");
+    if (!tId) {
+      setFName("");
+      return;
+    }
+    const t = tournamentOptions.find(opt => opt.id === tId);
+    if (t) {
+      setFName(t.name);
+    } else if (tId === "standalone") {
+      setFName("");
+    }
+  };
+
+  const handleEventChange = (selectedEventId: string) => {
+    setFEvent(selectedEventId);
+    const matchedEvent = events.find(ev => ev.id.toString() === selectedEventId);
+    if (matchedEvent) {
+      const tourney = tournamentOptions.find(opt => opt.id === fTournamentId);
+      if (tourney && tourney.name) {
+        setFName(`${tourney.name} — ${matchedEvent.name}`);
+      } else {
+        setFName(matchedEvent.name);
+      }
+      if (matchedEvent.totalTeams !== undefined && matchedEvent.totalTeams > 0) {
+        setFTeams(matchedEvent.totalTeams.toString());
+      }
+      if (matchedEvent.eventDateStart) {
+        setFStartDate(matchedEvent.eventDateStart);
+      }
+      if (matchedEvent.eventDateEnd) {
+        setFEndDate(matchedEvent.eventDateEnd);
+      }
+      if (matchedEvent.venueId) {
+        setFVenueId(matchedEvent.venueId);
+      }
+    }
+  };
+
   const openModal = (config?: ConfigInfo) => {
     if (config) {
       setEditingId(config.id);
       setFName(config.tournamentName || "");
-      setFEvent(config.eventId ? config.eventId.toString() : "");
+      const evId = config.eventId ? config.eventId.toString() : "";
+      setFEvent(evId);
+      if (config.eventId) {
+        const ev = events.find(e => e.id === config.eventId);
+        if (ev) {
+          if (ev.tournamentId) {
+            setFTournamentId(ev.tournamentId.toString());
+          } else if (ev.tournamentName) {
+            const t = tournamentOptions.find(opt => opt.name.trim().toLowerCase() === ev.tournamentName?.trim().toLowerCase());
+            setFTournamentId(t ? t.id : "standalone");
+          } else {
+            setFTournamentId("standalone");
+          }
+        } else {
+          setFTournamentId("");
+        }
+      } else {
+        setFTournamentId("");
+      }
       setFType(config.tournamentType || "");
       setFTeams(config.totalTeams ? config.totalTeams.toString() : "8");
       setFStartDate(config.startDate || "");
@@ -398,44 +500,66 @@ export function TournamentScheduler() {
             <div className="min-h-0 space-y-4 overflow-y-auto p-4 sm:space-y-5 sm:p-5">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tournament Name *</label>
-                  <select value={fEvent} onChange={(e) => {
-                    const selectedId = e.target.value;
-                    setFEvent(selectedId);
-                    const matchedEvent = events.find(ev => ev.id.toString() === selectedId);
-                    if (matchedEvent) {
-                      setFName(matchedEvent.name);
-                      if (matchedEvent.totalTeams !== undefined && matchedEvent.totalTeams > 0) {
-                        setFTeams(matchedEvent.totalTeams.toString());
-                      }
-                      if (matchedEvent.eventDateStart) {
-                        setFStartDate(matchedEvent.eventDateStart);
-                      }
-                      if (matchedEvent.eventDateEnd) {
-                        setFEndDate(matchedEvent.eventDateEnd);
-                      }
-                      if (matchedEvent.venueId) {
-                        setFVenueId(matchedEvent.venueId);
-                      }
-                    } else {
-                      setFName("");
-                    }
-                  }} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10">
-                    <option value="">— Select Tournament Name —</option>
-                    {events.map((e) => (
-                      <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Tournament *
+                  </label>
+                  <select
+                    value={fTournamentId}
+                    onChange={(e) => handleTournamentChange(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 cursor-pointer"
+                  >
+                    <option value="">— Select Tournament —</option>
+                    {tournamentOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
                     ))}
+                    {hasStandaloneEvents && (
+                      <option value="standalone">— Standalone / Individual Events —</option>
+                    )}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Sport Event</label>
-                  <select value={fEvent} onChange={(e) => setFEvent(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10">
-                    <option value="">— Select Event —</option>
-                    {events.map((e) => (
-                      <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                    Sport Event / Category *
+                  </label>
+                  <select
+                    value={fEvent}
+                    onChange={(e) => handleEventChange(e.target.value)}
+                    disabled={!fTournamentId}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <option value="">
+                      {!fTournamentId
+                        ? "— Select Tournament First —"
+                        : filteredEvents.length === 0
+                        ? "— No events under this tournament —"
+                        : "— Select Sport Event / Category —"}
+                    </option>
+                    {filteredEvents.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name} {e.sportName ? `(${e.sportName})` : ""}
+                      </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Configuration Title / Schedule Name *
+                </label>
+                <input
+                  type="text"
+                  value={fName}
+                  onChange={(e) => setFName(e.target.value)}
+                  placeholder="e.g. Monsoon Badminton Cup — Men's Doubles Championship"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10"
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Auto-populated when selecting a tournament and sport event, but customizable for your schedule.
+                </p>
               </div>
 
               <div>

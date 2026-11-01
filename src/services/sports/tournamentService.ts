@@ -10,9 +10,20 @@ export interface TournamentTypeInfo {
   formatNote: string;
 }
 
+export interface TournamentDropdownItem {
+  id: number;
+  name: string;
+  eventDateStart?: string;
+  eventDateEnd?: string;
+  maxParticipants?: number;
+  status?: string;
+}
+
 export interface EventInfo {
   id: number;
   name: string;
+  tournamentId?: number | null;
+  tournamentName?: string;
   sportId: number;
   sportName: string;
   communityId: number;
@@ -22,6 +33,7 @@ export interface EventInfo {
   status: string;
   totalTeams: number;
   venueId?: number;
+  venueName?: string;
 }
 
 export interface ConfigInfo {
@@ -448,6 +460,31 @@ export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
     return apiClient.get<TournamentTypeInfo[]>("/tournament/types");
+  },
+
+  /** GET /api/tournament/tournaments */
+  async getTournamentsForDropdown(): Promise<TournamentDropdownItem[]> {
+    try {
+      const data = await apiClient.get<TournamentDropdownItem[]>("/tournament/tournaments");
+      return Array.isArray(data) ? data : [];
+    } catch (_err) {
+      try {
+        const fallback = await apiClient.get<any[]>("/tournaments/community");
+        if (Array.isArray(fallback)) {
+          return fallback.map((t) => ({
+            id: t.id,
+            name: t.name,
+            eventDateStart: t.eventDateStart,
+            eventDateEnd: t.eventDateEnd,
+            maxParticipants: t.maxParticipants,
+            status: t.registrationStatus,
+          }));
+        }
+      } catch {
+        // ignore
+      }
+      return [];
+    }
   },
 
   /** GET /api/tournament/events */
