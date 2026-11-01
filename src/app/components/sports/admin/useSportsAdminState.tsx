@@ -2284,7 +2284,8 @@ export function useSportsAdminState() {
   };
 
   const handleCategorySave = async () => {
-    if (!categoryName.trim()) { toast.error("Category name is required"); return; }
+    const trimmedName = categoryName.trim();
+    if (!trimmedName) { toast.error("Category name is required"); return; }
     if (!categoryType) { toast.error("Category Type is required"); return; }
     if (!categoryGender) { toast.error("Gender is required"); return; }
     if (!categoryMinAge || !categoryMaxAge) { toast.error("Age range is required"); return; }
@@ -2293,12 +2294,21 @@ export function useSportsAdminState() {
     if (isNaN(minA) || minA < 0) { toast.error("Minimum age must be a valid non-negative number"); return; }
     if (isNaN(maxA) || maxA < 0) { toast.error("Maximum age must be a valid non-negative number"); return; }
     if (minA > maxA) { toast.error("Minimum age cannot be greater than maximum age"); return; }
+
+    const isDuplicate = playerCategories.some(
+      (c) => c.name.trim().toLowerCase() === trimmedName.toLowerCase() && c.id !== editingCategoryId
+    );
+    if (isDuplicate) {
+      toast.error(`A category named "${trimmedName}" already exists`);
+      return;
+    }
+
     setCategorySubmitting(true);
     try {
       const commId = categoryCommId ? Number(categoryCommId) : (isSuperAdmin ? undefined : (user?.communityId ?? activeCommId));
       const payload = {
-        name: categoryName, categoryType: categoryType, description: categoryDescription,
-        minAge: parseInt(categoryMinAge), maxAge: parseInt(categoryMaxAge),
+        name: trimmedName, categoryType: categoryType, description: categoryDescription,
+        minAge: minA, maxAge: maxA,
         gender: categoryGender, communityId: commId,
       };
       if (editingCategoryId) {
@@ -2309,9 +2319,10 @@ export function useSportsAdminState() {
         toast.success("Category created!");
       }
       resetCategoryForm(); refreshCategories();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Save category error:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to save category");
+      const apiErrorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(apiErrorMsg || (err instanceof Error ? err.message : "Failed to save category"));
     } finally { setCategorySubmitting(false); }
   };
 
