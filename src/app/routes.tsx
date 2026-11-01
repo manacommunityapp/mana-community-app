@@ -122,6 +122,7 @@ import { SportsFeed } from "./components/sports/SportsFeed";
 import { SportsMatchmaking } from "./components/sports/SportsMatchmaking";
 import { SportsMessages } from "./components/sports/SportsMessages";
 import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
+import { SportsWallet }     from "./components/sports/SportsWallet";
 
 function TeamRegisterPage() {
   const { eventId } = useParams();
@@ -512,6 +513,8 @@ export const router = createBrowserRouter([
           {
             path: "messages",
             element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsMessages /></PermissionGuard>
+            path: "wallet",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsWallet /></PermissionGuard>
           },
           {
             path: "my-auctions",

@@ -937,7 +937,12 @@ export function SportsDashboard() {
   };
 
   const canManageCaptainNominations = hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN);
-  const confirmedMyRegistrations = myRegistrations.filter(r => r.status === "CONFIRMED");
+  const activeMyRegistrations = useMemo(() => {
+    return myRegistrations.filter(r =>
+      isActiveRegistrationStatus(r.status) && !withdrawnRegistrationIds.has(Number(r.id))
+    );
+  }, [myRegistrations, withdrawnRegistrationIds]);
+  const confirmedMyRegistrations = activeMyRegistrations.filter(r => r.status === "CONFIRMED");
   const teamClosedRegs = closedRegs.filter(r => r.isTeamSport);
   const confirmedTeamRegistrations = confirmedMyRegistrations.filter(r => r.matchType === "TEAM");
 
@@ -1492,9 +1497,13 @@ export function SportsDashboard() {
 
       setLiveEvents(finalEventsList);
 
+      const activeRegCount = fetchedMyRegs.filter(r =>
+        isActiveRegistrationStatus(r.status) && !withdrawnRegistrationIds.has(Number(r.id))
+      ).length;
+
       // Stats (server-computed counts)
       setStats([
-        { id: 1, value: statsData.yourRegistrations, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
+        { id: 1, value: activeRegCount, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
         { id: 2, value: statsData.liveEvents, label: "Live Events", badge: statsData.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
         { id: 3, value: statsData.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
         { id: 4, value: statsData.upcomingTournaments, label: "Upcoming Tournaments", badge: "Register", badgeType: "purple", color: "#8b5cf6", icon: Trophy },
@@ -1666,7 +1675,7 @@ export function SportsDashboard() {
             return (
               <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1} ${isHiddenOnMobile ? "hidden sm:block" : ""}`}>
                 <StatCard
-                  value={s.value}
+                  value={s.id === 1 ? activeMyRegistrations.length : s.value}
                   label={s.label}
                   badge={s.badge}
                   color={s.color}
@@ -3057,7 +3066,7 @@ export function SportsDashboard() {
             ) : (
               <div className="divide-y divide-slate-50">
                 {(() => {
-                  const total = myRegistrations.length;
+                  const total = activeMyRegistrations.length;
                   const confirmed = confirmedMyRegistrations.length;
                   const teamRegs = confirmedTeamRegistrations.length;
                   const seasonData: [string, string][] = [
@@ -3289,7 +3298,7 @@ export function SportsDashboard() {
                         Your Registrations
                       </h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
-                        {myRegistrations.filter(r => isActiveRegistrationStatus(r.status)).length} Active ({myRegistrations.length} Total)
+                        {activeMyRegistrations.length} Registered
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 m-0">
@@ -3308,18 +3317,18 @@ export function SportsDashboard() {
 
               {/* Modal Body - Registration List */}
               <div className="overflow-y-auto space-y-2.5 pr-1 flex-1">
-                {myRegistrations.length === 0 ? (
+                {activeMyRegistrations.length === 0 ? (
                   <div className="text-center py-10">
                     <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center mx-auto mb-3">
                       <Trophy className="w-6 h-6" />
                     </div>
                     <p className="text-xs font-bold text-slate-800">No active registrations found</p>
                     <p className="text-xs text-slate-500 max-w-xs mx-auto mt-1">
-                      You haven't registered for any sports events yet. Browse open registrations below to join!
+                      You haven&apos;t registered for any sports events yet. Browse open registrations below to join!
                     </p>
                   </div>
                 ) : (
-                  myRegistrations.map((reg) => {
+                  activeMyRegistrations.map((reg) => {
                     const isConfirmed = reg.status === "CONFIRMED";
                     const isPending = reg.status === "PENDING" || reg.status === "REGISTERED";
                     const statusColor = isConfirmed

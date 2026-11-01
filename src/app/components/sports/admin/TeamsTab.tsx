@@ -21,6 +21,8 @@ interface TeamsTabProps {
   activeEvents?: SportsEvent[];
   communityId?: number | null;
   isSuperAdmin?: boolean;
+  viewMode?: "approved" | "pending" | "all";
+  setViewMode?: (mode: "approved" | "pending" | "all") => void;
 }
 
 interface TournamentTeamGroup {
@@ -378,12 +380,32 @@ function PendingRegistrationCard({
   );
 }
 
-export function TeamsTab({ activeTournaments, activeEvents = [], communityId, isSuperAdmin }: TeamsTabProps) {
+export function TeamsTab({
+  activeTournaments,
+  activeEvents = [],
+  communityId,
+  isSuperAdmin,
+  viewMode: controlledViewMode,
+  setViewMode: setControlledViewMode,
+}: TeamsTabProps) {
+  const [internalViewMode, setInternalViewMode] = useState<"approved" | "pending" | "all">("all");
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const setViewMode = setControlledViewMode ?? setInternalViewMode;
   const [groups, setGroups] = useState<TournamentTeamGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [approvingIds, setApprovingIds] = useState<Set<number>>(new Set());
-  const [globalExpanded, setGlobalExpanded] = useState<"pending" | "all" | null>(null);
+  const [globalExpanded, setGlobalExpanded] = useState<"pending" | "all" | null>(
+    viewMode === "pending" ? "pending" : null
+  );
+
+  useEffect(() => {
+    if (viewMode === "pending") {
+      setGlobalExpanded("pending");
+    } else if (viewMode === "approved") {
+      setGlobalExpanded(null);
+    }
+  }, [viewMode]);
 
   const loadTeamData = useCallback(async () => {
     if (!activeTournaments || activeTournaments.length === 0) {
@@ -482,7 +504,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
   const allPendingCount = groups.reduce((n, g) => n + g.pendingRegs.length, 0);
   const allTeamsCount = groups.reduce((n, g) => n + g.teams.length, 0);
 
-  // Filter groups by search
+  // Filter groups by search and viewMode
   const filtered = groups.map(g => ({
     ...g,
     teams: g.teams.filter(t =>
@@ -497,7 +519,11 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
       (r.playerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (r.user?.fullName || "").toLowerCase().includes(searchQuery.toLowerCase())
     ),
-  })).filter(g => g.teams.length > 0 || g.pendingRegs.length > 0);
+  })).filter(g => {
+    if (viewMode === "approved") return g.teams.length > 0;
+    if (viewMode === "pending") return g.pendingRegs.length > 0;
+    return g.teams.length > 0 || g.pendingRegs.length > 0;
+  });
 
   if (loading) {
     return (
@@ -550,8 +576,52 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
         </button>
       </div>
 
+      {/* View Filter Pills */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => {
+            setViewMode("all");
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            viewMode === "all"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => {
+            setViewMode("approved");
+            setGlobalExpanded(null);
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            viewMode === "approved"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          All Approved Teams ({allTeamsCount})
+        </button>
+        <button
+          onClick={() => {
+            setViewMode("pending");
+            setGlobalExpanded("pending");
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            viewMode === "pending"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          Pending Approvals ({allPendingCount})
+        </button>
+      </div>
+
       {/* ── Global Pending Approvals section ── */}
-      {allPendingCount > 0 && (
+      {allPendingCount > 0 && viewMode !== "approved" && (
         <div
           className="rounded-2xl overflow-hidden"
           style={{ border: "1.5px solid rgba(245,158,11,0.28)", background: "white", boxShadow: "0 2px 16px rgba(245,158,11,0.07)" }}
@@ -694,7 +764,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
             </div>
 
             {/* Teams section */}
-            {g.teams.length > 0 && (
+            {g.teams.length > 0 && viewMode !== "pending" && (
               <div className="px-5 py-3">
                 <button
                   className="w-full flex items-center justify-between py-2 cursor-pointer text-left"
@@ -724,7 +794,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
             )}
 
             {/* Pending regs for this tournament */}
-            {g.pendingRegs.length > 0 && (
+            {g.pendingRegs.length > 0 && viewMode !== "approved" && (
               <div
                 className="px-5 py-3 border-t"
                 style={{ borderColor: "rgba(99,102,241,0.08)", background: "rgba(245,158,11,0.02)" }}

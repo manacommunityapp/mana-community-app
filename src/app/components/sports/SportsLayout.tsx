@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Newspaper, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Newspaper, MessageSquare,Wallet } from "lucide-react";
 import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -29,6 +29,7 @@ const sportsNav = [
   { to: "/sports/feed", label: "Feed", icon: Newspaper },
   { to: "/sports/find-players", label: "Find Players", icon: Users },
   { to: "/sports/messages", label: "Messages", icon: MessageSquare },
+  { to: "/sports/wallet", label: "Wallet", icon: Wallet },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
   { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -60,6 +61,8 @@ export function SportsLayout() {
         return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
       case "Badges":
         return canAccessAdminSportsTabs && hasPermission(VIEW_SPORTS_MAIN);
+      case "Wallet":
+        return hasPermission(VIEW_SPORTS_MAIN);
       case "Auction":
         return hasAnyPermission(
           VIEW_AUCTION_CONFIG,

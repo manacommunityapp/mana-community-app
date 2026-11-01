@@ -57,6 +57,8 @@ export function SportsAdmin() {
               approveTeam={s.approveTeam}
               rejectTeam={s.rejectTeam}
               setActiveTab={s.setActiveTab}
+              setSportsEventSubTab={s.setSportsEventSubTab}
+              setTeamsViewMode={s.setTeamsViewMode}
             />
           )}
 
@@ -131,10 +133,13 @@ export function SportsAdmin() {
                 onLoadCategories={s.refreshCategories}
                 activeTournamentId={s.activeTournamentId}
                 activeTournamentName={s.activeTournamentName}
+                activeTournaments={s.activeTournaments}
                 clearTournamentContext={s.clearTournamentContext}
                 setTournamentContext={s.setTournamentContext}
                 tournamentStartDate={tourneyStart}
                 tournamentEndDate={tourneyEnd}
+                sportsEventSubTab={s.sportsEventSubTab}
+                setSportsEventSubTab={s.setSportsEventSubTab}
               />
             );
           })()}
@@ -206,6 +211,8 @@ export function SportsAdmin() {
               activeEvents={s.activeEvents}
               communityId={s.user?.role !== "SUPER_ADMIN" ? s.user?.communityId : null}
               isSuperAdmin={s.user?.role === "SUPER_ADMIN"}
+              viewMode={s.teamsViewMode}
+              setViewMode={s.setTeamsViewMode}
             />
           )}
 

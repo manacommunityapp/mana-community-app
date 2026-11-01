@@ -31,12 +31,14 @@ import { PatientSecurityPrivacyModal } from "../../app/components/health/Patient
 export type HealthTab =
   | "doctors" | "camps" | "family" | "appointments" | "records" | "labs" | "benefits" | "wellness"
   | "provider" | "emergency" | "ai" | "care-journey" | "pharmacy" | "ambulance" | "ipd" | "surgery"
-  | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold" | "physiotherapy" | "gym-trainers";
+  | "dental" | "abha" | "cancer" | "mental-health" | "hospitals" | "gold" | "physiotherapy" | "gym-trainers"
+  | "homecare" | "radiology";
 
 export const VALID_HEALTH_TABS: HealthTab[] = [
   "doctors", "camps", "family", "appointments", "records", "labs", "benefits", "wellness",
   "provider", "emergency", "ai", "care-journey", "pharmacy", "ambulance", "ipd", "surgery",
-  "dental", "abha", "cancer", "mental-health", "hospitals", "gold", "physiotherapy", "gym-trainers"
+  "dental", "abha", "cancer", "mental-health", "hospitals", "gold", "physiotherapy", "gym-trainers",
+  "homecare", "radiology"
 ];
 
 export const HealthPortal: React.FC = () => {
