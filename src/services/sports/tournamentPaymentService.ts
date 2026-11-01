@@ -41,6 +41,8 @@ export interface UniqueTournamentPlayer {
     matchType?: string;
     status: string;
     registeredAt?: string;
+    partnerName?: string;
+    partnerPhone?: string;
   }>;
   payment?: TournamentPlayerPayment;
   paymentStatus: "PAID" | "UNPAID" | "WAIVED";
@@ -209,9 +211,11 @@ export const tournamentPaymentService = {
           eventName: (event as any).name || (event as any).categoryName || `Event #${event.id}`,
           sportName: (event as any).sportName,
           categoryName: (event as any).categoryName,
-          matchType: (reg as any).matchType || (reg as any).format,
+          matchType: (reg as any).matchType || (reg as any).format || reg.matchFormat,
           status: reg.status || "CONFIRMED",
           registeredAt: (reg as any).registeredAt || (reg as any).createdAt,
+          partnerName: reg.partnerName,
+          partnerPhone: reg.partnerPhone,
         };
 
         if (playerMap.has(key)) {
@@ -226,6 +230,7 @@ export const tournamentPaymentService = {
           if (!existing.phone && reg.phone) existing.phone = reg.phone;
           if (!existing.email && reg.email) existing.email = reg.email;
           if (!existing.flatNumber && reg.flatNumber) existing.flatNumber = reg.flatNumber;
+          if (!existing.relation && reg.relation) existing.relation = reg.relation;
         } else {
           const payment = paymentsMap[key];
           playerMap.set(key, {

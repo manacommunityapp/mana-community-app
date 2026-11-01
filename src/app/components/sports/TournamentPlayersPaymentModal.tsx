@@ -12,12 +12,16 @@ import {
   Trophy,
   Filter,
   Check,
-  Sparkles,
   Receipt,
   User,
   Home,
   Phone,
-  Calendar
+  Calendar,
+  Crown,
+  ChevronRight,
+  Building2,
+  Mail,
+  UserCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -37,6 +41,54 @@ interface TournamentPlayersPaymentModalProps {
   tournament: DashboardTournamentCard | null;
 }
 
+export function isHeadOfHousehold(player: UniqueTournamentPlayer): boolean {
+  if (player.familyMemberId) return false;
+  if (!player.relation) return true;
+  const rel = player.relation.trim().toUpperCase();
+  return [
+    "SELF",
+    "PRIMARY",
+    "HEAD",
+    "RESIDENT",
+    "OWNER",
+    "TENANT",
+    "PRIMARY RESIDENT",
+    "HOUSEHOLD HEAD",
+  ].includes(rel);
+}
+
+export function getPlayerCategory(player: UniqueTournamentPlayer): {
+  isHead: boolean;
+  categoryLabel: string;
+  relationLabel: string;
+} {
+  const isHead = isHeadOfHousehold(player);
+  if (isHead) {
+    const isExplicitSelf = !player.relation || player.relation.trim().toUpperCase() === "SELF";
+    return {
+      isHead: true,
+      categoryLabel: "Head of Household",
+      relationLabel: isExplicitSelf ? "Primary Resident" : player.relation!,
+    };
+  }
+  return {
+    isHead: false,
+    categoryLabel: "Family Member",
+    relationLabel: player.relation || "Family Member",
+  };
+}
+
+interface FlatGroup {
+  flatNumber: string;
+  heads: UniqueTournamentPlayer[];
+  familyMembers: UniqueTournamentPlayer[];
+  allMembers: UniqueTournamentPlayer[];
+  totalEvents: number;
+  paidCount: number;
+  unpaidCount: number;
+  allPaid: boolean;
+}
+
 export function TournamentPlayersPaymentModal({
   isOpen,
   onClose,
@@ -49,6 +101,14 @@ export function TournamentPlayersPaymentModal({
   const [players, setPlayers] = useState<UniqueTournamentPlayer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PAID" | "UNPAID">("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "HEAD" | "FAMILY">("ALL");
+  const [viewMode, setViewMode] = useState<"FLAT" | "PLAYER">("FLAT");
+
+  // State for popup modal showing registered events of a player
+  const [viewingEventsPlayer, setViewingEventsPlayer] = useState<UniqueTournamentPlayer | null>(null);
+
+  // State for popup modal showing payment details/audit of a paid player
+  const [viewingPaymentDetailsPlayer, setViewingPaymentDetailsPlayer] = useState<UniqueTournamentPlayer | null>(null);
 
   // State for recording payment popup
   const [activePaymentPlayer, setActivePaymentPlayer] = useState<UniqueTournamentPlayer | null>(null);
@@ -112,33 +172,107 @@ export function TournamentPlayersPaymentModal({
     const paid = players.filter((p) => p.paymentStatus === "PAID" || p.paymentStatus === "WAIVED").length;
     const unpaid = total - paid;
     const totalCollected = players.reduce((sum, p) => sum + (p.payment?.amount || 0), 0);
-    return { total, paid, unpaid, totalCollected };
+    const totalHeads = players.filter((p) => isHeadOfHousehold(p)).length;
+    const totalFamily = total - totalHeads;
+    const uniqueFlats = new Set(players.map((p) => (p.flatNumber || "Unassigned").trim())).size;
+    return { total, paid, unpaid, totalCollected, totalHeads, totalFamily, uniqueFlats };
   }, [players]);
 
   // Filtered players
   const filteredPlayers = useMemo(() => {
     return players.filter((p) => {
+      // Payment status filter
       if (statusFilter === "PAID" && p.paymentStatus !== "PAID" && p.paymentStatus !== "WAIVED") {
         return false;
       }
       if (statusFilter === "UNPAID" && (p.paymentStatus === "PAID" || p.paymentStatus === "WAIVED")) {
         return false;
       }
+
+      // Category filter (Head vs Family)
+      const isHead = isHeadOfHousehold(p);
+      if (categoryFilter === "HEAD" && !isHead) {
+        return false;
+      }
+      if (categoryFilter === "FAMILY" && isHead) {
+        return false;
+      }
+
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesName = p.playerName.toLowerCase().includes(q);
         const matchesFlat = p.flatNumber?.toLowerCase().includes(q);
         const matchesPhone = p.phone?.toLowerCase().includes(q);
+        const matchesRelation = p.relation?.toLowerCase().includes(q);
         const matchesEvent = p.registeredEvents.some(
-          (e) => e.eventName.toLowerCase().includes(q) || (e.sportName && e.sportName.toLowerCase().includes(q))
+          (e) =>
+            e.eventName.toLowerCase().includes(q) ||
+            (e.sportName && e.sportName.toLowerCase().includes(q)) ||
+            (e.matchType && e.matchType.toLowerCase().includes(q))
         );
-        if (!matchesName && !matchesFlat && !matchesPhone && !matchesEvent) {
+        if (!matchesName && !matchesFlat && !matchesPhone && !matchesRelation && !matchesEvent) {
           return false;
         }
       }
       return true;
     });
-  }, [players, searchQuery, statusFilter]);
+  }, [players, searchQuery, statusFilter, categoryFilter]);
+
+  // Group by Flat Number Category (Head & Family)
+  const flatGroups = useMemo<FlatGroup[]>(() => {
+    const map = new Map<string, UniqueTournamentPlayer[]>();
+
+    for (const player of filteredPlayers) {
+      const flat = (player.flatNumber || "Unassigned").trim();
+      if (!map.has(flat)) {
+        map.set(flat, []);
+      }
+      map.get(flat)!.push(player);
+    }
+
+    const groups: FlatGroup[] = [];
+
+    for (const [flatNumber, members] of map.entries()) {
+      let heads = members.filter((m) => isHeadOfHousehold(m));
+      let familyMembers = members.filter((m) => !isHeadOfHousehold(m));
+
+      // If flat has members but none were flagged as head, designate first member as head
+      if (heads.length === 0 && members.length > 0) {
+        const headIdx = members.findIndex((m) => m.userId && !m.familyMemberId);
+        const chosenIdx = headIdx >= 0 ? headIdx : 0;
+        heads = [members[chosenIdx]];
+        familyMembers = members.filter((_, idx) => idx !== chosenIdx);
+      }
+
+      const totalEvents = members.reduce((sum, m) => sum + m.registeredEvents.length, 0);
+      const paidCount = members.filter(
+        (m) => m.paymentStatus === "PAID" || m.paymentStatus === "WAIVED"
+      ).length;
+      const unpaidCount = members.length - paidCount;
+      const allPaid = members.length > 0 && unpaidCount === 0;
+
+      groups.push({
+        flatNumber,
+        heads,
+        familyMembers,
+        allMembers: members,
+        totalEvents,
+        paidCount,
+        unpaidCount,
+        allPaid,
+      });
+    }
+
+    return groups.sort((a, b) => {
+      if (a.flatNumber === "Unassigned") return 1;
+      if (b.flatNumber === "Unassigned") return -1;
+      return a.flatNumber.localeCompare(b.flatNumber, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+  }, [filteredPlayers]);
 
   const handleOpenMarkPaid = (player: UniqueTournamentPlayer) => {
     setActivePaymentPlayer(player);
@@ -190,6 +324,19 @@ export function TournamentPlayersPaymentModal({
         })
       );
 
+      // Also update viewingEventsPlayer if currently open
+      if (viewingEventsPlayer && viewingEventsPlayer.playerKey === activePaymentPlayer.playerKey) {
+        setViewingEventsPlayer((prev) =>
+          prev
+            ? {
+                ...prev,
+                payment: saved,
+                paymentStatus: saved.paymentStatus,
+              }
+            : null
+        );
+      }
+
       toast.success(`Payment recorded for ${activePaymentPlayer.playerName}!`);
       setActivePaymentPlayer(null);
     } catch (err: any) {
@@ -201,13 +348,138 @@ export function TournamentPlayersPaymentModal({
 
   if (!isOpen || !tournament) return null;
 
+  // Helper renderer for a single player card
+  const renderPlayerCard = (player: UniqueTournamentPlayer, isUnderFlatView = false) => {
+    const isPaid = player.paymentStatus === "PAID" || player.paymentStatus === "WAIVED";
+    const categoryInfo = getPlayerCategory(player);
+
+    return (
+      <div
+        key={player.playerKey}
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 rounded-xl border transition-all ${
+          isUnderFlatView
+            ? categoryInfo.isHead
+              ? "border-indigo-100 bg-indigo-50/20 hover:border-indigo-300"
+              : "border-purple-100 bg-purple-50/15 hover:border-purple-300"
+            : "border-slate-200/90 bg-white hover:border-indigo-200 hover:shadow-2xs"
+        }`}
+      >
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold text-sm shadow-2xs ${
+              categoryInfo.isHead
+                ? "bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200"
+                : "bg-purple-100 text-purple-700 ring-1 ring-purple-200"
+            }`}
+          >
+            {player.playerName.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-slate-900 truncate">
+                {player.playerName}
+              </span>
+
+              {/* Head vs Family Category Badge */}
+              {categoryInfo.isHead ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                  <Crown className="w-3 h-3 text-indigo-600" />
+                  <span>Head ({categoryInfo.relationLabel})</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-[10px] font-bold text-purple-700">
+                  <Users className="w-3 h-3 text-purple-600" />
+                  <span>Family ({categoryInfo.relationLabel})</span>
+                </span>
+              )}
+
+              {/* Flat Number (if not already under a flat section) */}
+              {!isUnderFlatView && player.flatNumber && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                  <Home className="w-3 h-3 text-slate-400" />
+                  <span>{player.flatNumber}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons: Registered Events & Payment Receipt Button */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setViewingEventsPlayer(player)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs group active:scale-[0.98]"
+              >
+                <Trophy className="w-3.5 h-3.5 text-indigo-600 group-hover:scale-110 transition-transform" />
+                <span>Registered Events ({player.registeredEvents.length})</span>
+                <ChevronRight className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-transform font-bold" />
+              </button>
+
+              {/* Payment Info Button (Requested by User) */}
+              {isPaid && player.payment && (
+                <button
+                  type="button"
+                  onClick={() => setViewingPaymentDetailsPlayer(player)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/90 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs group active:scale-[0.98]"
+                  title="Click to view full payment audit details"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:scale-110 transition-transform" />
+                  <span>Paid ₹{player.payment.amount} ({player.payment.paymentMode})</span>
+                  <Receipt className="w-3 h-3 text-emerald-500 group-hover:text-emerald-700 transition-colors ml-0.5" />
+                </button>
+              )}
+
+              {player.phone && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                  <Phone className="w-3 h-3" />
+                  <span>{player.phone}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions / Status */}
+        <div className="flex items-center gap-2.5 shrink-0 sm:self-center">
+          {isPaid ? (
+            <button
+              type="button"
+              onClick={() => player.payment && setViewingPaymentDetailsPlayer(player)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs transition-all cursor-pointer"
+              title="Click to view payment receipt"
+            >
+              <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+              <span>Paid</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Unpaid</span>
+              </span>
+              {canManagePayments && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenMarkPaid(player)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.98]"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Mark as Paid</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative flex flex-col max-h-[90vh] w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+        className="relative flex flex-col max-h-[92vh] w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -226,7 +498,7 @@ export function TournamentPlayersPaymentModal({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Tournament-wide participants &amp; fee collection
+                Tournament participants fee collection &amp; flat-family hierarchy
               </p>
             </div>
           </div>
@@ -239,12 +511,19 @@ export function TournamentPlayersPaymentModal({
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 sm:px-6 bg-slate-50/70 border-b border-slate-100 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 sm:px-6 bg-slate-50/70 border-b border-slate-100 text-xs">
           <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
             <span className="text-slate-500 font-medium">Total Registered</span>
             <div className="text-lg font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
               <Users className="w-4 h-4 text-indigo-500" />
               <span>{stats.total} Players</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+            <span className="text-slate-500 font-medium">Flats Registered</span>
+            <div className="text-lg font-black text-slate-900 mt-0.5 flex items-center gap-1.5">
+              <Home className="w-4 h-4 text-blue-500" />
+              <span>{stats.uniqueFlats} Flats</span>
             </div>
           </div>
           <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
@@ -261,7 +540,7 @@ export function TournamentPlayersPaymentModal({
               <span>{stats.unpaid}</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs">
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs col-span-2 sm:col-span-1">
             <span className="text-slate-500 font-medium">Total Collected</span>
             <div className="text-lg font-black text-indigo-600 mt-0.5 flex items-center gap-1">
               <IndianRupee className="w-4 h-4" />
@@ -270,39 +549,94 @@ export function TournamentPlayersPaymentModal({
           </div>
         </div>
 
-        {/* Search & Filter Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-100 bg-white">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by player, flat, sport..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
+        {/* Search, View Switcher & Filter Toolbar */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 px-6 py-3 border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-2 flex-1 max-w-md">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search player, flat (e.g. A-101), sport..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400 mr-1 hidden sm:inline" />
-            {(["ALL", "PAID", "UNPAID"] as const).map((st) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode Toggle: Flat & Family vs All Players */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                  statusFilter === st
-                    ? "bg-indigo-600 text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                type="button"
+                onClick={() => setViewMode("FLAT")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  viewMode === "FLAT"
+                    ? "bg-white text-indigo-600 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                {st === "ALL" ? "All Players" : st === "PAID" ? "Paid" : "Unpaid"}
+                <Building2 className="w-3.5 h-3.5" />
+                <span>By Flat &amp; Family</span>
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => setViewMode("PLAYER")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  viewMode === "PLAYER"
+                    ? "bg-white text-indigo-600 shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>All Players</span>
+              </button>
+            </div>
+
+            {/* Category Filter: All / Heads / Family */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
+              {(
+                [
+                  { id: "ALL", label: "All" },
+                  { id: "HEAD", label: "👑 Heads" },
+                  { id: "FAMILY", label: "👨‍👩‍👧 Family" },
+                ] as const
+              ).map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoryFilter(cat.id)}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+                    categoryFilter === cat.id
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Payment Status Filter */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 text-xs">
+              {(["ALL", "PAID", "UNPAID"] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-2.5 py-1 rounded-lg font-semibold cursor-pointer transition-all ${
+                    statusFilter === st
+                      ? "bg-slate-900 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  {st === "ALL" ? "All Status" : st === "PAID" ? "Paid" : "Unpaid"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Main List */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
               <Loader2 className="w-7 h-7 animate-spin text-indigo-600" />
@@ -315,127 +649,108 @@ export function TournamentPlayersPaymentModal({
               </div>
               <div className="text-sm font-bold text-slate-700">No players found</div>
               <p className="text-xs text-slate-400 max-w-xs mt-1">
-                {searchQuery || statusFilter !== "ALL"
-                  ? "Try adjusting your search or status filter"
+                {searchQuery || statusFilter !== "ALL" || categoryFilter !== "ALL"
+                  ? "Try adjusting your search or filters"
                   : "No participants have registered for events in this tournament yet."}
               </p>
             </div>
-          ) : (
-            filteredPlayers.map((player) => {
-              const isPaid = player.paymentStatus === "PAID" || player.paymentStatus === "WAIVED";
-              return (
+          ) : viewMode === "FLAT" ? (
+            /* By Flat & Family Category View */
+            <div className="space-y-4">
+              {flatGroups.map((group) => (
                 <div
-                  key={player.playerKey}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 rounded-xl border border-slate-200/90 bg-white hover:border-indigo-200 hover:shadow-2xs transition-all"
+                  key={group.flatNumber}
+                  className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden"
                 >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 font-bold text-sm">
-                      {player.playerName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-bold text-slate-900 truncate">
-                          {player.playerName}
-                        </span>
-                        {player.relation && (
-                          <span className="rounded bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
-                            {player.relation}
-                          </span>
-                        )}
-                        {player.flatNumber && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                            <Home className="w-3 h-3 text-slate-400" />
-                            {player.flatNumber}
-                          </span>
-                        )}
+                  {/* Flat Header Banner */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-5 py-3.5 bg-gradient-to-r from-slate-50 via-slate-50/70 to-white border-b border-slate-200/80">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold">
+                        <Home className="w-4 h-4" />
                       </div>
-
-                      {/* Events registered by this single player */}
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Events ({player.registeredEvents.length}):
-                        </span>
-                        {player.registeredEvents.map((ev, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700"
-                          >
-                            <span>{ev.sportName || "Sports"}</span>
-                            <span className="text-slate-400">•</span>
-                            <span className="truncate max-w-[130px]">{ev.eventName}</span>
-                            {ev.matchType && (
-                              <span className="text-[9px] uppercase font-bold text-indigo-600 bg-indigo-50 px-1 rounded">
-                                {ev.matchType.replace('_', ' ')}
-                              </span>
-                            )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-slate-900">
+                            Flat {group.flatNumber}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-600">
+                            {group.allMembers.length} {group.allMembers.length === 1 ? "Member" : "Members"}
                           </span>
-                        ))}
-                      </div>
-
-                      {/* Payment Audit Info (if paid) */}
-                      {isPaid && player.payment && (
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-emerald-700 bg-emerald-50/70 border border-emerald-200/60 rounded-lg px-2.5 py-1">
-                          <span className="inline-flex items-center gap-1 font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Paid ₹{player.payment.amount}</span>
-                            <span>({player.payment.paymentMode})</span>
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-semibold text-indigo-700">
+                            {group.totalEvents} {group.totalEvents === 1 ? "Event" : "Events"}
                           </span>
-                          {player.payment.paidAt && (
-                            <span className="text-emerald-600/80">
-                              {format(new Date(player.payment.paidAt), "MMM d, yyyy h:mm a")}
-                            </span>
-                          )}
-                          {player.payment.markedByUserName && (
-                            <span className="text-slate-500">
-                              Logged by: <strong className="text-slate-700">{player.payment.markedByUserName}</strong>
-                            </span>
-                          )}
-                          {player.payment.transactionRef && (
-                            <span className="text-slate-500">
-                              Ref: {player.payment.transactionRef}
-                            </span>
-                          )}
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Flat Payment Status Badge */}
+                    <div className="flex items-center gap-2">
+                      {group.allPaid ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                          <span>Flat Fully Paid ({group.paidCount}/{group.allMembers.length})</span>
+                        </span>
+                      ) : group.paidCount > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Partial ({group.paidCount}/{group.allMembers.length} Paid)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Flat Unpaid (0/{group.allMembers.length})</span>
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Actions / Status */}
-                  <div className="flex items-center gap-2.5 shrink-0 sm:self-center">
-                    {isPaid ? (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs">
-                        <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
-                        <span>Paid</span>
+                  {/* Flat Body: Head & Family Subsections */}
+                  <div className="p-4 sm:p-5 space-y-4">
+                    {/* Head of Household Category */}
+                    {group.heads.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Crown className="w-3.5 h-3.5 text-indigo-600" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-900">
+                            Head of Household ({group.heads.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2.5">
+                          {group.heads.map((player) => renderPlayerCard(player, true))}
+                        </div>
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Unpaid</span>
-                        </span>
-                        {canManagePayments && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenMarkPaid(player)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-[0.98]"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" />
-                            <span>Mark as Paid</span>
-                          </button>
-                        )}
+                    )}
+
+                    {/* Family Members Category */}
+                    {group.familyMembers.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <Users className="w-3.5 h-3.5 text-purple-600" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-purple-900">
+                            Family Members ({group.familyMembers.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2.5">
+                          {group.familyMembers.map((player) => renderPlayerCard(player, true))}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-              );
-            })
+              ))}
+            </div>
+          ) : (
+            /* Flat Linear All Players View */
+            <div className="space-y-2.5">
+              {filteredPlayers.map((player) => renderPlayerCard(player, false))}
+            </div>
           )}
         </div>
 
         {/* Modal Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50/50">
           <div className="text-xs text-slate-500">
-            Showing <strong className="text-slate-700">{filteredPlayers.length}</strong> unique registered players
+            Showing <strong className="text-slate-700">{filteredPlayers.length}</strong> unique registered players across <strong className="text-slate-700">{flatGroups.length}</strong> flats
           </div>
           <button
             type="button"
@@ -447,10 +762,334 @@ export function TournamentPlayersPaymentModal({
         </div>
       </div>
 
+      {/* POPUP MODAL: Registered Events of Selected Player */}
+      {viewingEventsPlayer && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 animate-in fade-in duration-150"
+          onClick={() => setViewingEventsPlayer(null)}
+        >
+          <div
+            className="relative flex flex-col max-h-[85vh] w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50/60 via-white to-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Registered Events
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Enrolled tournament activities &amp; participant formats
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingEventsPlayer(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Participant Banner */}
+            <div className="px-6 py-3.5 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-800 font-bold text-sm shadow-2xs">
+                  {viewingEventsPlayer.playerName.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-bold text-slate-900">
+                      {viewingEventsPlayer.playerName}
+                    </span>
+                    {(() => {
+                      const cat = getPlayerCategory(viewingEventsPlayer);
+                      return cat.isHead ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700">
+                          <Crown className="w-3 h-3 text-indigo-600" />
+                          <span>Head ({cat.relationLabel})</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-[10px] font-bold text-purple-700">
+                          <Users className="w-3 h-3 text-purple-600" />
+                          <span>Family ({cat.relationLabel})</span>
+                        </span>
+                      );
+                    })()}
+                    {viewingEventsPlayer.flatNumber && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-semibold text-slate-600">
+                        <Home className="w-3 h-3 text-slate-400" />
+                        <span>Flat {viewingEventsPlayer.flatNumber}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Enrolled in <strong className="text-slate-700">{viewingEventsPlayer.registeredEvents.length}</strong> event(s) in this tournament
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                {viewingEventsPlayer.paymentStatus === "PAID" || viewingEventsPlayer.paymentStatus === "WAIVED" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = viewingEventsPlayer;
+                      setViewingPaymentDetailsPlayer(p);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-2xs cursor-pointer transition-colors"
+                    title="Click to view full payment audit receipt"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Paid ₹{viewingEventsPlayer.payment?.amount ?? 500}</span>
+                    <Receipt className="w-3 h-3 text-emerald-500 ml-0.5" />
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Tournament Fee Unpaid</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Events List Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {viewingEventsPlayer.registeredEvents.map((ev, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-2xs transition-all space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-[11px]">
+                          {ev.sportName || "Sports"}
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          {ev.eventName}
+                        </h4>
+                        {ev.matchType && (
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-[10px] font-black uppercase text-indigo-700">
+                            {ev.matchType.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        ev.status === "CONFIRMED"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : ev.status === "REGISTERED"
+                          ? "bg-blue-50 text-blue-700 border border-blue-200"
+                          : "bg-amber-50 text-amber-700 border border-amber-200"
+                      }`}
+                    >
+                      {ev.status}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500 pt-1.5 border-t border-slate-100">
+                    {ev.registeredAt && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>
+                          Registered:{" "}
+                          <strong className="text-slate-700 font-medium">
+                            {format(new Date(ev.registeredAt), "MMM d, yyyy • h:mm a")}
+                          </strong>
+                        </span>
+                      </span>
+                    )}
+                    {ev.partnerName && (
+                      <span className="inline-flex items-center gap-1.5 text-indigo-700 bg-indigo-50/70 border border-indigo-100 px-2 py-0.5 rounded-md">
+                        <Users className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>
+                          Partner: <strong className="font-semibold">{ev.partnerName}</strong>
+                          {ev.partnerPhone ? ` (${ev.partnerPhone})` : ""}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/60">
+              <div className="text-xs text-slate-500">
+                Total <strong>{viewingEventsPlayer.registeredEvents.length}</strong> event(s)
+              </div>
+              <div className="flex items-center gap-2">
+                {canManagePayments &&
+                  viewingEventsPlayer.paymentStatus !== "PAID" &&
+                  viewingEventsPlayer.paymentStatus !== "WAIVED" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = viewingEventsPlayer;
+                        setViewingEventsPlayer(null);
+                        handleOpenMarkPaid(p);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Mark Tournament Fee as Paid</span>
+                    </button>
+                  )}
+                <button
+                  type="button"
+                  onClick={() => setViewingEventsPlayer(null)}
+                  className="px-4 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL: Payment Audit & Receipt Details */}
+      {viewingPaymentDetailsPlayer && viewingPaymentDetailsPlayer.payment && (
+        <div
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 animate-in fade-in duration-150"
+          onClick={() => setViewingPaymentDetailsPlayer(null)}
+        >
+          <div
+            className="relative flex flex-col max-h-[88vh] w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Payment Receipt &amp; Audit
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Official tournament fee registration log
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingPaymentDetailsPlayer(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Receipt Body */}
+            <div className="p-6 space-y-4 overflow-y-auto">
+              {/* Highlight Card */}
+              <div className="text-center p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 shadow-2xs">
+                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">
+                  Tournament Fee Paid
+                </span>
+                <div className="text-3xl font-black text-emerald-700 mt-1 flex items-center justify-center gap-1">
+                  <IndianRupee className="w-6 h-6" />
+                  <span>{viewingPaymentDetailsPlayer.payment.amount.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Mode: {viewingPaymentDetailsPlayer.payment.paymentMode}</span>
+                </div>
+              </div>
+
+              {/* Key Details Rows */}
+              <div className="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs">
+                <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                  <span className="text-slate-500">Participant</span>
+                  <span className="font-bold text-slate-900">{viewingPaymentDetailsPlayer.playerName}</span>
+                </div>
+
+                {viewingPaymentDetailsPlayer.flatNumber && (
+                  <div className="flex justify-between items-center p-3">
+                    <span className="text-slate-500">Flat Number</span>
+                    <span className="font-bold text-slate-900">Flat {viewingPaymentDetailsPlayer.flatNumber}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                  <span className="text-slate-500">Category</span>
+                  <span className="font-semibold text-slate-800">
+                    {getPlayerCategory(viewingPaymentDetailsPlayer).categoryLabel}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center p-3">
+                  <span className="text-slate-500">Tournament</span>
+                  <span className="font-semibold text-slate-800 text-right max-w-[200px] truncate">
+                    {tournament.name}
+                  </span>
+                </div>
+
+                {viewingPaymentDetailsPlayer.payment.paidAt && (
+                  <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                    <span className="text-slate-500">Payment Date &amp; Time</span>
+                    <span className="font-bold text-slate-900">
+                      {format(new Date(viewingPaymentDetailsPlayer.payment.paidAt), "MMM d, yyyy h:mm a")}
+                    </span>
+                  </div>
+                )}
+
+                {viewingPaymentDetailsPlayer.payment.markedByUserName && (
+                  <div className="flex justify-between items-center p-3">
+                    <span className="text-slate-500">Logged By Admin</span>
+                    <span className="font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">
+                      {viewingPaymentDetailsPlayer.payment.markedByUserName}
+                    </span>
+                  </div>
+                )}
+
+                {viewingPaymentDetailsPlayer.payment.transactionRef && (
+                  <div className="flex justify-between items-center p-3 bg-slate-50/50">
+                    <span className="text-slate-500">Transaction / UTR Ref</span>
+                    <span className="font-mono text-[11px] font-bold text-slate-800">
+                      {viewingPaymentDetailsPlayer.payment.transactionRef}
+                    </span>
+                  </div>
+                )}
+
+                {viewingPaymentDetailsPlayer.payment.notes && (
+                  <div className="p-3">
+                    <span className="text-slate-500 block mb-1">Admin Remark / Notes</span>
+                    <p className="text-slate-800 font-medium italic bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                      "{viewingPaymentDetailsPlayer.payment.notes}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end px-6 py-3.5 border-t border-slate-100 bg-slate-50/60">
+              <button
+                type="button"
+                onClick={() => setViewingPaymentDetailsPlayer(null)}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Close Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Nested Form Modal: Record Payment & Log Audit */}
       {activePaymentPlayer && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-70 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
           onClick={() => setActivePaymentPlayer(null)}
         >
           <div
@@ -465,7 +1104,7 @@ export function TournamentPlayersPaymentModal({
               <button
                 type="button"
                 onClick={() => setActivePaymentPlayer(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
