@@ -34,6 +34,10 @@ export interface EventInfo {
   totalTeams: number;
   venueId?: number;
   venueName?: string;
+  gender?: string;
+  minAge?: number | null;
+  maxAge?: number | null;
+  categoryName?: string;
 }
 
 export interface ConfigInfo {

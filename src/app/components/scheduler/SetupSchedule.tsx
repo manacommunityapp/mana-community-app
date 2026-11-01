@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -12,8 +12,8 @@ import { escapeHtml } from '../../../utils/sanitize';
 
 
 import { sportsService } from '../../../services/sports/sportsService';
-import type { TournamentTypeInfo, EventInfo, ConfigInfo } from '../../../services/sports/tournamentService';
-import type { Venue, EventRegistration } from '../../../types/api';
+import type { TournamentTypeInfo, EventInfo, ConfigInfo, TournamentDropdownItem } from '../../../services/sports/tournamentService';
+import type { Venue, EventRegistration, SportsEvent } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
 import { ScheduleSaveFooter } from './ScheduleSaveFooter';
 import {
@@ -258,7 +258,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [venueAssignType, setVenueAssignType] = useState('Random');
   const [expandedVenue, setExpandedVenue] = useState<number | null>(null);
   // Selected courts per venue — keyed by venue id, value = list of selected court names
-  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});  // Event selection
+  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});
+
+  // Event & Filter Selection
+  const [tournaments, setTournaments] = useState<TournamentDropdownItem[]>([]);
+  const [selectedTournamentFilter, setSelectedTournamentFilter] = useState('');
+  const [selectedAgeFilter, setSelectedAgeFilter] = useState('');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('');
 
   // UI
@@ -314,25 +320,185 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   useEffect(() => {
     if (!initialEventId || events.length === 0) return;
     const match = events.find(e => e.id.toString() === initialEventId);
-    if (match) handleEventChange(initialEventId);
+    if (match) {
+      handleEventChange(initialEventId);
+      if (match.tournamentId) {
+        setSelectedTournamentFilter(match.tournamentId.toString());
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, initialEventId]);
 
   const loadData = async () => {
     try {
-      const [t, e, c] = await Promise.all([
+      const [t, e, c, tournList, communityEvents] = await Promise.all([
         tournamentService.getTournamentTypes(),
         tournamentService.getEventsForDropdown(),
         tournamentService.getConfigs(),
+        tournamentService.getTournamentsForDropdown().catch(() => [] as TournamentDropdownItem[]),
+        user?.communityId
+          ? sportsService.getCommunityEvents(user.communityId).catch(() => [] as SportsEvent[])
+          : Promise.resolve([] as SportsEvent[]),
       ]);
       setTypes(t);
-      setEvents(e);
       setConfigs(c);
+
+      // Enrich events with communityEvents data for robust tournament, gender & age properties
+      const commMap = new Map<number, SportsEvent>((communityEvents || []).map(ce => [ce.id, ce]));
+      const enrichedEvents: EventInfo[] = (e || []).map(item => {
+        const ce = commMap.get(item.id);
+        const tournamentId = item.tournamentId ?? ce?.tournament?.id ?? null;
+        const tournamentName = item.tournamentName || ce?.tournament?.name || (tournamentId ? `Tournament #${tournamentId}` : undefined);
+        const gender = item.gender || ce?.gender || undefined;
+        const minAge = item.minAge != null ? item.minAge : (ce?.minAge != null ? ce.minAge : undefined);
+        const maxAge = item.maxAge != null ? item.maxAge : (ce?.maxAge != null ? ce.maxAge : undefined);
+        const categoryName = item.categoryName || ce?.categoryName || undefined;
+
+        return {
+          ...item,
+          tournamentId,
+          tournamentName,
+          gender,
+          minAge,
+          maxAge,
+          categoryName,
+        };
+      });
+      setEvents(enrichedEvents);
+
+      // Collect unique tournaments from dropdown API and enriched events
+      const tournsMap = new Map<number, TournamentDropdownItem>();
+      (tournList || []).forEach(tr => {
+        if (tr.id) tournsMap.set(tr.id, tr);
+      });
+      enrichedEvents.forEach(ev => {
+        if (ev.tournamentId && !tournsMap.has(ev.tournamentId)) {
+          tournsMap.set(ev.tournamentId, {
+            id: ev.tournamentId,
+            name: ev.tournamentName || `Tournament #${ev.tournamentId}`,
+          });
+        }
+      });
+      setTournaments(Array.from(tournsMap.values()));
     } catch { /* fallback handled by existing types */ }
     try {
       const v = await venueService.getVenues(user?.communityId);
       setVenues(v);
     } catch { /* no venues */ }
+  };
+
+  const formatGender = (gender?: string): string => {
+    if (!gender) return 'Open / All';
+    const upper = gender.trim().toUpperCase();
+    if (upper === 'MALE' || upper === 'MEN' || upper === 'BOYS') return 'Male';
+    if (upper === 'FEMALE' || upper === 'WOMEN' || upper === 'GIRLS') return 'Female';
+    if (upper === 'MIXED') return 'Mixed';
+    if (upper === 'ALL' || upper === 'ANY' || upper === 'OPEN') return 'Open / All';
+    return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+  };
+
+  const formatAgeCategory = (e: EventInfo): string => {
+    if (e.categoryName && e.categoryName.trim()) {
+      return e.categoryName.trim();
+    }
+    if (e.minAge != null && e.maxAge != null && (e.minAge > 0 || e.maxAge < 100)) {
+      if (e.maxAge >= 90) return `${e.minAge}+ Yrs`;
+      if (e.minAge <= 0) return `U-${e.maxAge}`;
+      return `${e.minAge}–${e.maxAge} Yrs`;
+    }
+    if (e.minAge != null && e.minAge > 0) return `${e.minAge}+ Yrs`;
+    if (e.maxAge != null && e.maxAge < 100) return `U-${e.maxAge}`;
+    return 'All Ages / Open';
+  };
+
+  const availableGenders = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach(e => {
+      set.add(formatGender(e.gender));
+    });
+    if (set.size === 0) {
+      ['Open / All', 'Male', 'Female', 'Mixed'].forEach(g => set.add(g));
+    }
+    const preferredOrder = ['Open / All', 'Male', 'Female', 'Mixed'];
+    return Array.from(set).sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a);
+      const idxB = preferredOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [events]);
+
+  const availableAges = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach(e => {
+      set.add(formatAgeCategory(e));
+    });
+    return Array.from(set).sort((a, b) => {
+      if (a === 'All Ages / Open') return -1;
+      if (b === 'All Ages / Open') return 1;
+      return a.localeCompare(b);
+    });
+  }, [events]);
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (selectedTournamentFilter) {
+        if (selectedTournamentFilter === '__none__') {
+          if (e.tournamentId) return false;
+        } else {
+          if (String(e.tournamentId || '') !== selectedTournamentFilter) return false;
+        }
+      }
+      if (selectedAgeFilter) {
+        if (formatAgeCategory(e) !== selectedAgeFilter) return false;
+      }
+      if (selectedGenderFilter) {
+        if (formatGender(e.gender) !== selectedGenderFilter) return false;
+      }
+      return true;
+    });
+  }, [events, selectedTournamentFilter, selectedAgeFilter, selectedGenderFilter]);
+
+  const handleTournamentFilterChange = (tournId: string) => {
+    setSelectedTournamentFilter(tournId);
+    if (selectedEvent && tournId) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev) {
+        if (tournId === '__none__' && ev.tournamentId) {
+          handleEventChange('');
+        } else if (tournId !== '__none__' && String(ev.tournamentId || '') !== tournId) {
+          handleEventChange('');
+        }
+      }
+    }
+  };
+
+  const handleAgeFilterChange = (age: string) => {
+    setSelectedAgeFilter(age);
+    if (selectedEvent && age) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && formatAgeCategory(ev) !== age) {
+        handleEventChange('');
+      }
+    }
+  };
+
+  const handleGenderFilterChange = (gender: string) => {
+    setSelectedGenderFilter(gender);
+    if (selectedEvent && gender) {
+      const ev = events.find(e => e.id.toString() === selectedEvent);
+      if (ev && formatGender(ev.gender) !== gender) {
+        handleEventChange('');
+      }
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSelectedTournamentFilter('');
+    setSelectedAgeFilter('');
+    setSelectedGenderFilter('');
   };
 
   const handleSaveTimingSuccess = (updatedVenue: Venue) => {
@@ -1347,13 +1513,146 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       {/* Configuration Form — Hidden when schedule is generated */}
       {!scheduleGenerated && (
       <>
-        {/* Event Selection */}
+        {/* Event Selection & Filters */}
         <div className={cardCls}>
-          <label className={labelCls}>Select Sports Event</label>
-          <select value={selectedEvent} onChange={e => handleEventChange(e.target.value)} className={inputCls}>
-            <option value="">— Select Event —</option>
-            {events.map(e => <option key={e.id} value={e.id}>{e.name} ({e.sportName})</option>)}
-          </select>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-[rgba(99,102,241,0.1)] gap-2">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#4f46e5]" />
+              <h3 className="text-sm font-bold text-[#0d0d2b]">Tournament & Event Selection</h3>
+              <span className="text-xs text-[#6b7094] hidden md:inline">
+                Filter by tournament, age, or gender to narrow down sports events
+              </span>
+            </div>
+            {(selectedTournamentFilter || selectedAgeFilter || selectedGenderFilter) && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs font-semibold text-[#4f46e5] hover:text-[#4338ca] inline-flex items-center gap-1 self-start sm:self-auto cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reset Filters
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Tournament Filter */}
+            <div>
+              <label className={labelCls}>
+                Tournament
+                {selectedTournamentFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedTournamentFilter}
+                onChange={e => handleTournamentFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Tournaments ({tournaments.length})</option>
+                {tournaments.map(t => (
+                  <option key={t.id} value={t.id.toString()}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Age Category Filter */}
+            <div>
+              <label className={labelCls}>
+                Age Category
+                {selectedAgeFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedAgeFilter}
+                onChange={e => handleAgeFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Ages ({availableAges.length})</option>
+                {availableAges.map(a => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Gender Filter */}
+            <div>
+              <label className={labelCls}>
+                Gender
+                {selectedGenderFilter && <span className="ml-1.5 text-[10px] text-indigo-600 font-semibold">• Active</span>}
+              </label>
+              <select
+                value={selectedGenderFilter}
+                onChange={e => handleGenderFilterChange(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">All Genders ({availableGenders.length})</option>
+                {availableGenders.map(g => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sports Event Selection */}
+            <div>
+              <label className={labelCls}>
+                Sports Event <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={selectedEvent}
+                onChange={e => handleEventChange(e.target.value)}
+                className={`${inputCls} font-medium ${selectedEvent ? 'border-[#4f46e5]/40 bg-indigo-50/20' : ''}`}
+              >
+                <option value="">— Select Event ({filteredEvents.length}) —</option>
+                {filteredEvents.map(e => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} ({e.sportName})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {filteredEvents.length === 0 && events.length > 0 && (
+            <p className="mt-2.5 text-xs text-amber-600">
+              No events match the selected filters. Click &quot;Reset Filters&quot; to show all {events.length} events.
+            </p>
+          )}
+
+          {/* Active Event Details Summary Card */}
+          {selectedEvent && (() => {
+            const ev = events.find(e => e.id.toString() === selectedEvent);
+            if (!ev) return null;
+            return (
+              <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
+                <span className="font-bold text-slate-700">Selected Event Details:</span>
+                {ev.tournamentName && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 font-medium border border-indigo-100">
+                    <Trophy className="w-3 h-3 text-indigo-500" />
+                    Tournament: {ev.tournamentName}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                  Sport: {ev.sportName}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-medium border border-blue-100">
+                  Gender: {formatGender(ev.gender)}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-100">
+                  Age: {formatAgeCategory(ev)}
+                </span>
+                {(ev.eventDateStart || ev.eventDateEnd) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 font-medium border border-amber-100">
+                    <Calendar className="w-3 h-3 text-amber-500" />
+                    {ev.eventDateStart} {ev.eventDateEnd && ev.eventDateEnd !== ev.eventDateStart ? `to ${ev.eventDateEnd}` : ''}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {existingConfig && (
             <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 rounded-lg px-3 py-2.5">
