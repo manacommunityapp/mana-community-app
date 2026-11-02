@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
-  ArrowLeft, MapPin, Truck, CreditCard, Wallet, Shield, CheckCircle2, Package,
+  ArrowLeft, MapPin, Truck, CreditCard, Wallet, Shield, CheckCircle2, Package, Loader2,
 } from "lucide-react";
 import { groupBuyingService, type GroupDeal, type FulfillmentType, type PaymentMethod } from "../../../services/group-buying/groupBuyingService";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useCashfree } from "../../../hooks/useCashfree";
+import CashfreeCheckout from "../payments/CashfreeCheckout";
 
 export function DealCheckout() {
   const { dealId } = useParams<{ dealId: string }>();
@@ -16,11 +18,26 @@ export function DealCheckout() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("UPI");
   const [pickupPoint, setPickupPoint] = useState("");
   const [success, setSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+
+  const { status: cfStatus, order: cfOrder, error: cfError, initiatePayment, reset: resetCf } = useCashfree({
+    onSuccess: () => {
+      setSuccess(true);
+      setTimeout(() => navigate("/group-buying/my-orders"), 2000);
+    },
+    onError: (err) => {
+      setOrderError(err);
+    },
+  });
 
   useEffect(() => {
     if (dealId) {
+      groupBuyingService.fetchDealById(dealId).then((d) => {
+        if (d) { setDeal(d); if (d.pickupPoints?.[0]) setPickupPoint(d.pickupPoints[0]); }
+      });
       const d = groupBuyingService.getDealById(dealId);
-      if (d) { setDeal(d); setPickupPoint(d.pickupPoints[0]); }
+      if (d) { setDeal(d); if (d.pickupPoints?.[0]) setPickupPoint(d.pickupPoints[0]); }
     }
   }, [dealId]);
 
@@ -32,15 +49,40 @@ export function DealCheckout() {
   );
 
   const activeTier = deal.tiers.find(t => deal.currentParticipants >= t.minQty && (t.maxQty === null || deal.currentParticipants <= t.maxQty)) || deal.tiers[0];
-  const subtotal = activeTier.pricePerUnit * quantity;
+  const subtotal = (activeTier?.pricePerUnit ?? deal.currentTierPrice ?? 0) * quantity;
   const deliveryFee = fulfillment === "DELIVERY" ? 49 : 0;
   const platformFee = 0;
   const total = subtotal + deliveryFee + platformFee;
 
-  const handleConfirm = () => {
-    groupBuyingService.joinDeal(deal.id, quantity, user?.userId || "user-1", fulfillment, paymentMethod, pickupPoint);
-    setSuccess(true);
-    setTimeout(() => navigate("/group-buying/my-orders"), 2000);
+  const handleConfirm = async () => {
+    try {
+      setSubmitting(true);
+      setOrderError(null);
+      const order = await groupBuyingService.joinDeal(
+        deal.id,
+        quantity,
+        user?.userId || "user-1",
+        fulfillment,
+        paymentMethod,
+        pickupPoint
+      );
+
+      if (paymentMethod === "UPI" || paymentMethod === "CARD") {
+        await initiatePayment({
+          amount: total,
+          referenceType: "GROUP_BUY_ORDER",
+          referenceId: order.commerceOrderId || order.id,
+          description: `Group Buy Order: ${deal.title}`,
+        });
+      } else {
+        setSuccess(true);
+        setTimeout(() => navigate("/group-buying/my-orders"), 2000);
+      }
+    } catch (err: any) {
+      setOrderError(err?.response?.data?.message || err?.message || "Failed to place group order");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (success) return (
@@ -145,9 +187,35 @@ export function DealCheckout() {
         </div>
       </div>
 
-      <button onClick={handleConfirm} style={{ width: "100%", padding: "14px 24px", borderRadius: 12, background: "#059669", color: "#fff", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 800 }}>
-        Confirm & Pay ₹{total}
+      {orderError && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef2f2", color: "#dc2626", fontSize: 13, marginBottom: 14, border: "1px solid #fecaca" }}>
+          {orderError}
+        </div>
+      )}
+
+      <button
+        disabled={submitting || cfStatus === "creating" || cfStatus === "checkout" || cfStatus === "verifying"}
+        onClick={handleConfirm}
+        style={{
+          width: "100%", padding: "14px 24px", borderRadius: 12,
+          background: submitting ? "#9ca3af" : "#059669",
+          color: "#fff", border: "none",
+          cursor: submitting ? "not-allowed" : "pointer",
+          fontSize: 15, fontWeight: 800,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+        }}
+      >
+        {submitting && <Loader2 size={18} className="animate-spin" />}
+        {submitting ? "Processing..." : `Confirm & Pay ₹${total}`}
       </button>
+
+      <CashfreeCheckout
+        visible={cfStatus !== "idle"}
+        status={cfStatus}
+        order={cfOrder}
+        error={cfError}
+        onDismiss={resetCf}
+      />
     </div>
   );
 }
