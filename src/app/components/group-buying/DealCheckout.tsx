@@ -68,10 +68,14 @@ export function DealCheckout() {
       );
 
       if (paymentMethod === "UPI" || paymentMethod === "CARD") {
+        const refId = order.commerceOrderId ?? (typeof order.id === "number" ? order.id : Number(order.id));
+        if (!refId || isNaN(refId)) {
+          throw new Error("Unable to initiate payment: missing commerce order reference ID");
+        }
         await initiatePayment({
           amount: total,
           referenceType: "GROUP_BUY_ORDER",
-          referenceId: order.commerceOrderId || order.id,
+          referenceId: refId,
           description: `Group Buy Order: ${deal.title}`,
         });
       } else {
