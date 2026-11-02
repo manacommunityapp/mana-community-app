@@ -22,6 +22,7 @@ import {
   getGroupStageEnd,
   addMinutesToTime,
   parseBreakMinutes,
+  buildPlayoffBracket,
 } from './playoffSchedule';
 import type { PlayoffScheduleInput, PlayoffMatchDraft, PlayoffSeedingOrder } from './playoffSchedule';
 
@@ -62,8 +63,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
   const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
-  const isGroupKnockout = format === 'GROUP_PLAYOFF';
-  const isKnockoutOnly = format === 'KNOCKOUT_SINGLE' || format === 'KNOCKOUT_DOUBLE';
+  const isKnockoutOnly =
+    format === 'KNOCKOUT' ||
+    format === 'KNOCKOUT_SINGLE' ||
+    format === 'KNOCKOUT_DOUBLE' ||
+    format === 'DOUBLE_ELIMINATION';
+
+  const isGroupKnockout =
+    format === 'GROUP_PLAYOFF' ||
+    format === 'GROUP_KNOCKOUT';
+
+  const isRoundRobin =
+    format === 'ROUND_ROBIN' ||
+    format === 'LEAGUE' ||
+    format === 'CUSTOM' ||
+    format === 'SWISS' ||
+    format === 'SUPER_LEAGUE';
 
   // Scoring Config
   const [ptsWin, setPtsWin] = useState('2');
@@ -682,12 +697,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     // Format — sports_event.tournament_type is authoritative
     if (fullEventResult.status === 'fulfilled') {
       const fe = fullEventResult.value;
-      const resolved = (fe.tournamentType as string | undefined)
+      let resolved = (fe.tournamentType as string | undefined)
         ?? configs.find(c => c.eventId === Number(id))?.tournamentType
         ?? '';
+      if (resolved === 'KNOCKOUT') resolved = 'KNOCKOUT_SINGLE';
+      if (resolved === 'GROUP_KNOCKOUT') resolved = 'GROUP_PLAYOFF';
       if (resolved) setFormat(resolved);
     } else {
-      const fallback = configs.find(c => c.eventId === Number(id))?.tournamentType ?? '';
+      let fallback = configs.find(c => c.eventId === Number(id))?.tournamentType ?? '';
+      if (fallback === 'KNOCKOUT') fallback = 'KNOCKOUT_SINGLE';
+      if (fallback === 'GROUP_KNOCKOUT') fallback = 'GROUP_PLAYOFF';
       if (fallback) setFormat(fallback);
     }
 
@@ -862,8 +881,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     return allParts;
   };
 
-  const buildGroupsState = () => {
-    const numGroups = Number(numberOfGroups) || 2;
+  const buildGroupsState = (overrideNumGroups?: number) => {
+    const numGroups = overrideNumGroups ?? (isRoundRobin ? 1 : (Number(numberOfGroups) || 2));
     const numParticipants = Number(participants) || 8;
     const allParts = buildParticipantList(numParticipants);
     setAllParticipantOptions(allParts);
@@ -875,7 +894,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const groups: typeof generatedGroups = [];
     for (let g = 0; g < numGroups; g++) {
       groups.push({
-        name: `Group ${String.fromCharCode(65 + g)}`,
+        name: isRoundRobin && numGroups === 1
+          ? (format === 'LEAGUE' ? 'League Fixtures' : 'Round Robin Fixtures')
+          : `Group ${String.fromCharCode(65 + g)}`,
         participants: [],
         rounds: '1',
         proceeders: defaultProceeders,
@@ -969,7 +990,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         setGeneratedGroups([]);
         setPlayoffsGenerated(true);
         showSuccess('Knockout schedule generated! Review and Save when ready.');
+      } else if (isRoundRobin) {
+        buildGroupsState(1);
+        setPlayoffsGenerated(false);
+        showSuccess('Round Robin schedule generated! Review and Save when ready.');
       } else {
+        buildGroupsState();
         setPlayoffsGenerated(false);
         showSuccess('Schedule generated! Review and Save when ready.');
       }
@@ -1224,17 +1250,22 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         }))
       : undefined;
 
+    const numericCourtId = defaultCourtId && !Number.isNaN(Number(defaultCourtId)) ? Number(defaultCourtId) : null;
+    const initialStartTime = (isKnockoutOnly || allGroupSlots.length === 0)
+      ? (startTime || '08:00 AM')
+      : addMinutesToTime(groupEnd.time, breakMins);
+
     return {
       numGroups,
       proceedersPerGroup,
       seedingOrder: (isGroupKnockout ? playoffSeedingOrder : seedingOrder) as PlayoffSeedingOrder,
       thirdPlaceMatch: isGroupKnockout ? playoffThirdPlace : thirdPlace,
       startDate: groupEnd.date,
-      startTime: addMinutesToTime(groupEnd.time, breakMins),
+      startTime: initialStartTime,
       matchDurationMinutes: Number(matchDuration) || 30,
       breakMinutes: breakMins,
       venueId: defaultVenueId,
-      courtId: defaultCourtId,
+      courtId: numericCourtId,
       participants: playerParticipants,
       courtIds: selectedCourtIds(defaultVenueId),
       matchDays: matchDays.length < 7 ? matchDays : undefined,
@@ -1256,11 +1287,21 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   /**
    * Fetches the playoff bracket from the backend and caches it in state so the
    * synchronous render/save paths (getPlayoffMatches) can read it.
+   * Falls back seamlessly to the client-side generator if the backend is unreachable.
    */
   const fetchPlayoffDraft = async (): Promise<PlayoffMatchDraft[]> => {
-    const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
-    setPlayoffDraft(draft);
-    return draft;
+    try {
+      const draft = await tournamentService.generatePlayoffBracket(buildPlayoffInput());
+      if (draft && Array.isArray(draft) && draft.length > 0) {
+        setPlayoffDraft(draft);
+        return draft;
+      }
+    } catch (err: any) {
+      console.warn('[fetchPlayoffDraft] Server playoff generation failed, using client-side bracket fallback:', err);
+    }
+    const localDraft = buildPlayoffBracket(buildPlayoffInput());
+    setPlayoffDraft(localDraft);
+    return localDraft;
   };
 
   /**
@@ -1365,8 +1406,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
     if (!eventId) return allMatches;
 
-    // Collect group stage matches
-    if (isGroupKnockout) {
+    // Collect group stage or round robin matches
+    if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
         const matches = getActiveGroupMatches(group, gIdx);
         matches.forEach((match, mIdx) => {
@@ -1374,7 +1415,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             eventId,
             configId: null, // Will be populated after config is created
             groupName: group.name,
-            stage: 'GROUP',
+            stage: isRoundRobin ? 'ROUND_ROBIN' : 'GROUP',
             matchNumber: mIdx + 1,
             homeName: match.home.name,
             homeId: match.home.id,
@@ -1515,7 +1556,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const getTotalMatchesCount = () => {
     let count = 0;
-    if (isGroupKnockout) {
+    if (isGroupKnockout || isRoundRobin) {
       generatedGroups.forEach((group, gIdx) => {
         count += getActiveGroupMatches(group, gIdx).length;
       });
@@ -1530,7 +1571,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     if (playoffMatches.length > 0) {
       maxRound = Math.max(...playoffMatches.map(m => m.roundIndex)) + 1;
     }
-    if (isGroupKnockout) {
+    if (isGroupKnockout || isRoundRobin) {
       const groupRounds = generatedGroups.length > 0 ? Number(generatedGroups[0].rounds) || 1 : 1;
       return groupRounds + maxRound;
     }
@@ -1879,10 +1920,12 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               >
                 <option value="">Select Schedule Type</option>
                 <option value="KNOCKOUT_SINGLE">Knockout (Single Elimination)</option>
+                <option value="KNOCKOUT">Knockout</option>
                 <option value="KNOCKOUT_DOUBLE">Double Elimination</option>
                 <option value="ROUND_ROBIN">Round Robin</option>
                 <option value="LEAGUE">League</option>
                 <option value="GROUP_PLAYOFF">Group Stage + Playoffs</option>
+                <option value="GROUP_KNOCKOUT">Group + Knockout</option>
                 <option value="CUSTOM">Custom Bracket</option>
               </select>
               {isGroupKnockout && (
@@ -1893,6 +1936,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               {isKnockoutOnly && (
                 <p className="text-[11px] text-[#6b7094] mt-1.5">
                   Knockout only: click Generate Schedule to build the elimination bracket (no group stage).
+                </p>
+              )}
+              {isRoundRobin && (
+                <p className="text-[11px] text-[#4f46e5]/80 mt-1.5">
+                  Round Robin / League: click Generate Schedule to build all match fixtures between participants.
                 </p>
               )}
             </div>
@@ -2507,8 +2555,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           {selectedEvent && format && !playoffsGenerated && (
           <div className="border border-dashed border-[#4f46e5]/40 rounded-xl bg-white/30 px-3 py-4 pb-4 relative">
 
-            {/* Group Cards Container — Group + Knockout only */}
-            {isGroupKnockout && (
+            {/* Group Cards Container — Group Stage or Round Robin */}
+            {(isGroupKnockout || isRoundRobin) && (
             <div className="flex flex-col mt-4 gap-4">
               <div className="flex flex-wrap gap-4 justify-center">
                 {generatedGroups.map((group, gIdx) => (
@@ -2556,16 +2604,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
                                   />
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                  <label className="text-xs font-medium text-[#6b7094]">Number of Proceeders</label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={group.proceeders}
-                                    onChange={e => updateGroupConfig(gIdx, 'proceeders', e.target.value)}
-                                    className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
-                                  />
-                                  {isGroupKnockout && (
+                                {isGroupKnockout && (
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-medium text-[#6b7094]">Number of Proceeders</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={group.proceeders}
+                                      onChange={e => updateGroupConfig(gIdx, 'proceeders', e.target.value)}
+                                      className="w-full bg-white border border-[rgba(99,102,241,0.12)] rounded-lg px-3 py-2 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] transition-colors"
+                                    />
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -2575,8 +2623,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     >
                                       Select Proceeders
                                     </button>
-                                  )}
-                                </div>
+                                  </div>
+                                )}
                                 <div className="flex flex-col gap-1 mt-4">
                                   <div className="flex gap-2 items-center justify-between">
                                     <label className="text-xs font-medium text-[#6b7094]">Limit Per Participant Matches?</label>
@@ -2622,6 +2670,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </div>
 
               {/* Playoffs Configuration - Third Place & Seeding Sequence */}
+              {isGroupKnockout && (
               <div className="flex flex-col gap-4 mt-4 items-center">
                   {/* Create Third Place Match Toggle */}
                   <div className="flex gap-4 items-center">
@@ -2655,9 +2704,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </div>
                   </div>
                 </div>
+              )}
 
               {/* Step 2: Generate playoff schedule (Group + Knockout only) */}
-              {!playoffsGenerated && (
+              {isGroupKnockout && !playoffsGenerated && (
                 <div className="flex flex-col mt-4 items-center gap-2">
                   <p className="text-xs text-[#6b7094] text-center max-w-md">
                     Group matches are scheduled. Set proceeders per group, then generate the knockout bracket.
@@ -2677,8 +2727,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </div>
           )}
 
-          {/* Group stage match fixtures — Group + Knockout only */}
-          {isGroupKnockout && (
+          {/* Match fixtures — Group Stage or Round Robin */}
+          {(isGroupKnockout || isRoundRobin) && (
           <div className="flex flex-col gap-6 mt-6">
             {generatedGroups.map((group, gIdx) => {
               const matches = getActiveGroupMatches(group, gIdx);
@@ -2712,7 +2762,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
                             <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-emerald-500 to-emerald-500 text-white rounded-full text-xs font-bold shadow-md cursor-pointer hover:opacity-90 transition-opacity">
                               <img height="14" width="14" className="rounded-none shrink-0" alt={sportName} title={sportName} src={getSportIcon(sportName)} />
-                              <span className="px-1">G{gIdx + 1} Match {mIdx + 1}</span>
+                              <span className="px-1">{isRoundRobin ? `Match ${mIdx + 1}` : `G${gIdx + 1} Match ${mIdx + 1}`}</span>
                             </div>
                           </div>
 
