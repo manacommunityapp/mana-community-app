@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter } from 'lucide-react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download, FileText, FileSpreadsheet, Filter, Printer } from 'lucide-react';
 import { tournamentService } from '../../../services/sports/tournamentService';
 import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -300,6 +300,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [addEditVenueModalOpen, setAddEditVenueModalOpen] = useState(false);
   const [venueToEdit, setVenueToEdit] = useState<Venue | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showDisplayExportMenu, setShowDisplayExportMenu] = useState(false);
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -3100,8 +3101,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               </div>
             </div>
 
-            {/* Conflict summary status pill */}
-            <div className="flex items-center gap-2">
+            {/* Right side: Conflicts pill & Export & Print dropdown for all display views */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Conflict summary status pill */}
               {totalConflictsCount > 0 ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
@@ -3113,6 +3115,82 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <span>0 Conflicts (All clear)</span>
                 </span>
               )}
+
+              {/* Export & Print Dropdown Button for all Display Views */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDisplayExportMenu(!showDisplayExportMenu)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Export &amp; Print</span>
+                  <ChevronDown className="w-3 h-3 text-indigo-500" />
+                </button>
+
+                {showDisplayExportMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDisplayExportMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[220px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                        Export Schedule
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportCSV(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Download CSV</span>
+                          <span className="text-[10px] text-slate-400">Excel UTF-8 compatible</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportExcel(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Download Excel (.xls)</span>
+                          <span className="text-[10px] text-slate-400">Formatted spreadsheet</span>
+                        </div>
+                      </button>
+
+                      <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-t border-slate-100 mt-0.5">
+                        Print &amp; PDF
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportPDF(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <Printer className="h-4 w-4 text-rose-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Print Schedule (PDF)</span>
+                          <span className="text-[10px] text-slate-400">Vector printable fixtures sheet</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setShowDisplayExportMenu(false); handleExportScorecards(); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition-colors cursor-pointer text-left font-medium border-none bg-transparent"
+                      >
+                        <FileText className="h-4 w-4 text-amber-600 shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold">Print Umpire Score Sheets</span>
+                          <span className="text-[10px] text-slate-400">Court scorecards &amp; signoff</span>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
