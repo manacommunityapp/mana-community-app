@@ -7,7 +7,7 @@ import type { EventRegistration, SportsEvent, AuctionConfigResponse, AuctionTeam
 const SPORT_COLORS = ["#818cf8", "#34d399", "#a78bfa", "#f472b6", "#fbbf24", "#38bdf8", "#fb923c", "#4ade80"];
 const GRADIENT_CLASSES = ["from-indigo-400 to-violet-500", "from-emerald-400 to-teal-500", "from-violet-400 to-purple-500", "from-pink-400 to-rose-500"];
 
-export interface AnalyticsKPI { totalEvents: number; activePlayers: number; liveEvents: number; totalTournaments: number; openRegistrations: number; yourRegistrations: number; matchCompletionRate: number; capacityFillRate: number; capacityTracked: boolean; totalMatches: number }
+export interface AnalyticsKPI { totalEvents: number; activePlayers: number; liveEvents: number; totalTournaments: number; openRegistrations: number; yourRegistrations: number; tournamentRegistrants: number; eventPlayerEntries: number; matchCompletionRate: number; capacityFillRate: number; capacityTracked: boolean; totalMatches: number }
 export interface MonthlyEventRow { month: string; [sportName: string]: string | number }
 export interface SportShareEntry { name: string; value: number; color: string; count: number }
 export interface DemographicsData { gender: { name: string; value: number; count: number; color: string }[]; ageGroups: { group: string; count: number; percentage: number; color: string }[]; blockDistribution: { block: string; players: number; color: string }[] }
@@ -15,7 +15,7 @@ export interface VenueUtilizationEntry { name: string; eventsCount: number; perc
 export interface SportLeaderEntry { rank: number; name: string; category: string; metricLabel: string; metricValue: string | number; subMetric?: string; sport: string; avatar: string; color: string }
 export interface StandingRow { rank: number; team: string; w: number; l: number; d: number; pts: number; pct: number; form?: ("W" | "L" | "D")[] }
 export interface SportsAnalyticsEventRow { id: number; tournament: string; name: string; sport: string; date: string; venue: string; status: string; capacity: number | null; registered: number; confirmed: number; pending: number }
-export interface SportsAnalyticsTournamentRow { id: number; name: string; status: string; startDate: string | null; endDate: string | null; sports: string[]; eventCount: number; registrations: number }
+export interface SportsAnalyticsTournamentRow { id: number; name: string; status: string; startDate: string | null; endDate: string | null; sports: string[]; eventCount: number; registrations: number; registeredUsers: number }
 export interface SportsAnalyticsRegistrationRow { id: number; participant: string; relation: string; event: string; tournament: string; sport: string; category: string; status: string; flat: string; registeredAt: string }
 export interface SportsAnalyticsMatchRow { id: number | string; tournament: string; event: string; sport: string; stage: string; homeTeam: string; awayTeam: string; score: string; scheduledAt: string; venue: string; status: string }
 export interface SportsAnalyticsTeamRow { id: number; team: string; tournament: string; event: string; sport: string; captain: string; players: string[]; playerCount: number }
@@ -97,16 +97,22 @@ export const analyticsService = {
         venue: event.venue ? { name: event.venue.name, city: event.venue.city } : event.venueName ? { name: event.venueName } : null,
       };
     }) : overview.events || [];
-    const summaryRegistrations: AdminRegistrationRow[] = [...(overview.confirmedRegistrations || []), ...(overview.pendingRegistrations || [])]
-      .filter((registration) => !statusIs(registration.status, "WITHDRAWN", "REJECTED"));
+    const registrationSource = Array.isArray(overview.registrations)
+      ? overview.registrations
+      : [...(overview.confirmedRegistrations || []), ...(overview.pendingRegistrations || [])];
+    const summaryRegistrations: AdminRegistrationRow[] = registrationSource
+      .filter((registration) => statusIs(registration.status, "PENDING", "REGISTERED", "CONFIRMED"));
     const normalize = (value: string | null | undefined) => String(value || "").trim().toLowerCase();
     const summaryKey = (name: string | null | undefined, sport: string | null | undefined) => `${normalize(name)}|${normalize(sport)}`;
     const eventGroups = new Map<string, AdminEventRow[]>();
     sourceEvents.forEach((event) => { const key = summaryKey(event.name, event.sport?.name); eventGroups.set(key, [...(eventGroups.get(key) || []), event]); });
     const ambiguousKeys = new Set([...eventGroups.entries()].filter(([, grouped]) => grouped.length > 1).map(([key]) => key));
-    const ambiguousEvents = sourceEvents.filter((event) => ambiguousKeys.has(summaryKey(event.name, event.sport?.name)));
-    // The overview DTO has no eventId on registrations. For duplicate event/sport names only,
-    // use the event-specific registration route to preserve the correct event association.
+    const registrationRowsNeedNameMatching = summaryRegistrations.some((registration) => registration.eventId == null);
+    const ambiguousEvents = registrationRowsNeedNameMatching
+      ? sourceEvents.filter((event) => ambiguousKeys.has(summaryKey(event.name, event.sport?.name)))
+      : [];
+    // When an older backend response has no eventId, use event-specific lookups for
+    // duplicate event/sport names to preserve the correct registration association.
     const detailedRegistrationResults = await Promise.all(ambiguousEvents.map(async (event) => {
       try { return { eventId: event.id, rows: await sportsEventService.getEventRegistrations(event.id), loaded: true }; }
       catch { return { eventId: event.id, rows: [] as EventRegistration[], loaded: false }; }
@@ -119,22 +125,26 @@ export const analyticsService = {
     const summaryRowsMapped: EventRegistration[] = summaryRegistrations.flatMap((registration) => {
       const key = summaryKey(registration.eventName, registration.sportName);
       const candidates = eventGroups.get(key) || [];
-      const matchingEvent = candidates[0] || sourceEvents.filter((event) => normalize(event.name) === normalize(registration.eventName)).slice(0, 1)[0];
+      const matchingEvent = registration.eventId != null
+        ? sourceEvents.find((event) => Number(event.id) === Number(registration.eventId))
+        : candidates[0] || sourceEvents.filter((event) => normalize(event.name) === normalize(registration.eventName)).slice(0, 1)[0];
       if (fullyLoadedAmbiguousKeys.has(key)) return [];
       return [{
-        id: registration.id, playerName: registration.playerName || undefined, email: registration.email || undefined,
+        id: registration.id, playerName: registration.participantName || registration.playerName || undefined, email: registration.email || undefined,
         flatNumber: registration.flatNumber || undefined, relation: registration.relation || undefined, age: registration.age ?? undefined,
         role: registration.role || undefined, status: (registration.status || "UNKNOWN") as EventRegistration["status"],
         registeredAt: registration.registeredAt || undefined,
+        user: registration.userId != null ? { id: registration.userId, fullName: registration.participantName || registration.playerName || undefined, gender: registration.gender || undefined } as EventRegistration["user"] : undefined,
+        familyMember: registration.familyMemberId != null ? { id: registration.familyMemberId, name: registration.participantName || registration.playerName || undefined, relation: registration.relation || undefined, age: registration.age ?? undefined, gender: registration.gender || undefined } as any : undefined,
         event: matchingEvent ? { id: matchingEvent.id, name: matchingEvent.name, sport: matchingEvent.sport ? { name: matchingEvent.sport.name } : undefined } as EventRegistration["event"] : undefined,
-        category: registration.role ? { name: registration.role } as NonNullable<EventRegistration["category"]> : undefined,
-      }];
+        category: registration.categoryName || registration.role ? { name: registration.categoryName || registration.role || undefined } as NonNullable<EventRegistration["category"]> : undefined,
+      } as EventRegistration];
     });
     const detailedRows = detailedRegistrationResults.filter((result) => fullyLoadedAmbiguousEventIds.has(result.eventId)).flatMap((result) => result.rows);
     const unmatchedRegistrationCount = summaryRowsMapped.filter((registration) => !registration.event?.id).length;
-    if (unmatchedRegistrationCount) dataWarnings.push(`${unmatchedRegistrationCount} registration record(s) could not be linked to an event because the admin registration response does not include event IDs.`);
-    if (summaryRegistrations.length && summaryRowsMapped.some((registration) => !(registration as any).familyMember && !(registration.user as any)?.gender)) dataWarnings.push("The admin registration summary omits participant gender and family-member details, so some demographic breakdowns are unavailable.");
-    if ([...ambiguousKeys].some((key) => !fullyLoadedAmbiguousKeys.has(key))) dataWarnings.push("Some events share the same name and sport. Event-specific registration lookup was unavailable for one or more of them, so registration matching may be incomplete.");
+    if (unmatchedRegistrationCount) dataWarnings.push(`${unmatchedRegistrationCount} registration record(s) could not be linked to an event in the loaded event list.`);
+    if (summaryRegistrations.length && summaryRowsMapped.some((registration) => !(registration as any).familyMember && !(registration.user as any)?.gender)) dataWarnings.push("Some registered participant records do not include gender or family-member details, so demographic breakdowns may be incomplete.");
+    if (registrationRowsNeedNameMatching && [...ambiguousKeys].some((key) => !fullyLoadedAmbiguousKeys.has(key))) dataWarnings.push("Some events share the same name and sport. Event-specific registration lookup was unavailable for one or more of them, so registration matching may be incomplete.");
     const allRegistrations: EventRegistration[] = [...summaryRowsMapped, ...detailedRows]
       .filter((registration) => !statusIs(registration.status, "WITHDRAWN", "REJECTED"));
     const allSports = Array.from(new Set(sourceEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))).sort();
@@ -144,6 +154,29 @@ export const analyticsService = {
     const eventIds = new Set(events.map((event) => Number(event.id)));
     const eventMap = new Map(sourceEvents.map((event) => [Number(event.id), event]));
     const registrations = allRegistrations.filter((row) => eventIds.has(Number(row.event?.id)));
+    const tournamentIdByEventId = new Map<number, number>();
+    (overview.tournaments || []).forEach((tournament) => (tournament.events || []).forEach((event) => {
+      tournamentIdByEventId.set(Number(event.id), Number(tournament.id));
+    }));
+    events.forEach((event) => {
+      if (event.tournamentId != null) tournamentIdByEventId.set(Number(event.id), Number(event.tournamentId));
+    });
+    const participantKey = (row: EventRegistration) => {
+      const registration = row as EventRegistration & { familyMemberId?: number; participantUserId?: number; familyMember?: { id?: number }; user?: { id?: number } };
+      if (registration.familyMember?.id ?? registration.familyMemberId) return `family:${registration.familyMember?.id ?? registration.familyMemberId}`;
+      if (registration.participantUserId ?? registration.user?.id) return `user:${registration.participantUserId ?? registration.user?.id}`;
+      const playerName = String(row.playerName || "").trim().toLocaleLowerCase();
+      return playerName ? `name:${playerName}` : `registration:${row.id}`;
+    };
+    const uniquePlayersByTournament = new Map<number, Set<string>>();
+    registrations.forEach((registration) => {
+      const eventId = Number(registration.event?.id);
+      const tournamentId = tournamentIdByEventId.get(eventId);
+      if (tournamentId == null) return;
+      const participants = uniquePlayersByTournament.get(tournamentId) || new Set<string>();
+      participants.add(participantKey(registration));
+      uniquePlayersByTournament.set(tournamentId, participants);
+    });
     const registrationsByEvent = new Map<number, EventRegistration[]>();
     allRegistrations.forEach((row) => { const id = Number(row.event?.id); registrationsByEvent.set(id, [...(registrationsByEvent.get(id) || []), row]); });
     const tournaments = (overview.tournaments || []).filter((tournament) => events.some((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL"));
@@ -151,7 +184,8 @@ export const analyticsService = {
       const relatedEvents = events.filter((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id));
       return { id: tournament.id, name: tournament.name, status: label(tournament.registrationStatus), startDate: tournament.eventDateStart, endDate: tournament.eventDateEnd,
         sports: [...new Set(relatedEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))], eventCount: relatedEvents.length,
-        registrations: relatedEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0) };
+        registrations: relatedEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0),
+        registeredUsers: uniquePlayersByTournament.get(Number(tournament.id))?.size || 0 };
     });
     const eventInventory: SportsAnalyticsEventRow[] = events.map((event) => {
       const entries = registrationsByEvent.get(Number(event.id)) || [];
@@ -241,7 +275,9 @@ export const analyticsService = {
     const capacityFillRate = capacity ? Math.min(100, Math.round(capacityEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0) / capacity * 100)) : 0;
     return {
       kpis: { totalEvents: events.length, activePlayers: participants.size, liveEvents: matchInventory.filter((match) => statusIs(match.status, "LIVE", "IN_PROGRESS")).length, totalTournaments: tournamentInventory.length,
-        openRegistrations: events.filter((event) => statusIs(event.registrationStatus, "OPEN", "REGISTRATION_OPEN")).length, yourRegistrations: registrations.length, matchCompletionRate: totalGames ? Math.round(completed / totalGames * 100) : 0, capacityFillRate, capacityTracked: capacity > 0, totalMatches: totalGames },
+        openRegistrations: events.filter((event) => statusIs(event.registrationStatus, "OPEN", "REGISTRATION_OPEN")).length, yourRegistrations: registrations.length,
+        tournamentRegistrants: tournamentInventory.reduce((sum, tournament) => sum + tournament.registeredUsers, 0), eventPlayerEntries: registrations.length,
+        matchCompletionRate: totalGames ? Math.round(completed / totalGames * 100) : 0, capacityFillRate, capacityTracked: capacity > 0, totalMatches: totalGames },
       monthlyEvents, sportShare, participationTrend, demographics, venueUtilization, sportLeaders: leaders,
       standings: makeStandings(relatedConfigs, matchesByConfig), sportNames, sportColorMap: colorMap, eventInventory, tournamentInventory, registrationInventory, matchInventory, teamInventory, dataWarnings,
     };

@@ -645,9 +645,12 @@ export const tournamentService = {
         "/tournament/schedule/save",
         payload
       );
-    } catch (err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
+    } catch (err: any) {
+      console.error("[tournamentService.saveSchedule] Backend save error:", err);
+      // Only fallback to mock if the client is truly offline or network is disconnected
+      const isOffline = typeof window !== "undefined" && (!window.navigator.onLine || err?.message?.includes("Network Error"));
+      if (isOffline) {
+        console.warn("[tournamentService.saveSchedule] Offline network detected, using local mock");
         return {
           config: {
             id: payload.configId || Math.floor(Math.random() * 1000) + 200,

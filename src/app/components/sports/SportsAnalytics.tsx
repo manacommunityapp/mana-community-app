@@ -27,7 +27,7 @@ import {
   Search,
   Flame,
   Zap,
-  CheckCircle2,
+  UserCheck,
   MapPin,
   Building2,
   Sparkles,
@@ -180,8 +180,8 @@ export function SportsAnalytics() {
     return (
       <div className="space-y-6 pb-12 animate-fade-in">
         <div className="h-14 rounded-2xl bg-muted/60 animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
@@ -369,8 +369,8 @@ export function SportsAnalytics() {
         {dataWarnings.map((warning) => <p key={warning} className="m-0 flex items-start gap-2"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{warning}</p>)}
       </div>}
 
-      {/* ── 2. KPI Cards Grid (6 High-Impact Metrics) ────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+      {/* ── 2. KPI Cards Grid ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3">
         {/* Total Tournaments */}
         <button type="button" onClick={() => jumpToInventory("tournaments")} aria-label={`View ${kpis.totalTournaments} tournament records`} aria-pressed={inventoryFocus === "tournaments"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "tournaments" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
@@ -430,21 +430,32 @@ export function SportsAnalytics() {
           <p className="text-xs font-medium text-muted-foreground mt-0.5">Slot Fill Rate</p>
         </button>
 
-        {/* Match Completion Rate */}
-        <button type="button" onClick={() => jumpToInventory("matches")} aria-label={`View ${kpis.totalMatches} scheduled matches and results`} aria-pressed={inventoryFocus === "matches"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "matches" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
+        {/* A participant counts once per tournament, even when registered in multiple events. */}
+        <button type="button" onClick={() => jumpToInventory("tournaments")} aria-label={`View ${kpis.tournamentRegistrants} registered tournament users`} aria-pressed={inventoryFocus === "tournaments"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "tournaments" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <Trophy className="h-3.5 w-3.5" />
             </div>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              {kpis.totalMatches} Matches
+              Across tournaments
             </span>
           </div>
-          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.totalMatches ? `${kpis.matchCompletionRate}%` : "—"}</p>
-          <div className="w-full bg-muted rounded-full h-1 mt-1 overflow-hidden">
-            <div className="bg-violet-500 h-full rounded-full transition-all duration-500" style={{ width: `${kpis.totalMatches ? kpis.matchCompletionRate : 0}%` }} />
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.tournamentRegistrants}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Registered Tournament Users</p>
+        </button>
+
+        {/* Event entries count each active player registration across the sports events. */}
+        <button type="button" onClick={jumpToPlayers} aria-label={`View ${kpis.eventPlayerEntries} registered player entries across sports events`} className="w-full cursor-pointer rounded-xl border border-border/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="h-7 w-7 rounded-lg bg-fuchsia-500/10 text-fuchsia-500 flex items-center justify-center">
+              <UserCheck className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400">
+              All sports events
+            </span>
           </div>
-          <p className="text-xs font-medium text-muted-foreground mt-0.5">Match Completion</p>
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.eventPlayerEntries}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Registered Event Players</p>
         </button>
 
         {/* Open Registrations */}
@@ -516,7 +527,7 @@ export function SportsAnalytics() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          {(inventoryFocus === "all" || inventoryFocus === "tournaments") && renderInventoryTable("Tournaments", ["Tournament", "Status", "Dates", "Events", "Registrations", "Sports"], visibleTournaments.map((row) => [row.name, row.status, `${row.startDate || "—"} – ${row.endDate || "—"}`, row.eventCount, row.registrations, row.sports.join(", ")]))}
+          {(inventoryFocus === "all" || inventoryFocus === "tournaments") && renderInventoryTable("Tournaments", ["Tournament", "Status", "Dates", "Events", "Registered users", "Event entries", "Sports"], visibleTournaments.map((row) => [row.name, row.status, `${row.startDate || "—"} – ${row.endDate || "—"}`, row.eventCount, row.registeredUsers, row.registrations, row.sports.join(", ")]))}
           {(inventoryFocus === "all" || inventoryFocus === "events" || inventoryFocus === "capacity" || inventoryFocus === "open-events") && renderInventoryTable(inventoryFocus === "open-events" ? "Events open for registration" : inventoryFocus === "capacity" ? "Events with configured capacity" : "Events", ["Event", "Sport", "Tournament", "Date", "Venue", "Status", "Registered / Capacity", "Confirmed", "Pending"], visibleEvents.filter((row) => inventoryFocus === "capacity" ? Number(row.capacity) > 0 : inventoryFocus === "open-events" ? ["OPEN", "REGISTRATION_OPEN"].includes(row.status.toUpperCase()) : true).map((row) => [row.name, row.sport, row.tournament, row.date, row.venue, row.status, `${row.registered} / ${row.capacity ?? "—"}`, row.confirmed, row.pending]))}
           {(inventoryFocus === "all" || inventoryFocus === "matches") && renderInventoryTable("Match schedule and results", ["Tournament", "Event", "Stage", "Fixture", "Score", "Scheduled", "Venue", "Status"], visibleMatches.map((row) => [row.tournament, row.event, row.stage, `${row.homeTeam} vs ${row.awayTeam}`, row.score, row.scheduledAt, row.venue, row.status]))}
           {inventoryFocus === "all" && renderInventoryTable("Teams and squads", ["Team", "Tournament / auction", "Event", "Sport", "Captain", "Players"], visibleTeams.map((row) => [row.team, row.tournament, row.event, row.sport, row.captain, row.players.length ? row.players.join(", ") : `${row.playerCount} players`]))}

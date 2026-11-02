@@ -40,6 +40,14 @@ export interface AdminTournamentRow {
 /** Shape returned by SportsAdminOverviewResponse.RegistrationRow in mana-community-service. */
 export interface AdminRegistrationRow {
   id: number;
+  eventId?: number | null;
+  userId?: number | null;
+  familyMemberId?: number | null;
+  participantName?: string | null;
+  gender?: string | null;
+  categoryId?: number | null;
+  categoryName?: string | null;
+  categoryGender?: string | null;
   playerName: string | null;
   email: string | null;
   flatNumber: string | null;
@@ -58,6 +66,7 @@ export interface SportsAdminOverview {
   events: AdminEventRow[];
   pendingRegistrations: AdminRegistrationRow[];
   confirmedRegistrations: AdminRegistrationRow[];
+  registrations?: AdminRegistrationRow[];
 }
 
 // ── Form data (Create Tournament / Create Venue tabs) ────────────────────
