@@ -17,6 +17,7 @@ import type { Venue, EventRegistration, SportsEvent } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
 import { ScheduleSaveFooter } from './ScheduleSaveFooter';
 import { FixturesTableView, type FixtureTableRow } from './FixturesTableView';
+import { FixturesListView } from './FixturesListView';
 import {
   exportScheduleToCSV,
   exportScheduleToExcel,
@@ -3078,6 +3079,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   }`}
                 >
                   <span>📄 List View</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-600 font-bold">
+                    {allFixturesTableRows.length}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -3126,8 +3130,19 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
           )}
 
-          {/* Visual & List View (Group Fixtures & Playoff Bracket) */}
-          {(scheduleViewMode === 'visual' || scheduleViewMode === 'list') && (
+          {/* List View */}
+          {scheduleViewMode === 'list' && (
+            <div className="mt-4">
+              <FixturesListView
+                fixtures={allFixturesTableRows}
+                onEditMatch={handleEditFromTable}
+                sportName={events.find(e => e.id.toString() === selectedEvent)?.sportName || 'Tournament'}
+              />
+            </div>
+          )}
+
+          {/* Visual View (Group Fixtures & Playoff Bracket) */}
+          {scheduleViewMode === 'visual' && (
             <>
               {/* Match fixtures — Group Stage or Round Robin */}
           {(isGroupKnockout || isRoundRobin) && (
