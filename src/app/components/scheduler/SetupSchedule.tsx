@@ -23,6 +23,7 @@ import {
   exportScheduleToExcel,
   exportScheduleToPDF,
   exportUmpireScorecardsPDF,
+  exportBracketToPDF,
 } from '../../../utils/sportsExportUtils';
 import type { ExportableMatch } from '../../../utils/sportsExportUtils';
 import {
@@ -1893,6 +1894,30 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     exportUmpireScorecardsPDF(list, `${ev?.name || 'Tournament'} Umpire Scorecards`);
   };
 
+  const handleExportBracketPDF = () => {
+    const playoffMatches = getPlayoffMatches();
+    if (playoffMatches.length === 0) {
+      showWarning('No bracket matches available to download. Please generate the schedule first.');
+      return;
+    }
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    const resolvedMatches = playoffMatches.map(m => {
+      const v = venues.find(ven => ven.id === m.venueId);
+      const c = v?.courts?.find(crt => crt.id === m.courtId);
+      return {
+        ...m,
+        venueName: v?.name || '',
+        courtName: c?.name || '',
+      };
+    });
+    exportBracketToPDF(
+      resolvedMatches,
+      `${ev?.name || 'Tournament'} Knockout Draw`,
+      'Mana Community Sports',
+      ev?.sportName || 'Tournament'
+    );
+  };
+
   const handleEditFromTable = (row: FixtureTableRow) => {
     if (row.isPlayoff) {
       handleOpenEditPlayoffMatch(row.rawMatch);
@@ -3131,7 +3156,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 {showDisplayExportMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowDisplayExportMenu(false)} />
-                    <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[220px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="absolute right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 min-w-[240px] p-1.5 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
+                      {(scheduleViewMode === 'visual' || getPlayoffMatches().length > 0) && (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 bg-indigo-50/60 rounded-t-lg">
+                            Visual Bracket Draw
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowDisplayExportMenu(false); handleExportBracketPDF(); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-indigo-950 bg-indigo-50/50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-semibold border-none"
+                          >
+                            <Trophy className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="font-bold text-indigo-900">Download Bracket Draw (PDF)</span>
+                              <span className="text-[10px] text-indigo-600 font-normal">Landscape tournament tree draw</span>
+                            </div>
+                          </button>
+                        </>
+                      )}
+
                       <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                         Export Schedule
                       </div>
@@ -3446,6 +3490,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     <PlayoffBracketView
                       matches={playoffMatches}
                       onEditMatch={handleOpenEditPlayoffMatch}
+                      onDownloadBracket={handleExportBracketPDF}
                       resolveVenueName={resolveVenueName}
                       resolveCourtName={resolveCourtName}
                     />

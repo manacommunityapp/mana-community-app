@@ -626,3 +626,470 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
     printWindow.print();
   }, 350);
 }
+
+// ─── 4. Knockout Bracket Draw Export ──────────────────────────────────────────
+
+export interface ExportableBracketMatch {
+  id: string;
+  name?: string;
+  round: string;
+  roundIndex: number;
+  home: { id: string; name: string; flatNumber?: string };
+  away: { id: string; name: string; flatNumber?: string };
+  date: string;
+  time: string;
+  duration?: number;
+  venueId?: number | null;
+  courtId?: string | null;
+  venueName?: string;
+  courtName?: string;
+}
+
+export function exportBracketToPDF(
+  matches: ExportableBracketMatch[],
+  title = "Tournament Knockout Draw",
+  communityName = "Mana Community",
+  sportName = "Tournament"
+) {
+  const printWindow = window.open("", "_blank", "width=1280,height=850");
+  if (!printWindow) {
+    alert("Please allow popups to print/export the tournament bracket");
+    return;
+  }
+
+  const bracketMatches = matches.filter(m => m.round !== "THIRD_PLACE");
+  const thirdPlace = matches.filter(m => m.round === "THIRD_PLACE");
+  const roundIndices = Array.from(new Set(bracketMatches.map(m => m.roundIndex))).sort((a, b) => a - b);
+
+  const roundsMatches: Record<number, ExportableBracketMatch[]> = {};
+  roundIndices.forEach(rIndex => {
+    roundsMatches[rIndex] = bracketMatches.filter(m => m.roundIndex === rIndex);
+  });
+
+  const baseSpacing = 160;
+  const matchTops: Record<string, number> = {};
+
+  function findParentMatchId(participantId: string | undefined, prevMatches: ExportableBracketMatch[]): string | undefined {
+    if (!participantId) return undefined;
+    if (participantId.endsWith("-winner")) return participantId.replace("-winner", "");
+    if (participantId.endsWith("-loser")) return participantId.replace("-loser", "");
+    const parent = prevMatches.find(pm => pm.home?.id === participantId || pm.away?.id === participantId);
+    return parent?.id;
+  }
+
+  // First round spacing
+  if (roundIndices.length > 0) {
+    const firstRoundIdx = roundIndices[0];
+    const firstMatches = roundsMatches[firstRoundIdx] || [];
+    firstMatches.forEach((m, idx) => {
+      matchTops[m.id] = 50 + idx * baseSpacing;
+    });
+  }
+
+  // Subsequent rounds midpoints
+  for (let c = 1; c < roundIndices.length; c++) {
+    const rIdx = roundIndices[c];
+    const prevRIdx = roundIndices[c - 1];
+    const currMatches = roundsMatches[rIdx] || [];
+    const prevMatches = roundsMatches[prevRIdx] || [];
+
+    currMatches.forEach((m, idx) => {
+      const homeParentId = findParentMatchId(m.home?.id, prevMatches);
+      const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+      const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
+      const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
+
+      if (homeTop !== undefined && awayTop !== undefined) {
+        matchTops[m.id] = (homeTop + awayTop) / 2;
+      } else if (homeTop !== undefined) {
+        matchTops[m.id] = homeTop;
+      } else if (awayTop !== undefined) {
+        matchTops[m.id] = awayTop;
+      } else {
+        matchTops[m.id] = 50 + idx * (baseSpacing * Math.pow(2, c));
+      }
+    });
+  }
+
+  const allTops = Object.values(matchTops);
+  const maxMatchTop = allTops.length > 0 ? Math.max(...allTops) : 300;
+  const bracketHeight = Math.max(maxMatchTop + 180, 520);
+
+  function getRoundHeader(roundName: string): string {
+    if (roundName === "FINAL") return "Final";
+    if (roundName === "SEMI_FINAL") return "Semi-Finals";
+    if (roundName === "QUARTER_FINAL") return "Quarter-Finals";
+    if (roundName === "ROUND_OF_16") return "Round of 16";
+    if (roundName === "ROUND_OF_32") return "Round of 32";
+    return roundName.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
+  let columnsHtml = "";
+  roundIndices.forEach((rIndex, colIdx) => {
+    const rMatches = roundsMatches[rIndex] || [];
+    if (rMatches.length === 0) return;
+    const header = getRoundHeader(rMatches[0].round);
+    const isLastRound = colIdx === roundIndices.length - 1;
+
+    let cardsHtml = "";
+    rMatches.forEach((m, idx) => {
+      const top = matchTops[m.id] ?? (50 + idx * baseSpacing);
+      let showConnector = false;
+      let connectorHeight = 0;
+      let connectorTop = 0;
+
+      if (colIdx > 0) {
+        const prevRoundIdx = roundIndices[colIdx - 1];
+        const prevMatches = roundsMatches[prevRoundIdx] || [];
+        const homeParentId = findParentMatchId(m.home?.id, prevMatches);
+        const awayParentId = findParentMatchId(m.away?.id, prevMatches);
+        const homeTop = homeParentId ? matchTops[homeParentId] : undefined;
+        const awayTop = awayParentId ? matchTops[awayParentId] : undefined;
+
+        if (homeTop !== undefined && awayTop !== undefined) {
+          showConnector = true;
+          connectorHeight = Math.abs(awayTop - homeTop);
+          connectorTop = Math.min(homeTop, awayTop) - top;
+        } else if (homeTop !== undefined) {
+          showConnector = true;
+          connectorHeight = Math.abs(homeTop - top);
+          connectorTop = Math.min(homeTop, top) - top;
+        } else if (awayTop !== undefined) {
+          showConnector = true;
+          connectorHeight = Math.abs(awayTop - top);
+          connectorTop = Math.min(awayTop, top) - top;
+        }
+      }
+
+      const showMergerRight = !isLastRound;
+      const showMergerLeft = colIdx > 0;
+      const venueCourt = [m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD";
+
+      cardsHtml += `
+        <div class="matchup" style="top:${top}px;">
+          <div class="match-meta">
+            <span>${escapeHtml(m.date || "")} ${escapeHtml(m.time || "")}</span>
+          </div>
+          <div class="match-box">
+            <div class="participant-row">
+              <span class="p-accent"></span>
+              <span class="p-name">${escapeHtml(m.home?.name || "TBD")}</span>
+              ${m.home?.flatNumber ? `<span class="p-flat">${escapeHtml(m.home.flatNumber)}</span>` : ""}
+            </div>
+            <div class="participant-row">
+              <span class="p-accent"></span>
+              <span class="p-name">${escapeHtml(m.away?.name || "TBD")}</span>
+              ${m.away?.flatNumber ? `<span class="p-flat">${escapeHtml(m.away.flatNumber)}</span>` : ""}
+            </div>
+            ${showConnector ? `<div class="connector" style="height:${connectorHeight}px; transform:translateY(${connectorTop}px);"></div>` : ""}
+            ${showMergerRight ? `<div class="merger-right"></div>` : ""}
+            ${showMergerLeft ? `<div class="merger-left"></div>` : ""}
+          </div>
+          <div class="court-tag">📍 ${escapeHtml(venueCourt)}</div>
+        </div>
+      `;
+    });
+
+    columnsHtml += `
+      <section class="round-col">
+        <div class="round-header">
+          <h5>${escapeHtml(header)}</h5>
+        </div>
+        ${cardsHtml}
+      </section>
+    `;
+  });
+
+  // Final match podium
+  const finalRoundIdx = roundIndices[roundIndices.length - 1];
+  const finalMatch = finalRoundIdx !== undefined ? (roundsMatches[finalRoundIdx] || [])[0] : undefined;
+  const finalMatchTop = finalMatch ? (matchTops[finalMatch.id] ?? 160) : 160;
+
+  let podiumHtml = "";
+  if (finalMatch) {
+    podiumHtml = `
+      <section class="round-col results-col">
+        <div class="round-header results-header">
+          <h5>🏆 Results</h5>
+        </div>
+        <div class="results-box" style="top:${finalMatchTop + 30}px;">
+          <div class="winner-box">
+            <div class="trophy-icon">🏆</div>
+            <div class="podium-title">Champion / Winner</div>
+            <div class="podium-name">Winner Of Final</div>
+          </div>
+          <div class="runnerup-box">
+            <div class="medal-icon">🥈</div>
+            <div class="podium-title">Runner-Up (Finalist)</div>
+            <div class="podium-name">Loser Of Final</div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  let thirdPlaceHtml = "";
+  if (thirdPlace.length > 0) {
+    thirdPlaceHtml = `
+      <div style="margin-top: 30px; padding: 16px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; display: inline-block;">
+        <h5 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; color: #9f1239; text-transform: uppercase;">🥉 Third Place Playoff</h5>
+        ${thirdPlace.map(m => {
+          const venueCourt = [m.venueName, m.courtName].filter(Boolean).join(" - ") || "TBD";
+          return `
+            <div style="display:flex; align-items:center; gap:12px; font-size:12px;">
+              <span style="font-weight:700; color:#1e293b;">${escapeHtml(m.home?.name || "TBD")}</span>
+              <span style="font-weight:800; color:#e11d48;">VS</span>
+              <span style="font-weight:700; color:#1e293b;">${escapeHtml(m.away?.name || "TBD")}</span>
+              <span style="color:#64748b; font-size:11px;">(${escapeHtml(m.date)} ${escapeHtml(m.time)} · ${escapeHtml(venueCourt)})</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)} — Knockout Bracket</title>
+  <style>
+    @page { size: A3 landscape; margin: 10mm; }
+    @media print {
+      body { margin: 0; padding: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      margin: 0;
+      padding: 24px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1e1b4b;
+      margin: 0 0 4px 0;
+    }
+    .sub-title {
+      font-size: 13px;
+      color: #64748b;
+    }
+    .btn-print {
+      padding: 9px 18px;
+      background: #4f46e5;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .bracket-wrapper {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      overflow-x: auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .bracket-container {
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      gap: 32px;
+      min-width: max-content;
+      height: ${bracketHeight}px;
+    }
+    .round-col {
+      width: 260px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .round-header {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .round-header h5 {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .matchup {
+      position: absolute;
+      width: 240px;
+      left: 10px;
+    }
+    .match-meta {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+    .match-box {
+      position: relative;
+      background: white;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .participant-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: #f8fafc;
+      border-radius: 5px;
+      font-size: 11px;
+      position: relative;
+    }
+    .p-accent {
+      width: 3px;
+      height: 14px;
+      background: #10b981;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .p-name {
+      font-weight: 700;
+      color: #1e293b;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-flat {
+      font-size: 9px;
+      color: #64748b;
+    }
+    .court-tag {
+      font-size: 9px;
+      color: #4f46e5;
+      font-weight: 600;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .connector {
+      position: absolute;
+      left: -16px;
+      top: 50%;
+      border-left: 2px solid #818cf8;
+      pointer-events: none;
+    }
+    .merger-right {
+      position: absolute;
+      right: -16px;
+      bottom: 50%;
+      width: 16px;
+      border-bottom: 2px solid #818cf8;
+      pointer-events: none;
+    }
+    .merger-left {
+      position: absolute;
+      left: -16px;
+      bottom: 50%;
+      width: 16px;
+      border-bottom: 2px solid #818cf8;
+      pointer-events: none;
+    }
+    .results-col {
+      width: 220px;
+    }
+    .results-header {
+      background: #fef3c7;
+      border-color: #fde68a;
+    }
+    .results-header h5 {
+      color: #92400e;
+    }
+    .results-box {
+      position: absolute;
+      width: 200px;
+      left: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+    }
+    .winner-box, .runnerup-box {
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .winner-box {
+      background: #fffbeb;
+      border-color: #fde68a;
+    }
+    .trophy-icon, .medal-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    .podium-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #92400e;
+      letter-spacing: 0.5px;
+    }
+    .podium-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e1b4b;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar no-print">
+    <div>
+      <h1 class="brand-title">🏆 ${escapeHtml(title)}</h1>
+      <div class="sub-title">${escapeHtml(communityName)} · Official ${escapeHtml(sportName)} Knockout Draw & Bracket</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button class="btn-print" style="background:#64748b;" onclick="window.close()">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="bracket-wrapper">
+    <div class="bracket-container">
+      ${columnsHtml}
+      ${podiumHtml}
+    </div>
+  </div>
+
+  ${thirdPlaceHtml}
+</body>
+</html>`;
+
+  printWindow.document.write(content);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 400);
+}
