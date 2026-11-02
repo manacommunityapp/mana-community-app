@@ -5,6 +5,7 @@ import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
+import { apiClient } from "../../../services/common/apiClient";
 import { sportsScheduleService, type EventListItem } from "../../../services/sports/sportsScheduleService";
 import { venueService } from "../../../services/bookings/venueService";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -981,16 +982,20 @@ export function SportsSchedule() {
             const isCompleted = ev.registrationStatus === "COMPLETED";
             const status = isLive ? "LIVE" : isCompleted ? "COMPLETED" : "SCHEDULED";
 
-            let homeTeam = ev.name;
-            let awayTeam = "TBD";
+            let homeTeam = "Side 1";
+            let awayTeam = "Side 2";
             if (ev.name.includes(" vs ")) {
               const parts = ev.name.split(" vs ");
-              homeTeam = parts[0];
-              awayTeam = parts[1];
-            } else if (ev.name.includes(" - ")) {
-              const parts = ev.name.split(" - ");
-              homeTeam = parts[0];
-              awayTeam = parts[1];
+              homeTeam = parts[0].trim();
+              awayTeam = parts[1].trim();
+            } else if (ev.name.includes(" VS ")) {
+              const parts = ev.name.split(" VS ");
+              homeTeam = parts[0].trim();
+              awayTeam = parts[1].trim();
+            } else if (ev.name.includes(" v ")) {
+              const parts = ev.name.split(" v ");
+              homeTeam = parts[0].trim();
+              awayTeam = parts[1].trim();
             }
 
             const eventDate = ev.eventDateStart ? ev.eventDateStart.split("T")[0] : "";
@@ -1933,11 +1938,17 @@ export function SportsSchedule() {
                   </div>
 
                   {/* Live match view for spectators */}
-                  {isLive && fixture.matchId && (
+                  {isLive && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => openLiveView(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        onClick={() => {
+                          if (fixture.matchId) {
+                            openLiveView(fixture);
+                          } else {
+                            toast.info(`Match "${fixture.name}" is LIVE! Current Score: ${fixture.score1 || '0'} - ${fixture.score2 || '0'}`);
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150 cursor-pointer"
                       >
                         <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         Watch Live
@@ -1946,11 +1957,17 @@ export function SportsSchedule() {
                   )}
 
                   {/* View Details for completed tournament matches */}
-                  {isCompleted && fixture.matchId && (
+                  {isCompleted && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => openMatchDetail(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        onClick={() => {
+                          if (fixture.matchId) {
+                            openMatchDetail(fixture);
+                          } else {
+                            toast.info(`Final Result: ${fixture.score1 || '0'} - ${fixture.score2 || '0'}`);
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150 cursor-pointer"
                       >
                         <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         View Scorecard
@@ -1965,7 +1982,7 @@ export function SportsSchedule() {
                         {fixture.status === "SCHEDULED" && (
                           <button
                             onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
+                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
                             Go Live
@@ -1973,15 +1990,23 @@ export function SportsSchedule() {
                         )}
                         {fixture.status === "LIVE" && (
                           <>
-                            {fixture.matchId && (
-                              <button
-                                onClick={() => openLiveScoring(fixture)}
-                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
-                              >
-                                <Activity className="w-3 h-3" />
-                                Live Score
-                              </button>
-                            )}
+                            <button
+                              onClick={() => {
+                                if (fixture.matchId) {
+                                  openLiveScoring(fixture);
+                                } else {
+                                  setScoringFixtureId(fixture.id);
+                                  setFixtureScore1(fixture.score1 || "");
+                                  setFixtureScore2(fixture.score2 || "");
+                                  setShowScoreModal(true);
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
+                              title="Record live points, sets, or match scores"
+                            >
+                              <Activity className="w-3 h-3" />
+                              Live Score
+                            </button>
                             <button
                               onClick={() => {
                                 setScoringFixtureId(fixture.id);
@@ -1989,7 +2014,7 @@ export function SportsSchedule() {
                                 setFixtureScore2(fixture.score2 || "");
                                 setShowScoreModal(true);
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition"
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition cursor-pointer"
                             >
                               <Trophy className="w-3 h-3" />
                               End Match
@@ -2160,11 +2185,25 @@ export function SportsSchedule() {
               }
             };
 
-            const handleGoLive = () => {
-              setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
-              toast.success(`Match "${fixture.name}" is now LIVE!`);
-              fetchScheduleStats();
-              setConfirmGoLiveFixture(null);
+            const handleGoLive = async () => {
+              try {
+                if (fixture.matchId) {
+                  await apiClient.put(`/sports/matches/${fixture.matchId}/status`, { status: "LIVE" });
+                } else if (fixture.id && fixture.id > 0) {
+                  try {
+                    await sportsService.updateTournamentStatus(fixture.id, "LIVE");
+                  } catch (_e) {
+                    await sportsService.updateEventStatus(fixture.id, "LIVE");
+                  }
+                }
+                setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
+                toast.success(`Match "${fixture.name}" is now LIVE!`);
+                fetchScheduleStats();
+              } catch (err: any) {
+                toast.error(err?.message || "Failed to broadcast match status to LIVE on server");
+              } finally {
+                setConfirmGoLiveFixture(null);
+              }
             };
 
             return (

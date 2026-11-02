@@ -510,6 +510,12 @@ export const tournamentService = {
     }
   },
 
+  /** Strict analytics read that preserves API errors so the admin dashboard can flag missing schedule data. */
+  async getConfigsForAnalytics(): Promise<ConfigInfo[]> {
+    const data = await apiClient.get<ConfigInfo[]>("/tournament/configs");
+    return Array.isArray(data) ? data : [];
+  },
+
   /** POST /api/tournament/config */
   async createConfig(data: any): Promise<ConfigInfo> {
     return apiClient.post<ConfigInfo>("/tournament/config", data);
@@ -595,6 +601,12 @@ export const tournamentService = {
     } catch (_err) {
       return [];
     }
+  },
+
+  /** Strict analytics read; getMatchesByConfigId intentionally hides errors for legacy callers. */
+  async getMatchesByConfigIdForAnalytics(configId: number): Promise<any[]> {
+    const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+    return Array.isArray(data) ? data : [];
   },
 
   /** Alias for getMatchesByConfigId */

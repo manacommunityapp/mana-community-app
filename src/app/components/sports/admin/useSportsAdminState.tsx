@@ -537,9 +537,9 @@ export function useSportsAdminState() {
       const pendingMapped = (data.pendingRegistrations || []).map((reg) => ({
         id: reg.id,
         teamName: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
-        sport: reg.event?.sport?.name || reg.event?.name || "General",
-        captain: reg.playerName || reg.user?.fullName || "—",
-        email: reg.email || reg.user?.email || "—",
+        sport: reg.sportName || reg.eventName || "General",
+        captain: reg.playerName || "—",
+        email: reg.email || "—",
         members: 1,
         date: reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d") : ""
       }));
@@ -547,9 +547,9 @@ export function useSportsAdminState() {
       const confirmedMapped = (data.confirmedRegistrations || []).map((reg) => ({
         id: reg.id,
         name: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
-        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        sport: reg.sportName || reg.eventName || "General",
         division: "Competitive",
-        captain: reg.playerName || reg.user?.fullName || "—",
+        captain: reg.playerName || "—",
         members: 1,
         status: "active" as const,
         record: "—"

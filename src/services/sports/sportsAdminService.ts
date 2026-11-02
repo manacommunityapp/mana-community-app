@@ -1,5 +1,5 @@
 import { apiClient } from "../common/apiClient";
-import type { CommunityResponse, EventRegistration } from "../../types/api";
+import type { CommunityResponse } from "../../types/api";
 
 // ── Overview (Dashboard / Sports Event tabs) ─────────────────────────────
 
@@ -37,11 +37,27 @@ export interface AdminTournamentRow {
   events: AdminEventRow[];
 }
 
+/** Shape returned by SportsAdminOverviewResponse.RegistrationRow in mana-community-service. */
+export interface AdminRegistrationRow {
+  id: number;
+  playerName: string | null;
+  email: string | null;
+  flatNumber: string | null;
+  role: string | null;
+  relation: string | null;
+  age: number | null;
+  status: string | null;
+  eventName: string | null;
+  sportName: string | null;
+  registeredAt: string | null;
+  proposedTeamName: string | null;
+}
+
 export interface SportsAdminOverview {
   tournaments: AdminTournamentRow[];
   events: AdminEventRow[];
-  pendingRegistrations: EventRegistration[];
-  confirmedRegistrations: EventRegistration[];
+  pendingRegistrations: AdminRegistrationRow[];
+  confirmedRegistrations: AdminRegistrationRow[];
 }
 
 // ── Form data (Create Tournament / Create Venue tabs) ────────────────────

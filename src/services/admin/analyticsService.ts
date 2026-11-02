@@ -1,701 +1,249 @@
-import { sportsDashboardService } from "../sports/sportsDashboardService";
-import type { SportsDashboardResponse, DashboardMyRegistration } from "../sports/sportsDashboardService";
-import { sportsAdminService } from "../sports/sportsAdminService";
-import type { SportsAdminOverview, AdminEventRow } from "../sports/sportsAdminService";
-import { tournamentService } from "../sports/tournamentService";
-import type { ConfigInfo } from "../sports/tournamentService";
+import { sportsAdminService, type AdminEventRow, type AdminRegistrationRow } from "../sports/sportsAdminService";
+import { sportsEventService } from "../sports/sportsEventService";
+import { tournamentService, type ConfigInfo } from "../sports/tournamentService";
+import { auctionService } from "../sports/auctionService";
+import type { EventRegistration, SportsEvent, AuctionConfigResponse, AuctionTeam } from "../../types/api";
 
-// ── Palette for dynamic sport colors ─────────────────────────────────────────
+const SPORT_COLORS = ["#818cf8", "#34d399", "#a78bfa", "#f472b6", "#fbbf24", "#38bdf8", "#fb923c", "#4ade80"];
+const GRADIENT_CLASSES = ["from-indigo-400 to-violet-500", "from-emerald-400 to-teal-500", "from-violet-400 to-purple-500", "from-pink-400 to-rose-500"];
 
-const SPORT_COLORS = [
-  "#818cf8", // indigo
-  "#34d399", // emerald
-  "#a78bfa", // violet
-  "#f472b6", // pink
-  "#fbbf24", // amber
-  "#38bdf8", // sky
-  "#fb923c", // orange
-  "#4ade80", // green
-  "#e879f9", // fuchsia
-  "#2dd4bf", // teal
-];
-
-const GRADIENT_CLASSES = [
-  "from-indigo-400 to-violet-500",
-  "from-emerald-400 to-teal-500",
-  "from-violet-400 to-purple-500",
-  "from-pink-400 to-rose-500",
-  "from-amber-400 to-orange-500",
-  "from-sky-400 to-blue-500",
-  "from-orange-400 to-red-500",
-  "from-green-400 to-emerald-500",
-  "from-fuchsia-400 to-pink-500",
-  "from-teal-400 to-cyan-500",
-];
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface AnalyticsKPI {
-  totalEvents: number;
-  activePlayers: number;
-  liveEvents: number;
-  totalTournaments: number;
-  openRegistrations: number;
-  yourRegistrations: number;
-  matchCompletionRate: number;
-  capacityFillRate: number;
-  totalMatches: number;
-}
-
-export interface MonthlyEventRow {
-  month: string;
-  [sportName: string]: string | number; // month is string, rest are counts
-}
-
-export interface SportShareEntry {
-  name: string;
-  value: number;
-  color: string;
-  count: number;
-}
-
-export interface DemographicsData {
-  gender: { name: string; value: number; count: number; color: string }[];
-  ageGroups: { group: string; count: number; percentage: number; color: string }[];
-  blockDistribution: { block: string; players: number; color: string }[];
-}
-
-export interface VenueUtilizationEntry {
-  name: string;
-  eventsCount: number;
-  percentage: number;
-  city?: string;
-}
-
-export interface SportLeaderEntry {
-  rank: number;
-  name: string;
-  category: string;
-  metricLabel: string;
-  metricValue: string | number;
-  subMetric?: string;
-  sport: string;
-  avatar: string;
-  color: string;
-}
-
-export interface StandingRow {
-  rank: number;
-  team: string;
-  w: number;
-  l: number;
-  d: number;
-  pts: number;
-  pct: number;
-  form?: ("W" | "L" | "D")[];
-}
-
-export interface TopPerformerEntry {
-  rank: number;
-  name: string;
-  eventName: string;
-  sport: string;
-  eventsCount: number;
-  label: string;
-  avatar: string;
-  color: string;
-}
-
-export interface ParticipationTrendRow {
-  month: string;
-  players: number;
-  events: number;
-}
-
+export interface AnalyticsKPI { totalEvents: number; activePlayers: number; liveEvents: number; totalTournaments: number; openRegistrations: number; yourRegistrations: number; matchCompletionRate: number; capacityFillRate: number; capacityTracked: boolean; totalMatches: number }
+export interface MonthlyEventRow { month: string; [sportName: string]: string | number }
+export interface SportShareEntry { name: string; value: number; color: string; count: number }
+export interface DemographicsData { gender: { name: string; value: number; count: number; color: string }[]; ageGroups: { group: string; count: number; percentage: number; color: string }[]; blockDistribution: { block: string; players: number; color: string }[] }
+export interface VenueUtilizationEntry { name: string; eventsCount: number; percentage: number; city?: string }
+export interface SportLeaderEntry { rank: number; name: string; category: string; metricLabel: string; metricValue: string | number; subMetric?: string; sport: string; avatar: string; color: string }
+export interface StandingRow { rank: number; team: string; w: number; l: number; d: number; pts: number; pct: number; form?: ("W" | "L" | "D")[] }
+export interface SportsAnalyticsEventRow { id: number; tournament: string; name: string; sport: string; date: string; venue: string; status: string; capacity: number | null; registered: number; confirmed: number; pending: number }
+export interface SportsAnalyticsTournamentRow { id: number; name: string; status: string; startDate: string | null; endDate: string | null; sports: string[]; eventCount: number; registrations: number }
+export interface SportsAnalyticsRegistrationRow { id: number; participant: string; relation: string; event: string; tournament: string; sport: string; category: string; status: string; flat: string; registeredAt: string }
+export interface SportsAnalyticsMatchRow { id: number | string; tournament: string; event: string; sport: string; stage: string; homeTeam: string; awayTeam: string; score: string; scheduledAt: string; venue: string; status: string }
+export interface SportsAnalyticsTeamRow { id: number; team: string; tournament: string; event: string; sport: string; captain: string; players: string[]; playerCount: number }
+export interface ParticipationTrendRow { month: string; players: number; events: number }
 export interface AnalyticsData {
-  kpis: AnalyticsKPI;
-  monthlyEvents: MonthlyEventRow[];
-  sportShare: SportShareEntry[];
-  participationTrend: ParticipationTrendRow[];
-  demographics: DemographicsData;
-  venueUtilization: VenueUtilizationEntry[];
-  sportLeaders: Record<string, SportLeaderEntry[]>;
-  standings: Record<string, StandingRow[]>;
-  topPerformers: TopPerformerEntry[];
-  sportNames: string[];
-  sportColorMap: Record<string, string>;
+  kpis: AnalyticsKPI; monthlyEvents: MonthlyEventRow[]; sportShare: SportShareEntry[]; participationTrend: ParticipationTrendRow[];
+  demographics: DemographicsData; venueUtilization: VenueUtilizationEntry[]; sportLeaders: Record<string, SportLeaderEntry[]>;
+  standings: Record<string, StandingRow[]>; sportNames: string[]; sportColorMap: Record<string, string>;
+  eventInventory: SportsAnalyticsEventRow[]; tournamentInventory: SportsAnalyticsTournamentRow[];
+  registrationInventory: SportsAnalyticsRegistrationRow[]; matchInventory: SportsAnalyticsMatchRow[]; teamInventory: SportsAnalyticsTeamRow[];
+  dataWarnings: string[];
 }
 
-import { sportsService } from "../sports/sportsService";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const label = (value?: string | null) => value?.trim() || "—";
+const statusIs = (value: string | null | undefined, ...statuses: string[]) => statuses.includes(String(value || "").toUpperCase());
+const initials = (name: string) => name.split(/\s+/).map((part) => part[0]).join("").toUpperCase().slice(0, 2);
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+function inDateRange(raw: string | null | undefined, range: string | undefined, now: Date): boolean {
+  if (!raw || !range || range === "ALL") return true;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return false;
+  if (range === "THIS_YEAR") return date.getFullYear() === now.getFullYear();
+  return date.getTime() >= now.getTime() - 30 * 86400000 && date.getTime() <= now.getTime();
 }
 
-function buildSportColorMap(sportNames: string[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  sportNames.forEach((name, i) => {
-    map[name] = SPORT_COLORS[i % SPORT_COLORS.length];
-  });
-  return map;
-}
-
-// ── Compute functions ────────────────────────────────────────────────────────
-
-function computeKPIs(
-  dashboard: SportsDashboardResponse,
-  overview: SportsAdminOverview,
-  scheduleStats: { totalGames: number; liveNow: number; upcoming: number; completed: number },
-  events: AdminEventRow[],
-): AnalyticsKPI {
-  const totalSlots = events.reduce((sum, ev) => sum + (ev.maxParticipants || 16), 0);
-  const registeredEstimate = dashboard.stats.upcomingTournaments + dashboard.stats.openRegistrations * 8;
-  const capacityFillRate = totalSlots > 0 ? Math.min(100, Math.round((registeredEstimate / totalSlots) * 100)) : 82;
-
-  const totalMatches = scheduleStats.totalGames || (overview.events.length * 6);
-  const completedMatches = scheduleStats.completed || Math.round(totalMatches * 0.7);
-  const matchCompletionRate = totalMatches > 0 ? Math.min(100, Math.round((completedMatches / totalMatches) * 100)) : 75;
-
-  return {
-    totalEvents: overview.events.length,
-    activePlayers: dashboard.stats.upcomingTournaments || (overview.events.length * 12),
-    liveEvents: dashboard.stats.liveEvents || scheduleStats.liveNow,
-    totalTournaments: overview.tournaments.length,
-    openRegistrations: dashboard.stats.openRegistrations,
-    yourRegistrations: dashboard.stats.yourRegistrations,
-    matchCompletionRate,
-    capacityFillRate,
-    totalMatches,
-  };
-}
-
-function computeMonthlyEvents(
-  events: AdminEventRow[],
-  sportNames: string[],
-): MonthlyEventRow[] {
-  const rows: MonthlyEventRow[] = MONTH_LABELS.map((m) => {
-    const row: MonthlyEventRow = { month: m };
-    sportNames.forEach((s) => (row[s] = 0));
-    return row;
-  });
-
-  events.forEach((ev) => {
-    if (!ev.eventDateStart || !ev.sport?.name) return;
-    const date = new Date(ev.eventDateStart);
-    if (isNaN(date.getTime())) return;
-    const monthIdx = date.getMonth();
-    const sportName = ev.sport.name;
-    if (sportNames.includes(sportName)) {
-      (rows[monthIdx][sportName] as number) += 1;
-    }
-  });
-
-  const filtered = rows.filter((r) => sportNames.some((s) => (r[s] as number) > 0));
-  if (filtered.length === 0) {
-    // Return sample curve if no dated events
-    return [
-      { month: "Jan", [sportNames[0] || "Badminton"]: 2, [sportNames[1] || "Cricket"]: 1 },
-      { month: "Feb", [sportNames[0] || "Badminton"]: 3, [sportNames[1] || "Cricket"]: 2 },
-      { month: "Mar", [sportNames[0] || "Badminton"]: 5, [sportNames[1] || "Cricket"]: 4 },
-      { month: "Apr", [sportNames[0] || "Badminton"]: 4, [sportNames[1] || "Cricket"]: 3 },
-    ];
-  }
-  return filtered;
-}
-
-function computeSportShare(
-  events: AdminEventRow[],
-  sportNames: string[],
-  colorMap: Record<string, string>,
-): SportShareEntry[] {
-  const counts: Record<string, number> = {};
-  sportNames.forEach((s) => (counts[s] = 0));
-
-  events.forEach((ev) => {
-    const name = ev.sport?.name;
-    if (name && name in counts) counts[name] += 1;
-  });
-
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  if (total === 0) {
-    return sportNames.map((n, i) => ({
-      name: n,
-      value: Math.round(100 / (sportNames.length || 1)),
-      color: colorMap[n] || SPORT_COLORS[i % SPORT_COLORS.length],
-      count: 1,
-    }));
-  }
-
-  return sportNames
-    .map((name) => ({
-      name,
-      value: Math.round((counts[name] / total) * 100),
-      color: colorMap[name],
-      count: counts[name],
-    }))
-    .filter((e) => e.value > 0)
-    .sort((a, b) => b.value - a.value);
-}
-
-function computeParticipationTrend(
-  registrations: DashboardMyRegistration[],
-  events: AdminEventRow[],
-): ParticipationTrendRow[] {
-  const monthData: Record<string, { players: number; events: number }> = {};
-  MONTH_LABELS.forEach((m) => (monthData[m] = { players: 0, events: 0 }));
-
-  events.forEach((ev) => {
-    if (!ev.eventDateStart) return;
-    const d = new Date(ev.eventDateStart);
-    if (isNaN(d.getTime())) return;
-    const m = MONTH_LABELS[d.getMonth()];
-    const maxP = ev.maxParticipants || 12;
-    monthData[m].players += maxP;
-    monthData[m].events += 1;
-  });
-
-  registrations.forEach((reg) => {
-    if (!reg.eventDateStart) return;
-    const d = new Date(reg.eventDateStart);
-    if (isNaN(d.getTime())) return;
-    const m = MONTH_LABELS[d.getMonth()];
-    monthData[m].players += 1;
-  });
-
-  const rows = MONTH_LABELS.map((m) => ({
-    month: m,
-    players: monthData[m].players,
-    events: monthData[m].events,
-  })).filter((r) => r.players > 0 || r.events > 0);
-
-  if (rows.length === 0) {
-    return [
-      { month: "Jan", players: 24, events: 2 },
-      { month: "Feb", players: 45, events: 4 },
-      { month: "Mar", players: 82, events: 7 },
-      { month: "Apr", players: 68, events: 5 },
-      { month: "May", players: 95, events: 8 },
-    ];
-  }
-  return rows;
-}
-
-function computeDemographics(
-  overview: SportsAdminOverview,
-  events: AdminEventRow[]
-): DemographicsData {
-  const allRegistrations = [
-    ...(overview.confirmedRegistrations || []),
-    ...(overview.pendingRegistrations || []),
-  ];
-
-  let maleCount = 0;
-  let femaleCount = 0;
-  let mixedCount = 0;
-
-  let kids = 0;
-  let youth = 0;
-  let adults = 0;
-  let seniors = 0;
-
-  const blockMap: Record<string, number> = {};
-
-  if (allRegistrations.length > 0) {
-    allRegistrations.forEach((reg: any) => {
-      // Age breakdown
-      const age = reg.age || (reg.category?.minAge ? (reg.category.minAge + (reg.category.maxAge || reg.category.minAge)) / 2 : 25);
-      if (age < 12) kids += 1;
-      else if (age <= 18) youth += 1;
-      else if (age >= 45) seniors += 1;
-      else adults += 1;
-
-      // Gender breakdown
-      const g = (reg.category?.gender || reg.gender || "").toUpperCase();
-      if (g.includes("FEMALE") || g.includes("WOMEN") || g.includes("GIRL")) {
-        femaleCount += 1;
-      } else if (g.includes("MALE") || g.includes("MEN") || g.includes("BOY")) {
-        maleCount += 1;
-      } else {
-        mixedCount += 1;
-      }
-
-      // Block / Flat breakdown
-      if (reg.flatNumber && reg.flatNumber.trim()) {
-        const flat = reg.flatNumber.trim();
-        let blockLabel = "Main Block";
-        if (flat.includes("-")) {
-          blockLabel = `Block ${flat.split("-")[0].trim()}`;
-        } else if (flat.includes("/")) {
-          blockLabel = `Tower ${flat.split("/")[0].trim()}`;
-        } else if (/^[A-Za-z]/.test(flat)) {
-          const match = flat.match(/^([A-Za-z]+)/);
-          blockLabel = match ? `Tower ${match[1].toUpperCase()}` : `Block ${flat}`;
-        } else {
-          blockLabel = `Unit ${flat.slice(0, 1)}00 Series`;
-        }
-        blockMap[blockLabel] = (blockMap[blockLabel] || 0) + 1;
-      }
+function makeStandings(configs: ConfigInfo[], matchesByConfig: Map<number, any[]>): Record<string, StandingRow[]> {
+  const result: Record<string, StandingRow[]> = {};
+  configs.forEach((config) => {
+    const teams = new Map<string, { w: number; l: number; d: number; pts: number; form: ("W" | "L" | "D")[] }>();
+    (matchesByConfig.get(config.id) || []).forEach((match: any) => {
+      const home = match.homeTeamName || match.homeTeam?.name || match.teamA?.name || match.team1Name || "";
+      const away = match.awayTeamName || match.awayTeam?.name || match.teamB?.name || match.team2Name || "";
+      const hs = match.homeScore ?? match.team1Score ?? match.scoreTeamA ?? match.scoreA;
+      const as = match.awayScore ?? match.team2Score ?? match.scoreTeamB ?? match.scoreB;
+      if (!home || !away || hs == null || as == null || !statusIs(match.status, "COMPLETED", "FINISHED", "RESULT_RECORDED")) return;
+      if (!teams.has(home)) teams.set(home, { w: 0, l: 0, d: 0, pts: 0, form: [] });
+      if (!teams.has(away)) teams.set(away, { w: 0, l: 0, d: 0, pts: 0, form: [] });
+      const h = teams.get(home)!; const a = teams.get(away)!;
+      if (Number(hs) > Number(as)) { h.w++; h.pts += config.pointsForWin ?? 3; h.form.push("W"); a.l++; a.pts += config.pointsForLoss ?? 0; a.form.push("L"); }
+      else if (Number(hs) < Number(as)) { a.w++; a.pts += config.pointsForWin ?? 3; a.form.push("W"); h.l++; h.pts += config.pointsForLoss ?? 0; h.form.push("L"); }
+      else { h.d++; a.d++; h.pts += config.pointsForDraw ?? 1; a.pts += config.pointsForDraw ?? 1; h.form.push("D"); a.form.push("D"); }
     });
-  } else {
-    // Fallback based on event criteria if registrations are empty
-    events.forEach((ev) => {
-      const g = (ev.gender || "").toUpperCase();
-      if (g.includes("FEMALE") || g.includes("WOMEN") || g.includes("GIRL")) {
-        femaleCount += (ev.maxParticipants || 10);
-      } else if (g.includes("MALE") || g.includes("MEN") || g.includes("BOY")) {
-        maleCount += (ev.maxParticipants || 10);
-      } else {
-        mixedCount += (ev.maxParticipants || 10);
-      }
-
-      const minAge = ev.minAge || 0;
-      const maxAge = ev.maxAge || 100;
-
-      if (maxAge <= 12) kids += (ev.maxParticipants || 10);
-      else if (minAge >= 12 && maxAge <= 18) youth += (ev.maxParticipants || 10);
-      else if (minAge >= 45) seniors += (ev.maxParticipants || 10);
-      else adults += (ev.maxParticipants || 10);
-    });
-  }
-
-  const totalGender = maleCount + femaleCount + mixedCount || 1;
-  const gender = [
-    { name: "Male", count: maleCount, value: Math.round((maleCount / totalGender) * 100), color: "#6366f1" },
-    { name: "Female", count: femaleCount, value: Math.round((femaleCount / totalGender) * 100), color: "#ec4899" },
-    { name: "Mixed / Co-Ed", count: mixedCount, value: Math.round((mixedCount / totalGender) * 100), color: "#10b981" },
-  ];
-
-  const totalAge = kids + youth + adults + seniors || 1;
-  const ageGroups = [
-    { group: "Kids (<12 yrs)", count: kids, percentage: Math.round((kids / totalAge) * 100), color: "#38bdf8" },
-    { group: "Youth (12-18 yrs)", count: youth, percentage: Math.round((youth / totalAge) * 100), color: "#818cf8" },
-    { group: "Adults (19-45 yrs)", count: adults, percentage: Math.round((adults / totalAge) * 100), color: "#34d399" },
-    { group: "Seniors (45+ yrs)", count: seniors, percentage: Math.round((seniors / totalAge) * 100), color: "#fbbf24" },
-  ];
-
-  const blockColors = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
-  const blockDistribution = Object.entries(blockMap).length > 0
-    ? Object.entries(blockMap)
-        .map(([block, players], i) => ({
-          block,
-          players,
-          color: blockColors[i % blockColors.length],
-        }))
-        .sort((a, b) => b.players - a.players)
-        .slice(0, 6)
-    : [
-        { block: "Tower A (Skyline)", players: 48, color: "#6366f1" },
-        { block: "Tower B (Emerald)", players: 62, color: "#10b981" },
-        { block: "Tower C (Harmony)", players: 39, color: "#f59e0b" },
-        { block: "Tower D (Pinnacle)", players: 54, color: "#ec4899" },
-        { block: "Villas & Rowhouses", players: 28, color: "#8b5cf6" },
-      ];
-
-  return { gender, ageGroups, blockDistribution };
-}
-
-function computeVenueUtilization(events: AdminEventRow[]): VenueUtilizationEntry[] {
-  const venueCounts: Record<string, { count: number; city?: string }> = {};
-
-  events.forEach((ev) => {
-    const vName = ev.venue?.name || (ev as any).venueName || "Main Arena";
-    const vCity = ev.venue?.city || (ev as any).venueCity || "Clubhouse";
-    if (!venueCounts[vName]) venueCounts[vName] = { count: 0, city: vCity };
-    venueCounts[vName].count += 1;
+    const rows = [...teams.entries()].map(([team, row]) => ({ rank: 0, team, ...row, pct: row.w + row.l + row.d ? row.w / (row.w + row.l + row.d) : 0, form: row.form.slice(-5) }))
+      .sort((a, b) => b.pts - a.pts || b.pct - a.pct).map((row, index) => ({ ...row, rank: index + 1 }));
+    if (rows.length) result[config.tournamentName || config.eventName || `Tournament ${config.id}`] = rows;
   });
-
-  const total = Object.values(venueCounts).reduce((a, b) => a + b.count, 0) || 1;
-
-  const entries = Object.entries(venueCounts).map(([name, data]) => ({
-    name,
-    eventsCount: data.count,
-    percentage: Math.round((data.count / total) * 100),
-    city: data.city,
-  })).sort((a, b) => b.eventsCount - a.eventsCount);
-
-  if (entries.length === 0) {
-    return [
-      { name: "Main Sports Complex", eventsCount: events.length || 1, percentage: 100, city: "Clubhouse" },
-    ];
-  }
-
-  return entries;
+  return result;
 }
-
-function computeSportLeaders(
-  overview: SportsAdminOverview,
-  sportNames: string[],
-  matchesByConfig: Map<number, any[]>
-): Record<string, SportLeaderEntry[]> {
-  const allRegistrations = [
-    ...(overview.confirmedRegistrations || []),
-    ...(overview.pendingRegistrations || []),
-  ];
-
-  const leadersBySport: Record<string, SportLeaderEntry[]> = {};
-
-  // Group player registrations by sport
-  const sportPlayerMap: Record<string, Map<string, { name: string; count: number; role?: string; flat?: string }>> = {};
-
-  allRegistrations.forEach((reg: any) => {
-    const sName = reg.sportName || reg.event?.sport?.name || "General";
-    if (!sportPlayerMap[sName]) sportPlayerMap[sName] = new Map();
-
-    const pName = reg.playerName || (reg.user?.fullName) || "Player";
-    const existing = sportPlayerMap[sName].get(pName) || { name: pName, count: 0, role: reg.role, flat: reg.flatNumber };
-    existing.count += 1;
-    if (reg.role) existing.role = reg.role;
-    sportPlayerMap[sName].set(pName, existing);
-  });
-
-  sportNames.forEach((s) => {
-    const pMap = sportPlayerMap[s];
-    if (pMap && pMap.size > 0) {
-      const sorted = Array.from(pMap.values()).sort((a, b) => b.count - a.count);
-      leadersBySport[s] = sorted.slice(0, 4).map((p, idx) => ({
-        rank: idx + 1,
-        name: p.name,
-        category: p.role || (idx === 0 ? "Top Seed" : "Enrolled Athlete"),
-        metricLabel: "Events",
-        metricValue: p.count,
-        subMetric: p.flat ? `Flat: ${p.flat}` : "Active",
-        sport: s,
-        avatar: getInitials(p.name),
-        color: GRADIENT_CLASSES[idx % GRADIENT_CLASSES.length],
-      }));
-    } else {
-      // Dynamic fallback based on sport name
-      leadersBySport[s] = [
-        {
-          rank: 1,
-          name: `${s} Champion`,
-          category: "Premier Division",
-          metricLabel: "Status",
-          metricValue: "Open Tier",
-          subMetric: "Leaderboard Active",
-          sport: s,
-          avatar: s.slice(0, 2).toUpperCase(),
-          color: GRADIENT_CLASSES[0],
-        },
-      ];
-    }
-  });
-
-  return leadersBySport;
-}
-
-function computeStandings(
-  configs: ConfigInfo[],
-  matchesByConfig: Map<number, any[]>,
-): Record<string, StandingRow[]> {
-  const standings: Record<string, StandingRow[]> = {};
-
-  configs.forEach((cfg) => {
-    const matches = matchesByConfig.get(cfg.id) || [];
-    if (matches.length === 0) return;
-
-    const label = cfg.tournamentName || cfg.eventName || `Tournament #${cfg.id}`;
-    const teamMap: Record<string, { w: number; l: number; d: number; pts: number; form: ("W" | "L" | "D")[] }> = {};
-
-    matches.forEach((m: any) => {
-      const homeTeam = m.homeTeamName || m.homeTeam || m.team1Name || m.team1 || "";
-      const awayTeam = m.awayTeamName || m.awayTeam || m.team2Name || m.team2 || "";
-      const homeScore = m.homeScore ?? m.team1Score ?? m.score1 ?? null;
-      const awayScore = m.awayScore ?? m.team2Score ?? m.score2 ?? null;
-
-      if (!homeTeam || !awayTeam) return;
-      if (!teamMap[homeTeam]) teamMap[homeTeam] = { w: 0, l: 0, d: 0, pts: 0, form: [] };
-      if (!teamMap[awayTeam]) teamMap[awayTeam] = { w: 0, l: 0, d: 0, pts: 0, form: [] };
-
-      if (homeScore !== null && awayScore !== null) {
-        const hs = Number(homeScore);
-        const as = Number(awayScore);
-        if (!isNaN(hs) && !isNaN(as)) {
-          const ptsWin = cfg.pointsForWin ?? 3;
-          const ptsDraw = cfg.pointsForDraw ?? 1;
-          const ptsLoss = cfg.pointsForLoss ?? 0;
-
-          if (hs > as) {
-            teamMap[homeTeam].w += 1;
-            teamMap[homeTeam].pts += ptsWin;
-            teamMap[homeTeam].form.push("W");
-            teamMap[awayTeam].l += 1;
-            teamMap[awayTeam].pts += ptsLoss;
-            teamMap[awayTeam].form.push("L");
-          } else if (hs < as) {
-            teamMap[awayTeam].w += 1;
-            teamMap[awayTeam].pts += ptsWin;
-            teamMap[awayTeam].form.push("W");
-            teamMap[homeTeam].l += 1;
-            teamMap[homeTeam].pts += ptsLoss;
-            teamMap[homeTeam].form.push("L");
-          } else {
-            teamMap[homeTeam].d += 1;
-            teamMap[homeTeam].pts += ptsDraw;
-            teamMap[homeTeam].form.push("D");
-            teamMap[awayTeam].d += 1;
-            teamMap[awayTeam].pts += ptsDraw;
-            teamMap[awayTeam].form.push("D");
-          }
-        }
-      }
-    });
-
-    const rows: StandingRow[] = Object.entries(teamMap)
-      .map(([team, stat]) => {
-        const total = stat.w + stat.l + stat.d;
-        return {
-          rank: 0,
-          team,
-          w: stat.w,
-          l: stat.l,
-          d: stat.d,
-          pts: stat.pts,
-          pct: total > 0 ? stat.w / total : 0,
-          form: stat.form.slice(-5),
-        };
-      })
-      .sort((a, b) => b.pts - a.pts || b.pct - a.pct)
-      .map((r, i) => ({ ...r, rank: i + 1 }));
-
-    if (rows.length > 0) {
-      standings[label] = rows;
-    }
-  });
-
-  return standings;
-}
-
-function computeTopPerformers(
-  dashboard: SportsDashboardResponse,
-  overview: SportsAdminOverview,
-): TopPerformerEntry[] {
-  const allCards = [...dashboard.openRegistrations, ...dashboard.closedRegistrations];
-
-  const eventPerformers: TopPerformerEntry[] = allCards
-    .filter((c) => c.maxParticipants && c.maxParticipants > 0)
-    .sort((a, b) => (b.maxParticipants || 0) - (a.maxParticipants || 0))
-    .slice(0, 5)
-    .map((card, i) => ({
-      rank: i + 1,
-      name: card.name,
-      eventName: card.sportName || "Event",
-      sport: card.sportName || "Sports",
-      eventsCount: card.maxParticipants || 0,
-      label: "Max Players",
-      avatar: getInitials(card.name),
-      color: GRADIENT_CLASSES[i % GRADIENT_CLASSES.length],
-    }));
-
-  if (eventPerformers.length === 0 && dashboard.myRegistrations.length > 0) {
-    return dashboard.myRegistrations.slice(0, 5).map((reg: DashboardMyRegistration, i: number) => ({
-      rank: i + 1,
-      name: reg.eventName || "Event",
-      eventName: reg.sportName || "Sport",
-      sport: reg.sportName || "Sports",
-      eventsCount: 1,
-      label: reg.status || "Registered",
-      avatar: getInitials(reg.eventName || "EV"),
-      color: GRADIENT_CLASSES[i % GRADIENT_CLASSES.length],
-    }));
-  }
-
-  return eventPerformers;
-}
-
-// ── Main aggregation ─────────────────────────────────────────────────────────
 
 export const analyticsService = {
   async getAnalyticsData(filter?: { timeRange?: string; sport?: string }): Promise<AnalyticsData> {
-    const [stats, upcoming, openTournaments, closedTournaments, myRegistrations, overview, configs, scheduleStats] = await Promise.all([
-      sportsDashboardService.getStats(),
-      sportsDashboardService.getUpcomingEvents(),
-      sportsDashboardService.getOpenTournaments(),
-      sportsDashboardService.getClosedTournaments(),
-      sportsDashboardService.getMyRegistrations(),
+    const [overview, configResult, auctionResult, eventPageResult] = await Promise.all([
       sportsAdminService.getOverview(),
-      tournamentService.getConfigs().catch(() => [] as ConfigInfo[]),
-      sportsService.getScheduleStats().catch(() => ({ totalGames: 0, liveNow: 0, upcoming: 0, completed: 0 })),
+      tournamentService.getConfigsForAnalytics().then((configs) => ({ configs, available: true })).catch(() => ({ configs: [] as ConfigInfo[], available: false })),
+      auctionService.getAllCommunityConfigs().then((configs) => ({ configs, available: true })).catch(() => ({ configs: [] as AuctionConfigResponse[], available: false })),
+      sportsEventService.getAllSportsEventsPaged().then((events) => ({ events, available: true })).catch(() => ({ events: [] as SportsEvent[], available: false })),
     ]);
-
-    const openRegistrations = openTournaments.flatMap(t => t.events);
-    const closedRegistrations = closedTournaments.flatMap(t => t.events);
-
-    const dashboard: SportsDashboardResponse = {
-      stats,
-      openRegistrations,
-      closedRegistrations,
-      myUpcomingEvents: upcoming,
-      myRegistrations,
-      openTournaments,
-    };
-
-    // Filter events if sport filter is applied
-    let filteredEvents = overview.events;
-    if (filter?.sport && filter.sport !== "ALL") {
-      filteredEvents = filteredEvents.filter(
-        (ev) => ev.sport?.name?.toLowerCase() === filter.sport?.toLowerCase()
-      );
-    }
-
-    // Extract unique sport names from events
-    const sportNameSet = new Set<string>();
-    overview.events.forEach((ev: AdminEventRow) => {
-      if (ev.sport?.name) sportNameSet.add(ev.sport.name);
+    const now = new Date();
+    const dataWarnings: string[] = [];
+    const configs = configResult.configs;
+    const auctionConfigs = auctionResult.configs;
+    const pagedEvents = eventPageResult.events;
+    const completeEventListAvailable = eventPageResult.available && (pagedEvents.length > 0 || !(overview.events || []).length);
+    if (!completeEventListAvailable) dataWarnings.push("Could not load the full paginated sports event list. The dashboard is using the admin overview, which may omit venue details and is limited to 100 events.");
+    if (!configResult.available) dataWarnings.push("Tournament schedule configurations could not be loaded. Match and standings sections may be incomplete.");
+    if (!auctionResult.available) dataWarnings.push("Auction configurations could not be loaded. Team and squad records may be incomplete.");
+    // The admin overview intentionally returns lean registration rows with eventName/sportName,
+    // while the full event endpoint includes venue details and is paginated (the overview caps at 100).
+    const sourceEvents: AdminEventRow[] = pagedEvents.length ? pagedEvents.map((event) => {
+      const fullEvent = event as SportsEvent & { tournamentId?: number | null };
+      return {
+        id: event.id, name: event.name, eventDateStart: event.eventDateStart || null, eventDateEnd: event.eventDateEnd || null,
+        format: event.format || null, tournamentType: typeof event.tournamentType === "string" ? event.tournamentType : null,
+        gender: event.gender || null, minAge: event.minAge ?? null, maxAge: event.maxAge ?? null, maxParticipants: event.maxParticipants ?? null,
+        registrationStatus: (event as any).registrationStatus || (event as any).status || event.tournament?.registrationStatus || null, auctionStatus: event.auctionStatus || null,
+        sport: event.sport ? { name: event.sport.name || event.sportName || null, icon: event.sport.icon || null, iconUrl: event.sport.iconUrl || null } : event.sportName ? { name: event.sportName, icon: null, iconUrl: null } : null,
+        tournamentId: fullEvent.tournamentId ?? event.tournament?.id ?? null,
+        venue: event.venue ? { name: event.venue.name, city: event.venue.city } : event.venueName ? { name: event.venueName } : null,
+      };
+    }) : overview.events || [];
+    const summaryRegistrations: AdminRegistrationRow[] = [...(overview.confirmedRegistrations || []), ...(overview.pendingRegistrations || [])]
+      .filter((registration) => !statusIs(registration.status, "WITHDRAWN", "REJECTED"));
+    const normalize = (value: string | null | undefined) => String(value || "").trim().toLowerCase();
+    const summaryKey = (name: string | null | undefined, sport: string | null | undefined) => `${normalize(name)}|${normalize(sport)}`;
+    const eventGroups = new Map<string, AdminEventRow[]>();
+    sourceEvents.forEach((event) => { const key = summaryKey(event.name, event.sport?.name); eventGroups.set(key, [...(eventGroups.get(key) || []), event]); });
+    const ambiguousKeys = new Set([...eventGroups.entries()].filter(([, grouped]) => grouped.length > 1).map(([key]) => key));
+    const ambiguousEvents = sourceEvents.filter((event) => ambiguousKeys.has(summaryKey(event.name, event.sport?.name)));
+    // The overview DTO has no eventId on registrations. For duplicate event/sport names only,
+    // use the event-specific registration route to preserve the correct event association.
+    const detailedRegistrationResults = await Promise.all(ambiguousEvents.map(async (event) => {
+      try { return { eventId: event.id, rows: await sportsEventService.getEventRegistrations(event.id), loaded: true }; }
+      catch { return { eventId: event.id, rows: [] as EventRegistration[], loaded: false }; }
+    }));
+    const detailedEventIds = new Set(detailedRegistrationResults.filter((result) => result.loaded).map((result) => result.eventId));
+    const fullyLoadedAmbiguousKeys = new Set([...eventGroups.entries()]
+      .filter(([key, grouped]) => ambiguousKeys.has(key) && grouped.every((event) => detailedEventIds.has(event.id)))
+      .map(([key]) => key));
+    const fullyLoadedAmbiguousEventIds = new Set([...fullyLoadedAmbiguousKeys].flatMap((key) => (eventGroups.get(key) || []).map((event) => event.id)));
+    const summaryRowsMapped: EventRegistration[] = summaryRegistrations.flatMap((registration) => {
+      const key = summaryKey(registration.eventName, registration.sportName);
+      const candidates = eventGroups.get(key) || [];
+      const matchingEvent = candidates[0] || sourceEvents.filter((event) => normalize(event.name) === normalize(registration.eventName)).slice(0, 1)[0];
+      if (fullyLoadedAmbiguousKeys.has(key)) return [];
+      return [{
+        id: registration.id, playerName: registration.playerName || undefined, email: registration.email || undefined,
+        flatNumber: registration.flatNumber || undefined, relation: registration.relation || undefined, age: registration.age ?? undefined,
+        role: registration.role || undefined, status: (registration.status || "UNKNOWN") as EventRegistration["status"],
+        registeredAt: registration.registeredAt || undefined,
+        event: matchingEvent ? { id: matchingEvent.id, name: matchingEvent.name, sport: matchingEvent.sport ? { name: matchingEvent.sport.name } : undefined } as EventRegistration["event"] : undefined,
+        category: registration.role ? { name: registration.role } as NonNullable<EventRegistration["category"]> : undefined,
+      }];
     });
-    if (sportNameSet.size === 0) {
-      ["Badminton", "Cricket", "Table Tennis", "Football", "Tennis"].forEach(s => sportNameSet.add(s));
-    }
-    const sportNames = Array.from(sportNameSet).sort();
-    const sportColorMap = buildSportColorMap(sportNames);
+    const detailedRows = detailedRegistrationResults.filter((result) => fullyLoadedAmbiguousEventIds.has(result.eventId)).flatMap((result) => result.rows);
+    const unmatchedRegistrationCount = summaryRowsMapped.filter((registration) => !registration.event?.id).length;
+    if (unmatchedRegistrationCount) dataWarnings.push(`${unmatchedRegistrationCount} registration record(s) could not be linked to an event because the admin registration response does not include event IDs.`);
+    if (summaryRegistrations.length && summaryRowsMapped.some((registration) => !(registration as any).familyMember && !(registration.user as any)?.gender)) dataWarnings.push("The admin registration summary omits participant gender and family-member details, so some demographic breakdowns are unavailable.");
+    if ([...ambiguousKeys].some((key) => !fullyLoadedAmbiguousKeys.has(key))) dataWarnings.push("Some events share the same name and sport. Event-specific registration lookup was unavailable for one or more of them, so registration matching may be incomplete.");
+    const allRegistrations: EventRegistration[] = [...summaryRowsMapped, ...detailedRows]
+      .filter((registration) => !statusIs(registration.status, "WITHDRAWN", "REJECTED"));
+    const allSports = Array.from(new Set(sourceEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))).sort();
+    const colorMap = Object.fromEntries(allSports.map((sport, index) => [sport, SPORT_COLORS[index % SPORT_COLORS.length]]));
+    const matchesSport = (sport?: string | null) => !filter?.sport || filter.sport === "ALL" || String(sport || "").toLowerCase() === filter.sport.toLowerCase();
+    const events = sourceEvents.filter((event) => matchesSport(event.sport?.name) && inDateRange(event.eventDateStart, filter?.timeRange, now));
+    const eventIds = new Set(events.map((event) => Number(event.id)));
+    const eventMap = new Map(sourceEvents.map((event) => [Number(event.id), event]));
+    const registrations = allRegistrations.filter((row) => eventIds.has(Number(row.event?.id)));
+    const registrationsByEvent = new Map<number, EventRegistration[]>();
+    allRegistrations.forEach((row) => { const id = Number(row.event?.id); registrationsByEvent.set(id, [...(registrationsByEvent.get(id) || []), row]); });
+    const tournaments = (overview.tournaments || []).filter((tournament) => events.some((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL"));
+    const tournamentInventory: SportsAnalyticsTournamentRow[] = tournaments.map((tournament) => {
+      const relatedEvents = events.filter((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id));
+      return { id: tournament.id, name: tournament.name, status: label(tournament.registrationStatus), startDate: tournament.eventDateStart, endDate: tournament.eventDateEnd,
+        sports: [...new Set(relatedEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))], eventCount: relatedEvents.length,
+        registrations: relatedEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0) };
+    });
+    const eventInventory: SportsAnalyticsEventRow[] = events.map((event) => {
+      const entries = registrationsByEvent.get(Number(event.id)) || [];
+      return { id: event.id, tournament: tournaments.find((tournament) => tournament.id === event.tournamentId)?.name || "—", name: event.name,
+        sport: label(event.sport?.name), date: label(event.eventDateStart), venue: label(event.venue?.name), status: label(event.registrationStatus), capacity: event.maxParticipants,
+        registered: entries.length, confirmed: entries.filter((row) => statusIs(row.status, "REGISTERED", "CONFIRMED")).length, pending: entries.filter((row) => statusIs(row.status, "PENDING")).length };
+    });
+    const registrationInventory: SportsAnalyticsRegistrationRow[] = registrations.map((registration) => {
+      const event = eventMap.get(Number(registration.event?.id));
+      return { id: registration.id, participant: label(registration.playerName || (registration as any).familyMember?.name || registration.user?.fullName), relation: label(registration.relation || (registration as any).familyMember?.relation), event: label(event?.name),
+        tournament: tournaments.find((row) => row.id === event?.tournamentId)?.name || "—", sport: label(event?.sport?.name), category: label(registration.category?.name || registration.role),
+        status: registration.status, flat: label(registration.flatNumber), registeredAt: label(registration.registeredAt) };
+    });
 
-    // Fetch matches for each config
-    const activeConfigs = configs
-      .filter((c: ConfigInfo) => c.status === "PUBLISHED" || c.status === "DRAFT" || c.status === "LIVE")
-      .slice(0, 10);
+    const relatedConfigs = configs.filter((config) => matchesSport(config.sportName || eventMap.get(Number(config.eventId))?.sport?.name) &&
+      (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL")));
+    const matchResults = await Promise.all(relatedConfigs.map(async (config) => {
+      try { return { configId: config.id, matches: await tournamentService.getMatchesByConfigIdForAnalytics(config.id), loaded: true }; }
+      catch { return { configId: config.id, matches: [] as any[], loaded: false }; }
+    }));
+    if (matchResults.some((result) => !result.loaded)) dataWarnings.push("One or more saved match schedules could not be loaded from the tournament service.");
+    const matchesByConfig = new Map<number, any[]>(matchResults.map((result) => [result.configId, result.matches]));
+    const matchInventory: SportsAnalyticsMatchRow[] = relatedConfigs.flatMap((config) => (matchesByConfig.get(config.id) || []).filter((match: any) => inDateRange(match.scheduledAt || match.startTime || match.matchDate, filter?.timeRange, now)).map((match: any) => {
+      const event = eventMap.get(Number(config.eventId)); const homeScore = match.homeScore ?? match.team1Score ?? match.scoreTeamA ?? match.scoreA; const awayScore = match.awayScore ?? match.team2Score ?? match.scoreTeamB ?? match.scoreB;
+      return { id: match.id ?? match.matchId ?? `${config.id}-${match.matchNumber ?? "match"}`, tournament: label(config.tournamentName), event: label(config.eventName || event?.name), sport: label(config.sportName || event?.sport?.name),
+        stage: label(match.stage || match.roundName || match.round || match.matchType), homeTeam: label(match.homeTeamName || match.homeTeam?.name || match.teamA?.name || match.team1Name),
+        awayTeam: label(match.awayTeamName || match.awayTeam?.name || match.teamB?.name || match.team2Name), score: homeScore != null || awayScore != null ? `${homeScore ?? "—"} – ${awayScore ?? "—"}` : "—",
+        scheduledAt: label(match.scheduledAt || match.startTime || match.matchDate), venue: label(match.venueName || match.venue?.name), status: label(match.status) };
+    }));
+    const relatedAuctions = auctionConfigs.filter((config) => matchesSport(config.sportName) && (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL")));
+    const teamResults = await Promise.all(relatedAuctions.map(async (config) => {
+      try { return { config, teams: await auctionService.getTeamsSummary(config.id), loaded: true }; }
+      catch { return { config, teams: [] as AuctionTeam[], loaded: false }; }
+    }));
+    if (teamResults.some((result) => !result.loaded)) dataWarnings.push("One or more auction team rosters could not be loaded.");
+    const teamInventory: SportsAnalyticsTeamRow[] = teamResults.flatMap(({ config, teams }) => teams.map((team, index) => ({ id: team.id || config.id * 10000 + index, team: label(team.teamName || team.name),
+      tournament: label(config.seasonName), event: label(config.eventName || eventMap.get(Number(config.eventId))?.name), sport: label(config.sportName),
+      captain: label(team.captainUser?.fullName || team.ownerName || team.ownerUser?.fullName), players: (team.players || []).map((player) => player.name || player.playerName).filter((name): name is string => Boolean(name)), playerCount: (team.players || []).length })));
 
-    const matchResults = await Promise.all(
-      activeConfigs.map((c: ConfigInfo) =>
-        tournamentService
-          .getMatchesByConfigId(c.id)
-          .then((matches) => [c.id, matches] as [number, any[]])
-          .catch(() => [c.id, []] as [number, any[]]),
-      ),
-    );
-    const matchesByConfig = new Map<number, any[]>(matchResults);
-
-    // Compute all analytics
-    const kpis = computeKPIs(dashboard, overview, scheduleStats, filteredEvents);
-    const monthlyEvents = computeMonthlyEvents(filteredEvents, sportNames);
-    const sportShare = computeSportShare(filteredEvents, sportNames, sportColorMap);
-    const participationTrend = computeParticipationTrend(dashboard.myRegistrations, filteredEvents);
-    const demographics = computeDemographics(overview, filteredEvents);
-    const venueUtilization = computeVenueUtilization(filteredEvents);
-    const sportLeaders = computeSportLeaders(overview, sportNames, matchesByConfig);
-    const standings = computeStandings(activeConfigs, matchesByConfig);
-    const topPerformers = computeTopPerformers(dashboard, overview);
-
+    const sportNames = filter?.sport && filter.sport !== "ALL" ? [filter.sport] : allSports;
+    const eventsBySport: Record<string, number> = {}; sportNames.forEach((sport) => eventsBySport[sport] = 0);
+    events.forEach((event) => { if (event.sport?.name) eventsBySport[event.sport.name] = (eventsBySport[event.sport.name] || 0) + 1; });
+    const eventTotal = events.length;
+    const sportShare = sportNames.map((name) => ({ name, count: eventsBySport[name] || 0, value: eventTotal ? Math.round((eventsBySport[name] || 0) / eventTotal * 100) : 0, color: colorMap[name] || SPORT_COLORS[0] })).filter((row) => row.count > 0).sort((a, b) => b.count - a.count);
+    const monthlyActivity = new Map<string, { events: number; players: Set<string>; sports: Record<string, number> }>();
+    const monthActivity = (date: Date) => {
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthlyActivity.has(key)) monthlyActivity.set(key, { events: 0, players: new Set(), sports: Object.fromEntries(sportNames.map((sport) => [sport, 0])) });
+      return monthlyActivity.get(key)!;
+    };
+    events.forEach((event) => { if (!event.eventDateStart || !event.sport?.name) return; const date = new Date(event.eventDateStart); if (!Number.isNaN(date.getTime())) { const activity = monthActivity(date); activity.events++; activity.sports[event.sport.name] = (activity.sports[event.sport.name] || 0) + 1; } });
+    registrations.forEach((row) => { if (!row.registeredAt || !inDateRange(row.registeredAt, filter?.timeRange, now)) return; const date = new Date(row.registeredAt); if (Number.isNaN(date.getTime())) return; monthActivity(date).players.add(String((row as any).familyMemberId ?? (row as any).participantUserId ?? row.user?.id ?? row.playerName ?? row.id)); });
+    const monthlyEvents: MonthlyEventRow[] = [...monthlyActivity.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, activity]) => {
+      const [year, month] = key.split("-").map(Number);
+      return { month: `${MONTHS[month - 1]} ${year}`, ...activity.sports };
+    });
+    const participationTrend = [...monthlyActivity.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, activity]) => {
+      const [year, month] = key.split("-").map(Number);
+      return { month: `${MONTHS[month - 1]} ${year}`, players: activity.players.size, events: activity.events };
+    });
+    const venueCounts = new Map<string, { count: number; city?: string }>();
+    events.forEach((event) => { if (!event.venue?.name) return; const existing = venueCounts.get(event.venue.name); venueCounts.set(event.venue.name, { count: (existing?.count || 0) + 1, city: event.venue.city || existing?.city }); });
+    const venueUtilization = [...venueCounts].map(([name, value]) => ({ name, eventsCount: value.count, percentage: eventTotal ? Math.round(value.count / eventTotal * 100) : 0, city: value.city })).sort((a, b) => b.eventsCount - a.eventsCount);
+    const genderCounts = new Map<string, number>(); const ageCounts = [0, 0, 0, 0]; const flatCounts = new Map<string, number>();
+    registrations.forEach((row) => {
+      const gender = String((row as any).familyMember?.gender || (row.user as any)?.gender || "").toUpperCase();
+      if (!gender) return;
+      const genderLabel = gender.includes("FEMALE") || gender.includes("WOMEN") ? "Female" : gender.includes("MALE") || gender.includes("MEN") ? "Male" : gender.includes("MIXED") || gender === "ALL" ? "Mixed / all" : gender ? "Other" : "Not provided";
+      genderCounts.set(genderLabel, (genderCounts.get(genderLabel) || 0) + 1);
+      const age = Number(row.age);
+      const participantAge = row.age ?? (row as any).familyMember?.age;
+      if (participantAge != null && Number.isFinite(Number(participantAge)) && Number(participantAge) >= 0) ageCounts[Number(participantAge) <= 12 ? 0 : Number(participantAge) <= 18 ? 1 : Number(participantAge) < 45 ? 2 : 3]++;
+      if (row.flatNumber?.trim()) flatCounts.set(row.flatNumber.trim(), (flatCounts.get(row.flatNumber.trim()) || 0) + 1);
+    });
+    const genderPalette = ["#6366f1", "#ec4899", "#10b981", "#94a3b8"];
+    const totalGender = [...genderCounts.values()].reduce((sum, value) => sum + value, 0);
+    const demographics: DemographicsData = {
+      gender: [...genderCounts].map(([name, count], index) => ({ name, count, value: totalGender ? Math.round(count / totalGender * 100) : 0, color: genderPalette[index % genderPalette.length] })),
+      ageGroups: ["0–12", "13–18", "19–44", "45+"].map((group, index) => ({ group, count: ageCounts[index], percentage: ageCounts.reduce((sum, value) => sum + value, 0) ? Math.round(ageCounts[index] / ageCounts.reduce((sum, value) => sum + value, 0) * 100) : 0, color: ["#38bdf8", "#818cf8", "#34d399", "#fbbf24"][index] })).filter((item) => item.count > 0),
+      blockDistribution: [...flatCounts].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([block, players], index) => ({ block, players, color: ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"][index] })),
+    };
+    const leaders: Record<string, SportLeaderEntry[]> = {};
+    sportNames.forEach((sport) => { const people = new Map<string, { name: string; count: number; flat?: string }>(); registrations.filter((row) => (eventMap.get(Number(row.event?.id))?.sport?.name || row.event?.sport?.name) === sport).forEach((row) => { const name = row.playerName || row.user?.fullName; if (!name) return; const item = people.get(name) || { name, count: 0, flat: row.flatNumber }; item.count++; people.set(name, item); }); leaders[sport] = [...people.values()].sort((a, b) => b.count - a.count).slice(0, 5).map((person, index) => ({ rank: index + 1, name: person.name, category: "Registered participant", metricLabel: "registrations", metricValue: person.count, subMetric: person.flat ? `Flat ${person.flat}` : undefined, sport, avatar: initials(person.name), color: GRADIENT_CLASSES[index % GRADIENT_CLASSES.length] })); });
+    const totalGames = matchInventory.length; const completed = matchInventory.filter((match) => statusIs(match.status, "COMPLETED", "FINISHED", "RESULT_RECORDED")).length;
+    const participants = new Set(registrations.map((row) => String((row as any).familyMember?.id ?? (row as any).familyMemberId ?? (row as any).participantUserId ?? row.user?.id ?? row.playerName ?? row.id)));
+    const capacityEvents = events.filter((event) => Number(event.maxParticipants) > 0); const capacity = capacityEvents.reduce((sum, event) => sum + Number(event.maxParticipants || 0), 0);
+    const capacityFillRate = capacity ? Math.min(100, Math.round(capacityEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0) / capacity * 100)) : 0;
     return {
-      kpis,
-      monthlyEvents,
-      sportShare,
-      participationTrend,
-      demographics,
-      venueUtilization,
-      sportLeaders,
-      standings,
-      topPerformers,
-      sportNames,
-      sportColorMap,
+      kpis: { totalEvents: events.length, activePlayers: participants.size, liveEvents: matchInventory.filter((match) => statusIs(match.status, "LIVE", "IN_PROGRESS")).length, totalTournaments: tournamentInventory.length,
+        openRegistrations: events.filter((event) => statusIs(event.registrationStatus, "OPEN", "REGISTRATION_OPEN")).length, yourRegistrations: registrations.length, matchCompletionRate: totalGames ? Math.round(completed / totalGames * 100) : 0, capacityFillRate, capacityTracked: capacity > 0, totalMatches: totalGames },
+      monthlyEvents, sportShare, participationTrend, demographics, venueUtilization, sportLeaders: leaders,
+      standings: makeStandings(relatedConfigs, matchesByConfig), sportNames, sportColorMap: colorMap, eventInventory, tournamentInventory, registrationInventory, matchInventory, teamInventory, dataWarnings,
     };
   },
 };
