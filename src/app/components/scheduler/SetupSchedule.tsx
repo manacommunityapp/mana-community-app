@@ -302,7 +302,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
-  const [scheduleViewMode, setScheduleViewMode] = useState<'visual' | 'table'>('visual');
+  const [scheduleViewMode, setScheduleViewMode] = useState<'visual' | 'list' | 'table'>('visual');
   const [useCustomNames, setUseCustomNames] = useState(false);
   const [customParticipantNames, setCustomParticipantNames] = useState('');
   const [playoffsGenerated, setPlayoffsGenerated] = useState(false);
@@ -3053,7 +3053,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <div className="flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => setScheduleViewMode('visual')}
+                  onClick={() => {
+                    setScheduleViewMode('visual');
+                    setPlayoffViewMode('bracket');
+                  }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
                     scheduleViewMode === 'visual'
                       ? 'bg-white text-indigo-700 shadow-sm'
@@ -3061,6 +3064,20 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   }`}
                 >
                   <span>🌲 Visual Draw & Bracket</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScheduleViewMode('list');
+                    setPlayoffViewMode('list');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer border-none ${
+                    scheduleViewMode === 'list'
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                  }`}
+                >
+                  <span>📄 List View</span>
                 </button>
                 <button
                   type="button"
@@ -3109,8 +3126,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             </div>
           )}
 
-          {/* Visual View (Group Fixtures & Playoff Bracket) */}
-          {scheduleViewMode === 'visual' && (
+          {/* Visual & List View (Group Fixtures & Playoff Bracket) */}
+          {(scheduleViewMode === 'visual' || scheduleViewMode === 'list') && (
             <>
               {/* Match fixtures — Group Stage or Round Robin */}
           {(isGroupKnockout || isRoundRobin) && (
@@ -3291,7 +3308,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
                     <button
                       type="button"
-                      onClick={() => setPlayoffViewMode('bracket')}
+                      onClick={() => {
+                        setPlayoffViewMode('bracket');
+                        setScheduleViewMode('visual');
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
                       style={playoffViewMode === 'bracket'
                         ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
@@ -3301,7 +3321,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPlayoffViewMode('list')}
+                      onClick={() => {
+                        setPlayoffViewMode('list');
+                        setScheduleViewMode('list');
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
                       style={playoffViewMode === 'list'
                         ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
