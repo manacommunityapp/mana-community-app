@@ -12,14 +12,17 @@ import {
   Shield, 
   Trophy,
   Filter,
-  Users
+  Users,
+  Download
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import type { FixtureTableRow } from './FixturesTableView';
+import { rankStage, exportListViewToPDF } from '../../../utils/sportsExportUtils';
 
 export interface FixturesListViewProps {
   fixtures: FixtureTableRow[];
   onEditMatch: (fixture: FixtureTableRow) => void;
+  onExportPDF?: () => void;
   sportName?: string;
 }
 
@@ -122,6 +125,75 @@ export function getRoundTheme(stageName: string): RoundTheme {
       pillBg: 'bg-sky-600',
       pillText: 'text-white',
       icon: '🎯',
+    };
+  }
+
+
+  // Numbered Rounds: Round 1 / 1st Round - Light Mint / Emerald
+  if (/\b(round\s*0?1|1st\s*round|first\s*round|r1)\b/i.test(s)) {
+    return {
+      name: stageName,
+      badgeBg: 'bg-emerald-100',
+      badgeBorder: 'border-emerald-300',
+      badgeText: 'text-emerald-900',
+      headerBg: 'bg-gradient-to-r from-emerald-50 via-teal-50/70 to-emerald-50/40',
+      headerBorder: 'border-emerald-200',
+      cardBorder: 'hover:border-emerald-400',
+      accentGradient: 'from-emerald-400 via-emerald-500 to-teal-500',
+      pillBg: 'bg-emerald-600',
+      pillText: 'text-white',
+      icon: '🌱',
+    };
+  }
+
+  // Round 2 / 2nd Round - Light Sky / Cyan
+  if (/\b(round\s*0?2|2nd\s*round|second\s*round|r2)\b/i.test(s)) {
+    return {
+      name: stageName,
+      badgeBg: 'bg-sky-100',
+      badgeBorder: 'border-sky-300',
+      badgeText: 'text-sky-900',
+      headerBg: 'bg-gradient-to-r from-sky-50 via-cyan-50/70 to-sky-50/40',
+      headerBorder: 'border-sky-200',
+      cardBorder: 'hover:border-sky-400',
+      accentGradient: 'from-sky-400 via-cyan-500 to-blue-500',
+      pillBg: 'bg-sky-600',
+      pillText: 'text-white',
+      icon: '⚡',
+    };
+  }
+
+  // Round 3 / 3rd Round - Light Teal
+  if (/\b(round\s*0?3|3rd\s*round|third\s*round|r3)\b/i.test(s)) {
+    return {
+      name: stageName,
+      badgeBg: 'bg-teal-100',
+      badgeBorder: 'border-teal-300',
+      badgeText: 'text-teal-900',
+      headerBg: 'bg-gradient-to-r from-teal-50 via-cyan-50/70 to-teal-50/40',
+      headerBorder: 'border-teal-200',
+      cardBorder: 'hover:border-teal-400',
+      accentGradient: 'from-teal-400 via-teal-500 to-cyan-500',
+      pillBg: 'bg-teal-600',
+      pillText: 'text-white',
+      icon: '🎯',
+    };
+  }
+
+  // Round 4 / 4th Round - Light Indigo / Blue
+  if (/\b(round\s*0?4|4th\s*round|fourth\s*round|r4)\b/i.test(s)) {
+    return {
+      name: stageName,
+      badgeBg: 'bg-indigo-100',
+      badgeBorder: 'border-indigo-300',
+      badgeText: 'text-indigo-900',
+      headerBg: 'bg-gradient-to-r from-indigo-50 via-blue-50/60 to-indigo-50/30',
+      headerBorder: 'border-indigo-200',
+      cardBorder: 'hover:border-indigo-400',
+      accentGradient: 'from-indigo-400 via-blue-500 to-violet-500',
+      pillBg: 'bg-indigo-600',
+      pillText: 'text-white',
+      icon: '💫',
     };
   }
 
@@ -263,8 +335,21 @@ export function getRoundTheme(stageName: string): RoundTheme {
 export function FixturesListView({
   fixtures,
   onEditMatch,
+  onExportPDF,
   sportName = 'Match',
 }: FixturesListViewProps) {
+  const handleDownloadPDF = () => {
+    if (onExportPDF) {
+      onExportPDF();
+    } else {
+      exportListViewToPDF(
+        filteredFixtures.length > 0 ? filteredFixtures : fixtures,
+        `${sportName} Fixtures Schedule (List View)`,
+        'Mana Community Sports',
+        sportName
+      );
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStage, setSelectedStage] = useState<string>('ALL');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
@@ -275,24 +360,6 @@ export function FixturesListView({
     fixtures.forEach(f => {
       if (f.stage) stageSet.add(f.stage);
     });
-
-    const rankStage = (name: string): number => {
-      const s = name.toLowerCase();
-      if (s.includes('group 1') || s.includes('group a')) return 10;
-      if (s.includes('group 2') || s.includes('group b')) return 11;
-      if (s.includes('group 3') || s.includes('group c')) return 12;
-      if (s.includes('group 4') || s.includes('group d')) return 13;
-      if (s.includes('group')) return 15;
-      if (s.includes('round robin') || s.includes('league')) return 18;
-      if (s.includes('round of 32') || s.includes('r32')) return 20;
-      if (s.includes('round of 16') || s.includes('r16')) return 30;
-      if (s.includes('quarter') || s.includes('qf')) return 40;
-      if (s.includes('semi') || s.includes('sf')) return 50;
-      if (s.includes('third') || s.includes('bronze') || s.includes('3rd')) return 60;
-      if (s.includes('final')) return 70;
-      return 90;
-    };
-
     return Array.from(stageSet).sort((a, b) => rankStage(a) - rankStage(b));
   }, [fixtures]);
 
@@ -341,23 +408,6 @@ export function FixturesListView({
       map.get(stage)!.push(f);
     });
 
-    const rankStage = (name: string): number => {
-      const s = name.toLowerCase();
-      if (s.includes('group 1') || s.includes('group a')) return 10;
-      if (s.includes('group 2') || s.includes('group b')) return 11;
-      if (s.includes('group 3') || s.includes('group c')) return 12;
-      if (s.includes('group 4') || s.includes('group d')) return 13;
-      if (s.includes('group')) return 15;
-      if (s.includes('round robin') || s.includes('league')) return 18;
-      if (s.includes('round of 32') || s.includes('r32')) return 20;
-      if (s.includes('round of 16') || s.includes('r16')) return 30;
-      if (s.includes('quarter') || s.includes('qf')) return 40;
-      if (s.includes('semi') || s.includes('sf')) return 50;
-      if (s.includes('third') || s.includes('bronze') || s.includes('3rd')) return 60;
-      if (s.includes('final')) return 70;
-      return 90;
-    };
-
     return Array.from(map.entries()).sort((a, b) => rankStage(a[0]) - rankStage(b[0]));
   }, [filteredFixtures]);
 
@@ -385,6 +435,19 @@ export function FixturesListView({
                 ✕
               </button>
             )}
+          </div>
+
+          {/* Download List View Button with Pastel Round Colors */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition cursor-pointer"
+              title="Download & Print colored round-by-round tournament list"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Download List View</span>
+            </button>
           </div>
 
           {/* Layout Mode Toggle: Cards vs Rows */}

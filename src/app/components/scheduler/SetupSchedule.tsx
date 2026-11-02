@@ -24,6 +24,7 @@ import {
   exportScheduleToPDF,
   exportUmpireScorecardsPDF,
   exportBracketToPDF,
+  exportListViewToPDF,
 } from '../../../utils/sportsExportUtils';
 import type { ExportableMatch } from '../../../utils/sportsExportUtils';
 import {
@@ -1894,6 +1895,21 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     exportUmpireScorecardsPDF(list, `${ev?.name || 'Tournament'} Umpire Scorecards`);
   };
 
+
+  const handleExportListViewPDF = () => {
+    if (allFixturesTableRows.length === 0) {
+      showWarning('No matches to export');
+      return;
+    }
+    const ev = events.find(e => e.id.toString() === selectedEvent);
+    exportListViewToPDF(
+      allFixturesTableRows,
+      `${ev?.name || 'Tournament'} Fixtures Schedule (List View)`,
+      'Mana Community Sports',
+      ev?.sportName || 'Tournament'
+    );
+  };
+
   const handleExportBracketPDF = () => {
     const playoffMatches = getPlayoffMatches();
     if (playoffMatches.length === 0) {
@@ -3171,6 +3187,25 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             <div className="flex flex-col">
                               <span className="font-bold text-indigo-900">Download Bracket Draw (PDF)</span>
                               <span className="text-[10px] text-indigo-600 font-normal">Landscape tournament tree draw</span>
+                            </div>
+                          </button>
+                        </>
+                      )}
+
+                      {scheduleViewMode === 'list' && (
+                        <>
+                          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-600 border-b border-indigo-100 bg-indigo-50/60 rounded-t-lg">
+                            Colored List View
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowDisplayExportMenu(false); handleExportListViewPDF(); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-indigo-950 bg-indigo-50/50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-left font-semibold border-none"
+                          >
+                            <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <div className="flex flex-col">
+                              <span className="font-bold text-indigo-900">Download List View (PDF)</span>
+                              <span className="text-[10px] text-indigo-600 font-normal">Colored round-by-round tournament list</span>
                             </div>
                           </button>
                         </>

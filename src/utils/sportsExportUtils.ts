@@ -353,6 +353,293 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
   triggerDownload(csv, `${sanitizedTitle}_${format(new Date(), "yyyyMMdd")}.csv`, "text/csv;charset=utf-8;");
 }
 
+
+export interface RoundExportTheme {
+  name: string;
+  bgHex: string;
+  borderHex: string;
+  textHex: string;
+  badgeBg: string;
+  badgeText: string;
+  accentBar: string;
+  icon: string;
+}
+
+export function rankStage(name: string): number {
+  const s = (name || '').toLowerCase().trim();
+
+  // 1. Group / Pool stages: Group A (11), Group B (12), etc.
+  if (s.includes('group 1') || s.includes('group a') || s.includes('pool a')) return 11;
+  if (s.includes('group 2') || s.includes('group b') || s.includes('pool b')) return 12;
+  if (s.includes('group 3') || s.includes('group c') || s.includes('pool c')) return 13;
+  if (s.includes('group 4') || s.includes('group d') || s.includes('pool d')) return 14;
+  if (s.includes('group 5') || s.includes('group e') || s.includes('pool e')) return 15;
+  if (s.includes('group 6') || s.includes('group f') || s.includes('pool f')) return 16;
+  if (s.includes('group') || s.includes('pool')) return 18;
+  if (s.includes('round robin') || s.includes('league')) return 19;
+
+  // 2. Explicit early rounds: Round 1, Round 2, Round 3...
+  if (/\b(round\s*0?1|1st\s*round|first\s*round|r1)\b/i.test(s)) return 21;
+  if (/\b(round\s*0?2|2nd\s*round|second\s*round|r2)\b/i.test(s)) return 22;
+  if (/\b(round\s*0?3|3rd\s*round|third\s*round|r3)\b/i.test(s)) return 23;
+  if (/\b(round\s*0?4|4th\s*round|fourth\s*round|r4)\b/i.test(s)) return 24;
+  if (/\b(round\s*0?5|5th\s*round|fifth\s*round|r5)\b/i.test(s)) return 25;
+  if (/\b(round\s*0?6|6th\s*round|sixth\s*round|r6)\b/i.test(s)) return 26;
+  if (/\b(round\s*0?7|7th\s*round|seventh\s*round|r7)\b/i.test(s)) return 27;
+  if (/\b(round\s*0?8|8th\s*round|eighth\s*round|r8)\b/i.test(s)) return 28;
+
+  // General "round X"
+  const m = s.match(/\bround\s*(\d+)\b/i);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    if (num === 128) return 30;
+    if (num === 64) return 32;
+    if (num === 32) return 34;
+    if (num === 16) return 36;
+    return 20 + num;
+  }
+
+  // 3. Named knockout stages
+  if (s.includes('128') || s.includes('round of 128')) return 30;
+  if (s.includes('64') || s.includes('round of 64')) return 32;
+  if (s.includes('32') || s.includes('round of 32') || s.includes('r32')) return 34;
+  if (s.includes('16') || s.includes('round of 16') || s.includes('r16') || s.includes('pre-quarter')) return 36;
+
+  // 4. Quarters, Semis, 3rd Place, Final
+  if (s.includes('quarter') || s.includes('qf')) return 40;
+  if (s.includes('semi') || s.includes('sf')) return 50;
+  if (s.includes('third') || s.includes('bronze') || s.includes('3rd')) return 60;
+  if (s.includes('final')) return 70;
+
+  return 85;
+}
+
+export function getRoundExportTheme(stageName: string): RoundExportTheme {
+  const s = (stageName || '').toLowerCase().trim();
+
+  // Final - Warm Gold / Amber
+  if (s.includes('final') && !s.includes('semi') && !s.includes('quarter') && !s.includes('third') && !s.includes('bronze')) {
+    return {
+      name: stageName,
+      bgHex: '#fef3c7',
+      borderHex: '#fcd34d',
+      textHex: '#92400e',
+      badgeBg: '#fde68a',
+      badgeText: '#78350f',
+      accentBar: '#f59e0b',
+      icon: '🏆',
+    };
+  }
+
+  // Semi-Final - Soft Purple / Indigo
+  if (s.includes('semi') || s.includes('sf')) {
+    return {
+      name: stageName,
+      bgHex: '#f3e8ff',
+      borderHex: '#d8b4fe',
+      textHex: '#6b21a8',
+      badgeBg: '#e9d5ff',
+      badgeText: '#581c87',
+      accentBar: '#a855f7',
+      icon: '⚔️',
+    };
+  }
+
+  // 3rd Place / Bronze - Light Coral / Rose
+  if (s.includes('third') || s.includes('bronze') || s.includes('3rd')) {
+    return {
+      name: stageName,
+      bgHex: '#ffe4e6',
+      borderHex: '#fda4af',
+      textHex: '#9f1239',
+      badgeBg: '#fecdd3',
+      badgeText: '#881337',
+      accentBar: '#f43f5e',
+      icon: '🥉',
+    };
+  }
+
+  // Quarter-Final - Light Sky / Cyan
+  if (s.includes('quarter') || s.includes('qf')) {
+    return {
+      name: stageName,
+      bgHex: '#e0f2fe',
+      borderHex: '#7dd3fc',
+      textHex: '#0369a1',
+      badgeBg: '#bae6fd',
+      badgeText: '#0c4a6e',
+      accentBar: '#0284c7',
+      icon: '🎯',
+    };
+  }
+
+  // Numbered Rounds: Round 1 / 1st Round
+  if (/\b(round\s*0?1|1st\s*round|first\s*round|r1)\b/i.test(s)) {
+    return {
+      name: stageName,
+      bgHex: '#dcfce7',
+      borderHex: '#86efac',
+      textHex: '#166534',
+      badgeBg: '#bbf7d0',
+      badgeText: '#14532d',
+      accentBar: '#22c55e',
+      icon: '🌱',
+    };
+  }
+
+  // Round 2 / 2nd Round
+  if (/\b(round\s*0?2|2nd\s*round|second\s*round|r2)\b/i.test(s)) {
+    return {
+      name: stageName,
+      bgHex: '#e0f2fe',
+      borderHex: '#7dd3fc',
+      textHex: '#0369a1',
+      badgeBg: '#bae6fd',
+      badgeText: '#0c4a6e',
+      accentBar: '#38bdf8',
+      icon: '⚡',
+    };
+  }
+
+  // Round 3 / 3rd Round
+  if (/\b(round\s*0?3|3rd\s*round|third\s*round|r3)\b/i.test(s)) {
+    return {
+      name: stageName,
+      bgHex: '#ccfbf1',
+      borderHex: '#5eead4',
+      textHex: '#115e59',
+      badgeBg: '#99f6e4',
+      badgeText: '#134e4a',
+      accentBar: '#14b8a6',
+      icon: '🎯',
+    };
+  }
+
+  // Round 4 / 4th Round
+  if (/\b(round\s*0?4|4th\s*round|fourth\s*round|r4)\b/i.test(s)) {
+    return {
+      name: stageName,
+      bgHex: '#e0e7ff',
+      borderHex: '#a5b4fc',
+      textHex: '#3730a3',
+      badgeBg: '#c7d2fe',
+      badgeText: '#312e81',
+      accentBar: '#6366f1',
+      icon: '💫',
+    };
+  }
+
+  // Round of 16 / Pre-Quarter
+  if (s.includes('16') || s.includes('round of 16') || s.includes('r16')) {
+    return {
+      name: stageName,
+      bgHex: '#d1fae5',
+      borderHex: '#6ee7b7',
+      textHex: '#065f46',
+      badgeBg: '#a7f3d0',
+      badgeText: '#064e3b',
+      accentBar: '#10b981',
+      icon: '⚡',
+    };
+  }
+
+  // Round of 32
+  if (s.includes('32') || s.includes('round of 32') || s.includes('r32')) {
+    return {
+      name: stageName,
+      bgHex: '#ccfbf1',
+      borderHex: '#5eead4',
+      textHex: '#115e59',
+      badgeBg: '#99f6e4',
+      badgeText: '#134e4a',
+      accentBar: '#14b8a6',
+      icon: '🏸',
+    };
+  }
+
+  // Group 1 / Pool A - Light Blue
+  if (s.includes('group 1') || s.includes('group a') || s.includes('pool a')) {
+    return {
+      name: stageName,
+      bgHex: '#dbeafe',
+      borderHex: '#93c5fd',
+      textHex: '#1e40af',
+      badgeBg: '#bfdbfe',
+      badgeText: '#1e3a8a',
+      accentBar: '#3b82f6',
+      icon: '🛡️',
+    };
+  }
+
+  // Group 2 / Pool B - Light Teal
+  if (s.includes('group 2') || s.includes('group b') || s.includes('pool b')) {
+    return {
+      name: stageName,
+      bgHex: '#ccfbf1',
+      borderHex: '#5eead4',
+      textHex: '#115e59',
+      badgeBg: '#99f6e4',
+      badgeText: '#134e4a',
+      accentBar: '#14b8a6',
+      icon: '🛡️',
+    };
+  }
+
+  // Group 3 / Pool C - Light Fuchsia
+  if (s.includes('group 3') || s.includes('group c') || s.includes('pool c')) {
+    return {
+      name: stageName,
+      bgHex: '#fae8ff',
+      borderHex: '#f0abfc',
+      textHex: '#86198f',
+      badgeBg: '#f5d0fe',
+      badgeText: '#701a75',
+      accentBar: '#d946ef',
+      icon: '🛡️',
+    };
+  }
+
+  // Group 4 / Pool D - Light Orange
+  if (s.includes('group 4') || s.includes('group d') || s.includes('pool d')) {
+    return {
+      name: stageName,
+      bgHex: '#ffedd5',
+      borderHex: '#fdba74',
+      textHex: '#9a3412',
+      badgeBg: '#fed7aa',
+      badgeText: '#7c2d12',
+      accentBar: '#f97316',
+      icon: '🛡️',
+    };
+  }
+
+  // Round Robin / League - Light Indigo
+  if (s.includes('round robin') || s.includes('league')) {
+    return {
+      name: stageName,
+      bgHex: '#e0e7ff',
+      borderHex: '#a5b4fc',
+      textHex: '#3730a3',
+      badgeBg: '#c7d2fe',
+      badgeText: '#312e81',
+      accentBar: '#6366f1',
+      icon: '🔄',
+    };
+  }
+
+  // Default / Other Stages - Clean Light Slate
+  return {
+    name: stageName,
+    bgHex: '#f1f5f9',
+    borderHex: '#cbd5e1',
+    textHex: '#334155',
+    badgeBg: '#e2e8f0',
+    badgeText: '#1e293b',
+    accentBar: '#64748b',
+    icon: '📋',
+  };
+}
+
 export function exportScheduleToExcel(matches: ExportableMatch[], title = "Tournament_Schedule") {
   const headers = [
     "Match #",
@@ -625,6 +912,364 @@ export function exportUmpireScorecardsPDF(matches: ExportableMatch[], title = "M
   setTimeout(() => {
     printWindow.print();
   }, 350);
+}
+
+// ─── 3.5. List View Fixtures Export with Round Colors ──────────────────────────
+
+export interface ExportableListFixture {
+  id?: string | number;
+  matchNumber?: string | number;
+  stage?: string;
+  roundName?: string;
+  date?: string | Date;
+  time?: string;
+  duration?: number;
+  venueName?: string;
+  courtName?: string;
+  home?: { id?: string; name: string; avatarUrl?: string; flatNumber?: string; seed?: number };
+  away?: { id?: string; name: string; avatarUrl?: string; flatNumber?: string; seed?: number };
+  team1?: string;
+  team2?: string;
+  status?: string;
+  conflicts?: string[];
+  isPlayoff?: boolean;
+}
+
+export function exportListViewToPDF(
+  fixtures: ExportableListFixture[],
+  title = "Tournament Schedule — List View",
+  communityName = "Mana Community",
+  sportName = "Tournament"
+) {
+  const printWindow = window.open("", "_blank", "width=1050,height=800");
+  if (!printWindow) {
+    alert("Please allow popups to print/export the tournament list");
+    return;
+  }
+
+  // 1. Group fixtures by stage/round
+  const stageMap = new Map<string, ExportableListFixture[]>();
+  fixtures.forEach(f => {
+    const stage = f.stage || f.roundName || "General Fixtures";
+    if (!stageMap.has(stage)) {
+      stageMap.set(stage, []);
+    }
+    stageMap.get(stage)!.push(f);
+  });
+
+  // 2. Sort stages in tournament chronological order:
+  // Round 1 -> Round 2 -> Round 3... -> Quarters -> Semis -> Final
+  const sortedStages = Array.from(stageMap.entries()).sort(
+    (a, b) => rankStage(a[0]) - rankStage(b[0])
+  );
+
+  let stagesHtml = "";
+  sortedStages.forEach(([stageName, stageMatches]) => {
+    const theme = getRoundExportTheme(stageName);
+
+    // Collect distinct dates
+    const dates = Array.from(
+      new Set(
+        stageMatches
+          .map(m => (m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : ""))
+          .filter(Boolean)
+      )
+    );
+    const datesSummary = dates.join(" · ");
+
+    const matchesHtml = stageMatches
+      .map(m => {
+        const mNum = m.matchNumber ?? "";
+        const mTime = m.time || "—";
+        const mDate = m.date ? (typeof m.date === "string" ? m.date : format(m.date, "dd-MMM-yyyy")) : "";
+        const courtVenue = [m.courtName, m.venueName].filter(Boolean).join(" · ") || "Main Arena";
+        const durationStr = m.duration ? `${m.duration}m` : "";
+
+        const t1 = m.home?.name || m.team1 || "TBD";
+        const t1Flat = m.home?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.home.flatNumber)}</span>` : "";
+        const t1Seed = m.home?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.home.seed)}</span>` : "";
+
+        const t2 = m.away?.name || m.team2 || "TBD";
+        const t2Flat = m.away?.flatNumber ? `<span class="unit-pill">${escapeHtml(m.away.flatNumber)}</span>` : "";
+        const t2Seed = m.away?.seed != null ? `<span class="seed-pill">#${escapeHtml(m.away.seed)}</span>` : "";
+
+        return `
+          <div class="fixture-card">
+            <div class="f-left">
+              <span class="m-num" style="background:${theme.bgHex}; color:${theme.textHex}; border:1px solid ${theme.borderHex};">
+                #${escapeHtml(mNum)}
+              </span>
+              <div class="f-timing">
+                <div class="time-main">${escapeHtml(mTime)} ${durationStr ? `<span class="duration-tag">${escapeHtml(durationStr)}</span>` : ""}</div>
+                <div class="date-venue">${escapeHtml(mDate)} · 📍 ${escapeHtml(courtVenue)}</div>
+              </div>
+            </div>
+
+            <div class="f-teams">
+              <div class="team team-home">
+                <span class="t-name">${escapeHtml(t1)}</span>
+                ${t1Flat}
+                ${t1Seed}
+              </div>
+
+              <div class="vs-badge" style="background:${theme.bgHex}; color:${theme.textHex}; border:1px solid ${theme.borderHex};">
+                VS
+              </div>
+
+              <div class="team team-away">
+                ${t2Seed}
+                ${t2Flat}
+                <span class="t-name">${escapeHtml(t2)}</span>
+              </div>
+            </div>
+
+            <div class="f-right">
+              <span class="status-badge">SCHEDULED</span>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    stagesHtml += `
+      <div class="round-block" style="border: 1.5px solid ${theme.borderHex};">
+        <div class="round-header" style="background:${theme.bgHex}; border-bottom:1.5px solid ${theme.borderHex}; color:${theme.textHex};">
+          <div class="round-title-wrap">
+            <span class="round-emoji">${theme.icon}</span>
+            <span class="round-title-text">${escapeHtml(stageName)}</span>
+            <span class="round-count-badge" style="background:${theme.badgeBg}; color:${theme.badgeText};">
+              ${stageMatches.length} ${stageMatches.length === 1 ? "Match" : "Matches"}
+            </span>
+          </div>
+          ${datesSummary ? `<div class="round-date-wrap">📅 ${escapeHtml(datesSummary)}</div>` : ""}
+        </div>
+        <div class="round-body">
+          ${matchesHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escapeHtml(title)} — Official Fixtures</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+    @media print {
+      body { margin: 0; padding: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .round-block { page-break-inside: avoid; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #0f172a;
+      background: #f8fafc;
+      margin: 0;
+      padding: 24px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1e1b4b;
+      margin: 0 0 3px 0;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .btn-print {
+      padding: 8px 16px;
+      background: #4f46e5;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .round-block {
+      background: white;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .round-header {
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .round-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .round-emoji {
+      font-size: 18px;
+    }
+    .round-title-text {
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .round-count-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 9999px;
+    }
+    .round-date-wrap {
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .round-body {
+      padding: 4px 8px;
+    }
+    .fixture-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      gap: 12px;
+    }
+    .fixture-card:last-child {
+      border-bottom: none;
+    }
+    .f-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 190px;
+    }
+    .m-num {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .f-timing {
+      display: flex;
+      flex-direction: column;
+    }
+    .time-main {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .duration-tag {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #64748b;
+      margin-left: 4px;
+    }
+    .date-venue {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .f-teams {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .team {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+    .team-home {
+      justify-content: flex-end;
+      text-align: right;
+    }
+    .team-away {
+      justify-content: flex-start;
+      text-align: left;
+    }
+    .t-name {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .unit-pill {
+      font-size: 9.5px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .seed-pill {
+      font-size: 9.5px;
+      background: #e0e7ff;
+      color: #4338ca;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .vs-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      flex-shrink: 0;
+    }
+    .f-right {
+      min-width: 80px;
+      text-align: right;
+    }
+    .status-badge {
+      font-size: 9.5px;
+      font-weight: 700;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar no-print">
+    <div>
+      <h1 class="brand-title">📋 ${escapeHtml(title)}</h1>
+      <div class="sub-title">${escapeHtml(communityName)} · Official ${escapeHtml(sportName)} List View Fixtures</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-print" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      <button class="btn-print" style="background:#64748b;" onclick="window.close()">✕ Close</button>
+    </div>
+  </div>
+
+  <div class="list-wrapper">
+    ${stagesHtml}
+  </div>
+</body>
+</html>`;
+
+  printWindow.document.write(content);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+  }, 400);
 }
 
 // ─── 4. Knockout Bracket Draw Export ──────────────────────────────────────────
