@@ -89,7 +89,7 @@ export function exportPlayersToCSV(players: ExportablePlayer[], title = "Player_
     ].join(",");
   });
 
-  const csv = [headers.join(","), ...rows].join("\r\n");
+  const csv = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
   const sanitizedTitle = title.replace(/[^a-zA-Z0-9_-]/g, "_");
   triggerDownload(csv, `${sanitizedTitle}_${format(new Date(), "yyyyMMdd")}.csv`, "text/csv;charset=utf-8;");
 }
@@ -348,7 +348,7 @@ export function exportScheduleToCSV(matches: ExportableMatch[], title = "Tournam
     ].join(",");
   });
 
-  const csv = [headers.join(","), ...rows].join("\r\n");
+  const csv = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
   const sanitizedTitle = title.replace(/[^a-zA-Z0-9_-]/g, "_");
   triggerDownload(csv, `${sanitizedTitle}_${format(new Date(), "yyyyMMdd")}.csv`, "text/csv;charset=utf-8;");
 }

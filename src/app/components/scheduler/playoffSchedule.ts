@@ -31,6 +31,8 @@ export type PlayoffMatchDraft = {
   moveSubsMatches: boolean;
   /** "AUTO_ADVANCED" for auto-advanced BYE matches; otherwise null/undefined. */
   status?: string | null;
+  /** Rest / court collision warnings if any. */
+  conflicts?: string[];
 };
 
 export type PlayoffScheduleInput = {

@@ -161,11 +161,18 @@ function MatchCard({
 
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
-        <div className="flex flex-row gap-1.5 items-center mt-1">
-          <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
-          <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
-            {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
-          </span>
+        <div className="flex flex-row items-center justify-between gap-1 mt-1">
+          <div className="flex flex-row gap-1.5 items-center min-w-0">
+            <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
+            <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
+              {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
+            </span>
+          </div>
+          {match.conflicts && match.conflicts.length > 0 && (
+            <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0" title={match.conflicts.join('\n')}>
+              ⚠️ Conflict
+            </span>
+          )}
         </div>
       )}
     </div>
