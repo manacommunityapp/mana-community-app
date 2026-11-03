@@ -18,6 +18,8 @@ import {
   Check,
   AlertCircle,
   Download,
+  Printer,
+  QrCode,
 } from "lucide-react";
 import {
   freshKitchenService,
@@ -37,6 +39,7 @@ export function VendorProductionCapacityView() {
   const [isTogglingSoldOut, setIsTogglingSoldOut] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [selectedBatchForQr, setSelectedBatchForQr] = useState<FoodProductionBatch | null>(null);
 
   // Edit Capacity Modal
   const [showEditCapacityModal, setShowEditCapacityModal] = useState(false);
@@ -400,6 +403,7 @@ export function VendorProductionCapacityView() {
                 <th className="py-3 px-4">Cold-Chain Temp</th>
                 <th className="py-3 px-4">QA Status</th>
                 <th className="py-3 px-4">Inspector / Signature</th>
+                <th className="py-3 px-4 text-center">Packaging Tag</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -443,6 +447,16 @@ export function VendorProductionCapacityView() {
                     <div className="font-mono text-[10px] text-slate-400">
                       {batch.releaseSignature || "AUTO-VERIFIED"}
                     </div>
+                  </td>
+                  <td className="py-3.5 px-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedBatchForQr(batch)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-xs transition-all"
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-emerald-400" />
+                      QR Tag
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -733,6 +747,133 @@ export function VendorProductionCapacityView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Batch QR Packaging Sticker Modal */}
+      {selectedBatchForQr && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black">Food Packaging QA Sticker</h4>
+                  <p className="text-[10px] text-slate-400">Printable cold-chain compliance tag</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedBatchForQr(null)}
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Sticker Body (Designed for physical thermal/adhesive label printing) */}
+            <div className="p-6">
+              <div
+                id="printable-batch-sticker"
+                className="border-2 border-dashed border-slate-300 rounded-2xl p-5 bg-gradient-to-b from-emerald-50/40 via-white to-slate-50 space-y-4"
+              >
+                {/* Brand & QA Banner */}
+                <div className="flex items-center justify-between border-b border-emerald-600/30 pb-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">
+                      Mana Fresh Kitchen QA
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-slate-800">
+                      FSSAI Lic. #11521018000452
+                    </span>
+                  </div>
+                  <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider uppercase">
+                    COLD CHAIN 2-4°C
+                  </span>
+                </div>
+
+                {/* Product & Batch Specs */}
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Product / Batch ID
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 leading-tight mt-0.5">
+                    {selectedBatchForQr.productName}
+                  </h3>
+                  <div className="font-mono text-xs font-bold text-emerald-800 mt-1">
+                    {selectedBatchForQr.batchNumber}
+                  </div>
+                </div>
+
+                {/* Cold-Chain Specs Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs bg-white rounded-xl p-3 border border-slate-200">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Storage Temp</span>
+                    <span className="font-black text-slate-800">
+                      {selectedBatchForQr.recordedTemp ? `${selectedBatchForQr.recordedTemp}°C` : "3.2°C"} (Target: 2-4°C)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Fermentation</span>
+                    <span className="font-black text-slate-800">
+                      {selectedBatchForQr.fermentationHours ? `${selectedBatchForQr.fermentationHours} Hours` : "Fresh Ground"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">pH Level</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      {selectedBatchForQr.phLevel ? selectedBatchForQr.phLevel.toFixed(1) : "4.4"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-semibold">QA Inspector</span>
+                    <span className="font-semibold text-slate-800 text-[11px] truncate block">
+                      {selectedBatchForQr.qaInspectorName}
+                    </span>
+                  </div>
+                </div>
+
+                {/* QR Code Graphic Box */}
+                <div className="bg-white border-2 border-slate-900 rounded-xl p-4 text-center space-y-2">
+                  <div className="w-28 h-28 mx-auto bg-slate-900 rounded-lg flex flex-col items-center justify-center p-2 text-white">
+                    <QrCode className="w-16 h-16 text-emerald-400" />
+                    <span className="text-[8px] font-mono font-bold tracking-widest text-emerald-300 mt-1">
+                      SCAN FOR TRACE
+                    </span>
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500 break-all">
+                    MANA-BATCH-{selectedBatchForQr.batchNumber}-VERIFIED
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-500 border-t border-slate-200 pt-2 font-mono">
+                  <span>Net Qty: {selectedBatchForQr.quantityProduced} {selectedBatchForQr.unit}</span>
+                  <span>Use Within: 72 Hours</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 mt-5">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-sm transition"
+                >
+                  <Printer className="w-4 h-4" />
+                  Print Adhesive Label
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBatchForQr(null)}
+                  className="py-3 px-5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-bold transition"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
