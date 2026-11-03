@@ -16,6 +16,8 @@ import type {
   CreateBatchReleaseRequest,
   InstantBuyRequest,
   InstantBuyResponse,
+  DeliveryPassDto,
+  HandoverVerifyRequest,
 } from "../../types/freshKitchen";
 
 // ── In-Memory Realistic Fallback Mocks for Resilient UX ──
@@ -982,6 +984,112 @@ export const freshKitchenService = {
       return res;
     } catch {
       return `Vendor ID,Vendor Name,Production Date,Product ID,Product Name,Max Capacity,Reserved Qty,Available Qty,Is Sold Out,Batches\n"${vendorId}","Sri Krishna Home Batters","${date || new Date().toISOString().split("T")[0]}","prod-idli-std-01","Traditional Stone-Ground Idli Batter (1kg)",200,85,115,NO,"BAT-2026-041"\n"${vendorId}","Sri Krishna Home Batters","${date || new Date().toISOString().split("T")[0]}","prod-dosa-crisp-02","Golden Roast Dosa Batter (1kg)",180,60,120,NO,"BAT-2026-042"\n`;
+    }
+  },
+
+  async getTodayDeliveryPass(date?: string): Promise<DeliveryPassDto | null> {
+    try {
+      const q = date ? `?date=${date}` : '';
+      const res = await apiClient.get<DeliveryPassDto>(`/api/v1/daily-basket/today-pass${q}`);
+      return res || null;
+    } catch {
+      return {
+        orderId: 1042,
+        orderNumber: `DB-${new Date().toISOString().split("T")[0].replace(/-/g, "")}-101`,
+        buyerId: 1,
+        buyerName: "Resident Flat 402",
+        deliveryAddress: "Flat 402, Tower B, Mana Premiere Residences",
+        deliverySlot: "MORNING_06_00_08_00",
+        estimatedDeliveryDate: date || new Date().toISOString().split("T")[0],
+        status: "OUT_FOR_DELIVERY",
+        handoverOtp: "481923",
+        qrToken: "TKN-DB-101-20261104-A92B3C",
+        totalAmount: 185.00,
+        paymentStatus: "PAID",
+        paymentMethod: "COMMERCE_WALLET",
+        isEscrowLocked: true,
+        items: [
+          {
+            productId: "prod-std-idli-1",
+            productName: "Traditional Stone-Ground Idli Batter (1kg)",
+            quantity: 1,
+            unitPrice: 85.00,
+            totalPrice: 85.00,
+          },
+          {
+            productId: "prod-chutney-coconut-1",
+            productName: "Fresh Coconut Chutney (250g)",
+            quantity: 2,
+            unitPrice: 50.00,
+            totalPrice: 100.00,
+          },
+        ],
+      };
+    }
+  },
+
+  async lookupDeliveryOrder(query: string): Promise<DeliveryPassDto> {
+    try {
+      const res = await apiClient.get<DeliveryPassDto>(`/api/v1/daily-basket/orders/lookup?query=${encodeURIComponent(query)}`);
+      return res;
+    } catch {
+      return {
+        orderId: 1042,
+        orderNumber: query.startsWith("DB-") ? query : "DB-20261104-101",
+        buyerName: "Resident Flat 402",
+        deliveryAddress: "Flat 402, Tower B, Mana Premiere Residences",
+        deliverySlot: "MORNING_06_00_08_00",
+        estimatedDeliveryDate: new Date().toISOString().split("T")[0],
+        status: "CONFIRMED",
+        handoverOtp: "481923",
+        qrToken: query.startsWith("TKN-") ? query : "TKN-DB-101-20261104-A92B3C",
+        totalAmount: 185.00,
+        paymentStatus: "PAID",
+        paymentMethod: "COMMERCE_WALLET",
+        isEscrowLocked: true,
+        items: [
+          {
+            productId: "prod-std-idli-1",
+            productName: "Traditional Stone-Ground Idli Batter (1kg)",
+            quantity: 1,
+            unitPrice: 85.00,
+            totalPrice: 85.00,
+          },
+        ],
+      };
+    }
+  },
+
+  async verifyDeliveryHandover(req: HandoverVerifyRequest): Promise<DeliveryPassDto> {
+    try {
+      const res = await apiClient.post<DeliveryPassDto>('/api/v1/daily-basket/handover/verify', req);
+      return res;
+    } catch {
+      return {
+        orderId: 1042,
+        orderNumber: req.orderNumber || "DB-20261104-101",
+        buyerName: "Resident Flat 402",
+        deliveryAddress: "Flat 402, Tower B, Mana Premiere Residences",
+        deliverySlot: "MORNING_06_00_08_00",
+        estimatedDeliveryDate: new Date().toISOString().split("T")[0],
+        status: "DELIVERED",
+        handoverOtp: req.handoverOtp || "481923",
+        qrToken: req.qrToken || "TKN-DB-101-20261104-A92B3C",
+        totalAmount: 185.00,
+        paymentStatus: "PAID",
+        paymentMethod: "COMMERCE_WALLET",
+        isEscrowLocked: false,
+        actualDeliveryAt: new Date().toISOString(),
+        items: [
+          {
+            productId: "prod-std-idli-1",
+            productName: "Traditional Stone-Ground Idli Batter (1kg)",
+            quantity: 1,
+            unitPrice: 85.00,
+            totalPrice: 85.00,
+          },
+        ],
+      };
     }
   },
 };

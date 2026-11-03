@@ -21,6 +21,10 @@ import {
   Home,
   ShieldAlert,
   ArrowRight,
+  QrCode,
+  KeyRound,
+  Copy,
+  ShieldCheck,
 } from "lucide-react";
 import { freshKitchenService } from "../../../services/fresh-kitchen/freshKitchenService";
 import type {
@@ -28,6 +32,7 @@ import type {
   DailyBasketItem,
   DayOfWeek,
   BasketExecutionMode,
+  DeliveryPassDto,
 } from "../../../types/freshKitchen";
 
 interface Props {
@@ -74,8 +79,13 @@ export function DailyBasketManager({ onExploreKitchen }: Props) {
   const [itemDaysDraft, setItemDaysDraft] = useState<DayOfWeek[]>([]);
   const [isSavingItemDays, setIsSavingItemDays] = useState(false);
 
+  // Today's Delivery Pass state
+  const [deliveryPass, setDeliveryPass] = useState<DeliveryPassDto | null>(null);
+  const [copiedOtp, setCopiedOtp] = useState(false);
+
   useEffect(() => {
     loadBasket();
+    loadDeliveryPass();
   }, []);
 
   const loadBasket = async () => {
@@ -90,6 +100,23 @@ export function DailyBasketManager({ onExploreKitchen }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDeliveryPass = async () => {
+    try {
+      const pass = await freshKitchenService.getTodayDeliveryPass();
+      setDeliveryPass(pass);
+    } catch {
+      // Normal when no order has been scheduled or generated for today
+      setDeliveryPass(null);
+    }
+  };
+
+  const handleCopyOtp = (otp: string) => {
+    navigator.clipboard.writeText(otp);
+    setCopiedOtp(true);
+    showToast("Handover PIN copied to clipboard!");
+    setTimeout(() => setCopiedOtp(false), 2500);
   };
 
   const showToast = (msg: string) => {
@@ -235,6 +262,168 @@ export function DailyBasketManager({ onExploreKitchen }: Props) {
         <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-emerald-800 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-600">
           <CheckCircle2 className="w-5 h-5 text-emerald-300 flex-shrink-0" />
           <span className="text-sm font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Today's Delivery Pass (Handover Verification Loop) */}
+      {deliveryPass && (
+        <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-900 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-emerald-500/30 space-y-6 relative overflow-hidden">
+          {/* Background Ambient Glow */}
+          <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Top Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-800/60 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black tracking-wider uppercase text-emerald-400">
+                    Live Morning Handover Pass
+                  </span>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase border ${
+                    deliveryPass.status === 'DELIVERED'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                      : deliveryPass.status === 'OUT_FOR_DELIVERY'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-400/40 animate-pulse'
+                      : 'bg-blue-500/20 text-blue-300 border-blue-400/40'
+                  }`}>
+                    {deliveryPass.status === 'DELIVERED'
+                      ? '✓ Delivered'
+                      : deliveryPass.status === 'OUT_FOR_DELIVERY'
+                      ? '🚚 Out for Delivery'
+                      : '📦 Confirmed for Delivery'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-white mt-0.5">
+                  Order #{deliveryPass.orderNumber}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs bg-black/30 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-emerald-500/20">
+              <Clock className="w-4 h-4 text-emerald-400" />
+              <div>
+                <div className="text-[10px] text-slate-400 font-semibold uppercase">Delivery Slot</div>
+                <div className="font-bold text-slate-200">
+                  {deliveryPass.deliverySlot || "06:00 AM - 07:30 AM"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Handover Content: OTP + QR Code */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* 6-Digit OTP Box */}
+            <div className="bg-slate-950/60 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                    <KeyRound className="w-4 h-4 text-emerald-400" />
+                    Doorstep Handover PIN / OTP
+                  </div>
+                  {deliveryPass.handoverOtp && (
+                    <button
+                      onClick={() => handleCopyOtp(deliveryPass.handoverOtp!)}
+                      className="flex items-center gap-1.5 text-xs text-emerald-300 hover:text-white bg-emerald-800/40 hover:bg-emerald-700/60 px-2.5 py-1 rounded-lg border border-emerald-500/30 transition-all font-semibold"
+                    >
+                      {copiedOtp ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedOtp ? "Copied" : "Copy PIN"}
+                    </button>
+                  )}
+                </div>
+
+                {deliveryPass.handoverOtp ? (
+                  <div className="flex items-center justify-center gap-2 my-2 py-3 bg-black/40 rounded-xl border border-emerald-500/20">
+                    {deliveryPass.handoverOtp.split("").map((digit, idx) => (
+                      <span
+                        key={idx}
+                        className="w-10 h-12 flex items-center justify-center text-2xl font-black text-emerald-300 bg-slate-900/90 rounded-xl border border-emerald-400/40 shadow-inner tracking-widest"
+                      >
+                        {digit}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-4 text-center text-xs text-slate-400">
+                    PIN will be generated upon morning dispatch.
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
+                Provide this 6-digit PIN to the delivery runner at your door to verify handover and release items.
+              </p>
+            </div>
+
+            {/* QR Token Box */}
+            <div className="bg-slate-950/60 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                    <QrCode className="w-4 h-4 text-emerald-400" />
+                    Runner QR Token
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400">Doorstep Scan</span>
+                </div>
+
+                <div className="bg-black/40 border border-emerald-500/20 rounded-xl p-3 text-center my-2">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">
+                    Digital Verification Token
+                  </div>
+                  <div className="font-mono text-xs sm:text-sm font-black text-emerald-200 tracking-wider break-all select-all">
+                    {deliveryPass.qrToken || "MANA-PASS-PENDING"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-emerald-300/80 mt-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>
+                  {deliveryPass.isEscrowLocked
+                    ? "Vendor payment locked in escrow until handover is verified."
+                    : "Escrow unlocked & settled to vendor."}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Delivery Items Summary */}
+          <div className="bg-black/30 rounded-2xl p-4 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+                Items in Basket:
+              </span>
+              {deliveryPass.items && deliveryPass.items.length > 0 ? (
+                deliveryPass.items.map((item, idx) => (
+                  <span
+                    key={idx}
+                    className="bg-emerald-950/80 border border-emerald-500/30 text-emerald-200 px-2.5 py-1 rounded-lg font-semibold text-xs"
+                  >
+                    {item.quantity}x {item.productName}
+                  </span>
+                ))
+              ) : (
+                <span className="text-slate-300 font-medium">Daily morning fresh selection</span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Paid</div>
+                <div className="text-sm font-black text-white">₹{deliveryPass.totalAmount}</div>
+              </div>
+              {deliveryPass.status === 'DELIVERED' && deliveryPass.actualDeliveryAt && (
+                <div className="text-right pl-3 border-l border-emerald-700/50">
+                  <div className="text-[10px] text-emerald-400 uppercase font-semibold">Delivered At</div>
+                  <div className="text-xs font-bold text-slate-200">
+                    {new Date(deliveryPass.actualDeliveryAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
