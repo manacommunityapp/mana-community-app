@@ -15,7 +15,7 @@ import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
   CREATE_EDIT_SPORTS_MAIN,
 } from "../../../constants/permissions";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidIndianPhone, isValidEmail } from "./sportsValidation";
 import type { SportsEvent, PlayerCategory, UserResponse } from "../../../types/api";
@@ -1019,14 +1019,15 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   const [formData, setFormData] = useState<RegistrationFormData>(() => {
     const isFamilyInit = props.initialFor === "family";
     if (isFamilyInit && initialFamMember) {
-      const calcAge = (initialFamMember.dob ? calculateAge(initialFamMember.dob) : null) ?? initialFamMember.age ?? 25;
+      const initDob = formatToDateString(initialFamMember.dob || (initialFamMember as any).dateOfBirth || (initialFamMember as any).birthDate || "");
+      const calcAge = (initDob ? calculateAge(initDob) : null) ?? initialFamMember.age ?? 25;
       return {
         categoryIds: [] as number[],
         matchTypes: ["SINGLES"],
         matchType: "SINGLES",
         role: "",
         gender: initialFamMember.gender || "",
-        dateOfBirth: initialFamMember.dob || "",
+        dateOfBirth: initDob,
         age: calcAge,
         matches: 0,
         runs: 0,
@@ -1351,7 +1352,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           name: mem.name || "",
           relation: mem.relation || (mem as any).relationship || "Son",
           gender: mem.gender || "",
-          dob: mem.dob || (mem as any).dateOfBirth || "",
+          dob: formatToDateString(mem.dob || (mem as any).dateOfBirth || (mem as any).birthDate || ""),
           phone: mem.phone || "",
           flatNo: userFlat,
           gotram: mem.gotram || "",
@@ -1593,7 +1594,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           age: computedAge,
           status: "ACTIVE",
         };
-        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        await familyService.updateFamilyMember(profileModalState.memberId!, payload);
         const refreshed = await familyService.getFamilyMembers(true);
         setSavedFamilyMembers(refreshed);
 
@@ -1610,6 +1611,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
         setFormData(prev => ({
           ...prev,
+          familyMemberId: profileModalState.memberId || prev.familyMemberId,
           playerName: payload.name,
           gender: payload.gender,
           dateOfBirth: payload.dob,
@@ -1666,7 +1668,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
   useEffect(() => {
     if (props.familyMembers && props.familyMembers.length > 0) {
       setSavedFamilyMembers(props.familyMembers);
-      return;
     }
     const fetchFamily = async () => {
       try {
@@ -1676,10 +1677,31 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
         console.warn("Could not load family members in SportsRegister:", err);
       }
     };
-    fetchFamily();
+    if (!props.familyMembers || props.familyMembers.length === 0) {
+      fetchFamily();
+    }
     window.addEventListener("mana_family_updated", fetchFamily);
     return () => window.removeEventListener("mana_family_updated", fetchFamily);
   }, [props.familyMembers]);
+
+  // Keep active family member form data in sync if savedFamilyMembers changes (e.g. after updating DOB/Gender in modal)
+  useEffect(() => {
+    if (formData.regType === "family" && formData.familyMemberId && savedFamilyMembers.length > 0) {
+      const activeMember = savedFamilyMembers.find(m => String(m.id) === String(formData.familyMemberId));
+      if (activeMember) {
+        const activeDob = formatToDateString(activeMember.dob || (activeMember as any).dateOfBirth || (activeMember as any).birthDate || "");
+        if (activeDob && (!formData.dateOfBirth || formData.dateOfBirth !== activeDob)) {
+          const calculatedAge = calculateAge(activeDob) ?? activeMember.age ?? formData.age;
+          setFormData(prev => ({
+            ...prev,
+            dateOfBirth: activeDob,
+            age: calculatedAge,
+            gender: prev.gender || activeMember.gender || "",
+          }));
+        }
+      }
+    }
+  }, [savedFamilyMembers, formData.regType, formData.familyMemberId, formData.dateOfBirth, formData.age]);
 
   const [searchParams] = useSearchParams();
   const queryFor = props.initialFor || searchParams.get("for");
@@ -1689,7 +1711,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
     if (queryFor === "family" && queryMemberId && savedFamilyMembers.length > 0) {
       const targetMember = savedFamilyMembers.find(m => String(m.id) === String(queryMemberId));
       if (targetMember) {
-        const calculatedAge = (targetMember.dob ? calculateAge(targetMember.dob) : null) ?? targetMember.age ?? 25;
+        const memberDob = formatToDateString(targetMember.dob || (targetMember as any).dateOfBirth || (targetMember as any).birthDate || "");
+        const calculatedAge = (memberDob ? calculateAge(memberDob) : null) ?? targetMember.age ?? 25;
         const inferredGen = inferGender(targetMember, userGender);
         setFormData(prev => ({
           ...prev,
@@ -1697,7 +1720,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
           playerName: targetMember.name,
           familyMemberId: targetMember.id,
           gender: inferredGen || targetMember.gender || "",
-          dateOfBirth: targetMember.dob || "",
+          dateOfBirth: memberDob,
           flatNumber: userFlat,
           age: calculatedAge,
           relation: targetMember.relation || "OTHER",
@@ -2714,7 +2737,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                 </div>
                 <DatePicker
                   value={profileModalState.dob}
-                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  onChange={(val) => setProfileModalState(prev => ({ ...prev, dob: val || "" }))}
                   max={new Date().toISOString().split("T")[0]}
                   presets={false}
                   placeholder="Select Date of Birth"
@@ -3038,7 +3061,8 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                             key={m.id}
                             type="button"
                             onClick={() => {
-                              const mAge = (m.dob ? calculateAge(m.dob) : null) ?? m.age ?? 25;
+                              const mDob = formatToDateString(m.dob || (m as any).dateOfBirth || (m as any).birthDate || "");
+                              const mAge = (mDob ? calculateAge(mDob) : null) ?? m.age ?? 25;
                               const inferredGen = inferGender(m, userGender);
                               setFormData(prev => ({
                                 ...prev,
@@ -3046,7 +3070,7 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                                 playerName: m.name,
                                 familyMemberId: m.id,
                                 gender: inferredGen || m.gender || "",
-                                dateOfBirth: m.dob || "",
+                                dateOfBirth: mDob,
                                 flatNumber: userFlat,
                                 age: mAge,
                                 relation: m.relation || "OTHER",

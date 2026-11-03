@@ -264,6 +264,7 @@ export const familyService = {
 
         if (Array.isArray(res)) {
           const currentUser = getStoredUser();
+          const currentlyStored = getStoredMembers();
           const mapped: FamilyMember[] = res.map((m) => {
             const rel = m.relation || m.relationship || "Family";
             const inferredGender = inferGenderFromRelation(rel, currentUser?.gender);
@@ -271,30 +272,56 @@ export const familyService = {
             if (!finalGender || (finalGender === "Male" && inferredGender === "Female")) {
               finalGender = inferredGender !== "Other" ? inferredGender : (m.gender || "Other");
             }
+
+            // Find matching member in currently stored local data by ID or Name
+            const mNameClean = (m.name || m.fullName || "").trim().toLowerCase();
+            const existingStored = currentlyStored.find(
+              (sm) =>
+                (m.id != null && String(sm.id) === String(m.id)) ||
+                (mNameClean && sm.name && sm.name.trim().toLowerCase() === mNameClean)
+            );
+
+            // Robust DOB resolution: preserve existing stored DOB if backend returns null/missing
+            const resolvedDob =
+              m.dob ||
+              m.dateOfBirth ||
+              (m as any).date_of_birth ||
+              (m as any).birthDate ||
+              existingStored?.dob ||
+              (existingStored as any)?.dateOfBirth ||
+              undefined;
+
+            let resolvedAge = Number(m.age) || existingStored?.age || undefined;
+            if (!resolvedAge && resolvedDob) {
+              const birth = new Date(resolvedDob);
+              if (!isNaN(birth.getTime())) {
+                resolvedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+              }
+            }
+
             return {
-              id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              userId: m.userId,
-              name: m.name || m.fullName || "Family Member",
-              relation: rel,
-              age: Number(m.age) || undefined,
-              dob: m.dob || m.dateOfBirth,
-              gender: finalGender || "Other",
-              phone: m.phone || m.mobile,
-              email: m.email,
-              bloodGroup: m.bloodGroup || m.blood,
-              gotram: m.gothram || m.gotram,
-              emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
-              isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
-              photoUrl: m.photoUrl || m.avatar,
-              avatar: m.avatar || m.photoUrl,
-              notes: m.notes,
-              createdAt: m.createdAt,
-              updatedAt: m.updatedAt,
+              id: m.id ?? existingStored?.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              userId: m.userId ?? existingStored?.userId,
+              name: m.name || m.fullName || existingStored?.name || "Family Member",
+              relation: rel || existingStored?.relation || "Family",
+              age: resolvedAge,
+              dob: resolvedDob,
+              gender: finalGender || existingStored?.gender || "Other",
+              phone: m.phone || m.mobile || existingStored?.phone,
+              email: m.email || existingStored?.email,
+              bloodGroup: m.bloodGroup || m.blood || existingStored?.bloodGroup,
+              gotram: m.gothram || m.gotram || existingStored?.gotram,
+              emergencyContact: m.emergencyContact !== undefined ? Boolean(m.emergencyContact) : (existingStored?.emergencyContact ?? false),
+              isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : (existingStored?.isDevotee ?? true),
+              photoUrl: m.photoUrl || m.avatar || existingStored?.photoUrl,
+              avatar: m.avatar || m.photoUrl || existingStored?.avatar,
+              notes: m.notes || existingStored?.notes,
+              createdAt: m.createdAt || existingStored?.createdAt,
+              updatedAt: m.updatedAt || existingStored?.updatedAt,
             };
           });
 
           // Preserve any local-only non-self members not yet reflected on the server
-          const currentlyStored = getStoredMembers();
           const localOnlyMembers = currentlyStored.filter(
             (sm) =>
               String(sm.id).startsWith("fam-") &&
@@ -405,10 +432,18 @@ export const familyService = {
       (data.relation && (data.relation.toLowerCase().includes("self") || data.relation.toLowerCase().includes("head")));
 
     const current = getStoredMembers();
-    const index = current.findIndex((m) =>
+    let index = current.findIndex((m) =>
       String(m.id) === idStr ||
       (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
     );
+
+    // Fallback: lookup by trimmed name if ID did not match
+    if (index === -1 && data.name) {
+      const cleanTargetName = data.name.trim().toLowerCase();
+      index = current.findIndex(
+        (m) => m.name && m.name.trim().toLowerCase() === cleanTargetName
+      );
+    }
 
     let updatedMember: FamilyMember;
     if (index !== -1) {
@@ -445,6 +480,7 @@ export const familyService = {
       }
     }
 
+    const resolvedDobVal = updatedMember.dob || (data as any).dateOfBirth || undefined;
     const isRealNumericId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     if (isRealNumericId) {
@@ -456,7 +492,8 @@ export const familyService = {
         avatar: (data as any).avatar || updatedMember.avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
         gothram: updatedMember.gotram || (data as any).gothram,
         gotram: updatedMember.gotram || (data as any).gothram,
-        dob: updatedMember.dob || undefined,
+        dob: resolvedDobVal,
+        dateOfBirth: resolvedDobVal,
         phone: updatedMember.phone || undefined,
         email: updatedMember.email || undefined,
         bloodGroup: updatedMember.bloodGroup || undefined,

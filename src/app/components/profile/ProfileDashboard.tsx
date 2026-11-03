@@ -73,7 +73,7 @@ import { familyService, type FamilyMember } from "../../../services/common/famil
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import type { UserProfileResponse, UserActivityItem } from "../../../types/api";
 import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
@@ -686,11 +686,13 @@ export function ProfileDashboard() {
     setEditingMember(member);
     const rawAvatar = (member as any).avatar || member.avatar || (member as any).photoUrl;
     const isUrl = isAvatarUrl(rawAvatar);
+    const rawDob = member.dob || (member as any).dateOfBirth || (member as any).birthDate || "";
+    const cleanDob = formatToDateString(rawDob);
     setMemberForm({
       name: member.name || "",
       relation: member.relation || "Spouse",
       age: member.age,
-      dob: member.dob || (member as any).dateOfBirth || "",
+      dob: cleanDob || "",
       gender: member.gender || "Male",
       avatar: !isUrl && rawAvatar && rawAvatar.length <= 4 ? rawAvatar : (member.gender === "Female" ? "👩" : "👨"),
       phone: member.phone || (member as any).mobile || "",
@@ -731,7 +733,15 @@ export function ProfileDashboard() {
       );
 
       if (editingMember) {
-        await familyService.updateFamilyMember(editingMember.id, payload);
+        const saved = await familyService.updateFamilyMember(editingMember.id, payload);
+        setFamilyMembers((prev) =>
+          prev.map((m) =>
+            String(m.id) === String(editingMember.id) ||
+            (m.name && payload.name && m.name.trim().toLowerCase() === payload.name.trim().toLowerCase())
+              ? { ...m, ...saved, ...payload, dob: payload.dob }
+              : m
+          )
+        );
 
         if (isSelf) {
           // Synchronize Self changes to User Profile on backend and AuthContext
@@ -776,7 +786,13 @@ export function ProfileDashboard() {
 
         toast.success(`Updated ${memberForm.name}'s details`);
       } else {
-        await familyService.addFamilyMember(payload);
+        const saved = await familyService.addFamilyMember(payload);
+        setFamilyMembers((prev) => [
+          saved,
+          ...prev.filter(
+            (m) => !payload.name || m.name.trim().toLowerCase() !== payload.name.trim().toLowerCase()
+          ),
+        ]);
         toast.success(`Added ${memberForm.name} to your family list`);
       }
       setIsFamilyModalOpen(false);
@@ -2015,7 +2031,7 @@ export function ProfileDashboard() {
                         </label>
                         <DatePicker
                           value={memberForm.dob || ""}
-                          onChange={(val) => setMemberForm({ ...memberForm, dob: val || undefined })}
+                          onChange={(val) => setMemberForm((prev) => ({ ...prev, dob: val || undefined }))}
                           max={new Date().toISOString().split("T")[0]}
                           placeholder="Select DOB..."
                           className="w-full"
