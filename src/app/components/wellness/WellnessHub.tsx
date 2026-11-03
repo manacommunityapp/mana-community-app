@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router";
 import {
   Apple,
   Sparkles,
@@ -15,6 +16,7 @@ import {
   HeartHandshake,
   ThermometerSnowflake,
   Award,
+  Stethoscope,
 } from "lucide-react";
 import type {
   WellnessPlan,
@@ -153,12 +155,21 @@ export const WellnessHub: React.FC = () => {
         <div className="absolute bottom-0 left-1/3 -mb-10 w-60 h-60 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl space-y-4">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
-              <Apple className="w-3.5 h-3.5" />
-              Mana Fresh Wellness
-            </span>
-            <span className="text-xs text-slate-300 font-medium">Dietitian-Curated Nutrition Subscription</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
+                <Apple className="w-3.5 h-3.5" />
+                Mana Fresh Wellness
+              </span>
+              <span className="text-xs text-slate-300 font-medium">Dietitian-Curated Nutrition Subscription</span>
+            </div>
+            <Link
+              to="/wellness-basket/admin"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 transition-colors shadow-sm"
+            >
+              <Stethoscope className="w-3.5 h-3.5 text-emerald-300" />
+              Dietitian Portal →
+            </Link>
           </div>
 
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
