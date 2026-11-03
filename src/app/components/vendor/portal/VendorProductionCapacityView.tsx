@@ -17,6 +17,7 @@ import {
   X,
   Check,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import {
   freshKitchenService,
@@ -34,6 +35,7 @@ export function VendorProductionCapacityView() {
   const [batches, setBatches] = useState<FoodProductionBatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTogglingSoldOut, setIsTogglingSoldOut] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Edit Capacity Modal
@@ -152,6 +154,28 @@ export function VendorProductionCapacityView() {
     }
   };
 
+  const handleExportManifest = async () => {
+    if (!capacity) return;
+    setIsExporting(true);
+    try {
+      const csv = await freshKitchenService.exportDailyManifestCsv(capacity.vendorId);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `manifest-${capacity.vendorId}-${new Date().toISOString().split("T")[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("Daily manifest CSV exported successfully!");
+    } catch (err) {
+      console.error("Failed to export manifest", err);
+      showToast("Failed to export manifest.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
@@ -216,6 +240,15 @@ export function VendorProductionCapacityView() {
             >
               <FileCheck className="w-4 h-4" />
               Submit Batch QA Release
+            </button>
+
+            <button
+              onClick={handleExportManifest}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl shadow-sm transition-all"
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? "Exporting..." : "Export Manifest (CSV)"}
             </button>
 
             <button

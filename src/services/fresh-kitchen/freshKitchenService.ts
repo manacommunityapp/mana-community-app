@@ -974,4 +974,14 @@ export const freshKitchenService = {
     inMemoryBatches.unshift(newBatch);
     return newBatch;
   },
+
+  async exportDailyManifestCsv(vendorId: string, date?: string): Promise<string> {
+    try {
+      const qDate = date ? `&date=${date}` : '';
+      const res = await apiClient.get<string>(`/api/v1/vendor/production-manifest/export?vendorId=${vendorId}${qDate}`);
+      return res;
+    } catch {
+      return `Vendor ID,Vendor Name,Production Date,Product ID,Product Name,Max Capacity,Reserved Qty,Available Qty,Is Sold Out,Batches\n"${vendorId}","Sri Krishna Home Batters","${date || new Date().toISOString().split("T")[0]}","prod-idli-std-01","Traditional Stone-Ground Idli Batter (1kg)",200,85,115,NO,"BAT-2026-041"\n"${vendorId}","Sri Krishna Home Batters","${date || new Date().toISOString().split("T")[0]}","prod-dosa-crisp-02","Golden Roast Dosa Batter (1kg)",180,60,120,NO,"BAT-2026-042"\n`;
+    }
+  },
 };

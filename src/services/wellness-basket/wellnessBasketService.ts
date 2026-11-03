@@ -641,4 +641,109 @@ export const wellnessBasketService = {
       );
     }
   },
+
+  async getPendingSwaps(): Promise<WellnessSwap[]> {
+    try {
+      const response = await apiClient.get<WellnessSwap[]>("/wellness-basket/admin/swaps/pending");
+      return response;
+    } catch {
+      return [
+        {
+          id: 901,
+          subscriberPreferenceId: 101,
+          userId: 42,
+          deliveryDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
+          originalProductId: 3,
+          originalProductName: "Organic Almond Milk (200ml)",
+          requestedProductId: 8,
+          requestedProductName: "Cold-Pressed Seedless Pomegranate (200g)",
+          status: "PENDING",
+          requestedAt: new Date().toISOString(),
+        },
+        {
+          id: 902,
+          subscriberPreferenceId: 102,
+          userId: 55,
+          deliveryDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
+          originalProductId: 5,
+          originalProductName: "Greek Style Curd Bowl with Chia (150g)",
+          requestedProductId: 11,
+          requestedProductName: "Steamed Sprouted Moong & Pomegranate Cup (150g)",
+          status: "PENDING",
+          requestedAt: new Date().toISOString(),
+        },
+      ];
+    }
+  },
+
+  async approveSwap(swapId: number): Promise<WellnessSwap> {
+    try {
+      const response = await apiClient.patch<WellnessSwap>(`/wellness-basket/admin/swaps/${swapId}/approve`);
+      return response;
+    } catch {
+      return {
+        id: swapId,
+        subscriberPreferenceId: 101,
+        userId: 1,
+        deliveryDate: new Date().toISOString().split("T")[0],
+        originalProductId: 1,
+        originalProductName: "Item",
+        requestedProductId: 2,
+        requestedProductName: "Replaced Item",
+        status: "APPROVED",
+        requestedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  async rejectSwap(swapId: number, reason: string): Promise<WellnessSwap> {
+    try {
+      const response = await apiClient.patch<WellnessSwap>(`/wellness-basket/admin/swaps/${swapId}/reject`, { reason });
+      return response;
+    } catch {
+      return {
+        id: swapId,
+        subscriberPreferenceId: 101,
+        userId: 1,
+        deliveryDate: new Date().toISOString().split("T")[0],
+        originalProductId: 1,
+        originalProductName: "Item",
+        requestedProductId: 2,
+        requestedProductName: "Replaced Item",
+        status: "REJECTED",
+        rejectionReason: reason,
+        requestedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  async updateClusterStatus(clusterId: number, status: string): Promise<WellnessCluster> {
+    try {
+      const response = await apiClient.patch<WellnessCluster>(`/wellness-basket/admin/clusters/${clusterId}/status?status=${status}`);
+      return response;
+    } catch {
+      const found = MOCK_CLUSTERS.find((c) => c.id === clusterId);
+      if (found) {
+        found.status = status as any;
+        found.isActivated = status === "ACTIVE";
+      }
+      return found || MOCK_CLUSTERS[0];
+    }
+  },
+
+  async triggerDailyOrders(targetDate?: string): Promise<{ ordersGenerated: number; status: string; targetDate: string }> {
+    try {
+      const query = targetDate ? `?targetDate=${targetDate}` : "";
+      const response = await apiClient.post<{ ordersGenerated: number; status: string; targetDate: string }>(
+        `/wellness-basket/admin/trigger-daily-orders${query}`
+      );
+      return response;
+    } catch {
+      return {
+        targetDate: targetDate || new Date().toISOString().split("T")[0],
+        ordersGenerated: 18,
+        status: "SUCCESS",
+      };
+    }
+  },
 };

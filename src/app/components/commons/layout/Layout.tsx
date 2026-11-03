@@ -517,6 +517,9 @@ export function Layout() {
         { to: "/marketplace", icon: Store, label: "Marketplace", menuKey: "marketplace" },
         { to: "/deals", icon: Tag, label: "Mana Deals", menuKey: "deals" },
         { to: "/food", icon: ShoppingCart, label: "Food & Dining", menuKey: "food" },
+        { to: "/fresh-kitchen", icon: Sparkles, label: "Fresh Kitchen", badge: "2-4°C", menuKey: "fresh-kitchen" },
+        { to: "/daily-basket", icon: ShoppingBag, label: "Daily Basket", badge: "Daily", menuKey: "daily-basket" },
+        { to: "/wellness-basket", icon: HeartPulse, label: "Wellness Nutrition", badge: "Sub", menuKey: "wellness-basket" },
         { to: "/academy", icon: GraduationCap, label: "Mana Academy", menuKey: "academy" },
         { to: "/group-buying", icon: ShoppingBag, label: "Group Buying", menuKey: "group-buying" },
         { to: "/home-services", icon: HeartHandshake, label: "Home Services", menuKey: "home-services" },
@@ -615,6 +618,9 @@ export function Layout() {
     if (label === "Property OS (CPOS)") return true;
     if (label === "Movie Night") return isModuleEnabled(["ENTERTAINMENT", "MOVIES"]);
     if (label === "Food & Dining") return true;
+    if (label === "Fresh Kitchen") return true;
+    if (label === "Daily Basket") return true;
+    if (label === "Wellness Nutrition") return true;
     if (label === "Fixed Deposits") return true;
     if (label === "Digital Gold") return true;
     if (label === "Mutual Funds") return true;

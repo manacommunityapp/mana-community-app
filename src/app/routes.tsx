@@ -232,6 +232,12 @@ import { SmartPantry } from "./components/food/SmartPantry";
 import { CateringPlatform } from "./components/food/CateringPlatform";
 import { FoodProfile } from "./components/food/FoodProfile";
 import { FoodAnalyticsDashboard } from "./components/food/FoodAnalyticsDashboard";
+import { FreshKitchenHub } from "./components/fresh-kitchen/FreshKitchenHub";
+import { BreakfastComboCustomizer } from "./components/fresh-kitchen/BreakfastComboCustomizer";
+import { DailyBasketManager } from "./components/fresh-kitchen/DailyBasketManager";
+import { VendorProductionCapacityView } from "./components/vendor/portal/VendorProductionCapacityView";
+import { WellnessHub } from "./components/wellness/WellnessHub";
+import { DietitianReviewPortal } from "./components/wellness/DietitianReviewPortal";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -921,6 +927,8 @@ export const router = createBrowserRouter([
           { path: "services", Component: MyServices },
           { path: "bookings", Component: MyBookings },
           { path: "availability", Component: MyAvailability },
+          { path: "production-capacity", Component: VendorProductionCapacityView },
+          { path: "capacity", Component: VendorProductionCapacityView },
           {
             path: "products",
             element: (
@@ -1117,6 +1125,9 @@ export const router = createBrowserRouter([
           { path: "catering", element: <PermissionGuard permission={VIEW_FOOD_CATERING}><CateringPlatform /></PermissionGuard> },
           { path: "profile", element: <PermissionGuard permission={VIEW_FOOD_PROFILE}><FoodProfile /></PermissionGuard> },
           { path: "analytics", element: <PermissionGuard permission={VIEW_FOOD_ANALYTICS}><FoodAnalyticsDashboard /></PermissionGuard> },
+          { path: "fresh-kitchen", Component: FreshKitchenHub },
+          { path: "fresh-kitchen/combos/:id", Component: BreakfastComboCustomizer },
+          { path: "daily-basket", Component: DailyBasketManager },
         ],
       },
       {
@@ -1242,6 +1253,12 @@ export const router = createBrowserRouter([
       { path: "group-buying/review/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderReviewPage /></PermissionGuard> },
       { path: "group-buying/dispute/:orderId", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><OrderDisputePage /></PermissionGuard> },
       { path: "group-buying/catalog", element: <PermissionGuard permission={VIEW_GROUP_BUYING} requiredModule="GROUP_BUYING"><GroupBuyingCatalog /></PermissionGuard> },
+      { path: "fresh-kitchen", element: <PermissionGuard requiredModule="FOOD_OS"><FreshKitchenHub /></PermissionGuard> },
+      { path: "fresh-kitchen/combos/:id", element: <PermissionGuard requiredModule="FOOD_OS"><BreakfastComboCustomizer /></PermissionGuard> },
+      { path: "daily-basket", element: <PermissionGuard requiredModule="FOOD_OS"><DailyBasketManager /></PermissionGuard> },
+      { path: "wellness-basket", element: <PermissionGuard anyModules={["FOOD_OS", "HEALTH"]}><WellnessHub /></PermissionGuard> },
+      { path: "wellness-basket/admin", element: <PermissionGuard anyPermissions={[VIEW_ADMIN]}><DietitianReviewPortal /></PermissionGuard> },
+      { path: "vendor/portal/capacity", element: <VendorProductionCapacityView /> },
       { path: "trips", element: <PermissionGuard permission={VIEW_TRIPS} requiredModule="TRIPS"><ExploreTrips /></PermissionGuard> },
       { path: "helpdesk-smart", element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><SmartHelpdeskDashboard /></PermissionGuard> },
       { path: "discover", element: <PermissionGuard permission={VIEW_DISCOVER} requiredModule="COMMUNITY_GRAPH"><PersonalizedFeed /></PermissionGuard> },
