@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, History } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone, Download, FileSpreadsheet, FileText, Printer, ChevronDown, Sparkles, Lock, Share2, Search, X, Filter, History, Play, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 import { isTeamSport, PREDEFINED_SPORTS } from "../utils/sportsConstants";
@@ -7,6 +7,7 @@ import { sportsRankingService } from "../../../../services/sports/sportsRankingS
 import { sportsService } from "../../../../services/sports/sportsService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 import { exportPlayersToCSV, exportPlayersToExcel, exportPlayersToPDF } from "../../../../utils/sportsExportUtils";
+import { getEventFormats } from "../SportsRegister";
 import { ExternalFormsManager } from "./external-forms/ExternalFormsManager";
 import { ShareTournamentModal } from "./ShareTournamentModal";
 
@@ -22,6 +23,8 @@ interface TournamentSectionProps {
   showActivate?: boolean;
   onCloseTournament?: (id: number) => void;
   onCloseEvent?: (id: number) => void;
+  onStartEvent?: (id: number, name?: string) => void;
+  onStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
   onAnnounce?: (id: number, name: string) => void;
   onViewPlayers?: (eventId: number) => void;
   onViewCaptains?: (eventId: number) => void;
@@ -132,9 +135,117 @@ export function groupRegistrationsByPlayer(regs: TournamentRegistration[]): Grou
   return result;
 }
 
+export function getSportName(ev: any): string {
+  if (ev?.sport?.name) return ev.sport.name;
+  if (ev?.sportName) return ev.sportName;
+  const nameLower = (ev?.name || "").toLowerCase();
+  for (const ps of PREDEFINED_SPORTS) {
+    if (ps.name && nameLower.includes(ps.name.toLowerCase())) {
+      return ps.name;
+    }
+  }
+  return "";
+}
+
+export function getCategoryName(ev: any): string {
+  if (ev?.categoryName) return ev.categoryName;
+  if (typeof ev?.category === "string") return ev.category;
+  if (ev?.category?.name) return ev.category.name;
+  if (Array.isArray(ev?.categories) && ev.categories.length > 0 && ev.categories[0]?.name) {
+    return ev.categories[0].name;
+  }
+  const nameLower = (ev?.name || "").toLowerCase();
+  if (nameLower.includes("mixed doubles")) return "Mixed Doubles";
+  if (nameLower.includes("women's doubles") || nameLower.includes("womens doubles") || nameLower.includes("women doubles")) return "Women's Doubles";
+  if (nameLower.includes("men's doubles") || nameLower.includes("mens doubles") || nameLower.includes("men doubles")) return "Men's Doubles";
+  if (nameLower.includes("women's singles") || nameLower.includes("womens singles") || nameLower.includes("women singles")) return "Women's Singles";
+  if (nameLower.includes("men's singles") || nameLower.includes("mens singles") || nameLower.includes("men singles")) return "Men's Singles";
+  if (nameLower.includes("doubles")) return "Doubles";
+  if (nameLower.includes("singles")) return "Singles";
+  return "";
+}
+
+export function getAgeCategory(ev: any): string {
+  if (ev?.ageCategory) return String(ev.ageCategory);
+  if (ev?.ageGroup) return String(ev.ageGroup);
+  const min = ev?.minAge != null ? Number(ev.minAge) : null;
+  const max = ev?.maxAge != null ? Number(ev.maxAge) : null;
+  if (min != null || max != null) {
+    if ((min == null || min <= 0) && (max == null || max >= 90)) return "Open (All Ages)";
+    if ((min == null || min <= 0) && max != null && max < 90) return `Under ${max} (U-${max})`;
+    if (min != null && min > 0 && (max == null || max >= 90)) return `${min}+ Yrs`;
+    if (min != null && max != null) return `${min}–${max} Yrs`;
+  }
+  const nameLower = (ev?.name || "").toLowerCase();
+  const uMatch = nameLower.match(/\b(?:u-?|under\s*)(\d+)\b/i);
+  if (uMatch) return `Under ${uMatch[1]} (U-${uMatch[1]})`;
+  const plusMatch = nameLower.match(/\b(\d+)\s*\+/);
+  if (plusMatch) return `${plusMatch[1]}+ Yrs`;
+  const rangeMatch = nameLower.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
+  if (rangeMatch) return `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
+  if (/\bopen\b/i.test(nameLower)) return "Open (All Ages)";
+  return "";
+}
+
+export function normalizeEventGender(ev: any): string {
+  const raw = ev?.gender || ev?.genderCategory || (Array.isArray(ev?.categories) && ev.categories[0]?.gender) || "";
+  const g = String(raw).trim().toUpperCase();
+  if (g === "MALE" || g === "MEN" || g === "BOYS") return "MALE";
+  if (g === "FEMALE" || g === "WOMEN" || g === "GIRLS") return "FEMALE";
+  if (g === "MIXED" || g === "COED" || g === "CO-ED") return "MIXED";
+  if (g === "ALL" || g === "OPEN") return "ALL";
+
+  const text = `${ev?.name || ""} ${ev?.categoryName || ""}`.toLowerCase();
+  if (/\b(mixed|mix)\b/i.test(text)) return "MIXED";
+  if (/\b(womens?|woman|females?|girls?|ladies)\b/i.test(text)) return "FEMALE";
+  if (/\b(mens?|man|males?|boys?|gentlemen)\b/i.test(text)) return "MALE";
+  return g || "ALL";
+}
+
+export function getEventFormatSignature(ev: any): string {
+  try {
+    const fmts = getEventFormats(ev);
+    if (Array.isArray(fmts) && fmts.length > 0) {
+      return fmts.map(f => String(f).trim().toUpperCase()).sort().join(",");
+    }
+  } catch {}
+
+  const raw = ev?.format || ev?.formats || ev?.tournamentType || "";
+  if (Array.isArray(raw)) {
+    return raw
+      .map(f => (typeof f === "object" ? f?.name || f?.format || "" : String(f)))
+      .filter(Boolean)
+      .map(f => f.trim().toUpperCase())
+      .sort()
+      .join(",");
+  }
+  return String(raw).trim().toUpperCase();
+}
+
+/**
+ * Generates an event signature combining:
+ * 1. Sport
+ * 2. Category Template / Name & Age Bracket
+ * 3. Gender
+ * 4. Participant Formats
+ * Used to identify duplicate or parallel division events in a tournament.
+ */
+export function getEventCategorySignature(ev: any): string {
+  const sport = (getSportName(ev) || "").trim().toLowerCase();
+  const cat = (getCategoryName(ev) || "").trim().toLowerCase();
+  const age = (getAgeCategory(ev) || "").trim().toLowerCase();
+  const gender = normalizeEventGender(ev);
+  const format = getEventFormatSignature(ev);
+
+  if (!sport && !cat) return "";
+
+  return `${sport}__${cat}__${age}__${gender}__${format}`;
+}
+
 export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
   onEdit, onDelete, onActivate, showActivate, onCloseTournament, onCloseEvent, onAnnounce,
+  onStartEvent, onStartAllPendingEvents,
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
@@ -207,58 +318,6 @@ export function TournamentSection({
       delete copy[tournamentId];
       return copy;
     });
-  };
-
-  const getSportName = (ev: any): string => {
-    if (ev.sport?.name) return ev.sport.name;
-    if (ev.sportName) return ev.sportName;
-    const nameLower = (ev.name || "").toLowerCase();
-    for (const ps of PREDEFINED_SPORTS) {
-      if (ps.name && nameLower.includes(ps.name.toLowerCase())) {
-        return ps.name;
-      }
-    }
-    return "";
-  };
-
-  const getCategoryName = (ev: any): string => {
-    if (ev.categoryName) return ev.categoryName;
-    if (typeof ev.category === "string") return ev.category;
-    if (ev.category?.name) return ev.category.name;
-    if (Array.isArray(ev.categories) && ev.categories.length > 0 && ev.categories[0]?.name) {
-      return ev.categories[0].name;
-    }
-    const nameLower = (ev.name || "").toLowerCase();
-    if (nameLower.includes("mixed doubles")) return "Mixed Doubles";
-    if (nameLower.includes("women's doubles") || nameLower.includes("womens doubles") || nameLower.includes("women doubles")) return "Women's Doubles";
-    if (nameLower.includes("men's doubles") || nameLower.includes("mens doubles") || nameLower.includes("men doubles")) return "Men's Doubles";
-    if (nameLower.includes("women's singles") || nameLower.includes("womens singles") || nameLower.includes("women singles")) return "Women's Singles";
-    if (nameLower.includes("men's singles") || nameLower.includes("mens singles") || nameLower.includes("men singles")) return "Men's Singles";
-    if (nameLower.includes("doubles")) return "Doubles";
-    if (nameLower.includes("singles")) return "Singles";
-    return "";
-  };
-
-  const getAgeCategory = (ev: any): string => {
-    if (ev.ageCategory) return String(ev.ageCategory);
-    if (ev.ageGroup) return String(ev.ageGroup);
-    const min = ev.minAge != null ? Number(ev.minAge) : null;
-    const max = ev.maxAge != null ? Number(ev.maxAge) : null;
-    if (min != null || max != null) {
-      if ((min == null || min <= 0) && (max == null || max >= 90)) return "Open (All Ages)";
-      if ((min == null || min <= 0) && max != null && max < 90) return `Under ${max} (U-${max})`;
-      if (min != null && min > 0 && (max == null || max >= 90)) return `${min}+ Yrs`;
-      if (min != null && max != null) return `${min}–${max} Yrs`;
-    }
-    const nameLower = (ev.name || "").toLowerCase();
-    const uMatch = nameLower.match(/\b(?:u-?|under\s*)(\d+)\b/i);
-    if (uMatch) return `Under ${uMatch[1]} (U-${uMatch[1]})`;
-    const plusMatch = nameLower.match(/\b(\d+)\s*\+/);
-    if (plusMatch) return `${plusMatch[1]}+ Yrs`;
-    const rangeMatch = nameLower.match(/\b(\d+)\s*[-–]\s*(\d+)\b/);
-    if (rangeMatch) return `${rangeMatch[1]}–${rangeMatch[2]} Yrs`;
-    if (/\bopen\b/i.test(nameLower)) return "Open (All Ages)";
-    return "";
   };
 
   async function handleSeedSave(regId: number) {
@@ -770,6 +829,27 @@ export function TournamentSection({
               return true;
             });
 
+            const pendingEventsInItem = (item.sportsEvents || []).filter((e: any) => {
+              const st = e.registrationStatus || e.status;
+              return st !== "LIVE" && st !== "REGISTRATION_OPEN" && st !== "COMPLETED";
+            });
+            const pendingFilteredEvents = filteredSportsEvents.filter((e: any) => {
+              const st = e.registrationStatus || e.status;
+              return st !== "LIVE" && st !== "REGISTRATION_OPEN" && st !== "COMPLETED";
+            });
+
+            const signatureCounts: Record<string, number> = {};
+            for (const e of item.sportsEvents || []) {
+              const sig = getEventCategorySignature(e);
+              if (sig) {
+                signatureCounts[sig] = (signatureCounts[sig] || 0) + 1;
+              }
+            }
+            const duplicateEventsInItemCount = (item.sportsEvents || []).filter((e: any) => {
+              const sig = getEventCategorySignature(e);
+              return Boolean(sig && (signatureCounts[sig] || 0) > 1);
+            }).length;
+
             return (
               <div key={item.id} className="p-3 sm:p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
@@ -786,6 +866,17 @@ export function TournamentSection({
                     {showActivate && onActivate && (
                       <button onClick={() => onActivate(item.id)} className="text-xs px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                         Open for Registration
+                      </button>
+                    )}
+                    {!showActivate && onStartAllPendingEvents && pendingEventsInItem.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onStartAllPendingEvents(item.id, pendingEventsInItem.map((e: any) => e.id))}
+                        className="text-xs px-2.5 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors font-semibold cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title={`Open remaining ${pendingEventsInItem.length} sports event(s) for registration`}
+                      >
+                        <Play className="w-3 h-3 fill-emerald-600 text-emerald-600" />
+                        <span>Open Remaining ({pendingEventsInItem.length})</span>
                       </button>
                     )}
                     {onCloseTournament && (item.registrationStatus === "LIVE" || item.registrationStatus === "REGISTRATION_OPEN" || item.status === "LIVE" || item.status === "REGISTRATION_OPEN") && (
@@ -928,8 +1019,39 @@ export function TournamentSection({
                         )}
                       </div>
 
-                      <div className="text-[11px] font-semibold text-slate-500 shrink-0">
-                        Showing <span className="font-bold text-slate-700">{filteredSportsEvents.length}</span> of {item.sportsEvents.length}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {onStartAllPendingEvents && pendingEventsInItem.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetIds = isFilterActive && pendingFilteredEvents.length > 0
+                                ? pendingFilteredEvents.map((e: any) => e.id)
+                                : pendingEventsInItem.map((e: any) => e.id);
+                              onStartAllPendingEvents(item.id, targetIds);
+                            }}
+                            className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md transition-colors cursor-pointer border border-emerald-300 flex items-center gap-1 shadow-2xs"
+                            title={`Start registration for ${isFilterActive && pendingFilteredEvents.length > 0 ? `${pendingFilteredEvents.length} filtered pending event(s)` : `${pendingEventsInItem.length} pending event(s)`}`}
+                          >
+                            <Play className="w-3 h-3 fill-emerald-600 text-emerald-600" />
+                            <span>
+                              {isFilterActive && pendingFilteredEvents.length > 0 && pendingFilteredEvents.length !== pendingEventsInItem.length
+                                ? `Start Filtered (${pendingFilteredEvents.length})`
+                                : `Start All Pending (${pendingEventsInItem.length})`}
+                            </span>
+                          </button>
+                        )}
+                        {duplicateEventsInItemCount > 0 && (
+                          <span
+                            className="text-[10px] font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs shrink-0"
+                            title={`${duplicateEventsInItemCount} sports events in this tournament share the same Sport, Category, Gender, and Format with another event`}
+                          >
+                            <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>{duplicateEventsInItemCount} Duplicate Categories</span>
+                          </span>
+                        )}
+                        <div className="text-[11px] font-semibold text-slate-500 shrink-0">
+                          Showing <span className="font-bold text-slate-700">{filteredSportsEvents.length}</span> of {item.sportsEvents.length}
+                        </div>
                       </div>
                     </div>
 
@@ -951,10 +1073,19 @@ export function TournamentSection({
                         const evSport = getSportName(ev);
                         const evCat = getCategoryName(ev);
                         const evAge = getAgeCategory(ev);
+                        const sig = getEventCategorySignature(ev);
+                        const isDuplicateCategory = Boolean(sig && (signatureCounts[sig] || 0) > 1);
+                        const duplicateCount = sig ? signatureCounts[sig] || 0 : 0;
 
                         return (
                           <div key={ev.id} className="space-y-2">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+                            <div
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg transition-all ${
+                                isDuplicateCategory
+                                  ? "bg-amber-50/70 border-2 border-amber-400/80 shadow-xs ring-1 ring-amber-300/40"
+                                  : "bg-white border border-slate-200/60 shadow-sm"
+                              }`}
+                            >
                               <div className="min-w-0 flex-1 text-left">
                                 <div className="text-xs font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
                                   <span>{ev.name}</span>
@@ -973,16 +1104,46 @@ export function TournamentSection({
                                       {evAge}
                                     </span>
                                   )}
+                                  {isDuplicateCategory && (
+                                    <span
+                                      className="text-[10px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-2xs tracking-wide"
+                                      title={`Duplicate Category: ${duplicateCount} events in this tournament share the same Sport (${evSport || "—"}), Category (${evCat || "—"}), Gender (${ev.gender || "ALL"}), and Format`}
+                                    >
+                                      <AlertTriangle className="w-3 h-3 text-white shrink-0" />
+                                      <span>Duplicate Category ({duplicateCount})</span>
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                   {ev.gender && <span>Gender: {ev.gender}</span>}
                                   {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
                                   {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                                  {isDuplicateCategory && (
+                                    <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-200/80 px-1.5 py-0.2 rounded">
+                                      Matches another event with identical Sport, Category, Gender & Format
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                                {registrationStatus && registrationStatus !== "DRAFT" && (
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? "bg-green-500/20 text-[#10b981]" : registrationStatus === "COMPLETED" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-[#f97316]/20 text-[#f97316]" }`}>
+                                {registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN" ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    REGISTRATION_OPEN
+                                  </span>
+                                ) : registrationStatus === "DRAFT" || !registrationStatus ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    DRAFT
+                                  </span>
+                                ) : registrationStatus === "REGISTRATION_CLOSED" ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    REGISTRATION_CLOSED
+                                  </span>
+                                ) : registrationStatus === "COMPLETED" ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    COMPLETED
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-orange-50 text-orange-700 border border-orange-200">
                                     {registrationStatus}
                                   </span>
                                 )}
@@ -1009,6 +1170,17 @@ export function TournamentSection({
                                   title="Close Event Registration"
                                 >
                                   <Lock className="w-2.5 h-2.5" /> Close
+                                </button>
+                              )}
+                              {onStartEvent && registrationStatus !== "LIVE" && registrationStatus !== "REGISTRATION_OPEN" && registrationStatus !== "COMPLETED" && (
+                                <button
+                                  type="button"
+                                  onClick={() => onStartEvent(ev.id, ev.name)}
+                                  className="text-xs px-2 py-1 border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded transition-colors cursor-pointer flex items-center gap-1 font-medium bg-white shadow-2xs"
+                                  title={registrationStatus === "REGISTRATION_CLOSED" ? "Re-open Event Registration" : "Start Event Registration"}
+                                >
+                                  <Play className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                                  <span>{registrationStatus === "REGISTRATION_CLOSED" ? "Re-open" : "Start Reg"}</span>
                                 </button>
                               )}
                               {onDeleteEvent && (

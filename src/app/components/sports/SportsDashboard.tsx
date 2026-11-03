@@ -2289,6 +2289,7 @@ export function SportsDashboard() {
                               const isTeamFmt = fmt === "TEAM";
                               const isMixed = fmt === "MIXED_DOUBLES" || fmt.includes("MIXED");
                               const isDbl = fmt === "DOUBLES" || (fmt.includes("DOUBLES") && !isMixed);
+                              const isSingles = fmt === "SINGLES" || fmt.includes("SINGLE");
                               const label =
                                 isTeamFmt
                                   ? "Team Squad"
@@ -2307,9 +2308,11 @@ export function SportsDashboard() {
                                     isTeamFmt
                                       ? "bg-purple-50 text-purple-700 border border-purple-200"
                                       : isMixed
-                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
                                       : isDbl
                                       ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                      : isSingles
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                       : "bg-indigo-50 text-indigo-700 border border-indigo-200"
                                   }`}
                                 >

@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check, Activity, Download, ChevronDown, FileSpreadsheet, FileText, Printer, AlertCircle, Radio } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Calendar, Plus, Trash2, X, Search, Trophy, Play, Check, Activity, ChevronDown, AlertCircle, Radio, Users } from "lucide-react";
 import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sports/sportsService";
-import { sportsScheduleService, type EventListItem } from "../../../services/sports/sportsScheduleService";
+import { apiClient } from "../../../services/common/apiClient";
+import { sportsScheduleService } from "../../../services/sports/sportsScheduleService";
 import { venueService } from "../../../services/bookings/venueService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportsEvent, Venue, SportMeta } from "../../../types/api";
@@ -15,7 +16,8 @@ import { confirmAction } from "../../../utils/AlertUtils";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
 import { DatePicker } from "../ui/date-picker";
 import { TimePicker } from "../ui/time-picker";
-import { exportScheduleToCSV, exportScheduleToExcel, exportScheduleToPDF, exportUmpireScorecardsPDF } from "../../../utils/sportsExportUtils";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import "./SportsAuction.css";
 
 const toast = {
@@ -28,7 +30,7 @@ const toast = {
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
-import { tournamentService, type ConfigInfo } from "../../../services/sports/tournamentService";
+import { tournamentService, type ConfigInfo, type EventInfo, type TournamentDropdownItem } from "../../../services/sports/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
 import { LiveMatchView } from "./LiveMatchView";
 import { LiveScoringPanel } from "./LiveScoringPanel";
@@ -306,7 +308,7 @@ function BracketView({ eventId, tournamentConfigs, initialConfigId }: { eventId?
       const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
       return name === activeTournamentName;
     });
-    return match.length > 0 ? match : tournamentConfigs;
+    return match;
   }, [tournamentConfigs, activeTournamentName]);
 
   const tournamentResults = useMemo(() => {
@@ -561,19 +563,12 @@ export function SportsSchedule() {
     if (eventId && isAdmin) return "Setup Schedule";
     return "Overview";
   });
-  const [allEvents, setAllEvents] = useState<EventListItem[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<{ totalGames: number; liveNow: number; upcoming: number; completed: number } | null>(null);
-
-  const fetchScheduleStats = () => {
-    sportsService.getScheduleStats()
-      .then(res => setStats(res))
-      .catch(err => console.error("Failed to load schedule stats:", err));
-  };
+  const [scheduleLoadError, setScheduleLoadError] = useState<string | null>(null);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; configId?: number; tournamentName?: string; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string; rawStartDate?: string | null; rawEndDate?: string | null }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -595,6 +590,7 @@ export function SportsSchedule() {
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
   const [liveViewMatchId, setLiveViewMatchId] = useState<number | null>(null);
+  const [scoreSummaryFixture, setScoreSummaryFixture] = useState<(typeof fixturesList)[number] | null>(null);
   const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
   const [activeMatchSport, setActiveMatchSport] = useState<string>("");
   const [activeMatchFixture, setActiveMatchFixture] = useState<{ teamAId?: number; teamBId?: number; team1: string; team2: string } | null>(null);
@@ -629,7 +625,14 @@ export function SportsSchedule() {
 
   // ─── Tournament & Event selectors ───
   const [tournamentConfigs, setTournamentConfigs] = useState<ConfigInfo[]>([]);
+  const [actualTournaments, setActualTournaments] = useState<TournamentDropdownItem[]>([]);
+  const [sportsEvents, setSportsEvents] = useState<EventInfo[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(null);
+  const [selectedActualTournamentId, setSelectedActualTournamentId] = useState<number | null>(null);
+  const [selectedSportsEventId, setSelectedSportsEventId] = useState<number | null>(null);
+  const [selectedTournamentName, setSelectedTournamentName] = useState<string | null>(null);
+  const [tournamentPickerOpen, setTournamentPickerOpen] = useState(false);
+  const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const [selectedSportFilter, setSelectedSportFilter] = useState<string>("All");
   const [fixtureStatusFilter, setFixtureStatusFilter] = useState<string>("All");
   const [leaderboardViewType, setLeaderboardViewType] = useState<"auto" | "cricket" | "generic">("auto");
@@ -651,32 +654,92 @@ export function SportsSchedule() {
       .catch(() => {});
   }, []);
 
-  const distinctTournaments = useMemo(() => {
-    const set = new Set<string>();
-    tournamentConfigs.forEach(c => {
-      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
-      if (name) set.add(name);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      tournamentService.getTournamentsForDropdown().catch(() => [] as TournamentDropdownItem[]),
+      tournamentService.getEventsForDropdown().catch(() => [] as EventInfo[]),
+      user?.communityId
+        ? sportsService.getCommunityEvents(user.communityId).catch(() => [] as SportsEvent[])
+        : Promise.resolve([] as SportsEvent[]),
+    ]).then(([tournaments, events, communityEvents]) => {
+      if (cancelled) return;
+      setActualTournaments(tournaments);
+      const communityEventById = new Map(communityEvents.map(event => [Number(event.id), event]));
+      setSportsEvents(events.map(event => {
+        const communityEvent = communityEventById.get(Number(event.id));
+        const tournamentId = event.tournamentId ?? communityEvent?.tournament?.id ?? (communityEvent as any)?.tournamentId ?? null;
+        const tournament = tournaments.find(item => Number(item.id) === Number(tournamentId));
+        return {
+          ...event,
+          tournamentId,
+          tournamentName: communityEvent?.tournament?.name || tournament?.name || event.tournamentName,
+          sportName: event.sportName || communityEvent?.sportName || communityEvent?.sport?.name || "",
+          categoryName: event.categoryName || communityEvent?.categoryName || "",
+          venueName: event.venueName || communityEvent?.venueName || "",
+          eventDateStart: event.eventDateStart || communityEvent?.eventDateStart || "",
+          eventDateEnd: event.eventDateEnd || communityEvent?.eventDateEnd || "",
+        };
+      }));
     });
-    return Array.from(set);
-  }, [tournamentConfigs]);
+    return () => { cancelled = true; };
+  }, [user?.communityId]);
 
-  const activeTournamentConfig = useMemo(() => {
-    return tournamentConfigs.find(c => c.id === selectedTournamentId) || null;
-  }, [tournamentConfigs, selectedTournamentId]);
+  const tournamentOptions = useMemo(() => {
+    return actualTournaments.map(tournament => {
+      const name = tournament.name?.trim() || "";
+      const relatedEvents = sportsEvents.filter(event => (
+        (event.tournamentId != null && Number(event.tournamentId) === Number(tournament.id)) ||
+        (event.tournamentName?.trim().toLocaleLowerCase() === name.toLocaleLowerCase())
+      ));
+      const eventIds = new Set(relatedEvents.map(event => Number(event.id)));
+      const configs = tournamentConfigs.filter(config => eventIds.has(Number(config.eventId)));
+      const dates = [tournament.eventDateStart, ...relatedEvents.map(event => event.eventDateStart)].filter(Boolean).sort();
+      const endDates = [tournament.eventDateEnd, ...relatedEvents.map(event => event.eventDateEnd)].filter(Boolean).sort();
+      const sports = Array.from(new Set(relatedEvents.map(event => event.sportName).filter(Boolean)));
+      const formats = Array.from(new Set(configs.map(config => config.tournamentType).filter(Boolean)));
+      return {
+        id: Number(tournament.id),
+        name,
+        tournament,
+        relatedEvents,
+        configs,
+        events: relatedEvents.map(event => event.name).filter(Boolean),
+        eventCount: relatedEvents.length,
+        teamCount: relatedEvents.reduce((total, event) => {
+          const config = configs.find(item => Number(item.eventId) === Number(event.id));
+          return total + (Number(event.totalTeams) || Number(config?.totalTeams) || 0);
+        }, 0),
+        savedMatchCount: configs.reduce((total, config) => total + fixturesList.filter(match => match.configId === config.id).length, 0),
+        sports,
+        formats,
+        startDate: dates[0] || "",
+        endDate: endDates[endDates.length - 1] || "",
+        status: tournament.status || "",
+        searchValue: [name, ...relatedEvents.map(event => event.name), ...sports, ...formats].filter(Boolean).join(" "),
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [actualTournaments, sportsEvents, tournamentConfigs, fixturesList]);
+
+  const activeActualTournament = useMemo(() => (
+    tournamentOptions.find(option => option.id === selectedActualTournamentId)?.tournament || null
+  ), [tournamentOptions, selectedActualTournamentId]);
 
   const activeTournamentName = useMemo(() => {
-    if (activeTournamentConfig?.tournamentName) return activeTournamentConfig.tournamentName.trim();
-    return '';
-  }, [activeTournamentConfig]);
+    if (selectedTournamentName) return selectedTournamentName;
+    return activeActualTournament?.name?.trim() || '';
+  }, [activeActualTournament, selectedTournamentName]);
 
   const eventsForActiveTournament = useMemo(() => {
-    if (!activeTournamentName) return tournamentConfigs;
-    const match = tournamentConfigs.filter(c => {
-      const name = c.tournamentName ? c.tournamentName.trim() : (c.eventName ? c.eventName.trim() : '');
-      return name === activeTournamentName;
-    });
-    return match.length > 0 ? match : tournamentConfigs;
-  }, [tournamentConfigs, activeTournamentName]);
+    if (selectedActualTournamentId === null) return sportsEvents;
+    return tournamentOptions.find(option => option.id === selectedActualTournamentId)?.relatedEvents || [];
+  }, [sportsEvents, tournamentOptions, selectedActualTournamentId]);
+
+  const configsForActiveTournament = useMemo(() => {
+    const eventIds = new Set(eventsForActiveTournament.map(event => Number(event.id)));
+    return tournamentConfigs.filter(config => eventIds.has(Number(config.eventId)));
+  }, [eventsForActiveTournament, tournamentConfigs]);
+
 
   const handleFixtureSave = () => {
     if (!fixtureName.trim() || !fixtureSport || !fixtureVenue || !fixtureDate || !fixtureTime || !fixtureTeam1 || !fixtureTeam2) {
@@ -718,7 +781,6 @@ export function SportsSchedule() {
     }
 
     resetFixtureForm();
-    fetchScheduleStats();
   };
 
   const handleFixtureEdit = (f: any) => {
@@ -742,9 +804,18 @@ export function SportsSchedule() {
       "Are you sure you want to delete this fixture?"
     );
     if (!confirmed) return;
-    setFixturesList(prev => prev.filter(f => f.id !== id));
-    toast.success("Fixture deleted successfully");
-    fetchScheduleStats();
+    const fixture = fixturesList.find(f => f.id === id);
+    if (!fixture?.matchId) {
+      toast.error("Only saved tournament matches can be deleted here.");
+      return;
+    }
+    try {
+      await tournamentService.deleteMatch(fixture.matchId);
+      setFixturesList(prev => prev.filter(f => f.id !== id));
+      toast.success("Match deleted successfully");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete match");
+    }
   };
 
   const [scoreSaving, setScoreSaving] = useState(false);
@@ -756,27 +827,29 @@ export function SportsSchedule() {
     if (scoringFixtureId === null) return;
     const fixture = fixturesList.find(f => f.id === scoringFixtureId);
     if (!fixture) return;
-
-    if (fixture.matchId) {
-      setScoreSaving(true);
-      try {
-        const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
-          ? null : scoreWinnerId;
-        await tournamentService.recordResult({
-          matchId: fixture.matchId,
-          winnerTeamId: winnerId ?? undefined,
-          scoreTeamA: fixtureScore1,
-          scoreTeamB: fixtureScore2,
-          matchNotes: scoreMatchNotes || undefined,
-        });
-        toast.success("Match result saved!");
-      } catch (e: any) {
-        toast.error(e?.message || "Failed to save result");
-        setScoreSaving(false);
-        return;
-      }
-      setScoreSaving(false);
+    if (!fixture.matchId) {
+      toast.error("This fixture is not linked to a saved match record.");
+      return;
     }
+
+    setScoreSaving(true);
+    try {
+      const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
+        ? null : scoreWinnerId;
+      await tournamentService.recordResult({
+        matchId: fixture.matchId,
+        winnerTeamId: winnerId ?? undefined,
+        scoreTeamA: fixtureScore1,
+        scoreTeamB: fixtureScore2,
+        matchNotes: scoreMatchNotes || undefined,
+      });
+      toast.success("Match result saved!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save result");
+      setScoreSaving(false);
+      return;
+    }
+    setScoreSaving(false);
 
     setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
       ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED"
@@ -788,7 +861,6 @@ export function SportsSchedule() {
     setScoreWinnerId(null);
     setScoreResultType("WIN");
     setScoreMatchNotes("");
-    fetchScheduleStats();
   };
 
   const resetFixtureForm = () => {
@@ -816,22 +888,36 @@ export function SportsSchedule() {
     return Array.from(dates).sort();
   }, [fixturesList]);
 
-  const filteredFixtures = useMemo(() => {
+  const overviewFixtures = useMemo(() => {
+    const activeTournamentConfigIds = new Set(configsForActiveTournament.map(config => config.id));
+    const selectedEventConfigIds = selectedSportsEventId === null
+      ? null
+      : new Set(tournamentConfigs.filter(config => Number(config.eventId) === selectedSportsEventId).map(config => config.id));
     return fixturesList.filter(f => {
-      const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
-      const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
-      const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
-      const matchesStatus = fixtureStatusFilter === "All" || f.status === fixtureStatusFilter;
-      const matchesTournament = selectedTournamentId === null || f.name.includes(
-        tournamentConfigs.find(c => c.id === selectedTournamentId)?.tournamentName || ""
-      );
-      let matchesDate = true;
-      if (fixtureDateFilter) {
-        try { matchesDate = format(new Date(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
-      }
-      return matchesSearch && matchesSport && matchesStatus && matchesTournament && matchesDate;
+      const matchesTournament = selectedTournamentId !== null
+        ? f.configId === selectedTournamentId
+        : selectedActualTournamentId === null || activeTournamentConfigIds.has(f.configId ?? -1);
+      const matchesEvent = selectedEventConfigIds === null || selectedEventConfigIds.has(f.configId ?? -1);
+      return matchesTournament && matchesEvent;
     });
-  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter, fixtureStatusFilter, selectedTournamentId, tournamentConfigs, fixtureDateFilter]);
+  }, [fixturesList, selectedTournamentId, selectedActualTournamentId, selectedSportsEventId, configsForActiveTournament, tournamentConfigs]);
+
+  const scopedFixtures = useMemo(() => overviewFixtures.filter(f => {
+    const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
+    const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
+    const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
+    let matchesDate = true;
+    if (fixtureDateFilter) {
+      try { matchesDate = format(new Date(f.date), "yyyy-MM-dd") === fixtureDateFilter; } catch { matchesDate = false; }
+    }
+    return matchesSearch && matchesSport && matchesDate;
+  }), [overviewFixtures, fixtureSearchQuery, fixtureSportFilter, fixtureDateFilter]);
+
+  const filteredFixtures = useMemo(() => (
+    fixtureStatusFilter === "All"
+      ? scopedFixtures
+      : scopedFixtures.filter(f => f.status === fixtureStatusFilter)
+  ), [scopedFixtures, fixtureStatusFilter]);
 
   const sortedFixtures = useMemo(() => {
     const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
@@ -842,81 +928,6 @@ export function SportsSchedule() {
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
   }, [filteredFixtures]);
-
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-
-  const renderExportDropdown = (customList?: typeof fixturesList) => {
-    const targetMatches = customList || (sortedFixtures.length > 0 ? sortedFixtures : fixturesList);
-    return (
-      <div className="relative inline-block">
-        <button
-          type="button"
-          onClick={() => setShowExportDropdown(!showExportDropdown)}
-          className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
-        >
-          <Download className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Export Schedule</span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </button>
-
-        {showExportDropdown && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowExportDropdown(false)} />
-            <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 text-left text-xs animate-fade-in-up">
-              <div className="px-3 py-1 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                Fixtures & Scores ({targetMatches.length})
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  exportScheduleToExcel(targetMatches, "Tournament Match Schedule");
-                  setShowExportDropdown(false);
-                }}
-                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>Download Excel (.xls)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  exportScheduleToCSV(targetMatches, "Tournament Match Schedule");
-                  setShowExportDropdown(false);
-                }}
-                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span>Download CSV (.csv)</span>
-              </button>
-              <div className="border-t border-slate-100 my-1" />
-              <button
-                type="button"
-                onClick={() => {
-                  exportScheduleToPDF(targetMatches, "Tournament Match Schedule", user?.communityName || "Community Sports");
-                  setShowExportDropdown(false);
-                }}
-                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Printer className="w-4 h-4 text-indigo-600" />
-                <span>Print Fixtures Sheet PDF</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  exportUmpireScorecardsPDF(targetMatches, "Match Scorecards");
-                  setShowExportDropdown(false);
-                }}
-                className="w-full px-3 py-2 text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Printer className="w-4 h-4 text-amber-600" />
-                <span>Print Referee Scorecards PDF</span>
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  };
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -966,62 +977,16 @@ export function SportsSchedule() {
         .catch(() => { })
         .finally(() => setLoading(false));
     } else if (activeTab === "All Events" || activeTab === "Overview") {
-      fetchScheduleStats();
-      const eventsPromise = user?.communityId
-        ? sportsScheduleService.getOpenEvents(user.communityId)
-        : sportsScheduleService.getAllOpenEvents().catch(() => []);
-      const configsPromise = tournamentService.getConfigs().catch(() => []);
+      setScheduleLoadError(null);
+      const configsPromise = tournamentService.getConfigs();
 
-      Promise.all([eventsPromise, configsPromise])
-        .then(async ([events, configs]) => {
-          setAllEvents(events);
-
-          const eventFixtures = (events || []).map((ev): any => {
-            const isLive = ev.registrationStatus === "LIVE";
-            const isCompleted = ev.registrationStatus === "COMPLETED";
-            const status = isLive ? "LIVE" : isCompleted ? "COMPLETED" : "SCHEDULED";
-
-            let homeTeam = ev.name;
-            let awayTeam = "TBD";
-            if (ev.name.includes(" vs ")) {
-              const parts = ev.name.split(" vs ");
-              homeTeam = parts[0];
-              awayTeam = parts[1];
-            } else if (ev.name.includes(" - ")) {
-              const parts = ev.name.split(" - ");
-              homeTeam = parts[0];
-              awayTeam = parts[1];
-            }
-
-            const eventDate = ev.eventDateStart ? ev.eventDateStart.split("T")[0] : "";
-            let eventTime = "12:00 PM";
-            try {
-              if (ev.eventDateStart) {
-                eventTime = format(new Date(ev.eventDateStart), "hh:mm a");
-              }
-            } catch (e) {}
-
-            return {
-              id: ev.id,
-              name: ev.name,
-              sport: ev.sportName || "Other",
-              venue: ev.venueName || "TBD",
-              date: eventDate,
-              time: eventTime,
-              status,
-              team1: homeTeam,
-              team2: awayTeam,
-              score1: "",
-              score2: "",
-              rawStartDate: ev.eventDateStart,
-              rawEndDate: ev.eventDateEnd,
-            };
-          });
-
+      configsPromise
+        .then(async (configs) => {
           const matchFixtures: any[] = [];
+          let failedConfigReads = 0;
           for (const cfg of configs || []) {
             try {
-              const matches = await tournamentService.getMatchesByConfigId(cfg.id);
+              const matches = await tournamentService.getMatchesByConfigIdForAnalytics(cfg.id);
               for (const m of matches) {
                 if (m.status === "BYE") continue;
                 const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
@@ -1033,14 +998,20 @@ export function SportsSchedule() {
                 matchFixtures.push({
                   id: -(m.matchId ?? 0),
                   matchId: m.matchId,
+                  configId: cfg.id,
+                  tournamentName: cfg.tournamentName?.trim() || cfg.eventName?.trim(),
                   teamAId: m.teamAId,
                   teamBId: m.teamBId,
                   name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
-                  sport: cfg.eventName || "Tournament",
+                  sport: cfg.sportName || cfg.eventName || "Tournament",
                   venue: m.venueName || "TBD",
                   date: scheduledDate,
                   time: scheduledTime,
-                  status: m.status === "COMPLETED" ? "COMPLETED" : m.status === "IN_PROGRESS" ? "LIVE" : "SCHEDULED",
+                  status: String(m.status || "SCHEDULED").toUpperCase() === "COMPLETED"
+                    ? "COMPLETED"
+                    : ["IN_PROGRESS", "LIVE"].includes(String(m.status || "").toUpperCase())
+                      ? "LIVE"
+                      : "SCHEDULED",
                   team1: m.teamAName || "TBD",
                   team2: m.teamBName || "TBD",
                   score1: m.scoreTeamA || "",
@@ -1049,17 +1020,20 @@ export function SportsSchedule() {
                   rawEndDate: cfg.endDate,
                 });
               }
-            } catch (_e) {}
+            } catch (_e) { failedConfigReads += 1; }
           }
 
-          setFixturesList([...eventFixtures, ...matchFixtures]);
+          setFixturesList(matchFixtures);
+          if (failedConfigReads > 0) {
+            setScheduleLoadError(`Could not load matches for ${failedConfigReads} tournament configuration${failedConfigReads === 1 ? "" : "s"}. Some saved fixtures may be missing.`);
+          }
         })
-        .catch(() => { })
+        .catch(() => setScheduleLoadError("Could not load tournament matches. Please try again."))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
-  }, [activeTab, user?.communityId, user?.userId]);
+  }, [activeTab, user?.userId]);
 
   return (
     <div className="auction-hub-wrapper">
@@ -1135,10 +1109,10 @@ export function SportsSchedule() {
         <div className="page active">
           <div className="page-hdr flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="page-title">
+              <div className="page-title" style={activeTab === "Overview" ? { fontSize: 18 } : undefined}>
                 {activeTab === "Overview" ? "Sports overview" : activeTab === "Manual" ? "Manual Match Scheduler & Event Fixtures" : activeTab}
               </div>
-              <div className="page-sub">
+              <div className="page-sub" style={activeTab === "Overview" ? { fontSize: 11 } : undefined}>
                 {activeTab === "Overview"
                   ? "Your community sports schedule, live matches and latest results."
                   : activeTab === "Config"
@@ -1148,7 +1122,6 @@ export function SportsSchedule() {
                   : "Sports scheduling & event matches"}
               </div>
             </div>
-            {activeTab !== "My Matches" && activeTab !== "Teams & Squads" && activeTab !== "Leaderboard" && fixturesList.length > 0 && <div className="self-start sm:self-auto">{renderExportDropdown()}</div>}
           </div>
 
       {/* Overview */}
@@ -1161,27 +1134,18 @@ export function SportsSchedule() {
           />
 
           {/* Tournament & Sport Event Quick Selector (Separate Dropdowns) */}
-          {tournamentConfigs.length > 0 && (
+          {actualTournaments.length > 0 && (
             <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-sm space-y-3.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <Trophy className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Active Tournaments & Sports Events</h3>
-                    <p className="mt-0.5 text-xs text-slate-500">Filter fixtures by tournament championship and sports event category</p>
-                  </div>
-                </div>
-                {selectedTournamentId && (
+              {(selectedActualTournamentId !== null || selectedSportsEventId !== null) && (
+                <div className="flex justify-end border-b border-slate-100 pb-3">
                   <button
-                    onClick={() => setSelectedTournamentId(null)}
+                    onClick={() => { setSelectedActualTournamentId(null); setSelectedSportsEventId(null); setSelectedTournamentId(null); setSelectedTournamentName(null); }}
                     className="self-start text-xs font-semibold text-slate-500 transition hover:text-indigo-600 sm:self-auto cursor-pointer"
                   >
                     Clear Filter
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-0.5">
                 {/* 1. Tournament Dropdown */}
@@ -1190,31 +1154,96 @@ export function SportsSchedule() {
                     <Trophy className="w-3.5 h-3.5 text-indigo-600" />
                     <span>Tournament</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      id="overviewTournamentSelect"
-                      value={activeTournamentName}
-                      onChange={e => {
-                        const tName = e.target.value;
-                        if (!tName) {
-                          setSelectedTournamentId(null);
-                          return;
-                        }
-                        const first = tournamentConfigs.find(c => (c.tournamentName || c.eventName || '').trim() === tName);
-                        if (first) {
-                          setSelectedTournamentId(first.id);
-                          setActiveTab("All Events");
-                        }
-                      }}
-                      className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3.5 pr-10 py-2.5 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-xs"
-                    >
-                      <option value="">All Tournaments</option>
-                      {distinctTournaments.map(tName => (
-                        <option key={tName} value={tName}>{tName}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  </div>
+                  <Popover open={tournamentPickerOpen} onOpenChange={setTournamentPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        id="overviewTournamentSelect"
+                        type="button"
+                        role="combobox"
+                        aria-expanded={tournamentPickerOpen}
+                        aria-label="Search and select a tournament"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <span className={`min-w-0 truncate ${activeTournamentName ? "text-slate-900" : "text-slate-500"}`}>
+                          {activeTournamentName || "All Tournaments"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
+                      <Command>
+                        <CommandInput placeholder="Search tournaments, sports, events…" />
+                        <CommandList>
+                          <CommandEmpty className="px-3 py-6 text-center text-xs text-slate-500">No matching tournaments.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="all tournaments show everything"
+                              onSelect={() => {
+                                setSelectedTournamentId(null);
+                                setSelectedActualTournamentId(null);
+                                setSelectedSportsEventId(null);
+                                setSelectedTournamentName(null);
+                                setTournamentPickerOpen(false);
+                              }}
+                              className="cursor-pointer px-3 py-2.5 aria-selected:bg-indigo-50"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="block text-xs font-bold text-slate-800">All Tournaments</span>
+                                <span className="mt-0.5 block text-[10px] text-slate-500">Show schedules across all tournaments</span>
+                              </div>
+                              {!activeTournamentName && <Check className="h-4 w-4 text-indigo-600" />}
+                            </CommandItem>
+                            {tournamentOptions.map(option => {
+                              const dateLabel = option.startDate
+                                ? `${safeFormatDate(option.startDate, "d MMM yyyy")}${option.endDate ? ` – ${safeFormatDate(option.endDate, "d MMM yyyy")}` : ""}`
+                                : "Dates not set";
+                              return (
+                                <CommandItem
+                                  key={option.name}
+                                  value={option.searchValue}
+                                  onSelect={() => {
+                                    setSelectedTournamentId(null);
+                                    setSelectedActualTournamentId(option.id);
+                                    setSelectedSportsEventId(null);
+                                    setSelectedTournamentName(option.name);
+                                    setTournamentPickerOpen(false);
+                                  }}
+                                  className="cursor-pointer items-start px-3 py-2.5 aria-selected:bg-indigo-50"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><Trophy className="h-4 w-4" /></span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="flex items-center justify-between gap-2">
+                                        <span className="truncate text-xs font-bold text-slate-900">{option.name}</span>
+                                        <span className="flex shrink-0 items-center gap-1">
+                                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-600">{option.eventCount} {option.eventCount === 1 ? "event" : "events"}</span>
+                                          {option.status && <span className="max-w-[72px] truncate rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">{option.status.replaceAll("_", " ")}</span>}
+                                        </span>
+                                      </span>
+                                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500">
+                                        <span>{option.teamCount} teams</span>
+                                        <span>{option.savedMatchCount} saved matches</span>
+                                        <span>{dateLabel}</span>
+                                      </span>
+                                      {option.events.length > 0 && (
+                                        <span className="mt-1 block truncate text-[10px] font-semibold text-slate-600">
+                                          {option.events.slice(0, 2).join(" · ")}{option.events.length > 2 ? ` · +${option.events.length - 2} more` : ""}
+                                        </span>
+                                      )}
+                                      <span className="mt-0.5 block truncate text-[10px] font-medium text-indigo-600">
+                                        {[...option.sports, ...option.formats].filter(Boolean).join(" · ") || "Tournament details unavailable"}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  {selectedActualTournamentId === option.id && <Check className="mt-1 h-4 w-4 shrink-0 text-indigo-600" />}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* 2. Sports Event Dropdown */}
@@ -1223,30 +1252,95 @@ export function SportsSchedule() {
                     <Calendar className="w-3.5 h-3.5 text-sky-600" />
                     <span>Sports Event / Category</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      id="overviewEventSelect"
-                      value={selectedTournamentId ?? ""}
-                      onChange={e => {
-                        const tournamentId = Number(e.target.value);
-                        setSelectedTournamentId(tournamentId ? tournamentId : null);
-                        if (tournamentId) {
-                          setActiveTab("All Events");
-                        }
-                      }}
-                      className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-white focus:bg-white pl-3.5 pr-10 py-2.5 text-sm font-semibold text-slate-900 outline-none transition-all focus:border-sky-500 focus:ring-2 focus:ring-sky-100 cursor-pointer shadow-xs"
-                    >
-                      <option value="">All Events / Categories</option>
-                      {eventsForActiveTournament.map(cfg => (
-                        <option key={cfg.id} value={cfg.id}>
-                          {cfg.eventName || cfg.tournamentName} {cfg.totalTeams ? `• ${cfg.totalTeams} teams` : ''} {cfg.sportName ? `• ${cfg.sportName}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  </div>
+                  <Popover open={eventPickerOpen} onOpenChange={setEventPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        id="overviewEventSelect"
+                        type="button"
+                        role="combobox"
+                        aria-expanded={eventPickerOpen}
+                        aria-label="Search and select a sports event"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-2.5 text-left text-sm font-semibold text-slate-900 shadow-xs outline-none transition-all hover:bg-white focus:border-sky-500 focus:bg-white focus:ring-2 focus:ring-sky-100"
+                      >
+                        <span className={`min-w-0 truncate ${selectedSportsEventId ? "text-slate-900" : "text-slate-500"}`}>
+                          {sportsEvents.find(event => Number(event.id) === selectedSportsEventId)?.name || "All Events / Categories"}
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="z-[80] w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl">
+                      <Command>
+                        <CommandInput placeholder="Search sports events, sports, categories…" />
+                        <CommandList>
+                          <CommandEmpty className="px-3 py-6 text-center text-xs text-slate-500">No matching sports events.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="all events categories show everything"
+                              onSelect={() => {
+                                setSelectedSportsEventId(null);
+                                setSelectedTournamentId(null);
+                                setEventPickerOpen(false);
+                              }}
+                              className="cursor-pointer px-3 py-2.5 aria-selected:bg-sky-50"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="block text-xs font-bold text-slate-800">All Events / Categories</span>
+                                <span className="mt-0.5 block text-[10px] text-slate-500">Show every event in the selected tournament</span>
+                              </div>
+                              {selectedSportsEventId === null && <Check className="h-4 w-4 text-sky-600" />}
+                            </CommandItem>
+                            {eventsForActiveTournament.map(event => {
+                              const config = tournamentConfigs.find(item => Number(item.eventId) === Number(event.id));
+                              const sport = event.sportName || config?.sportName || "Sport not specified";
+                              const category = event.categoryName || event.gender || config?.tournamentType || "Sports event";
+                              const start = event.eventDateStart ? safeFormatDate(event.eventDateStart, "d MMM yyyy") : "Date TBD";
+                              const end = event.eventDateEnd && event.eventDateEnd !== event.eventDateStart
+                                ? ` – ${safeFormatDate(event.eventDateEnd, "d MMM yyyy")}`
+                                : "";
+                              return (
+                                <CommandItem
+                                  key={event.id}
+                                  value={[event.name, sport, category, event.tournamentName].filter(Boolean).join(" ")}
+                                  onSelect={() => {
+                                    setSelectedSportsEventId(Number(event.id));
+                                    setSelectedTournamentId(config?.id ?? null);
+                                    setEventPickerOpen(false);
+                                  }}
+                                  className="cursor-pointer items-start px-3 py-2.5 aria-selected:bg-sky-50"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600"><Calendar className="h-4 w-4" /></span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-xs font-bold text-slate-900">{event.name}</span>
+                                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-500">
+                                        <span>{sport}</span><span>{category}</span><span>{start}{end}</span>
+                                        <span>{Number(event.totalTeams ?? config?.totalTeams) || 0} teams</span>
+                                      </span>
+                                    </span>
+                                  </div>
+                                  {selectedSportsEventId === Number(event.id) && <Check className="mt-1 h-4 w-4 shrink-0 text-sky-600" />}
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+            </div>
+          )}
+
+          {scheduleLoadError && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <span>{scheduleLoadError}</span>
+            </div>
+          )}
+          {loading && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-xs text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" /> Loading saved tournament matches…
             </div>
           )}
 
@@ -1260,7 +1354,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{overviewFixtures.length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Fixtures</span>
               </div>
             </div>
@@ -1274,7 +1368,7 @@ export function SportsSchedule() {
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
-                  {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
+                  {overviewFixtures.filter(f => f.status === "LIVE").length}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
@@ -1289,7 +1383,7 @@ export function SportsSchedule() {
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
                 <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
-                  {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
+                  {overviewFixtures.filter(f => f.status === "COMPLETED").length}
                 </span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
@@ -1303,7 +1397,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{overviewFixtures.filter(f => f.status === "SCHEDULED").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
@@ -1326,12 +1420,12 @@ export function SportsSchedule() {
                 </div>
 
                 <div className="space-y-2 sm:space-y-3">
-                  {fixturesList.filter(f => f.status === "LIVE").length === 0 ? (
+                  {overviewFixtures.filter(f => f.status === "LIVE").length === 0 ? (
                     <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
                       No live matches running at the moment.
                     </div>
                   ) : (
-                    fixturesList.filter(f => f.status === "LIVE").map((fixture) => {
+                    overviewFixtures.filter(f => f.status === "LIVE").map((fixture) => {
                       const IconComponent = getSportIcon(fixture.sport);
                       const colors = getSportColor(fixture.sport);
                       return (
@@ -1407,16 +1501,25 @@ export function SportsSchedule() {
                   Recent Results
                 </h3>
                 <div className="space-y-2.5 sm:space-y-3.5">
-                  {fixturesList.filter(f => f.status === "COMPLETED").length === 0 ? (
+                  {overviewFixtures.filter(f => f.status === "COMPLETED").length === 0 ? (
                     <div className="text-center py-5 sm:py-8 text-slate-400 text-xs">
                       No completed matches found.
                     </div>
                   ) : (
-                    fixturesList.filter(f => f.status === "COMPLETED").slice(0, 4).map((fixture) => {
+                    overviewFixtures.filter(f => f.status === "COMPLETED").slice(0, 4).map((fixture) => {
                       const IconComponent = getSportIcon(fixture.sport);
                       const colors = getSportColor(fixture.sport);
-                      const score1 = Number(fixture.score1 || 0);
-                      const score2 = Number(fixture.score2 || 0);
+                      const cleanScore = (value: string | null | undefined) => {
+                        const score = String(value ?? "").trim();
+                        return !score || /^(nan|undefined|null)$/i.test(score) ? "—" : score;
+                      };
+                      const score1Text = cleanScore(fixture.score1);
+                      const score2Text = cleanScore(fixture.score2);
+                      const comparableScore = (score: string) => /^\d+(?:\.\d+)?(?:\/\d+)?$/.test(score) ? Number(score.split("/")[0]) : null;
+                      const score1 = comparableScore(score1Text);
+                      const score2 = comparableScore(score2Text);
+                      const team1Leads = score1 != null && score2 != null && score1 > score2;
+                      const team2Leads = score1 != null && score2 != null && score2 > score1;
                       return (
                         <div key={fixture.id} className="text-left space-y-1.5 sm:space-y-2 pb-2.5 sm:pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
                           <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -1428,12 +1531,12 @@ export function SportsSchedule() {
                           </div>
                           <div className="space-y-0.5 sm:space-y-1">
                             <div className="flex items-center justify-between">
-                              <span className={`text-xs ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
-                              <span className={`text-xs font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
+                              <span className={`text-xs ${team1Leads ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
+                              <span className={`text-xs font-mono font-bold ${team1Leads ? "text-slate-800" : "text-slate-500"}`}>{score1Text}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className={`text-xs ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
-                              <span className={`text-xs font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
+                              <span className={`text-xs ${team2Leads ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
+                              <span className={`text-xs font-mono font-bold ${team2Leads ? "text-slate-800" : "text-slate-500"}`}>{score2Text}</span>
                             </div>
                           </div>
                         </div>
@@ -1536,6 +1639,18 @@ export function SportsSchedule() {
       {/* All Events */}
       {activeTab === "All Events" && (
         <div className="space-y-3 sm:space-y-6 animate-fade-in-up text-left">
+          {scheduleLoadError && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <span>{scheduleLoadError}</span>
+            </div>
+          )}
+          {loading && (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-xs text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" /> Loading saved tournament matches…
+            </div>
+          )}
+
           {/* Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5">
             <div className="bg-white rounded-xl p-2.5 sm:p-3 border border-slate-100 shadow-xs flex flex-col justify-between hover:shadow-sm active:scale-[0.98] transition-all duration-150">
@@ -1546,7 +1661,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold uppercase tracking-wider">Scheduled</span>
               </div>
             </div>
@@ -1559,7 +1674,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "LIVE").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold uppercase tracking-wider animate-pulse">LIVE</span>
               </div>
             </div>
@@ -1572,7 +1687,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "SCHEDULED").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold uppercase tracking-wider">Pending</span>
               </div>
             </div>
@@ -1585,7 +1700,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-1 sm:mt-2 flex items-baseline gap-1.5">
-                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">{scopedFixtures.filter(f => f.status === "COMPLETED").length}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold uppercase tracking-wider">Done</span>
               </div>
             </div>
@@ -1733,13 +1848,20 @@ export function SportsSchedule() {
               <div className="flex-1 min-w-0">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tournament</label>
                 <select
-                  value={selectedTournamentId ?? ""}
-                  onChange={e => setSelectedTournamentId(e.target.value ? Number(e.target.value) : null)}
+                  value={selectedActualTournamentId ?? ""}
+                  onChange={e => {
+                    const selectedId = Number(e.target.value);
+                    const tournament = tournamentOptions.find(option => option.id === selectedId);
+                    setSelectedActualTournamentId(selectedId || null);
+                    setSelectedTournamentName(tournament?.name || null);
+                    setSelectedSportsEventId(null);
+                    setSelectedTournamentId(null);
+                  }}
                   className="w-full text-sm rounded-xl border border-slate-200 bg-white px-3 py-2 focus:ring-2 focus:ring-indigo-300 outline-none text-slate-800"
                 >
                   <option value="">All Tournaments</option>
-                  {tournamentConfigs.map(c => (
-                    <option key={c.id} value={c.id}>{c.tournamentName} — {c.eventName}</option>
+                  {tournamentOptions.map(tournament => (
+                    <option key={tournament.id} value={tournament.id}>{tournament.name}</option>
                   ))}
                 </select>
               </div>
@@ -1763,7 +1885,7 @@ export function SportsSchedule() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
             {["All", "LIVE", "SCHEDULED", "COMPLETED"].map(status => {
               const isActive = fixtureStatusFilter === status;
-              const count = status === "All" ? fixturesList.length : fixturesList.filter(f => f.status === status).length;
+              const count = status === "All" ? scopedFixtures.length : scopedFixtures.filter(f => f.status === status).length;
               const statusColors: Record<string, string> = {
                 "All": isActive ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-100" : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60",
                 "LIVE": isActive ? "bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md shadow-red-100" : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/60",
@@ -1835,14 +1957,13 @@ export function SportsSchedule() {
             <div className="flex items-center gap-3 flex-wrap">
               {isAdmin && !showFixtureForm && (
                 <button
-                  onClick={() => setShowFixtureForm(true)}
+                  onClick={() => setActiveTab("Manual")}
                   className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Add Match
+                  Manage schedule
                 </button>
               )}
-              {fixturesList.length > 0 && renderExportDropdown()}
             </div>
           </div>
 
@@ -1915,7 +2036,7 @@ export function SportsSchedule() {
                         </span>
                         {(isLive || isCompleted) && (
                           <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
-                            {fixture.score1 || "0"}
+                            {fixture.score1 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
                       </div>
@@ -1925,7 +2046,7 @@ export function SportsSchedule() {
                         </span>
                         {(isLive || isCompleted) && (
                           <span className="text-[10px] font-bold font-mono bg-white px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
-                            {fixture.score2 || "0"}
+                            {fixture.score2 || (fixture.matchId ? "0" : "—")}
                           </span>
                         )}
                       </div>
@@ -1933,27 +2054,39 @@ export function SportsSchedule() {
                   </div>
 
                   {/* Live match view for spectators */}
-                  {isLive && fixture.matchId && (
+                  {isLive && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => openLiveView(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        onClick={() => {
+                          if (fixture.matchId) {
+                            openLiveView(fixture);
+                          } else {
+                            setScoreSummaryFixture(fixture);
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150 cursor-pointer"
                       >
                         <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        Watch Live
+                        {fixture.matchId ? "Watch Live" : "View Live Score"}
                       </button>
                     </div>
                   )}
 
                   {/* View Details for completed tournament matches */}
-                  {isCompleted && fixture.matchId && (
+                  {isCompleted && (
                     <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100">
                       <button
-                        onClick={() => openMatchDetail(fixture)}
-                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150"
+                        onClick={() => {
+                          if (fixture.matchId) {
+                            openMatchDetail(fixture);
+                          } else {
+                            setScoreSummaryFixture(fixture);
+                          }
+                        }}
+                        className="w-full flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg sm:rounded-xl active:scale-[0.97] transition-all duration-150 cursor-pointer"
                       >
                         <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        View Scorecard
+                        {fixture.matchId ? "View Scorecard" : "View Result Summary"}
                       </button>
                     </div>
                   )}
@@ -1965,7 +2098,7 @@ export function SportsSchedule() {
                         {fixture.status === "SCHEDULED" && (
                           <button
                             onClick={() => setConfirmGoLiveFixture(fixture)}
-                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
+                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
                           >
                             <Play className="w-3 h-3 fill-red-600" />
                             Go Live
@@ -1973,15 +2106,23 @@ export function SportsSchedule() {
                         )}
                         {fixture.status === "LIVE" && (
                           <>
-                            {fixture.matchId && (
-                              <button
-                                onClick={() => openLiveScoring(fixture)}
-                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
-                              >
-                                <Activity className="w-3 h-3" />
-                                Live Score
-                              </button>
-                            )}
+                            <button
+                              onClick={() => {
+                                if (fixture.matchId) {
+                                  openLiveScoring(fixture);
+                                } else {
+                                  setScoringFixtureId(fixture.id);
+                                  setFixtureScore1(fixture.score1 || "");
+                                  setFixtureScore2(fixture.score2 || "");
+                                  setShowScoreModal(true);
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition cursor-pointer"
+                              title="Record live points, sets, or match scores"
+                            >
+                              <Activity className="w-3 h-3" />
+                              Live Score
+                            </button>
                             <button
                               onClick={() => {
                                 setScoringFixtureId(fixture.id);
@@ -1989,7 +2130,7 @@ export function SportsSchedule() {
                                 setFixtureScore2(fixture.score2 || "");
                                 setShowScoreModal(true);
                               }}
-                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition"
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg transition cursor-pointer"
                             >
                               <Trophy className="w-3 h-3" />
                               End Match
@@ -1998,18 +2139,15 @@ export function SportsSchedule() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleFixtureEdit(fixture)}
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleFixtureDelete(fixture.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {fixture.matchId && (
+                          <button
+                            onClick={() => handleFixtureDelete(fixture.id)}
+                            aria-label={`Delete ${fixture.name}`}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2160,11 +2298,17 @@ export function SportsSchedule() {
               }
             };
 
-            const handleGoLive = () => {
-              setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
-              toast.success(`Match "${fixture.name}" is now LIVE!`);
-              fetchScheduleStats();
-              setConfirmGoLiveFixture(null);
+            const handleGoLive = async () => {
+              try {
+                if (!fixture.matchId) throw new Error("This fixture is not linked to a saved match record.");
+                await apiClient.put(`/sports/matches/${fixture.matchId}/status`, { status: "LIVE" });
+                setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
+                toast.success(`Match "${fixture.name}" is now LIVE!`);
+              } catch (err: any) {
+                toast.error(err?.message || "Failed to broadcast match status to LIVE on server");
+              } finally {
+                setConfirmGoLiveFixture(null);
+              }
             };
 
             return (
@@ -2405,6 +2549,27 @@ export function SportsSchedule() {
         )
       )}
 
+      {scoreSummaryFixture && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" onClick={() => setScoreSummaryFixture(null)}>
+          <section role="dialog" aria-modal="true" aria-label={scoreSummaryFixture.status === "LIVE" ? "Live match score summary" : "Match result summary"} onClick={(event) => event.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <header className={`flex items-center justify-between px-4 py-3 text-white ${scoreSummaryFixture.status === "LIVE" ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-indigo-600 to-violet-600"}`}>
+              <div className="flex items-center gap-2">{scoreSummaryFixture.status === "LIVE" ? <Activity className="h-4 w-4" /> : <Trophy className="h-4 w-4" />}<h2 className="m-0 text-sm font-extrabold">{scoreSummaryFixture.status === "LIVE" ? "Live score snapshot" : "Match result"}</h2></div>
+              <button type="button" aria-label="Close score summary" onClick={() => setScoreSummaryFixture(null)} className="rounded-lg p-1.5 transition hover:bg-white/15"><X className="h-4 w-4" /></button>
+            </header>
+            <div className="space-y-4 p-4">
+              <div><p className="m-0 text-xs font-bold text-slate-900">{scoreSummaryFixture.name}</p><p className="m-0 mt-1 text-[10px] text-slate-500">{scoreSummaryFixture.sport} · {scoreSummaryFixture.date} at {scoreSummaryFixture.time}</p></div>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="min-w-0 text-center"><p className="m-0 truncate text-xs font-bold text-slate-800">{scoreSummaryFixture.team1 || "Participant 1"}</p><p className="m-0 mt-1 text-2xl font-black tabular-nums text-slate-900">{scoreSummaryFixture.score1 || "—"}</p></div>
+                <span className="text-[10px] font-bold uppercase text-slate-400">vs</span>
+                <div className="min-w-0 text-center"><p className="m-0 truncate text-xs font-bold text-slate-800">{scoreSummaryFixture.team2 || "Participant 2"}</p><p className="m-0 mt-1 text-2xl font-black tabular-nums text-slate-900">{scoreSummaryFixture.score2 || "—"}</p></div>
+              </div>
+              <p className="m-0 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800">This fixture has no linked match scorecard. The summary shows the score saved with the fixture; detailed innings, player stats, and live updates require a linked match record.</p>
+              {scoreSummaryFixture.venue && <p className="m-0 text-[10px] text-slate-500">Venue: {scoreSummaryFixture.venue}</p>}
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (
         activeIsCricket ? (
@@ -2421,7 +2586,7 @@ export function SportsSchedule() {
         activeIsCricket ? (
           <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
         ) : activeIsTimeSport ? (
-          <RaceResultsView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+          <RaceResultsView matchId={liveViewMatchId} live onClose={() => setLiveViewMatchId(null)} />
         ) : (
           <GenericLiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
         )

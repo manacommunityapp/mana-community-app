@@ -741,6 +741,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     } else {
       setConfirmedRegistrations([]);
     }
+
+    // Associate existing tournament config if one already exists for this event
+    const existingConfig = configs.find(c => c.eventId === Number(id));
+    if (existingConfig) {
+      setCurrentConfigId(existingConfig.id);
+    } else {
+      setCurrentConfigId(null);
+    }
   };
 
   const resetGeneratedSchedule = () => {
@@ -1440,6 +1448,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             configId: null, // Will be populated after config is created
             groupName: group.name,
             stage: isRoundRobin ? 'ROUND_ROBIN' : 'GROUP',
+            round: isRoundRobin ? 'LEAGUE_MATCH' : 'GROUP_STAGE',
+            roundNumber: 1,
+            bracketSlot: mIdx,
             matchNumber: mIdx + 1,
             homeName: match.home.name,
             homeId: match.home.id,
@@ -1463,8 +1474,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         allMatches.push({
           eventId,
           configId: null,
-          groupName: isGroupKnockout ? 'Playoffs' : match.name,
+          groupName: match.name || (isGroupKnockout ? 'Playoffs' : 'Knockout'),
           stage: isGroupKnockout ? 'PLAYOFF' : 'KNOCKOUT',
+          round: match.round || (isGroupKnockout ? 'SEMI_FINAL' : 'FINAL'),
+          roundNumber: (match.roundIndex !== undefined ? match.roundIndex + 1 : 1),
+          bracketSlot: idx,
           matchNumber: idx + 1,
           homeName: match.home?.name || 'TBD',
           homeId: match.home?.id || null,
