@@ -202,24 +202,121 @@ export function normalizeEventGender(ev: any): string {
   return g || "ALL";
 }
 
-export function getEventFormatSignature(ev: any): string {
-  try {
-    const fmts = getEventFormats(ev);
-    if (Array.isArray(fmts) && fmts.length > 0) {
-      return fmts.map(f => String(f).trim().toUpperCase()).sort().join(",");
-    }
-  } catch {}
+export function getDisplayEventFormats(ev: any): string[] {
+  if (!ev) return [];
 
-  const raw = ev?.format || ev?.formats || ev?.tournamentType || "";
-  if (Array.isArray(raw)) {
-    return raw
-      .map(f => (typeof f === "object" ? f?.name || f?.format || "" : String(f)))
-      .filter(Boolean)
-      .map(f => f.trim().toUpperCase())
-      .sort()
-      .join(",");
+  // 1. Explicit formats on event
+  const raw = ev?.format || ev?.formats || ev?.eventFormats;
+  if (raw) {
+    if (Array.isArray(raw)) {
+      const list = raw
+        .map(f => (typeof f === "object" ? f?.format || f?.formatType || f?.name || f?.value || f?.type || "" : String(f)))
+        .map(f => f.trim().toUpperCase())
+        .filter(Boolean);
+      if (list.length > 0) return Array.from(new Set(list));
+    } else if (typeof raw === "string" && raw.trim()) {
+      const list = raw
+        .split(",")
+        .map(f => f.trim().toUpperCase())
+        .filter(Boolean);
+      if (list.length > 0) return Array.from(new Set(list));
+    }
   }
-  return String(raw).trim().toUpperCase();
+
+  // 2. Fallback to explicit tournamentType if present
+  if (ev?.tournamentType && typeof ev.tournamentType === "string" && ev.tournamentType.trim()) {
+    return [ev.tournamentType.trim().toUpperCase()];
+  }
+
+  // 3. Fallback to getEventFormats heuristics ONLY if sport or event name is present
+  if (ev?.name || ev?.sport?.name || ev?.sportName || ev?.categoryName) {
+    try {
+      const fmts = getEventFormats(ev);
+      if (Array.isArray(fmts) && fmts.length > 0) {
+        return Array.from(new Set(fmts.map(f => f.trim().toUpperCase())));
+      }
+    } catch {}
+  }
+
+  return [];
+}
+
+export function getFormatBadge(fmt: string): { label: string; color: string } {
+  const norm = String(fmt || "").trim().toUpperCase();
+
+  if (norm === "SINGLES" || norm.includes("SINGLE")) {
+    return {
+      label: "Singles",
+      color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    };
+  }
+  if (norm === "MIXED_DOUBLES" || norm === "MIXED" || norm.includes("MIXED")) {
+    return {
+      label: "Mixed Doubles",
+      color: "bg-rose-50 text-rose-700 border-rose-200",
+    };
+  }
+  if (norm === "DOUBLES" || norm.includes("DOUBLE")) {
+    return {
+      label: "Doubles",
+      color: "bg-blue-50 text-blue-700 border-blue-200",
+    };
+  }
+  if (norm === "TEAM" || norm.includes("TEAM") || norm.includes("SQUAD")) {
+    return {
+      label: "Team Squad",
+      color: "bg-purple-50 text-purple-700 border-purple-200",
+    };
+  }
+  if (norm === "INDIVIDUAL") {
+    return {
+      label: "Individual",
+      color: "bg-teal-50 text-teal-700 border-teal-200",
+    };
+  }
+  if (norm === "RELAY") {
+    return {
+      label: "Relay",
+      color: "bg-cyan-50 text-cyan-700 border-cyan-200",
+    };
+  }
+  if (norm === "ROUND_ROBIN") {
+    return {
+      label: "Round Robin",
+      color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    };
+  }
+  if (norm === "KNOCKOUT_SINGLE" || norm === "KNOCKOUT") {
+    return {
+      label: "Knockout",
+      color: "bg-amber-50 text-amber-700 border-amber-200",
+    };
+  }
+  if (norm === "KNOCKOUT_DOUBLE") {
+    return {
+      label: "Double Knockout",
+      color: "bg-amber-50 text-amber-700 border-amber-200",
+    };
+  }
+
+  const formatted = norm
+    .toLowerCase()
+    .split("_")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+  return {
+    label: formatted || norm,
+    color: "bg-teal-50 text-teal-700 border-teal-200",
+  };
+}
+
+export function getEventFormatSignature(ev: any): string {
+  const fmts = getDisplayEventFormats(ev);
+  if (fmts.length > 0) {
+    return fmts.sort().join(",");
+  }
+  return "";
 }
 
 /**
@@ -257,7 +354,7 @@ export function TournamentSection({
   const [exportDropdownEventId, setExportDropdownEventId] = useState<number | null>(null);
   const [showExternalFormsEventId, setShowExternalFormsEventId] = useState<number | null>(null);
   const [shareTournament, setShareTournament] = useState<any | null>(null);
-  const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; search?: string }>>({});
+  const [eventFilters, setEventFilters] = useState<Record<number, { sport?: string; category?: string; age?: string; format?: string; search?: string }>>({});
   const [expandedHistoryKeys, setExpandedHistoryKeys] = useState<Record<string, boolean>>({});
   const [lazyHistoryMap, setLazyHistoryMap] = useState<Record<number, TournamentRegistration[]>>({});
   const [loadingHistoryMap, setLoadingHistoryMap] = useState<Record<number, boolean>>({});
@@ -302,7 +399,7 @@ export function TournamentSection({
     return groupRegistrationsByPlayer(registrations || []);
   }, [registrations]);
 
-  const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "search", value: string) => {
+  const setTournamentFilter = (tournamentId: number, key: "sport" | "category" | "age" | "format" | "search", value: string) => {
     setEventFilters(prev => ({
       ...prev,
       [tournamentId]: {
@@ -788,13 +885,21 @@ export function TournamentSection({
             const allSportsInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getSportName(ev)).filter(Boolean))).sort() as string[];
             const allCategoriesInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getCategoryName(ev)).filter(Boolean))).sort() as string[];
             const allAgeCategoriesInItem = Array.from(new Set(item.sportsEvents.map((ev: any) => getAgeCategory(ev)).filter(Boolean))).sort() as string[];
+            const allFormatsInItem = Array.from(
+              new Set(
+                (item.sportsEvents || [])
+                  .flatMap((ev: any) => getDisplayEventFormats(ev))
+                  .filter(Boolean)
+              )
+            ).sort() as string[];
 
             const currentFilter = eventFilters[item.id] || {};
             const selectedSport = currentFilter.sport || "";
             const selectedCategory = currentFilter.category || "";
             const selectedAge = currentFilter.age || "";
+            const selectedFormat = currentFilter.format || "";
             const searchQuery = (currentFilter.search || "").toLowerCase().trim();
-            const isFilterActive = Boolean(selectedSport || selectedCategory || selectedAge || searchQuery);
+            const isFilterActive = Boolean(selectedSport || selectedCategory || selectedAge || selectedFormat || searchQuery);
 
             const filteredSportsEvents = item.sportsEvents.filter((ev: any) => {
               if (selectedSport) {
@@ -817,6 +922,10 @@ export function TournamentSection({
                 const directMatch = a && a.toLowerCase() === targetLower;
                 const nameMatch = nameLower.includes(targetLower);
                 if (!directMatch && !nameMatch) return false;
+              }
+              if (selectedFormat) {
+                const evFmts = getDisplayEventFormats(ev);
+                if (!evFmts.some(f => f.toUpperCase() === selectedFormat.toUpperCase())) return false;
               }
               if (searchQuery) {
                 const nameLower = (ev.name || "").toLowerCase();
@@ -993,6 +1102,23 @@ export function TournamentSection({
                           </div>
                         )}
 
+                        {/* Participant Format filter dropdown if present */}
+                        {allFormatsInItem.length > 0 && (
+                          <div className="relative min-w-[110px] sm:min-w-[135px]">
+                            <select
+                              value={selectedFormat}
+                              onChange={(e) => setTournamentFilter(item.id, "format", e.target.value)}
+                              className="w-full text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer shadow-2xs"
+                              aria-label="Filter by participant format"
+                            >
+                              <option value="">All Formats ({allFormatsInItem.length})</option>
+                              {allFormatsInItem.map((f) => (
+                                <option key={f} value={f}>{getFormatBadge(f).label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
                         {/* Quick Search Input */}
                         <div className="relative min-w-[110px] sm:min-w-[140px] flex-1 max-w-[180px]">
                           <Search className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1073,6 +1199,7 @@ export function TournamentSection({
                         const evSport = getSportName(ev);
                         const evCat = getCategoryName(ev);
                         const evAge = getAgeCategory(ev);
+                        const evFormats = getDisplayEventFormats(ev);
                         const sig = getEventCategorySignature(ev);
                         const isDuplicateCategory = Boolean(sig && (signatureCounts[sig] || 0) > 1);
                         const duplicateCount = sig ? signatureCounts[sig] || 0 : 0;
@@ -1104,6 +1231,18 @@ export function TournamentSection({
                                       {evAge}
                                     </span>
                                   )}
+                                  {evFormats.map((fmt) => {
+                                    const badge = getFormatBadge(fmt);
+                                    return (
+                                      <span
+                                        key={fmt}
+                                        className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
+                                        title={`Participant Format: ${badge.label}`}
+                                      >
+                                        {badge.label}
+                                      </span>
+                                    );
+                                  })}
                                   {isDuplicateCategory && (
                                     <span
                                       className="text-[10px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-2xs tracking-wide"
@@ -1117,6 +1256,11 @@ export function TournamentSection({
                                 <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                   {ev.gender && <span>Gender: {ev.gender}</span>}
                                   {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
+                                  {evFormats.length > 0 && (
+                                    <span>
+                                      Format: <span className="font-semibold text-slate-700">{evFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
+                                    </span>
+                                  )}
                                   {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
                                   {isDuplicateCategory && (
                                     <span className="text-[11px] font-semibold text-amber-800 bg-amber-100/90 border border-amber-200/80 px-1.5 py-0.2 rounded">
@@ -1217,16 +1361,38 @@ export function TournamentSection({
             : item;
           const targetId = ev.tournamentId || ev.id;
           const registrationStatus = ev.registrationStatus || ev.status;
+          const evFallbackFormats = getDisplayEventFormats(ev);
 
           return (
             <div key={item.id} className="space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
                 <div className="min-w-0 flex-1 text-left">
-                  <div className="text-sm font-semibold text-slate-800 break-words">{ev.name}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {ev.eventDateStart && ev.eventDateEnd
-                      ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
-                      : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
+                  <div className="text-sm font-semibold text-slate-800 break-words flex flex-wrap items-center gap-1.5">
+                    <span>{ev.name}</span>
+                    {evFallbackFormats.map((fmt) => {
+                      const badge = getFormatBadge(fmt);
+                      return (
+                        <span
+                          key={fmt}
+                          className={`text-[10px] border px-1.5 py-0.2 rounded font-bold tracking-wide shadow-2xs ${badge.color}`}
+                          title={`Participant Format: ${badge.label}`}
+                        >
+                          {badge.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span>
+                      {ev.eventDateStart && ev.eventDateEnd
+                        ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
+                        : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
+                    </span>
+                    {evFallbackFormats.length > 0 && (
+                      <span>
+                        Format: <span className="font-semibold text-slate-700">{evFallbackFormats.map(f => getFormatBadge(f).label).join(", ")}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">

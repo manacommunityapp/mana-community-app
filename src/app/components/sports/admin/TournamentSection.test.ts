@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { groupRegistrationsByPlayer, getEventCategorySignature, normalizeEventGender, getEventFormatSignature } from "./TournamentSection";
+import {
+  groupRegistrationsByPlayer,
+  getEventCategorySignature,
+  normalizeEventGender,
+  getEventFormatSignature,
+  getDisplayEventFormats,
+  getFormatBadge,
+} from "./TournamentSection";
 import type { TournamentRegistration } from "../../../../types/api";
 
 const createMockUser = (id: number, fullName: string) => ({
@@ -420,6 +427,48 @@ describe("TournamentSection: duplicate category detection and highlighting", () 
 
     // Crucial requirement: ALL 3 events remain present in the list (neither is hidden or removed)
     expect(sportsEvents).toHaveLength(3);
+  });
+});
+
+describe("TournamentSection: getDisplayEventFormats and getFormatBadge", () => {
+  it("extracts formats from format array or string", () => {
+    expect(getDisplayEventFormats({ format: ["SINGLES"] })).toEqual(["SINGLES"]);
+    expect(getDisplayEventFormats({ format: "DOUBLES" })).toEqual(["DOUBLES"]);
+    expect(getDisplayEventFormats({ format: "SINGLES, DOUBLES" })).toEqual(["SINGLES", "DOUBLES"]);
+  });
+
+  it("extracts formats from formats or eventFormats array of objects or strings", () => {
+    expect(getDisplayEventFormats({ formats: [{ formatType: "MIXED_DOUBLES" }] })).toEqual(["MIXED_DOUBLES"]);
+    expect(getDisplayEventFormats({ eventFormats: [{ name: "TEAM" }] })).toEqual(["TEAM"]);
+    expect(getDisplayEventFormats({ formats: ["SINGLES"] })).toEqual(["SINGLES"]);
+  });
+
+  it("falls back to tournamentType when format is not explicitly defined", () => {
+    expect(getDisplayEventFormats({ tournamentType: "SINGLES" })).toEqual(["SINGLES"]);
+    expect(getDisplayEventFormats({ tournamentType: "KNOCKOUT_SINGLE" })).toEqual(["KNOCKOUT_SINGLE"]);
+    expect(getDisplayEventFormats({})).toEqual([]);
+  });
+
+  it("provides distinct human-readable labels and Tailwind color badges for participant formats", () => {
+    const singlesBadge = getFormatBadge("SINGLES");
+    expect(singlesBadge.label).toBe("Singles");
+    expect(singlesBadge.color).toContain("emerald");
+
+    const doublesBadge = getFormatBadge("DOUBLES");
+    expect(doublesBadge.label).toBe("Doubles");
+    expect(doublesBadge.color).toContain("blue");
+
+    const mixedBadge = getFormatBadge("MIXED_DOUBLES");
+    expect(mixedBadge.label).toBe("Mixed Doubles");
+    expect(mixedBadge.color).toContain("rose");
+
+    const teamBadge = getFormatBadge("TEAM");
+    expect(teamBadge.label).toBe("Team Squad");
+    expect(teamBadge.color).toContain("purple");
+
+    const relayBadge = getFormatBadge("RELAY");
+    expect(relayBadge.label).toBe("Relay");
+    expect(relayBadge.color).toContain("cyan");
   });
 });
 
