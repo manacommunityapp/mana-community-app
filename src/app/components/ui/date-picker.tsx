@@ -52,16 +52,32 @@ const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 export function formatToDateString(d?: Date | string | null): string {
   if (!d) return "";
   if (typeof d === "string") {
-    const match = d.match(/^\d{4}-\d{2}-\d{2}$/);
-    if (match) return d;
-    const parsed = new Date(d);
+    const trimmed = d.trim();
+    if (!trimmed) return "";
+    // YYYY-MM-DD or YYYY/MM/DD
+    const ymdMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (ymdMatch) {
+      const year = ymdMatch[1];
+      const month = String(parseInt(ymdMatch[2], 10)).padStart(2, "0");
+      const day = String(parseInt(ymdMatch[3], 10)).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    // DD/MM/YYYY or DD-MM-YYYY
+    const dmyMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (dmyMatch) {
+      const day = String(parseInt(dmyMatch[1], 10)).padStart(2, "0");
+      const month = String(parseInt(dmyMatch[2], 10)).padStart(2, "0");
+      const year = dmyMatch[3];
+      return `${year}-${month}-${day}`;
+    }
+    const parsed = new Date(trimmed);
     if (!isNaN(parsed.getTime())) {
       const year = parsed.getFullYear();
       const month = String(parsed.getMonth() + 1).padStart(2, "0");
       const day = String(parsed.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     }
-    return d;
+    return trimmed;
   }
   if (d instanceof Date && !isNaN(d.getTime())) {
     const year = d.getFullYear();

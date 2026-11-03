@@ -790,7 +790,7 @@ export function SportsDashboard() {
       };
     }
 
-    const rawDob = member.dob || (member as any)?.dateOfBirth;
+    const rawDob = member.dob || (member as any)?.dateOfBirth || (member as any)?.birthDate;
     const parsedAge = calculateAge(rawDob);
     const hasDob = Boolean(rawDob || (member.age && Number(member.age) > 0) || (parsedAge !== null && parsedAge > 0));
     const memberGen = inferGender(member, user?.gender);

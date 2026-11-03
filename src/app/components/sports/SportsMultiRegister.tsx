@@ -15,7 +15,7 @@ import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartner
 import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import { format } from "date-fns";
 import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory, UserResponse } from "../../../types/api";
@@ -854,7 +854,7 @@ export function SportsMultiRegister() {
           name: mem.name || "",
           relation: mem.relation || (mem as any).relationship || "Son",
           gender: mem.gender || "",
-          dob: mem.dob || (mem as any).dateOfBirth || "",
+          dob: formatToDateString(mem.dob || (mem as any).dateOfBirth || (mem as any).birthDate || ""),
           phone: mem.phone || "",
           flatNo: userProfileFlat,
           gotram: mem.gotram || "",
@@ -947,7 +947,7 @@ export function SportsMultiRegister() {
           age: computedAge,
           status: "ACTIVE",
         };
-        await familyService.updateFamilyMember(Number(profileModalState.memberId), payload);
+        await familyService.updateFamilyMember(profileModalState.memberId!, payload);
         const refreshed = await familyService.getFamilyMembers(true);
         setSavedFamilyMembers(refreshed);
         setPlayerName(payload.name);
@@ -1057,6 +1057,22 @@ export function SportsMultiRegister() {
     return () => window.removeEventListener("mana_family_updated", handleFamilyUpdated);
   }, [updateUser, regType]);
 
+  // Keep active family member form data in sync if savedFamilyMembers changes (e.g. after updating DOB/Gender in modal)
+  useEffect(() => {
+    if (regType === "family" && familyMemberId && savedFamilyMembers.length > 0) {
+      const activeMember = savedFamilyMembers.find(m => String(m.id) === String(familyMemberId));
+      if (activeMember) {
+        const activeDob = formatToDateString(activeMember.dob || (activeMember as any).dateOfBirth || (activeMember as any).birthDate || "");
+        if (activeDob && (!dateOfBirth || dateOfBirth !== activeDob)) {
+          setDateOfBirth(activeDob);
+          if (!gender && activeMember.gender) {
+            setGender(activeMember.gender);
+          }
+        }
+      }
+    }
+  }, [savedFamilyMembers, regType, familyMemberId, dateOfBirth, gender]);
+
   useEffect(() => {
     if (queryFor === "family") {
       const targetMember = queryMemberId
@@ -1067,7 +1083,7 @@ export function SportsMultiRegister() {
         setPlayerName(targetMember.name);
         setEmail(targetMember.email || "");
         setGender(inferGender(targetMember, userProfileGender) || targetMember.gender || "");
-        setDateOfBirth(targetMember.dob || (targetMember as any).dateOfBirth || "");
+        setDateOfBirth(formatToDateString(targetMember.dob || (targetMember as any).dateOfBirth || (targetMember as any).birthDate || ""));
         setRelation(targetMember.relation || (targetMember as any).relationship || "");
         setFamilyMemberId(targetMember.id);
       } else {
@@ -1282,7 +1298,7 @@ export function SportsMultiRegister() {
         setPlayerName(first.name);
         setEmail(first.email || "");
         setGender(first.gender || "");
-        setDateOfBirth(first.dob || (first as any).dateOfBirth || "");
+        setDateOfBirth(formatToDateString(first.dob || (first as any).dateOfBirth || (first as any).birthDate || ""));
         setRelation(first.relation || (first as any).relationship || "");
         setFamilyMemberId(first.id);
       } else {
@@ -1304,7 +1320,7 @@ export function SportsMultiRegister() {
       setPlayerName(member.name);
       setEmail(member.email || "");
       setGender(member.gender || "");
-      setDateOfBirth(member.dob || (member as any).dateOfBirth || "");
+      setDateOfBirth(formatToDateString(member.dob || (member as any).dateOfBirth || (member as any).birthDate || ""));
       setRelation(member.relation || (member as any).relationship || "");
       setFlatNumber(userProfileFlat);
       setFamilyMemberId(member.id);
@@ -3245,7 +3261,7 @@ export function SportsMultiRegister() {
                 </div>
                 <DatePicker
                   value={profileModalState.dob}
-                  onChange={(val) => setProfileModalState({ ...profileModalState, dob: val || "" })}
+                  onChange={(val) => setProfileModalState(prev => ({ ...prev, dob: val || "" }))}
                   max={new Date().toISOString().split("T")[0]}
                   presets={false}
                   placeholder="Select Date of Birth"
