@@ -25,6 +25,8 @@ export const STORAGE_KEYS = {
   LEADER_HISTORY: "mana_leader_history_log",
   EVENT_PANTRY_CUSTOM: "mana_event_pantry_custom",
   EVENT_MOCK_MODE: "events_mock_mode",
+  RESPONDED_PARTNER_INVITES: "mana_responded_partner_invites",
+  DISMISSED_REGISTRATIONS: "mana_dismissed_registration_ids",
   FAMILY_MEMBERS: (userId?: string) => (userId ? `mana_family_members_${userId}` : "mana_family_members"),
   DRAFT_STEP: (targetId: string | number) => `mana_draft_step_${targetId}`,
 } as const;
