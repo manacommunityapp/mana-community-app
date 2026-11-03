@@ -311,6 +311,13 @@ function TournamentCard({
     0
   );
 
+  // Total registered sports events count (events that have registered players)
+  const registeredEventsCount = (tournament.events || []).filter(
+    (ev) => (ev.registeredCount ?? 0) > 0
+  ).length;
+  const totalEventsCount = tournament.events?.length ?? 0;
+  const sportsEventsDisplayCount = registeredEventsCount > 0 ? registeredEventsCount : totalEventsCount;
+
   useEffect(() => {
     if (showStandings && configIds.length === 0) {
       tournamentService
@@ -383,23 +390,32 @@ function TournamentCard({
                 </span>
               )}
 
-              {/* Registered Players & Payment Action Button */}
+              {/* Registered Players & Sports Events Count Action Button */}
               {onOpenPayments ? (
                 <button
                   type="button"
                   onClick={onOpenPayments}
-                  className="inline-flex items-center gap-1.5 text-slate-700 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/90 hover:border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs group/btn active:scale-[0.98]"
-                  title="View registered players & payment status"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
+                  title={`View ${totalRegistered} registered players across ${sportsEventsDisplayCount} sports events & payment status`}
                 >
                   <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
-                  <span className="underline decoration-slate-300 hover:decoration-indigo-400 underline-offset-2">
-                    {totalRegistered} Registered Players
+                  <span className="font-bold text-slate-900 group-hover/btn:text-indigo-700">
+                    {totalRegistered} Registered
                   </span>
+                  <span className="text-slate-300 font-normal">/</span>
+                  <span className="text-slate-600 group-hover/btn:text-indigo-600 font-medium">
+                    {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
+                  </span>
+                  <ChevronRight className="w-3 h-3 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
                 </button>
               ) : totalRegistered > 0 ? (
-                <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <Users className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{totalRegistered} Registered Players</span>
+                  <span className="font-bold text-slate-900">{totalRegistered} Registered</span>
+                  <span className="text-slate-300 font-normal">/</span>
+                  <span className="text-slate-600 font-medium">
+                    {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
+                  </span>
                 </span>
               ) : null}
             </div>

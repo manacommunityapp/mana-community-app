@@ -147,7 +147,7 @@ export const analyticsService = {
         flatNumber: registration.flatNumber || undefined, relation: registration.relation || undefined, age: registration.age ?? undefined,
         role: registration.role || undefined, status: (registration.status || "UNKNOWN") as EventRegistration["status"],
         registeredAt: registration.registeredAt || undefined,
-        user: registration.userId != null ? { id: registration.userId, fullName: registration.participantName || registration.playerName || undefined, gender: registration.gender || undefined } as EventRegistration["user"] : undefined,
+        user: registration.userId != null ? { id: registration.userId, fullName: registration.participantName || registration.playerName || undefined, gender: registration.gender || undefined } as unknown as EventRegistration["user"] : undefined,
         familyMember: registration.familyMemberId != null ? { id: registration.familyMemberId, name: registration.participantName || registration.playerName || undefined, relation: registration.relation || undefined, age: registration.age ?? undefined, gender: registration.gender || undefined } as any : undefined,
         event: matchingEvent ? { id: matchingEvent.id, name: matchingEvent.name, sport: matchingEvent.sport ? { name: matchingEvent.sport.name } : undefined } as EventRegistration["event"] : undefined,
         category: registration.categoryName || registration.role ? { name: registration.categoryName || registration.role || undefined } as NonNullable<EventRegistration["category"]> : undefined,

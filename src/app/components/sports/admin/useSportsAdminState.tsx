@@ -2639,6 +2639,85 @@ export function useSportsAdminState() {
     }
   };
 
+  const handleStartEventRegistration = async (id: number, eventName?: string) => {
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+    const name = eventName || targetEvent?.name || "this event";
+    const confirmed = await confirmAction({
+      title: "Start Event Registration",
+      text: `Are you sure you want to open registration for "${name}"? Residents and participants will be able to register immediately.`,
+      confirmButtonText: "Open Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#10b981",
+      icon: "question",
+    });
+    if (!confirmed) return;
+    try {
+      await sportsService.openSportsEvent(id);
+      toast.success(`Registration opened successfully for "${name}"`);
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to open event registration");
+    }
+  };
+
+  const handleStartAllPendingEvents = async (tournamentId: number, eventIds?: number[]) => {
+    const tournament = activeTournaments.find(t => Number(t.id) === Number(tournamentId));
+    const allEvents: any[] = tournament?.sportsEvents || [];
+
+    const targetIds = eventIds && eventIds.length > 0
+      ? eventIds
+      : allEvents
+          .filter(e => {
+            const st = e.registrationStatus || e.status;
+            return st !== "LIVE" && st !== "REGISTRATION_OPEN" && st !== "COMPLETED";
+          })
+          .map(e => Number(e.id))
+          .filter(Boolean);
+
+    if (targetIds.length === 0) {
+      toast.info("All sports events in this tournament are already open for registration.");
+      return;
+    }
+
+    const tName = tournament?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Start Registration for All Pending Events",
+      text: `Are you sure you want to open registration for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""} in "${tName}"? Participants will be able to register for them immediately.`,
+      confirmButtonText: `Open ${targetIds.length} Event${targetIds.length > 1 ? "s" : ""}`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#10b981",
+      icon: "question",
+    });
+    if (!confirmed) return;
+
+    try {
+      const results = await Promise.allSettled(
+        targetIds.map(id => sportsService.openSportsEvent(id))
+      );
+      const successCount = results.filter(r => r.status === "fulfilled").length;
+      const failCount = results.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(`Successfully opened registration for ${successCount} sports event${successCount > 1 ? "s" : ""}!`);
+      }
+      if (failCount > 0) {
+        toast.warning(`${failCount} event${failCount > 1 ? "s" : ""} could not be opened.`);
+      }
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start events registration");
+    }
+  };
+
   const handleSportDelete = async (id: number) => {
     // 1. Find event in activeEvents or activeTournaments
     let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
@@ -3083,6 +3162,7 @@ export function useSportsAdminState() {
     handleSportPickerSelect, handleCreateCustomSport,
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
     updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
+    handleStartEventRegistration, handleStartAllPendingEvents,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,

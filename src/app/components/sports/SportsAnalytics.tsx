@@ -498,7 +498,7 @@ export function SportsAnalytics() {
         </button>
 
         {/* Event entries count each active player registration across the sports events. */}
-        <button type="button" onClick={jumpToPlayers} aria-label={`View ${kpis.eventPlayerEntries} registered player entries across sports events`} className="w-full cursor-pointer rounded-xl border border-border/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3">
+        <button type="button" onClick={() => jumpToPlayers()} aria-label={`View ${kpis.eventPlayerEntries} registered player entries across sports events`} className="w-full cursor-pointer rounded-xl border border-border/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3">
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-fuchsia-500/10 text-fuchsia-500 flex items-center justify-center">
               <UserCheck className="h-3.5 w-3.5" />

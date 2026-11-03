@@ -213,6 +213,11 @@ export const sportsEventService = {
     return this.updateEventStatus(id, "REGISTRATION_CLOSED");
   },
 
+  /** Start / open sports event registration: set status to REGISTRATION_OPEN */
+  async openSportsEvent(id: number): Promise<SportsEvent> {
+    return this.updateEventStatus(id, "REGISTRATION_OPEN");
+  },
+
   /** GET /api/sports/tournaments/closed — all REGISTRATION_CLOSED tournaments */
   async getClosedTournaments(): Promise<SportsEvent[]> {
     return apiClient.get<SportsEvent[]>("/sports/tournaments/closed")
