@@ -1,13 +1,14 @@
 import { sportsAdminService, type AdminEventRow, type AdminRegistrationRow } from "../sports/sportsAdminService";
 import { sportsEventService } from "../sports/sportsEventService";
 import { tournamentService, type ConfigInfo } from "../sports/tournamentService";
+import { tournamentPaymentService, type TournamentPaymentsSource, type TournamentPlayerPayment } from "../sports/tournamentPaymentService";
 import { auctionService } from "../sports/auctionService";
 import type { EventRegistration, SportsEvent, AuctionConfigResponse, AuctionTeam } from "../../types/api";
 
 const SPORT_COLORS = ["#818cf8", "#34d399", "#a78bfa", "#f472b6", "#fbbf24", "#38bdf8", "#fb923c", "#4ade80"];
 const GRADIENT_CLASSES = ["from-indigo-400 to-violet-500", "from-emerald-400 to-teal-500", "from-violet-400 to-purple-500", "from-pink-400 to-rose-500"];
 
-export interface AnalyticsKPI { totalEvents: number; activePlayers: number; liveEvents: number; totalTournaments: number; openRegistrations: number; yourRegistrations: number; tournamentRegistrants: number; eventPlayerEntries: number; matchCompletionRate: number; capacityFillRate: number; capacityTracked: boolean; totalMatches: number }
+export interface AnalyticsKPI { totalEvents: number; activePlayers: number; liveEvents: number; totalTournaments: number; openRegistrations: number; yourRegistrations: number; tournamentRegistrants: number; eventPlayerEntries: number; paymentCollectedAmount: number; paidTournamentPlayers: number; waivedTournamentPlayers: number; matchCompletionRate: number; capacityFillRate: number; capacityTracked: boolean; totalMatches: number }
 export interface MonthlyEventRow { month: string; [sportName: string]: string | number }
 export interface SportShareEntry { name: string; value: number; color: string; count: number }
 export interface DemographicsData { gender: { name: string; value: number; count: number; color: string }[]; ageGroups: { group: string; count: number; percentage: number; color: string }[]; blockDistribution: { block: string; players: number; color: string }[] }
@@ -16,21 +17,33 @@ export interface SportLeaderEntry { rank: number; name: string; category: string
 export interface StandingRow { rank: number; team: string; w: number; l: number; d: number; pts: number; pct: number; form?: ("W" | "L" | "D")[] }
 export interface SportsAnalyticsEventRow { id: number; tournament: string; name: string; sport: string; date: string; venue: string; status: string; capacity: number | null; registered: number; confirmed: number; pending: number }
 export interface SportsAnalyticsTournamentRow { id: number; name: string; status: string; startDate: string | null; endDate: string | null; sports: string[]; eventCount: number; registrations: number; registeredUsers: number }
+export interface SportsAnalyticsPaymentRow { id: number | string; tournamentId: number; tournament: string; playerKey: string; playerName: string; flatNumber: string; paymentStatus: "PAID" | "WAIVED"; amount: number; paymentMode: string; transactionRef: string; paidAt: string; markedBy: string; source: TournamentPaymentsSource }
 export interface SportsAnalyticsRegistrationRow { id: number; participant: string; relation: string; event: string; tournament: string; sport: string; category: string; status: string; flat: string; registeredAt: string }
-export interface SportsAnalyticsMatchRow { id: number | string; tournament: string; event: string; sport: string; stage: string; homeTeam: string; awayTeam: string; score: string; scheduledAt: string; venue: string; status: string }
+export interface SportsAnalyticsMatchRow { id: number | string; tournament: string; event: string; sport: string; stage: string; homeTeam: string; awayTeam: string; score: string; winner: string; scheduledAt: string; venue: string; status: string; isFinal: boolean; isCompleted: boolean }
 export interface SportsAnalyticsTeamRow { id: number; team: string; tournament: string; event: string; sport: string; captain: string; players: string[]; playerCount: number }
 export interface ParticipationTrendRow { month: string; players: number; events: number }
 export interface AnalyticsData {
   kpis: AnalyticsKPI; monthlyEvents: MonthlyEventRow[]; sportShare: SportShareEntry[]; participationTrend: ParticipationTrendRow[];
   demographics: DemographicsData; venueUtilization: VenueUtilizationEntry[]; sportLeaders: Record<string, SportLeaderEntry[]>;
   standings: Record<string, StandingRow[]>; sportNames: string[]; sportColorMap: Record<string, string>;
-  eventInventory: SportsAnalyticsEventRow[]; tournamentInventory: SportsAnalyticsTournamentRow[];
+  tournamentOptions: { id: number; name: string }[]; availableYears: number[];
+  eventInventory: SportsAnalyticsEventRow[]; tournamentInventory: SportsAnalyticsTournamentRow[]; paymentInventory: SportsAnalyticsPaymentRow[];
   registrationInventory: SportsAnalyticsRegistrationRow[]; matchInventory: SportsAnalyticsMatchRow[]; teamInventory: SportsAnalyticsTeamRow[];
   dataWarnings: string[];
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const label = (value?: string | null) => value?.trim() || "—";
+const cleanScheduleTitle = (value?: string | null) => String(value || "").trim().replace(/\s+(?:(?:fixture|match)\s+)?schedule(?:\s+(?:config|configuration))?$/i, "").trim();
+const validScoreValue = (...values: unknown[]): string | null => {
+  for (const value of values) {
+    if (value == null || (typeof value === "number" && !Number.isFinite(value))) continue;
+    const normalized = String(value).trim();
+    if (!normalized || /^(nan|undefined|null)$/i.test(normalized)) continue;
+    return normalized;
+  }
+  return null;
+};
 const statusIs = (value: string | null | undefined, ...statuses: string[]) => statuses.includes(String(value || "").toUpperCase());
 const initials = (name: string) => name.split(/\s+/).map((part) => part[0]).join("").toUpperCase().slice(0, 2);
 
@@ -42,7 +55,7 @@ function inDateRange(raw: string | null | undefined, range: string | undefined, 
   return date.getTime() >= now.getTime() - 30 * 86400000 && date.getTime() <= now.getTime();
 }
 
-function makeStandings(configs: ConfigInfo[], matchesByConfig: Map<number, any[]>): Record<string, StandingRow[]> {
+function makeStandings(configs: ConfigInfo[], matchesByConfig: Map<number, any[]>, getTournamentName: (eventId: number, fallback?: string) => string): Record<string, StandingRow[]> {
   const result: Record<string, StandingRow[]> = {};
   configs.forEach((config) => {
     const teams = new Map<string, { w: number; l: number; d: number; pts: number; form: ("W" | "L" | "D")[] }>();
@@ -61,13 +74,13 @@ function makeStandings(configs: ConfigInfo[], matchesByConfig: Map<number, any[]
     });
     const rows = [...teams.entries()].map(([team, row]) => ({ rank: 0, team, ...row, pct: row.w + row.l + row.d ? row.w / (row.w + row.l + row.d) : 0, form: row.form.slice(-5) }))
       .sort((a, b) => b.pts - a.pts || b.pct - a.pct).map((row, index) => ({ ...row, rank: index + 1 }));
-    if (rows.length) result[config.tournamentName || config.eventName || `Tournament ${config.id}`] = rows;
+    if (rows.length) result[getTournamentName(Number(config.eventId), config.tournamentName || config.eventName || `Tournament ${config.id}`)] = rows;
   });
   return result;
 }
 
 export const analyticsService = {
-  async getAnalyticsData(filter?: { timeRange?: string; sport?: string }): Promise<AnalyticsData> {
+  async getAnalyticsData(filter?: { timeRange?: string; sport?: string; tournamentId?: number | string; year?: number | string }): Promise<AnalyticsData> {
     const [overview, configResult, auctionResult, eventPageResult] = await Promise.all([
       sportsAdminService.getOverview(),
       tournamentService.getConfigsForAnalytics().then((configs) => ({ configs, available: true })).catch(() => ({ configs: [] as ConfigInfo[], available: false })),
@@ -150,17 +163,38 @@ export const analyticsService = {
     const allSports = Array.from(new Set(sourceEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))).sort();
     const colorMap = Object.fromEntries(allSports.map((sport, index) => [sport, SPORT_COLORS[index % SPORT_COLORS.length]]));
     const matchesSport = (sport?: string | null) => !filter?.sport || filter.sport === "ALL" || String(sport || "").toLowerCase() === filter.sport.toLowerCase();
-    const events = sourceEvents.filter((event) => matchesSport(event.sport?.name) && inDateRange(event.eventDateStart, filter?.timeRange, now));
-    const eventIds = new Set(events.map((event) => Number(event.id)));
-    const eventMap = new Map(sourceEvents.map((event) => [Number(event.id), event]));
-    const registrations = allRegistrations.filter((row) => eventIds.has(Number(row.event?.id)));
     const tournamentIdByEventId = new Map<number, number>();
+    const tournamentNameById = new Map<number, string>();
+    (overview.tournaments || []).forEach((tournament) => tournamentNameById.set(Number(tournament.id), String(tournament.name || "").trim()));
     (overview.tournaments || []).forEach((tournament) => (tournament.events || []).forEach((event) => {
       tournamentIdByEventId.set(Number(event.id), Number(tournament.id));
     }));
-    events.forEach((event) => {
+    sourceEvents.forEach((event) => {
       if (event.tournamentId != null) tournamentIdByEventId.set(Number(event.id), Number(event.tournamentId));
     });
+    const getTournamentName = (eventId: number, fallback?: string) => {
+      const tournamentId = tournamentIdByEventId.get(Number(eventId));
+      const actualName = tournamentId == null ? "" : tournamentNameById.get(tournamentId) || "";
+      return actualName || cleanScheduleTitle(fallback) || `Tournament ${tournamentId ?? eventId}`;
+    };
+    const selectedTournamentId = filter?.tournamentId && filter.tournamentId !== "ALL" ? Number(filter.tournamentId) : null;
+    const selectedYear = filter?.year && filter.year !== "ALL" ? Number(filter.year) : null;
+    const eventYear = (raw?: string | null) => {
+      const match = String(raw || "").match(/^(\d{4})/);
+      return match ? Number(match[1]) : null;
+    };
+    const sourceYears = [...sourceEvents.map((event) => eventYear(event.eventDateStart)), ...(overview.tournaments || []).flatMap((tournament) => [eventYear(tournament.eventDateStart), eventYear(tournament.eventDateEnd)])]
+      .filter((year): year is number => year != null);
+    const availableYears = [...new Set(sourceYears)].sort((a, b) => b - a);
+    const tournamentOptions = (overview.tournaments || []).map((tournament) => ({ id: Number(tournament.id), name: tournament.name }));
+    const events = sourceEvents.filter((event) => matchesSport(event.sport?.name)
+      && (selectedTournamentId == null || tournamentIdByEventId.get(Number(event.id)) === selectedTournamentId)
+      && (selectedYear == null || eventYear(event.eventDateStart) === selectedYear)
+      && inDateRange(event.eventDateStart, filter?.timeRange, now));
+    const eventIds = new Set(events.map((event) => Number(event.id)));
+    const eventMap = new Map(sourceEvents.map((event) => [Number(event.id), event]));
+    const eventBelongsToTournament = (event: AdminEventRow, tournamentId: number) => tournamentIdByEventId.get(Number(event.id)) === Number(tournamentId);
+    const registrations = allRegistrations.filter((row) => eventIds.has(Number(row.event?.id)));
     const participantKey = (row: EventRegistration) => {
       const registration = row as EventRegistration & { familyMemberId?: number; participantUserId?: number; familyMember?: { id?: number }; user?: { id?: number } };
       if (registration.familyMember?.id ?? registration.familyMemberId) return `family:${registration.familyMember?.id ?? registration.familyMemberId}`;
@@ -179,9 +213,50 @@ export const analyticsService = {
     });
     const registrationsByEvent = new Map<number, EventRegistration[]>();
     allRegistrations.forEach((row) => { const id = Number(row.event?.id); registrationsByEvent.set(id, [...(registrationsByEvent.get(id) || []), row]); });
-    const tournaments = (overview.tournaments || []).filter((tournament) => events.some((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL"));
+    const tournaments = (overview.tournaments || []).filter((tournament) => (selectedTournamentId == null || Number(tournament.id) === selectedTournamentId)
+      && (events.some((event) => tournamentIdByEventId.get(Number(event.id)) === Number(tournament.id)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL") && selectedYear == null));
+    const paymentTournaments = (overview.tournaments || []).filter((tournament) =>
+      (selectedTournamentId == null || Number(tournament.id) === selectedTournamentId)
+      && ((!filter?.sport || filter.sport === "ALL")
+        || tournament.events?.some((event) => matchesSport(event.sport?.name))
+        || sourceEvents.some((event) => matchesSport(event.sport?.name) && tournamentIdByEventId.get(Number(event.id)) === Number(tournament.id)))
+    );
+    const paymentResults = await Promise.all(paymentTournaments.map(async (tournament) => {
+      try {
+        const result = await tournamentPaymentService.getPaymentsWithSource(tournament.id);
+        return { tournament, ...result };
+      } catch {
+        return { tournament, payments: {} as Record<string, TournamentPlayerPayment>, source: "LOCAL" as const, serverPlayerKeys: [] as string[] };
+      }
+    }));
+    if (paymentResults.some((result) => result.source !== "SERVER")) {
+      dataWarnings.push("The payments API was unavailable for one or more tournaments. Browser-local payment rows are shown as unverified and excluded from collected totals.");
+    }
+    const paymentInventory: SportsAnalyticsPaymentRow[] = paymentResults.flatMap(({ tournament, payments, serverPlayerKeys }) =>
+      Object.entries(payments).map(([playerKey, payment]) => ({
+        id: payment.id || `${tournament.id}-${playerKey}`,
+        tournamentId: tournament.id,
+        tournament: tournament.name,
+        playerKey,
+        playerName: payment.playerName || "Participant",
+        flatNumber: payment.flatNumber || "",
+        paymentStatus: payment.paymentStatus as "PAID" | "WAIVED",
+        amount: Number.isFinite(Number(payment.amount)) ? Number(payment.amount) : 0,
+        paymentMode: payment.paymentMode || "—",
+        transactionRef: payment.transactionRef || "",
+        paidAt: payment.paidAt || payment.createdAt || "",
+        markedBy: payment.markedByUserName || "—",
+        source: serverPlayerKeys.includes(playerKey) ? "SERVER" as const : "LOCAL" as const,
+      }))
+    ).filter((payment) => ["PAID", "WAIVED"].includes(payment.paymentStatus)
+      && ((!filter?.timeRange || filter.timeRange === "ALL") || Boolean(payment.paidAt && inDateRange(payment.paidAt, filter.timeRange, now)))
+      && (selectedYear == null || eventYear(payment.paidAt) === selectedYear));
+    const collectedPaymentRows = paymentInventory.filter((payment) => payment.source === "SERVER" && payment.paymentStatus === "PAID");
+    const paymentCollectedAmount = collectedPaymentRows.reduce((sum, payment) => sum + Math.max(0, payment.amount), 0);
+    const paidTournamentPlayers = new Set(collectedPaymentRows.map((payment) => `${payment.tournamentId}:${payment.playerKey}`)).size;
+    const waivedTournamentPlayers = new Set(paymentInventory.filter((payment) => payment.source === "SERVER" && payment.paymentStatus === "WAIVED").map((payment) => `${payment.tournamentId}:${payment.playerKey}`)).size;
     const tournamentInventory: SportsAnalyticsTournamentRow[] = tournaments.map((tournament) => {
-      const relatedEvents = events.filter((event) => event.tournamentId === tournament.id || tournament.events?.some((child) => child.id === event.id));
+      const relatedEvents = events.filter((event) => eventBelongsToTournament(event, tournament.id));
       return { id: tournament.id, name: tournament.name, status: label(tournament.registrationStatus), startDate: tournament.eventDateStart, endDate: tournament.eventDateEnd,
         sports: [...new Set(relatedEvents.map((event) => event.sport?.name).filter((name): name is string => Boolean(name)))], eventCount: relatedEvents.length,
         registrations: relatedEvents.reduce((sum, event) => sum + (registrationsByEvent.get(Number(event.id))?.length || 0), 0),
@@ -189,33 +264,60 @@ export const analyticsService = {
     });
     const eventInventory: SportsAnalyticsEventRow[] = events.map((event) => {
       const entries = registrationsByEvent.get(Number(event.id)) || [];
-      return { id: event.id, tournament: tournaments.find((tournament) => tournament.id === event.tournamentId)?.name || "—", name: event.name,
+      return { id: event.id, tournament: tournaments.find((tournament) => eventBelongsToTournament(event, tournament.id))?.name || "—", name: event.name,
         sport: label(event.sport?.name), date: label(event.eventDateStart), venue: label(event.venue?.name), status: label(event.registrationStatus), capacity: event.maxParticipants,
         registered: entries.length, confirmed: entries.filter((row) => statusIs(row.status, "REGISTERED", "CONFIRMED")).length, pending: entries.filter((row) => statusIs(row.status, "PENDING")).length };
     });
     const registrationInventory: SportsAnalyticsRegistrationRow[] = registrations.map((registration) => {
       const event = eventMap.get(Number(registration.event?.id));
       return { id: registration.id, participant: label(registration.playerName || (registration as any).familyMember?.name || registration.user?.fullName), relation: label(registration.relation || (registration as any).familyMember?.relation), event: label(event?.name),
-        tournament: tournaments.find((row) => row.id === event?.tournamentId)?.name || "—", sport: label(event?.sport?.name), category: label(registration.category?.name || registration.role),
+        tournament: event ? tournaments.find((row) => eventBelongsToTournament(event, row.id))?.name || "—" : "—", sport: label(event?.sport?.name), category: label(registration.category?.name || registration.role),
         status: registration.status, flat: label(registration.flatNumber), registeredAt: label(registration.registeredAt) };
     });
 
     const relatedConfigs = configs.filter((config) => matchesSport(config.sportName || eventMap.get(Number(config.eventId))?.sport?.name) &&
-      (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL")));
+      (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL") && selectedTournamentId == null && selectedYear == null));
     const matchResults = await Promise.all(relatedConfigs.map(async (config) => {
       try { return { configId: config.id, matches: await tournamentService.getMatchesByConfigIdForAnalytics(config.id), loaded: true }; }
       catch { return { configId: config.id, matches: [] as any[], loaded: false }; }
     }));
     if (matchResults.some((result) => !result.loaded)) dataWarnings.push("One or more saved match schedules could not be loaded from the tournament service.");
     const matchesByConfig = new Map<number, any[]>(matchResults.map((result) => [result.configId, result.matches]));
-    const matchInventory: SportsAnalyticsMatchRow[] = relatedConfigs.flatMap((config) => (matchesByConfig.get(config.id) || []).filter((match: any) => inDateRange(match.scheduledAt || match.startTime || match.matchDate, filter?.timeRange, now)).map((match: any) => {
-      const event = eventMap.get(Number(config.eventId)); const homeScore = match.homeScore ?? match.team1Score ?? match.scoreTeamA ?? match.scoreA; const awayScore = match.awayScore ?? match.team2Score ?? match.scoreTeamB ?? match.scoreB;
-      return { id: match.id ?? match.matchId ?? `${config.id}-${match.matchNumber ?? "match"}`, tournament: label(config.tournamentName), event: label(config.eventName || event?.name), sport: label(config.sportName || event?.sport?.name),
-        stage: label(match.stage || match.roundName || match.round || match.matchType), homeTeam: label(match.homeTeamName || match.homeTeam?.name || match.teamA?.name || match.team1Name),
-        awayTeam: label(match.awayTeamName || match.awayTeam?.name || match.teamB?.name || match.team2Name), score: homeScore != null || awayScore != null ? `${homeScore ?? "—"} – ${awayScore ?? "—"}` : "—",
-        scheduledAt: label(match.scheduledAt || match.startTime || match.matchDate), venue: label(match.venueName || match.venue?.name), status: label(match.status) };
+    const scopedMatches = relatedConfigs.flatMap((config) => (matchesByConfig.get(config.id) || []).filter((match: any) => {
+      const scheduledAt = match.scheduledAt || match.startTime || match.matchDate;
+      return inDateRange(scheduledAt, filter?.timeRange, now) && (selectedYear == null || eventYear(scheduledAt) === selectedYear);
+    }).map((match: any) => ({ config, match })));
+    const isCompletedMatch = (match: any) => statusIs(match.status, "COMPLETED", "FINISHED", "RESULT_RECORDED");
+    const getStage = (match: any) => String(match.stage || match.roundName || match.round || match.matchType || "").replace(/[_-]/g, " ").trim();
+    const isFinalMatch = (match: any) => /\bfinal\b/i.test(getStage(match)) && !/\b(semi|quarter|preliminary)\b/i.test(getStage(match));
+    const finalMatchesNeedingDetails = scopedMatches.filter(({ match }: any) => isCompletedMatch(match) && isFinalMatch(match)
+      && !String(match.winnerName || match.winnerTeamName || match.winner?.name || "").trim()
+      && Number.isFinite(Number(match.id ?? match.matchId)));
+    const finalDetailResults = await Promise.all(finalMatchesNeedingDetails.map(async ({ match }: any) => {
+      try { return { id: String(match.id ?? match.matchId), detail: await tournamentService.getMatchDetailForAnalytics(Number(match.id ?? match.matchId)) }; }
+      catch { return { id: String(match.id ?? match.matchId), detail: null }; }
     }));
-    const relatedAuctions = auctionConfigs.filter((config) => matchesSport(config.sportName) && (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL")));
+    const finalDetailsByMatchId = new Map(finalDetailResults.map(({ id, detail }) => [id, detail]));
+    const matchInventory: SportsAnalyticsMatchRow[] = scopedMatches.map(({ config, match }: any) => {
+      const event = eventMap.get(Number(config.eventId));
+      const detail = finalDetailsByMatchId.get(String(match.id ?? match.matchId));
+      const homeTeam = match.homeTeamName || match.homeTeam?.name || match.teamA?.name || match.team1Name || detail?.teamA?.name;
+      const awayTeam = match.awayTeamName || match.awayTeam?.name || match.teamB?.name || match.team2Name || detail?.teamB?.name;
+      const homeScore = validScoreValue(match.homeScore, match.team1Score, match.scoreTeamA, match.scoreA, detail?.scoreTeamA);
+      const awayScore = validScoreValue(match.awayScore, match.team2Score, match.scoreTeamB, match.scoreB, detail?.scoreTeamB);
+      const homeNumeric = Number(homeScore);
+      const awayNumeric = Number(awayScore);
+      const explicitWinner = String(match.winnerName || match.winnerTeamName || match.winner?.name || detail?.winnerName || "").trim();
+      const scoreWinner = homeScore != null && awayScore != null && Number.isFinite(homeNumeric) && Number.isFinite(awayNumeric)
+        ? homeNumeric === awayNumeric ? "Draw" : homeNumeric > awayNumeric ? String(homeTeam || "") : String(awayTeam || "")
+        : "";
+      const stage = getStage(match);
+      return { id: match.id ?? match.matchId ?? `${config.id}-${match.matchNumber ?? "match"}`, tournament: getTournamentName(Number(config.eventId), config.tournamentName), event: label(config.eventName || event?.name), sport: label(config.sportName || event?.sport?.name),
+        stage: label(stage), homeTeam: label(homeTeam), awayTeam: label(awayTeam), score: homeScore != null || awayScore != null ? `${homeScore ?? "—"} – ${awayScore ?? "—"}` : "—",
+        winner: explicitWinner || scoreWinner, scheduledAt: label(match.scheduledAt || match.startTime || match.matchDate), venue: label(match.venueName || match.venue?.name || detail?.venueName), status: label(match.status),
+        isFinal: isFinalMatch(match), isCompleted: isCompletedMatch(match) };
+    });
+    const relatedAuctions = auctionConfigs.filter((config) => matchesSport(config.sportName) && (eventIds.has(Number(config.eventId)) || (!filter?.sport || filter.sport === "ALL") && (!filter?.timeRange || filter.timeRange === "ALL") && selectedTournamentId == null && selectedYear == null));
     const teamResults = await Promise.all(relatedAuctions.map(async (config) => {
       try { return { config, teams: await auctionService.getTeamsSummary(config.id), loaded: true }; }
       catch { return { config, teams: [] as AuctionTeam[], loaded: false }; }
@@ -277,9 +379,10 @@ export const analyticsService = {
       kpis: { totalEvents: events.length, activePlayers: participants.size, liveEvents: matchInventory.filter((match) => statusIs(match.status, "LIVE", "IN_PROGRESS")).length, totalTournaments: tournamentInventory.length,
         openRegistrations: events.filter((event) => statusIs(event.registrationStatus, "OPEN", "REGISTRATION_OPEN")).length, yourRegistrations: registrations.length,
         tournamentRegistrants: tournamentInventory.reduce((sum, tournament) => sum + tournament.registeredUsers, 0), eventPlayerEntries: registrations.length,
+        paymentCollectedAmount, paidTournamentPlayers, waivedTournamentPlayers,
         matchCompletionRate: totalGames ? Math.round(completed / totalGames * 100) : 0, capacityFillRate, capacityTracked: capacity > 0, totalMatches: totalGames },
       monthlyEvents, sportShare, participationTrend, demographics, venueUtilization, sportLeaders: leaders,
-      standings: makeStandings(relatedConfigs, matchesByConfig), sportNames, sportColorMap: colorMap, eventInventory, tournamentInventory, registrationInventory, matchInventory, teamInventory, dataWarnings,
+      standings: makeStandings(relatedConfigs, matchesByConfig, getTournamentName), sportNames, sportColorMap: colorMap, tournamentOptions, availableYears, eventInventory, tournamentInventory, paymentInventory, registrationInventory, matchInventory, teamInventory, dataWarnings,
     };
   },
 };

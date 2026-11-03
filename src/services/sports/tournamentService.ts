@@ -682,25 +682,12 @@ export const tournamentService = {
 
   /** GET /api/tournament/match/{matchId}/detail — full match detail with scorecard */
   async getMatchDetail(matchId: number): Promise<MatchDetailData> {
-    try {
-      return await apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
-    } catch (_err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
-        return {
-          matchId,
-          status: "SCHEDULED",
-          roundName: "Semi-Final",
-          matchNumber: 1,
-          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
-          teamA: { id: 1, name: "Team A", color: "#6366f1" },
-          teamB: { id: 2, name: "Team B", color: "#f97316" },
-          venueName: "Community Sports Arena",
-          courtName: "Court 1",
-        };
-      }
-      throw _err;
-    }
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+  },
+
+  /** Strict analytics read for winner/result data. */
+  async getMatchDetailForAnalytics(matchId: number): Promise<MatchDetailData> {
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
   },
 
   /** GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp */

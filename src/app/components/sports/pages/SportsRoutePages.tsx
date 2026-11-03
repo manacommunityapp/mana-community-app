@@ -13,6 +13,7 @@ import { RaceResultsView } from "../RaceResultsView";
 import { RaceScoringPanel } from "../RaceScoringPanel";
 import { TeamsHubShowcase } from "../teams";
 import { tournamentService, type GenericMatchState } from "../../../../services/sports/tournamentService";
+import { isTimeSport } from "../utils/sportScoringConstants";
 
 /**
  * 1. Match Detail Page (Scorecard / Match Overview)
@@ -23,22 +24,38 @@ export function MatchDetailPage() {
   const id = Number(matchId);
 
   const [loading, setLoading] = useState(true);
-  const [isGeneric, setIsGeneric] = useState(false);
+  const [detailKind, setDetailKind] = useState<"CRICKET" | "GENERIC" | "RACE" | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    tournamentService
-      .getGenericMatchState(id)
-      .then((state) => {
-        if (state && state.sportType && state.sportType !== "CRICKET") {
-          setIsGeneric(true);
-        }
-      })
-      .catch(() => {
-        // Default to Cricket / standard match view
-        setIsGeneric(false);
-      })
-      .finally(() => setLoading(false));
+    let active = true;
+    setLoading(true);
+    setLoadError(null);
+    setDetailKind(null);
+    const identifyMatch = async () => {
+      let genericState: GenericMatchState | null = null;
+      try {
+        genericState = await tournamentService.getGenericMatchState(id);
+      } catch {
+        // Check the strict cricket scorecard endpoint below before reporting failure.
+      }
+
+      const sportType = String(genericState?.sportType || "").toUpperCase();
+      if (sportType && sportType !== "CRICKET") {
+        if (active) setDetailKind(isTimeSport(sportType) ? "RACE" : "GENERIC");
+        return;
+      }
+
+      try {
+        await tournamentService.getMatchDetailForAnalytics(id);
+        if (active) setDetailKind("CRICKET");
+      } catch (error: any) {
+        if (active) setLoadError(error?.message || "Match details could not be loaded. Check that the match is saved and try again.");
+      }
+    };
+    identifyMatch().finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [id]);
 
   if (!id) {
@@ -60,7 +77,24 @@ export function MatchDetailPage() {
     );
   }
 
-  return isGeneric ? (
+  if (loadError || !detailKind) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-5 text-center">
+        <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <Trophy className="mx-auto h-8 w-8 text-amber-500" />
+          <h2 className="mt-3 text-sm font-extrabold text-slate-900">Match details unavailable</h2>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">{loadError || "The match type could not be identified from saved match data."}</p>
+          <button onClick={() => navigate("/sports/schedule")} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-700">Back to Schedule</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (detailKind === "RACE") {
+    return <RaceResultsView matchId={id} onClose={() => navigate("/sports/schedule")} />;
+  }
+
+  return detailKind === "GENERIC" ? (
     <GenericMatchDetailView matchId={id} onClose={() => navigate("/sports/schedule")} />
   ) : (
     <MatchDetailView matchId={id} onClose={() => navigate("/sports/schedule")} />
