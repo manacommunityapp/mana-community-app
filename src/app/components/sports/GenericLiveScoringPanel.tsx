@@ -103,6 +103,7 @@ export function GenericLiveScoringPanel({
           pointsAwarded: points,
           playerId,
           matchMinute: isTimedSport(sportType) ? matchMinute : undefined,
+          commandId: crypto.randomUUID(),
         };
         await tournamentService.recordGenericScore(req);
         await fetchState();

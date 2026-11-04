@@ -246,6 +246,7 @@ export interface BallEventRequestData {
   dismissedPlayerId?: number;
   fielderId?: number;
   commentary?: string;
+  commandId?: string;
 }
 
 export interface BallEventData {
@@ -348,6 +349,7 @@ export interface GenericScoreRequest {
   pointsAwarded?: number;
   description?: string;
   secondaryPlayerId?: number;
+  commandId?: string;
 }
 
 export interface GenericScoreEvent {

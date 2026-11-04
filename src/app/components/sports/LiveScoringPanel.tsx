@@ -138,6 +138,7 @@ export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPane
         dismissalType: opts?.dismissalType,
         dismissedPlayerId: opts?.dismissedPlayerId,
         fielderId: opts?.fielderId,
+        commandId: crypto.randomUUID(),
       };
 
       if (wsConnected) {
