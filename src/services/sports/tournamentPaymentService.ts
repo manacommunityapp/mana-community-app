@@ -175,6 +175,27 @@ export const tournamentPaymentService = {
   },
 
   /**
+   * Mark a player as unpaid for the tournament (revert payment record)
+   */
+  async markUnpaid(tournamentId: number, playerKey: string): Promise<void> {
+    // Remove from local storage first for instant zero-latency UI update
+    const localMap = getLocalPayments(tournamentId);
+    if (localMap[playerKey]) {
+      delete localMap[playerKey];
+      saveLocalPayments(tournamentId, localMap);
+    }
+
+    // Sync with backend API
+    try {
+      await apiClient.post(
+        `/sports/tournaments/${tournamentId}/payments/mark-unpaid?playerKey=${encodeURIComponent(playerKey)}`
+      );
+    } catch {
+      // If backend endpoint is unavailable, local removal is preserved
+    }
+  },
+
+  /**
    * Helper to deduplicate registrations across all events in a tournament
    * and merge them with their tournament payment record.
    */
