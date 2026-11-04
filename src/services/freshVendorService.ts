@@ -50,4 +50,12 @@ export const freshVendorService = {
   suspendCapability: async (capabilityId: number, reason: string): Promise<VendorCapabilityDto> => {
     return apiClient.post<VendorCapabilityDto>(`/v1/fresh/admin/capabilities/${capabilityId}/suspend`, { reason });
   },
+
+  seedPilotEnvironment: async (): Promise<{ status: string; message: string; pilotVendorsCount: number; pilotCommunities: string[] }> => {
+    return apiClient.post('/v1/fresh/admin/pilot/seed', {});
+  },
+
+  getPilotMetrics: async (): Promise<import('../types/freshVendor').FreshPilotMetricsDto> => {
+    return apiClient.get('/v1/fresh/admin/pilot/metrics');
+  },
 };

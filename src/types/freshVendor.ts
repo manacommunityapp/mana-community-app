@@ -93,3 +93,18 @@ export interface FreshVendorDashboardSummaryDto {
   settlementDueAmount: number;
   activeAlerts: string[];
 }
+
+export interface FreshPilotMetricsDto {
+  totalPilotVendors: number;
+  approvedCapabilitiesCount: number;
+  activeBatchesCount: number;
+  releasedBatchesCount: number;
+  coldChainCompliancePercent: number;
+  morningDeliveryOnTimePercent: number;
+  completedDropsCount: number;
+  pendingDropsCount: number;
+  rejectionRatePercent: number;
+  totalSettledPayouts: number;
+  activePilotCommunitiesCount: number;
+  pilotCommunityNames: string[];
+}
