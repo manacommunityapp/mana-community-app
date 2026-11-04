@@ -24,6 +24,27 @@ export interface FamilyMember {
 
 export type FamilyMemberRequest = Omit<FamilyMember, "id" | "createdAt" | "updatedAt">;
 
+function unwrapFamilyMemberResponse(response: any): any {
+  let result = response;
+  for (let depth = 0; depth < 3; depth += 1) {
+    const nested = result?.familyMember ?? result?.member ?? result?.data;
+    if (nested == null || nested === result) break;
+    result = nested;
+  }
+  return result;
+}
+
+function unwrapFamilyMembersResponse(response: any): any[] | null {
+  let result = response;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (Array.isArray(result)) return result;
+    const nested = result?.content ?? result?.familyMembers ?? result?.data;
+    if (nested == null || nested === result) break;
+    result = nested;
+  }
+  return Array.isArray(result) ? result : null;
+}
+
 function getStorageKey(): string {
   const user = getStoredUser();
   const uid = user?.userId || user?.email || "anonymous";
@@ -253,7 +274,7 @@ export const familyService = {
       try {
         let res: any[] | null = null;
         try {
-          res = await apiClient.get<any[]>("/users/family-members");
+          res = unwrapFamilyMembersResponse(await apiClient.get<any>("/users/family-members"));
         } catch (err) {
           console.warn("Could not fetch family members from /users/family-members:", err);
         }
@@ -406,15 +427,11 @@ export const familyService = {
       status: "ACTIVE",
     };
 
-    try {
-      const serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
-      if (serverRes && serverRes.id) {
-        newMember.id = serverRes.id;
-        if (serverRes.dob) newMember.dob = serverRes.dob;
-        if (serverRes.age) newMember.age = serverRes.age;
-      }
-    } catch (err) {
-      console.warn("Failed to persist family member on server, keeping locally:", err);
+    const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", serverPayload));
+    if (serverRes && serverRes.id != null) {
+      newMember.id = serverRes.id;
+      if (serverRes.dob) newMember.dob = serverRes.dob;
+      if (serverRes.age) newMember.age = serverRes.age;
     }
 
     const updated = [newMember, ...current.filter((m) => m.name.toLowerCase() !== newMember.name.toLowerCase())];
@@ -485,28 +502,6 @@ export const familyService = {
       current.push(updatedMember);
     }
 
-    if (isSelf) {
-      saveSelfMeta(updatedMember);
-      const user = getStoredUser();
-      if (user) {
-        if (updatedMember.name) user.fullName = updatedMember.name;
-        if (updatedMember.phone) user.phone = updatedMember.phone;
-        if (updatedMember.gender) user.gender = updatedMember.gender;
-        if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
-        storeUser(user);
-      }
-      try {
-        await apiClient.put<any>("/profile", {
-          fullName: updatedMember.name,
-          phone: updatedMember.phone,
-          dob: updatedMember.dob,
-          gender: updatedMember.gender,
-        });
-      } catch (profileErr) {
-        console.warn("Failed to sync Self profile updates to /profile API:", profileErr);
-      }
-    }
-
     const isRealNumericId = !isSelf && !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     const serverPayload = {
@@ -528,26 +523,32 @@ export const familyService = {
     };
 
     if (isRealNumericId) {
-      try {
-        const serverRes = await apiClient.put<any>(`/users/family-members/${id}`, serverPayload);
-        if (serverRes) {
-          if (serverRes.dob) updatedMember.dob = serverRes.dob;
-          if (serverRes.age) updatedMember.age = serverRes.age;
-        }
-      } catch (err) {
-        console.warn("Failed to update family member on server:", err);
-      }
+      const serverRes = unwrapFamilyMemberResponse(await apiClient.put<any>(`/users/family-members/${id}`, serverPayload));
+      if (serverRes?.dob) updatedMember.dob = serverRes.dob;
+      if (serverRes?.age) updatedMember.age = serverRes.age;
     } else if (!isSelf) {
-      // Member was previously stored locally with a temporary ID (fam-...). Persist to DB now!
-      try {
-        const serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
-        if (serverRes && serverRes.id) {
-          updatedMember.id = serverRes.id;
-          if (serverRes.dob) updatedMember.dob = serverRes.dob;
-          if (serverRes.age) updatedMember.age = serverRes.age;
-        }
-      } catch (err) {
-        console.warn("Failed to persist newly updated local family member to server:", err);
+      // A temporary local ID means the original add did not return a server ID; retry creation before committing edits.
+      const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", serverPayload));
+      if (serverRes?.id != null) {
+        updatedMember.id = serverRes.id;
+      }
+      if (serverRes?.dob) updatedMember.dob = serverRes.dob;
+      if (serverRes?.age) updatedMember.age = serverRes.age;
+    } else {
+      await apiClient.put<any>("/profile", {
+        fullName: updatedMember.name,
+        phone: updatedMember.phone,
+        dob: updatedMember.dob,
+        gender: updatedMember.gender,
+      });
+      saveSelfMeta(updatedMember);
+      const user = getStoredUser();
+      if (user) {
+        if (updatedMember.name) user.fullName = updatedMember.name;
+        if (updatedMember.phone) user.phone = updatedMember.phone;
+        if (updatedMember.gender) user.gender = updatedMember.gender;
+        if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
+        storeUser(user);
       }
     }
 
@@ -574,11 +575,7 @@ export const familyService = {
     const isRealId = !isSelf && !idStr.startsWith("fam-") && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     if (isRealId) {
-      try {
-        await apiClient.delete<void>(`/users/family-members/${id}`);
-      } catch (err) {
-        console.warn("Failed to delete family member on server:", err);
-      }
+      await apiClient.delete<void>(`/users/family-members/${id}`);
     }
 
     lastFetchedData = filtered;

@@ -169,3 +169,54 @@ describe("familyService - Non-destructive DOB persistence", () => {
     expect(kid?.dob).toBe("2017-02-14");
   });
 });
+
+describe("familyService - server mutation failures", () => {
+  const STORAGE_KEY = "mana_family_members_v4_test-user-1";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("does not report an add as saved locally when the server rejects it", async () => {
+    (apiClient.post as any).mockRejectedValueOnce(new Error("Server rejected add"));
+
+    await expect(familyService.addFamilyMember({
+      name: "New Member",
+      relation: "Daughter",
+    })).rejects.toThrow("Server rejected add");
+
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]")).toEqual([]);
+  });
+
+  it("does not keep an update locally when the server rejects it", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([{
+      id: 101,
+      name: "Existing Member",
+      relation: "Son",
+      gender: "Male",
+      phone: "1111111111",
+    }]));
+    (apiClient.put as any).mockRejectedValueOnce(new Error("Server rejected update"));
+
+    await expect(familyService.updateFamilyMember(101, {
+      name: "Updated Member",
+      relation: "Son",
+    })).rejects.toThrow("Server rejected update");
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    expect(stored.find((member: any) => member.id === 101)?.name).toBe("Existing Member");
+  });
+
+  it("reads family members from a wrapped API list response", async () => {
+    (apiClient.get as any).mockResolvedValueOnce({
+      data: {
+        content: [{ id: 202, name: "Server Member", relation: "Daughter", gender: "Female" }],
+      },
+    });
+
+    const members = await familyService.getFamilyMembers(true);
+
+    expect(members.find((member) => member.id === 202)?.name).toBe("Server Member");
+  });
+});

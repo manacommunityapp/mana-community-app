@@ -741,25 +741,14 @@ export function ProfileDashboard() {
         setFamilyMembers((prev) =>
           prev.map((m) =>
             String(m.id) === String(editingMember.id) ||
-            (m.name && payload.name && m.name.trim().toLowerCase() === payload.name.trim().toLowerCase())
+            String(m.id) === String(saved.id)
               ? { ...m, ...saved, ...payload, dob: payload.dob }
               : m
           )
         );
 
         if (isSelf) {
-          // Synchronize Self changes to User Profile on backend and AuthContext
-          try {
-            await profileService.updateProfile({
-              fullName: payload.name?.trim(),
-              phone: payload.phone?.trim(),
-              dob: payload.dob,
-              gender: payload.gender,
-            });
-          } catch (syncErr) {
-            console.warn("Failed to sync Self family member update to profile API:", syncErr);
-          }
-
+          // familyService persists Self through /profile before syncing the local profile state.
           updateUser({
             fullName: payload.name?.trim(),
             phone: payload.phone?.trim(),
