@@ -130,10 +130,13 @@ const CAPABILITY_CATALOG: CapabilityMeta[] = [
   }
 ];
 
+import { FreshVendorDocumentsTab } from './FreshVendorDocumentsTab';
+
 export function FreshVendorCapabilityManager() {
   const { user } = useAuth();
   const vendorId = user?.vendorId || 1;
 
+  const [activeView, setActiveView] = useState<'CAPABILITIES' | 'DOCUMENTS'>('CAPABILITIES');
   const [capabilities, setCapabilities] = useState<VendorCapabilityDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -228,10 +231,10 @@ export function FreshVendorCapabilityManager() {
             <ShieldCheck className="w-4 h-4" /> Mana Fresh Operational Hub
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white m-0">
-            Vendor Capabilities & Operational Approvals
+            Vendor Capabilities & Regulatory Compliance
           </h1>
           <p className="text-slate-300 text-sm mt-1 max-w-2xl m-0">
-            One unified vendor account with modular capabilities. Apply for specialized food categories to unlock tailored production, batch logging, cold-chain gates, and community demand.
+            One unified vendor account with modular capabilities and multi-document food safety compliance. Manage approvals for whole produce, fresh cuts, batters, cold chain dairy, and proteins.
           </p>
         </div>
         <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 text-center">
@@ -244,14 +247,43 @@ export function FreshVendorCapabilityManager() {
         </div>
       </div>
 
-      {/* Catalog Grid */}
-      {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-          <p className="text-sm font-semibold">Loading vendor capabilities...</p>
-        </div>
+      {/* View Switcher Tabs */}
+      <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+        <button
+          onClick={() => setActiveView('CAPABILITIES')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+            activeView === 'CAPABILITIES'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Building2 className="w-4 h-4" /> Operational Capabilities ({capabilities.length})
+        </button>
+        <button
+          onClick={() => setActiveView('DOCUMENTS')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+            activeView === 'DOCUMENTS'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" /> Compliance Certificates (FSSAI, GST, Water, NOC)
+        </button>
+      </div>
+
+      {activeView === 'DOCUMENTS' ? (
+        <FreshVendorDocumentsTab vendorId={vendorId} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <>
+          {/* Catalog Grid */}
+          {loading ? (
+            <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+              <p className="text-sm font-semibold">Loading vendor capabilities...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
           {CAPABILITY_CATALOG.map((meta) => {
             const cap = capabilities.find(c => c.capabilityType === meta.type);
             const Icon = meta.icon;
@@ -347,9 +379,11 @@ export function FreshVendorCapabilityManager() {
           })}
         </div>
       )}
+    </>
+  )}
 
-      {/* Modal / Dialog for Applying */}
-      {selectedMeta && (
+  {/* Modal / Dialog for Applying */}
+  {selectedMeta && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
