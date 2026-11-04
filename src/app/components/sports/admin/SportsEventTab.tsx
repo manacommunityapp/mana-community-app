@@ -45,7 +45,7 @@ interface SportsEventTabProps {
   playerCategories: PlayerCategory[];
   venues: Venue[];
   activeEvents: SportsEvent[];
-  handleSportPickerSelect: (sport: { name: string; icon: string }) => void;
+  handleSportPickerSelect: (sport: { name: string; icon: string; iconUrl?: string }) => void;
   handleCreateCustomSport: () => void;
   removeSportForm: (id: string) => void;
   addEventToSportForm: (formId: string) => void;
@@ -298,6 +298,7 @@ export function SportsEventTab({
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
           onLoadCategories={onLoadCategories}
+          onLoadConfig={onLoadConfig}
           tournamentStartDate={tournamentStartDate}
           tournamentEndDate={tournamentEndDate}
           activeTournamentId={activeTournamentId}

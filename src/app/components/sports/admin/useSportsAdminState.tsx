@@ -2366,13 +2366,14 @@ export function useSportsAdminState() {
     setSportPickerSearch("");
   };
 
-  const handleSportPickerSelect = async (sport: { name: string; icon: string }) => {
+  const handleSportPickerSelect = async (sport: { name: string; icon: string; iconUrl?: string }) => {
     let dbSport = sportsMeta.find(s => s.name.toLowerCase() === sport.name.toLowerCase());
     if (!dbSport) {
       try {
         dbSport = await sportsService.createSport({
           name: sport.name,
           icon: sport.icon || "🏆",
+          iconUrl: sport.iconUrl,
           formats: ["SINGLES"],
           active: true
         } as any);
@@ -2405,7 +2406,7 @@ export function useSportsAdminState() {
   };
 
   const handleCreateCustomSport = async () => {
-    const trimmedName = customSportName.trim();
+    const trimmedName = customSportName.trim() || sportPickerSearch.trim();
     if (!trimmedName) { toast.error("Sport name is required"); return; }
     setSportSubmitting(true);
     try {
