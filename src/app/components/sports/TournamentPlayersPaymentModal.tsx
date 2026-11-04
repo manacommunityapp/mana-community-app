@@ -115,7 +115,7 @@ export function TournamentPlayersPaymentModal({
   // State for recording / updating payment popup
   const [activePaymentPlayer, setActivePaymentPlayer] = useState<UniqueTournamentPlayer | null>(null);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [amount, setAmount] = useState<string>("500");
+  const [amount, setAmount] = useState<string>("100");
   const [paymentMode, setPaymentMode] = useState<"CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED">("UPI");
   const [transactionRef, setTransactionRef] = useState("");
   const [notes, setNotes] = useState("");
@@ -375,7 +375,7 @@ export function TournamentPlayersPaymentModal({
   const handleOpenMarkPaid = (player: UniqueTournamentPlayer) => {
     setActivePaymentPlayer(player);
     setIsEditingPayment(false);
-    setAmount("500");
+    setAmount("100");
     setPaymentMode("UPI");
     setTransactionRef("");
     setNotes("");
@@ -387,7 +387,7 @@ export function TournamentPlayersPaymentModal({
   const handleOpenEditPayment = (player: UniqueTournamentPlayer) => {
     setActivePaymentPlayer(player);
     setIsEditingPayment(true);
-    setAmount(player.payment?.amount != null ? String(player.payment.amount) : "500");
+    setAmount(player.payment?.amount != null ? String(player.payment.amount) : "100");
     setPaymentMode((player.payment?.paymentMode as any) || "UPI");
     setTransactionRef(player.payment?.transactionRef || "");
     setNotes(player.payment?.notes || "");
@@ -1444,7 +1444,7 @@ export function TournamentPlayersPaymentModal({
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 pl-8 pr-3 py-1.5 text-xs font-bold text-slate-900 focus:border-indigo-600 focus:outline-none"
-                    placeholder="500"
+                    placeholder="100"
                   />
                 </div>
               </div>
