@@ -256,6 +256,11 @@ export function FreshFulfilmentOrderDesk() {
                             <ThermometerSnowflake className="w-3 h-3 text-cyan-600" /> Cold Chain (2°C–4°C)
                           </span>
                         )}
+                        {grp.isHandoverLocked && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" /> LOCKED ({grp.failedOtpAttempts || 5} Failed OTPs)
+                          </span>
+                        )}
                       </div>
                       <h4 className="text-sm font-bold text-slate-900 mt-1.5 m-0">
                         {grp.vendorBusinessName || 'Mana Central Fulfillment Hub'}
