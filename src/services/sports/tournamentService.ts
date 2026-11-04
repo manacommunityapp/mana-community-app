@@ -300,6 +300,9 @@ export interface LiveMatchStateData {
   teamAId?: number;
   teamBId?: number;
   target?: number;
+  oversLimit?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
 }
 
 export interface InningsStateData {
@@ -378,6 +381,7 @@ export interface PeriodScore {
 
 export interface ScoringConfig {
   id?: number;
+  configId?: number;
   sportType: string;
   periodsCount: number;
   pointsToWinPeriod?: number;
@@ -388,6 +392,11 @@ export interface ScoringConfig {
   hasPenaltyShootout: boolean;
   tiebreakPointsToWin?: number;
   scoringRulesJson?: string;
+  oversPerInnings?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
+  breakDurationMinutes?: number;
+  targetScore?: number;
 }
 
 export interface GenericMatchState {
@@ -752,6 +761,21 @@ export const tournamentService = {
   /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
   async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
     return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
+
+  /** GET /api/tournament/match/generic/scoring-config/{configId} */
+  async getScoringConfig(configId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/${configId}`);
+  },
+
+  /** POST /api/tournament/match/generic/scoring-config */
+  async saveScoringConfig(data: ScoringConfig): Promise<ScoringConfig> {
+    return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
+  },
+
+  /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
+  async updateMatchConfigOverride(matchId: number, overrideJson: string): Promise<void> {
+    return apiClient.put<void>(`/tournament/match/generic/match/${matchId}/config-override`, { overrideJson });
   },
 
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────

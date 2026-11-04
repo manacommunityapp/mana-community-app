@@ -215,6 +215,25 @@ export function GenericLiveScoringPanel({
 
         {/* Scoreboard */}
         <div className="px-4 py-4">
+          {/* Pre-Match / Match Format Rules Banner */}
+          {state.scoringConfig && (
+            <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 mb-3 border border-slate-200/60 dark:border-slate-700">
+              <span className="font-medium">
+                Format:{" "}
+                {isSetBased(sportType)
+                  ? `Best of ${state.scoringConfig.periodsCount || 3} Sets • ${state.scoringConfig.pointsToWinPeriod || 21} pts${state.scoringConfig.mustWinByTwo ? " (Deuce)" : ""}`
+                  : isTimedSport(sportType)
+                  ? `${state.scoringConfig.periodsCount || 2} Halves • ${state.scoringConfig.periodDurationMinutes || 45} mins${state.scoringConfig.hasOvertime ? " + OT" : ""}`
+                  : state.scoringConfig.targetScore
+                  ? `Target: ${state.scoringConfig.targetScore} pts • ${state.scoringConfig.periodsCount || 1} Period`
+                  : `${state.scoringConfig.periodsCount || 2} Periods`}
+              </span>
+              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold uppercase">
+                {state.status === "COMPLETED" ? "Finished" : state.status === "LIVE" ? "In Progress" : "Scheduled"}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-2 mb-3">
             {/* Team A */}
             <div className="flex-1 text-center">
