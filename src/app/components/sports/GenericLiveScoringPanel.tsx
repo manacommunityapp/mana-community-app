@@ -55,8 +55,8 @@ export function GenericLiveScoringPanel({
   const [matchMinute, setMatchMinute] = useState<number | undefined>();
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
-  const eventTypes = SPORT_EVENT_TYPES[sportType] || SPORT_EVENT_TYPES["BADMINTON"] || [];
-  const periodLabels = PERIOD_LABELS[sportType] || ["Period 1", "Period 2", "Period 3"];
+  const eventTypes = SPORT_EVENT_TYPES[sportType] || SPORT_EVENT_TYPES["DEFAULT"] || [];
+  const periodLabels = PERIOD_LABELS[sportType] || PERIOD_LABELS["DEFAULT"] || ["Period 1", "Period 2", "Period 3"];
 
   const fetchState = useCallback(async () => {
     try {

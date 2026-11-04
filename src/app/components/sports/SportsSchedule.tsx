@@ -618,7 +618,7 @@ export function SportsSchedule() {
 
   const activeIsCricket = isCricketSport(activeMatchSport);
   const activeIsTimeSport = isTimeSport(activeMatchSport);
-  const activeSportType = getSportType(activeMatchSport) || "BADMINTON";
+  const activeSportType = getSportType(activeMatchSport) || "DEFAULT";
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
