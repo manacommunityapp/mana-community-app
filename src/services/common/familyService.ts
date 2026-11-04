@@ -254,12 +254,8 @@ export const familyService = {
         let res: any[] | null = null;
         try {
           res = await apiClient.get<any[]>("/users/family-members");
-        } catch {
-          try {
-            res = await apiClient.get<any[]>("/events/family-members");
-          } catch {
-            // fallback
-          }
+        } catch (err) {
+          console.warn("Could not fetch family members from /users/family-members:", err);
         }
 
         if (Array.isArray(res)) {
@@ -411,12 +407,7 @@ export const familyService = {
     };
 
     try {
-      let serverRes: any = null;
-      try {
-        serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
-      } catch {
-        serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
-      }
+      const serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
       if (serverRes && serverRes.id) {
         newMember.id = serverRes.id;
         if (serverRes.dob) newMember.dob = serverRes.dob;
@@ -438,15 +429,17 @@ export const familyService = {
    */
   async updateFamilyMember(id: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
     const idStr = String(id);
+    const currentUser = getStoredUser();
     const isSelf =
       idStr === "fam-self" ||
       idStr === "self" ||
+      (currentUser?.userId != null && idStr === String(currentUser.userId)) ||
       (data.relation && (data.relation.toLowerCase().includes("self") || data.relation.toLowerCase().includes("head")));
 
     const current = getStoredMembers();
     let index = current.findIndex((m) =>
       String(m.id) === idStr ||
-      (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
+      (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || (currentUser?.userId != null && String(m.userId) === String(currentUser.userId)) || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
     );
 
     // Fallback: lookup by trimmed name if ID did not match
@@ -502,9 +495,19 @@ export const familyService = {
         if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
         storeUser(user);
       }
+      try {
+        await apiClient.put<any>("/profile", {
+          fullName: updatedMember.name,
+          phone: updatedMember.phone,
+          dob: updatedMember.dob,
+          gender: updatedMember.gender,
+        });
+      } catch (profileErr) {
+        console.warn("Failed to sync Self profile updates to /profile API:", profileErr);
+      }
     }
 
-    const isRealNumericId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+    const isRealNumericId = !isSelf && !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     const serverPayload = {
       name: updatedMember.name,
@@ -526,12 +529,7 @@ export const familyService = {
 
     if (isRealNumericId) {
       try {
-        let serverRes: any = null;
-        try {
-          serverRes = await apiClient.put<any>(`/users/family-members/${id}`, serverPayload);
-        } catch {
-          serverRes = await apiClient.put<any>(`/events/family-members/${id}`, serverPayload);
-        }
+        const serverRes = await apiClient.put<any>(`/users/family-members/${id}`, serverPayload);
         if (serverRes) {
           if (serverRes.dob) updatedMember.dob = serverRes.dob;
           if (serverRes.age) updatedMember.age = serverRes.age;
@@ -542,12 +540,7 @@ export const familyService = {
     } else if (!isSelf) {
       // Member was previously stored locally with a temporary ID (fam-...). Persist to DB now!
       try {
-        let serverRes: any = null;
-        try {
-          serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
-        } catch {
-          serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
-        }
+        const serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
         if (serverRes && serverRes.id) {
           updatedMember.id = serverRes.id;
           if (serverRes.dob) updatedMember.dob = serverRes.dob;
@@ -572,15 +565,17 @@ export const familyService = {
     const filtered = current.filter((m) => String(m.id) !== String(id));
 
     const idStr = String(id);
-    const isRealId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+    const currentUser = getStoredUser();
+    const isSelf =
+      idStr === "fam-self" ||
+      idStr === "self" ||
+      (currentUser?.userId != null && idStr === String(currentUser.userId));
+
+    const isRealId = !isSelf && !idStr.startsWith("fam-") && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     if (isRealId) {
       try {
-        try {
-          await apiClient.delete<void>(`/users/family-members/${id}`);
-        } catch {
-          await apiClient.delete<void>(`/events/family-members/${id}`);
-        }
+        await apiClient.delete<void>(`/users/family-members/${id}`);
       } catch (err) {
         console.warn("Failed to delete family member on server:", err);
       }
