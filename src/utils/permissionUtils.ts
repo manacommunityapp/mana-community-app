@@ -88,7 +88,10 @@ export const ENDPOINT_ACCESS_RULES: EndpointAccessRule[] = [
   // Admin
   { pathPrefix: "/admin", module: "ADMIN_HUB", anyPermissions: [VIEW_ADMIN] },
 
-  // User admin mutations — /users/me is already allowed above; these gate PUT/POST on other user paths
+  // Family members — all authenticated users may manage their own family records
+  { pathPrefix: "/users/family-members" },
+
+  // User admin mutations — /users/me and /users/family-members are already allowed above; these gate PUT/POST on other user paths
   { pathPrefix: "/users", module: "ADMIN_HUB", methods: ["POST"], anyPermissions: [BULK_UPLOAD, VIEW_ADMIN] },
   { pathPrefix: "/users", module: "ADMIN_HUB", methods: ["PUT"], anyPermissions: [VERIFY_KYC, MANAGE_ROLES, VIEW_ADMIN] },
 

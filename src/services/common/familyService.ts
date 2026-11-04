@@ -24,6 +24,27 @@ export interface FamilyMember {
 
 export type FamilyMemberRequest = Omit<FamilyMember, "id" | "createdAt" | "updatedAt">;
 
+function unwrapFamilyMemberResponse(response: any): any {
+  let result = response;
+  for (let depth = 0; depth < 3; depth += 1) {
+    const nested = result?.familyMember ?? result?.member ?? result?.data;
+    if (nested == null || nested === result) break;
+    result = nested;
+  }
+  return result;
+}
+
+function unwrapFamilyMembersResponse(response: any): any[] | null {
+  let result = response;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (Array.isArray(result)) return result;
+    const nested = result?.content ?? result?.familyMembers ?? result?.data;
+    if (nested == null || nested === result) break;
+    result = nested;
+  }
+  return Array.isArray(result) ? result : null;
+}
+
 function getStorageKey(): string {
   const user = getStoredUser();
   const uid = user?.userId || user?.email || "anonymous";
@@ -253,13 +274,9 @@ export const familyService = {
       try {
         let res: any[] | null = null;
         try {
-          res = await apiClient.get<any[]>("/users/family-members");
-        } catch {
-          try {
-            res = await apiClient.get<any[]>("/events/family-members");
-          } catch {
-            // fallback
-          }
+          res = unwrapFamilyMembersResponse(await apiClient.get<any>("/users/family-members"));
+        } catch (err) {
+          console.warn("Could not fetch family members from /users/family-members:", err);
         }
 
         if (Array.isArray(res)) {
@@ -361,12 +378,22 @@ export const familyService = {
     const currentUser = getStoredUser();
     const inferred = inferGenderFromRelation(data.relation, currentUser?.gender);
     const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
+
+    const resolvedDob = data.dob || (data as any).dateOfBirth || (data as any).birthDate || undefined;
+    let computedAge = data.age !== undefined && data.age !== null ? Number(data.age) : undefined;
+    if ((computedAge === undefined || isNaN(computedAge) || computedAge <= 0) && resolvedDob) {
+      const birth = new Date(resolvedDob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+
     const newMember: FamilyMember = {
       id: `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: (data.name || "").trim() || "Family Member",
       relation: (data.relation || "Family").trim(),
-      age: data.age ? Number(data.age) : undefined,
-      dob: data.dob,
+      age: computedAge,
+      dob: resolvedDob,
       gender: finalGender,
       phone: data.phone?.trim(),
       email: data.email?.trim(),
@@ -375,7 +402,7 @@ export const familyService = {
       emergencyContact: Boolean(data.emergencyContact),
       isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
       photoUrl: data.photoUrl,
-      avatar: (data as any).avatar || (finalGender === "Female" ? (Number(data.age) < 18 ? "👧" : "👩") : (Number(data.age) < 18 ? "👦" : "👨")),
+      avatar: (data as any).avatar || (finalGender === "Female" ? ((computedAge || 30) < 18 ? "👧" : "👩") : ((computedAge || 30) < 18 ? "👦" : "👨")),
       notes: data.notes?.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -400,18 +427,11 @@ export const familyService = {
       status: "ACTIVE",
     };
 
-    try {
-      let serverRes: any = null;
-      try {
-        serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
-      } catch {
-        serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
-      }
-      if (serverRes && serverRes.id) {
-        newMember.id = serverRes.id;
-      }
-    } catch (err) {
-      console.warn("Failed to persist family member on server, keeping locally:", err);
+    const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", serverPayload));
+    if (serverRes && serverRes.id != null) {
+      newMember.id = serverRes.id;
+      if (serverRes.dob) newMember.dob = serverRes.dob;
+      if (serverRes.age) newMember.age = serverRes.age;
     }
 
     const updated = [newMember, ...current.filter((m) => m.name.toLowerCase() !== newMember.name.toLowerCase())];
@@ -426,15 +446,17 @@ export const familyService = {
    */
   async updateFamilyMember(id: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
     const idStr = String(id);
+    const currentUser = getStoredUser();
     const isSelf =
       idStr === "fam-self" ||
       idStr === "self" ||
+      (currentUser?.userId != null && idStr === String(currentUser.userId)) ||
       (data.relation && (data.relation.toLowerCase().includes("self") || data.relation.toLowerCase().includes("head")));
 
     const current = getStoredMembers();
     let index = current.findIndex((m) =>
       String(m.id) === idStr ||
-      (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
+      (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || (currentUser?.userId != null && String(m.userId) === String(currentUser.userId)) || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
     );
 
     // Fallback: lookup by trimmed name if ID did not match
@@ -444,12 +466,22 @@ export const familyService = {
         (m) => m.name && m.name.trim().toLowerCase() === cleanTargetName
       );
     }
+    const resolvedDobVal = data.dob || (data as any).dateOfBirth || (data as any).birthDate || undefined;
+    let computedAge = data.age !== undefined && data.age !== null ? Number(data.age) : undefined;
+    if ((computedAge === undefined || isNaN(computedAge) || computedAge <= 0) && resolvedDobVal) {
+      const birth = new Date(resolvedDobVal);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
 
     let updatedMember: FamilyMember;
     if (index !== -1) {
       updatedMember = {
         ...current[index],
         ...data,
+        ...(resolvedDobVal !== undefined ? { dob: resolvedDobVal } : {}),
+        ...(computedAge !== undefined ? { age: computedAge } : {}),
         updatedAt: new Date().toISOString(),
       };
       if (isSelf) {
@@ -463,12 +495,52 @@ export const familyService = {
         name: data.name || "Family Member",
         relation: isSelf ? "Self (Head)" : (data.relation || "Family"),
         ...data,
+        ...(resolvedDobVal !== undefined ? { dob: resolvedDobVal } : {}),
+        ...(computedAge !== undefined ? { age: computedAge } : {}),
         updatedAt: new Date().toISOString(),
       };
       current.push(updatedMember);
     }
 
-    if (isSelf) {
+    const isRealNumericId = !isSelf && !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+
+    const serverPayload = {
+      name: updatedMember.name,
+      relation: updatedMember.relation,
+      age: updatedMember.age,
+      gender: updatedMember.gender,
+      avatar: (data as any).avatar || updatedMember.avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
+      gothram: updatedMember.gotram || (data as any).gothram,
+      gotram: updatedMember.gotram || (data as any).gothram,
+      dob: updatedMember.dob || undefined,
+      phone: updatedMember.phone || undefined,
+      email: updatedMember.email || undefined,
+      bloodGroup: updatedMember.bloodGroup || undefined,
+      emergencyContact: updatedMember.emergencyContact,
+      isDevotee: updatedMember.isDevotee,
+      notes: updatedMember.notes || undefined,
+      status: (data as any).status || "ACTIVE",
+    };
+
+    if (isRealNumericId) {
+      const serverRes = unwrapFamilyMemberResponse(await apiClient.put<any>(`/users/family-members/${id}`, serverPayload));
+      if (serverRes?.dob) updatedMember.dob = serverRes.dob;
+      if (serverRes?.age) updatedMember.age = serverRes.age;
+    } else if (!isSelf) {
+      // A temporary local ID means the original add did not return a server ID; retry creation before committing edits.
+      const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", serverPayload));
+      if (serverRes?.id != null) {
+        updatedMember.id = serverRes.id;
+      }
+      if (serverRes?.dob) updatedMember.dob = serverRes.dob;
+      if (serverRes?.age) updatedMember.age = serverRes.age;
+    } else {
+      await apiClient.put<any>("/profile", {
+        fullName: updatedMember.name,
+        phone: updatedMember.phone,
+        dob: updatedMember.dob,
+        gender: updatedMember.gender,
+      });
       saveSelfMeta(updatedMember);
       const user = getStoredUser();
       if (user) {
@@ -477,39 +549,6 @@ export const familyService = {
         if (updatedMember.gender) user.gender = updatedMember.gender;
         if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
         storeUser(user);
-      }
-    }
-
-    const resolvedDobVal = updatedMember.dob || (data as any).dateOfBirth || undefined;
-    const isRealNumericId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
-
-    if (isRealNumericId) {
-      const serverPayload = {
-        name: updatedMember.name,
-        relation: updatedMember.relation,
-        age: updatedMember.age,
-        gender: updatedMember.gender,
-        avatar: (data as any).avatar || updatedMember.avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
-        gothram: updatedMember.gotram || (data as any).gothram,
-        gotram: updatedMember.gotram || (data as any).gothram,
-        dob: resolvedDobVal,
-        dateOfBirth: resolvedDobVal,
-        phone: updatedMember.phone || undefined,
-        email: updatedMember.email || undefined,
-        bloodGroup: updatedMember.bloodGroup || undefined,
-        emergencyContact: updatedMember.emergencyContact,
-        isDevotee: updatedMember.isDevotee,
-        notes: updatedMember.notes || undefined,
-        status: (data as any).status || "ACTIVE",
-      };
-      try {
-        try {
-          await apiClient.put<any>(`/users/family-members/${id}`, serverPayload);
-        } catch {
-          await apiClient.put<any>(`/events/family-members/${id}`, serverPayload);
-        }
-      } catch (err) {
-        console.warn("Failed to update family member on server:", err);
       }
     }
 
@@ -527,18 +566,16 @@ export const familyService = {
     const filtered = current.filter((m) => String(m.id) !== String(id));
 
     const idStr = String(id);
-    const isRealId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+    const currentUser = getStoredUser();
+    const isSelf =
+      idStr === "fam-self" ||
+      idStr === "self" ||
+      (currentUser?.userId != null && idStr === String(currentUser.userId));
+
+    const isRealId = !isSelf && !idStr.startsWith("fam-") && !isNaN(Number(idStr)) && idStr.trim() !== "";
 
     if (isRealId) {
-      try {
-        try {
-          await apiClient.delete<void>(`/users/family-members/${id}`);
-        } catch {
-          await apiClient.delete<void>(`/events/family-members/${id}`);
-        }
-      } catch (err) {
-        console.warn("Failed to delete family member on server:", err);
-      }
+      await apiClient.delete<void>(`/users/family-members/${id}`);
     }
 
     lastFetchedData = filtered;

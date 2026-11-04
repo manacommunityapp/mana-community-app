@@ -732,6 +732,7 @@ export function DatePicker({
       type="button"
       id={id}
       name={name}
+      aria-required={required}
       data-testid={id}
       disabled={disabled}
       onClick={() => !disabled && setIsOpen((prev) => !prev)}
