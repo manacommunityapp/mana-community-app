@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   X,
   CreditCard,
@@ -9,12 +9,17 @@ import {
   Trash2,
   Users,
   Info,
+  Search,
+  ChevronDown,
+  UserCheck,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { sportsService } from "../../../services/sports/sportsService";
+import { userService } from "../../../services/common/userService";
 import type { DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
-import type { SportsTournament } from "../../../types/api";
+import type { SportsTournament, UserResponse } from "../../../types/api";
 
 export interface PaymentCoordinator {
   id: string;
@@ -38,7 +43,7 @@ export function TournamentPaymentContactsModal({
   onOpenFeeModal,
   onTournamentUpdated,
 }: TournamentPaymentContactsModalProps) {
-  const { isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const canManage = isAdmin || isSuperAdmin || isSportsAdmin;
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -49,6 +54,129 @@ export function TournamentPaymentContactsModal({
   const [newTitle, setNewTitle] = useState("Block Coordinator");
   const [newName, setNewName] = useState("");
   const [newDetail, setNewDetail] = useState("");
+
+  // Community user search & dropdown state
+  const [communityUsers, setCommunityUsers] = useState<UserResponse[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const effectiveCommunityId: number | null = useMemo(() => {
+    const cId =
+      (tournament as any)?.communityId ??
+      (tournament as any)?.community?.id ??
+      user?.communityId;
+    return cId ? Number(cId) : null;
+  }, [tournament, user]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsUserDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Fetch community users when adding coordinator
+  useEffect(() => {
+    if (!isAddingCoordinator || !effectiveCommunityId) return;
+    if (communityUsers.length > 0) return;
+
+    let isMounted = true;
+    setLoadingUsers(true);
+
+    userService
+      .getCommunityUsers(effectiveCommunityId)
+      .then((users) => {
+        if (isMounted && Array.isArray(users)) {
+          setCommunityUsers(users);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load community users for payment coordinators", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingUsers(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAddingCoordinator, effectiveCommunityId, communityUsers.length]);
+
+  // Filtered users based on search query
+  const filteredUsers = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return communityUsers.slice(0, 15);
+    }
+    return communityUsers
+      .filter((u) => {
+        const name = (u.fullName || "").toLowerCase();
+        const flat = (u.flatNo || "").toLowerCase();
+        const block = (u.block || "").toLowerCase();
+        const phone = (u.phone || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
+        return (
+          name.includes(query) ||
+          flat.includes(query) ||
+          block.includes(query) ||
+          phone.includes(query) ||
+          email.includes(query)
+        );
+      })
+      .slice(0, 20);
+  }, [communityUsers, userSearchQuery]);
+
+  const handleSelectUser = (u: UserResponse) => {
+    setSelectedUser(u);
+    setUserSearchQuery("");
+    setIsUserDropdownOpen(false);
+
+    // Auto-fill manual form fields
+    setNewName(u.fullName || "");
+
+    // Auto-fill Role / Block
+    if (u.block) {
+      setNewTitle(`${u.block} Coordinator`);
+    } else if (u.flatNo) {
+      setNewTitle(`Flat ${u.flatNo} Coordinator`);
+    } else {
+      setNewTitle("Block Coordinator");
+    }
+
+    // Auto-fill details (Flat, Block, Phone)
+    const detailParts: string[] = [];
+    if (u.flatNo) detailParts.push(`Flat ${u.flatNo}`);
+    if (u.block) detailParts.push(`Block ${u.block}`);
+    if (u.phone) detailParts.push(`Ph: ${u.phone}`);
+    setNewDetail(detailParts.join(", "));
+  };
+
+  const handleClearSelectedUser = () => {
+    setSelectedUser(null);
+    setUserSearchQuery("");
+  };
+
+  const resetAddForm = () => {
+    setNewName("");
+    setNewTitle("Block Coordinator");
+    setNewDetail("");
+    setSelectedUser(null);
+    setUserSearchQuery("");
+    setIsUserDropdownOpen(false);
+    setIsAddingCoordinator(false);
+  };
 
   // Parse list of coordinators from tournament
   const coordinators = useMemo<PaymentCoordinator[]>(() => {
@@ -170,9 +298,7 @@ export function TournamentPaymentContactsModal({
       }
 
       toast.success(`Added payment coordinator: ${newName.trim()}`);
-      setNewName("");
-      setNewDetail("");
-      setIsAddingCoordinator(false);
+      resetAddForm();
     } catch (err: any) {
       toast.error(err?.message || "Failed to add payment coordinator");
     } finally {
@@ -296,65 +422,217 @@ export function TournamentPaymentContactsModal({
           {isAddingCoordinator && (
             <form
               onSubmit={handleAddCoordinator}
-              className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2.5 animate-in fade-in duration-150"
+              className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3 animate-in fade-in duration-150"
             >
               <div className="flex items-center justify-between pb-1 border-b border-indigo-100">
                 <span className="text-xs font-bold text-indigo-900">Add Payment Coordinator / Block Lead</span>
                 <button
                   type="button"
-                  onClick={() => setIsAddingCoordinator(false)}
+                  onClick={resetAddForm}
                   className="text-slate-400 hover:text-slate-600 text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Coordinator Name <span className="text-red-500">*</span>
+              {/* Search Community Users Dropdown */}
+              <div className="space-y-1 relative" ref={searchContainerRef}>
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    Community Resident / Member <span className="text-[10px] font-normal text-slate-500">(Search Dropdown)</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="e.g. Rajesh Kumar"
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
-                  />
+                  {selectedUser && (
+                    <button
+                      type="button"
+                      onClick={handleClearSelectedUser}
+                      className="text-[10px] font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Role / Block
-                  </label>
-                  <input
-                    type="text"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
-                    placeholder="e.g. Block A Lead / Treasurer"
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
-                  />
+                <div className="relative">
+                  <div className="relative flex items-center">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={userSearchQuery}
+                      onChange={(e) => {
+                        setUserSearchQuery(e.target.value);
+                        setIsUserDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsUserDropdownOpen(true)}
+                      placeholder={
+                        selectedUser
+                          ? `Selected: ${selectedUser.fullName} (Click to change)`
+                          : loadingUsers
+                          ? "Loading community residents..."
+                          : "Search resident by name, flat number, block, phone..."
+                      }
+                      className="w-full rounded-lg border border-slate-300 pl-8 pr-8 py-1.5 text-xs text-slate-800 bg-white placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 transition"
+                    />
+                    {loadingUsers ? (
+                      <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin absolute right-2.5 pointer-events-none" />
+                    ) : userSearchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => setUserSearchQuery("")}
+                        className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsUserDropdownOpen((prev) => !prev)}
+                        className="p-1 text-slate-400 hover:text-slate-600 absolute right-2 cursor-pointer"
+                      >
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                            isUserDropdownOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isUserDropdownOpen && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white rounded-xl border border-slate-200 shadow-xl py-1 text-xs divide-y divide-slate-100">
+                      {loadingUsers ? (
+                        <div className="p-3 text-center text-slate-500 flex items-center justify-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" />
+                          <span>Loading community residents...</span>
+                        </div>
+                      ) : filteredUsers.length === 0 ? (
+                        <div className="p-3 text-center text-slate-500">
+                          {userSearchQuery ? (
+                            <span>No residents found matching "{userSearchQuery}"</span>
+                          ) : (
+                            <span>No community residents available</span>
+                          )}
+                        </div>
+                      ) : (
+                        filteredUsers.map((u) => {
+                          const isCurrent = selectedUser?.id === u.id;
+                          return (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => handleSelectUser(u)}
+                              className={`w-full text-left px-3 py-2 flex items-center justify-between gap-2.5 hover:bg-indigo-50/70 transition-colors cursor-pointer ${
+                                isCurrent ? "bg-indigo-50/90 font-bold" : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 font-bold text-xs ring-1 ring-indigo-200">
+                                  {(u.fullName || "?").charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 truncate">
+                                    {u.fullName}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 flex items-center gap-1.5 flex-wrap">
+                                    {u.flatNo && <span>Flat {u.flatNo}</span>}
+                                    {u.block && <span>• Block {u.block}</span>}
+                                    {u.phone && <span>• {u.phone}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                              {isCurrent ? (
+                                <span className="flex items-center gap-1 text-[10px] text-indigo-700 font-bold shrink-0">
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  Selected
+                                </span>
+                              ) : (
+                                u.role && (
+                                  <span className="text-[9.5px] uppercase tracking-wide font-semibold text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 shrink-0">
+                                    {u.role.toLowerCase()}
+                                  </span>
+                                )
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Phone / Flat Number / UPI Details
-                  </label>
-                  <input
-                    type="text"
-                    value={newDetail}
-                    onChange={(e) => setNewDetail(e.target.value)}
-                    placeholder="e.g. Flat 402, +91 98765 43210 / rajesh@upi"
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
-                  />
+                {/* Selection notice */}
+                {selectedUser && (
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200/80 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span className="text-[11px] text-indigo-950 truncate">
+                        Selected <strong>{selectedUser.fullName}</strong>
+                        {selectedUser.flatNo ? ` (Flat ${selectedUser.flatNo})` : ""} — details auto-filled. You can also edit manually below.
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearSelectedUser}
+                      className="text-[10px] font-bold text-indigo-700 hover:text-indigo-900 shrink-0 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Entry Fields */}
+              <div className="pt-1 border-t border-indigo-100">
+                <div className="text-[11px] font-bold text-slate-600 mb-1.5">
+                  Coordinator Details <span className="font-normal text-slate-400">(Manual Entry &amp; Customization)</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Coordinator Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. Rajesh Kumar"
+                      className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Role / Block
+                    </label>
+                    <input
+                      type="text"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="e.g. Block A Lead / Treasurer"
+                      className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Phone / Flat Number / UPI Details
+                    </label>
+                    <input
+                      type="text"
+                      value={newDetail}
+                      onChange={(e) => setNewDetail(e.target.value)}
+                      placeholder="e.g. Flat 402, +91 98765 43210 / rajesh@upi"
+                      className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:border-indigo-600 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setIsAddingCoordinator(false)}
+                  onClick={resetAddForm}
                   className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
                 >
                   Cancel
