@@ -20,7 +20,7 @@ interface ConfigureEventsTabProps {
   playerCategories: PlayerCategory[];
   venues: Venue[];
   activeEvents: SportsEvent[];
-  handleSportPickerSelect: (sport: { name: string; icon: string }) => void;
+  handleSportPickerSelect: (sport: { name: string; icon: string; iconUrl?: string }) => void;
   handleCreateCustomSport: () => void;
   removeSportForm: (id: string) => void;
   addEventToSportForm: (formId: string) => void;
@@ -37,6 +37,7 @@ interface ConfigureEventsTabProps {
   searchQueries: Record<string, string>;
   setSearchQueries: any;
   onLoadCategories?: () => void;
+  onLoadConfig?: () => void;
   tournamentStartDate?: Date;
   tournamentEndDate?: Date;
   activeTournamentId?: number | null;
@@ -83,6 +84,7 @@ export function ConfigureEventsTab(props: ConfigureEventsTabProps) {
       isSuperAdmin={props.isSuperAdmin}
       isAdmin={props.isAdmin}
       onLoadCategories={props.onLoadCategories}
+      onLoadConfig={props.onLoadConfig}
       tournamentStartDate={props.tournamentStartDate}
       tournamentEndDate={props.tournamentEndDate}
       activeTournamentId={props.activeTournamentId}

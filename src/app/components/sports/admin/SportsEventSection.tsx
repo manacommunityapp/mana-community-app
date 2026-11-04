@@ -27,7 +27,7 @@ interface SportsEventSectionProps {
   playerCategories: PlayerCategory[];
   venues: Venue[];
   activeEvents: any[];
-  handleSportPickerSelect: (sport: { name: string; icon: string }) => void;
+  handleSportPickerSelect: (sport: { name: string; icon: string; iconUrl?: string }) => void;
   handleCreateCustomSport: () => void;
   removeSportForm: (id: string) => void;
   addEventToSportForm: (id: string) => void;
@@ -50,6 +50,8 @@ interface SportsEventSectionProps {
   tournamentEndDate?: Date;
   /** Loads player categories (GET /api/player-categories) — called when the add/update form opens. */
   onLoadCategories?: () => void;
+  /** Refreshes sports metadata (GET /api/sports/meta) — called when opening the sport picker modal. */
+  onLoadConfig?: () => void;
   activeTournamentId?: number | null;
   activeTournamentName?: string | null;
   activeTournaments?: any[];
@@ -93,6 +95,7 @@ export function SportsEventSection({
   tournamentStartDate,
   tournamentEndDate,
   onLoadCategories,
+  onLoadConfig,
   activeTournamentId,
   activeTournamentName,
   activeTournaments,
@@ -124,6 +127,54 @@ export function SportsEventSection({
       }
     }
     return "";
+  }, [sportsMeta]);
+
+  // Merge database sports (sportsMeta) with predefined template sports so custom sports appear in the picker
+  const allSelectableSports = React.useMemo(() => {
+    const list: {
+      name: string;
+      icon: string;
+      iconUrl?: string;
+      isCustom?: boolean;
+      alreadyAdded: boolean;
+      sportId?: number;
+    }[] = [];
+    const seen = new Set<string>();
+
+    // 1. All active sports configured in DB (sportsMeta)
+    (sportsMeta || []).forEach(sm => {
+      if (!sm.name || sm.active === false) return;
+      const lower = sm.name.trim().toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        const isPredefined = PREDEFINED_SPORTS.some(ps => ps.name.toLowerCase() === lower);
+        list.push({
+          name: sm.name.trim(),
+          icon: sm.icon || "🏆",
+          iconUrl: sm.iconUrl,
+          isCustom: !isPredefined,
+          alreadyAdded: true,
+          sportId: sm.id,
+        });
+      }
+    });
+
+    // 2. Predefined sports not yet registered in sportsMeta
+    PREDEFINED_SPORTS.forEach(ps => {
+      if (!ps.name) return;
+      const lower = ps.name.trim().toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        list.push({
+          name: ps.name.trim(),
+          icon: ps.icon || "🏆",
+          isCustom: false,
+          alreadyAdded: false,
+        });
+      }
+    });
+
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [sportsMeta]);
 
   // Helper to format an age range into an age category label
@@ -1372,6 +1423,7 @@ export function SportsEventSection({
               resetSportForm();
             } else {
               resetSportForm();
+              onLoadConfig?.();
               setShowSportPicker(true);
             }
           }}
@@ -1423,10 +1475,10 @@ export function SportsEventSection({
             {/* Grid */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-5">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
-                  const alreadyAdded = sportsMeta.some(meta => meta.name.toLowerCase() === sp.name.toLowerCase());
+                {allSelectableSports.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).map(sp => {
                   const alreadyQueued = sportForms.some(form => form.name.toLowerCase() === sp.name.toLowerCase());
                   const isUnavailable = alreadyQueued;
+                  const effectiveIcon = sp.iconUrl || sp.icon;
 
                   return (
                     <button
@@ -1441,27 +1493,31 @@ export function SportsEventSection({
                           : "bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/20 hover:scale-[1.02] hover:shadow-sm"
                       )}
                     >
-                       {sp.icon && (sp.icon.startsWith("data:image/") || sp.icon.startsWith("http")) ? (
+                       {effectiveIcon && (effectiveIcon.startsWith("data:image/") || effectiveIcon.startsWith("http")) ? (
                          <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
-                           <img src={sp.icon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
+                           <img src={effectiveIcon} alt={sp.name} className="w-7 h-7 object-cover rounded" />
                          </div>
                        ) : (
-                         <span className="text-[10px] leading-none">{sp.icon}</span>
+                         <span className="text-xl sm:text-2xl leading-none">{sp.icon || "🏆"}</span>
                        )}
                       <span className="text-[10px] font-semibold leading-tight text-slate-800">{sp.name}</span>
-                      {alreadyAdded && (
-                        <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
-                      )}
-                      {alreadyQueued && (
-                        <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
-                      )}
+                      <div className="flex items-center gap-1 flex-wrap justify-center">
+                        {sp.isCustom ? (
+                          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Custom</span>
+                        ) : sp.alreadyAdded ? (
+                          <span className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Registered</span>
+                        ) : null}
+                        {alreadyQueued && (
+                          <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Queued</span>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
               </div>
-              {PREDEFINED_SPORTS.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
+              {allSelectableSports.filter(sp => sp.name.toLowerCase().includes(sportPickerSearch.toLowerCase())).length === 0 && (
                 <div className="text-center py-10">
-                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No predefined sports match your search.</p>
+                  <p className="text-slate-500 text-xs sm:text-[13px] mb-3">No sports match your search.</p>
                   <button
                     type="button"
                     onClick={handleCreateCustomSport}
