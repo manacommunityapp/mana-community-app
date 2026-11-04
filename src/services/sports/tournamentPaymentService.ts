@@ -18,6 +18,8 @@ export interface TournamentPlayerPayment {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   markedByUserId?: number | string | null;
   markedByUserName?: string | null;
   paidAt?: string | null;
@@ -62,6 +64,8 @@ export interface RecordPaymentPayload {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   adminUserId?: number | string | null;
   adminUserName?: string | null;
 }
@@ -145,6 +149,8 @@ export const tournamentPaymentService = {
       paymentMode: payload.paymentMode,
       transactionRef: payload.transactionRef,
       notes: payload.notes,
+      collectedByName: payload.collectedByName,
+      collectedByContact: payload.collectedByContact,
       markedByUserId: payload.adminUserId,
       markedByUserName: payload.adminUserName || "Admin",
       paidAt: nowIso,
@@ -172,6 +178,27 @@ export const tournamentPaymentService = {
     }
 
     return paymentRecord;
+  },
+
+  /**
+   * Mark a player as unpaid for the tournament (revert payment record)
+   */
+  async markUnpaid(tournamentId: number, playerKey: string): Promise<void> {
+    // Remove from local storage first for instant zero-latency UI update
+    const localMap = getLocalPayments(tournamentId);
+    if (localMap[playerKey]) {
+      delete localMap[playerKey];
+      saveLocalPayments(tournamentId, localMap);
+    }
+
+    // Sync with backend API
+    try {
+      await apiClient.post(
+        `/sports/tournaments/${tournamentId}/payments/mark-unpaid?playerKey=${encodeURIComponent(playerKey)}`
+      );
+    } catch {
+      // If backend endpoint is unavailable, local removal is preserved
+    }
   },
 
   /**
