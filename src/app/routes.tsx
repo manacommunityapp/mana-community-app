@@ -241,6 +241,7 @@ import { DietitianReviewPortal } from "./components/wellness/DietitianReviewPort
 import { FreshVendorCapabilityManager } from "./components/fresh/vendor/FreshVendorCapabilityManager";
 import { FreshVendorStaffManager } from "./components/fresh/vendor/FreshVendorStaffManager";
 import { FreshVendorVerificationHub } from "./components/fresh/admin/FreshVendorVerificationHub";
+import FreshAdminDashboard from "./components/fresh/admin/FreshAdminDashboard";
 import FreshProductCatalogEditor from "./components/fresh/vendor/FreshProductCatalogEditor";
 import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprovalHub";
 import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
@@ -881,10 +882,17 @@ export const router = createBrowserRouter([
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },
           { path: "registrations", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorRegistrations /></PermissionGuard> },
+          { path: "fresh", Component: FreshAdminDashboard },
+          { path: "fresh/dashboard", Component: FreshAdminDashboard },
+          { path: "fresh-dashboard", Component: FreshAdminDashboard },
           { path: "fresh-capabilities", Component: FreshVendorVerificationHub },
           { path: "fresh/capabilities", Component: FreshVendorVerificationHub },
           { path: "fresh/pricing", Component: FreshPricingApprovalHub },
           { path: "fresh-pricing", Component: FreshPricingApprovalHub },
+          { path: "fresh/dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh-dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh/settlements", Component: FreshVendorSettlementLedger },
+          { path: "fresh-settlements", Component: FreshVendorSettlementLedger },
           { path: "categories", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorCategories /></PermissionGuard> },
           { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
