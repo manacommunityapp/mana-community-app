@@ -18,6 +18,8 @@ export interface TournamentPlayerPayment {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   markedByUserId?: number | string | null;
   markedByUserName?: string | null;
   paidAt?: string | null;
@@ -62,6 +64,8 @@ export interface RecordPaymentPayload {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   adminUserId?: number | string | null;
   adminUserName?: string | null;
 }
@@ -145,6 +149,8 @@ export const tournamentPaymentService = {
       paymentMode: payload.paymentMode,
       transactionRef: payload.transactionRef,
       notes: payload.notes,
+      collectedByName: payload.collectedByName,
+      collectedByContact: payload.collectedByContact,
       markedByUserId: payload.adminUserId,
       markedByUserName: payload.adminUserName || "Admin",
       paidAt: nowIso,
