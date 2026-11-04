@@ -36,6 +36,7 @@ const portalNav: PortalNavItem[] = [
   { to: "/vendor-portal/products", label: "Product Catalog", icon: Package, permission: VIEW_COMMERCE_PRODUCTS },
   { to: "/vendor-portal/fresh/capabilities", label: "Fresh Capabilities", icon: ShieldCheck },
   { to: "/vendor-portal/fresh/staff", label: "Vendor Staff", icon: Users },
+  { to: "/vendor-portal/fresh/catalog", label: "Fresh Catalog & Pricing", icon: Package },
   { to: "/vendor-portal/production-capacity", label: "Kitchen Capacity", icon: Layers },
   { to: "/vendor-portal/inventory", label: "Inventory", icon: Boxes, permission: VIEW_COMMERCE_INVENTORY },
   { to: "/vendor-portal/order-management", label: "Orders", icon: ShoppingBag, permission: MANAGE_COMMERCE_ORDERS },
