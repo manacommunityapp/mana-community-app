@@ -238,6 +238,9 @@ import { DailyBasketManager } from "./components/fresh-kitchen/DailyBasketManage
 import { VendorProductionCapacityView } from "./components/vendor/portal/VendorProductionCapacityView";
 import { WellnessHub } from "./components/wellness/WellnessHub";
 import { DietitianReviewPortal } from "./components/wellness/DietitianReviewPortal";
+import { FreshVendorCapabilityManager } from "./components/fresh/vendor/FreshVendorCapabilityManager";
+import { FreshVendorStaffManager } from "./components/fresh/vendor/FreshVendorStaffManager";
+import { FreshVendorVerificationHub } from "./components/fresh/admin/FreshVendorVerificationHub";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -873,6 +876,8 @@ export const router = createBrowserRouter([
           { index: true, Component: VendorAdminDashboard },
           { path: "vendors", Component: VendorDirectory },
           { path: "registrations", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorRegistrations /></PermissionGuard> },
+          { path: "fresh-capabilities", Component: FreshVendorVerificationHub },
+          { path: "fresh/capabilities", Component: FreshVendorVerificationHub },
           { path: "categories", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorCategories /></PermissionGuard> },
           { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
@@ -929,6 +934,10 @@ export const router = createBrowserRouter([
           { path: "availability", Component: MyAvailability },
           { path: "production-capacity", Component: VendorProductionCapacityView },
           { path: "capacity", Component: VendorProductionCapacityView },
+          { path: "fresh-capabilities", Component: FreshVendorCapabilityManager },
+          { path: "fresh/capabilities", Component: FreshVendorCapabilityManager },
+          { path: "fresh-staff", Component: FreshVendorStaffManager },
+          { path: "fresh/staff", Component: FreshVendorStaffManager },
           {
             path: "products",
             element: (
