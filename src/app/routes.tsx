@@ -244,6 +244,8 @@ import { FreshVendorVerificationHub } from "./components/fresh/admin/FreshVendor
 import FreshProductCatalogEditor from "./components/fresh/vendor/FreshProductCatalogEditor";
 import FreshPricingApprovalHub from "./components/fresh/admin/FreshPricingApprovalHub";
 import FreshProcessingProductionHub from "./components/fresh/vendor/FreshProcessingProductionHub";
+import FreshDispatchRoutingHub from "./components/fresh/vendor/FreshDispatchRoutingHub";
+import FreshVendorSettlementLedger from "./components/fresh/vendor/FreshVendorSettlementLedger";
 
 // CPOS (Community Property Operating System) modules
 import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
@@ -947,6 +949,10 @@ export const router = createBrowserRouter([
           { path: "fresh-catalog", Component: FreshProductCatalogEditor },
           { path: "fresh/production", Component: FreshProcessingProductionHub },
           { path: "fresh-production", Component: FreshProcessingProductionHub },
+          { path: "fresh/dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh-dispatch", Component: FreshDispatchRoutingHub },
+          { path: "fresh/settlements", Component: FreshVendorSettlementLedger },
+          { path: "fresh-settlements", Component: FreshVendorSettlementLedger },
           {
             path: "products",
             element: (
