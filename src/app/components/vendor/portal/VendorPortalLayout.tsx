@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Boxes, Briefcase, CalendarCheck, Clock, Wallet,
   FileText, ShieldCheck, Star, UserCircle, ChevronRight, Store, ShoppingBag,
   Tag, BadgeDollarSign, BarChart3, Trophy, Layers, Calendar, Dumbbell, Users,
-  Award, Shirt, Zap, Building2, type LucideIcon,
+  Award, Shirt, Zap, Building2, Factory, type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
@@ -37,6 +37,7 @@ const portalNav: PortalNavItem[] = [
   { to: "/vendor-portal/fresh/capabilities", label: "Fresh Capabilities", icon: ShieldCheck },
   { to: "/vendor-portal/fresh/staff", label: "Vendor Staff", icon: Users },
   { to: "/vendor-portal/fresh/catalog", label: "Fresh Catalog & Pricing", icon: Package },
+  { to: "/vendor-portal/fresh/production", label: "Fresh Production & QC", icon: Factory },
   { to: "/vendor-portal/production-capacity", label: "Kitchen Capacity", icon: Layers },
   { to: "/vendor-portal/inventory", label: "Inventory", icon: Boxes, permission: VIEW_COMMERCE_INVENTORY },
   { to: "/vendor-portal/order-management", label: "Orders", icon: ShoppingBag, permission: MANAGE_COMMERCE_ORDERS },
