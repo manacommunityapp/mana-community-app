@@ -22,6 +22,7 @@ export interface SportsCommunityFamilyMember {
   relation?: string;
   age?: number;
   gender?: string;
+  dob?: string;
 }
 
 // Deduplicate concurrent in-flight requests for event/tournament registrations
