@@ -338,6 +338,8 @@ import WaterTracker from "./components/wellness/WaterTracker";
 import WellnessChallenges from "./components/wellness/WellnessChallenges";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
+import WorkoutLogger from "./components/wellness/WorkoutLogger";
+import WorkoutHistory from "./components/wellness/WorkoutHistory";
 import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
 import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
 import { IncidentTracker } from "./components/healthguard/IncidentTracker";
@@ -1304,6 +1306,8 @@ export const router = createBrowserRouter([
           { path: "challenges", element: <WellnessChallenges /> },
           { path: "providers", element: <WellnessProviders /> },
           { path: "profile", element: <WellnessProfilePage /> },
+          { path: "log-workout", element: <WorkoutLogger /> },
+          { path: "workouts", element: <WorkoutHistory /> },
         ],
       },
       {

@@ -11,6 +11,8 @@ import type {
   FoodCatalogItem,
   ChallengeStatus,
   WellnessProviderType,
+  WorkoutLogDto,
+  ExerciseCatalogItem,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -53,4 +55,14 @@ export const wellnessService = {
   // Analyze meal (AI)
   analyzeMeal: (req: { text?: string; photoBase64?: string; mealType: string }) =>
     apiClient.post(`${BASE}/meals/analyze`, req),
+
+  // Workouts
+  getWorkouts: (date: string) => apiClient.get<WorkoutLogDto[]>(`${BASE}/workouts?date=${date}`),
+  getWorkoutsRange: (start: string, end: string) => apiClient.get<WorkoutLogDto[]>(`${BASE}/workouts/range?start=${start}&end=${end}`),
+  logWorkout: (dto: WorkoutLogDto) => apiClient.post<WorkoutLogDto>(`${BASE}/workouts`, dto),
+  deleteWorkout: (id: number) => apiClient.delete<void>(`${BASE}/workouts/${id}`),
+
+  // Exercise Catalog
+  searchExercises: (query?: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/search${query ? `?query=${encodeURIComponent(query)}` : ''}`),
+  getExercisesByCategory: (category: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/category/${category}`),
 };

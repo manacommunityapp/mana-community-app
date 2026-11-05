@@ -1,4 +1,6 @@
 export type GoalType = 'WEIGHT_LOSS' | 'WEIGHT_GAIN' | 'MAINTAIN' | 'MUSCLE_GAIN' | 'GENERAL_WELLNESS';
+export type ExerciseCategory = 'CARDIO' | 'STRENGTH' | 'FLEXIBILITY' | 'YOGA' | 'SPORTS' | 'HIIT' | 'BALANCE';
+export type WorkoutSource = 'MANUAL' | 'WEARABLE' | 'AI_TEXT' | 'SPORTS_BOOKING';
 export type ActivityLevel = 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
 export type MealSourceType = 'AI_PHOTO' | 'AI_TEXT' | 'AI_VOICE' | 'MANUAL' | 'FOOD_DATABASE';
@@ -86,6 +88,9 @@ export interface DailyNutritionSummaryDto {
   waterTargetMl: number;
   mealCount: number;
   meals: MealLogDto[];
+  caloriesBurned: number;
+  netCalories: number;
+  workoutCount: number;
 }
 
 export interface WellnessChallengeDto {
@@ -185,5 +190,37 @@ export interface FoodCatalogItem {
   isVegetarian?: boolean;
   isVegan?: boolean;
   region?: string;
+  verified?: boolean;
+}
+
+export interface WorkoutLogDto {
+  id?: number;
+  userId?: number;
+  exerciseCatalogId?: number;
+  exerciseName: string;
+  exerciseCategory?: ExerciseCategory;
+  workoutDate: string;
+  startTime?: string;
+  durationMin?: number;
+  caloriesBurned?: number;
+  sets?: number;
+  repsPerSet?: number;
+  weightKg?: number;
+  distanceKm?: number;
+  source?: WorkoutSource;
+  notes?: string;
+  metValue?: number;
+}
+
+export interface ExerciseCatalogItem {
+  id: number;
+  name: string;
+  nameLocal?: string;
+  category: ExerciseCategory;
+  description?: string;
+  metValue: number;
+  musclesTargeted?: string;
+  isEquipmentNeeded?: boolean;
+  isBodyweight?: boolean;
   verified?: boolean;
 }

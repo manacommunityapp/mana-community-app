@@ -57,11 +57,18 @@ export default function WellnessDashboard() {
             </h1>
             <p className="text-emerald-100 mt-1">Your AI-powered wellness companion</p>
           </div>
-          <Link to="/wellness/log-meal">
-            <Button variant="secondary" size="sm" className="gap-1">
-              <Plus className="h-4 w-4" /> Log Meal
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/wellness/log-meal">
+              <Button variant="secondary" size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Log Meal
+              </Button>
+            </Link>
+            <Link to="/wellness/log-workout">
+              <Button variant="outline" size="sm" className="gap-1 bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white">
+                <Dumbbell className="h-4 w-4" /> Workout
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -79,6 +86,21 @@ export default function WellnessDashboard() {
               <span className="text-muted-foreground text-sm mb-1">/ {summary?.calorieTarget ?? 2000} kcal</span>
             </div>
             <Progress value={caloriePercent} className="mt-3 h-2" />
+            {/* Calorie burn row */}
+            {(summary?.caloriesBurned ?? 0) > 0 && (
+              <div className="flex items-center justify-between mt-3 p-2 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Dumbbell className="h-3 w-3 text-orange-500" /> Burned
+                </span>
+                <span className="text-sm font-semibold text-orange-600">-{summary?.caloriesBurned} kcal</span>
+              </div>
+            )}
+            {(summary?.caloriesBurned ?? 0) > 0 && (
+              <div className="flex items-center justify-between mt-1 p-2 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
+                <span className="text-xs text-muted-foreground">Net calories</span>
+                <span className="text-sm font-semibold text-emerald-700">{summary?.netCalories} kcal</span>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-2 mt-4 text-center">
               <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-2">
                 <p className="text-xs text-muted-foreground">Protein</p>
@@ -200,9 +222,10 @@ export default function WellnessDashboard() {
       {/* Quick Links */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+          { to: '/wellness/workouts', icon: Dumbbell, label: 'Workouts', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
           { to: '/wellness/challenges', icon: Trophy, label: 'Challenges', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
-          { to: '/wellness/providers', icon: Dumbbell, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
+          { to: '/wellness/providers', icon: Users, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
           { to: '/wellness/profile', icon: TrendingUp, label: 'My Profile', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
         ].map((item) => (
           <Link key={item.to} to={item.to}>
