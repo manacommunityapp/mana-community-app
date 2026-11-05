@@ -537,9 +537,9 @@ export function useSportsAdminState() {
       const pendingMapped = (data.pendingRegistrations || []).map((reg) => ({
         id: reg.id,
         teamName: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
-        sport: reg.event?.sport?.name || reg.event?.name || "General",
-        captain: reg.playerName || reg.user?.fullName || "—",
-        email: reg.email || reg.user?.email || "—",
+        sport: reg.sportName || reg.eventName || "General",
+        captain: reg.playerName || "—",
+        email: reg.email || "—",
         members: 1,
         date: reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d") : ""
       }));
@@ -547,9 +547,9 @@ export function useSportsAdminState() {
       const confirmedMapped = (data.confirmedRegistrations || []).map((reg) => ({
         id: reg.id,
         name: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
-        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        sport: reg.sportName || reg.eventName || "General",
         division: "Competitive",
-        captain: reg.playerName || reg.user?.fullName || "—",
+        captain: reg.playerName || "—",
         members: 1,
         status: "active" as const,
         record: "—"
@@ -2366,13 +2366,14 @@ export function useSportsAdminState() {
     setSportPickerSearch("");
   };
 
-  const handleSportPickerSelect = async (sport: { name: string; icon: string }) => {
+  const handleSportPickerSelect = async (sport: { name: string; icon: string; iconUrl?: string }) => {
     let dbSport = sportsMeta.find(s => s.name.toLowerCase() === sport.name.toLowerCase());
     if (!dbSport) {
       try {
         dbSport = await sportsService.createSport({
           name: sport.name,
           icon: sport.icon || "🏆",
+          iconUrl: sport.iconUrl,
           formats: ["SINGLES"],
           active: true
         } as any);
@@ -2405,7 +2406,7 @@ export function useSportsAdminState() {
   };
 
   const handleCreateCustomSport = async () => {
-    const trimmedName = customSportName.trim();
+    const trimmedName = customSportName.trim() || sportPickerSearch.trim();
     if (!trimmedName) { toast.error("Sport name is required"); return; }
     setSportSubmitting(true);
     try {
@@ -2636,6 +2637,85 @@ export function useSportsAdminState() {
       refreshEvents();
     } catch {
       toast.error("Failed to close event registration");
+    }
+  };
+
+  const handleStartEventRegistration = async (id: number, eventName?: string) => {
+    let targetEvent = activeEvents.find(e => Number(e.id) === Number(id));
+    if (!targetEvent) {
+      for (const t of activeTournaments) {
+        const found = t.sportsEvents?.find((e: any) => Number(e.id) === Number(id));
+        if (found) { targetEvent = found; break; }
+        if (Number(t.event?.id) === Number(id)) { targetEvent = t.event; break; }
+      }
+    }
+    const name = eventName || targetEvent?.name || "this event";
+    const confirmed = await confirmAction({
+      title: "Start Event Registration",
+      text: `Are you sure you want to open registration for "${name}"? Residents and participants will be able to register immediately.`,
+      confirmButtonText: "Open Registration",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#10b981",
+      icon: "question",
+    });
+    if (!confirmed) return;
+    try {
+      await sportsService.openSportsEvent(id);
+      toast.success(`Registration opened successfully for "${name}"`);
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to open event registration");
+    }
+  };
+
+  const handleStartAllPendingEvents = async (tournamentId: number, eventIds?: number[]) => {
+    const tournament = activeTournaments.find(t => Number(t.id) === Number(tournamentId));
+    const allEvents: any[] = tournament?.sportsEvents || [];
+
+    const targetIds = eventIds && eventIds.length > 0
+      ? eventIds
+      : allEvents
+          .filter(e => {
+            const st = e.registrationStatus || e.status;
+            return st !== "LIVE" && st !== "REGISTRATION_OPEN" && st !== "COMPLETED";
+          })
+          .map(e => Number(e.id))
+          .filter(Boolean);
+
+    if (targetIds.length === 0) {
+      toast.info("All sports events in this tournament are already open for registration.");
+      return;
+    }
+
+    const tName = tournament?.name || "this tournament";
+    const confirmed = await confirmAction({
+      title: "Start Registration for All Pending Events",
+      text: `Are you sure you want to open registration for ${targetIds.length} sports event${targetIds.length > 1 ? "s" : ""} in "${tName}"? Participants will be able to register for them immediately.`,
+      confirmButtonText: `Open ${targetIds.length} Event${targetIds.length > 1 ? "s" : ""}`,
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#10b981",
+      icon: "question",
+    });
+    if (!confirmed) return;
+
+    try {
+      const results = await Promise.allSettled(
+        targetIds.map(id => sportsService.openSportsEvent(id))
+      );
+      const successCount = results.filter(r => r.status === "fulfilled").length;
+      const failCount = results.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(`Successfully opened registration for ${successCount} sports event${successCount > 1 ? "s" : ""}!`);
+      }
+      if (failCount > 0) {
+        toast.warning(`${failCount} event${failCount > 1 ? "s" : ""} could not be opened.`);
+      }
+      refreshTournaments();
+      refreshEvents();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start events registration");
     }
   };
 
@@ -3083,6 +3163,7 @@ export function useSportsAdminState() {
     handleSportPickerSelect, handleCreateCustomSport,
     removeSportForm, addEventToSportForm, removeEventFromSportForm,
     updateSportFormEvent, handleSportSave, handleSportEdit, handleSportDelete, handleCloseEvent,
+    handleStartEventRegistration, handleStartAllPendingEvents,
     resetSportForm,
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,

@@ -1,4 +1,4 @@
-import { Pencil, MapPin } from 'lucide-react';
+import { Pencil, MapPin, Download } from 'lucide-react';
 import type { PlayoffMatchDraft, PlayoffParticipantRef } from './playoffSchedule';
 import './PlayoffBracketView.css';
 
@@ -8,6 +8,7 @@ const DEFAULT_AVATAR =
 type Props = {
   matches: PlayoffMatchDraft[];
   onEditMatch?: (match: PlayoffMatchDraft) => void;
+  onDownloadBracket?: () => void;
   resolveVenueName?: (venueId: number | null) => string;
   resolveCourtName?: (courtId: string | null) => string;
 };
@@ -161,11 +162,18 @@ function MatchCard({
 
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
-        <div className="flex flex-row gap-1.5 items-center mt-1">
-          <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
-          <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
-            {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
-          </span>
+        <div className="flex flex-row items-center justify-between gap-1 mt-1">
+          <div className="flex flex-row gap-1.5 items-center min-w-0">
+            <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
+            <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
+              {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
+            </span>
+          </div>
+          {match.conflicts && match.conflicts.length > 0 && (
+            <span className="inline-flex items-center text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 shrink-0" title={match.conflicts.join('\n')}>
+              ⚠️ Conflict
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -217,7 +225,7 @@ function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: numb
   );
 }
 
-export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, resolveCourtName }: Props) {
+export function PlayoffBracketView({ matches, onEditMatch, onDownloadBracket, resolveVenueName, resolveCourtName }: Props) {
   if (matches.length === 0) return null;
 
   const bracketMatches = matches.filter(m => m.round !== 'THIRD_PLACE');
@@ -279,8 +287,21 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
 
   return (
     <div className="playoff-bracket flex flex-col">
-      <div className="flex items-center justify-between text-xs text-[#6b7094] mb-2 px-1">
-        <span className="font-semibold">Bracket Structure</span>
+      <div className="flex items-center justify-between text-xs text-[#6b7094] mb-3 px-1">
+        <div className="flex items-center gap-2.5">
+          <span className="font-bold text-slate-900 text-sm">Bracket Draw</span>
+          {onDownloadBracket && (
+            <button
+              type="button"
+              onClick={onDownloadBracket}
+              className="flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold shadow-sm hover:border-indigo-400 transition-all cursor-pointer"
+              title="Download and print the visual tournament bracket tree"
+            >
+              <Download className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Download Bracket Draw</span>
+            </button>
+          )}
+        </div>
         <span className="flex items-center gap-1 text-[10px] bg-[#4f46e5]/10 text-[#4f46e5] border border-[#4f46e5]/20 px-2.5 py-0.5 rounded-full animate-pulse md:hidden">
           Swipe to scroll ↔
         </span>

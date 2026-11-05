@@ -73,7 +73,7 @@ import { familyService, type FamilyMember } from "../../../services/common/famil
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
-import { DatePicker } from "../ui/date-picker";
+import { DatePicker, formatToDateString } from "../ui/date-picker";
 import type { UserProfileResponse, UserActivityItem } from "../../../types/api";
 import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 import { ProfileImageModal } from "../commons/ProfileImageModal";
@@ -686,11 +686,13 @@ export function ProfileDashboard() {
     setEditingMember(member);
     const rawAvatar = (member as any).avatar || member.avatar || (member as any).photoUrl;
     const isUrl = isAvatarUrl(rawAvatar);
+    const rawDob = member.dob || (member as any).dateOfBirth || (member as any).birthDate || "";
+    const cleanDob = formatToDateString(rawDob);
     setMemberForm({
       name: member.name || "",
       relation: member.relation || "Spouse",
       age: member.age,
-      dob: member.dob || (member as any).dateOfBirth || "",
+      dob: cleanDob || "",
       gender: member.gender || "Male",
       avatar: !isUrl && rawAvatar && rawAvatar.length <= 4 ? rawAvatar : (member.gender === "Female" ? "👩" : "👨"),
       phone: member.phone || (member as any).mobile || "",
@@ -708,6 +710,10 @@ export function ProfileDashboard() {
     e.preventDefault();
     if (!memberForm.name?.trim()) {
       toast.error("Please enter a name for the family member");
+      return;
+    }
+    if (!memberForm.dob?.trim()) {
+      toast.error("Please select a date of birth for the family member");
       return;
     }
 
@@ -731,21 +737,18 @@ export function ProfileDashboard() {
       );
 
       if (editingMember) {
-        await familyService.updateFamilyMember(editingMember.id, payload);
+        const saved = await familyService.updateFamilyMember(editingMember.id, payload);
+        setFamilyMembers((prev) =>
+          prev.map((m) =>
+            String(m.id) === String(editingMember.id) ||
+            String(m.id) === String(saved.id)
+              ? { ...m, ...saved, ...payload, dob: payload.dob }
+              : m
+          )
+        );
 
         if (isSelf) {
-          // Synchronize Self changes to User Profile on backend and AuthContext
-          try {
-            await profileService.updateProfile({
-              fullName: payload.name?.trim(),
-              phone: payload.phone?.trim(),
-              dob: payload.dob,
-              gender: payload.gender,
-            });
-          } catch (syncErr) {
-            console.warn("Failed to sync Self family member update to profile API:", syncErr);
-          }
-
+          // familyService persists Self through /profile before syncing the local profile state.
           updateUser({
             fullName: payload.name?.trim(),
             phone: payload.phone?.trim(),
@@ -776,7 +779,13 @@ export function ProfileDashboard() {
 
         toast.success(`Updated ${memberForm.name}'s details`);
       } else {
-        await familyService.addFamilyMember(payload);
+        const saved = await familyService.addFamilyMember(payload);
+        setFamilyMembers((prev) => [
+          saved,
+          ...prev.filter(
+            (m) => !payload.name || m.name.trim().toLowerCase() !== payload.name.trim().toLowerCase()
+          ),
+        ]);
         toast.success(`Added ${memberForm.name} to your family list`);
       }
       setIsFamilyModalOpen(false);
@@ -2011,15 +2020,16 @@ export function ProfileDashboard() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                          Date of Birth
+                          Date of Birth *
                         </label>
                         <DatePicker
                           value={memberForm.dob || ""}
-                          onChange={(val) => setMemberForm({ ...memberForm, dob: val || undefined })}
+                          onChange={(val) => setMemberForm((prev) => ({ ...prev, dob: val || undefined }))}
                           max={new Date().toISOString().split("T")[0]}
                           placeholder="Select DOB..."
                           className="w-full"
                           presets={false}
+                          required
                         />
                       </div>
 

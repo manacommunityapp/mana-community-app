@@ -49,6 +49,8 @@ export interface RegistrationListItem {
   teamColor?: string | null;
   jerseySize?: string | null;
   skillLevel?: string | null;
+  partnerDeclineReason?: string | null;
+  rejectReason?: string | null;
 }
 
 export const sportsScheduleService = {

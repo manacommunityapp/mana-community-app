@@ -17,6 +17,7 @@ import { VIEW_NOTICES, VIEW_EVENTS, VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN } from ".
 import { canAccessModule } from "../../../../utils/permissionUtils";
 import { safeStorage, STORAGE_KEYS } from "../../../../utils/storage";
 import { isSafeRedirectUrl } from "../../../../utils/sanitize";
+import { showSuccess, showError } from "../../../../utils/ToastUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -75,6 +76,68 @@ const CATEGORIES: Record<string, CategoryMeta> = {
     badgeText: "text-slate-700 dark:text-slate-300",
   },
 };
+
+export function getNotificationCategoryKey(n: NotificationItem): "SPORTS" | "EVENTS" | "COMMUNITY" | "GENERAL" {
+  const cat = (n.category || "").toUpperCase();
+  const type = (n.type || "").toUpperCase();
+  const refType = (n.referenceType || "").toUpperCase();
+  const title = (n.title || "").toUpperCase();
+  const body = (n.body || "").toUpperCase();
+  const actionUrl = (n.actionUrl || "").toLowerCase();
+
+  // 1. Any sports, tournament, doubles partner, or auction alerts must be SPORTS
+  if (
+    cat === "SPORTS" ||
+    cat === "AUCTION" ||
+    type.includes("SPORT") ||
+    type.includes("TOURNAMENT") ||
+    type.includes("AUCTION") ||
+    type.includes("PARTNER") ||
+    type.includes("MATCH") ||
+    refType === "SPORTS_EVENT" ||
+    refType === "TOURNAMENT" ||
+    refType === "SPORT" ||
+    refType === "AUCTION" ||
+    actionUrl.startsWith("/sports") ||
+    title.includes("DOUBLES PARTNER") ||
+    title.includes("PARTNER") ||
+    title.includes("TOURNAMENT") ||
+    title.includes("AUCTION") ||
+    title.includes("SPORTS") ||
+    body.includes("DOUBLES PARTNER") ||
+    body.includes("TOURNAMENT")
+  ) {
+    return "SPORTS";
+  }
+
+  // 2. Events & Poojas
+  if (
+    cat === "EVENTS" ||
+    cat === "EVENT" ||
+    cat === "POOJA" ||
+    cat === "SEVA" ||
+    type.includes("POOJA") ||
+    type.includes("SEVA") ||
+    title.includes("POOJA") ||
+    title.includes("SEVA") ||
+    title.includes("DARSHAN") ||
+    title.includes("UTSAV") ||
+    title.includes("FESTIVAL") ||
+    title.includes("HOMAM") ||
+    title.includes("ARCHANA") ||
+    title.includes("AARTI") ||
+    actionUrl.startsWith("/events") ||
+    title.includes("EVENT")
+  ) {
+    return "EVENTS";
+  }
+
+  if (cat === "COMMUNITY" || cat === "NOTICES" || cat === "NOTICE" || type.includes("NOTICE") || title.includes("ANNOUNCEMENT")) {
+    return "COMMUNITY";
+  }
+
+  return "GENERAL";
+}
 
 const MAX_CACHED_NOTIFICATION_IDS = 200;
 
@@ -175,14 +238,27 @@ export function resolveNotificationUrl(n: NotificationItem): string {
     return n.actionUrl.trim();
   }
 
+  const catKey = getNotificationCategoryKey(n);
   const cat = (n.category || "").toUpperCase();
   const type = (n.type || "").toUpperCase();
   const refType = (n.referenceType || "").toUpperCase();
   const title = (n.title || "").toUpperCase();
   const body = (n.body || "").toUpperCase();
 
-  // 1. Events & Poojas -> Event Dashboard (/events)
+  // 1. Sports & Tournaments & Auctions -> Sports Dashboard (/sports)
+  if (catKey === "SPORTS") {
+    if (type.includes("AUCTION") || cat.includes("AUCTION") || title.includes("AUCTION")) {
+      return "/sports/auction";
+    }
+    if (n.referenceId) {
+      return `/sports?eventId=${n.referenceId}`;
+    }
+    return "/sports";
+  }
+
+  // 2. Events & Poojas -> Event Dashboard (/events)
   if (
+    catKey === "EVENTS" ||
     cat.includes("EVENT") ||
     cat.includes("POOJA") ||
     cat.includes("SEVA") ||
@@ -208,33 +284,6 @@ export function resolveNotificationUrl(n: NotificationItem): string {
       return `/events?eventId=${n.referenceId}`;
     }
     return "/events";
-  }
-
-  // 2. Sports & Tournaments & Auctions -> Sports Dashboard (/sports)
-  if (
-    cat.includes("SPORT") ||
-    cat.includes("AUCTION") ||
-    type.includes("SPORT") ||
-    type.includes("TOURNAMENT") ||
-    type.includes("AUCTION") ||
-    type.includes("MATCH") ||
-    refType === "TOURNAMENT" ||
-    refType === "SPORT" ||
-    refType === "AUCTION" ||
-    title.includes("TOURNAMENT") ||
-    title.includes("AUCTION") ||
-    title.includes("SPORTS") ||
-    title.includes("CRICKET") ||
-    title.includes("BADMINTON") ||
-    title.includes("MATCH")
-  ) {
-    if (type.includes("AUCTION") || cat.includes("AUCTION")) {
-      return "/sports/auction";
-    }
-    if (n.referenceId) {
-      return `/sports?eventId=${n.referenceId}`;
-    }
-    return "/sports";
   }
 
   // 3. Community Notices & Announcements -> Notices (/notices)
@@ -427,6 +476,10 @@ export function NotificationBell() {
   const [isBlinking, setIsBlinking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [respondingId, setRespondingId] = useState<number | null>(null);
+  const [pendingPartnerInviteIds, setPendingPartnerInviteIds] = useState<Set<number>>(new Set());
+  const [respondedPartnerInvites, setRespondedPartnerInvites] = useState<Record<number, "ACCEPTED" | "DECLINED">>(() => {
+    return safeStorage.getJSON(STORAGE_KEYS.RESPONDED_PARTNER_INVITES, {});
+  });
   const [isMuted, setIsMuted] = useState<boolean>(() => {
     return safeStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_MUTED) === "true";
   });
@@ -481,15 +534,23 @@ export function NotificationBell() {
       const dismissedSet = getStoredDismissedIds();
       const list: NotificationItem[] = [];
 
+      // Fetch pending partner invitations to know if an invite is already answered/closed
+      try {
+        const pendingInvites = await sportsService.getPartnerInvitations("PENDING");
+        if (Array.isArray(pendingInvites)) {
+          setPendingPartnerInviteIds(new Set(pendingInvites.map((inv: any) => Number(inv.id))));
+        }
+      } catch { /* silent */ }
+
       // Fetch from Notification Backend API
       try {
         const res = await notificationService.getNotificationsSummary(0, 50);
         if (res && Array.isArray(res.content) && res.content.length > 0) {
           for (const item of res.content) {
-            const cat = (item.category || "GENERAL").toUpperCase();
-            if (!preferences.events && (cat === "EVENTS" || cat === "EVENT" || cat === "POOJA")) continue;
-            if (!preferences.sports && (cat === "SPORTS" || cat === "AUCTION")) continue;
-            if (!preferences.community && (cat === "COMMUNITY" || cat === "NOTICES")) continue;
+            const catKey = getNotificationCategoryKey(item);
+            if (!preferences.events && catKey === "EVENTS") continue;
+            if (!preferences.sports && catKey === "SPORTS") continue;
+            if (!preferences.community && catKey === "COMMUNITY") continue;
 
             if (!dismissedSet.has(item.id)) {
               list.push({
@@ -636,13 +697,24 @@ export function NotificationBell() {
     setRespondingId(regId);
     try {
       await sportsService.respondToPartnerInvitation(regId, accept, reason);
-      handleMarkAsRead(n.id);
+      const respStatus: "ACCEPTED" | "DECLINED" = accept ? "ACCEPTED" : "DECLINED";
+      const nextMap: Record<number, "ACCEPTED" | "DECLINED"> = { ...respondedPartnerInvites, [regId]: respStatus };
+      setRespondedPartnerInvites(nextMap);
+      safeStorage.setJSON(STORAGE_KEYS.RESPONDED_PARTNER_INVITES, nextMap);
+      setPendingPartnerInviteIds((prev) => {
+        const next = new Set(prev);
+        next.delete(regId);
+        return next;
+      });
+      // Immediately dismiss the invitation notification from the active inbox
+      handleDismiss(n.id);
+      showSuccess(accept ? "Partner invitation accepted!" : "Partner invitation declined");
       fetchLiveNotifications();
       window.dispatchEvent(new CustomEvent("mana_notifications_updated"));
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
     } catch (err: any) {
       console.error("Failed to respond to partner invitation", err);
-      alert(err?.response?.data?.message || err?.message || "Failed to respond to partner invitation");
+      showError(err?.response?.data?.message || err?.message || "Failed to respond to partner invitation");
     } finally {
       setRespondingId(null);
     }
@@ -665,11 +737,8 @@ export function NotificationBell() {
     return notifications.filter((n) => {
       if (activeCategory === "ALL") return true;
       if (activeCategory === "UNREAD") return !n.read;
-      const cat = (n.category || "GENERAL").toUpperCase();
-      if (activeCategory === "EVENTS") return cat === "EVENTS" || cat === "EVENT" || cat === "POOJA";
-      if (activeCategory === "SPORTS") return cat === "SPORTS" || cat === "AUCTION";
-      if (activeCategory === "COMMUNITY") return cat === "COMMUNITY" || cat === "NOTICES" || cat === "GENERAL";
-      return cat === activeCategory;
+      const catKey = getNotificationCategoryKey(n);
+      return catKey === activeCategory;
     });
   }, [notifications, activeCategory]);
 
@@ -696,11 +765,8 @@ export function NotificationBell() {
     if (cat === "ALL") return notifications.length;
     if (cat === "UNREAD") return notifications.filter((n) => !n.read).length;
     return notifications.filter((n) => {
-      const c = (n.category || "GENERAL").toUpperCase();
-      if (cat === "EVENTS") return c === "EVENTS" || c === "EVENT" || c === "POOJA";
-      if (cat === "SPORTS") return c === "SPORTS" || c === "AUCTION";
-      if (cat === "COMMUNITY") return c === "COMMUNITY" || c === "NOTICES" || c === "GENERAL";
-      return c === cat;
+      const catKey = getNotificationCategoryKey(n);
+      return catKey === cat;
     }).length;
   };
 
@@ -886,7 +952,7 @@ export function NotificationBell() {
                     </div>
 
                     {group.items.map((n) => {
-                      const catKey = (n.category || "GENERAL").toUpperCase();
+                      const catKey = getNotificationCategoryKey(n);
                       const catMeta = CATEGORIES[catKey] || CATEGORIES.GENERAL;
                       const Icon = catMeta.icon;
                       const targetUrl = resolveNotificationUrl(n);
@@ -934,8 +1000,62 @@ export function NotificationBell() {
                             )}
 
                             {(() => {
-                              const partnerRegId = (n.type === "PARTNER_SELECTED" || (n.title && n.title.toLowerCase().includes("doubles partner"))) ? getPartnerRegistrationId(n) : null;
+                              const titleLower = (n.title || "").toLowerCase();
+                              const isDeclinedOrAccepted =
+                                titleLower.includes("declined") ||
+                                titleLower.includes("accepted") ||
+                                titleLower.includes("confirmed") ||
+                                titleLower.includes("withdrawn") ||
+                                n.type === "PARTNER_DECLINED" ||
+                                n.type === "PARTNER_CONFIRMED";
+
+                              const isInvite =
+                                (n.type === "PARTNER_SELECTED" ||
+                                  titleLower.includes("doubles partner") ||
+                                  titleLower.includes("partner invitation")) &&
+                                !isDeclinedOrAccepted;
+
+                              if (!isInvite) return null;
+
+                              const partnerRegId = getPartnerRegistrationId(n);
                               if (!partnerRegId) return null;
+
+                              const respondedStatus = respondedPartnerInvites[partnerRegId];
+                              const isStillPending =
+                                pendingPartnerInviteIds.size === 0
+                                  ? !respondedStatus
+                                  : pendingPartnerInviteIds.has(partnerRegId) && !respondedStatus;
+
+                              if (!isStillPending) {
+                                if (respondedStatus === "DECLINED" || titleLower.includes("declined")) {
+                                  return (
+                                    <div className="mt-1.5 pt-1.5 border-t border-border/60 flex items-center gap-1.5">
+                                      <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                        <X className="w-3 h-3 text-rose-500" />
+                                        <span>Invitation Declined</span>
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                if (respondedStatus === "ACCEPTED" || titleLower.includes("accepted") || titleLower.includes("confirmed")) {
+                                  return (
+                                    <div className="mt-1.5 pt-1.5 border-t border-border/60 flex items-center gap-1.5">
+                                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <span>Invitation Accepted</span>
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="mt-1.5 pt-1.5 border-t border-border/60 flex items-center gap-1.5">
+                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                                      Invitation Responded
+                                    </span>
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div className="mt-1.5 pt-1.5 border-t border-border/60 flex items-center gap-1.5">
                                   <button

@@ -45,7 +45,7 @@ interface SportsEventTabProps {
   playerCategories: PlayerCategory[];
   venues: Venue[];
   activeEvents: SportsEvent[];
-  handleSportPickerSelect: (sport: { name: string; icon: string }) => void;
+  handleSportPickerSelect: (sport: { name: string; icon: string; iconUrl?: string }) => void;
   handleCreateCustomSport: () => void;
   removeSportForm: (id: string) => void;
   addEventToSportForm: (formId: string) => void;
@@ -56,6 +56,8 @@ interface SportsEventTabProps {
   handleSportDelete: (id: number) => void;
   handleCloseTournament?: (id: number) => void;
   handleCloseEvent?: (id: number) => void;
+  handleStartEventRegistration?: (id: number, name?: string) => void;
+  handleStartAllPendingEvents?: (tournamentId: number, eventIds?: number[]) => void;
   resetSportForm: () => void;
   selectedTemplates: Record<string, string>;
   setSelectedTemplates: any;
@@ -95,6 +97,8 @@ export function SportsEventTab({
   handleActivate,
   handleCloseTournament,
   handleCloseEvent,
+  handleStartEventRegistration,
+  handleStartAllPendingEvents,
   handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
@@ -249,6 +253,8 @@ export function SportsEventTab({
           handleSportDelete={handleSportDelete}
           handleCloseTournament={handleCloseTournament}
           handleCloseEvent={handleCloseEvent}
+          handleStartEventRegistration={handleStartEventRegistration}
+          handleStartAllPendingEvents={handleStartAllPendingEvents}
           onOpenSportPicker={() => {
             setSportsEventSubTab("config");
             resetSportForm();
@@ -292,6 +298,7 @@ export function SportsEventTab({
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
           onLoadCategories={onLoadCategories}
+          onLoadConfig={onLoadConfig}
           tournamentStartDate={tournamentStartDate}
           tournamentEndDate={tournamentEndDate}
           activeTournamentId={activeTournamentId}

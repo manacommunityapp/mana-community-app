@@ -36,11 +36,12 @@ import {
   Dumbbell,
   X,
   ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { safeStorage } from "../../../utils/storage";
+import { safeStorage, STORAGE_KEYS } from "../../../utils/storage";
 import "./SportsAuction.css";
 import { sportsService } from "../../../services/sports/sportsService";
 import { sportsScheduleService, type EventListItem, type RegistrationListItem } from "../../../services/sports/sportsScheduleService";
@@ -108,10 +109,10 @@ function getFormatBadge(reg: RegistrationListItem): { label: string; color: stri
     return { label: "Doubles", color: "bg-blue-50 text-blue-700 border-blue-200" };
   }
   if (typeStr.includes("SINGLES")) {
-    return { label: "Singles", color: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+    return { label: "Singles", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   }
   if (typeStr.includes("TEAM") || isTeamSport(reg.eventName || "") || isTeamSport(reg.sportName || "")) {
-    return { label: "Team Squad", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+    return { label: "Team Squad", color: "bg-purple-50 text-purple-700 border-purple-200" };
   }
   return {
     label: reg.matchType ? reg.matchType.replace(/_/g, " ") : "Open Event",
@@ -207,6 +208,10 @@ export function MySports() {
   const [respondingInviteId, setRespondingInviteId] = useState<number | null>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [dismissedRegIds, setDismissedRegIds] = useState<Set<number>>(() => {
+    const list = safeStorage.getJSON<number[]>(STORAGE_KEYS.DISMISSED_REGISTRATIONS, []);
+    return new Set(Array.isArray(list) ? list : []);
+  });
 
   // Training bookings state
   const [mySlotBookings, setMySlotBookings] = useState<TrainerSlotBooking[]>([]);
@@ -349,6 +354,15 @@ export function MySports() {
       toast.error(err?.response?.data?.message || err?.message || "Failed to withdraw from tournament");
       fetchCoreData();
     }
+  };
+
+  const handleDismissRegistration = (regId: number) => {
+    const nextSet = new Set(dismissedRegIds);
+    nextSet.add(regId);
+    setDismissedRegIds(nextSet);
+    safeStorage.setJSON(STORAGE_KEYS.DISMISSED_REGISTRATIONS, Array.from(nextSet));
+    setRegistrations(prev => prev.filter(r => r.id !== regId));
+    toast.info("Registration card dismissed");
   };
 
   const handleRespondInvitation = async (invitationId: number, accept: boolean) => {
@@ -509,6 +523,7 @@ export function MySports() {
   const filteredTournaments = useMemo(() => {
     if (!Array.isArray(registrations)) return [];
     return registrations.filter(r => {
+      if (dismissedRegIds.has(r.id)) return false;
       const nameMatch = (r.eventName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
                          (r.sportName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
                          (r.categoryName || "").toLowerCase().includes(tournamentSearch.toLowerCase()) ||
@@ -526,7 +541,7 @@ export function MySports() {
 
       return nameMatch && sportMatch && statusMatch && participantMatch;
     });
-  }, [registrations, tournamentSearch, tournamentSportFilter, tournamentStatusFilter, tournamentParticipantFilter]);
+  }, [registrations, dismissedRegIds, tournamentSearch, tournamentSportFilter, tournamentStatusFilter, tournamentParticipantFilter]);
 
   // Next Upcoming Match
   const nextMatch = (myMatches?.length ?? 0) > 0 ? myMatches[0] : null;
@@ -1043,12 +1058,22 @@ export function MySports() {
                                         </span>
                                       )}
                                     </div>
-                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${ isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200" }`}>
-                                      {reg.status}
+                                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${ isConfirmed ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : reg.status === "WITHDRAWN" ? "bg-red-50 text-red-600 border border-red-200" : reg.status === "REJECTED" ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-yellow-50 text-yellow-700 border border-yellow-200" }`}>
+                                      {reg.status === "REJECTED" ? (reg.partnerStatus === "DECLINED" ? "PARTNER DECLINED" : "DECLINED") : reg.status}
                                     </span>
                                   </div>
 
                                   <h4 className="text-xs font-bold text-slate-900 mt-1.5 leading-snug">{reg.eventName}</h4>
+
+                                  {(reg.partnerDeclineReason || reg.rejectReason) && (
+                                    <div className="mt-2 p-2 rounded-lg bg-rose-50/70 border border-rose-200/80 text-[11px] text-rose-700 flex items-start gap-1.5">
+                                      <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                                      <div>
+                                        <span className="font-bold">Decline Reason: </span>
+                                        <span>{reg.partnerDeclineReason || reg.rejectReason}</span>
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {/* Scheduled Date & Venue */}
                                   {(reg.eventDateStart || reg.venueName) && (
@@ -1200,6 +1225,27 @@ export function MySports() {
                                         <Trash2 className="w-3.5 h-3.5" />
                                         <span>Unregister</span>
                                       </button>
+                                    )}
+                                    {reg.status === "REJECTED" && (
+                                      <>
+                                        <Link
+                                          to={`/sports?tab=events&eventId=${reg.eventId}`}
+                                          className="px-2.5 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                          title="Register again for this event with another partner or open pool"
+                                        >
+                                          <RotateCcw className="w-3 h-3" />
+                                          <span>Register Again</span>
+                                        </Link>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDismissRegistration(reg.id)}
+                                          className="px-2 py-1.5 sm:py-1 min-h-[36px] sm:min-h-0 flex items-center justify-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition cursor-pointer"
+                                          title="Dismiss declined registration from view"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                          <span>Dismiss</span>
+                                        </button>
+                                      </>
                                     )}
                                   </div>
                                 </div>

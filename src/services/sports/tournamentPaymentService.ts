@@ -18,11 +18,15 @@ export interface TournamentPlayerPayment {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   markedByUserId?: number | string | null;
   markedByUserName?: string | null;
   paidAt?: string | null;
   createdAt?: string;
 }
+
+export type TournamentPaymentsSource = "SERVER" | "SERVER_AND_LOCAL" | "LOCAL";
 
 export interface UniqueTournamentPlayer {
   playerKey: string;
@@ -60,6 +64,8 @@ export interface RecordPaymentPayload {
   paymentMode: "CASH" | "UPI" | "BANK_TRANSFER" | "ONLINE" | "WAIVED";
   transactionRef?: string | null;
   notes?: string | null;
+  collectedByName?: string | null;
+  collectedByContact?: string | null;
   adminUserId?: number | string | null;
   adminUserName?: string | null;
 }
@@ -88,6 +94,15 @@ export const tournamentPaymentService = {
    * Fetch all payment records for a tournament
    */
   async getPayments(tournamentId: number): Promise<Record<string, TournamentPlayerPayment>> {
+    return (await this.getPaymentsWithSource(tournamentId)).payments;
+  },
+
+  /** Fetch tournament payment records and identify when offline browser data is included. */
+  async getPaymentsWithSource(tournamentId: number): Promise<{
+    payments: Record<string, TournamentPlayerPayment>;
+    source: TournamentPaymentsSource;
+    serverPlayerKeys: string[];
+  }> {
     const local = getLocalPayments(tournamentId);
     try {
       const serverPayments = await apiClient.get<TournamentPlayerPayment[]>(
@@ -95,18 +110,20 @@ export const tournamentPaymentService = {
       );
       if (Array.isArray(serverPayments)) {
         const map: Record<string, TournamentPlayerPayment> = { ...local };
+        const serverKeys = new Set(serverPayments.map((payment) => payment.playerKey).filter(Boolean));
         serverPayments.forEach((p) => {
           if (p.playerKey) {
             map[p.playerKey] = p;
           }
         });
         saveLocalPayments(tournamentId, map);
-        return map;
+        const hasLocalOnlyPayments = Object.keys(local).some((playerKey) => !serverKeys.has(playerKey));
+        return { payments: map, source: hasLocalOnlyPayments ? "SERVER_AND_LOCAL" : "SERVER", serverPlayerKeys: [...serverKeys] };
       }
     } catch {
       // Backend endpoint might not be deployed yet or offline; fallback to safe local storage
     }
-    return local;
+    return { payments: local, source: "LOCAL", serverPlayerKeys: [] };
   },
 
   /**
@@ -132,6 +149,8 @@ export const tournamentPaymentService = {
       paymentMode: payload.paymentMode,
       transactionRef: payload.transactionRef,
       notes: payload.notes,
+      collectedByName: payload.collectedByName,
+      collectedByContact: payload.collectedByContact,
       markedByUserId: payload.adminUserId,
       markedByUserName: payload.adminUserName || "Admin",
       paidAt: nowIso,
@@ -159,6 +178,27 @@ export const tournamentPaymentService = {
     }
 
     return paymentRecord;
+  },
+
+  /**
+   * Mark a player as unpaid for the tournament (revert payment record)
+   */
+  async markUnpaid(tournamentId: number, playerKey: string): Promise<void> {
+    // Remove from local storage first for instant zero-latency UI update
+    const localMap = getLocalPayments(tournamentId);
+    if (localMap[playerKey]) {
+      delete localMap[playerKey];
+      saveLocalPayments(tournamentId, localMap);
+    }
+
+    // Sync with backend API
+    try {
+      await apiClient.post(
+        `/sports/tournaments/${tournamentId}/payments/mark-unpaid?playerKey=${encodeURIComponent(playerKey)}`
+      );
+    } catch {
+      // If backend endpoint is unavailable, local removal is preserved
+    }
   },
 
   /**

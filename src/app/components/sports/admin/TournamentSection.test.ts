@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { groupRegistrationsByPlayer } from "./TournamentSection";
+import {
+  groupRegistrationsByPlayer,
+  getEventCategorySignature,
+  normalizeEventGender,
+  getEventFormatSignature,
+  getDisplayEventFormats,
+  getFormatBadge,
+} from "./TournamentSection";
 import type { TournamentRegistration } from "../../../../types/api";
 
 const createMockUser = (id: number, fullName: string) => ({
@@ -244,3 +251,224 @@ describe("TournamentSection: groupRegistrationsByPlayer", () => {
     expect(sandeep?.history[0].id).toBe(406); // WITHDRAWN
   });
 });
+
+describe("TournamentSection: pending events registration logic", () => {
+  it("identifies pending events that are not LIVE, REGISTRATION_OPEN, or COMPLETED", () => {
+    const sportsEvents = [
+      { id: 1, name: "Badminton Men Doubles 18+", registrationStatus: "REGISTRATION_OPEN" },
+      { id: 2, name: "Badminton Women Singles 18+", registrationStatus: "DRAFT" },
+      { id: 3, name: "Badminton Mixed Doubles 30+", status: "DRAFT" },
+      { id: 4, name: "Badminton Kids Under 14", registrationStatus: "REGISTRATION_CLOSED" },
+      { id: 5, name: "Cricket Championship", registrationStatus: "COMPLETED" },
+    ];
+
+    const pending = sportsEvents.filter((e: any) => {
+      const st = e.registrationStatus || e.status;
+      return st !== "LIVE" && st !== "REGISTRATION_OPEN" && st !== "COMPLETED";
+    });
+
+    // Events 2, 3, 4 should be pending
+    expect(pending.map(e => e.id)).toEqual([2, 3, 4]);
+  });
+});
+
+describe("TournamentSection: duplicate category detection and highlighting", () => {
+  it("generates identical signatures for events with matching Sport, Category, Gender, and Format", () => {
+    const eventA = {
+      id: 1,
+      name: "Badminton Men's Singles 35+",
+      sport: { name: "Badminton" },
+      categoryName: "Men's Singles",
+      gender: "MALE",
+      format: "SINGLES",
+      minAge: 35,
+      maxAge: 99,
+    };
+
+    const eventB = {
+      id: 2,
+      name: "Badminton Men's Singles 35+ (Division 2)",
+      sport: { name: "Badminton" },
+      categoryName: "Men's Singles",
+      gender: "MALE",
+      format: "SINGLES",
+      minAge: 35,
+      maxAge: 99,
+    };
+
+    const sigA = getEventCategorySignature(eventA);
+    const sigB = getEventCategorySignature(eventB);
+
+    expect(sigA).toBeTruthy();
+    expect(sigA).toBe(sigB);
+  });
+
+  it("differentiates signatures when gender differs", () => {
+    const maleEvent = {
+      id: 1,
+      name: "Badminton Singles Open",
+      sport: { name: "Badminton" },
+      categoryName: "Singles",
+      gender: "MALE",
+      format: "SINGLES",
+    };
+
+    const femaleEvent = {
+      id: 2,
+      name: "Badminton Singles Open",
+      sport: { name: "Badminton" },
+      categoryName: "Singles",
+      gender: "FEMALE",
+      format: "SINGLES",
+    };
+
+    expect(getEventCategorySignature(maleEvent)).not.toBe(getEventCategorySignature(femaleEvent));
+  });
+
+  it("differentiates signatures when participant format differs", () => {
+    const singlesEvent = {
+      id: 1,
+      name: "Tennis Men 18+",
+      sport: { name: "Tennis" },
+      categoryName: "Men",
+      gender: "MALE",
+      format: "SINGLES",
+      minAge: 18,
+    };
+
+    const doublesEvent = {
+      id: 2,
+      name: "Tennis Men 18+",
+      sport: { name: "Tennis" },
+      categoryName: "Men",
+      gender: "MALE",
+      format: "DOUBLES",
+      minAge: 18,
+    };
+
+    expect(getEventCategorySignature(singlesEvent)).not.toBe(getEventCategorySignature(doublesEvent));
+  });
+
+  it("differentiates signatures when age category / bracket differs", () => {
+    const under14Event = {
+      id: 1,
+      name: "Badminton Singles U14",
+      sport: { name: "Badminton" },
+      categoryName: "Singles",
+      gender: "MALE",
+      format: "SINGLES",
+      minAge: 0,
+      maxAge: 14,
+    };
+
+    const under16Event = {
+      id: 2,
+      name: "Badminton Singles U16",
+      sport: { name: "Badminton" },
+      categoryName: "Singles",
+      gender: "MALE",
+      format: "SINGLES",
+      minAge: 0,
+      maxAge: 16,
+    };
+
+    expect(getEventCategorySignature(under14Event)).not.toBe(getEventCategorySignature(under16Event));
+  });
+
+  it("accurately counts duplicates and preserves both events in the list", () => {
+    const sportsEvents = [
+      {
+        id: 10,
+        name: "Badminton Men Singles 35+ Group A",
+        sport: { name: "Badminton" },
+        categoryName: "Men's Singles",
+        gender: "MALE",
+        format: "SINGLES",
+        minAge: 35,
+        maxAge: 99,
+      },
+      {
+        id: 11,
+        name: "Badminton Men Singles 35+ Group B",
+        sport: { name: "Badminton" },
+        categoryName: "Men's Singles",
+        gender: "MALE",
+        format: "SINGLES",
+        minAge: 35,
+        maxAge: 99,
+      },
+      {
+        id: 12,
+        name: "Badminton Women Singles 35+",
+        sport: { name: "Badminton" },
+        categoryName: "Women's Singles",
+        gender: "FEMALE",
+        format: "SINGLES",
+        minAge: 35,
+        maxAge: 99,
+      },
+    ];
+
+    // Compute signature counts across tournament
+    const counts: Record<string, number> = {};
+    for (const e of sportsEvents) {
+      const sig = getEventCategorySignature(e);
+      if (sig) counts[sig] = (counts[sig] || 0) + 1;
+    }
+
+    const duplicateEvents = sportsEvents.filter(e => {
+      const sig = getEventCategorySignature(e);
+      return Boolean(sig && (counts[sig] || 0) > 1);
+    });
+
+    // Both Group A and Group B must be flagged as duplicates
+    expect(duplicateEvents).toHaveLength(2);
+    expect(duplicateEvents.map(e => e.id)).toEqual([10, 11]);
+
+    // Crucial requirement: ALL 3 events remain present in the list (neither is hidden or removed)
+    expect(sportsEvents).toHaveLength(3);
+  });
+});
+
+describe("TournamentSection: getDisplayEventFormats and getFormatBadge", () => {
+  it("extracts formats from format array or string", () => {
+    expect(getDisplayEventFormats({ format: ["SINGLES"] })).toEqual(["SINGLES"]);
+    expect(getDisplayEventFormats({ format: "DOUBLES" })).toEqual(["DOUBLES"]);
+    expect(getDisplayEventFormats({ format: "SINGLES, DOUBLES" })).toEqual(["SINGLES", "DOUBLES"]);
+  });
+
+  it("extracts formats from formats or eventFormats array of objects or strings", () => {
+    expect(getDisplayEventFormats({ formats: [{ formatType: "MIXED_DOUBLES" }] })).toEqual(["MIXED_DOUBLES"]);
+    expect(getDisplayEventFormats({ eventFormats: [{ name: "TEAM" }] })).toEqual(["TEAM"]);
+    expect(getDisplayEventFormats({ formats: ["SINGLES"] })).toEqual(["SINGLES"]);
+  });
+
+  it("falls back to tournamentType when format is not explicitly defined", () => {
+    expect(getDisplayEventFormats({ tournamentType: "SINGLES" })).toEqual(["SINGLES"]);
+    expect(getDisplayEventFormats({ tournamentType: "KNOCKOUT_SINGLE" })).toEqual(["KNOCKOUT_SINGLE"]);
+    expect(getDisplayEventFormats({})).toEqual([]);
+  });
+
+  it("provides distinct human-readable labels and Tailwind color badges for participant formats", () => {
+    const singlesBadge = getFormatBadge("SINGLES");
+    expect(singlesBadge.label).toBe("Singles");
+    expect(singlesBadge.color).toContain("emerald");
+
+    const doublesBadge = getFormatBadge("DOUBLES");
+    expect(doublesBadge.label).toBe("Doubles");
+    expect(doublesBadge.color).toContain("blue");
+
+    const mixedBadge = getFormatBadge("MIXED_DOUBLES");
+    expect(mixedBadge.label).toBe("Mixed Doubles");
+    expect(mixedBadge.color).toContain("rose");
+
+    const teamBadge = getFormatBadge("TEAM");
+    expect(teamBadge.label).toBe("Team Squad");
+    expect(teamBadge.color).toContain("purple");
+
+    const relayBadge = getFormatBadge("RELAY");
+    expect(relayBadge.label).toBe("Relay");
+    expect(relayBadge.color).toContain("cyan");
+  });
+});
+

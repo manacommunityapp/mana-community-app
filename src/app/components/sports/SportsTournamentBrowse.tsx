@@ -13,16 +13,18 @@ import {
   Info,
   Clock,
   Award,
+  CreditCard,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
 import { sportsService } from "../../../services/sports/sportsService";
 import { tournamentService } from "../../../services/sports/tournamentService";
-import type { SportsEvent } from "../../../types/api";
+import type { SportsEvent, SportsTournament } from "../../../types/api";
 import { useLocation, useNavigate } from "react-router";
 import { SportsTournamentStandings } from "./SportsTournamentStandings";
 import { TournamentDetailsModal } from "./TournamentDetailsModal";
 import { TournamentPlayersPaymentModal } from "./TournamentPlayersPaymentModal";
+import { TournamentPaymentContactsModal } from "./TournamentPaymentContactsModal";
 
 function getSportEmoji(sportName: string | null | undefined): string {
   const n = (sportName || "").toLowerCase();
@@ -62,6 +64,10 @@ export function SportsTournamentBrowse() {
   // Selected tournament for players payment modal
   const [selectedTournamentForPayment, setSelectedTournamentForPayment] = useState<DashboardTournamentCard | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+  // Selected tournament for payment contact details modal
+  const [selectedTournamentForContacts, setSelectedTournamentForContacts] = useState<DashboardTournamentCard | SportsTournament | null>(null);
+  const [isPaymentContactsModalOpen, setIsPaymentContactsModalOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -200,6 +206,10 @@ export function SportsTournamentBrowse() {
                   setSelectedTournamentForPayment(t);
                   setIsPaymentModalOpen(true);
                 }}
+                onOpenPaymentContacts={() => {
+                  setSelectedTournamentForContacts(t);
+                  setIsPaymentContactsModalOpen(true);
+                }}
                 onRegister={() => navigate(`/sports/register-tournament/${t.id}`, { state: { returnTo } })}
                 onRegisterOthers={() => navigate(`/sports/register-tournament/${t.id}?for=community`, { state: { returnTo } })}
               />
@@ -243,6 +253,10 @@ export function SportsTournamentBrowse() {
                   setSelectedTournamentForPayment(t);
                   setIsPaymentModalOpen(true);
                 }}
+                onOpenPaymentContacts={() => {
+                  setSelectedTournamentForContacts(t);
+                  setIsPaymentContactsModalOpen(true);
+                }}
               />
             ))
           )}
@@ -267,6 +281,28 @@ export function SportsTournamentBrowse() {
         }}
         tournament={selectedTournamentForPayment}
       />
+
+      {/* Tournament Payment Contacts & Coordinators Modal */}
+      <TournamentPaymentContactsModal
+        isOpen={isPaymentContactsModalOpen}
+        onClose={() => {
+          setIsPaymentContactsModalOpen(false);
+          setSelectedTournamentForContacts(null);
+        }}
+        tournament={selectedTournamentForContacts}
+        onOpenFeeModal={(t) => {
+          setSelectedTournamentForPayment(t);
+          setIsPaymentModalOpen(true);
+        }}
+        onTournamentUpdated={(updated) => {
+          setOpenTournaments((prev) =>
+            prev.map((t) => (t.id === updated.id ? { ...t, otherContacts: updated.otherContacts } : t))
+          );
+          setClosedTournaments((prev) =>
+            prev.map((t) => (t.id === updated.id ? { ...t, otherContacts: updated.otherContacts } : t))
+          );
+        }}
+      />
     </div>
   );
 }
@@ -279,6 +315,7 @@ interface TournamentCardProps {
   onViewDetails: () => void;
   onViewSchedule: () => void;
   onOpenPayments?: () => void;
+  onOpenPaymentContacts?: () => void;
   onRegister?: () => void;
   onRegisterOthers?: () => void;
 }
@@ -289,6 +326,7 @@ function TournamentCard({
   onViewDetails,
   onViewSchedule,
   onOpenPayments,
+  onOpenPaymentContacts,
   onRegister,
   onRegisterOthers,
 }: TournamentCardProps) {
@@ -310,6 +348,13 @@ function TournamentCard({
     (acc, ev) => acc + (ev.registeredCount ?? 0),
     0
   );
+
+  // Total registered sports events count (events that have registered players)
+  const registeredEventsCount = (tournament.events || []).filter(
+    (ev) => (ev.registeredCount ?? 0) > 0
+  ).length;
+  const totalEventsCount = tournament.events?.length ?? 0;
+  const sportsEventsDisplayCount = registeredEventsCount > 0 ? registeredEventsCount : totalEventsCount;
 
   useEffect(() => {
     if (showStandings && configIds.length === 0) {
@@ -383,23 +428,32 @@ function TournamentCard({
                 </span>
               )}
 
-              {/* Registered Players & Payment Action Button */}
+              {/* Registered Players & Sports Events Count Action Button */}
               {onOpenPayments ? (
                 <button
                   type="button"
                   onClick={onOpenPayments}
-                  className="inline-flex items-center gap-1.5 text-slate-700 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/90 hover:border-indigo-200 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs group/btn active:scale-[0.98]"
-                  title="View registered players & payment status"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs transition-all hover:border-indigo-300 hover:bg-indigo-50/70 hover:text-indigo-700 hover:shadow-xs active:scale-[0.98] cursor-pointer group/btn"
+                  title={`View ${totalRegistered} registered players across ${sportsEventsDisplayCount} sports events & payment status`}
                 >
                   <Users className="w-3.5 h-3.5 text-emerald-500 group-hover/btn:scale-110 transition-transform" />
-                  <span className="underline decoration-slate-300 hover:decoration-indigo-400 underline-offset-2">
-                    {totalRegistered} Registered Players
+                  <span className="font-bold text-slate-900 group-hover/btn:text-indigo-700">
+                    {totalRegistered} Registered
                   </span>
+                  <span className="text-slate-300 font-normal">/</span>
+                  <span className="text-slate-600 group-hover/btn:text-indigo-600 font-medium">
+                    {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
+                  </span>
+                  <ChevronRight className="w-3 h-3 text-slate-400 group-hover/btn:text-indigo-500 group-hover/btn:translate-x-0.5 transition-all" />
                 </button>
               ) : totalRegistered > 0 ? (
-                <span className="inline-flex items-center gap-1.5 text-slate-600">
+                <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <Users className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>{totalRegistered} Registered Players</span>
+                  <span className="font-bold text-slate-900">{totalRegistered} Registered</span>
+                  <span className="text-slate-300 font-normal">/</span>
+                  <span className="text-slate-600 font-medium">
+                    {sportsEventsDisplayCount} {sportsEventsDisplayCount === 1 ? "Sports Event" : "Sports Events"}
+                  </span>
                 </span>
               ) : null}
             </div>
@@ -409,12 +463,25 @@ function TournamentCard({
         {/* Action Buttons on the card */}
         <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:self-start">
           <button
+            type="button"
             onClick={onViewDetails}
             className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 sm:flex-none"
           >
             <Info className="h-3.5 w-3.5 text-slate-500" />
             <span>Details</span>
           </button>
+
+          {onOpenPaymentContacts && (
+            <button
+              type="button"
+              onClick={onOpenPaymentContacts}
+              className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200/90 bg-indigo-50/60 hover:bg-indigo-100/80 px-3 py-2.5 text-xs font-bold text-indigo-700 transition-all shadow-2xs hover:shadow-xs active:scale-[0.98] sm:flex-none"
+              title="View tournament fee payment coordinators & contact details"
+            >
+              <CreditCard className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Payment Contacts</span>
+            </button>
+          )}
 
           {isOpen && onRegister && (
             <button

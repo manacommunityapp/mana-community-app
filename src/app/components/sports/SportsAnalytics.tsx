@@ -18,16 +18,18 @@ import {
   Users,
   TrendingUp,
   Target,
-  Star,
   Activity,
   AlertCircle,
   RefreshCw,
   Calendar,
   Filter,
   Download,
+  Search,
   Flame,
   Zap,
-  CheckCircle2,
+  UserCheck,
+  IndianRupee,
+  X,
   MapPin,
   Building2,
   Sparkles,
@@ -50,6 +52,7 @@ const TOOLTIP_STYLE = {
 };
 const TOOLTIP_LABEL = { color: "#e8eaf6", fontWeight: 700, marginBottom: "4px" };
 const AXIS_TICK = { fill: "#8b8fc8", fontSize: 11, fontWeight: 500 };
+const formatINR = (amount: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount || 0);
 
 // ── Skeleton components for loading state ───────────────────────────────────
 function SkeletonCard({ className = "" }: { className?: string }) {
@@ -75,7 +78,7 @@ function SkeletonChart({ className = "", height = 240 }: { className?: string; h
 }
 
 export function SportsAnalytics() {
-  const { user, isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, isSportsAdmin } = useAuth();
   const canAccess = isAdmin || isSuperAdmin || isSportsAdmin;
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,8 +88,15 @@ export function SportsAnalytics() {
   // Filter States
   const [timeRange, setTimeRange] = useState<"ALL" | "THIS_YEAR" | "LAST_30_DAYS">("ALL");
   const [selectedSport, setSelectedSport] = useState<string>("ALL");
+  const [selectedTournament, setSelectedTournament] = useState<string>("ALL");
+  const [selectedYear, setSelectedYear] = useState<string>("ALL");
   const [standingsTab, setStandingsTab] = useState<string>("");
   const [leaderboardTab, setLeaderboardTab] = useState<string>("Cricket");
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryFocus, setInventoryFocus] = useState<"all" | "tournaments" | "events" | "capacity" | "matches" | "open-events">("all");
+  const [registrationStatusFilter, setRegistrationStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING">("ALL");
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [paymentSearch, setPaymentSearch] = useState("");
 
   const fetchData = useCallback(async (isManualRefresh = false) => {
     if (!canAccess) {
@@ -101,20 +111,16 @@ export function SportsAnalytics() {
       const result = await analyticsService.getAnalyticsData({
         timeRange,
         sport: selectedSport,
+        tournamentId: selectedTournament,
+        year: selectedYear,
       });
       setData(result);
 
       // Set default standings tab
       const standingsKeys = Object.keys(result.standings);
-      if (standingsKeys.length > 0 && (!standingsTab || !standingsKeys.includes(standingsTab))) {
-        setStandingsTab(standingsKeys[0]);
-      }
-
-      // Set default leaderboard tab
+      setStandingsTab((current) => standingsKeys.includes(current) ? current : standingsKeys[0] || "");
       const leaderKeys = Object.keys(result.sportLeaders);
-      if (leaderKeys.length > 0 && (!leaderboardTab || !leaderKeys.includes(leaderboardTab))) {
-        setLeaderboardTab(leaderKeys[0]);
-      }
+      setLeaderboardTab((current) => leaderKeys.includes(current) ? current : leaderKeys[0] || "");
     } catch (err: any) {
       console.error("Failed to load analytics:", err);
       setError(err?.message || "Failed to load analytics data");
@@ -122,36 +128,42 @@ export function SportsAnalytics() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [timeRange, selectedSport, standingsTab, leaderboardTab]);
+  }, [timeRange, selectedSport, selectedTournament, selectedYear, canAccess]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Export Summary to CSV
+  // Export all current filtered dashboard datasets into one workbook-friendly CSV.
   const handleExportCSV = () => {
     if (!data) return;
     try {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Metric,Value\n";
-      csvContent += `Total Tournaments,${data.kpis.totalTournaments}\n`;
-      csvContent += `Total Events,${data.kpis.totalEvents}\n`;
-      csvContent += `Active Athletes,${data.kpis.activePlayers}\n`;
-      csvContent += `Slot Fill Rate,${data.kpis.capacityFillRate}%\n`;
-      csvContent += `Matches Completed Rate,${data.kpis.matchCompletionRate}%\n\n`;
-
-      csvContent += "Sport,Distribution (%)\n";
-      data.sportShare.forEach((s) => {
-        csvContent += `${s.name},${s.value}%\n`;
-      });
-
-      const encodedUri = encodeURI(csvContent);
+      const quote = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const sections: string[] = [];
+      const add = (title: string, rows: any[]) => {
+        sections.push(quote(title));
+        if (!rows.length) { sections.push(quote("No records"), ""); return; }
+        const columns = Object.keys(rows[0]);
+        sections.push(columns.map(quote).join(","));
+        rows.forEach((row) => sections.push(columns.map((column) => quote(Array.isArray(row[column]) ? (row[column] as unknown[]).join("; ") : row[column])).join(",")));
+        sections.push("");
+      };
+      add("Summary", Object.entries(data.kpis).map(([metric, value]) => ({ metric, value })));
+      add("Tournaments", data.tournamentInventory);
+      add("Events", data.eventInventory);
+      add("Registrations", data.registrationInventory);
+      add("Tournament payments", data.paymentInventory);
+      add("Matches", data.matchInventory);
+      add("Teams and squads", data.teamInventory);
+      const blob = new Blob(["\uFEFF" + sections.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
+      link.setAttribute("href", url);
       link.setAttribute("download", `sports_analytics_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.success("Analytics summary exported successfully");
     } catch {
       toast.error("Failed to export analytics");
@@ -178,8 +190,8 @@ export function SportsAnalytics() {
     return (
       <div className="space-y-6 pb-12 animate-fade-in">
         <div className="h-14 rounded-2xl bg-muted/60 animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
@@ -229,15 +241,65 @@ export function SportsAnalytics() {
     venueUtilization,
     sportLeaders,
     standings,
-    topPerformers,
     sportNames,
     sportColorMap,
+    eventInventory,
+    tournamentInventory,
+    paymentInventory,
+    registrationInventory,
+    matchInventory,
+    teamInventory,
+    dataWarnings,
   } = data;
 
   const standingsKeys = Object.keys(standings);
   const currentStandings = standingsTab && standings[standingsTab] ? standings[standingsTab] : [];
   const leaderSportKeys = Object.keys(sportLeaders);
   const currentSportLeaders = leaderboardTab && sportLeaders[leaderboardTab] ? sportLeaders[leaderboardTab] : [];
+  const searchMatches = (value: unknown) => !inventorySearch.trim() || JSON.stringify(value).toLowerCase().includes(inventorySearch.trim().toLowerCase());
+  const visibleTournaments = tournamentInventory.filter(searchMatches);
+  const visibleEvents = eventInventory.filter(searchMatches);
+  const visibleRegistrations = registrationInventory.filter(searchMatches);
+  const visibleMatches = matchInventory.filter(searchMatches);
+  const completedMatchResults = matchInventory
+    .filter((match) => match.isCompleted && match.score !== "—")
+    .sort((a, b) => Date.parse(b.scheduledAt) - Date.parse(a.scheduledAt));
+  const tournamentWinners = matchInventory
+    .filter((match) => match.isFinal && match.isCompleted && match.winner && match.winner.toLowerCase() !== "draw")
+    .sort((a, b) => Date.parse(b.scheduledAt) - Date.parse(a.scheduledAt));
+  const visibleTeams = teamInventory.filter(searchMatches);
+  const pendingRegistrationCount = registrationInventory.filter((row) => row.status.toUpperCase() === "PENDING").length;
+  const visiblePaymentRows = paymentInventory
+    .filter((payment) => !paymentSearch.trim() || `${payment.playerName} ${payment.flatNumber} ${payment.tournament} ${payment.paymentMode} ${payment.transactionRef}`.toLowerCase().includes(paymentSearch.trim().toLowerCase()))
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  const registeredPlayerRows = visibleRegistrations
+    .filter((row) => registrationStatusFilter === "ALL" || (registrationStatusFilter === "PENDING" ? row.status.toUpperCase() === "PENDING" : ["REGISTERED", "CONFIRMED"].includes(row.status.toUpperCase())))
+    .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
+  const jumpToInventory = (focus: typeof inventoryFocus) => {
+    setInventoryFocus(focus);
+    setInventorySearch("");
+    window.setTimeout(() => document.getElementById("sports-operations-inventory")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+  const jumpToPlayers = (status: typeof registrationStatusFilter = "ALL") => {
+    setInventoryFocus("all");
+    setRegistrationStatusFilter(status);
+    setInventorySearch("");
+    window.setTimeout(() => document.getElementById("registered-players")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+  const renderInventoryTable = (title: string, headers: string[], rows: (string | number)[][]) => (
+    <section className="overflow-hidden rounded-xl border border-border/70 bg-card">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-3 py-2.5">
+        <h4 className="m-0 text-xs font-bold text-foreground">{title}</h4>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">{rows.length} shown</span>
+      </div>
+      {rows.length ? <div className="max-h-72 overflow-auto">
+        <table className="w-full min-w-max text-left text-[11px]">
+          <thead className="sticky top-0 z-[1] bg-muted/80 text-[10px] uppercase tracking-wide text-muted-foreground"><tr>{headers.map((header) => <th key={header} className="px-3 py-2 font-bold">{header}</th>)}</tr></thead>
+          <tbody className="divide-y divide-border/40">{rows.map((row, rowIndex) => <tr key={`${title}-${rowIndex}`} className="hover:bg-muted/20">{row.map((cell, cellIndex) => <td key={cellIndex} className="max-w-64 truncate px-3 py-2 text-foreground" title={String(cell)}>{cell || "—"}</td>)}</tr>)}</tbody>
+        </table>
+      </div> : <p className="m-0 px-3 py-6 text-center text-xs text-muted-foreground">No {title.toLowerCase()} match the current filters.</p>}
+    </section>
+  );
 
   return (
     <div className="space-y-6 pb-14 animate-fade-in text-left">
@@ -255,7 +317,7 @@ export function SportsAnalytics() {
               </span>
             </h4>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Comprehensive community sports metrics, athlete leaderboards & operational health
+              Community sports activity, event operations, registrations and saved fixtures
             </p>
           </div>
         </div>
@@ -266,8 +328,8 @@ export function SportsAnalytics() {
           <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60">
             {[
               { key: "ALL", label: "All Time" },
-              { key: "THIS_YEAR", label: "2026" },
-              { key: "LAST_30_DAYS", label: "30 Days" },
+              { key: "THIS_YEAR", label: `${new Date().getFullYear()}` },
+              { key: "LAST_30_DAYS", label: "Past 30 days" },
             ].map((t) => (
               <button
                 key={t.key}
@@ -301,6 +363,38 @@ export function SportsAnalytics() {
             <Filter className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
           </div>
 
+          {/* Tournament Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedTournament}
+              onChange={(e) => setSelectedTournament(e.target.value)}
+              aria-label="Filter analytics by tournament"
+              className="max-w-52 bg-card border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-sm pr-7"
+            >
+              <option value="ALL">All Tournaments</option>
+              {data.tournamentOptions.map((tournament) => (
+                <option key={tournament.id} value={String(tournament.id)}>{tournament.name}</option>
+              ))}
+            </select>
+            <Trophy className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {/* Year Filter Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              aria-label="Filter analytics by year"
+              className="bg-card border border-border rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer shadow-sm pr-7"
+            >
+              <option value="ALL">All Years</option>
+              {data.availableYears.map((year) => (
+                <option key={year} value={String(year)}>{year}</option>
+              ))}
+            </select>
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </div>
+
           {/* Refresh Action */}
           <button
             type="button"
@@ -324,52 +418,56 @@ export function SportsAnalytics() {
         </div>
       </div>
 
-      {/* ── 2. KPI Cards Grid (6 High-Impact Metrics) ────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+      {dataWarnings.length > 0 && <div role="status" className="space-y-1 rounded-xl border border-amber-300/60 bg-amber-500/5 px-3.5 py-3 text-xs text-amber-900 dark:text-amber-100">
+        {dataWarnings.map((warning) => <p key={warning} className="m-0 flex items-start gap-2"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{warning}</p>)}
+      </div>}
+
+      {/* ── 2. KPI Cards Grid ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2.5 sm:gap-3">
         {/* Total Tournaments */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        <button type="button" onClick={() => jumpToInventory("tournaments")} aria-label={`View ${kpis.totalTournaments} tournament records`} aria-pressed={inventoryFocus === "tournaments"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "tournaments" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
               <Trophy className="h-3.5 w-3.5" />
             </div>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              Leagues
+              Filtered
             </span>
           </div>
           <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.totalTournaments}</p>
           <p className="text-xs font-medium text-muted-foreground mt-0.5">Total Tournaments</p>
-        </div>
+        </button>
 
         {/* Total Events */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        <button type="button" onClick={() => jumpToInventory("events")} aria-label={`View ${kpis.totalEvents} sports events`} aria-pressed={inventoryFocus === "events"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "events" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
               <Target className="h-3.5 w-3.5" />
             </div>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-              {kpis.liveEvents} Live Now
+              {kpis.liveEvents} Live matches
             </span>
           </div>
           <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.totalEvents}</p>
           <p className="text-xs font-medium text-muted-foreground mt-0.5">Total Sport Events</p>
-        </div>
+        </button>
 
-        {/* Active Players */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        {/* Pending registrations are actionable and open the participant list filtered to pending records. */}
+        <button type="button" onClick={() => jumpToPlayers("PENDING")} aria-label={`View ${pendingRegistrationCount} pending player registrations`} className="w-full cursor-pointer rounded-xl border border-amber-200/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-amber-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:p-3">
           <div className="flex items-center justify-between mb-1.5">
-            <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-              <Users className="h-3.5 w-3.5" />
+            <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <AlertCircle className="h-3.5 w-3.5" />
             </div>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              {kpis.yourRegistrations} Registered
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400">
+              {pendingRegistrationCount ? "Needs attention" : "All reviewed"}
             </span>
           </div>
-          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.activePlayers}</p>
-          <p className="text-xs font-medium text-muted-foreground mt-0.5">Active Athletes</p>
-        </div>
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{pendingRegistrationCount}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Pending Registrations</p>
+        </button>
 
         {/* Capacity Fill Rate */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        <button type="button" onClick={() => jumpToInventory("capacity")} aria-label="View events with capacity data" aria-pressed={inventoryFocus === "capacity"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "capacity" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
               <Zap className="h-3.5 w-3.5" />
@@ -378,32 +476,57 @@ export function SportsAnalytics() {
               Slots
             </span>
           </div>
-          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.capacityFillRate}%</p>
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.capacityTracked ? `${kpis.capacityFillRate}%` : "—"}</p>
           <div className="w-full bg-muted rounded-full h-1 mt-1 overflow-hidden">
-            <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{ width: `${kpis.capacityFillRate}%` }} />
+            <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{ width: `${kpis.capacityTracked ? kpis.capacityFillRate : 0}%` }} />
           </div>
           <p className="text-xs font-medium text-muted-foreground mt-0.5">Slot Fill Rate</p>
-        </div>
+        </button>
 
-        {/* Match Completion Rate */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        {/* A participant counts once per tournament, even when registered in multiple events. */}
+        <button type="button" onClick={() => jumpToInventory("tournaments")} aria-label={`View ${kpis.tournamentRegistrants} registered tournament users`} aria-pressed={inventoryFocus === "tournaments"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "tournaments" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-violet-500/10 text-violet-500 flex items-center justify-center">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <Trophy className="h-3.5 w-3.5" />
             </div>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              {kpis.totalMatches} Matches
+              Across tournaments
             </span>
           </div>
-          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.matchCompletionRate}%</p>
-          <div className="w-full bg-muted rounded-full h-1 mt-1 overflow-hidden">
-            <div className="bg-violet-500 h-full rounded-full transition-all duration-500" style={{ width: `${kpis.matchCompletionRate}%` }} />
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.tournamentRegistrants}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Registered Tournament Users</p>
+        </button>
+
+        {/* Event entries count each active player registration across the sports events. */}
+        <button type="button" onClick={() => jumpToPlayers()} aria-label={`View ${kpis.eventPlayerEntries} registered player entries across sports events`} className="w-full cursor-pointer rounded-xl border border-border/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="h-7 w-7 rounded-lg bg-fuchsia-500/10 text-fuchsia-500 flex items-center justify-center">
+              <UserCheck className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400">
+              All sports events
+            </span>
           </div>
-          <p className="text-xs font-medium text-muted-foreground mt-0.5">Match Completion</p>
-        </div>
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.eventPlayerEntries}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Registered Event Players</p>
+        </button>
+
+        {/* Collected payments include paid records only; waived entries are excluded. */}
+        <button type="button" onClick={() => setShowPaymentDetails(true)} aria-label={`View ${formatINR(kpis.paymentCollectedAmount)} collected in tournament payments`} aria-haspopup="dialog" className="w-full cursor-pointer rounded-xl border border-emerald-200/80 bg-card p-2.5 text-left shadow-xs transition-all hover:border-emerald-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 sm:p-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+              <IndianRupee className="h-3.5 w-3.5" />
+            </div>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+              {kpis.paidTournamentPlayers} paid
+            </span>
+          </div>
+          <p className="text-base sm:text-xl font-extrabold text-foreground">{formatINR(kpis.paymentCollectedAmount)}</p>
+          <p className="text-xs font-medium text-muted-foreground mt-0.5">Payment Collected · View details</p>
+        </button>
 
         {/* Open Registrations */}
-        <div className="bg-card border border-border/80 rounded-xl p-2.5 sm:p-3 shadow-xs hover:border-primary/40 transition-all">
+        <button type="button" onClick={() => jumpToInventory("open-events")} aria-label={`View ${kpis.openRegistrations} events open for registration`} aria-pressed={inventoryFocus === "open-events"} className={`w-full cursor-pointer rounded-xl border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-3 ${inventoryFocus === "open-events" ? "border-primary ring-2 ring-primary/15" : "border-border/80"}`}>
           <div className="flex items-center justify-between mb-1.5">
             <div className="h-7 w-7 rounded-lg bg-pink-500/10 text-pink-500 flex items-center justify-center">
               <TrendingUp className="h-3.5 w-3.5" />
@@ -414,8 +537,163 @@ export function SportsAnalytics() {
           </div>
           <p className="text-base sm:text-xl font-extrabold text-foreground">{kpis.openRegistrations}</p>
           <p className="text-xs font-medium text-muted-foreground mt-0.5">Open Registrations</p>
-        </div>
+        </button>
       </div>
+
+      <section id="registered-players" className="scroll-mt-4 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="m-0 text-sm font-extrabold text-foreground">Registered players</h3>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700">{registeredPlayerRows.length} shown · {registrationInventory.length} total</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Participants registered for events in the selected sport and date range.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative block w-full sm:w-48">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Search players or events" aria-label="Search registered players and sports records" className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-2.5 text-[11px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15" />
+            </label>
+            <div className="flex rounded-lg bg-muted p-1" role="group" aria-label="Filter registrations by status">
+              {[{ value: "ALL", label: "All" }, { value: "CONFIRMED", label: "Registered" }, { value: "PENDING", label: "Pending" }].map((option) => (
+                <button key={option.value} type="button" onClick={() => setRegistrationStatusFilter(option.value as typeof registrationStatusFilter)} className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition ${registrationStatusFilter === option.value ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                  {option.label}{option.value === "CONFIRMED" ? ` (${registrationInventory.filter((row) => ["REGISTERED", "CONFIRMED"].includes(row.status.toUpperCase())).length})` : option.value === "PENDING" ? ` (${registrationInventory.filter((row) => row.status.toUpperCase() === "PENDING").length})` : ""}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => { setInventoryFocus("all"); document.getElementById("sports-operations-inventory")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="rounded-lg border border-border px-3 py-2 text-[11px] font-bold text-muted-foreground transition hover:bg-muted hover:text-foreground">
+              Full inventory
+            </button>
+          </div>
+        </div>
+        {registeredPlayerRows.length ? <div className="max-h-[420px] overflow-auto">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="sticky top-0 z-[1] bg-muted/80 text-[10px] uppercase tracking-wide text-muted-foreground"><tr>
+              {["Player", "Event", "Tournament / category", "Flat", "Status", "Registered"].map((heading) => <th key={heading} className="px-4 py-2.5 font-bold">{heading}</th>)}
+            </tr></thead>
+            <tbody className="divide-y divide-border/40">
+              {registeredPlayerRows.map((row) => <tr key={row.id} className="hover:bg-muted/20">
+                <td className="px-4 py-3"><p className="m-0 font-bold text-foreground">{row.participant}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{row.relation}</p></td>
+                <td className="px-4 py-3"><p className="m-0 font-semibold text-foreground">{row.event}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{row.sport}</p></td>
+                <td className="px-4 py-3"><p className="m-0 text-foreground">{row.tournament}</p><p className="mt-0.5 text-[10px] text-muted-foreground">Role / category: {row.category}</p></td>
+                <td className="px-4 py-3 text-foreground">{row.flat}</td>
+                <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${row.status.toUpperCase() === "PENDING" ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700"}`}>{row.status}</span></td>
+                <td className="px-4 py-3 text-muted-foreground">{row.registeredAt}</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div> : <div className="px-4 py-10 text-center text-xs text-muted-foreground">No registrations match this status and the selected filters.</div>}
+      </section>
+
+      {/* Complete filtered sports inventory for admin operations */}
+      <section id="sports-operations-inventory" className="scroll-mt-4 space-y-3 rounded-2xl border border-border/80 bg-muted/10 p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2"><h3 className="m-0 text-sm font-extrabold text-foreground">Sports operations inventory</h3>{inventoryFocus !== "all" && <button type="button" onClick={() => setInventoryFocus("all")} className="text-[10px] font-bold text-primary hover:underline">Show all</button>}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Tournaments, fixtures, registrations, squads and venues under the selected filters.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          {(inventoryFocus === "all" || inventoryFocus === "tournaments") && renderInventoryTable("Tournaments", ["Tournament", "Status", "Dates", "Events", "Registered users", "Event entries", "Sports"], visibleTournaments.map((row) => [row.name, row.status, `${row.startDate || "—"} – ${row.endDate || "—"}`, row.eventCount, row.registeredUsers, row.registrations, row.sports.join(", ")]))}
+          {(inventoryFocus === "all" || inventoryFocus === "events" || inventoryFocus === "capacity" || inventoryFocus === "open-events") && renderInventoryTable(inventoryFocus === "open-events" ? "Events open for registration" : inventoryFocus === "capacity" ? "Events with configured capacity" : "Events", ["Event", "Sport", "Tournament", "Date", "Venue", "Status", "Registered / Capacity", "Confirmed", "Pending"], visibleEvents.filter((row) => inventoryFocus === "capacity" ? Number(row.capacity) > 0 : inventoryFocus === "open-events" ? ["OPEN", "REGISTRATION_OPEN"].includes(row.status.toUpperCase()) : true).map((row) => [row.name, row.sport, row.tournament, row.date, row.venue, row.status, `${row.registered} / ${row.capacity ?? "—"}`, row.confirmed, row.pending]))}
+          {(inventoryFocus === "all" || inventoryFocus === "matches") && renderInventoryTable("Match schedule and results", ["Tournament", "Event", "Stage", "Fixture", "Score", "Winner", "Scheduled", "Venue", "Status"], visibleMatches.map((row) => [row.tournament, row.event, row.stage, `${row.homeTeam} vs ${row.awayTeam}`, row.score, row.winner || "—", row.scheduledAt, row.venue, row.status]))}
+          {inventoryFocus === "all" && renderInventoryTable("Teams and squads", ["Team", "Tournament / auction", "Event", "Sport", "Captain", "Players"], visibleTeams.map((row) => [row.team, row.tournament, row.event, row.sport, row.captain, row.players.length ? row.players.join(", ") : `${row.playerCount} players`]))}
+        </div>
+      </section>
+
+      {/* Completed match outcomes and winners recorded from final fixtures */}
+      <section className="overflow-hidden rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-background to-amber-50/40 p-3 shadow-sm sm:p-5">
+        <header className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/80 bg-card/90 p-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/20"><Trophy className="h-5 w-5" /></div>
+            <div className="min-w-0">
+              <p className="m-0 text-[9px] font-extrabold uppercase tracking-[0.16em] text-indigo-600">Competition wrap-up</p>
+              <h3 className="m-0 mt-0.5 text-base font-extrabold tracking-tight text-foreground sm:text-lg">Results &amp; Winners</h3>
+              <p className="m-0 mt-0.5 text-[11px] text-muted-foreground">Final scores and confirmed champions for the current filters.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2">
+              <p className="m-0 text-[9px] font-bold uppercase tracking-wide text-emerald-700">Scored matches</p>
+              <p className="m-0 mt-0.5 text-sm font-extrabold tabular-nums text-emerald-800">{completedMatchResults.length}</p>
+            </div>
+            <div className="rounded-xl border border-amber-200/70 bg-amber-50/80 px-3 py-2">
+              <p className="m-0 text-[9px] font-bold uppercase tracking-wide text-amber-700">Final winners</p>
+              <p className="m-0 mt-0.5 text-sm font-extrabold tabular-nums text-amber-800">{tournamentWinners.length}</p>
+            </div>
+            <button type="button" onClick={() => jumpToInventory("matches")} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-[11px] font-bold text-indigo-700 shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50">
+              All {matchInventory.length} matches <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-card shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white px-3.5 py-3 sm:px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Activity className="h-4 w-4" /></div>
+                <div><h4 className="m-0 text-xs font-extrabold text-foreground">Latest results</h4><p className="m-0 mt-0.5 text-[10px] text-muted-foreground">Recent completed matches</p></div>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-emerald-700">{completedMatchResults.length} results</span>
+            </div>
+            {completedMatchResults.length ? <div className="max-h-[25rem] space-y-2 overflow-auto bg-slate-50/50 p-2.5 sm:p-3">
+              {completedMatchResults.slice(0, 8).map((match) => <article key={match.id} className="rounded-xl border border-slate-200/80 bg-white p-3 transition hover:border-indigo-200 hover:shadow-sm">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+                  <p className="m-0 max-w-full truncate text-[10px] font-bold text-slate-600">{match.tournament} <span className="font-normal text-slate-400">/</span> {match.event}</p>
+                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">{match.stage}</span>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
+                  <p className="m-0 truncate text-[11px] font-bold text-slate-800">{match.homeTeam}</p>
+                  <span className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-extrabold tabular-nums tracking-wide text-white shadow-sm">{match.score}</span>
+                  <p className="m-0 truncate text-right text-[11px] font-bold text-slate-800">{match.awayTeam}</p>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-2 text-[9px] text-slate-500">
+                  <span className="truncate">{match.scheduledAt}{match.venue !== "—" ? ` · ${match.venue}` : ""}</span>
+                  {match.winner && <span className={`shrink-0 font-bold ${match.winner === "Draw" ? "text-slate-500" : "text-emerald-700"}`}>{match.winner === "Draw" ? "Match drawn" : `Winner · ${match.winner}`}</span>}
+                </div>
+              </article>)}
+            </div> : <div className="m-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-9 text-center">
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm"><Activity className="h-4 w-4" /></div>
+              <p className="m-0 text-xs font-bold text-slate-600">No results recorded yet</p><p className="m-0 mt-1 text-[10px] text-slate-500">Completed match scores will appear here.</p>
+            </div>}
+          </section>
+
+          <section className="overflow-hidden rounded-2xl border border-amber-200/80 bg-card shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-white px-3.5 py-3 sm:px-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><Trophy className="h-4 w-4" /></div>
+                <div><h4 className="m-0 text-xs font-extrabold text-foreground">Tournament winners</h4><p className="m-0 mt-0.5 text-[10px] text-muted-foreground">Champions from completed finals</p></div>
+              </div>
+              <span className="rounded-full border border-amber-200 bg-white px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-amber-700">{tournamentWinners.length} champions</span>
+            </div>
+            {tournamentWinners.length ? <div className="max-h-[25rem] space-y-2 overflow-auto bg-amber-50/30 p-2.5 sm:p-3">
+              {tournamentWinners.map((match) => {
+                const runnerUp = match.winner === match.homeTeam ? match.awayTeam : match.winner === match.awayTeam ? match.homeTeam : "—";
+                return <article key={match.id} className="relative overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-white via-white to-amber-50 p-3 shadow-sm">
+                  <Trophy className="pointer-events-none absolute -right-1 -top-1 h-16 w-16 rotate-12 text-amber-500/[0.08]" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0"><p className="m-0 truncate text-[11px] font-extrabold text-slate-800">{match.tournament}</p><p className="m-0 mt-0.5 truncate text-[10px] text-slate-500">{match.event} · {match.sport}</p></div>
+                      <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-1 text-[9px] font-bold text-amber-800">{match.scheduledAt}</span>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-amber-100 bg-white/80 p-2.5">
+                      <p className="m-0 text-[9px] font-extrabold uppercase tracking-[0.12em] text-amber-700">Champion</p>
+                      <p className="m-0 mt-0.5 truncate text-sm font-extrabold tracking-tight text-slate-900">{match.winner}</p>
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-amber-100 pt-2">
+                        {runnerUp !== "—" ? <span className="truncate text-[10px] text-slate-500">Runner-up <strong className="font-bold text-slate-700">{runnerUp}</strong></span> : <span className="text-[10px] text-slate-500">Final result recorded</span>}
+                        <span className="rounded-md bg-slate-900 px-2 py-1 text-[10px] font-extrabold tabular-nums text-white">{match.score}</span>
+                      </div>
+                    </div>
+                  </div>
+                </article>;
+              })}
+            </div> : <div className="m-3 rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-9 text-center">
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-amber-500 shadow-sm"><Trophy className="h-4 w-4" /></div>
+              <p className="m-0 text-xs font-bold text-slate-600">No champions recorded yet</p><p className="m-0 mt-1 text-[10px] text-slate-500">Winners appear after a final is completed and its result is saved.</p>
+            </div>}
+          </section>
+        </div>
+      </section>
 
       {/* ── 3. Performance & Demographics (2-Column Main Section) ─────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -427,10 +705,10 @@ export function SportsAnalytics() {
               <div>
                 <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                   <Flame className="w-4 h-4 text-orange-500" />
-                  Athlete Participation & Inflow Trend
+                  Registrations and event activity
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Monthly athlete sign-ups and multi-sport tournament activity
+              Registration records and event dates by month
                 </p>
               </div>
               <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground">
@@ -438,7 +716,7 @@ export function SportsAnalytics() {
               </span>
             </div>
 
-            <ResponsiveContainer width="100%" height={240}>
+            {participationTrend.length ? <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={participationTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorPlayers" x1="0" y1="0" x2="0" y2="1">
@@ -474,7 +752,7 @@ export function SportsAnalytics() {
                   fill="url(#colorEvents)"
                 />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">No registration dates or events are available in this range.</div>}
           </div>
 
           {/* Monthly Events Stacked Bar Chart */}
@@ -491,7 +769,7 @@ export function SportsAnalytics() {
               </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={220}>
+            {monthlyEvents.some((row) => sportNames.some((sport) => Number(row[sport]) > 0)) ? <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthlyEvents} barSize={12} barGap={4} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(99, 102, 241, 0.08)" vertical={false} />
                 <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} />
@@ -502,12 +780,23 @@ export function SportsAnalytics() {
                   <Bar key={name} dataKey={name} fill={sportColorMap[name] || "#6366f1"} radius={[4, 4, 0, 0]} />
                 ))}
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : <div className="flex h-48 items-center justify-center text-xs text-muted-foreground">No dated sports events are available in this range.</div>}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Demographics & Tower Breakdown (4 Cols) */}
+        {/* RIGHT COLUMN: Registration details (4 Cols) */}
         <div className="lg:col-span-4 space-y-6">
+          <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
+            <h3 className="mb-1 text-xs font-bold text-foreground">Events by sport</h3>
+            <p className="mb-4 text-xs text-muted-foreground">Share of scheduled sports events within these filters.</p>
+            {sportShare.length ? <div className="space-y-3">{sportShare.map((sport) => (
+              <div key={sport.name}>
+                <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold text-foreground">{sport.name}</span><span className="text-muted-foreground">{sport.count} events · {sport.value}%</span></div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${sport.value}%`, backgroundColor: sport.color }} /></div>
+              </div>
+            ))}</div> : <div className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No events match these filters.</div>}
+          </div>
+
           {/* Gender Demographics Donut */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-foreground mb-1 flex items-center gap-2">
@@ -515,10 +804,10 @@ export function SportsAnalytics() {
               Gender Demographics
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Male vs Female vs Mixed category participation
+              Distribution from gender values recorded on registrations
             </p>
 
-            <ResponsiveContainer width="100%" height={150}>
+            {demographics.gender.length ? <ResponsiveContainer width="100%" height={150}>
               <PieChart>
                 <Pie
                   data={demographics.gender}
@@ -535,7 +824,7 @@ export function SportsAnalytics() {
                 </Pie>
                 <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value: any) => [`${value}%`, "Share"]} />
               </PieChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Gender details are not included in the available registration data.</div>}
 
             <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/50 text-center">
               {demographics.gender.map((g) => (
@@ -557,7 +846,7 @@ export function SportsAnalytics() {
               Community athletes segmented by age brackets
             </p>
 
-            <div className="space-y-3">
+            {demographics.ageGroups.length ? <div className="space-y-3">
               {demographics.ageGroups.map((a) => (
                 <div key={a.group}>
                   <div className="flex items-center justify-between text-xs mb-1 font-medium">
@@ -572,20 +861,20 @@ export function SportsAnalytics() {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> : <div className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No participant ages are available.</div>}
           </div>
 
           {/* Tower / Block Participation Leaderboard */}
           <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
             <h3 className="text-xs font-bold text-foreground mb-1 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-indigo-500" />
-              Tower & Block Heatmap
+              Residence participation
             </h3>
             <p className="text-xs text-muted-foreground mb-3">
-              Most active apartment blocks & resident clusters
+              Registration counts by recorded flat number
             </p>
 
-            <div className="space-y-2.5">
+            {demographics.blockDistribution.length ? <div className="space-y-2.5">
               {demographics.blockDistribution.map((b, i) => (
                 <div key={b.block} className="flex items-center justify-between p-2 rounded-xl bg-muted/30 text-xs">
                   <div className="flex items-center gap-2">
@@ -597,7 +886,7 @@ export function SportsAnalytics() {
                   <span className="font-bold text-primary">{b.players} athletes</span>
                 </div>
               ))}
-            </div>
+            </div> : <div className="rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No flat numbers were provided in registrations.</div>}
           </div>
         </div>
       </div>
@@ -605,15 +894,15 @@ export function SportsAnalytics() {
       {/* ── 4. Dynamic Sport Leaders & Top Performers ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sport-Specific Performance Leaders (Orange/Purple Caps, Golden Boot) */}
-        <div className="lg:col-span-7 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
+        <div className="lg:col-span-12 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-amber-500" />
-                Sport Performance Leaders & Caps
+                Most Registered Participants by Sport
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Top run scorers, wicket takers, win streaks and golden boot contenders
+                Ranked by actual registration records within the selected filters.
               </p>
             </div>
 
@@ -660,44 +949,7 @@ export function SportsAnalytics() {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Top Community Events & Most Active Cups */}
-        <div className="lg:col-span-5 bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
-                <Star className="w-4 h-4 text-warning" />
-                Premier Tournaments & Cups
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Top registered and highest-participation leagues
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {topPerformers.map((p) => (
-              <div
-                key={`${p.rank}-${p.name}`}
-                className="flex items-center justify-between p-3 rounded-xl border border-border/60 bg-muted/20 hover:border-primary/30 transition-all"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-[10px] font-bold w-6 text-center shrink-0">
-                    {p.rank === 1 ? "🥇" : p.rank === 2 ? "🥈" : p.rank === 3 ? "🥉" : `#${p.rank}`}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground truncate">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.sport}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[10px] font-bold text-primary">{p.eventsCount}</span>
-                  <p className="text-xs text-muted-foreground font-medium">{p.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {currentSportLeaders.length === 0 && <div className="mt-3 rounded-xl border border-dashed border-border px-4 py-7 text-center text-xs text-muted-foreground">No participant registrations are available for this sport and time range.</div>}
         </div>
       </div>
 
@@ -712,7 +964,7 @@ export function SportsAnalytics() {
                 Tournament Standings & Team Form
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Official point table, win-loss record and recent game trajectory
+                Points calculated from completed saved match scores and configured rules
               </p>
             </div>
 
@@ -772,7 +1024,7 @@ export function SportsAnalytics() {
                       <td className="py-2.5 text-center text-muted-foreground">{row.pct.toFixed(3)}</td>
                       <td className="py-2.5 text-right pr-2">
                         <div className="flex items-center justify-end gap-1">
-                          {(row.form && row.form.length > 0 ? row.form : ["W", "W", "L", "W", "D"]).map((f, fi) => (
+                          {(row.form || []).map((f, fi) => (
                             <span
                               key={fi}
                               className={`w-4 h-4 rounded text-[10px] font-black flex items-center justify-center text-white ${ f === "W" ? "bg-emerald-500" : f === "L" ? "bg-rose-500" : "bg-amber-500" }`}
@@ -780,6 +1032,7 @@ export function SportsAnalytics() {
                               {f}
                             </span>
                           ))}
+                          {(!row.form || row.form.length === 0) && <span className="text-[10px] text-muted-foreground">—</span>}
                         </div>
                       </td>
                     </tr>
@@ -790,7 +1043,7 @@ export function SportsAnalytics() {
           ) : (
             <div className="py-12 text-center rounded-xl border border-dashed border-border/60">
               <Trophy className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">No official match standings recorded yet</p>
+              <p className="text-xs text-muted-foreground">No completed group-stage scores are available for these filters.</p>
             </div>
           )}
         </div>
@@ -809,7 +1062,7 @@ export function SportsAnalytics() {
             </div>
           </div>
 
-          <div className="space-y-3.5 mt-4">
+          {venueUtilization.length ? <div className="space-y-3.5 mt-4">
             {venueUtilization.map((v) => (
               <div key={v.name} className="p-3 rounded-xl bg-muted/20 border border-border/50">
                 <div className="flex items-center justify-between text-xs mb-1">
@@ -825,9 +1078,65 @@ export function SportsAnalytics() {
                 </div>
               </div>
             ))}
-          </div>
+          </div> : <div className="mt-4 rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No venue details are recorded for the selected events.</div>}
         </div>
       </div>
+
+      {showPaymentDetails && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm" onClick={() => setShowPaymentDetails(false)}>
+        <section role="dialog" aria-modal="true" aria-labelledby="sports-payment-dialog-title" onClick={(event) => event.stopPropagation()} className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <header className="flex items-start justify-between gap-4 border-b border-border/70 px-4 py-4 sm:px-6">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-600">
+                <IndianRupee className="h-4 w-4" />
+                <p className="m-0 text-[10px] font-bold uppercase tracking-[0.14em]">Tournament finance</p>
+              </div>
+              <h2 id="sports-payment-dialog-title" className="mt-1 text-lg font-extrabold text-foreground">Collected payments</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Server-confirmed PAID records count as collected. Waived entries and browser-local rows are shown separately and excluded from the total.</p>
+            </div>
+            <button type="button" onClick={() => setShowPaymentDetails(false)} aria-label="Close payment details" className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </header>
+          <div className="grid grid-cols-2 gap-2 border-b border-border/60 bg-muted/20 p-3 sm:grid-cols-3 sm:px-6">
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-500/5 p-3">
+              <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Collected</p>
+              <p className="mt-1 text-lg font-extrabold text-foreground">{formatINR(kpis.paymentCollectedAmount)}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-card p-3">
+              <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Paid players</p>
+              <p className="mt-1 text-lg font-extrabold text-foreground">{kpis.paidTournamentPlayers}</p>
+            </div>
+            <div className="col-span-2 rounded-xl border border-border/70 bg-card p-3 sm:col-span-1">
+              <p className="m-0 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Waived</p>
+              <p className="mt-1 text-lg font-extrabold text-foreground">{kpis.waivedTournamentPlayers}</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <p className="m-0 text-xs font-semibold text-muted-foreground">{paymentInventory.length} payment record{paymentInventory.length === 1 ? "" : "s"} · current dashboard filters</p>
+            <label className="relative block w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input value={paymentSearch} onChange={(event) => setPaymentSearch(event.target.value)} placeholder="Search player, tournament, reference" aria-label="Search payment details" className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15" />
+            </label>
+          </div>
+          {visiblePaymentRows.length ? <div className="min-h-0 flex-1 overflow-auto">
+            <table className="w-full min-w-[850px] text-left text-xs">
+              <thead className="sticky top-0 z-[1] bg-muted/90 text-[10px] uppercase tracking-wide text-muted-foreground"><tr>
+                {["Player", "Tournament", "Mode / reference", "Paid date", "Amount", "Status"].map((heading) => <th key={heading} className="px-4 py-3 font-bold">{heading}</th>)}
+              </tr></thead>
+              <tbody className="divide-y divide-border/50">
+                {visiblePaymentRows.map((payment) => <tr key={`${payment.tournamentId}-${payment.playerKey}`} className="hover:bg-muted/20">
+                  <td className="px-4 py-3"><p className="m-0 font-bold text-foreground">{payment.playerName}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.flatNumber ? `Flat ${payment.flatNumber}` : "No flat recorded"}</p></td>
+                  <td className="px-4 py-3 font-medium text-foreground">{payment.tournament}</td>
+                  <td className="px-4 py-3"><p className="m-0 font-semibold text-foreground">{payment.paymentMode}</p><p className="mt-0.5 text-[10px] text-muted-foreground">{payment.transactionRef || "No reference"}</p></td>
+                  <td className="px-4 py-3 text-muted-foreground">{payment.paidAt && !Number.isNaN(Date.parse(payment.paidAt)) ? new Date(payment.paidAt).toLocaleString() : "—"}</td>
+                  <td className="px-4 py-3 font-bold text-foreground">{payment.source !== "SERVER" ? `Unverified · ${formatINR(payment.amount)}` : payment.paymentStatus === "PAID" ? formatINR(payment.amount) : `Waived · ${formatINR(payment.amount)}`}</td>
+                  <td className="px-4 py-3"><div className="flex items-center gap-1.5"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${payment.paymentStatus === "PAID" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}>{payment.paymentStatus}</span>{payment.source !== "SERVER" && <span title="Includes a browser-local payment record" className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold text-slate-600">Local</span>}</div></td>
+                </tr>)}
+              </tbody>
+            </table>
+          </div> : <div className="px-5 py-12 text-center text-xs text-muted-foreground">No tournament payment records match the current filters.</div>}
+        </section>
+      </div>}
     </div>
   );
 }

@@ -73,6 +73,8 @@ export interface ConfigInfo {
 export interface MatchResultRequestData {
   matchId: number;
   winnerTeamId?: number | null;
+  winnerName?: string;
+  winnerSide?: "A" | "B" | string;
   scoreTeamA?: string;
   scoreTeamB?: string;
   matchNotes?: string;
@@ -246,6 +248,7 @@ export interface BallEventRequestData {
   dismissedPlayerId?: number;
   fielderId?: number;
   commentary?: string;
+  commandId?: string;
 }
 
 export interface BallEventData {
@@ -299,6 +302,9 @@ export interface LiveMatchStateData {
   teamAId?: number;
   teamBId?: number;
   target?: number;
+  oversLimit?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
 }
 
 export interface InningsStateData {
@@ -348,6 +354,7 @@ export interface GenericScoreRequest {
   pointsAwarded?: number;
   description?: string;
   secondaryPlayerId?: number;
+  commandId?: string;
 }
 
 export interface GenericScoreEvent {
@@ -376,6 +383,7 @@ export interface PeriodScore {
 
 export interface ScoringConfig {
   id?: number;
+  configId?: number;
   sportType: string;
   periodsCount: number;
   pointsToWinPeriod?: number;
@@ -386,6 +394,11 @@ export interface ScoringConfig {
   hasPenaltyShootout: boolean;
   tiebreakPointsToWin?: number;
   scoringRulesJson?: string;
+  oversPerInnings?: number;
+  maxOversPerBowler?: number;
+  ballsPerOver?: number;
+  breakDurationMinutes?: number;
+  targetScore?: number;
 }
 
 export interface GenericMatchState {
@@ -510,6 +523,12 @@ export const tournamentService = {
     }
   },
 
+  /** Strict analytics read that preserves API errors so the admin dashboard can flag missing schedule data. */
+  async getConfigsForAnalytics(): Promise<ConfigInfo[]> {
+    const data = await apiClient.get<ConfigInfo[]>("/tournament/configs");
+    return Array.isArray(data) ? data : [];
+  },
+
   /** POST /api/tournament/config */
   async createConfig(data: any): Promise<ConfigInfo> {
     return apiClient.post<ConfigInfo>("/tournament/config", data);
@@ -597,6 +616,12 @@ export const tournamentService = {
     }
   },
 
+  /** Strict analytics read; getMatchesByConfigId intentionally hides errors for legacy callers. */
+  async getMatchesByConfigIdForAnalytics(configId: number): Promise<any[]> {
+    const data = await apiClient.get<any[]>(`/tournament/${configId}/matches`);
+    return Array.isArray(data) ? data : [];
+  },
+
   /** Alias for getMatchesByConfigId */
   async getSavedMatchesByConfigId(configId: number): Promise<any[]> {
     return this.getMatchesByConfigId(configId);
@@ -633,9 +658,12 @@ export const tournamentService = {
         "/tournament/schedule/save",
         payload
       );
-    } catch (err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
+    } catch (err: any) {
+      console.error("[tournamentService.saveSchedule] Backend save error:", err);
+      // Only fallback to mock if the client is truly offline or network is disconnected
+      const isOffline = typeof window !== "undefined" && (!window.navigator.onLine || err?.message?.includes("Network Error"));
+      if (isOffline) {
+        console.warn("[tournamentService.saveSchedule] Offline network detected, using local mock");
         return {
           config: {
             id: payload.configId || Math.floor(Math.random() * 1000) + 200,
@@ -667,25 +695,12 @@ export const tournamentService = {
 
   /** GET /api/tournament/match/{matchId}/detail — full match detail with scorecard */
   async getMatchDetail(matchId: number): Promise<MatchDetailData> {
-    try {
-      return await apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
-    } catch (_err) {
-      const isLocalEnv = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || (import.meta as any).env?.DEV);
-      if (isLocalEnv) {
-        return {
-          matchId,
-          status: "SCHEDULED",
-          roundName: "Semi-Final",
-          matchNumber: 1,
-          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
-          teamA: { id: 1, name: "Team A", color: "#6366f1" },
-          teamB: { id: 2, name: "Team B", color: "#f97316" },
-          venueName: "Community Sports Arena",
-          courtName: "Court 1",
-        };
-      }
-      throw _err;
-    }
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+  },
+
+  /** Strict analytics read for winner/result data. */
+  async getMatchDetailForAnalytics(matchId: number): Promise<MatchDetailData> {
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
   },
 
   /** GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp */
@@ -748,6 +763,21 @@ export const tournamentService = {
   /** GET /api/tournament/match/generic/scoring-config/defaults/{sportType} */
   async getDefaultScoringConfig(sportType: string): Promise<ScoringConfig> {
     return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/defaults/${sportType}`);
+  },
+
+  /** GET /api/tournament/match/generic/scoring-config/{configId} */
+  async getScoringConfig(configId: number): Promise<ScoringConfig> {
+    return apiClient.get<ScoringConfig>(`/tournament/match/generic/scoring-config/${configId}`);
+  },
+
+  /** POST /api/tournament/match/generic/scoring-config */
+  async saveScoringConfig(data: ScoringConfig): Promise<ScoringConfig> {
+    return apiClient.post<ScoringConfig>("/tournament/match/generic/scoring-config", data);
+  },
+
+  /** PUT /api/tournament/match/generic/match/{matchId}/config-override */
+  async updateMatchConfigOverride(matchId: number, overrideJson: string): Promise<void> {
+    return apiClient.put<void>(`/tournament/match/generic/match/${matchId}/config-override`, { overrideJson });
   },
 
   // ─── Generic Leaderboard API Methods ─────────────────────────────────────────
