@@ -73,6 +73,8 @@ export interface ConfigInfo {
 export interface MatchResultRequestData {
   matchId: number;
   winnerTeamId?: number | null;
+  winnerName?: string;
+  winnerSide?: "A" | "B" | string;
   scoreTeamA?: string;
   scoreTeamB?: string;
   matchNotes?: string;

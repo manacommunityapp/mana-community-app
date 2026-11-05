@@ -820,6 +820,8 @@ export function SportsSchedule() {
 
   const [scoreSaving, setScoreSaving] = useState(false);
   const [scoreWinnerId, setScoreWinnerId] = useState<number | null>(null);
+  const [scoreWinnerSide, setScoreWinnerSide] = useState<"A" | "B" | null>(null);
+  const [scoreWinnerName, setScoreWinnerName] = useState("");
   const [scoreResultType, setScoreResultType] = useState("WIN");
   const [scoreMatchNotes, setScoreMatchNotes] = useState("");
 
@@ -839,6 +841,8 @@ export function SportsSchedule() {
       await tournamentService.recordResult({
         matchId: fixture.matchId,
         winnerTeamId: winnerId ?? undefined,
+        winnerName: scoreResultType === "WIN" ? (scoreWinnerName || undefined) : undefined,
+        winnerSide: scoreResultType === "WIN" ? (scoreWinnerSide || undefined) : undefined,
         scoreTeamA: fixtureScore1,
         scoreTeamB: fixtureScore2,
         matchNotes: scoreMatchNotes || undefined,
@@ -852,13 +856,16 @@ export function SportsSchedule() {
     setScoreSaving(false);
 
     setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED"
+      ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED",
+      winnerName: scoreWinnerName || undefined,
     } : f));
     setShowScoreModal(false);
     setScoringFixtureId(null);
     setFixtureScore1("");
     setFixtureScore2("");
     setScoreWinnerId(null);
+    setScoreWinnerSide(null);
+    setScoreWinnerName("");
     setScoreResultType("WIN");
     setScoreMatchNotes("");
   };
@@ -2219,19 +2226,35 @@ export function SportsSchedule() {
                 </div>
 
                 {/* Winner Selection (only for WIN result) */}
-                {scoreResultType === "WIN" && scoringFixture?.teamAId && scoringFixture?.teamBId && (
+                {scoreResultType === "WIN" && (
                   <div className="mb-4">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Winner</label>
                     <div className="grid grid-cols-2 gap-3">
                       <button type="button"
-                        onClick={() => setScoreWinnerId(scoringFixture.teamAId!)}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${scoreWinnerId === scoringFixture.teamAId ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                        {scoringFixture.team1}
+                        onClick={() => {
+                          if (scoringFixture?.teamAId) setScoreWinnerId(scoringFixture.teamAId);
+                          setScoreWinnerSide("A");
+                          setScoreWinnerName(scoringFixture?.team1 || "Team A");
+                        }}
+                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                          scoreWinnerSide === "A" || (scoringFixture?.teamAId && scoreWinnerId === scoringFixture.teamAId)
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}>
+                        {scoringFixture?.team1 || "Team A"}
                       </button>
                       <button type="button"
-                        onClick={() => setScoreWinnerId(scoringFixture.teamBId!)}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${scoreWinnerId === scoringFixture.teamBId ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                        {scoringFixture.team2}
+                        onClick={() => {
+                          if (scoringFixture?.teamBId) setScoreWinnerId(scoringFixture.teamBId);
+                          setScoreWinnerSide("B");
+                          setScoreWinnerName(scoringFixture?.team2 || "Team B");
+                        }}
+                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${
+                          scoreWinnerSide === "B" || (scoringFixture?.teamBId && scoreWinnerId === scoringFixture.teamBId)
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-400/30'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}>
+                        {scoringFixture?.team2 || "Team B"}
                       </button>
                     </div>
                   </div>
@@ -2255,7 +2278,7 @@ export function SportsSchedule() {
                   </button>
                   <button
                     onClick={handleScoreUpdateSubmit}
-                    disabled={scoreSaving || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId)}
+                    disabled={scoreSaving || (scoreResultType === "WIN" && !!scoringFixture?.matchId && !scoreWinnerId && !scoreWinnerSide)}
                     className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50"
                   >
                     {scoreSaving ? "Saving..." : "Complete & Save"}
