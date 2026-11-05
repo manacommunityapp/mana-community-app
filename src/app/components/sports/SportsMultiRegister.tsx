@@ -1316,12 +1316,7 @@ export function SportsMultiRegister() {
         ]);
         setCategories(cats);
 
-        const combinedRegs: any[] = [...(myRegs || [])];
-        (tourneyRegs || []).forEach((tr: any) => {
-          if (!combinedRegs.some(r => Number(r.id) === Number(tr.id))) {
-            combinedRegs.push(tr);
-          }
-        });
+        const combinedRegs = mergeSportsRegistrations(myRegs || [], tourneyRegs || []);
         setTournamentRegistrations(combinedRegs);
 
         let targetTourney = openTourneys.find(t => String(t.id) === String(tournamentId));
