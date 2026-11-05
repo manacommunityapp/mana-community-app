@@ -716,7 +716,6 @@ export function ProfileDashboard() {
       toast.error("Please select a date of birth for the family member");
       return;
     }
-
     setIsSavingMember(true);
     try {
       // Derive age from dob so age-based stats remain accurate
