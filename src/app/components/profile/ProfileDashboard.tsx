@@ -712,7 +712,7 @@ export function ProfileDashboard() {
       toast.error("Please enter a name for the family member");
       return;
     }
-    if (!memberForm.dob?.trim()) {
+    if (!editingMember && !memberForm.dob?.trim()) {
       toast.error("Please select a date of birth for the family member");
       return;
     }
@@ -2019,7 +2019,7 @@ export function ProfileDashboard() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
-                          Date of Birth *
+                          Date of Birth {!editingMember && "*"}
                         </label>
                         <DatePicker
                           value={memberForm.dob || ""}
@@ -2028,7 +2028,7 @@ export function ProfileDashboard() {
                           placeholder="Select DOB..."
                           className="w-full"
                           presets={false}
-                          required
+                          required={!editingMember}
                         />
                       </div>
 
