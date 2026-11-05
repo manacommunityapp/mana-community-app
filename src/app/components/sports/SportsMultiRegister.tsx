@@ -1,14 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
   Calendar, Sparkles, Check, AlertCircle,
   Users, User, MapPin, ShieldCheck, ListChecks, Info, AlertTriangle, Search,
-  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown
+  ArrowUpRight, UserCheck, Plus, X, UserPlus, ChevronDown, ChevronUp, Edit3, Pencil, Crown,
+  UserMinus
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
-import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
+import { sportsDashboardService, type DashboardTournamentCard, type DashboardMyRegistration } from "../../../services/sports/sportsDashboardService";
 import { auctionService } from "../../../services/sports/auctionService";
 import { isTeamSport } from "./utils/sportsConstants";
 import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartnerSelector";
@@ -21,7 +22,7 @@ import { isValidEmail, isValidIndianPhone } from "./sportsValidation";
 import type { PlayerCategory, UserResponse } from "../../../types/api";
 import { TournamentSponsorBanner, mapDbSponsorToTournamentSponsor } from "./sponsors";
 import { inferGender } from "./SportsRegister";
-import { getFamilyMembersOnly } from "./utils/sportsMemberHelpers";
+import { getFamilyMembersOnly, isRegistrationForMemberHelper } from "./utils/sportsMemberHelpers";
 
 // ─── Sport Configs & Metadata ───────────────────────────────────────────────
 
@@ -686,6 +687,7 @@ interface SportEventSelection {
   eventDateStart?: string;
   eventDateEnd?: string;
   isRegistered?: boolean;
+  registrationId?: number;
   selected: boolean;
   matchType: string;
   matchTypes?: string[];
@@ -719,6 +721,8 @@ export function SportsMultiRegister() {
   const [tournament, setTournament] = useState<DashboardTournamentCard | null>(null);
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [eventSelections, setEventSelections] = useState<SportEventSelection[]>([]);
+  const [tournamentRegistrations, setTournamentRegistrations] = useState<any[]>([]);
+  const [unregisteringEventId, setUnregisteringEventId] = useState<number | null>(null);
 
   // User / Registrant details
   const [liveUser, setLiveUser] = useState<any>(user);
@@ -1266,13 +1270,23 @@ export function SportsMultiRegister() {
     const fetchTournamentData = async () => {
       setLoading(true);
       try {
-        const [openTourneys, cats, metaList, directTourney] = await Promise.all([
+        const [openTourneys, cats, metaList, directTourney, myRegs, tourneyRegs] = await Promise.all([
           sportsDashboardService.getOpenTournaments().catch(() => [] as DashboardTournamentCard[]),
           sportsService.getCategories().catch(() => [] as PlayerCategory[]),
           sportsService.getSportsMeta().catch(() => [] as any[]),
           tournamentId ? sportsService.getTournamentById(Number(tournamentId)).catch(() => null) : Promise.resolve(null),
+          sportsDashboardService.getMyRegistrations().catch(() => [] as DashboardMyRegistration[]),
+          tournamentId ? sportsService.getTournamentRegistrations(Number(tournamentId)).catch(() => [] as any[]) : Promise.resolve([] as any[]),
         ]);
         setCategories(cats);
+
+        const combinedRegs: any[] = [...(myRegs || [])];
+        (tourneyRegs || []).forEach((tr: any) => {
+          if (!combinedRegs.some(r => Number(r.id) === Number(tr.id))) {
+            combinedRegs.push(tr);
+          }
+        });
+        setTournamentRegistrations(combinedRegs);
 
         let targetTourney = openTourneys.find(t => String(t.id) === String(tournamentId));
 
@@ -1343,14 +1357,47 @@ export function SportsMultiRegister() {
             const sportKey = detectSport(`${resolvedSportName} ${targetTourney.name} ${ev.name}`);
             const cfg = SPORT_CONFIGS[sportKey] || SPORT_CONFIGS.generic;
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
+
+            const matchedRegs = combinedRegs.filter(r => {
+              const rEvId = Number(r.eventId || r.event?.id);
+              if (rEvId !== ev.id) return false;
+              const st = String(r.status || "").toUpperCase().trim();
+              if (st === "WITHDRAWN" || st === "CANCELLED" || st === "REJECTED") return false;
+
+              if (queryFor === "community" || selectedCommunityResident) {
+                if (regType === "family" && familyMemberId) {
+                  const mFamId = r.familyMemberId || r.familyMember?.id;
+                  if (mFamId && String(mFamId) === String(familyMemberId)) return true;
+                  if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase()) return true;
+                  return false;
+                } else {
+                  const resUserId = Number(selectedCommunityResident?.id);
+                  const regUserId = Number(r.user?.id || (r as any).participantUserId || r.userId);
+                  if (resUserId && regUserId && resUserId === regUserId && !r.familyMemberId && !r.familyMember) return true;
+                  if (selectedCommunityResident?.fullName && r.playerName && r.playerName.trim().toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase()) return true;
+                  if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase() && !r.familyMemberId && !r.familyMember) return true;
+                  return false;
+                }
+              }
+
+              if (regType === "family" && familyMemberId) {
+                return isRegistrationForMemberHelper(r, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+              }
+
+              return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userProfileName || user?.fullName);
+            });
+
+            const matchedReg = matchedRegs[0];
             const rawStatus = String(ev.myRegistrationStatus || "").toUpperCase().trim();
             const isAlreadyRegistered = Boolean(
-              ev.myRegistrationId &&
+              matchedReg ||
+              (ev.myRegistrationId &&
               rawStatus &&
               rawStatus !== "WITHDRAWN" &&
               rawStatus !== "CANCELLED" &&
-              rawStatus !== "REJECTED"
+              rawStatus !== "REJECTED")
             );
+            const resolvedRegId = matchedReg?.id ? Number(matchedReg.id) : (ev.myRegistrationId ? Number(ev.myRegistrationId) : undefined);
 
             // Find single related category from service categories for this specific event
             const matchedCategory = findBestEligibleCategory(cats, resolvedSportName || ev.name, initialAge, gender, ev.name, ev.categoryName || undefined);
@@ -1370,6 +1417,7 @@ export function SportsMultiRegister() {
               eventDateStart: ev.eventDateStart || undefined,
               eventDateEnd: ev.eventDateEnd || undefined,
               isRegistered: isAlreadyRegistered,
+              registrationId: resolvedRegId,
               selected: !isAlreadyRegistered && isEligible, // Pre-select only eligible un-registered events
               matchType: defaultFormat,
               matchTypes: availableFormats.length > 0 ? [defaultFormat] : ["SINGLES"],
@@ -1429,6 +1477,58 @@ export function SportsMultiRegister() {
     // Clear event errors when user updates participant demographic details
     setEventErrors({});
   }, [dateOfBirth, gender, categories]);
+
+  const findAllRegistrationsForParticipant = useCallback((eventId: number) => {
+    return tournamentRegistrations.filter(r => {
+      const regEvId = Number(r.eventId || r.event?.id);
+      if (regEvId !== eventId) return false;
+      const st = String(r.status || "").toUpperCase().trim();
+      if (st === "WITHDRAWN" || st === "CANCELLED" || st === "REJECTED") return false;
+
+      if (queryFor === "community" || selectedCommunityResident) {
+        if (regType === "family" && familyMemberId) {
+          const matchFamId = r.familyMemberId || r.familyMember?.id;
+          if (matchFamId && String(matchFamId) === String(familyMemberId)) return true;
+          if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase()) return true;
+          return false;
+        } else {
+          const resUserId = Number(selectedCommunityResident?.id);
+          const regUserId = Number(r.user?.id || (r as any).participantUserId || r.userId);
+          if (resUserId && regUserId && resUserId === regUserId && !r.familyMemberId && !r.familyMember) return true;
+          if (selectedCommunityResident?.fullName && r.playerName && r.playerName.trim().toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase()) return true;
+          if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase() && !r.familyMemberId && !r.familyMember) return true;
+          return false;
+        }
+      }
+
+      if (regType === "family" && familyMemberId) {
+        return isRegistrationForMemberHelper(r, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+      }
+
+      return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userProfileName || user?.fullName);
+    });
+  }, [tournamentRegistrations, queryFor, selectedCommunityResident, regType, familyMemberId, playerName, familyMembersOnly, userProfileName, user?.fullName]);
+
+  // Synchronize eventSelections whenever active participant or registrations change
+  useEffect(() => {
+    if (eventSelections.length === 0) return;
+
+    setEventSelections(prev => prev.map(ev => {
+      const activeRegs = findAllRegistrationsForParticipant(ev.eventId);
+      const isAlreadyRegistered = activeRegs.length > 0;
+      const regId = activeRegs[0] ? Number(activeRegs[0].id) : undefined;
+
+      if (ev.isRegistered !== isAlreadyRegistered || (regId && ev.registrationId !== regId)) {
+        return {
+          ...ev,
+          isRegistered: isAlreadyRegistered,
+          registrationId: regId || ev.registrationId,
+          selected: isAlreadyRegistered ? false : ev.selected,
+        };
+      }
+      return ev;
+    }));
+  }, [findAllRegistrationsForParticipant]);
 
   // Handle registrant type switch
   const handleRegTypeChange = (type: "self" | "family") => {
@@ -1603,6 +1703,68 @@ export function SportsMultiRegister() {
 
   const [registeringEventId, setRegisteringEventId] = useState<number | null>(null);
 
+  // Direct Unregister / Withdrawal Handler
+  const handleUnregister = async (eventId: number, passedRegId?: number) => {
+    const ev = eventSelections.find(e => e.eventId === eventId);
+    const regsToWithdraw = findAllRegistrationsForParticipant(eventId);
+    const targetRegIds: number[] = [];
+
+    if (passedRegId && !targetRegIds.includes(passedRegId)) targetRegIds.push(passedRegId);
+    if (ev?.registrationId && !targetRegIds.includes(ev.registrationId)) targetRegIds.push(ev.registrationId);
+    regsToWithdraw.forEach(r => {
+      const id = Number(r.id);
+      if (id && !targetRegIds.includes(id)) targetRegIds.push(id);
+    });
+
+    if (targetRegIds.length === 0) {
+      toast.error("Registration ID not found for this event.");
+      return;
+    }
+
+    const participantLabel = playerName?.trim() || "this participant";
+    const eventName = ev?.name || "this sports event";
+    const confirmed = window.confirm(
+      `Are you sure you want to unregister ${participantLabel} from ${eventName}? You will lose your reserved spot.`
+    );
+    if (!confirmed) return;
+
+    setUnregisteringEventId(eventId);
+    try {
+      for (const rId of targetRegIds) {
+        await sportsService.withdraw(rId);
+      }
+      toast.success(`Successfully unregistered from ${eventName}!`);
+
+      // Update local registrations list: mark as WITHDRAWN
+      setTournamentRegistrations(prev =>
+        prev.map(r => targetRegIds.includes(Number(r.id)) ? { ...r, status: "WITHDRAWN" } : r)
+      );
+
+      // Update eventSelections: mark as not registered and re-enable selection if eligible
+      setEventSelections(prev => prev.map(e => {
+        if (e.eventId === eventId) {
+          const age = calculateAge(dateOfBirth);
+          const matchedCategory = categories.find(c => c.id === e.categoryId) || findBestEligibleCategory(categories, e.sportName || e.name, age, gender, e.name, e.categoryName);
+          const isElig = matchedCategory ? checkCategoryEligibility(matchedCategory, age, gender).eligible : false;
+          return {
+            ...e,
+            isRegistered: false,
+            registrationId: undefined,
+            selected: isElig,
+          };
+        }
+        return e;
+      }));
+
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || `Failed to unregister from ${eventName}`;
+      toast.error(msg);
+    } finally {
+      setUnregisteringEventId(null);
+    }
+  };
+
   // Single Event Direct Registration Handler
   const handleSingleRegister = async (eventId: number) => {
     if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
@@ -1667,6 +1829,7 @@ export function SportsMultiRegister() {
     }
 
     try {
+      const createdRegs: any[] = [];
       for (const fmt of formatsToRegister) {
         const isDoubles = fmt.toUpperCase().includes("DOUBLES");
         const registrationRequest = {
@@ -1688,12 +1851,21 @@ export function SportsMultiRegister() {
           captainNomination: ev.captainNomination || undefined,
           proposedTeamName: ev.captainNomination && ev.proposedTeamName ? ev.proposedTeamName.trim() : undefined,
         };
-        await (selectedCommunityResident
+        const regRes = await (selectedCommunityResident
           ? sportsService.registerForOthers(registrationRequest)
           : regType === "family" && familyMemberId
             ? sportsService.registerForFamilyMember(registrationRequest)
             : sportsService.registerForEvent(registrationRequest));
+        if (regRes) {
+          createdRegs.push(regRes);
+        }
       }
+
+      if (createdRegs.length > 0) {
+        setTournamentRegistrations(prev => [...createdRegs, ...prev]);
+      }
+
+      const primaryRegId = createdRegs[0]?.id ? Number(createdRegs[0].id) : undefined;
 
       if (ev.captainNomination && ev.eventId) {
         try {
@@ -1714,7 +1886,12 @@ export function SportsMultiRegister() {
       // Update state: mark this event as registered and unselect from batch
       setEventSelections(prev => prev.map(e => {
         if (e.eventId === eventId) {
-          return { ...e, isRegistered: true, selected: false };
+          return {
+            ...e,
+            isRegistered: true,
+            registrationId: primaryRegId || e.registrationId,
+            selected: false
+          };
         }
         return e;
       }));
@@ -3212,6 +3389,12 @@ export function SportsMultiRegister() {
                         {group.registered.map((ev) => {
                           const eventCats = getEventCategories(categories, ev.sportName || ev.name, ev.name, ev.categoryName);
                           const selectedCat = categories.find(c => c.id === ev.categoryId) || eventCats[0];
+                          const participantRegs = findAllRegistrationsForParticipant(ev.eventId);
+                          const regFormats = participantRegs
+                            .map(r => r.matchType || (r as any).format)
+                            .filter(Boolean)
+                            .map(f => String(f).replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()));
+                          const formatBadgeText = regFormats.length > 0 ? regFormats.join(", ") : null;
 
                           return (
                             <div key={ev.eventId} className="px-2.5 py-2 sm:px-3 sm:py-2.5 bg-emerald-50/30">
@@ -3229,11 +3412,32 @@ export function SportsMultiRegister() {
                                         } yrs
                                       </span>
                                     )}
+                                    {formatBadgeText && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 border border-emerald-300 font-semibold whitespace-nowrap">
+                                        {formatBadgeText}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                                <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold flex items-center gap-1 shrink-0">
-                                  <Check className="w-3 h-3 stroke-[2.5]" /> Registered
-                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3 stroke-[2.5]" /> Registered
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnregister(ev.eventId, ev.registrationId)}
+                                    disabled={unregisteringEventId === ev.eventId}
+                                    title="Unregister from this sports event"
+                                    className="min-h-[28px] px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 hover:text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 transition active:scale-95"
+                                  >
+                                    {unregisteringEventId === ev.eventId ? (
+                                      <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
+                                    ) : (
+                                      <UserMinus className="w-3 h-3 text-rose-600" />
+                                    )}
+                                    <span>Unregister</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
