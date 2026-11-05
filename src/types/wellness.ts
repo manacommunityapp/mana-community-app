@@ -329,3 +329,66 @@ export interface WeeklyFitnessPointDto {
   workoutCount: number;
   fitnessScore: number;
 }
+
+export type ProgramDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+export type ProgramGoal = 'WEIGHT_LOSS' | 'STRENGTH' | 'ENDURANCE' | 'FLEXIBILITY' | 'GENERAL';
+export type EnrollmentStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED';
+
+export interface TrainerProgramDayDto {
+  id?: number;
+  programId?: number;
+  weekNumber: number;
+  dayNumber: number;
+  dayName?: string;
+  isRestDay: boolean;
+  focus?: string;
+  exercises?: string;
+  totalDurationMin?: number;
+  notes?: string;
+}
+
+export interface TrainerProgramDto {
+  id?: number;
+  title: string;
+  description?: string;
+  difficulty: ProgramDifficulty;
+  targetGoal?: ProgramGoal;
+  durationWeeks: number;
+  isPublic?: boolean;
+  createdByUserId?: number;
+  thumbnailUrl?: string;
+  days?: TrainerProgramDayDto[];
+  enrolled?: boolean;
+  enrollmentStatus?: EnrollmentStatus;
+  currentWeek?: number;
+  currentDay?: number;
+}
+
+export interface UserProgramEnrollmentDto {
+  id: number;
+  programId: number;
+  programTitle?: string;
+  programDifficulty?: ProgramDifficulty;
+  programDurationWeeks?: number;
+  startDate: string;
+  currentWeek: number;
+  currentDay: number;
+  status: EnrollmentStatus;
+  todaysDay?: TrainerProgramDayDto;
+}
+
+export interface SportsWorkoutRequest {
+  bookingId?: number;
+  sportType?: string;
+  durationMin?: number;
+  workoutDate?: string;
+  notes?: string;
+}
+
+export interface ProgramExercise {
+  exerciseName: string;
+  sets?: number;
+  reps?: number;
+  durationMin?: number;
+  notes?: string;
+}

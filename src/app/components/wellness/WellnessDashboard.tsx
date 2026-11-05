@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
-  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch, Zap
+  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch, Zap, Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
@@ -264,6 +264,8 @@ export default function WellnessDashboard() {
           { to: '/wellness/goals', icon: Target, label: 'Goals & Streaks', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
           { to: '/wellness/devices', icon: Watch, label: 'Devices', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950' },
           { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
+          { to: '/wellness/trainer-programs', icon: Sparkles, label: 'Programs', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950' },
+          { to: '/wellness/log-sports', icon: Trophy, label: 'Log Sport', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
           { to: '/wellness/challenges', icon: Trophy, label: 'Challenges', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
           { to: '/wellness/providers', icon: Users, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
           { to: '/wellness/profile', icon: TrendingUp, label: 'My Profile', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },

@@ -20,6 +20,9 @@ import type {
   WearableDeviceDto,
   DailyFitnessSummaryDto,
   WeeklyFitnessPointDto,
+  TrainerProgramDto,
+  UserProgramEnrollmentDto,
+  SportsWorkoutRequest,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -97,4 +100,18 @@ export const wellnessService = {
   // Unified Fitness Summary
   getFitnessSummary: (date?: string) => apiClient.get<DailyFitnessSummaryDto>(`${BASE}/fitness-summary${date ? `?date=${date}` : ''}`),
   getWeeklyFitnessTrend: (end?: string) => apiClient.get<WeeklyFitnessPointDto[]>(`${BASE}/fitness-summary/week${end ? `?end=${end}` : ''}`),
+
+  // Trainer Programs
+  listPrograms: (difficulty?: string) => apiClient.get<TrainerProgramDto[]>(`${BASE}/programs${difficulty ? `?difficulty=${difficulty}` : ''}`),
+  getProgram: (id: number) => apiClient.get<TrainerProgramDto>(`${BASE}/programs/${id}`),
+  createProgram: (dto: TrainerProgramDto) => apiClient.post<TrainerProgramDto>(`${BASE}/programs`, dto),
+  enrollInProgram: (id: number, startDate?: string) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/${id}/enroll${startDate ? `?startDate=${startDate}` : ''}`, {}),
+  getMyEnrollments: () => apiClient.get<UserProgramEnrollmentDto[]>(`${BASE}/programs/my`),
+  getTodaysProgram: () => apiClient.get<UserProgramEnrollmentDto>(`${BASE}/programs/today`),
+  completeDay: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/complete-day`, {}),
+  pauseEnrollment: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/pause`, {}),
+  resumeEnrollment: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/resume`, {}),
+
+  // Sports–Workout bridge
+  logSportsWorkout: (req: SportsWorkoutRequest) => apiClient.post<WorkoutLogDto>(`${BASE}/sports-workout`, req),
 };
