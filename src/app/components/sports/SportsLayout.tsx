@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight, Award, Shield, Users, Dumbbell, Newspaper, MessageSquare, ShieldCheck } from "lucide-react";
-import { SportsNotificationBell } from "./SportsNotificationBell";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,
@@ -117,8 +116,7 @@ export function SportsLayout() {
 
         {/* Right: Page Header + Notification Bell */}
         <div className="flex items-center gap-2.5">
-          <SportsNotificationBell />
-          <div
+<div
             className="h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
           >
