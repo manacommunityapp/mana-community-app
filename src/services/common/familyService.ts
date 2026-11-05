@@ -586,17 +586,30 @@ export const familyService = {
   // ── Admin-only helpers ───────────────────────────────────────────────────────
 
   /**
-   * Admin: fetch all family members for any user by their userId.
-   * Calls GET /users/family-members?userId={userId}.
+   * Admin: fetch all family members for a specific user.
+   * Tries three endpoints in order:
+   *   1. GET /users/{userId}/family-members  (RESTful — preferred)
+   *   2. GET /users/family-members?userId={userId}  (query-param variant)
+   *   3. GET /users/family-members/slim?userId={userId}  (slim fallback)
    */
   async getAdminFamilyMembers(userId: number): Promise<FamilyMember[]> {
+    // 1. RESTful path — bypasses cache so stale admin-own data never bleeds through
     try {
       const res = unwrapFamilyMembersResponse(
-        await apiClient.get<any>(`/users/family-members?userId=${userId}`)
+        await apiClient.get<any>(`/users/${userId}/family-members`, { bypassCache: true })
       );
-      if (Array.isArray(res) && res.length > 0) return res as FamilyMember[];
+      if (Array.isArray(res)) return res as FamilyMember[];
     } catch {}
-    // Fallback: try slim endpoint
+
+    // 2. Query-param variant (requires backend to honour userId param)
+    try {
+      const res = unwrapFamilyMembersResponse(
+        await apiClient.get<any>(`/users/family-members?userId=${userId}`, { bypassCache: true })
+      );
+      if (Array.isArray(res)) return res as FamilyMember[];
+    } catch {}
+
+    // 3. Slim fallback
     try {
       const slim = await this.getSlimFamilyMembers(userId);
       return slim.map((m) => ({
