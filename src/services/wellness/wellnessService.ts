@@ -16,6 +16,8 @@ import type {
   BodyMetricLogDto,
   ActivityGoalDto,
   FitnessStreakDto,
+  StepLogDto,
+  WearableDeviceDto,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -80,4 +82,13 @@ export const wellnessService = {
 
   // Streak
   getStreak: () => apiClient.get<FitnessStreakDto>(`${BASE}/streak`),
+
+  // Steps
+  getSteps: (date?: string) => apiClient.get<StepLogDto>(`${BASE}/steps${date ? `?date=${date}` : ''}`),
+  getStepsRange: (start: string, end: string) => apiClient.get<StepLogDto[]>(`${BASE}/steps/range?start=${start}&end=${end}`),
+  logSteps: (dto: StepLogDto) => apiClient.post<StepLogDto>(`${BASE}/steps`, dto),
+  syncSteps: (batch: StepLogDto[]) => apiClient.post<StepLogDto[]>(`${BASE}/steps/sync`, batch),
+
+  // Wearable devices (HealthGuard API)
+  getWearableDevices: () => apiClient.get<WearableDeviceDto[]>('/api/healthguard/wearables'),
 };

@@ -256,4 +256,31 @@ export interface FitnessStreakDto {
   totalActiveDays: number;
   weeklyWorkoutsCompleted: number;
   weeklyWorkoutsTarget: number;
+  todaySteps?: number;
+  stepGoal?: number;
+}
+
+export interface StepLogDto {
+  id?: number;
+  userId?: number;
+  logDate?: string;
+  stepCount?: number;
+  distanceKm?: number;
+  activeMinutes?: number;
+  source?: 'MANUAL' | 'HEALTH_CONNECT' | 'WEARABLE';
+  deviceId?: number;
+}
+
+export type WearableType = 'APPLE_WATCH' | 'FITBIT' | 'GARMIN' | 'SAMSUNG_GALAXY_WATCH' | 'GENERIC_BLUETOOTH' | 'MANUAL';
+
+export interface WearableDeviceDto {
+  id: number;
+  userId?: number;
+  deviceType: WearableType;
+  deviceIdentifier: string;
+  deviceName?: string;
+  firmwareVersion?: string;
+  isActive?: boolean;
+  lastSyncAt?: string;
+  registeredAt?: string;
 }

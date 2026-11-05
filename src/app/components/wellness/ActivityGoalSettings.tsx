@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Target, Footprints, Clock, Dumbbell, ArrowLeft, Check, Flame, Trophy } from 'lucide-react';
+import { Target, Footprints, Clock, Dumbbell, ArrowLeft, Check, Flame, Trophy, Watch } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -96,6 +96,23 @@ export default function ActivityGoalSettings() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Today's steps */}
+      {streak && (streak.todaySteps ?? 0) > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Footprints className="h-4 w-4 text-blue-500" />
+              <p className="text-xs font-medium">Today's Steps</p>
+            </div>
+            <div className="flex items-end gap-1 mb-2">
+              <span className="text-2xl font-bold text-blue-600">{(streak.todaySteps ?? 0).toLocaleString()}</span>
+              <span className="text-sm text-muted-foreground mb-0.5">/ {(streak.stepGoal ?? 8000).toLocaleString()}</span>
+            </div>
+            <Progress value={Math.min(100, Math.round(((streak.todaySteps ?? 0) / (streak.stepGoal ?? 8000)) * 100))} className="h-1.5" />
+          </CardContent>
+        </Card>
       )}
 
       {/* Stats summary */}

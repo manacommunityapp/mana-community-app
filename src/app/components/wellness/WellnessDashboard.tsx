@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
-  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target
+  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
@@ -59,14 +59,21 @@ export default function WellnessDashboard() {
               <Heart className="h-6 w-6" /> Mana Health Buddy
             </h1>
             <p className="text-emerald-100 mt-1">Your AI-powered wellness companion</p>
-            {streak && streak.currentStreakDays > 0 && (
-              <div className="flex items-center gap-2 mt-2">
+            {streak && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {streak.currentStreakDays > 0 && (
+                  <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                    <Flame className="h-3.5 w-3.5 text-orange-300" /> {streak.currentStreakDays} day streak
+                  </span>
+                )}
                 <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
-                  <Flame className="h-3.5 w-3.5 text-orange-300" /> {streak.currentStreakDays} day streak
+                  <Trophy className="h-3.5 w-3.5 text-amber-300" /> {streak.weeklyWorkoutsCompleted}/{streak.weeklyWorkoutsTarget} workouts
                 </span>
-                <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
-                  <Trophy className="h-3.5 w-3.5 text-amber-300" /> {streak.weeklyWorkoutsCompleted}/{streak.weeklyWorkoutsTarget} this week
-                </span>
+                {(streak.todaySteps ?? 0) > 0 && (
+                  <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                    <Footprints className="h-3.5 w-3.5 text-blue-300" /> {(streak.todaySteps ?? 0).toLocaleString()} steps
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -236,8 +243,10 @@ export default function WellnessDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { to: '/wellness/workouts', icon: Dumbbell, label: 'Workouts', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+          { to: '/wellness/steps', icon: Footprints, label: 'Steps', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
           { to: '/wellness/body-metrics', icon: Scale, label: 'Body Metrics', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950' },
           { to: '/wellness/goals', icon: Target, label: 'Goals & Streaks', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
+          { to: '/wellness/devices', icon: Watch, label: 'Devices', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950' },
           { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
           { to: '/wellness/challenges', icon: Trophy, label: 'Challenges', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
           { to: '/wellness/providers', icon: Users, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
