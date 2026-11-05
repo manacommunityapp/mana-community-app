@@ -340,6 +340,8 @@ import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
 import WorkoutLogger from "./components/wellness/WorkoutLogger";
 import WorkoutHistory from "./components/wellness/WorkoutHistory";
+import BodyMetricsTimeline from "./components/wellness/BodyMetricsTimeline";
+import ActivityGoalSettings from "./components/wellness/ActivityGoalSettings";
 import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
 import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
 import { IncidentTracker } from "./components/healthguard/IncidentTracker";
@@ -1308,6 +1310,8 @@ export const router = createBrowserRouter([
           { path: "profile", element: <WellnessProfilePage /> },
           { path: "log-workout", element: <WorkoutLogger /> },
           { path: "workouts", element: <WorkoutHistory /> },
+          { path: "body-metrics", element: <BodyMetricsTimeline /> },
+          { path: "goals", element: <ActivityGoalSettings /> },
         ],
       },
       {

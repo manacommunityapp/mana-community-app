@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
-  TrendingUp, Plus, Salad, Dumbbell, Heart
+  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { wellnessService } from '../../../services/wellness/wellnessService';
-import type { DailyNutritionSummaryDto, WellnessChallengeDto, MealLogDto } from '../../../types/wellness';
+import type { DailyNutritionSummaryDto, WellnessChallengeDto, MealLogDto, FitnessStreakDto } from '../../../types/wellness';
 
 export default function WellnessDashboard() {
   const [summary, setSummary] = useState<DailyNutritionSummaryDto | null>(null);
   const [challenges, setChallenges] = useState<WellnessChallengeDto[]>([]);
+  const [streak, setStreak] = useState<FitnessStreakDto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +29,8 @@ export default function WellnessDashboard() {
       ]);
       setSummary(s);
       setChallenges(c);
+      // Load streak non-critically
+      wellnessService.getStreak().then(setStreak).catch(() => {});
     } catch (e) {
       console.error('Failed to load wellness data', e);
     } finally {
@@ -56,6 +59,16 @@ export default function WellnessDashboard() {
               <Heart className="h-6 w-6" /> Mana Health Buddy
             </h1>
             <p className="text-emerald-100 mt-1">Your AI-powered wellness companion</p>
+            {streak && streak.currentStreakDays > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                  <Flame className="h-3.5 w-3.5 text-orange-300" /> {streak.currentStreakDays} day streak
+                </span>
+                <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                  <Trophy className="h-3.5 w-3.5 text-amber-300" /> {streak.weeklyWorkoutsCompleted}/{streak.weeklyWorkoutsTarget} this week
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Link to="/wellness/log-meal">
@@ -223,7 +236,9 @@ export default function WellnessDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { to: '/wellness/workouts', icon: Dumbbell, label: 'Workouts', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
-          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
+          { to: '/wellness/body-metrics', icon: Scale, label: 'Body Metrics', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950' },
+          { to: '/wellness/goals', icon: Target, label: 'Goals & Streaks', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
+          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
           { to: '/wellness/challenges', icon: Trophy, label: 'Challenges', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
           { to: '/wellness/providers', icon: Users, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
           { to: '/wellness/profile', icon: TrendingUp, label: 'My Profile', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },

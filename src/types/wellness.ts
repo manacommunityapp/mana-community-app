@@ -224,3 +224,36 @@ export interface ExerciseCatalogItem {
   isBodyweight?: boolean;
   verified?: boolean;
 }
+
+export interface BodyMetricLogDto {
+  id?: number;
+  userId?: number;
+  loggedDate?: string;
+  weightKg?: number;
+  bodyFatPct?: number;
+  muscleMassKg?: number;
+  bmi?: number;
+  waistCm?: number;
+  chestCm?: number;
+  hipCm?: number;
+  source?: string;
+  notes?: string;
+}
+
+export interface ActivityGoalDto {
+  id?: number;
+  userId?: number;
+  dailyStepsTarget?: number;
+  activeMinutesTarget?: number;
+  weeklyWorkoutsTarget?: number;
+}
+
+export interface FitnessStreakDto {
+  userId?: number;
+  currentStreakDays: number;
+  longestStreakDays: number;
+  lastActivityDate?: string;
+  totalActiveDays: number;
+  weeklyWorkoutsCompleted: number;
+  weeklyWorkoutsTarget: number;
+}

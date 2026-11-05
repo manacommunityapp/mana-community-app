@@ -13,6 +13,9 @@ import type {
   WellnessProviderType,
   WorkoutLogDto,
   ExerciseCatalogItem,
+  BodyMetricLogDto,
+  ActivityGoalDto,
+  FitnessStreakDto,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -65,4 +68,16 @@ export const wellnessService = {
   // Exercise Catalog
   searchExercises: (query?: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/search${query ? `?query=${encodeURIComponent(query)}` : ''}`),
   getExercisesByCategory: (category: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/category/${category}`),
+
+  // Body Metrics
+  getBodyMetrics: (days?: number) => apiClient.get<BodyMetricLogDto[]>(`${BASE}/body-metrics${days ? `?days=${days}` : ''}`),
+  getLatestBodyMetric: () => apiClient.get<BodyMetricLogDto>(`${BASE}/body-metrics/latest`),
+  logBodyMetric: (dto: BodyMetricLogDto) => apiClient.post<BodyMetricLogDto>(`${BASE}/body-metrics`, dto),
+
+  // Activity Goals
+  getActivityGoal: () => apiClient.get<ActivityGoalDto>(`${BASE}/activity-goal`),
+  saveActivityGoal: (dto: ActivityGoalDto) => apiClient.put<ActivityGoalDto>(`${BASE}/activity-goal`, dto),
+
+  // Streak
+  getStreak: () => apiClient.get<FitnessStreakDto>(`${BASE}/streak`),
 };
