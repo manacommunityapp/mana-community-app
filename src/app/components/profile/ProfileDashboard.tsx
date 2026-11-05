@@ -1927,8 +1927,8 @@ export function ProfileDashboard() {
 
           {/* Add / Edit Family Member Modal */}
           {isFamilyModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-              <div className="bg-card rounded-xl border border-border shadow-2xl max-w-sm sm:max-w-md w-full p-3.5 sm:p-4 relative overflow-hidden animate-scaleUp max-h-[92vh] flex flex-col justify-between overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+              <div className="bg-card rounded-xl border border-border shadow-2xl max-w-[98vw] sm:max-w-md w-full p-4 sm:p-4 relative overflow-hidden animate-scaleUp max-h-[96vh] flex flex-col justify-between overflow-y-auto">
                 <div>
                   <div className="flex items-center justify-between pb-2 border-b border-border mb-2.5">
                     <div className="flex items-center gap-2">
@@ -2028,6 +2028,7 @@ export function ProfileDashboard() {
                           placeholder="Select DOB..."
                           className="w-full"
                           presets={false}
+                          commitOnDone
                           required={!editingMember}
                         />
                       </div>
