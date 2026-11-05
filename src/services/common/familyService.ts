@@ -1,5 +1,4 @@
 import { apiClient, getStoredUser, storeUser } from "./apiClient";
-import { safeStorage } from "../../utils/storage";
 
 export interface FamilyMember {
   id: string | number;
@@ -45,27 +44,6 @@ function unwrapFamilyMembersResponse(response: any): any[] | null {
   return Array.isArray(result) ? result : null;
 }
 
-function getStorageKey(): string {
-  const user = getStoredUser();
-  const uid = user?.userId || user?.email || "anonymous";
-  return `mana_family_members_v4_${uid}`;
-}
-
-function getSelfMetaKey(): string {
-  const user = getStoredUser();
-  const uid = user?.userId || user?.email || "anonymous";
-  return `mana_family_self_meta_v1_${uid}`;
-}
-
-function getStoredSelfMeta(): Partial<FamilyMember> | null {
-  return safeStorage.getJSON<Partial<FamilyMember> | null>(getSelfMetaKey(), null);
-}
-
-function saveSelfMeta(meta: Partial<FamilyMember>): void {
-  const current = getStoredSelfMeta() || {};
-  const updated = { ...current, ...meta };
-  safeStorage.setJSON(getSelfMetaKey(), updated);
-}
 
 const DUMMY_STATIC_NAMES = new Set([
   "sunita sharma",
@@ -79,22 +57,18 @@ const DUMMY_STATIC_NAMES = new Set([
 
 function getSelfMember(): FamilyMember | null {
   const user = getStoredUser();
-  const meta = getStoredSelfMeta();
-  if (!user && !meta) return null;
+  if (!user) return null;
 
   const userName = (
-    meta?.name ||
-    user?.fullName ||
-    (user?.email ? user.email.split("@")[0] : "Primary Member")
+    user.fullName ||
+    (user.email ? user.email.split("@")[0] : "Primary Member")
   ).trim();
   if (!userName) return null;
 
-  const userGender = meta?.gender || user?.gender || "Male";
-  const userPhone = meta?.phone ?? (user?.phone || "");
-  const userEmail = meta?.email ?? (user?.email || "");
-  const userDob = meta?.dob || user?.dateOfBirth;
+  const userGender = user.gender || "Male";
+  const userDob = user.dateOfBirth;
 
-  let calculatedAge: number | undefined = meta?.age;
+  let calculatedAge: number | undefined;
   if (userDob) {
     const birth = new Date(userDob);
     if (!isNaN(birth.getTime())) {
@@ -104,22 +78,22 @@ function getSelfMember(): FamilyMember | null {
 
   return {
     id: "fam-self",
-    userId: user?.userId ? Number(user.userId) : undefined,
+    userId: user.userId ? Number(user.userId) : undefined,
     name: userName,
     relation: "Self (Head)",
     age: calculatedAge || 30,
     dob: userDob,
     gender: userGender,
-    phone: userPhone,
-    email: userEmail,
-    bloodGroup: meta?.bloodGroup || (user as any)?.bloodGroup || "",
-    gotram: meta?.gotram || (user as any)?.gotram || (user as any)?.gothram || "",
-    avatar: meta?.avatar || (userGender === "Female" ? "👩" : "👨"),
-    emergencyContact: meta?.emergencyContact !== undefined ? meta.emergencyContact : true,
-    isDevotee: meta?.isDevotee !== undefined ? meta.isDevotee : true,
-    notes: meta?.notes !== undefined ? meta.notes : "Primary resident and household head",
-    createdAt: meta?.createdAt || new Date().toISOString(),
-    updatedAt: meta?.updatedAt || new Date().toISOString(),
+    phone: user.phone || "",
+    email: user.email || "",
+    bloodGroup: (user as any)?.bloodGroup || "",
+    gotram: (user as any)?.gotram || (user as any)?.gothram || "",
+    avatar: userGender === "Female" ? "👩" : "👨",
+    emergencyContact: true,
+    isDevotee: true,
+    notes: "Primary resident and household head",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -147,7 +121,7 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
       ...self,
       ...existing,
       relation: "Self (Head)",
-      // Ensure customized fields from self (which loads from getStoredSelfMeta) are preserved
+      // Prefer server values, but keep any custom fields the self entry already carries
       gotram: existing.gotram || self.gotram,
       bloodGroup: existing.bloodGroup || self.bloodGroup,
       avatar: existing.avatar || self.avatar,
@@ -182,30 +156,14 @@ export function inferGenderFromRelation(relation?: string, userGender?: string):
   return "Other";
 }
 
-function getStoredMembers(): FamilyMember[] {
-  const parsed = safeStorage.getJSON<FamilyMember[] | null>(getStorageKey(), null);
-  if (Array.isArray(parsed)) {
-    const user = getStoredUser();
-    const sanitized = parsed.map(m => {
-      if (m.relation) {
-        const inferred = inferGenderFromRelation(m.relation, user?.gender);
-        if (inferred === "Female" && (m.gender === "Male" || !m.gender)) {
-          return { ...m, gender: "Female" };
-        }
-      }
-      return m;
-    });
-    return mergeWithSelf(sanitized);
-  }
-  const self = getSelfMember();
-  return self ? [self] : [];
+function notifyFamilyUpdated(members: FamilyMember[]): void {
+  window.dispatchEvent(new CustomEvent("mana_family_updated", { detail: members }));
 }
 
-function persistMembers(members: FamilyMember[], notify = true): void {
-  safeStorage.setJSON(getStorageKey(), members);
-  if (notify) {
-    window.dispatchEvent(new CustomEvent("mana_family_updated", { detail: members }));
-  }
+function getInMemoryOrSelf(): FamilyMember[] {
+  if (lastFetchedData) return [...lastFetchedData];
+  const self = getSelfMember();
+  return self ? [self] : [];
 }
 
 export interface FamilyMemberSlim {
@@ -256,9 +214,9 @@ export const familyService = {
   },
 
   /**
-   * Get all family members for the current user, ALWAYS including Self (Head) as the first entry.
-   * Tries backend API first with fallback to synchronized local repository.
-   * Deduplicates concurrent in-flight requests and caches for 3 seconds unless forced.
+   * Get all family members for the current user from the database.
+   * Always includes Self (Head) as the first entry.
+   * Uses a 3-second in-memory cache; pass forceRefresh=true to skip it.
    */
   async getFamilyMembers(forceRefresh = false): Promise<FamilyMember[]> {
     const now = Date.now();
@@ -274,14 +232,13 @@ export const familyService = {
       try {
         let res: any[] | null = null;
         try {
-          res = unwrapFamilyMembersResponse(await apiClient.get<any>("/users/family-members"));
+          res = unwrapFamilyMembersResponse(await apiClient.get<any>("/users/family-members", { bypassCache: true }));
         } catch (err) {
           console.warn("Could not fetch family members from /users/family-members:", err);
         }
 
         if (Array.isArray(res)) {
           const currentUser = getStoredUser();
-          const currentlyStored = getStoredMembers();
           const mapped: FamilyMember[] = res.map((m) => {
             const rel = m.relation || m.relationship || "Family";
             const inferredGender = inferGenderFromRelation(rel, currentUser?.gender);
@@ -290,25 +247,14 @@ export const familyService = {
               finalGender = inferredGender !== "Other" ? inferredGender : (m.gender || "Other");
             }
 
-            // Find matching member in currently stored local data by ID or Name
-            const mNameClean = (m.name || m.fullName || "").trim().toLowerCase();
-            const existingStored = currentlyStored.find(
-              (sm) =>
-                (m.id != null && String(sm.id) === String(m.id)) ||
-                (mNameClean && sm.name && sm.name.trim().toLowerCase() === mNameClean)
-            );
-
-            // Robust DOB resolution: preserve existing stored DOB if backend returns null/missing
             const resolvedDob =
               m.dob ||
               m.dateOfBirth ||
               (m as any).date_of_birth ||
               (m as any).birthDate ||
-              existingStored?.dob ||
-              (existingStored as any)?.dateOfBirth ||
               undefined;
 
-            let resolvedAge = Number(m.age) || existingStored?.age || undefined;
+            let resolvedAge = Number(m.age) || undefined;
             if (!resolvedAge && resolvedDob) {
               const birth = new Date(resolvedDob);
               if (!isNaN(birth.getTime())) {
@@ -317,38 +263,28 @@ export const familyService = {
             }
 
             return {
-              id: m.id ?? existingStored?.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              userId: m.userId ?? existingStored?.userId,
-              name: m.name || m.fullName || existingStored?.name || "Family Member",
-              relation: rel || existingStored?.relation || "Family",
+              id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              userId: m.userId,
+              name: m.name || m.fullName || "Family Member",
+              relation: rel || "Family",
               age: resolvedAge,
               dob: resolvedDob,
-              gender: finalGender || existingStored?.gender || "Other",
-              phone: m.phone || m.mobile || existingStored?.phone,
-              email: m.email || existingStored?.email,
-              bloodGroup: m.bloodGroup || m.blood || existingStored?.bloodGroup,
-              gotram: m.gothram || m.gotram || existingStored?.gotram,
-              emergencyContact: m.emergencyContact !== undefined ? Boolean(m.emergencyContact) : (existingStored?.emergencyContact ?? false),
-              isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : (existingStored?.isDevotee ?? true),
-              photoUrl: m.photoUrl || m.avatar || existingStored?.photoUrl,
-              avatar: m.avatar || m.photoUrl || existingStored?.avatar,
-              notes: m.notes || existingStored?.notes,
-              createdAt: m.createdAt || existingStored?.createdAt,
-              updatedAt: m.updatedAt || existingStored?.updatedAt,
+              gender: finalGender || "Other",
+              phone: m.phone || m.mobile,
+              email: m.email,
+              bloodGroup: m.bloodGroup || m.blood,
+              gotram: m.gothram || m.gotram,
+              emergencyContact: m.emergencyContact !== undefined ? Boolean(m.emergencyContact) : false,
+              isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
+              photoUrl: m.photoUrl || m.avatar,
+              avatar: m.avatar || m.photoUrl,
+              notes: m.notes,
+              createdAt: m.createdAt,
+              updatedAt: m.updatedAt,
             };
           });
 
-          // Preserve any local-only non-self members not yet reflected on the server
-          const localOnlyMembers = currentlyStored.filter(
-            (sm) =>
-              String(sm.id).startsWith("fam-") &&
-              String(sm.id) !== "fam-self" &&
-              !mapped.some((m) => m.name.trim().toLowerCase() === sm.name.trim().toLowerCase())
-          );
-
-          const fullList = mergeWithSelf([...mapped, ...localOnlyMembers]);
-          // Do NOT emit mana_family_updated on GET to prevent infinite event loop
-          persistMembers(fullList, false);
+          const fullList = mergeWithSelf(mapped);
           lastFetchedData = fullList;
           lastFetchTime = Date.now();
           return fullList;
@@ -361,20 +297,21 @@ export const familyService = {
         }, 500);
       }
 
-      const stored = getStoredMembers();
-      lastFetchedData = stored;
+      // Fallback: return in-memory cache or just the self member
+      const fallback = getInMemoryOrSelf();
+      lastFetchedData = fallback;
       lastFetchTime = Date.now();
-      return stored;
+      return fallback;
     })();
 
     return inFlightFamilyMembersPromise;
   },
 
   /**
-   * Add a new family member to database and synchronized repository.
+   * Add a new family member to the database. Updates in-memory cache on success.
    */
   async addFamilyMember(data: Partial<FamilyMember>): Promise<FamilyMember> {
-    const current = getStoredMembers();
+    const current = getInMemoryOrSelf();
     const currentUser = getStoredUser();
     const inferred = inferGenderFromRelation(data.relation, currentUser?.gender);
     const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
@@ -437,12 +374,12 @@ export const familyService = {
     const updated = [newMember, ...current.filter((m) => m.name.toLowerCase() !== newMember.name.toLowerCase())];
     lastFetchedData = updated;
     lastFetchTime = Date.now();
-    persistMembers(updated, true);
+    notifyFamilyUpdated(updated);
     return newMember;
   },
 
   /**
-   * Update an existing family member.
+   * Update an existing family member. Updates in-memory cache on success.
    */
   async updateFamilyMember(id: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
     const idStr = String(id);
@@ -453,7 +390,7 @@ export const familyService = {
       (currentUser?.userId != null && idStr === String(currentUser.userId)) ||
       (data.relation && (data.relation.toLowerCase().includes("self") || data.relation.toLowerCase().includes("head")));
 
-    const current = getStoredMembers();
+    const current = getInMemoryOrSelf();
     let index = current.findIndex((m) =>
       String(m.id) === idStr ||
       (isSelf && (String(m.id) === "fam-self" || String(m.id) === "self" || (currentUser?.userId != null && String(m.userId) === String(currentUser.userId)) || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head")))
@@ -541,7 +478,6 @@ export const familyService = {
         dob: updatedMember.dob,
         gender: updatedMember.gender,
       });
-      saveSelfMeta(updatedMember);
       const user = getStoredUser();
       if (user) {
         if (updatedMember.name) user.fullName = updatedMember.name;
@@ -554,15 +490,15 @@ export const familyService = {
 
     lastFetchedData = [...current];
     lastFetchTime = Date.now();
-    persistMembers([...current], true);
+    notifyFamilyUpdated([...current]);
     return updatedMember;
   },
 
   /**
-   * Delete a family member by ID from database and repository.
+   * Delete a family member by ID from the database. Updates in-memory cache on success.
    */
   async deleteFamilyMember(id: string | number): Promise<void> {
-    const current = getStoredMembers();
+    const current = getInMemoryOrSelf();
     const filtered = current.filter((m) => String(m.id) !== String(id));
 
     const idStr = String(id);
@@ -580,15 +516,171 @@ export const familyService = {
 
     lastFetchedData = filtered;
     lastFetchTime = Date.now();
-    persistMembers(filtered, true);
+    notifyFamilyUpdated(filtered);
+  },
+
+  // ── Admin-only helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Admin: fetch all family members for a specific user.
+   * Tries three endpoints in order:
+   *   1. GET /users/{userId}/family-members  (RESTful — preferred)
+   *   2. GET /users/family-members?userId={userId}  (query-param variant)
+   *   3. GET /users/family-members/slim?userId={userId}  (slim fallback)
+   */
+  async getAdminFamilyMembers(userId: number): Promise<FamilyMember[]> {
+    // 1. RESTful path — bypasses cache so stale admin-own data never bleeds through
+    try {
+      const res = unwrapFamilyMembersResponse(
+        await apiClient.get<any>(`/users/${userId}/family-members`, { bypassCache: true })
+      );
+      if (Array.isArray(res)) return res as FamilyMember[];
+    } catch {}
+
+    // 2. Query-param variant (requires backend to honour userId param)
+    try {
+      const res = unwrapFamilyMembersResponse(
+        await apiClient.get<any>(`/users/family-members?userId=${userId}`, { bypassCache: true })
+      );
+      if (Array.isArray(res)) return res as FamilyMember[];
+    } catch {}
+
+    // 3. Slim fallback
+    try {
+      const slim = await this.getSlimFamilyMembers(userId);
+      return slim.map((m) => ({
+        id: m.id,
+        name: m.name,
+        relation: m.relation || "Family",
+        dob: m.dob,
+        age: m.age,
+        gender: m.gender as FamilyMember["gender"],
+        phone: m.phone,
+        email: m.email,
+        gotram: m.gothram,
+      }));
+    } catch {}
+    return [];
   },
 
   /**
-   * Synchronize the primary user's profile info into the family table as Self (Head).
+   * Admin: add a family member for a specific user (includes userId in payload).
+   */
+  async addFamilyMemberForUser(userId: number, data: Partial<FamilyMember>): Promise<FamilyMember> {
+    const resolvedDob = data.dob || (data as any).dateOfBirth || undefined;
+    let computedAge = data.age !== undefined ? Number(data.age) : undefined;
+    if ((!computedAge || computedAge <= 0) && resolvedDob) {
+      const birth = new Date(resolvedDob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+    const inferred = inferGenderFromRelation(data.relation);
+    const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
+    const payload = {
+      userId,
+      name: (data.name || "").trim() || "Family Member",
+      relation: (data.relation || "Family").trim(),
+      age: computedAge,
+      dob: resolvedDob || undefined,
+      gender: finalGender,
+      phone: data.phone?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      bloodGroup: data.bloodGroup?.trim() || undefined,
+      gothram: data.gotram?.trim() || undefined,
+      gotram: data.gotram?.trim() || undefined,
+      emergencyContact: Boolean(data.emergencyContact),
+      isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
+      notes: data.notes?.trim() || undefined,
+      avatar: (data as any).avatar || (finalGender === "Female" ? "👩" : "👨"),
+      status: "ACTIVE",
+    };
+    const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", payload));
+    return {
+      id: serverRes?.id ?? `fam-${Date.now()}`,
+      userId,
+      name: payload.name,
+      relation: payload.relation,
+      age: computedAge,
+      dob: resolvedDob,
+      gender: finalGender,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      gotram: payload.gotram,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
+      notes: payload.notes,
+      avatar: payload.avatar,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Admin: update a family member by its numeric ID on behalf of any user.
+   */
+  async updateFamilyMemberForUser(memberId: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
+    const resolvedDob = data.dob || (data as any).dateOfBirth || undefined;
+    let computedAge = data.age !== undefined ? Number(data.age) : undefined;
+    if ((!computedAge || computedAge <= 0) && resolvedDob) {
+      const birth = new Date(resolvedDob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+    const inferred = inferGenderFromRelation(data.relation);
+    const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
+    const payload = {
+      name: (data.name || "").trim(),
+      relation: (data.relation || "Family").trim(),
+      age: computedAge,
+      dob: resolvedDob || undefined,
+      gender: finalGender,
+      phone: data.phone?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      bloodGroup: data.bloodGroup?.trim() || undefined,
+      gothram: data.gotram?.trim() || undefined,
+      gotram: data.gotram?.trim() || undefined,
+      emergencyContact: Boolean(data.emergencyContact),
+      isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
+      notes: data.notes?.trim() || undefined,
+      avatar: (data as any).avatar || (finalGender === "Female" ? "👩" : "👨"),
+      status: "ACTIVE",
+    };
+    await apiClient.put<any>(`/users/family-members/${memberId}`, payload);
+    return {
+      id: memberId,
+      name: payload.name,
+      relation: payload.relation,
+      age: computedAge,
+      dob: resolvedDob,
+      gender: finalGender,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      gotram: payload.gotram,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
+      notes: payload.notes,
+      avatar: payload.avatar,
+      updatedAt: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Admin: hard-delete a family member by its numeric ID.
+   */
+  async adminDeleteFamilyMember(memberId: string | number): Promise<void> {
+    await apiClient.delete<void>(`/users/family-members/${memberId}`);
+  },
+
+  /**
+   * Synchronize the primary user's profile info into the in-memory Self (Head) entry.
    */
   syncUserProfile(fullName: string, dob?: string, gender?: string, phone?: string, email?: string): void {
     if (!fullName) return;
-    const current = getStoredMembers();
+    const current = getInMemoryOrSelf();
     const selfIndex = current.findIndex((m) => String(m.id) === "fam-self" || m.relation?.toLowerCase().includes("self") || m.relation?.toLowerCase().includes("head"));
 
     let calculatedAge: number | undefined;
@@ -598,17 +690,6 @@ export const familyService = {
         calculatedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
       }
     }
-
-    const selfMeta = getStoredSelfMeta() || {};
-    const updatedMeta = {
-      ...selfMeta,
-      name: fullName,
-      dob: dob || selfMeta.dob,
-      gender: gender || selfMeta.gender,
-      phone: phone || selfMeta.phone,
-      email: email || selfMeta.email,
-    };
-    saveSelfMeta(updatedMeta);
 
     if (selfIndex !== -1) {
       current[selfIndex] = {
@@ -631,11 +712,9 @@ export const familyService = {
         gender: gender || "Male",
         phone,
         email,
-        bloodGroup: selfMeta.bloodGroup,
-        gotram: selfMeta.gotram,
-        avatar: selfMeta.avatar || (gender === "Female" ? "👩" : "👨"),
-        emergencyContact: selfMeta.emergencyContact !== undefined ? selfMeta.emergencyContact : true,
-        isDevotee: selfMeta.isDevotee !== undefined ? selfMeta.isDevotee : true,
+        avatar: gender === "Female" ? "👩" : "👨",
+        emergencyContact: true,
+        isDevotee: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -643,6 +722,5 @@ export const familyService = {
 
     lastFetchedData = [...current];
     lastFetchTime = Date.now();
-    persistMembers([...current], false);
   },
 };

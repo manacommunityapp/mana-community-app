@@ -712,7 +712,8 @@ export function SportsDashboard() {
   useEffect(() => {
     const loadFamily = async () => {
       try {
-        const list = await familyService.getFamilyMembers();
+        // Always fetch fresh from the database for sports registration
+        const list = await familyService.getFamilyMembers(true);
         setFamilyMembers(list);
       } catch (err) {
         console.warn("Could not load family members in SportsDashboard:", err);
