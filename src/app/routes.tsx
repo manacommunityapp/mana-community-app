@@ -344,6 +344,7 @@ import BodyMetricsTimeline from "./components/wellness/BodyMetricsTimeline";
 import ActivityGoalSettings from "./components/wellness/ActivityGoalSettings";
 import StepCounterWidget from "./components/wellness/StepCounterWidget";
 import WearableDevices from "./components/wellness/WearableDevices";
+import UnifiedFitnessDashboard from "./components/wellness/UnifiedFitnessDashboard";
 import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
 import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
 import { IncidentTracker } from "./components/healthguard/IncidentTracker";
@@ -1316,6 +1317,7 @@ export const router = createBrowserRouter([
           { path: "goals", element: <ActivityGoalSettings /> },
           { path: "steps", element: <StepCounterWidget /> },
           { path: "devices", element: <WearableDevices /> },
+          { path: "fitness", element: <UnifiedFitnessDashboard /> },
         ],
       },
       {

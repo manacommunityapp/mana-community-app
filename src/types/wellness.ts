@@ -284,3 +284,48 @@ export interface WearableDeviceDto {
   lastSyncAt?: string;
   registeredAt?: string;
 }
+
+export interface DailyFitnessSummaryDto {
+  date: string;
+  // Nutrition
+  totalCalories: number;
+  calorieTarget: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  totalFiber: number;
+  totalWaterMl: number;
+  waterTargetMl: number;
+  mealCount: number;
+  // Exercise
+  caloriesBurned: number;
+  netCalories: number;
+  workoutCount: number;
+  totalWorkoutMinutes: number;
+  // Steps
+  stepCount: number;
+  stepGoal: number;
+  stepGoalMet: boolean;
+  distanceKm?: number;
+  activeMinutes?: number;
+  activeMinutesGoal: number;
+  // Streak
+  currentStreakDays: number;
+  longestStreakDays: number;
+  weeklyWorkoutsCompleted: number;
+  weeklyWorkoutsTarget: number;
+  // Body
+  latestWeightKg?: number;
+  latestBmi?: number;
+  // Score
+  fitnessScore: number;
+}
+
+export interface WeeklyFitnessPointDto {
+  date: string;
+  caloriesConsumed: number;
+  caloriesBurned: number;
+  stepCount: number;
+  workoutCount: number;
+  fitnessScore: number;
+}

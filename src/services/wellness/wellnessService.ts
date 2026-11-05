@@ -18,6 +18,8 @@ import type {
   FitnessStreakDto,
   StepLogDto,
   WearableDeviceDto,
+  DailyFitnessSummaryDto,
+  WeeklyFitnessPointDto,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -91,4 +93,8 @@ export const wellnessService = {
 
   // Wearable devices (HealthGuard API)
   getWearableDevices: () => apiClient.get<WearableDeviceDto[]>('/api/healthguard/wearables'),
+
+  // Unified Fitness Summary
+  getFitnessSummary: (date?: string) => apiClient.get<DailyFitnessSummaryDto>(`${BASE}/fitness-summary${date ? `?date=${date}` : ''}`),
+  getWeeklyFitnessTrend: (end?: string) => apiClient.get<WeeklyFitnessPointDto[]>(`${BASE}/fitness-summary/week${end ? `?end=${end}` : ''}`),
 };

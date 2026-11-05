@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
-  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch
+  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch, Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
@@ -91,6 +91,22 @@ export default function WellnessDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Unified Fitness Dashboard promo */}
+      <Link to="/wellness/fitness">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 border-amber-200 dark:border-amber-700">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="h-7 w-7 text-amber-500" />
+              <div>
+                <p className="font-semibold text-sm">Fitness Dashboard</p>
+                <p className="text-xs text-muted-foreground">Score, 7-day trend & full summary</p>
+              </div>
+            </div>
+            <TrendingUp className="h-5 w-5 text-amber-500" />
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Calorie & Water Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
