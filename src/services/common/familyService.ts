@@ -425,7 +425,6 @@ export const familyService = {
         updatedMember.id = "fam-self";
         updatedMember.relation = "Self (Head)";
       }
-      current[index] = updatedMember;
     } else {
       updatedMember = {
         id: isSelf ? "fam-self" : id,
@@ -436,7 +435,6 @@ export const familyService = {
         ...(computedAge !== undefined ? { age: computedAge } : {}),
         updatedAt: new Date().toISOString(),
       };
-      current.push(updatedMember);
     }
 
     const isRealNumericId = !isSelf && !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
@@ -486,6 +484,12 @@ export const familyService = {
         if (updatedMember.dob) user.dateOfBirth = updatedMember.dob;
         storeUser(user);
       }
+    }
+
+    if (index !== -1) {
+      current[index] = updatedMember;
+    } else {
+      current.push(updatedMember);
     }
 
     lastFetchedData = [...current];

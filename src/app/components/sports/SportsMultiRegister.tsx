@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router";
 import {
   Loader2, ArrowLeft, CheckCircle2, Trophy,
@@ -703,6 +703,36 @@ interface SportEventSelection {
   allowHigherAgeCategory?: boolean;
 }
 
+function registrationEventId(registration: any): number {
+  return Number(registration?.eventId ?? registration?.event?.id ?? registration?.sportsEvent?.id);
+}
+
+function registrationFamilyMemberId(registration: any): string | number | undefined {
+  return registration?.familyMemberId ?? registration?.familyMember?.id ?? registration?.memberId ?? registration?.member?.id;
+}
+
+function registrationPlayerName(registration: any): string {
+  return String(registration?.playerName ?? registration?.participantName ?? registration?.name ?? registration?.user?.fullName ?? "").trim();
+}
+
+function isActiveSportsRegistration(registration: any): boolean {
+  const status = String(registration?.status ?? registration?.registrationStatus ?? registration?.registration?.status ?? "")
+    .toUpperCase()
+    .trim();
+  return !["WITHDRAWN", "CANCELLED", "REJECTED"].includes(status);
+}
+
+function mergeSportsRegistrations(...lists: any[][]): any[] {
+  const merged = new Map<string, any>();
+  lists.flat().forEach((registration) => {
+    if (!registration) return;
+    const id = registration.id ?? registration.registrationId;
+    const key = id != null ? String(id) : `${registrationEventId(registration)}:${registrationPlayerName(registration).toLowerCase()}:${registrationFamilyMemberId(registration) ?? ""}`;
+    merged.set(key, { ...merged.get(key), ...registration });
+  });
+  return Array.from(merged.values());
+}
+
 export function SportsMultiRegister() {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
@@ -741,6 +771,12 @@ export function SportsMultiRegister() {
   const [selectedCommunityResident, setSelectedCommunityResident] = useState<UserResponse | null>(null);
   const [communityFamilyMembers, setCommunityFamilyMembers] = useState<FamilyMemberSlim[]>([]);
   const [communityFamilyLoading, setCommunityFamilyLoading] = useState(false);
+  const selectedParticipantKey = selectedCommunityResident
+    ? `community:${selectedCommunityResident.id}:${familyMemberId ?? "self"}`
+    : regType === "family"
+      ? `family:${familyMemberId ?? "unselected"}`
+      : `self:${user?.userId ?? "current"}`;
+  const lastRegistrationParticipantKey = useRef(selectedParticipantKey);
 
   const userProfileName = liveUser?.fullName || user?.fullName || "";
   const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
@@ -1359,43 +1395,51 @@ export function SportsMultiRegister() {
             const defaultRole = cfg.categories[0]?.roles[0] || "Player";
 
             const matchedRegs = combinedRegs.filter(r => {
-              const rEvId = Number(r.eventId || r.event?.id);
+              const rEvId = registrationEventId(r);
               if (rEvId !== ev.id) return false;
-              const st = String(r.status || "").toUpperCase().trim();
-              if (st === "WITHDRAWN" || st === "CANCELLED" || st === "REJECTED") return false;
+              if (!isActiveSportsRegistration(r)) return false;
 
               if (queryFor === "community" || selectedCommunityResident) {
                 if (regType === "family" && familyMemberId) {
-                  const mFamId = r.familyMemberId || r.familyMember?.id;
+                  const mFamId = registrationFamilyMemberId(r);
                   if (mFamId && String(mFamId) === String(familyMemberId)) return true;
-                  if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase()) return true;
+                  const regName = registrationPlayerName(r);
+                  if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
                   return false;
                 } else {
                   const resUserId = Number(selectedCommunityResident?.id);
-                  const regUserId = Number(r.user?.id || (r as any).participantUserId || r.userId);
-                  if (resUserId && regUserId && resUserId === regUserId && !r.familyMemberId && !r.familyMember) return true;
-                  if (selectedCommunityResident?.fullName && r.playerName && r.playerName.trim().toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase()) return true;
-                  if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase() && !r.familyMemberId && !r.familyMember) return true;
+                  const regUserId = Number(r.user?.id ?? r.participantUserId ?? r.registeredForUserId ?? r.residentId ?? r.userId);
+                  const mFamId = registrationFamilyMemberId(r);
+                  const regName = registrationPlayerName(r);
+                  if (resUserId && regUserId && resUserId === regUserId && !mFamId) return true;
+                  if (selectedCommunityResident?.fullName && regName && regName.toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase() && !mFamId) return true;
+                  if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
                   return false;
                 }
               }
 
               if (regType === "family" && familyMemberId) {
-                return isRegistrationForMemberHelper(r, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+                return isRegistrationForMemberHelper({
+                  ...r,
+                  playerName: registrationPlayerName(r),
+                  familyMemberId: registrationFamilyMemberId(r),
+                  relation: r.relation || r.relationship,
+                }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
               }
 
-              return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userProfileName || user?.fullName);
+              return isRegistrationForMemberHelper({
+                ...r,
+                playerName: registrationPlayerName(r),
+                familyMemberId: registrationFamilyMemberId(r),
+                relation: r.relation || r.relationship,
+              }, "self", familyMembersOnly, userProfileName || user?.fullName);
             });
 
             const matchedReg = matchedRegs[0];
-            const rawStatus = String(ev.myRegistrationStatus || "").toUpperCase().trim();
+            const isCurrentUserTarget = regType === "self" && queryFor !== "community" && !selectedCommunityResident;
             const isAlreadyRegistered = Boolean(
               matchedReg ||
-              (ev.myRegistrationId &&
-              rawStatus &&
-              rawStatus !== "WITHDRAWN" &&
-              rawStatus !== "CANCELLED" &&
-              rawStatus !== "REJECTED")
+              (isCurrentUserTarget && ev.myRegistrationId && isActiveSportsRegistration({ status: ev.myRegistrationStatus }))
             );
             const resolvedRegId = matchedReg?.id ? Number(matchedReg.id) : (ev.myRegistrationId ? Number(ev.myRegistrationId) : undefined);
 
@@ -1445,6 +1489,28 @@ export function SportsMultiRegister() {
     }
   }, [tournamentId]);
 
+  // Query-driven family selection and community search resolve after the tournament loads.
+  // Refresh registrations when that active participant changes so their Register/Unregister state is current.
+  useEffect(() => {
+    if (!tournamentId || lastRegistrationParticipantKey.current === selectedParticipantKey) return;
+    lastRegistrationParticipantKey.current = selectedParticipantKey;
+    let isActive = true;
+
+    const refreshParticipantRegistrations = async () => {
+      const [myRegistrations, eventRegistrations] = await Promise.all([
+        sportsDashboardService.getMyRegistrations().catch(() => [] as DashboardMyRegistration[]),
+        sportsService.getTournamentRegistrations(Number(tournamentId)).catch(() => [] as any[]),
+      ]);
+
+      if (isActive) {
+        setTournamentRegistrations(mergeSportsRegistrations(myRegistrations || [], eventRegistrations || []));
+      }
+    };
+
+    void refreshParticipantRegistrations();
+    return () => { isActive = false; };
+  }, [tournamentId, selectedParticipantKey]);
+
   // Auto-adjust categories when age or gender changes to ensure participant is assigned to an eligible category
   useEffect(() => {
     if (categories.length === 0 || eventSelections.length === 0) return;
@@ -1480,32 +1546,44 @@ export function SportsMultiRegister() {
 
   const findAllRegistrationsForParticipant = useCallback((eventId: number) => {
     return tournamentRegistrations.filter(r => {
-      const regEvId = Number(r.eventId || r.event?.id);
+      const regEvId = registrationEventId(r);
       if (regEvId !== eventId) return false;
-      const st = String(r.status || "").toUpperCase().trim();
-      if (st === "WITHDRAWN" || st === "CANCELLED" || st === "REJECTED") return false;
+      if (!isActiveSportsRegistration(r)) return false;
 
       if (queryFor === "community" || selectedCommunityResident) {
         if (regType === "family" && familyMemberId) {
-          const matchFamId = r.familyMemberId || r.familyMember?.id;
+          const matchFamId = registrationFamilyMemberId(r);
           if (matchFamId && String(matchFamId) === String(familyMemberId)) return true;
-          if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase()) return true;
+          const regName = registrationPlayerName(r);
+          if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !matchFamId) return true;
           return false;
         } else {
           const resUserId = Number(selectedCommunityResident?.id);
-          const regUserId = Number(r.user?.id || (r as any).participantUserId || r.userId);
-          if (resUserId && regUserId && resUserId === regUserId && !r.familyMemberId && !r.familyMember) return true;
-          if (selectedCommunityResident?.fullName && r.playerName && r.playerName.trim().toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase()) return true;
-          if (playerName && r.playerName && r.playerName.trim().toLowerCase() === playerName.trim().toLowerCase() && !r.familyMemberId && !r.familyMember) return true;
+          const regUserId = Number(r.user?.id ?? r.participantUserId ?? r.registeredForUserId ?? r.residentId ?? r.userId);
+          const mFamId = registrationFamilyMemberId(r);
+          const regName = registrationPlayerName(r);
+          if (resUserId && regUserId && resUserId === regUserId && !mFamId) return true;
+          if (selectedCommunityResident?.fullName && regName && regName.toLowerCase() === selectedCommunityResident.fullName.trim().toLowerCase() && !mFamId) return true;
+          if (playerName && regName && regName.toLowerCase() === playerName.trim().toLowerCase() && !mFamId) return true;
           return false;
         }
       }
 
       if (regType === "family" && familyMemberId) {
-        return isRegistrationForMemberHelper(r, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+        return isRegistrationForMemberHelper({
+          ...r,
+          playerName: registrationPlayerName(r),
+          familyMemberId: registrationFamilyMemberId(r),
+          relation: r.relation || r.relationship,
+        }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
       }
 
-      return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userProfileName || user?.fullName);
+      return isRegistrationForMemberHelper({
+        ...r,
+        playerName: registrationPlayerName(r),
+        familyMemberId: registrationFamilyMemberId(r),
+        relation: r.relation || r.relationship,
+      }, "self", familyMembersOnly, userProfileName || user?.fullName);
     });
   }, [tournamentRegistrations, queryFor, selectedCommunityResident, regType, familyMemberId, playerName, familyMembersOnly, userProfileName, user?.fullName]);
 
@@ -1522,7 +1600,7 @@ export function SportsMultiRegister() {
         return {
           ...ev,
           isRegistered: isAlreadyRegistered,
-          registrationId: regId || ev.registrationId,
+          registrationId: regId,
           selected: isAlreadyRegistered ? false : ev.selected,
         };
       }
