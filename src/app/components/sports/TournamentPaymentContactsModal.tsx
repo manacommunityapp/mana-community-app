@@ -283,6 +283,9 @@ export function TournamentPaymentContactsModal({
       // Update tournament via sportsService
       const payload: any = {
         name: tournament.name,
+        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
+        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
         otherContacts: JSON.stringify(updatedOther),
       };
 
@@ -332,6 +335,9 @@ export function TournamentPaymentContactsModal({
 
       const payload: any = {
         name: tournament.name,
+        communityId: tournament.communityId || (tournament as any).community?.id || (user as any)?.communityId,
+        eventDateStart: tournament.eventDateStart || (tournament as any).startDate,
+        eventDateEnd: tournament.eventDateEnd || (tournament as any).endDate,
         otherContacts: JSON.stringify(updatedOther),
       };
 

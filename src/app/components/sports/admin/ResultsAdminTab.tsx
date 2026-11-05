@@ -16,6 +16,8 @@ interface MatchRow {
   scoreTeamA?: string;
   scoreTeamB?: string;
   winnerTeamId?: number;
+  winnerName?: string;
+  winnerSide?: "A" | "B" | string;
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -122,6 +124,8 @@ export function ResultsAdminTab() {
   const [scoreA, setScoreA] = useState("");
   const [scoreB, setScoreB] = useState("");
   const [winnerId, setWinnerId] = useState<number | null>(null);
+  const [winnerSide, setWinnerSide] = useState<"A" | "B" | null>(null);
+  const [winnerName, setWinnerName] = useState("");
   const [saving, setSaving] = useState(false);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
 
@@ -167,11 +171,13 @@ export function ResultsAdminTab() {
         scoreTeamA: scoreA || undefined,
         scoreTeamB: scoreB || undefined,
         winnerTeamId: winnerId,
+        winnerName: winnerName || undefined,
+        winnerSide: winnerSide || undefined,
       };
       await tournamentService.recordResult(data);
       showSuccess("Result saved");
       setEditingMatch(null);
-      setScoreA(""); setScoreB(""); setWinnerId(null);
+      setScoreA(""); setScoreB(""); setWinnerId(null); setWinnerSide(null); setWinnerName("");
       if (selectedConfigId) fetchMatches(selectedConfigId);
     } catch (e: any) {
       showError(e?.message || "Failed to save result");
@@ -185,6 +191,13 @@ export function ResultsAdminTab() {
     setScoreA(m.scoreTeamA || "");
     setScoreB(m.scoreTeamB || "");
     setWinnerId(m.winnerTeamId || null);
+    setWinnerName(m.winnerName || "");
+    const initialSide = (m.winnerSide as ("A" | "B")) ||
+      (m.winnerTeamId && m.teamAId && m.winnerTeamId === m.teamAId ? "A" :
+       m.winnerTeamId && m.teamBId && m.winnerTeamId === m.teamBId ? "B" :
+       m.winnerName && m.teamAName && m.winnerName === m.teamAName ? "A" :
+       m.winnerName && m.teamBName && m.winnerName === m.teamBName ? "B" : null);
+    setWinnerSide(initialSide);
   };
 
   const filtered = matches.filter(m => {
@@ -266,6 +279,11 @@ export function ResultsAdminTab() {
                   <span className="text-[10px] font-medium text-indigo-500">{(m.round || "").replace(/_/g, " ")} · #{m.matchNumber}</span>
                   <span className="text-[10px] text-slate-400">{formatDateTime(m.scheduledAt)}</span>
                   <StatusBadge status={m.status} />
+                  {m.status === "COMPLETED" && (m.winnerName || (m.winnerTeamId ? (m.winnerTeamId === m.teamAId ? m.teamAName : m.teamBName) : null)) && (
+                    <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full ml-auto">
+                      Winner: {m.winnerName || (m.winnerTeamId === m.teamAId ? m.teamAName : m.teamBName)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -304,24 +322,51 @@ export function ResultsAdminTab() {
                       <span className="text-[10px] font-semibold text-slate-800 flex-1 truncate">{m.teamBName || "TBD"}</span>
                     </div>
 
-                    {isEditing && m.teamAId && m.teamBId && (
-                      <div className="flex items-center gap-2 mt-2 justify-center">
+                    {isEditing && (
+                      <div className="flex items-center gap-2 mt-2 justify-center flex-wrap">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wide">Winner:</span>
                         <button
-                          onClick={() => setWinnerId(m.teamAId)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === m.teamAId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          type="button"
+                          onClick={() => {
+                            setWinnerId(m.teamAId ?? null);
+                            setWinnerSide("A");
+                            setWinnerName(m.teamAName || "Competitor A");
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                            (m.teamAId && winnerId === m.teamAId) || winnerSide === "A" || (!winnerId && !winnerSide && winnerName === m.teamAName && !!m.teamAName)
+                              ? "bg-green-100 text-green-700 ring-1 ring-green-300"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
                         >
-                          {m.teamAName}
+                          {m.teamAName || "Competitor A"}
                         </button>
                         <button
-                          onClick={() => setWinnerId(m.teamBId)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === m.teamBId ? "bg-green-100 text-green-700 ring-1 ring-green-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          type="button"
+                          onClick={() => {
+                            setWinnerId(m.teamBId ?? null);
+                            setWinnerSide("B");
+                            setWinnerName(m.teamBName || "Competitor B");
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                            (m.teamBId && winnerId === m.teamBId) || winnerSide === "B" || (!winnerId && !winnerSide && winnerName === m.teamBName && !!m.teamBName)
+                              ? "bg-green-100 text-green-700 ring-1 ring-green-300"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
                         >
-                          {m.teamBName}
+                          {m.teamBName || "Competitor B"}
                         </button>
                         <button
-                          onClick={() => setWinnerId(null)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${winnerId === null ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                          type="button"
+                          onClick={() => {
+                            setWinnerId(null);
+                            setWinnerSide(null);
+                            setWinnerName("");
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                            winnerId === null && winnerSide === null && !winnerName
+                              ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
                         >
                           Draw
                         </button>
@@ -340,7 +385,14 @@ export function ResultsAdminTab() {
                           <Save className="w-3 h-3" /> {saving ? "…" : "Save"}
                         </button>
                         <button
-                          onClick={() => { setEditingMatch(null); setScoreA(""); setScoreB(""); setWinnerId(null); }}
+                          onClick={() => {
+                            setEditingMatch(null);
+                            setScoreA("");
+                            setScoreB("");
+                            setWinnerId(null);
+                            setWinnerSide(null);
+                            setWinnerName("");
+                          }}
                           className="px-2 py-1.5 rounded-lg text-xs text-slate-500 hover:bg-slate-100 cursor-pointer"
                         >
                           Cancel
