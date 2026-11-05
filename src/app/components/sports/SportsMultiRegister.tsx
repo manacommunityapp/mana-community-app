@@ -733,6 +733,14 @@ function mergeSportsRegistrations(...lists: any[][]): any[] {
   return Array.from(merged.values());
 }
 
+async function getRegistrationsForEvents(eventIds: number[]): Promise<any[]> {
+  const uniqueEventIds = Array.from(new Set(eventIds.map(Number).filter(id => Number.isFinite(id) && id > 0)));
+  const registrationsByEvent = await Promise.all(
+    uniqueEventIds.map(eventId => sportsService.getTournamentRegistrations(eventId).catch(() => [] as any[]))
+  );
+  return mergeSportsRegistrations(...registrationsByEvent);
+}
+
 export function SportsMultiRegister() {
   const { tournamentId } = useParams();
   const navigate = useNavigate();
@@ -1380,6 +1388,10 @@ export function SportsMultiRegister() {
         }
 
         if (targetTourney) {
+          const eventIds = Array.from(new Set(targetTourney.events.map(event => Number(event.id)).filter(id => Number.isFinite(id) && id > 0)));
+          const eventRegs = await getRegistrationsForEvents(eventIds.length > 0 ? eventIds : [Number(tournamentId)]);
+          const combinedRegs = mergeSportsRegistrations(myRegs || [], tourneyRegs || [], eventRegs || []);
+          setTournamentRegistrations(combinedRegs);
           setTournament(targetTourney);
           const initialAge = calculateAge(dateOfBirth);
 
@@ -1492,19 +1504,23 @@ export function SportsMultiRegister() {
     let isActive = true;
 
     const refreshParticipantRegistrations = async () => {
-      const [myRegistrations, eventRegistrations] = await Promise.all([
+      const eventIds = tournament?.events
+        ? Array.from(new Set(tournament.events.map(e => Number(e.id)).filter(id => Number.isFinite(id) && id > 0)))
+        : (tournamentId ? [Number(tournamentId)] : []);
+      const [myRegistrations, eventRegistrations, childEventRegistrations] = await Promise.all([
         sportsDashboardService.getMyRegistrations().catch(() => [] as DashboardMyRegistration[]),
         sportsService.getTournamentRegistrations(Number(tournamentId)).catch(() => [] as any[]),
+        eventIds.length > 0 ? getRegistrationsForEvents(eventIds) : Promise.resolve([] as any[]),
       ]);
 
       if (isActive) {
-        setTournamentRegistrations(mergeSportsRegistrations(myRegistrations || [], eventRegistrations || []));
+        setTournamentRegistrations(mergeSportsRegistrations(myRegistrations || [], eventRegistrations || [], childEventRegistrations || []));
       }
     };
 
     void refreshParticipantRegistrations();
     return () => { isActive = false; };
-  }, [tournamentId, selectedParticipantKey]);
+  }, [tournamentId, selectedParticipantKey, tournament]);
 
   // Auto-adjust categories when age or gender changes to ensure participant is assigned to an eligible category
   useEffect(() => {
@@ -1678,7 +1694,17 @@ export function SportsMultiRegister() {
     setFlatNumber(residentFlat);
     setFamilyMemberId(undefined);
     setFormErrors({});
-    setEventErrors({});
+    const residentAge = calculateAge(dob);
+    const residentGender = resident.gender?.toUpperCase() || "";
+    setEventSelections(prev => prev.map(ev => {
+      const best = findBestEligibleCategory(categories, ev.sportName || ev.name, residentAge, residentGender, ev.name, ev.categoryName);
+      const isElig = best ? checkCategoryEligibility(best, residentAge, residentGender).eligible : false;
+      return {
+        ...ev,
+        categoryId: best ? best.id : ev.categoryId,
+        selected: isElig && !ev.isRegistered,
+      };
+    }));
 
     setCommunityFamilyLoading(true);
     try {
@@ -1694,14 +1720,26 @@ export function SportsMultiRegister() {
 
   const handleCommunityFamilyMemberSelect = (member: FamilyMemberSlim) => {
     const memberDob = member.dob || "";
+    const memberGender = member.gender?.toUpperCase() || "";
+    const memberAge = calculateAge(memberDob) || member.age || null;
     setPlayerName(member.name);
     setEmail(member.email || selectedCommunityResident?.email || "");
-    setGender(member.gender?.toUpperCase() || "");
+    setGender(memberGender);
     setDateOfBirth(memberDob);
     setRelation(member.relation || "Family Member");
     setFamilyMemberId(member.id);
     setFormErrors({});
     setEventErrors({});
+
+    setEventSelections(prev => prev.map(ev => {
+      const best = findBestEligibleCategory(categories, ev.sportName || ev.name, memberAge, memberGender, ev.name, ev.categoryName);
+      const isElig = best ? checkCategoryEligibility(best, memberAge, memberGender).eligible : false;
+      return {
+        ...ev,
+        categoryId: best ? best.id : ev.categoryId,
+        selected: isElig && !ev.isRegistered,
+      };
+    }));
   };
 
   const toggleEventSelection = (eventId: number) => {
@@ -1840,6 +1878,10 @@ export function SportsMultiRegister() {
 
   // Single Event Direct Registration Handler
   const handleSingleRegister = async (eventId: number) => {
+    if (queryFor === "community" && !selectedCommunityResident) {
+      toast.error("Please search and select a community resident first.");
+      return;
+    }
     if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
       toast.error("Select or add a family member before registering.");
       return;
@@ -1940,7 +1982,7 @@ export function SportsMultiRegister() {
 
       const primaryRegId = createdRegs[0]?.id ? Number(createdRegs[0].id) : undefined;
 
-      if (ev.captainNomination && ev.eventId) {
+      if (ev.captainNomination && ev.eventId && !selectedCommunityResident && regType === "self") {
         try {
           await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
         } catch (capErr) {
@@ -1952,7 +1994,7 @@ export function SportsMultiRegister() {
         ? ` (${formatsToRegister.map(f => f.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())).join(", ")})`
         : "";
       toast.success(`Successfully registered for ${ev.name}${formatText}!`);
-      if (ev.captainNomination) {
+      if (ev.captainNomination && !selectedCommunityResident && regType === "self") {
         toast.info(`Captain nomination recorded for ${ev.name}${ev.proposedTeamName ? ` (Team: "${ev.proposedTeamName.trim()}")` : ""}.`);
       }
 
@@ -2092,6 +2134,10 @@ export function SportsMultiRegister() {
 
   // Comprehensive Submission Handler with Client-Side Eligibility Validation
   const handleSubmit = async () => {
+    if (queryFor === "community" && !selectedCommunityResident) {
+      toast.error("Please search and select a community resident first.");
+      return;
+    }
     if (regType === "family" && !familyMemberId && !selectedCommunityResident) {
       toast.error("Select or add a family member before registering.");
       return;
@@ -2197,7 +2243,7 @@ export function SportsMultiRegister() {
         }
       }
 
-      if (ev.captainNomination && ev.eventId) {
+      if (ev.captainNomination && ev.eventId && !selectedCommunityResident && regType === "self") {
         try {
           await auctionService.nominateCaptain(ev.eventId, true, ev.proposedTeamName?.trim());
         } catch (capErr) {
@@ -2215,7 +2261,7 @@ export function SportsMultiRegister() {
     const nominatedCount = selectedEvents.filter(e => e.captainNomination).length;
     if (successCount > 0 && failedCount === 0) {
       toast.success(`Successfully registered for ${successCount} sport${successCount > 1 ? "s" : ""}!`);
-      if (nominatedCount > 0) {
+      if (nominatedCount > 0 && !selectedCommunityResident && regType === "self") {
         toast.info(`Captain nomination recorded for ${nominatedCount} event${nominatedCount > 1 ? "s" : ""}.`);
       }
       window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
@@ -2429,7 +2475,7 @@ export function SportsMultiRegister() {
                         <p className="truncate text-xs font-bold text-slate-800">{selectedCommunityResident.fullName}</p>
                         <p className="truncate text-[10px] text-slate-500">{flatNumber || "Community resident"}</p>
                       </div>
-                      <button type="button" onClick={() => { setSelectedCommunityResident(null); setCommunityFamilyMembers([]); setFamilyMemberId(undefined); setPlayerName(""); setEmail(""); setGender(""); setDateOfBirth(""); setRelation(""); setFlatNumber(userProfileFlat); }} className="shrink-0 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Change resident</button>
+                      <button type="button" onClick={() => { setSelectedCommunityResident(null); setCommunityFamilyMembers([]); setFamilyMemberId(undefined); setPlayerName(""); setEmail(""); setGender(""); setDateOfBirth(""); setRelation(""); setFlatNumber(""); setEventSelections(prev => prev.map(e => ({ ...e, selected: false, isRegistered: false, registrationId: undefined }))); }} className="shrink-0 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800">Change resident</button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">
                       <div className="inline-flex items-center">
@@ -3233,11 +3279,11 @@ export function SportsMultiRegister() {
                                         (ev.matchType && ev.matchType.toUpperCase().includes("DOUBLES") ? ev.matchType : "DOUBLES")
                                       }
                                       currentGender={gender}
-                                      currentUserId={user?.userId || (user as any)?.id}
-                                      currentFamilyMemberId={regType === "family" ? familyMemberId : undefined}
-                                      currentUserName={playerName || user?.fullName}
+                                      currentUserId={selectedCommunityResident ? Number(selectedCommunityResident.id) : (user?.userId || (user as any)?.id)}
+                                      currentFamilyMemberId={selectedCommunityResident ? (familyMemberId ? Number(familyMemberId) : undefined) : (regType === "family" ? familyMemberId : undefined)}
+                                      currentUserName={playerName || selectedCommunityResident?.fullName || user?.fullName}
                                       communityId={user?.communityId}
-                                      familyMembers={savedFamilyMembers}
+                                      familyMembers={selectedCommunityResident ? communityFamilyMembers : savedFamilyMembers}
                                       disabled={submitting || registeringEventId === ev.eventId}
                                       eventId={ev.eventId}
                                       minAge={ev.minAge}
@@ -3247,7 +3293,7 @@ export function SportsMultiRegister() {
                                   </div>
                                 )}
                                 {/* Team Captain Nomination (Cricket, Football, and other Team Sports) */}
-                                {isTeamSport(ev.sportName || ev.name) && (
+                                {!selectedCommunityResident && regType === "self" && isTeamSport(ev.sportName || ev.name) && (
                                   <div className="w-full mt-2 pt-2 border-t border-slate-100">
                                     <div className="bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-xl p-3 space-y-2.5">
                                       <div className="flex items-start justify-between gap-2">
