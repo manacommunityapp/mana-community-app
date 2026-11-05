@@ -583,6 +583,149 @@ export const familyService = {
     persistMembers(filtered, true);
   },
 
+  // ── Admin-only helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Admin: fetch all family members for any user by their userId.
+   * Calls GET /users/family-members?userId={userId}.
+   */
+  async getAdminFamilyMembers(userId: number): Promise<FamilyMember[]> {
+    try {
+      const res = unwrapFamilyMembersResponse(
+        await apiClient.get<any>(`/users/family-members?userId=${userId}`)
+      );
+      if (Array.isArray(res) && res.length > 0) return res as FamilyMember[];
+    } catch {}
+    // Fallback: try slim endpoint
+    try {
+      const slim = await this.getSlimFamilyMembers(userId);
+      return slim.map((m) => ({
+        id: m.id,
+        name: m.name,
+        relation: m.relation || "Family",
+        dob: m.dob,
+        age: m.age,
+        gender: m.gender as FamilyMember["gender"],
+        phone: m.phone,
+        email: m.email,
+        gotram: m.gothram,
+      }));
+    } catch {}
+    return [];
+  },
+
+  /**
+   * Admin: add a family member for a specific user (includes userId in payload).
+   */
+  async addFamilyMemberForUser(userId: number, data: Partial<FamilyMember>): Promise<FamilyMember> {
+    const resolvedDob = data.dob || (data as any).dateOfBirth || undefined;
+    let computedAge = data.age !== undefined ? Number(data.age) : undefined;
+    if ((!computedAge || computedAge <= 0) && resolvedDob) {
+      const birth = new Date(resolvedDob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+    const inferred = inferGenderFromRelation(data.relation);
+    const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
+    const payload = {
+      userId,
+      name: (data.name || "").trim() || "Family Member",
+      relation: (data.relation || "Family").trim(),
+      age: computedAge,
+      dob: resolvedDob || undefined,
+      gender: finalGender,
+      phone: data.phone?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      bloodGroup: data.bloodGroup?.trim() || undefined,
+      gothram: data.gotram?.trim() || undefined,
+      gotram: data.gotram?.trim() || undefined,
+      emergencyContact: Boolean(data.emergencyContact),
+      isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
+      notes: data.notes?.trim() || undefined,
+      avatar: (data as any).avatar || (finalGender === "Female" ? "👩" : "👨"),
+      status: "ACTIVE",
+    };
+    const serverRes = unwrapFamilyMemberResponse(await apiClient.post<any>("/users/family-members", payload));
+    return {
+      id: serverRes?.id ?? `fam-${Date.now()}`,
+      userId,
+      name: payload.name,
+      relation: payload.relation,
+      age: computedAge,
+      dob: resolvedDob,
+      gender: finalGender,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      gotram: payload.gotram,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
+      notes: payload.notes,
+      avatar: payload.avatar,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Admin: update a family member by its numeric ID on behalf of any user.
+   */
+  async updateFamilyMemberForUser(memberId: string | number, data: Partial<FamilyMember>): Promise<FamilyMember> {
+    const resolvedDob = data.dob || (data as any).dateOfBirth || undefined;
+    let computedAge = data.age !== undefined ? Number(data.age) : undefined;
+    if ((!computedAge || computedAge <= 0) && resolvedDob) {
+      const birth = new Date(resolvedDob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+    const inferred = inferGenderFromRelation(data.relation);
+    const finalGender = data.gender || (inferred !== "Other" ? inferred : "Other");
+    const payload = {
+      name: (data.name || "").trim(),
+      relation: (data.relation || "Family").trim(),
+      age: computedAge,
+      dob: resolvedDob || undefined,
+      gender: finalGender,
+      phone: data.phone?.trim() || undefined,
+      email: data.email?.trim() || undefined,
+      bloodGroup: data.bloodGroup?.trim() || undefined,
+      gothram: data.gotram?.trim() || undefined,
+      gotram: data.gotram?.trim() || undefined,
+      emergencyContact: Boolean(data.emergencyContact),
+      isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
+      notes: data.notes?.trim() || undefined,
+      avatar: (data as any).avatar || (finalGender === "Female" ? "👩" : "👨"),
+      status: "ACTIVE",
+    };
+    await apiClient.put<any>(`/users/family-members/${memberId}`, payload);
+    return {
+      id: memberId,
+      name: payload.name,
+      relation: payload.relation,
+      age: computedAge,
+      dob: resolvedDob,
+      gender: finalGender,
+      phone: payload.phone,
+      email: payload.email,
+      bloodGroup: payload.bloodGroup,
+      gotram: payload.gotram,
+      emergencyContact: payload.emergencyContact,
+      isDevotee: payload.isDevotee,
+      notes: payload.notes,
+      avatar: payload.avatar,
+      updatedAt: new Date().toISOString(),
+    };
+  },
+
+  /**
+   * Admin: hard-delete a family member by its numeric ID.
+   */
+  async adminDeleteFamilyMember(memberId: string | number): Promise<void> {
+    await apiClient.delete<void>(`/users/family-members/${memberId}`);
+  },
+
   /**
    * Synchronize the primary user's profile info into the family table as Self (Head).
    */
