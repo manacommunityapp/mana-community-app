@@ -121,6 +121,7 @@ import { SportsVenueBrowse } from "./components/sports/venues/SportsVenueBrowse"
 import { SportsFeed } from "./components/sports/SportsFeed";
 import { SportsMatchmaking } from "./components/sports/SportsMatchmaking";
 import { SportsMessages } from "./components/sports/SportsMessages";
+import { SportsInsuranceWidget } from "./components/sports/SportsInsuranceWidget";
 import { SportsVenueDetail } from "./components/sports/venues/SportsVenueDetail";
 import { SportsWallet }     from "./components/sports/SportsWallet";
 
@@ -353,6 +354,16 @@ import WaterTracker from "./components/wellness/WaterTracker";
 import WellnessChallenges from "./components/wellness/WellnessChallenges";
 import WellnessProviders from "./components/wellness/WellnessProviders";
 import WellnessProfilePage from "./components/wellness/WellnessProfile";
+import WorkoutLogger from "./components/wellness/WorkoutLogger";
+import WorkoutHistory from "./components/wellness/WorkoutHistory";
+import BodyMetricsTimeline from "./components/wellness/BodyMetricsTimeline";
+import ActivityGoalSettings from "./components/wellness/ActivityGoalSettings";
+import StepCounterWidget from "./components/wellness/StepCounterWidget";
+import WearableDevices from "./components/wellness/WearableDevices";
+import UnifiedFitnessDashboard from "./components/wellness/UnifiedFitnessDashboard";
+import TrainerPrograms from "./components/wellness/TrainerPrograms";
+import TrainerProgramDetail from "./components/wellness/TrainerProgramDetail";
+import LogSportsWorkout from "./components/wellness/LogSportsWorkout";
 import { HealthGuardDashboard } from "./components/healthguard/HealthGuardDashboard";
 import { EmergencyContacts } from "./components/healthguard/EmergencyContacts";
 import { IncidentTracker } from "./components/healthguard/IncidentTracker";
@@ -532,6 +543,10 @@ export const router = createBrowserRouter([
           {
             path: "wallet",
             element: <PermissionGuard sportsAdminOnly requiredModule="SPORTS"><SportsWallet /></PermissionGuard>
+          },
+          {
+            path: "insurance",
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsInsuranceWidget /></PermissionGuard>
           },
           {
             path: "my-auctions",
@@ -1353,6 +1368,16 @@ export const router = createBrowserRouter([
           { path: "challenges", element: <WellnessChallenges /> },
           { path: "providers", element: <WellnessProviders /> },
           { path: "profile", element: <WellnessProfilePage /> },
+          { path: "log-workout", element: <WorkoutLogger /> },
+          { path: "workouts", element: <WorkoutHistory /> },
+          { path: "body-metrics", element: <BodyMetricsTimeline /> },
+          { path: "goals", element: <ActivityGoalSettings /> },
+          { path: "steps", element: <StepCounterWidget /> },
+          { path: "devices", element: <WearableDevices /> },
+          { path: "fitness", element: <UnifiedFitnessDashboard /> },
+          { path: "trainer-programs", element: <TrainerPrograms /> },
+          { path: "trainer-programs/:id", element: <TrainerProgramDetail /> },
+          { path: "log-sports", element: <LogSportsWorkout /> },
         ],
       },
       {

@@ -1,4 +1,6 @@
 export type GoalType = 'WEIGHT_LOSS' | 'WEIGHT_GAIN' | 'MAINTAIN' | 'MUSCLE_GAIN' | 'GENERAL_WELLNESS';
+export type ExerciseCategory = 'CARDIO' | 'STRENGTH' | 'FLEXIBILITY' | 'YOGA' | 'SPORTS' | 'HIIT' | 'BALANCE';
+export type WorkoutSource = 'MANUAL' | 'WEARABLE' | 'AI_TEXT' | 'SPORTS_BOOKING';
 export type ActivityLevel = 'SEDENTARY' | 'LIGHTLY_ACTIVE' | 'MODERATELY_ACTIVE' | 'VERY_ACTIVE' | 'EXTRA_ACTIVE';
 export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
 export type MealSourceType = 'AI_PHOTO' | 'AI_TEXT' | 'AI_VOICE' | 'MANUAL' | 'FOOD_DATABASE';
@@ -86,6 +88,9 @@ export interface DailyNutritionSummaryDto {
   waterTargetMl: number;
   mealCount: number;
   meals: MealLogDto[];
+  caloriesBurned: number;
+  netCalories: number;
+  workoutCount: number;
 }
 
 export interface WellnessChallengeDto {
@@ -186,4 +191,204 @@ export interface FoodCatalogItem {
   isVegan?: boolean;
   region?: string;
   verified?: boolean;
+}
+
+export interface WorkoutLogDto {
+  id?: number;
+  userId?: number;
+  exerciseCatalogId?: number;
+  exerciseName: string;
+  exerciseCategory?: ExerciseCategory;
+  workoutDate: string;
+  startTime?: string;
+  durationMin?: number;
+  caloriesBurned?: number;
+  sets?: number;
+  repsPerSet?: number;
+  weightKg?: number;
+  distanceKm?: number;
+  source?: WorkoutSource;
+  notes?: string;
+  metValue?: number;
+}
+
+export interface ExerciseCatalogItem {
+  id: number;
+  name: string;
+  nameLocal?: string;
+  category: ExerciseCategory;
+  description?: string;
+  metValue: number;
+  musclesTargeted?: string;
+  isEquipmentNeeded?: boolean;
+  isBodyweight?: boolean;
+  verified?: boolean;
+}
+
+export interface BodyMetricLogDto {
+  id?: number;
+  userId?: number;
+  loggedDate?: string;
+  weightKg?: number;
+  bodyFatPct?: number;
+  muscleMassKg?: number;
+  bmi?: number;
+  waistCm?: number;
+  chestCm?: number;
+  hipCm?: number;
+  source?: string;
+  notes?: string;
+}
+
+export interface ActivityGoalDto {
+  id?: number;
+  userId?: number;
+  dailyStepsTarget?: number;
+  activeMinutesTarget?: number;
+  weeklyWorkoutsTarget?: number;
+}
+
+export interface FitnessStreakDto {
+  userId?: number;
+  currentStreakDays: number;
+  longestStreakDays: number;
+  lastActivityDate?: string;
+  totalActiveDays: number;
+  weeklyWorkoutsCompleted: number;
+  weeklyWorkoutsTarget: number;
+  todaySteps?: number;
+  stepGoal?: number;
+}
+
+export interface StepLogDto {
+  id?: number;
+  userId?: number;
+  logDate?: string;
+  stepCount?: number;
+  distanceKm?: number;
+  activeMinutes?: number;
+  source?: 'MANUAL' | 'HEALTH_CONNECT' | 'WEARABLE';
+  deviceId?: number;
+}
+
+export type WearableType = 'APPLE_WATCH' | 'FITBIT' | 'GARMIN' | 'SAMSUNG_GALAXY_WATCH' | 'GENERIC_BLUETOOTH' | 'MANUAL';
+
+export interface WearableDeviceDto {
+  id: number;
+  userId?: number;
+  deviceType: WearableType;
+  deviceIdentifier: string;
+  deviceName?: string;
+  firmwareVersion?: string;
+  isActive?: boolean;
+  lastSyncAt?: string;
+  registeredAt?: string;
+}
+
+export interface DailyFitnessSummaryDto {
+  date: string;
+  // Nutrition
+  totalCalories: number;
+  calorieTarget: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  totalFiber: number;
+  totalWaterMl: number;
+  waterTargetMl: number;
+  mealCount: number;
+  // Exercise
+  caloriesBurned: number;
+  netCalories: number;
+  workoutCount: number;
+  totalWorkoutMinutes: number;
+  // Steps
+  stepCount: number;
+  stepGoal: number;
+  stepGoalMet: boolean;
+  distanceKm?: number;
+  activeMinutes?: number;
+  activeMinutesGoal: number;
+  // Streak
+  currentStreakDays: number;
+  longestStreakDays: number;
+  weeklyWorkoutsCompleted: number;
+  weeklyWorkoutsTarget: number;
+  // Body
+  latestWeightKg?: number;
+  latestBmi?: number;
+  // Score
+  fitnessScore: number;
+}
+
+export interface WeeklyFitnessPointDto {
+  date: string;
+  caloriesConsumed: number;
+  caloriesBurned: number;
+  stepCount: number;
+  workoutCount: number;
+  fitnessScore: number;
+}
+
+export type ProgramDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+export type ProgramGoal = 'WEIGHT_LOSS' | 'STRENGTH' | 'ENDURANCE' | 'FLEXIBILITY' | 'GENERAL';
+export type EnrollmentStatus = 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'ABANDONED';
+
+export interface TrainerProgramDayDto {
+  id?: number;
+  programId?: number;
+  weekNumber: number;
+  dayNumber: number;
+  dayName?: string;
+  isRestDay: boolean;
+  focus?: string;
+  exercises?: string;
+  totalDurationMin?: number;
+  notes?: string;
+}
+
+export interface TrainerProgramDto {
+  id?: number;
+  title: string;
+  description?: string;
+  difficulty: ProgramDifficulty;
+  targetGoal?: ProgramGoal;
+  durationWeeks: number;
+  isPublic?: boolean;
+  createdByUserId?: number;
+  thumbnailUrl?: string;
+  days?: TrainerProgramDayDto[];
+  enrolled?: boolean;
+  enrollmentStatus?: EnrollmentStatus;
+  currentWeek?: number;
+  currentDay?: number;
+}
+
+export interface UserProgramEnrollmentDto {
+  id: number;
+  programId: number;
+  programTitle?: string;
+  programDifficulty?: ProgramDifficulty;
+  programDurationWeeks?: number;
+  startDate: string;
+  currentWeek: number;
+  currentDay: number;
+  status: EnrollmentStatus;
+  todaysDay?: TrainerProgramDayDto;
+}
+
+export interface SportsWorkoutRequest {
+  bookingId?: number;
+  sportType?: string;
+  durationMin?: number;
+  workoutDate?: string;
+  notes?: string;
+}
+
+export interface ProgramExercise {
+  exerciseName: string;
+  sets?: number;
+  reps?: number;
+  durationMin?: number;
+  notes?: string;
 }

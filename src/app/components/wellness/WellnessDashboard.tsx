@@ -2,18 +2,19 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Flame, Droplets, Apple, Trophy, Users, Utensils,
-  TrendingUp, Plus, Salad, Dumbbell, Heart
+  TrendingUp, Plus, Salad, Dumbbell, Heart, Scale, Target, Footprints, Watch, Zap, Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { wellnessService } from '../../../services/wellness/wellnessService';
-import type { DailyNutritionSummaryDto, WellnessChallengeDto, MealLogDto } from '../../../types/wellness';
+import type { DailyNutritionSummaryDto, WellnessChallengeDto, MealLogDto, FitnessStreakDto } from '../../../types/wellness';
 
 export default function WellnessDashboard() {
   const [summary, setSummary] = useState<DailyNutritionSummaryDto | null>(null);
   const [challenges, setChallenges] = useState<WellnessChallengeDto[]>([]);
+  const [streak, setStreak] = useState<FitnessStreakDto | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +29,8 @@ export default function WellnessDashboard() {
       ]);
       setSummary(s);
       setChallenges(c);
+      // Load streak non-critically
+      wellnessService.getStreak().then(setStreak).catch(() => {});
     } catch (e) {
       console.error('Failed to load wellness data', e);
     } finally {
@@ -56,14 +59,54 @@ export default function WellnessDashboard() {
               <Heart className="h-6 w-6" /> Mana Health Buddy
             </h1>
             <p className="text-emerald-100 mt-1">Your AI-powered wellness companion</p>
+            {streak && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {streak.currentStreakDays > 0 && (
+                  <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                    <Flame className="h-3.5 w-3.5 text-orange-300" /> {streak.currentStreakDays} day streak
+                  </span>
+                )}
+                <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                  <Trophy className="h-3.5 w-3.5 text-amber-300" /> {streak.weeklyWorkoutsCompleted}/{streak.weeklyWorkoutsTarget} workouts
+                </span>
+                {(streak.todaySteps ?? 0) > 0 && (
+                  <span className="bg-white/20 rounded-full px-3 py-0.5 text-sm font-semibold flex items-center gap-1">
+                    <Footprints className="h-3.5 w-3.5 text-blue-300" /> {(streak.todaySteps ?? 0).toLocaleString()} steps
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          <Link to="/wellness/log-meal">
-            <Button variant="secondary" size="sm" className="gap-1">
-              <Plus className="h-4 w-4" /> Log Meal
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link to="/wellness/log-meal">
+              <Button variant="secondary" size="sm" className="gap-1">
+                <Plus className="h-4 w-4" /> Log Meal
+              </Button>
+            </Link>
+            <Link to="/wellness/log-workout">
+              <Button variant="outline" size="sm" className="gap-1 bg-white/20 border-white/30 text-white hover:bg-white/30 hover:text-white">
+                <Dumbbell className="h-4 w-4" /> Workout
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Unified Fitness Dashboard promo */}
+      <Link to="/wellness/fitness">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 border-amber-200 dark:border-amber-700">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Zap className="h-7 w-7 text-amber-500" />
+              <div>
+                <p className="font-semibold text-sm">Fitness Dashboard</p>
+                <p className="text-xs text-muted-foreground">Score, 7-day trend & full summary</p>
+              </div>
+            </div>
+            <TrendingUp className="h-5 w-5 text-amber-500" />
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Calorie & Water Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -79,6 +122,21 @@ export default function WellnessDashboard() {
               <span className="text-muted-foreground text-sm mb-1">/ {summary?.calorieTarget ?? 2000} kcal</span>
             </div>
             <Progress value={caloriePercent} className="mt-3 h-2" />
+            {/* Calorie burn row */}
+            {(summary?.caloriesBurned ?? 0) > 0 && (
+              <div className="flex items-center justify-between mt-3 p-2 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Dumbbell className="h-3 w-3 text-orange-500" /> Burned
+                </span>
+                <span className="text-sm font-semibold text-orange-600">-{summary?.caloriesBurned} kcal</span>
+              </div>
+            )}
+            {(summary?.caloriesBurned ?? 0) > 0 && (
+              <div className="flex items-center justify-between mt-1 p-2 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
+                <span className="text-xs text-muted-foreground">Net calories</span>
+                <span className="text-sm font-semibold text-emerald-700">{summary?.netCalories} kcal</span>
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-2 mt-4 text-center">
               <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-2">
                 <p className="text-xs text-muted-foreground">Protein</p>
@@ -200,9 +258,16 @@ export default function WellnessDashboard() {
       {/* Quick Links */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+          { to: '/wellness/workouts', icon: Dumbbell, label: 'Workouts', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
+          { to: '/wellness/steps', icon: Footprints, label: 'Steps', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
+          { to: '/wellness/body-metrics', icon: Scale, label: 'Body Metrics', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950' },
+          { to: '/wellness/goals', icon: Target, label: 'Goals & Streaks', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-950' },
+          { to: '/wellness/devices', icon: Watch, label: 'Devices', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-950' },
+          { to: '/wellness/food-journal', icon: Utensils, label: 'Food Journal', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
+          { to: '/wellness/trainer-programs', icon: Sparkles, label: 'Programs', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950' },
+          { to: '/wellness/log-sports', icon: Trophy, label: 'Log Sport', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950' },
           { to: '/wellness/challenges', icon: Trophy, label: 'Challenges', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950' },
-          { to: '/wellness/providers', icon: Dumbbell, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
+          { to: '/wellness/providers', icon: Users, label: 'Providers', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950' },
           { to: '/wellness/profile', icon: TrendingUp, label: 'My Profile', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950' },
         ].map((item) => (
           <Link key={item.to} to={item.to}>

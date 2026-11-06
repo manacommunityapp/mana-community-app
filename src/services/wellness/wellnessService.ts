@@ -11,6 +11,18 @@ import type {
   FoodCatalogItem,
   ChallengeStatus,
   WellnessProviderType,
+  WorkoutLogDto,
+  ExerciseCatalogItem,
+  BodyMetricLogDto,
+  ActivityGoalDto,
+  FitnessStreakDto,
+  StepLogDto,
+  WearableDeviceDto,
+  DailyFitnessSummaryDto,
+  WeeklyFitnessPointDto,
+  TrainerProgramDto,
+  UserProgramEnrollmentDto,
+  SportsWorkoutRequest,
 } from '../../types/wellness';
 
 const BASE = '/api/wellness';
@@ -53,4 +65,53 @@ export const wellnessService = {
   // Analyze meal (AI)
   analyzeMeal: (req: { text?: string; photoBase64?: string; mealType: string }) =>
     apiClient.post(`${BASE}/meals/analyze`, req),
+
+  // Workouts
+  getWorkouts: (date: string) => apiClient.get<WorkoutLogDto[]>(`${BASE}/workouts?date=${date}`),
+  getWorkoutsRange: (start: string, end: string) => apiClient.get<WorkoutLogDto[]>(`${BASE}/workouts/range?start=${start}&end=${end}`),
+  logWorkout: (dto: WorkoutLogDto) => apiClient.post<WorkoutLogDto>(`${BASE}/workouts`, dto),
+  deleteWorkout: (id: number) => apiClient.delete<void>(`${BASE}/workouts/${id}`),
+
+  // Exercise Catalog
+  searchExercises: (query?: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/search${query ? `?query=${encodeURIComponent(query)}` : ''}`),
+  getExercisesByCategory: (category: string) => apiClient.get<ExerciseCatalogItem[]>(`${BASE}/exercise/category/${category}`),
+
+  // Body Metrics
+  getBodyMetrics: (days?: number) => apiClient.get<BodyMetricLogDto[]>(`${BASE}/body-metrics${days ? `?days=${days}` : ''}`),
+  getLatestBodyMetric: () => apiClient.get<BodyMetricLogDto>(`${BASE}/body-metrics/latest`),
+  logBodyMetric: (dto: BodyMetricLogDto) => apiClient.post<BodyMetricLogDto>(`${BASE}/body-metrics`, dto),
+
+  // Activity Goals
+  getActivityGoal: () => apiClient.get<ActivityGoalDto>(`${BASE}/activity-goal`),
+  saveActivityGoal: (dto: ActivityGoalDto) => apiClient.put<ActivityGoalDto>(`${BASE}/activity-goal`, dto),
+
+  // Streak
+  getStreak: () => apiClient.get<FitnessStreakDto>(`${BASE}/streak`),
+
+  // Steps
+  getSteps: (date?: string) => apiClient.get<StepLogDto>(`${BASE}/steps${date ? `?date=${date}` : ''}`),
+  getStepsRange: (start: string, end: string) => apiClient.get<StepLogDto[]>(`${BASE}/steps/range?start=${start}&end=${end}`),
+  logSteps: (dto: StepLogDto) => apiClient.post<StepLogDto>(`${BASE}/steps`, dto),
+  syncSteps: (batch: StepLogDto[]) => apiClient.post<StepLogDto[]>(`${BASE}/steps/sync`, batch),
+
+  // Wearable devices (HealthGuard API)
+  getWearableDevices: () => apiClient.get<WearableDeviceDto[]>('/api/healthguard/wearables'),
+
+  // Unified Fitness Summary
+  getFitnessSummary: (date?: string) => apiClient.get<DailyFitnessSummaryDto>(`${BASE}/fitness-summary${date ? `?date=${date}` : ''}`),
+  getWeeklyFitnessTrend: (end?: string) => apiClient.get<WeeklyFitnessPointDto[]>(`${BASE}/fitness-summary/week${end ? `?end=${end}` : ''}`),
+
+  // Trainer Programs
+  listPrograms: (difficulty?: string) => apiClient.get<TrainerProgramDto[]>(`${BASE}/programs${difficulty ? `?difficulty=${difficulty}` : ''}`),
+  getProgram: (id: number) => apiClient.get<TrainerProgramDto>(`${BASE}/programs/${id}`),
+  createProgram: (dto: TrainerProgramDto) => apiClient.post<TrainerProgramDto>(`${BASE}/programs`, dto),
+  enrollInProgram: (id: number, startDate?: string) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/${id}/enroll${startDate ? `?startDate=${startDate}` : ''}`, {}),
+  getMyEnrollments: () => apiClient.get<UserProgramEnrollmentDto[]>(`${BASE}/programs/my`),
+  getTodaysProgram: () => apiClient.get<UserProgramEnrollmentDto>(`${BASE}/programs/today`),
+  completeDay: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/complete-day`, {}),
+  pauseEnrollment: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/pause`, {}),
+  resumeEnrollment: (enrollmentId: number) => apiClient.post<UserProgramEnrollmentDto>(`${BASE}/programs/enrollment/${enrollmentId}/resume`, {}),
+
+  // Sports–Workout bridge
+  logSportsWorkout: (req: SportsWorkoutRequest) => apiClient.post<WorkoutLogDto>(`${BASE}/sports-workout`, req),
 };
