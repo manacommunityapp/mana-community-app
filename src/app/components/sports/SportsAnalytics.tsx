@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { analyticsService } from "../../../services/admin/analyticsService";
 import type { AnalyticsData } from "../../../services/admin/analyticsService";
+import { CricketAnalyticsSection } from "./CricketAnalyticsCharts";
 
 // ── Tooltip styles (shared across all charts) ────────────────────────────────
 const TOOLTIP_STYLE = {
@@ -1081,6 +1082,13 @@ export function SportsAnalytics() {
           </div> : <div className="mt-4 rounded-xl border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No venue details are recorded for the selected events.</div>}
         </div>
       </div>
+
+      {/* Cricket Analytics — visible when Cricket sport is selected or always */}
+      {(selectedSport === "Cricket" || selectedSport === "ALL") && (
+        <div className="mt-6">
+          <CricketAnalyticsSection />
+        </div>
+      )}
 
       {showPaymentDetails && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm" onClick={() => setShowPaymentDetails(false)}>
         <section role="dialog" aria-modal="true" aria-labelledby="sports-payment-dialog-title" onClick={(event) => event.stopPropagation()} className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
