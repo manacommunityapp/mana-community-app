@@ -1387,54 +1387,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       .catch(() => {});
   }, []);
 
-  const isParticipantRegisteredForEvent = useCallback((
-    targetEventId: number | string | undefined,
-    pType: "self" | "family" | "other",
-    pMemberId?: number | string,
-    pPlayerName?: string
-  ) => {
-    if (!targetEventId || !myRegistrations.length) return false;
-    return myRegistrations.some(r => {
-      const matchesEvent =
-        String(r.eventId) === String(targetEventId) ||
-        String(r.event?.id) === String(targetEventId);
-      if (!matchesEvent) return false;
-      const st = String(r.status || "").toUpperCase().trim();
-      if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
-
-      if (pType === "self") {
-        const regRelation = (r.relation || "").trim().toUpperCase();
-        const regFamilyId = r.familyMemberId;
-        const regPlayerName = (r.playerName || "").trim().toLowerCase();
-        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
-
-        return (
-          !regFamilyId ||
-          regFamilyId === "self" ||
-          regFamilyId === "member-self" ||
-          regRelation === "SELF" ||
-          regRelation === "HEAD" ||
-          (!regFamilyId && !regRelation) ||
-          (userFullNameLower && regPlayerName === userFullNameLower)
-        );
-      } else if (pType === "family") {
-        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
-          return true;
-        }
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      } else if (pType === "other") {
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      }
-      return false;
-    });
-  }, [myRegistrations, userFullName, user?.fullName]);
-
   const getParticipantRegistrations = useCallback((
     targetEventId: number | string | undefined,
     pType: "self" | "family" | "other",
@@ -1451,9 +1403,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
-        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "family") {
-        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "other") {
         if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
           return true;
@@ -1462,7 +1414,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
       return false;
     });
-  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName]);
+  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName, user?.userId]);
+
+  const isParticipantRegisteredForEvent = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    return getParticipantRegistrations(targetEventId, pType, pMemberId, pPlayerName).length > 0;
+  }, [getParticipantRegistrations]);
 
   const getParticipantRegistration = useCallback((
     targetEventId: number | string | undefined,
@@ -1796,6 +1757,10 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
 
   // Toggle format selection (allows selecting both Singles and Doubles, etc.)
   const toggleFormat = (fmt: string) => {
+    if (registeredFormats.includes(fmt.toUpperCase())) {
+      toast.info(`${fmt.replace(/_/g, " ").toLowerCase()} format is already registered`);
+      return;
+    }
     setFormData(prev => {
       const exists = prev.matchTypes.some(f => f.toUpperCase() === fmt.toUpperCase());
       let updated: string[];
@@ -3544,14 +3509,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
                       <button
                         key={fmt}
                         type="button"
+                        disabled={isFmtRegistered}
                         onClick={() => toggleFormat(fmt)}
-                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none ${
+                        className={`group px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 select-none ${
                           isSelected
-                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs"
+                            ? "bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-600 text-white shadow-2xs cursor-pointer"
                             : isFmtRegistered
-                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
-                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300"
+                              ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 opacity-80 cursor-not-allowed"
+                              : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300 cursor-pointer"
                         }`}
+                        title={isFmtRegistered ? `${formatLabel} format is already registered or confirmed` : undefined}
                       >
                         <div className={`w-3.5 h-3.5 rounded flex items-center justify-center transition-all ${
                           isSelected ? "bg-white/20 text-white" : "border border-slate-300 dark:border-slate-600 group-hover:border-indigo-400"

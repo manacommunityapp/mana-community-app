@@ -3,7 +3,7 @@ import { Search, Users, User, Heart, Sparkles, Check, X, AlertCircle, Loader2, S
 import { userService } from "../../../services/common/userService";
 import { getStoredUser, type StoredUser } from "../../../services/common/apiClient";
 import type { PartnerCandidateResponse } from "../../../services/common/userService";
-import type { FamilyMember } from "../../../services/common/familyService";
+import type { FamilyMember, FamilyMemberSlim } from "../../../services/common/familyService";
 
 export interface SelectedPartnerInfo {
   userId: number | null;
@@ -25,7 +25,7 @@ interface SportsPartnerSelectorProps {
   currentFamilyMemberId?: number | string;
   currentUserName?: string;
   communityId?: number;
-  familyMembers?: FamilyMember[];
+  familyMembers?: (FamilyMember | FamilyMemberSlim)[];
   disabled?: boolean;
   /** Event ID used to compute server-side age/gender eligibility (optional). */
   eventId?: number | string | null;
@@ -75,7 +75,7 @@ export function SportsPartnerSelector({
   }, [isMixedDoubles, currentGender]);
 
   // ── Local family member eligibility check ─────────────────────────────────
-  const checkFamilyMemberEligibility = (fm: FamilyMember): { eligible: boolean; reason?: string } => {
+  const checkFamilyMemberEligibility = (fm: FamilyMember | FamilyMemberSlim): { eligible: boolean; reason?: string } => {
     // Gender check for mixed doubles
     if (targetPartnerGender && fm.gender && fm.gender.toUpperCase() !== targetPartnerGender) {
       return { eligible: false, reason: `Need ${targetPartnerGender.toLowerCase()} partner` };
@@ -240,7 +240,7 @@ export function SportsPartnerSelector({
     setIsDropdownOpen(false);
   };
 
-  const handleSelectFamilyMember = (fm: FamilyMember) => {
+  const handleSelectFamilyMember = (fm: FamilyMember | FamilyMemberSlim) => {
     const elig = checkFamilyMemberEligibility(fm);
     if (!elig.eligible) return;
     onChange({
@@ -606,7 +606,7 @@ export function normalizeCandidateName(name?: string | null): string {
 }
 
 export function isSelfFamilyMember(
-  fm: FamilyMember,
+  fm: FamilyMember | FamilyMemberSlim,
   currentUserId?: number | string,
   currentUserName?: string
 ): boolean {
@@ -633,7 +633,7 @@ export function isSelfFamilyMember(
     : storedUser?.userId
       ? String(storedUser.userId).trim()
       : "";
-  if (effectiveUserIdStr && fm.userId && String(fm.userId) === effectiveUserIdStr) {
+  if (effectiveUserIdStr && (fm as any).userId && String((fm as any).userId) === effectiveUserIdStr) {
     return true;
   }
   const effectiveUserName = currentUserName || storedUser?.fullName;

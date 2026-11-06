@@ -32,6 +32,8 @@ export interface DatePickerProps {
   name?: string;
   align?: "start" | "center" | "end";
   autoCloseOnSelect?: boolean;
+  /** Keep edits local until the user confirms with Done. */
+  commitOnDone?: boolean;
 }
 
 const MONTH_NAMES = [
@@ -139,14 +141,18 @@ export function DatePicker({
   id,
   name,
   align = "start",
-  autoCloseOnSelect = true,
+  autoCloseOnSelect = false,
+  commitOnDone = false,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [draftDate, setDraftDate] = useState("");
+  const [clearRequested, setClearRequested] = useState(false);
   const [showMonthSelect, setShowMonthSelect] = useState(false);
   const [showYearSelect, setShowYearSelect] = useState(false);
   const isMobile = useIsMobile(640);
 
-  const selectedDateStr = useMemo(() => formatToDateString(value), [value]);
+  const committedDateStr = useMemo(() => formatToDateString(value), [value]);
+  const selectedDateStr = commitOnDone && isOpen ? draftDate : committedDateStr;
 
   // Helper to clamp a year/month Date object to min/max
   const clampDateToRange = useCallback((d: Date): Date => {
@@ -168,6 +174,21 @@ export function DatePicker({
     }
     return d;
   }, [min, max]);
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (open && commitOnDone) {
+      // Start each edit with a blank selection, while retaining the saved value
+      // until the user confirms the new date.
+      setDraftDate("");
+      setClearRequested(false);
+      setViewDate(clampDateToRange(new Date()));
+    }
+    if (!open && commitOnDone) {
+      setDraftDate("");
+      setClearRequested(false);
+    }
+    setIsOpen(open);
+  }, [commitOnDone, clampDateToRange]);
 
   // Current browsing month and year in calendar view
   const [viewDate, setViewDate] = useState<Date>(() => {
@@ -215,7 +236,7 @@ export function DatePicker({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setIsOpen(false);
+        handleOpenChange(false);
       }
     };
 
@@ -227,7 +248,7 @@ export function DatePicker({
       document.body.style.paddingRight = originalPaddingRight;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, handleOpenChange]);
 
   const viewYear = viewDate.getFullYear();
   const viewMonth = viewDate.getMonth();
@@ -266,9 +287,13 @@ export function DatePicker({
     if (e) e.stopPropagation();
     if (max && dateString > max) return;
     if (min && dateString < min) return;
-    onChange(dateString);
+    if (commitOnDone) {
+      setDraftDate(dateString);
+      setClearRequested(false);
+    }
+    else onChange(dateString);
     if (autoCloseOnSelect) {
-      setIsOpen(false);
+      handleOpenChange(false);
       setShowMonthSelect(false);
       setShowYearSelect(false);
     }
@@ -276,7 +301,12 @@ export function DatePicker({
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onChange("");
+    if (!isOpen) handleOpenChange(true);
+    if (commitOnDone) {
+      setDraftDate("");
+      setClearRequested(true);
+    }
+    else onChange("");
   };
 
   // Generate day matrix for current view month
@@ -468,7 +498,7 @@ export function DatePicker({
           </div>
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={() => handleOpenChange(false)}
             className="w-8 h-8 rounded-xl bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
             title="Close"
           >
@@ -665,7 +695,7 @@ export function DatePicker({
               disabled={day.isDisabled}
               onClick={(e) => !day.isDisabled && handleSelectDate(day.dateStr, e)}
               className={cn(
-                "relative h-8.5 w-8.5 sm:h-8 sm:w-8 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer select-none",
+                "relative h-10 w-10 sm:h-8 sm:w-8 mx-auto rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer select-none",
                 day.isSelected
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 font-extrabold scale-105"
                   : day.isCurrentMonth
@@ -712,11 +742,18 @@ export function DatePicker({
             </button>
           )}
 
-          {isInMobileModal && (
+          {(isInMobileModal || commitOnDone) && (
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
-              className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-lg shadow-sm hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (commitOnDone) {
+                  if (!draftDate && !clearRequested) return;
+                  onChange(draftDate);
+                }
+                handleOpenChange(false);
+              }}
+              disabled={commitOnDone && !draftDate && !clearRequested}
+              className="px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-lg shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Done
             </button>
@@ -735,7 +772,7 @@ export function DatePicker({
       aria-required={required}
       data-testid={id}
       disabled={disabled}
-      onClick={() => !disabled && setIsOpen((prev) => !prev)}
+      onClick={() => !disabled && handleOpenChange(!isOpen)}
       className={cn(
         "w-full flex items-center justify-between border bg-card text-foreground transition-all cursor-pointer shadow-2xs group text-left",
         sizeClasses[size],
@@ -785,7 +822,12 @@ export function DatePicker({
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.stopPropagation();
-                onChange("");
+                if (!isOpen) handleOpenChange(true);
+                if (commitOnDone) {
+                  setDraftDate("");
+                  setClearRequested(true);
+                }
+                else onChange("");
               }
             }}
             className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-rose-600 transition-colors cursor-pointer"
@@ -814,12 +856,12 @@ export function DatePicker({
           typeof document !== "undefined" &&
           createPortal(
             <div
-              className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
-              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 z-[999999] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-1.5 sm:p-4 animate-in fade-in duration-200"
+              onClick={() => handleOpenChange(false)}
               onTouchMove={(e) => e.stopPropagation()}
             >
               <div
-                className="w-full max-w-sm bg-card border border-border rounded-3xl shadow-2xl p-4 text-card-foreground outline-none animate-in slide-in-from-bottom-6 duration-200 max-h-[92vh] overflow-y-auto"
+                className="w-full max-w-md bg-card border border-border rounded-3xl shadow-2xl p-5 text-card-foreground outline-none animate-in slide-in-from-bottom-6 duration-200 max-h-[94vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 {renderCalendarContent(true)}
@@ -833,7 +875,7 @@ export function DatePicker({
 
   // If on desktop: Render via standard Radix Popover with collision positioning
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
       <PopoverContent
         align={align}

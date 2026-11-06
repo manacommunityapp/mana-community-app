@@ -355,5 +355,13 @@ describe("SportsPartnerSelector candidate normalization & deduplication", () => 
       expect(isSelfFamilyMember(son, 10, "sandeep kamarapu")).toBe(false);
       expect(isSelfFamilyMember(daughter, 10, "sandeep kamarapu")).toBe(false);
     });
+
+    it("works with FamilyMemberSlim objects for community resident family members", () => {
+      const slimResidentSelf = { id: 101, name: "Community Resident", relation: "SELF", gender: "Male" };
+      const slimChild = { id: 102, name: "Resident Child", relation: "Son", gender: "Male", age: 12 };
+
+      expect(isSelfFamilyMember(slimResidentSelf, 101, "Community Resident")).toBe(true);
+      expect(isSelfFamilyMember(slimChild, 101, "Community Resident")).toBe(false);
+    });
   });
 });

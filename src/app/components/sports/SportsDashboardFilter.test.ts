@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
+import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
   const currentUserName = "Sandeep Kamarapu";
@@ -555,6 +556,232 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     // Test with empty or undefined
     expect(getFamilyMembersOnly(undefined as any, "Sandeep Kamarapu")).toEqual([]);
     expect(getFamilyMembersOnly([], "Sandeep Kamarapu")).toEqual([]);
+  });
+
+  describe("Doubles Partner Confirmation and Dashboard / Export Alignment", () => {
+    const currentUserId = 101;
+    const currentUserName = "Sandeep Kamarapu";
+
+    it("matches Self when the logged-in user is a CONFIRMED doubles partner on another player's registration", () => {
+      const regAsConfirmedPartner = {
+        id: 999,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        relation: "SELF",
+        familyMemberId: null,
+        matchType: "DOUBLES",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+
+      // When checking for "self", it should recognize that the current user is a confirmed partner on this reg!
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, "self", [], currentUserName, currentUserId)).toBe(true);
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, undefined, [], currentUserName, currentUserId)).toBe(true);
+      // But checking for another family member ID should return false
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, 303, [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("does NOT match Self when partner invitation is PENDING, INVITED, or DECLINED", () => {
+      const regPending = {
+        id: 998,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "PENDING",
+      };
+      expect(isRegistrationForMemberHelper(regPending, "self", [], currentUserName, currentUserId)).toBe(false);
+
+      const regInvited = {
+        ...regPending,
+        partnerStatus: "INVITED",
+      };
+      expect(isRegistrationForMemberHelper(regInvited, "self", [], currentUserName, currentUserId)).toBe(false);
+
+      const regDeclined = {
+        ...regPending,
+        partnerStatus: "DECLINED",
+      };
+      expect(isRegistrationForMemberHelper(regDeclined, "self", [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("matches family member when partner family member ID matches and status is CONFIRMED", () => {
+      const regWithFamilyPartner = {
+        id: 997,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        partnerFamilyMemberId: 505,
+        partnerName: "Sindhuja Chinthala",
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      // Checking for family member 505 should match
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, 505, [], currentUserName, currentUserId)).toBe(true);
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, "505", [], currentUserName, currentUserId)).toBe(true);
+      // Checking for Self should NOT match because the partner is family member 505
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, "self", [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("extractPartnerExportDetails correctly formats partner information for exports", () => {
+      // 1. Primary player with confirmed partner
+      const primaryPlayer = {
+        id: 1,
+        playerName: "Rahul Sharma",
+        partnerName: "Sandeep Kamarapu",
+        partnerFlatNumber: "Tower 2-401",
+        partnerPhone: "9876543210",
+        partnerStatus: "CONFIRMED",
+      };
+      const details1 = extractPartnerExportDetails(primaryPlayer as any);
+      expect(details1.partnerName).toBe("Sandeep Kamarapu");
+      expect(details1.partnerContact).toBe("Flat Tower 2-401 · 9876543210");
+      expect(details1.partnerStatus).toBe("Confirmed");
+
+      // 2. Open pool participant
+      const openPoolPlayer = {
+        id: 2,
+        playerName: "Sneha Patel",
+        openPool: true,
+      };
+      const details2 = extractPartnerExportDetails(openPoolPlayer as any);
+      expect(details2.partnerName).toBe("Open Pairing Pool");
+      expect(details2.partnerStatus).toBe("Looking for Partner");
+
+      // 3. Singles player (no partner)
+      const singlesPlayer = {
+        id: 3,
+        playerName: "Vijay Kumar",
+      };
+      const details3 = extractPartnerExportDetails(singlesPlayer as any);
+      expect(details3.partnerName).toBe("—");
+      expect(details3.partnerContact).toBe("—");
+      expect(details3.partnerStatus).toBe("—");
+    });
+  });
+
+  describe("Child and Family Member Registration Isolation", () => {
+    const headName = "Sandeep Kamarapu";
+    const headId = 1;
+
+    // Household with:
+    // Kid 1: Female, 8 yrs (Daughter)
+    // Kid 2: Female, 10 yrs (Daughter)
+    // Kid 3: Male, 9 yrs (Son)
+    const householdMembers = [
+      { id: 101, name: "Aanya Kamarapu", relation: "Daughter" },
+      { id: 102, name: "Diya Kamarapu", relation: "Daughter" },
+      { id: 103, name: "Aarav Kamarapu", relation: "Son" },
+    ];
+
+    it("does NOT leak Kid 1's registration to Kid 2 when both are daughters and user switches dropdown", () => {
+      // Kid 1 registers for an event
+      const kid1Reg = {
+        id: 901,
+        eventId: 55,
+        playerName: "Aanya Kamarapu",
+        relation: "Daughter",
+        familyMemberId: 101,
+        status: "CONFIRMED",
+        matchType: "SINGLES",
+      };
+
+      // When dropdown is set to Kid 1: matches
+      expect(isRegistrationForMemberHelper(kid1Reg, 101, householdMembers, headName, headId)).toBe(true);
+      expect(isRegistrationForMemberHelper(kid1Reg, "101", householdMembers, headName, headId)).toBe(true);
+
+      // When dropdown is switched to Kid 2: MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, 102, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(kid1Reg, "102", householdMembers, headName, headId)).toBe(false);
+
+      // When dropdown is switched to Male Kid (Kid 3): MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, 103, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(kid1Reg, "103", householdMembers, headName, headId)).toBe(false);
+
+      // When dropdown is set to Self: MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, "self", householdMembers, headName, headId)).toBe(false);
+    });
+
+    it("does NOT leak registration between multiple male kids (sons)", () => {
+      const brothers = [
+        { id: 201, name: "Aarav Kamarapu", relation: "Son" },
+        { id: 202, name: "Vihaan Kamarapu", relation: "Son" },
+      ];
+
+      const son1Reg = {
+        id: 902,
+        eventId: 60,
+        playerName: "Aarav Kamarapu",
+        relation: "Son",
+        familyMemberId: 201,
+        status: "CONFIRMED",
+      };
+
+      // Son 1 matches Son 1
+      expect(isRegistrationForMemberHelper(son1Reg, 201, brothers, headName, headId)).toBe(true);
+      // Son 1 registration does NOT match Son 2
+      expect(isRegistrationForMemberHelper(son1Reg, 202, brothers, headName, headId)).toBe(false);
+    });
+
+    it("does NOT leak registration when children all share generic relation 'Child'", () => {
+      const genericChildren = [
+        { id: 301, name: "Aanya Kamarapu", relation: "Child" },
+        { id: 302, name: "Diya Kamarapu", relation: "Child" },
+        { id: 303, name: "Aarav Kamarapu", relation: "Child" },
+      ];
+
+      const kid1Reg = {
+        id: 903,
+        eventId: 70,
+        playerName: "Aanya Kamarapu",
+        relation: "Child",
+        familyMemberId: 301,
+        status: "CONFIRMED",
+      };
+
+      // Matches Kid 1
+      expect(isRegistrationForMemberHelper(kid1Reg, 301, genericChildren, headName, headId)).toBe(true);
+      // Does NOT match Kid 2
+      expect(isRegistrationForMemberHelper(kid1Reg, 302, genericChildren, headName, headId)).toBe(false);
+      // Does NOT match Male Kid (Kid 3)
+      expect(isRegistrationForMemberHelper(kid1Reg, 303, genericChildren, headName, headId)).toBe(false);
+    });
+
+    it("isolates registrations correctly even when familyMemberId is missing, using exact player name", () => {
+      const kid1RegNoId = {
+        id: 904,
+        eventId: 80,
+        playerName: "Aanya Kamarapu",
+        relation: "Daughter",
+        familyMemberId: null,
+        status: "CONFIRMED",
+      };
+
+      // Matches Kid 1 by exact player name
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 101, householdMembers, headName, headId)).toBe(true);
+      // Does NOT match Kid 2 even though relation is "Daughter"
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 102, householdMembers, headName, headId)).toBe(false);
+      // Does NOT match Male Kid
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 103, householdMembers, headName, headId)).toBe(false);
+    });
+
+    it("does not match by relation when multiple members share that relation and name/id are absent", () => {
+      const ambiguousReg = {
+        id: 905,
+        eventId: 90,
+        playerName: null,
+        relation: "Daughter",
+        familyMemberId: null,
+        status: "CONFIRMED",
+      };
+
+      // Ambiguous: 2 daughters exist, so neither should automatically claim this registration
+      expect(isRegistrationForMemberHelper(ambiguousReg, 101, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(ambiguousReg, 102, householdMembers, headName, headId)).toBe(false);
+    });
   });
 });
 
