@@ -146,9 +146,15 @@ function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
 export function inferGenderFromRelation(relation?: string, userGender?: string): "Male" | "Female" | "Other" {
   if (!relation) return "Other";
   const rel = relation.toLowerCase().trim();
-  const femaleRelations = ["wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom", "sister-in-law", "daughter-in-law", "mother-in-law"];
+  const femaleRelations = [
+    "wife", "mother", "daughter", "sister", "grandmother", "aunt", "niece", "mom",
+    "sister-in-law", "daughter-in-law", "mother-in-law", "girl", "female", "lady", "woman", "women"
+  ];
   if (femaleRelations.some(r => rel.includes(r))) return "Female";
-  const maleRelations = ["husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad", "brother-in-law", "son-in-law", "father-in-law"];
+  const maleRelations = [
+    "husband", "father", "son", "brother", "grandfather", "uncle", "nephew", "dad",
+    "brother-in-law", "son-in-law", "father-in-law", "boy", "male", "gentleman", "man", "men"
+  ];
   if (maleRelations.some(r => rel.includes(r))) return "Male";
   if (rel.includes("spouse") || rel.includes("partner")) {
     return (userGender || "Male").toLowerCase().startsWith("m") ? "Female" : "Male";

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
-import { checkCategoryEligibility } from "./SportsRegister";
+import { checkCategoryEligibility, inferGender, normalizeGender } from "./SportsRegister";
 import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
@@ -782,6 +782,81 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       expect(isRegistrationForMemberHelper(ambiguousReg, 101, householdMembers, headName, headId)).toBe(false);
       expect(isRegistrationForMemberHelper(ambiguousReg, 102, householdMembers, headName, headId)).toBe(false);
     });
+  });
+});
+
+describe("SportsRegister - inferGender and normalizeGender for Family Members", () => {
+  it("correctly normalizes variations of gender strings to uppercase MALE / FEMALE / OTHER", () => {
+    expect(normalizeGender("Female")).toBe("FEMALE");
+    expect(normalizeGender("female")).toBe("FEMALE");
+    expect(normalizeGender("FEMALE")).toBe("FEMALE");
+    expect(normalizeGender("Girl")).toBe("FEMALE");
+    expect(normalizeGender("women")).toBe("FEMALE");
+    expect(normalizeGender("Male")).toBe("MALE");
+    expect(normalizeGender("male")).toBe("MALE");
+    expect(normalizeGender("MALE")).toBe("MALE");
+    expect(normalizeGender("Boy")).toBe("MALE");
+    expect(normalizeGender("men")).toBe("MALE");
+    expect(normalizeGender(null)).toBe("");
+    expect(normalizeGender(undefined)).toBe("");
+    expect(normalizeGender("")).toBe("");
+  });
+
+  it("infers gender from member.name when name includes '(female)' or '(male)' hints", () => {
+    const kid1Female = { name: "Kid 1(female)", relation: "Child" };
+    const kid2Female = { name: "Kid 2 (female)", relation: "Child" };
+    const maleKid = { name: "Kid 3 (Male)", relation: "Child" };
+
+    expect(inferGender(kid1Female)).toBe("Female");
+    expect(normalizeGender(inferGender(kid1Female))).toBe("FEMALE");
+
+    expect(inferGender(kid2Female)).toBe("Female");
+    expect(normalizeGender(inferGender(kid2Female))).toBe("FEMALE");
+
+    expect(inferGender(maleKid)).toBe("Male");
+    expect(normalizeGender(inferGender(maleKid))).toBe("MALE");
+  });
+
+  it("infers gender from member relation keywords like daughter, son, girl, boy", () => {
+    expect(inferGender({ name: "Ananya", relation: "daughter" })).toBe("Female");
+    expect(inferGender({ name: "Aarav", relation: "son" })).toBe("Male");
+    expect(inferGender({ name: "Priya", relation: "girl child" })).toBe("Female");
+    expect(inferGender({ name: "Rohan", relation: "boy child" })).toBe("Male");
+  });
+
+  it("resolves and normalizes gender properly when switching between Kid 1 and Kid 2", () => {
+    const familyMembersList = [
+      { id: 101, name: "Kid 1", gender: "Female", relation: "Daughter", age: 8 },
+      { id: 102, name: "Kid 2", gender: "Female", relation: "Daughter", age: 10 },
+      { id: 103, name: "Kid 3 (Male)", gender: "", relation: "Child", age: 12 },
+    ];
+
+    const resolveMemberGender = (mem: any, userGen = "MALE") => {
+      return normalizeGender(mem.gender) || normalizeGender(inferGender(mem, userGen)) || "";
+    };
+
+    // Selecting Kid 1
+    const kid1Gender = resolveMemberGender(familyMembersList[0]);
+    expect(kid1Gender).toBe("FEMALE");
+
+    // Switching to Kid 2
+    const kid2Gender = resolveMemberGender(familyMembersList[1]);
+    expect(kid2Gender).toBe("FEMALE");
+
+    // Switching to Kid 3 (Male with gender inferred from name)
+    const kid3Gender = resolveMemberGender(familyMembersList[2]);
+    expect(kid3Gender).toBe("MALE");
+  });
+
+  it("ensures normalized gender matches select option values MALE and FEMALE", () => {
+    const options = ["MALE", "FEMALE", "OTHER"];
+    const kid1Resolved = normalizeGender("Female");
+    const kid2Resolved = normalizeGender("FEMALE");
+    const kid3Resolved = normalizeGender("Male");
+
+    expect(options.includes(kid1Resolved)).toBe(true);
+    expect(options.includes(kid2Resolved)).toBe(true);
+    expect(options.includes(kid3Resolved)).toBe(true);
   });
 });
 
