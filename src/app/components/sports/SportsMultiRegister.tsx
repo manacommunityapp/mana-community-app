@@ -767,7 +767,7 @@ export function SportsMultiRegister() {
   const [regType, setRegType] = useState<"self" | "family">(() => queryFor === "family" || queryFor === "community" ? "family" : "self");
   const [playerName, setPlayerName] = useState(() => queryFor === "community" ? "" : user?.fullName || "");
   const [email, setEmail] = useState(() => queryFor === "community" ? "" : user?.email || "");
-  const [gender, setGender] = useState(() => queryFor === "community" ? "" : (user as any)?.gender || "");
+  const [gender, setGender] = useState(() => queryFor === "community" ? "" : normalizeGender((user as any)?.gender) || "");
   const [dateOfBirth, setDateOfBirth] = useState(() => queryFor === "community" ? "" : (user as any)?.dateOfBirth || (user as any)?.dob || "");
   const [relation, setRelation] = useState("");
   const [flatNumber, setFlatNumber] = useState(() => queryFor === "community" ? "" : (user as any)?.flatNo || (user as any)?.flatNumber || (user as any)?.unitNumber || "");
@@ -787,7 +787,7 @@ export function SportsMultiRegister() {
   const lastRegistrationParticipantKey = useRef(selectedParticipantKey);
 
   const userProfileName = liveUser?.fullName || user?.fullName || "";
-  const userProfileGender = liveUser?.gender || (user as any)?.gender || "";
+  const userProfileGender = normalizeGender(liveUser?.gender || (user as any)?.gender) || "";
   const userProfileDob = liveUser?.dateOfBirth || (liveUser as any)?.dob || (user as any)?.dateOfBirth || (user as any)?.dob || "";
   
   const userBlock = liveUser?.block || (liveUser as any)?.tower || (liveUser as any)?.wing || user?.block || (user as any)?.tower || (user as any)?.wing || "";
@@ -1286,7 +1286,7 @@ export function SportsMultiRegister() {
       if (targetMember) {
         setPlayerName(targetMember.name);
         setEmail(targetMember.email || "");
-        setGender(inferGender(targetMember, userProfileGender) || targetMember.gender || "");
+        setGender(normalizeGender(inferGender(targetMember, userProfileGender)) || normalizeGender(targetMember.gender) || "");
         setDateOfBirth(formatToDateString(targetMember.dob || (targetMember as any).dateOfBirth || (targetMember as any).birthDate || ""));
         setRelation(targetMember.relation || (targetMember as any).relationship || "");
         setFamilyMemberId(targetMember.id);
@@ -1302,7 +1302,7 @@ export function SportsMultiRegister() {
       setRegType("self");
       setPlayerName(userProfileName);
       setEmail(liveUser?.email || user?.email || "");
-      setGender(userProfileGender);
+      setGender(normalizeGender(userProfileGender) || "");
       setDateOfBirth(userProfileDob);
       setRelation("");
       setFamilyMemberId(undefined);
@@ -1631,7 +1631,7 @@ export function SportsMultiRegister() {
     if (type === "self") {
       setPlayerName(userProfileName);
       setEmail(liveUser?.email || user?.email || "");
-      setGender(userProfileGender);
+      setGender(normalizeGender(userProfileGender) || "");
       setDateOfBirth(userProfileDob);
       setFlatNumber(userProfileFlat);
       setRelation("");
@@ -1642,7 +1642,7 @@ export function SportsMultiRegister() {
         const first = familyMembersOnly[0];
         setPlayerName(first.name);
         setEmail(first.email || "");
-        setGender(first.gender || "");
+        setGender(normalizeGender(first.gender) || normalizeGender(inferGender(first, userProfileGender)) || "");
         setDateOfBirth(formatToDateString(first.dob || (first as any).dateOfBirth || (first as any).birthDate || ""));
         setRelation(first.relation || (first as any).relationship || "");
         setFamilyMemberId(first.id);
@@ -1664,7 +1664,7 @@ export function SportsMultiRegister() {
       setCommunityFamilyMembers([]);
       setPlayerName(member.name);
       setEmail(member.email || "");
-      setGender(member.gender || "");
+      setGender(normalizeGender(member.gender) || normalizeGender(inferGender(member, userProfileGender)) || "");
       setDateOfBirth(formatToDateString(member.dob || (member as any).dateOfBirth || (member as any).birthDate || ""));
       setRelation(member.relation || (member as any).relationship || "");
       setFlatNumber(userProfileFlat);
@@ -1720,7 +1720,7 @@ export function SportsMultiRegister() {
 
   const handleCommunityFamilyMemberSelect = (member: FamilyMemberSlim) => {
     const memberDob = member.dob || "";
-    const memberGender = member.gender?.toUpperCase() || "";
+    const memberGender = normalizeGender(member.gender) || normalizeGender(inferGender(member, selectedCommunityResident?.gender)) || "";
     const memberAge = calculateAge(memberDob) || member.age || null;
     setPlayerName(member.name);
     setEmail(member.email || selectedCommunityResident?.email || "");
