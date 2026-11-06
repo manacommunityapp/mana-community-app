@@ -36,6 +36,7 @@ import {
   Dumbbell,
   X,
   ShieldAlert,
+  Wallet,
 } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { toast, Toaster } from "sonner";
@@ -53,6 +54,7 @@ import { SportsPartnerSelector, type SelectedPartnerInfo } from "./SportsPartner
 import type { SportMeta, AuctionTeam, CommunityResponse, Venue } from "../../../types/api";
 import { academyApi } from "../../../services/academy/academyApi";
 import type { TrainerSlot, TrainerSlotBooking, AcademyInstructor } from "../../../types/academy";
+import { SportsFinanceHub } from "./SportsFinanceHub";
 
 const ALL_SPORTS = [
   { id: "cricket",     icon: "🏏", name: "Cricket",     roles: ["Top-order Batsman", "Middle-order Batsman", "All-Rounder", "Fast Bowler", "Spin Bowler", "Wicket-keeper"] },
@@ -79,6 +81,7 @@ const TABS = [
   { id: "teams",       label: "My Teams",        icon: Users },
   { id: "matches",     label: "My Matches",      icon: Calendar },
   { id: "my-training", label: "My Training",     icon: Dumbbell },
+  { id: "finance",     label: "Finance",         icon: Wallet },
   { id: "settings",    label: "Settings",        icon: Settings },
 ] as const;
 
@@ -1517,6 +1520,13 @@ export function MySports() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* ════════════════════ FINANCE TAB ════════════════════ */}
+                  {activeTab === "finance" && (
+                    <div className="space-y-4 text-left animate-fade-in-up">
+                      <SportsFinanceHub />
                     </div>
                   )}
 
