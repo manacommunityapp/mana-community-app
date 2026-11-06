@@ -240,7 +240,7 @@ export function SportsPartnerSelector({
     setIsDropdownOpen(false);
   };
 
-  const handleSelectFamilyMember = (fm: FamilyMember) => {
+  const handleSelectFamilyMember = (fm: FamilyMember | FamilyMemberSlim) => {
     const elig = checkFamilyMemberEligibility(fm);
     if (!elig.eligible) return;
     onChange({
