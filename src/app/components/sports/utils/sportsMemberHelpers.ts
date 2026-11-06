@@ -162,10 +162,13 @@ export function isRegistrationForMemberHelper(
     return false;
   }
 
+  const normId = (id: any) => String(id ?? "").replace(/^fam-/, "").trim();
+  const targetId = normId(selectedMemberId);
+
   // Check if a family member is the partner on this registration
   if (!isSelfTarget) {
     const regPartnerFamId = reg.partnerFamilyMemberId || reg.partnerFamilyMember?.id;
-    if (regPartnerFamId && String(regPartnerFamId) === String(selectedMemberId) && isPartnerConfirmed) {
+    if (regPartnerFamId != null && normId(regPartnerFamId) === targetId && isPartnerConfirmed) {
       return true;
     }
   }
@@ -198,19 +201,39 @@ export function isRegistrationForMemberHelper(
     return false;
   }
 
-  if (regFamilyMemberId && String(regFamilyMemberId) === String(selectedMemberId)) {
-    return true;
+  // 1. If registration explicitly contains a familyMemberId:
+  // It uniquely identifies which family member is registered.
+  if (regFamilyMemberId != null && String(regFamilyMemberId).trim() !== "") {
+    return normId(regFamilyMemberId) === targetId;
   }
 
-  const targetMember = familyMembersOnly.find(m => String(m.id) === String(selectedMemberId));
+  // 2. Fallback resolution when no familyMemberId is stored on the registration
+  const targetMember = familyMembersOnly.find(m => normId(m.id) === targetId);
   if (targetMember) {
     const targetMemberName = (targetMember.name || "").trim().toLowerCase();
     const targetMemberRelation = String(targetMember.relation || (targetMember as any).relationship || "").trim().toUpperCase();
-    if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
-      return true;
+
+    // 2a. Match by player name if present on the registration
+    if (regPlayerName) {
+      if (targetMemberName && regPlayerName.toLowerCase() === targetMemberName) {
+        return true;
+      }
+      // If the registration has a player name that doesn't match this target member,
+      // it belongs to someone else (e.g. another child/member) and MUST NOT match.
+      return false;
     }
+
+    // 2b. Match by relation ONLY if no other family member shares this exact relation.
+    // When multiple family members share the same relation (e.g. 2 daughters, 2 sons, multiple children),
+    // relation alone is ambiguous and must NOT cause one member's registration to leak to another.
     if (targetMemberRelation && String(regRelation || "").trim().toUpperCase() === targetMemberRelation) {
-      return true;
+      const sameRelationMembers = familyMembersOnly.filter(m => {
+        const r = String(m.relation || (m as any).relationship || "").trim().toUpperCase();
+        return r && r === targetMemberRelation;
+      });
+      if (sameRelationMembers.length === 1) {
+        return true;
+      }
     }
   }
 

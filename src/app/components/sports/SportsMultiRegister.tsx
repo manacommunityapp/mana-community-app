@@ -1788,6 +1788,15 @@ export function SportsMultiRegister() {
   };
 
   const toggleEventFormat = (eventId: number, formatToToggle: string) => {
+    const activeRegs = findAllRegistrationsForParticipant(eventId);
+    const isFmtReg = activeRegs.some(r => {
+      const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
+      return rawFmt === formatToToggle.toUpperCase() || (formatToToggle.toUpperCase().includes("DOUBLES") && Boolean(r.partnerId || r.partnerFamilyMemberId));
+    });
+    if (isFmtReg) {
+      toast.info(`${formatToToggle.replace(/_/g, " ").toLowerCase()} format is already registered`);
+      return;
+    }
     setEventSelections(prev => prev.map(ev => {
       if (ev.eventId === eventId) {
         const current = ev.matchTypes && ev.matchTypes.length > 0 ? ev.matchTypes : [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
@@ -3232,24 +3241,42 @@ export function SportsMultiRegister() {
                                       {ev.availableFormats.map((fmt) => {
                                         const selectedList = ev.matchTypes || [ev.matchType || (ev.availableFormats?.[0] || "SINGLES")];
                                         const isFmtSelected = selectedList.some(f => f.toUpperCase() === fmt.toUpperCase());
+                                        const activeRegs = findAllRegistrationsForParticipant(ev.eventId);
+                                        const isFmtRegistered = activeRegs.some(r => {
+                                          const rawFmt = (typeof r.matchType === "string" ? r.matchType : Array.isArray(r.matchType) ? r.matchType.join(" ") : String(r.matchType || (r as any).format || "")).toUpperCase().trim();
+                                          return rawFmt === fmt.toUpperCase() || (fmt.toUpperCase().includes("DOUBLES") && Boolean(r.partnerId || r.partnerFamilyMemberId));
+                                        });
                                         const formatLabel = fmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
                                         return (
                                           <button
                                             key={fmt}
                                             type="button"
+                                            disabled={isFmtRegistered}
                                             onClick={() => toggleEventFormat(ev.eventId, fmt)}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition select-none cursor-pointer border ${
-                                              isFmtSelected
-                                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs"
-                                                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition select-none border ${
+                                              isFmtRegistered
+                                                ? "bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80 cursor-not-allowed"
+                                                : isFmtSelected
+                                                  ? "bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs cursor-pointer"
+                                                  : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 cursor-pointer"
                                             }`}
+                                            title={isFmtRegistered ? `${formatLabel} format is already registered or confirmed` : undefined}
                                           >
                                             <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition ${
-                                              isFmtSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 bg-white"
+                                              isFmtRegistered
+                                                ? "border-emerald-600 bg-emerald-600 text-white"
+                                                : isFmtSelected
+                                                  ? "bg-indigo-600 border-indigo-600 text-white"
+                                                  : "border-slate-300 bg-white"
                                             }`}>
-                                              {isFmtSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                              {(isFmtSelected || isFmtRegistered) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                             </div>
                                             <span>{formatLabel}</span>
+                                            {isFmtRegistered && (
+                                              <span className="text-[9px] px-1 py-0.2 rounded font-bold uppercase bg-emerald-100 text-emerald-700">
+                                                Registered
+                                              </span>
+                                            )}
                                           </button>
                                         );
                                       })}

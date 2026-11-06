@@ -662,6 +662,127 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
       expect(details3.partnerStatus).toBe("—");
     });
   });
+
+  describe("Child and Family Member Registration Isolation", () => {
+    const headName = "Sandeep Kamarapu";
+    const headId = 1;
+
+    // Household with:
+    // Kid 1: Female, 8 yrs (Daughter)
+    // Kid 2: Female, 10 yrs (Daughter)
+    // Kid 3: Male, 9 yrs (Son)
+    const householdMembers = [
+      { id: 101, name: "Aanya Kamarapu", relation: "Daughter" },
+      { id: 102, name: "Diya Kamarapu", relation: "Daughter" },
+      { id: 103, name: "Aarav Kamarapu", relation: "Son" },
+    ];
+
+    it("does NOT leak Kid 1's registration to Kid 2 when both are daughters and user switches dropdown", () => {
+      // Kid 1 registers for an event
+      const kid1Reg = {
+        id: 901,
+        eventId: 55,
+        playerName: "Aanya Kamarapu",
+        relation: "Daughter",
+        familyMemberId: 101,
+        status: "CONFIRMED",
+        matchType: "SINGLES",
+      };
+
+      // When dropdown is set to Kid 1: matches
+      expect(isRegistrationForMemberHelper(kid1Reg, 101, householdMembers, headName, headId)).toBe(true);
+      expect(isRegistrationForMemberHelper(kid1Reg, "101", householdMembers, headName, headId)).toBe(true);
+
+      // When dropdown is switched to Kid 2: MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, 102, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(kid1Reg, "102", householdMembers, headName, headId)).toBe(false);
+
+      // When dropdown is switched to Male Kid (Kid 3): MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, 103, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(kid1Reg, "103", householdMembers, headName, headId)).toBe(false);
+
+      // When dropdown is set to Self: MUST NOT MATCH!
+      expect(isRegistrationForMemberHelper(kid1Reg, "self", householdMembers, headName, headId)).toBe(false);
+    });
+
+    it("does NOT leak registration between multiple male kids (sons)", () => {
+      const brothers = [
+        { id: 201, name: "Aarav Kamarapu", relation: "Son" },
+        { id: 202, name: "Vihaan Kamarapu", relation: "Son" },
+      ];
+
+      const son1Reg = {
+        id: 902,
+        eventId: 60,
+        playerName: "Aarav Kamarapu",
+        relation: "Son",
+        familyMemberId: 201,
+        status: "CONFIRMED",
+      };
+
+      // Son 1 matches Son 1
+      expect(isRegistrationForMemberHelper(son1Reg, 201, brothers, headName, headId)).toBe(true);
+      // Son 1 registration does NOT match Son 2
+      expect(isRegistrationForMemberHelper(son1Reg, 202, brothers, headName, headId)).toBe(false);
+    });
+
+    it("does NOT leak registration when children all share generic relation 'Child'", () => {
+      const genericChildren = [
+        { id: 301, name: "Aanya Kamarapu", relation: "Child" },
+        { id: 302, name: "Diya Kamarapu", relation: "Child" },
+        { id: 303, name: "Aarav Kamarapu", relation: "Child" },
+      ];
+
+      const kid1Reg = {
+        id: 903,
+        eventId: 70,
+        playerName: "Aanya Kamarapu",
+        relation: "Child",
+        familyMemberId: 301,
+        status: "CONFIRMED",
+      };
+
+      // Matches Kid 1
+      expect(isRegistrationForMemberHelper(kid1Reg, 301, genericChildren, headName, headId)).toBe(true);
+      // Does NOT match Kid 2
+      expect(isRegistrationForMemberHelper(kid1Reg, 302, genericChildren, headName, headId)).toBe(false);
+      // Does NOT match Male Kid (Kid 3)
+      expect(isRegistrationForMemberHelper(kid1Reg, 303, genericChildren, headName, headId)).toBe(false);
+    });
+
+    it("isolates registrations correctly even when familyMemberId is missing, using exact player name", () => {
+      const kid1RegNoId = {
+        id: 904,
+        eventId: 80,
+        playerName: "Aanya Kamarapu",
+        relation: "Daughter",
+        familyMemberId: null,
+        status: "CONFIRMED",
+      };
+
+      // Matches Kid 1 by exact player name
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 101, householdMembers, headName, headId)).toBe(true);
+      // Does NOT match Kid 2 even though relation is "Daughter"
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 102, householdMembers, headName, headId)).toBe(false);
+      // Does NOT match Male Kid
+      expect(isRegistrationForMemberHelper(kid1RegNoId, 103, householdMembers, headName, headId)).toBe(false);
+    });
+
+    it("does not match by relation when multiple members share that relation and name/id are absent", () => {
+      const ambiguousReg = {
+        id: 905,
+        eventId: 90,
+        playerName: null,
+        relation: "Daughter",
+        familyMemberId: null,
+        status: "CONFIRMED",
+      };
+
+      // Ambiguous: 2 daughters exist, so neither should automatically claim this registration
+      expect(isRegistrationForMemberHelper(ambiguousReg, 101, householdMembers, headName, headId)).toBe(false);
+      expect(isRegistrationForMemberHelper(ambiguousReg, 102, householdMembers, headName, headId)).toBe(false);
+    });
+  });
 });
 
 

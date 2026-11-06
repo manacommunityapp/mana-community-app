@@ -1047,7 +1047,12 @@ export function SportsDashboard() {
           (matchingReg?.id && withdrawnRegistrationIds.has(Number(matchingReg.id)))
         );
 
-        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn);
+        const isForFamilyInMyRegs = fetchedMyRegs.some(r =>
+          (Number(r.id) === Number(e.myRegistrationId) || isEventMatch(r, e)) &&
+          !isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId)
+        );
+
+        const hasActiveBackendReg = Boolean(e.myRegistrationId && !isBackendInactive && !isWithdrawnInMyRegs && !isLocallyWithdrawn && !isForFamilyInMyRegs);
 
         const rawRegId = hasActiveBackendReg ? e.myRegistrationId : (matchingReg && !isLocallyWithdrawn ? matchingReg.id : undefined);
         const rawRegStatus = hasActiveBackendReg ? (e.myRegistrationStatus || "CONFIRMED") : (matchingReg?.status ?? undefined);
