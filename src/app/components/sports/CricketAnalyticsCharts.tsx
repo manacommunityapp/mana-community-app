@@ -2,7 +2,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   LineChart, Line, ResponsiveContainer, Legend,
 } from "recharts";
-import { Activity, Target, TrendingUp, User, Zap } from "lucide-react";
+import { Activity, Target, TrendingUp, User, Zap, Medal, Trophy, BarChart2, Globe, MapPin, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { useState } from "react";
 
 // ── Shared tooltip/axis styles (match SportsAnalytics) ─────────────────────
 const TOOLTIP_STYLE = {
@@ -399,6 +400,306 @@ export function PlayerCareerStats({ players }: { players: PlayerCareer[] }) {
   );
 }
 
+// ── Ranking / leaderboard types ─────────────────────────────────────────────
+interface RankedPlayer {
+  rank: number;
+  prevRank: number;
+  name: string;
+  community: string;
+  sport: string;
+  score: number;
+  matches: number;
+  highlight?: boolean;
+}
+
+interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  team: string;
+  runs?: number;
+  avg?: number;
+  sr?: number;
+  wickets?: number;
+  economy?: number;
+  bowlAvg?: number;
+  matches: number;
+}
+
+interface PerformanceIndex {
+  name: string;
+  battingIdx: number;
+  bowlingIdx: number;
+  allRounderIdx: number;
+  matches: number;
+}
+
+// ── Demo data for new sections ───────────────────────────────────────────────
+const LOCAL_RANKINGS: RankedPlayer[] = [
+  { rank: 1, prevRank: 2, name: "V. Kohli",  community: "Block A", sport: "Cricket", score: 892, matches: 34 },
+  { rank: 2, prevRank: 1, name: "R. Sharma", community: "Block B", sport: "Cricket", score: 874, matches: 34 },
+  { rank: 3, prevRank: 3, name: "S. Gill",   community: "Block C", sport: "Cricket", score: 741, matches: 28 },
+  { rank: 4, prevRank: 6, name: "H. Pandya", community: "Block A", sport: "Cricket", score: 698, matches: 28, highlight: true },
+  { rank: 5, prevRank: 4, name: "R. Ashwin", community: "Block D", sport: "Cricket", score: 672, matches: 30 },
+  { rank: 6, prevRank: 5, name: "J. Bumrah", community: "Block B", sport: "Cricket", score: 655, matches: 34 },
+  { rank: 7, prevRank: 8, name: "K. Rahul",  community: "Block C", sport: "Cricket", score: 589, matches: 25 },
+  { rank: 8, prevRank: 7, name: "Y. Singh",  community: "Block A", sport: "Cricket", score: 541, matches: 22 },
+];
+
+const GLOBAL_RANKINGS: RankedPlayer[] = [
+  { rank: 1, prevRank: 1, name: "V. Kohli",        community: "Mana Community", sport: "Cricket", score: 1240, matches: 34 },
+  { rank: 2, prevRank: 3, name: "S. Patel",        community: "Green Valley",   sport: "Cricket", score: 1198, matches: 41 },
+  { rank: 3, prevRank: 2, name: "R. Sharma",       community: "Mana Community", sport: "Cricket", score: 1162, matches: 34 },
+  { rank: 4, prevRank: 5, name: "A. Kumar",        community: "Sunrise Apt",    sport: "Cricket", score: 1055, matches: 38 },
+  { rank: 5, prevRank: 4, name: "M. Ali",          community: "City Heights",   sport: "Cricket", score: 1032, matches: 36 },
+  { rank: 6, prevRank: 7, name: "S. Gill",         community: "Mana Community", sport: "Cricket", score: 988,  matches: 28, highlight: true },
+  { rank: 7, prevRank: 6, name: "P. Krishnaswamy", community: "Palm Grove",     sport: "Cricket", score: 971,  matches: 44 },
+  { rank: 8, prevRank: 8, name: "D. Nair",         community: "River View",     sport: "Cricket", score: 944,  matches: 29 },
+];
+
+const BATTING_LEADERBOARD: LeaderboardEntry[] = [
+  { rank: 1, name: "V. Kohli",  team: "Team Alpha", runs: 1510, avg: 50.3, sr: 132.0, matches: 34 },
+  { rank: 2, name: "R. Sharma", team: "Team Beta",  runs: 1420, avg: 44.4, sr: 138.2, matches: 34 },
+  { rank: 3, name: "S. Gill",   team: "Team Alpha", runs: 920,  avg: 36.8, sr: 142.1, matches: 28 },
+  { rank: 4, name: "H. Pandya", team: "Team Beta",  runs: 580,  avg: 32.2, sr: 148.7, matches: 28 },
+  { rank: 5, name: "K. Rahul",  team: "Team Alpha", runs: 540,  avg: 30.0, sr: 125.6, matches: 25 },
+];
+
+const BOWLING_LEADERBOARD: LeaderboardEntry[] = [
+  { rank: 1, name: "J. Bumrah", team: "Team Alpha", wickets: 76, bowlAvg: 18.4, economy: 6.2, matches: 34 },
+  { rank: 2, name: "R. Ashwin", team: "Team Beta",  wickets: 55, bowlAvg: 22.8, economy: 7.1, matches: 30 },
+  { rank: 3, name: "H. Pandya", team: "Team Alpha", wickets: 32, bowlAvg: 29.4, economy: 8.9, matches: 28 },
+  { rank: 4, name: "K. Yadav",  team: "Team Beta",  wickets: 28, bowlAvg: 25.2, economy: 7.6, matches: 24 },
+  { rank: 5, name: "M. Shami",  team: "Team Alpha", wickets: 24, bowlAvg: 27.1, economy: 7.9, matches: 20 },
+];
+
+const PERFORMANCE_INDICES: PerformanceIndex[] = [
+  { name: "V. Kohli",  battingIdx: 94, bowlingIdx: 2,  allRounderIdx: 48, matches: 34 },
+  { name: "R. Sharma", battingIdx: 88, bowlingIdx: 3,  allRounderIdx: 46, matches: 34 },
+  { name: "H. Pandya", battingIdx: 71, bowlingIdx: 58, allRounderIdx: 65, matches: 28 },
+  { name: "R. Ashwin", battingIdx: 42, bowlingIdx: 79, allRounderIdx: 61, matches: 30 },
+  { name: "J. Bumrah", battingIdx: 8,  bowlingIdx: 95, allRounderIdx: 52, matches: 34 },
+  { name: "S. Gill",   battingIdx: 76, bowlingIdx: 4,  allRounderIdx: 40, matches: 28 },
+];
+
+// ── Small helpers ────────────────────────────────────────────────────────────
+function RankBadge({ rank }: { rank: number }) {
+  if (rank === 1) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400/20 text-amber-500 text-[10px] font-black">1</span>;
+  if (rank === 2) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-400/20 text-slate-500 text-[10px] font-black">2</span>;
+  if (rank === 3) return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-400/20 text-orange-600 text-[10px] font-black">3</span>;
+  return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-[10px] font-bold">{rank}</span>;
+}
+
+function RankDelta({ curr, prev }: { curr: number; prev: number }) {
+  const delta = prev - curr;
+  if (delta > 0) return <span className="flex items-center gap-0.5 text-emerald-600 text-[9px] font-bold"><ArrowUp className="w-2.5 h-2.5" />{delta}</span>;
+  if (delta < 0) return <span className="flex items-center gap-0.5 text-red-500 text-[9px] font-bold"><ArrowDown className="w-2.5 h-2.5" />{Math.abs(delta)}</span>;
+  return <span className="text-muted-foreground"><Minus className="w-2.5 h-2.5" /></span>;
+}
+
+function IndexBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="flex-1 h-1.5 rounded-full bg-muted/60 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
+      </div>
+      <span className="text-[10px] font-bold w-6 text-right" style={{ color }}>{value}</span>
+    </div>
+  );
+}
+
+// ── Global / Local Rankings ──────────────────────────────────────────────────
+export function PlayerRankings() {
+  const [scope, setScope] = useState<"local" | "global">("local");
+  const rows = scope === "local" ? LOCAL_RANKINGS : GLOBAL_RANKINGS;
+
+  return (
+    <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center"><Medal className="h-3.5 w-3.5" /></div>
+          <h3 className="text-xs font-bold text-foreground">Player Rankings</h3>
+        </div>
+        <div className="flex rounded-xl overflow-hidden border border-border text-[10px] font-bold">
+          <button onClick={() => setScope("local")}
+            className={`flex items-center gap-1 px-3 py-1.5 transition ${scope === "local" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+            <MapPin className="w-2.5 h-2.5" />Local
+          </button>
+          <button onClick={() => setScope("global")}
+            className={`flex items-center gap-1 px-3 py-1.5 transition ${scope === "global" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+            <Globe className="w-2.5 h-2.5" />Global
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        {scope === "local" ? "Top players within your community this season" : "Top players across all registered communities"}
+      </p>
+      <div className="space-y-1.5">
+        {rows.map(p => (
+          <div key={p.name} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${p.highlight ? "bg-primary/5 border border-primary/20" : "hover:bg-muted/30"}`}>
+            <RankBadge rank={p.rank} />
+            <div className="w-8"><RankDelta curr={p.rank} prev={p.prevRank} /></div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-bold truncate ${p.highlight ? "text-primary" : "text-foreground"}`}>
+                {p.name}{p.highlight && <span className="ml-1.5 text-[9px] font-semibold text-primary/70">you</span>}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate">{p.community}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-black text-foreground">{p.score.toLocaleString()}</p>
+              <p className="text-[9px] text-muted-foreground">{p.matches}M · pts</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Tournament Leaderboard ───────────────────────────────────────────────────
+export function TournamentLeaderboard() {
+  const [tab, setTab] = useState<"batting" | "bowling">("batting");
+
+  return (
+    <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="h-7 w-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center"><Trophy className="h-3.5 w-3.5" /></div>
+        <h3 className="text-xs font-bold text-foreground">Tournament Leaderboard</h3>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">Top performers in the current tournament</p>
+
+      <div className="flex rounded-xl overflow-hidden border border-border text-[10px] font-bold mb-4 w-fit">
+        <button onClick={() => setTab("batting")}
+          className={`px-4 py-1.5 transition ${tab === "batting" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+          Batting
+        </button>
+        <button onClick={() => setTab("bowling")}
+          className={`px-4 py-1.5 transition ${tab === "bowling" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+          Bowling
+        </button>
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-border/60">
+        {tab === "batting" ? (
+          <table className="w-full min-w-[420px] text-left text-xs">
+            <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <tr>{["#", "Player", "Team", "Runs", "Avg", "SR", "M"].map(h => <th key={h} className="px-3 py-2 font-bold">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-border/40">
+              {BATTING_LEADERBOARD.map(r => (
+                <tr key={r.name} className="hover:bg-muted/20">
+                  <td className="px-3 py-2.5"><RankBadge rank={r.rank} /></td>
+                  <td className="px-3 py-2.5 font-semibold text-foreground">{r.name}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground text-[10px]">{r.team}</td>
+                  <td className="px-3 py-2.5 font-black text-primary">{r.runs}</td>
+                  <td className="px-3 py-2.5">{r.avg?.toFixed(1)}</td>
+                  <td className="px-3 py-2.5">{r.sr?.toFixed(1)}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.matches}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full min-w-[420px] text-left text-xs">
+            <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <tr>{["#", "Player", "Team", "Wkts", "Avg", "Econ", "M"].map(h => <th key={h} className="px-3 py-2 font-bold">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-border/40">
+              {BOWLING_LEADERBOARD.map(r => (
+                <tr key={r.name} className="hover:bg-muted/20">
+                  <td className="px-3 py-2.5"><RankBadge rank={r.rank} /></td>
+                  <td className="px-3 py-2.5 font-semibold text-foreground">{r.name}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground text-[10px]">{r.team}</td>
+                  <td className="px-3 py-2.5 font-black text-primary">{r.wickets}</td>
+                  <td className="px-3 py-2.5">{r.bowlAvg?.toFixed(1)}</td>
+                  <td className="px-3 py-2.5">{r.economy?.toFixed(1)}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{r.matches}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Performance Index ────────────────────────────────────────────────────────
+export function PerformanceIndices() {
+  const [view, setView] = useState<"batting" | "bowling" | "allrounder">("allrounder");
+
+  const sorted = [...PERFORMANCE_INDICES].sort((a, b) => {
+    if (view === "batting")   return b.battingIdx - a.battingIdx;
+    if (view === "bowling")   return b.bowlingIdx - a.bowlingIdx;
+    return b.allRounderIdx - a.allRounderIdx;
+  });
+
+  const barData = sorted.map(p => ({
+    name: p.name.split(".")[1]?.trim() ?? p.name,
+    Batting: p.battingIdx,
+    Bowling: p.bowlingIdx,
+    "All-round": p.allRounderIdx,
+  }));
+
+  return (
+    <div className="bg-card border border-border/80 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-cyan-500/10 text-cyan-500 flex items-center justify-center"><BarChart2 className="h-3.5 w-3.5" /></div>
+          <h3 className="text-xs font-bold text-foreground">Performance Index</h3>
+        </div>
+        <div className="flex rounded-xl overflow-hidden border border-border text-[10px] font-bold">
+          {(["batting", "bowling", "allrounder"] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className={`px-3 py-1.5 capitalize transition ${view === v ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}>
+              {v === "allrounder" ? "All-round" : v}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        Composite 0–100 index combining runs, strike rate, wickets & economy
+      </p>
+
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={barData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barCategoryGap="20%">
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(99,102,241,0.08)" vertical={false} />
+          <XAxis dataKey="name" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+          <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} domain={[0, 100]} />
+          <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL} />
+          {view === "allrounder" ? (
+            <>
+              <Bar dataKey="Batting"   fill="#6366f1" radius={[3,3,0,0]} maxBarSize={16} />
+              <Bar dataKey="Bowling"   fill="#06b6d4" radius={[3,3,0,0]} maxBarSize={16} />
+              <Bar dataKey="All-round" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={16} />
+              <Legend wrapperStyle={{ fontSize: "11px", color: "#8b8fc8", paddingTop: "8px" }} />
+            </>
+          ) : view === "batting" ? (
+            <Bar dataKey="Batting" fill="#6366f1" radius={[3,3,0,0]} maxBarSize={28} />
+          ) : (
+            <Bar dataKey="Bowling" fill="#06b6d4" radius={[3,3,0,0]} maxBarSize={28} />
+          )}
+        </BarChart>
+      </ResponsiveContainer>
+
+      <div className="mt-4 space-y-3">
+        {sorted.map(p => (
+          <div key={p.name} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 items-center">
+            <p className="text-xs font-semibold text-foreground col-span-2 mb-0.5">
+              {p.name} <span className="text-[10px] text-muted-foreground font-normal">· {p.matches}M</span>
+            </p>
+            <span className="text-[10px] text-muted-foreground">Batting</span>
+            <IndexBar value={p.battingIdx} color="#6366f1" />
+            <span className="text-[10px] text-muted-foreground">Bowling</span>
+            <IndexBar value={p.bowlingIdx} color="#06b6d4" />
+            <span className="text-[10px] text-muted-foreground">All-round</span>
+            <IndexBar value={p.allRounderIdx} color="#f59e0b" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main exported section ────────────────────────────────────────────────────
 export function CricketAnalyticsSection() {
   const demo = generateDemoData(42);
@@ -418,6 +719,15 @@ export function CricketAnalyticsSection() {
           Demo data
         </span>
       </div>
+
+      {/* Rankings + Leaderboard side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <PlayerRankings />
+        <TournamentLeaderboard />
+      </div>
+
+      {/* Performance Index full width */}
+      <PerformanceIndices />
 
       {/* Manhattan + Worm side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
