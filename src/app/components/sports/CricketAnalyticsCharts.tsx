@@ -4,6 +4,7 @@ import {
 } from "recharts";
 import { Activity, Target, TrendingUp, User, Zap, Medal, Trophy, BarChart2, Globe, MapPin, ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { useState } from "react";
+import { useCricketPlayerProfile } from "./CricketPlayerProfile";
 
 // ── Shared tooltip/axis styles (match SportsAnalytics) ─────────────────────
 const TOOLTIP_STYLE = {
@@ -508,7 +509,7 @@ function IndexBar({ value, color }: { value: number; color: string }) {
 }
 
 // ── Global / Local Rankings ──────────────────────────────────────────────────
-export function PlayerRankings() {
+export function PlayerRankings({ onPlayerClick }: { onPlayerClick?: (name: string) => void }) {
   const [scope, setScope] = useState<"local" | "global">("local");
   const rows = scope === "local" ? LOCAL_RANKINGS : GLOBAL_RANKINGS;
 
@@ -535,7 +536,11 @@ export function PlayerRankings() {
       </p>
       <div className="space-y-1.5">
         {rows.map(p => (
-          <div key={p.name} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${p.highlight ? "bg-primary/5 border border-primary/20" : "hover:bg-muted/30"}`}>
+          <button
+            key={p.name}
+            onClick={() => onPlayerClick?.(p.name)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition text-left ${p.highlight ? "bg-primary/5 border border-primary/20" : "hover:bg-muted/30"} ${onPlayerClick ? "cursor-pointer" : "cursor-default"}`}
+          >
             <RankBadge rank={p.rank} />
             <div className="w-8"><RankDelta curr={p.rank} prev={p.prevRank} /></div>
             <div className="flex-1 min-w-0">
@@ -548,7 +553,7 @@ export function PlayerRankings() {
               <p className="text-xs font-black text-foreground">{p.score.toLocaleString()}</p>
               <p className="text-[9px] text-muted-foreground">{p.matches}M · pts</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -556,7 +561,7 @@ export function PlayerRankings() {
 }
 
 // ── Tournament Leaderboard ───────────────────────────────────────────────────
-export function TournamentLeaderboard() {
+export function TournamentLeaderboard({ onPlayerClick }: { onPlayerClick?: (name: string) => void }) {
   const [tab, setTab] = useState<"batting" | "bowling">("batting");
 
   return (
@@ -588,7 +593,9 @@ export function TournamentLeaderboard() {
               {BATTING_LEADERBOARD.map(r => (
                 <tr key={r.name} className="hover:bg-muted/20">
                   <td className="px-3 py-2.5"><RankBadge rank={r.rank} /></td>
-                  <td className="px-3 py-2.5 font-semibold text-foreground">{r.name}</td>
+                  <td className="px-3 py-2.5 font-semibold text-foreground">
+                    <button onClick={() => onPlayerClick?.(r.name)} className={`text-left ${onPlayerClick ? "hover:text-primary hover:underline cursor-pointer" : ""}`}>{r.name}</button>
+                  </td>
                   <td className="px-3 py-2.5 text-muted-foreground text-[10px]">{r.team}</td>
                   <td className="px-3 py-2.5 font-black text-primary">{r.runs}</td>
                   <td className="px-3 py-2.5">{r.avg?.toFixed(1)}</td>
@@ -607,7 +614,9 @@ export function TournamentLeaderboard() {
               {BOWLING_LEADERBOARD.map(r => (
                 <tr key={r.name} className="hover:bg-muted/20">
                   <td className="px-3 py-2.5"><RankBadge rank={r.rank} /></td>
-                  <td className="px-3 py-2.5 font-semibold text-foreground">{r.name}</td>
+                  <td className="px-3 py-2.5 font-semibold text-foreground">
+                    <button onClick={() => onPlayerClick?.(r.name)} className={`text-left ${onPlayerClick ? "hover:text-primary hover:underline cursor-pointer" : ""}`}>{r.name}</button>
+                  </td>
                   <td className="px-3 py-2.5 text-muted-foreground text-[10px]">{r.team}</td>
                   <td className="px-3 py-2.5 font-black text-primary">{r.wickets}</td>
                   <td className="px-3 py-2.5">{r.bowlAvg?.toFixed(1)}</td>
@@ -703,8 +712,12 @@ export function PerformanceIndices() {
 // ── Main exported section ────────────────────────────────────────────────────
 export function CricketAnalyticsSection() {
   const demo = generateDemoData(42);
+  const { open: openProfile, modal: profileModal } = useCricketPlayerProfile();
+
   return (
     <section className="space-y-5">
+      {profileModal}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -722,8 +735,8 @@ export function CricketAnalyticsSection() {
 
       {/* Rankings + Leaderboard side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <PlayerRankings />
-        <TournamentLeaderboard />
+        <PlayerRankings onPlayerClick={openProfile} />
+        <TournamentLeaderboard onPlayerClick={openProfile} />
       </div>
 
       {/* Performance Index full width */}
