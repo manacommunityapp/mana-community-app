@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { isSelfRelationOrMember, isRegistrationForMemberHelper, isEventMatch, isActiveRegistrationStatus, isFormatCompatible, getFamilyMembersOnly } from "./SportsDashboard";
 import { checkCategoryEligibility } from "./SportsRegister";
+import { extractPartnerExportDetails } from "../../../utils/sportsExportUtils";
 
 describe("SportsDashboard - isSelfRelationOrMember and Registrant Badge Logic", () => {
   const currentUserName = "Sandeep Kamarapu";
@@ -555,6 +556,111 @@ describe("SportsDashboard - isRegistrationForMemberHelper and isEventMatch", () 
     // Test with empty or undefined
     expect(getFamilyMembersOnly(undefined as any, "Sandeep Kamarapu")).toEqual([]);
     expect(getFamilyMembersOnly([], "Sandeep Kamarapu")).toEqual([]);
+  });
+
+  describe("Doubles Partner Confirmation and Dashboard / Export Alignment", () => {
+    const currentUserId = 101;
+    const currentUserName = "Sandeep Kamarapu";
+
+    it("matches Self when the logged-in user is a CONFIRMED doubles partner on another player's registration", () => {
+      const regAsConfirmedPartner = {
+        id: 999,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        relation: "SELF",
+        familyMemberId: null,
+        matchType: "DOUBLES",
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "CONFIRMED",
+      };
+
+      // When checking for "self", it should recognize that the current user is a confirmed partner on this reg!
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, "self", [], currentUserName, currentUserId)).toBe(true);
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, undefined, [], currentUserName, currentUserId)).toBe(true);
+      // But checking for another family member ID should return false
+      expect(isRegistrationForMemberHelper(regAsConfirmedPartner, 303, [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("does NOT match Self when partner invitation is PENDING, INVITED, or DECLINED", () => {
+      const regPending = {
+        id: 998,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        partnerUserId: currentUserId,
+        partnerName: currentUserName,
+        partnerStatus: "PENDING",
+      };
+      expect(isRegistrationForMemberHelper(regPending, "self", [], currentUserName, currentUserId)).toBe(false);
+
+      const regInvited = {
+        ...regPending,
+        partnerStatus: "INVITED",
+      };
+      expect(isRegistrationForMemberHelper(regInvited, "self", [], currentUserName, currentUserId)).toBe(false);
+
+      const regDeclined = {
+        ...regPending,
+        partnerStatus: "DECLINED",
+      };
+      expect(isRegistrationForMemberHelper(regDeclined, "self", [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("matches family member when partner family member ID matches and status is CONFIRMED", () => {
+      const regWithFamilyPartner = {
+        id: 997,
+        eventId: 20,
+        playerName: "Rahul Sharma",
+        userId: 202,
+        partnerFamilyMemberId: 505,
+        partnerName: "Sindhuja Chinthala",
+        partnerConfirmationStatus: "CONFIRMED",
+      };
+
+      // Checking for family member 505 should match
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, 505, [], currentUserName, currentUserId)).toBe(true);
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, "505", [], currentUserName, currentUserId)).toBe(true);
+      // Checking for Self should NOT match because the partner is family member 505
+      expect(isRegistrationForMemberHelper(regWithFamilyPartner, "self", [], currentUserName, currentUserId)).toBe(false);
+    });
+
+    it("extractPartnerExportDetails correctly formats partner information for exports", () => {
+      // 1. Primary player with confirmed partner
+      const primaryPlayer = {
+        id: 1,
+        playerName: "Rahul Sharma",
+        partnerName: "Sandeep Kamarapu",
+        partnerFlatNumber: "Tower 2-401",
+        partnerPhone: "9876543210",
+        partnerStatus: "CONFIRMED",
+      };
+      const details1 = extractPartnerExportDetails(primaryPlayer as any);
+      expect(details1.partnerName).toBe("Sandeep Kamarapu");
+      expect(details1.partnerContact).toBe("Flat Tower 2-401 · 9876543210");
+      expect(details1.partnerStatus).toBe("Confirmed");
+
+      // 2. Open pool participant
+      const openPoolPlayer = {
+        id: 2,
+        playerName: "Sneha Patel",
+        openPool: true,
+      };
+      const details2 = extractPartnerExportDetails(openPoolPlayer as any);
+      expect(details2.partnerName).toBe("Open Pairing Pool");
+      expect(details2.partnerStatus).toBe("Looking for Partner");
+
+      // 3. Singles player (no partner)
+      const singlesPlayer = {
+        id: 3,
+        playerName: "Vijay Kumar",
+      };
+      const details3 = extractPartnerExportDetails(singlesPlayer as any);
+      expect(details3.partnerName).toBe("—");
+      expect(details3.partnerContact).toBe("—");
+      expect(details3.partnerStatus).toBe("—");
+    });
   });
 });
 

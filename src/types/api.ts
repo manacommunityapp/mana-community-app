@@ -378,8 +378,17 @@ export interface EventRegistration {
   externalFormId?: number;
   isExternalGuest?: boolean;
   matchFormat?: string;
+  matchType?: string;
+  partner?: { id?: number; fullName?: string; name?: string; email?: string; phone?: string; flatNo?: string };
+  partnerFamilyMember?: { id?: number; name?: string; relation?: string; gender?: string; age?: number };
+  partnerUserId?: number | null;
+  partnerFamilyMemberId?: number | string | null;
   partnerName?: string;
   partnerPhone?: string;
+  partnerFlatNumber?: string;
+  partnerStatus?: string;
+  partnerConfirmationStatus?: string;
+  partnerDeclineReason?: string;
 }
 
 export interface SportsPlayerRanking {

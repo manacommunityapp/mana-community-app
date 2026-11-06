@@ -1387,54 +1387,6 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       .catch(() => {});
   }, []);
 
-  const isParticipantRegisteredForEvent = useCallback((
-    targetEventId: number | string | undefined,
-    pType: "self" | "family" | "other",
-    pMemberId?: number | string,
-    pPlayerName?: string
-  ) => {
-    if (!targetEventId || !myRegistrations.length) return false;
-    return myRegistrations.some(r => {
-      const matchesEvent =
-        String(r.eventId) === String(targetEventId) ||
-        String(r.event?.id) === String(targetEventId);
-      if (!matchesEvent) return false;
-      const st = String(r.status || "").toUpperCase().trim();
-      if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
-
-      if (pType === "self") {
-        const regRelation = (r.relation || "").trim().toUpperCase();
-        const regFamilyId = r.familyMemberId;
-        const regPlayerName = (r.playerName || "").trim().toLowerCase();
-        const userFullNameLower = (userFullName || user?.fullName || "").trim().toLowerCase();
-
-        return (
-          !regFamilyId ||
-          regFamilyId === "self" ||
-          regFamilyId === "member-self" ||
-          regRelation === "SELF" ||
-          regRelation === "HEAD" ||
-          (!regFamilyId && !regRelation) ||
-          (userFullNameLower && regPlayerName === userFullNameLower)
-        );
-      } else if (pType === "family") {
-        if (pMemberId && r.familyMemberId && String(r.familyMemberId) === String(pMemberId)) {
-          return true;
-        }
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      } else if (pType === "other") {
-        if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
-          return true;
-        }
-        return false;
-      }
-      return false;
-    });
-  }, [myRegistrations, userFullName, user?.fullName]);
-
   const getParticipantRegistrations = useCallback((
     targetEventId: number | string | undefined,
     pType: "self" | "family" | "other",
@@ -1451,9 +1403,9 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       if (st === "CANCELLED" || st === "WITHDRAWN" || st === "REJECTED") return false;
 
       if (pType === "self") {
-        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, "self", familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "family") {
-        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName);
+        return isRegistrationForMemberHelper(r, pMemberId, familyMembersOnly, userFullName || user?.fullName, user?.userId);
       } else if (pType === "other") {
         if (pPlayerName && r.playerName && r.playerName.trim().toLowerCase() === pPlayerName.trim().toLowerCase()) {
           return true;
@@ -1462,7 +1414,16 @@ export function SportsRegister(props: SportsRegisterProps = {}) {
       }
       return false;
     });
-  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName]);
+  }, [myRegistrations, familyMembersOnly, userFullName, user?.fullName, user?.userId]);
+
+  const isParticipantRegisteredForEvent = useCallback((
+    targetEventId: number | string | undefined,
+    pType: "self" | "family" | "other",
+    pMemberId?: number | string,
+    pPlayerName?: string
+  ) => {
+    return getParticipantRegistrations(targetEventId, pType, pMemberId, pPlayerName).length > 0;
+  }, [getParticipantRegistrations]);
 
   const getParticipantRegistration = useCallback((
     targetEventId: number | string | undefined,

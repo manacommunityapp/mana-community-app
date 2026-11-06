@@ -50,6 +50,15 @@ export interface DashboardUpcomingEvent {
   playerName?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
+  partnerUserId?: number | string | null;
+  partnerFamilyMemberId?: number | string | null;
+  partnerName?: string | null;
+  partnerPhone?: string | null;
+  partnerFlatNumber?: string | null;
+  partnerStatus?: string | null;
+  partnerConfirmationStatus?: string | null;
+  partner?: any;
+  partnerFamilyMember?: any;
 }
 
 export interface DashboardMyRegistration {
@@ -67,6 +76,15 @@ export interface DashboardMyRegistration {
   playerName?: string | null;
   relation?: string | null;
   familyMemberId?: number | string | null;
+  partnerUserId?: number | string | null;
+  partnerFamilyMemberId?: number | string | null;
+  partnerName?: string | null;
+  partnerPhone?: string | null;
+  partnerFlatNumber?: string | null;
+  partnerStatus?: string | null;
+  partnerConfirmationStatus?: string | null;
+  partner?: any;
+  partnerFamilyMember?: any;
 }
 
 export interface DashboardTournamentCard {

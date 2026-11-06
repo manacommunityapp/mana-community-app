@@ -605,6 +605,56 @@ export function TournamentSection({
                         {reg.relation && <span>({reg.relation})</span>}
                         {reg.registeredAt && <span>· {format(new Date(reg.registeredAt), "MMM d, h:mm a")}</span>}
                       </div>
+
+                      {/* Doubles / Mixed Doubles Partner Display */}
+                      {(() => {
+                        const partnerName = reg.partnerName || reg.partner?.fullName || reg.partner?.name || reg.partnerFamilyMember?.name;
+                        const partnerFlat = reg.partnerFlatNumber || reg.partner?.flatNo;
+                        const partnerPhone = reg.partnerPhone || reg.partner?.phone;
+                        const rawPartnerStatus = (reg.partnerConfirmationStatus || reg.partnerStatus || "").toUpperCase();
+                        const isConfirmed = rawPartnerStatus === "CONFIRMED" || rawPartnerStatus === "ACCEPTED";
+                        const isDeclined = rawPartnerStatus === "DECLINED" || rawPartnerStatus === "REJECTED";
+                        const isDoublesEvent = Boolean(
+                          (reg.matchType && reg.matchType.toUpperCase().includes("DOUBLES")) ||
+                          (reg.matchFormat && reg.matchFormat.toUpperCase().includes("DOUBLES")) ||
+                          (ev.name && ev.name.toLowerCase().includes("doubles")) ||
+                          (reg.category?.name && reg.category.name.toLowerCase().includes("doubles")) ||
+                          partnerName || reg.partnerUserId || (reg as any).partnerFamilyMemberId
+                        );
+
+                        if (partnerName) {
+                          return (
+                            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-indigo-800 bg-indigo-50/80 border border-indigo-200/80 px-2 py-0.5 rounded-md w-fit flex-wrap">
+                              <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                              <span>
+                                Partner: <strong className="font-semibold text-indigo-950">{partnerName}</strong>
+                                {partnerFlat ? ` · Flat ${partnerFlat}` : ""}
+                                {partnerPhone ? ` · Ph: ${partnerPhone}` : ""}
+                              </span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full border ${
+                                isConfirmed
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                  : isDeclined
+                                  ? "bg-rose-100 text-rose-800 border-rose-300"
+                                  : "bg-amber-100 text-amber-800 border-amber-300"
+                              }`}>
+                                {isConfirmed ? "Partner Confirmed" : isDeclined ? "Partner Declined" : "Partner Invited"}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        if (isDoublesEvent) {
+                          return (
+                            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-purple-800 bg-purple-50/80 border border-purple-200/80 px-2 py-0.5 rounded-md w-fit">
+                              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                              <span className="font-medium">Open Pairing Pool (Partner Not Assigned)</span>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 justify-between sm:justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
@@ -736,6 +786,19 @@ export function TournamentSection({
                                   {hist.flatNumber && <span>Flat: {hist.flatNumber}</span>}
                                   {hist.seed != null && <span>Seed: {hist.seed}</span>}
                                 </div>
+                                {(() => {
+                                  const histPartner = hist.partnerName || hist.partner?.fullName || hist.partner?.name || hist.partnerFamilyMember?.name;
+                                  const histPartnerStatus = (hist.partnerConfirmationStatus || hist.partnerStatus || "").toUpperCase();
+                                  if (histPartner) {
+                                    return (
+                                      <div className="text-[10px] text-indigo-700 flex items-center gap-1 mt-0.5">
+                                        <Users className="w-2.5 h-2.5" />
+                                        <span>Partner: <strong>{histPartner}</strong> ({histPartnerStatus || "INVITED"})</span>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             </div>
 

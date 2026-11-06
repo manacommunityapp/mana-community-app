@@ -42,6 +42,53 @@ export interface ExportablePlayer {
   registeredAt?: string | Date;
   proposedTeamName?: string;
   user?: { fullName?: string; email?: string };
+  matchFormat?: string;
+  matchType?: string;
+  partnerName?: string;
+  partnerFlatNumber?: string;
+  partnerPhone?: string;
+  partnerStatus?: string;
+  partnerConfirmationStatus?: string;
+  partner?: { fullName?: string; name?: string; flatNo?: string; phone?: string };
+  partnerFamilyMember?: { name?: string; relation?: string };
+}
+
+export function extractPartnerExportDetails(p: ExportablePlayer): { partnerName: string; partnerContact: string; partnerStatus: string } {
+  const isOpenPool = Boolean((p as any).openPool || (p as any).isPoolPlayer || (p as any).needsPartner);
+  const partnerName = p.partnerName || p.partner?.fullName || p.partner?.name || p.partnerFamilyMember?.name || "";
+  const flat = p.partnerFlatNumber || p.partner?.flatNo || "";
+  const phone = p.partnerPhone || p.partner?.phone || "";
+  const contactParts: string[] = [];
+  if (flat) contactParts.push(`Flat ${flat}`);
+  if (phone) contactParts.push(phone);
+  const partnerContact = contactParts.join(" · ") || (partnerName ? "—" : "—");
+
+  let partnerStatus = p.partnerConfirmationStatus || p.partnerStatus || "";
+  if (partnerStatus) {
+    const s = partnerStatus.toUpperCase();
+    if (s === "CONFIRMED" || s === "ACCEPTED") partnerStatus = "Confirmed";
+    else if (s === "DECLINED" || s === "REJECTED") partnerStatus = "Declined";
+    else if (s === "PENDING" || s === "INVITED") partnerStatus = "Invited";
+  } else if (partnerName) {
+    partnerStatus = "Invited";
+  } else if (isOpenPool) {
+    partnerStatus = "Looking for Partner";
+  } else {
+    const fmt = (p.matchFormat || (p as any).matchType || p.categoryName || "").toUpperCase();
+    if (fmt.includes("DOUBLES")) {
+      partnerStatus = "Looking for Partner";
+    } else {
+      partnerStatus = "—";
+    }
+  }
+
+  const finalPartnerName = partnerName || (isOpenPool || partnerStatus === "Looking for Partner" ? "Open Pairing Pool" : "—");
+
+  return {
+    partnerName: finalPartnerName,
+    partnerContact: partnerContact || "—",
+    partnerStatus: partnerStatus || "—",
+  };
 }
 
 export function exportPlayersToCSV(players: ExportablePlayer[], title = "Player_Registrations") {
@@ -54,6 +101,9 @@ export function exportPlayersToCSV(players: ExportablePlayer[], title = "Player_
     "Gender",
     "Role / Type",
     "Relation",
+    "Partner Name",
+    "Partner Flat / Contact",
+    "Partner Status",
     "Status",
     "Seed",
     "Proposed Team",
@@ -72,6 +122,7 @@ export function exportPlayersToCSV(players: ExportablePlayer[], title = "Player_
     const seed = p.seed ?? "—";
     const team = p.proposedTeamName || "—";
     const regDate = p.registeredAt ? format(new Date(p.registeredAt), "yyyy-MM-dd HH:mm") : "—";
+    const { partnerName, partnerContact, partnerStatus } = extractPartnerExportDetails(p);
 
     return [
       idx + 1,
@@ -82,6 +133,9 @@ export function exportPlayersToCSV(players: ExportablePlayer[], title = "Player_
       escapeCSV(gender),
       escapeCSV(role),
       escapeCSV(relation),
+      escapeCSV(partnerName),
+      escapeCSV(partnerContact),
+      escapeCSV(partnerStatus),
       escapeCSV(status),
       escapeCSV(seed),
       escapeCSV(team),
@@ -104,6 +158,9 @@ export function exportPlayersToExcel(players: ExportablePlayer[], title = "Playe
     "Gender",
     "Role",
     "Relation",
+    "Partner Name",
+    "Partner Flat / Contact",
+    "Partner Status",
     "Status",
     "Seed",
     "Registered Date",
@@ -121,8 +178,8 @@ export function exportPlayersToExcel(players: ExportablePlayer[], title = "Playe
 </head>
 <body>
 <table>
-  <tr><td colspan="11" class="title-row">${title} — Registered Players Roster</td></tr>
-  <tr><td colspan="11">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total: ${players.length} Players</td></tr>
+  <tr><td colspan="14" class="title-row">${title} — Registered Players Roster</td></tr>
+  <tr><td colspan="14">Generated on: ${format(new Date(), "MMMM d, yyyy h:mm a")} | Total: ${players.length} Players</td></tr>
   <tr></tr>
   <tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
 
@@ -137,6 +194,7 @@ export function exportPlayersToExcel(players: ExportablePlayer[], title = "Playe
     const status = p.status || "CONFIRMED";
     const seed = p.seed ?? "—";
     const regDate = p.registeredAt ? format(new Date(p.registeredAt), "MMM d, yyyy h:mm a") : "—";
+    const { partnerName, partnerContact, partnerStatus } = extractPartnerExportDetails(p);
 
     html += `<tr>
       <td>${idx + 1}</td>
@@ -147,6 +205,9 @@ export function exportPlayersToExcel(players: ExportablePlayer[], title = "Playe
       <td>${gender}</td>
       <td>${role}</td>
       <td>${relation}</td>
+      <td>${partnerName}</td>
+      <td>${partnerContact}</td>
+      <td>${partnerStatus}</td>
       <td>${status}</td>
       <td>${seed}</td>
       <td>${regDate}</td>
@@ -168,7 +229,12 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
 
   const rowsHtml = players
     .map(
-      (p, idx) => `
+      (p, idx) => {
+        const { partnerName, partnerContact, partnerStatus } = extractPartnerExportDetails(p);
+        const partnerDisplay = partnerName !== "—"
+          ? `${escapeHtml(partnerName)}${partnerContact !== "—" ? ` (${escapeHtml(partnerContact)})` : ""}`
+          : "—";
+        return `
     <tr>
       <td style="text-align:center; font-weight:bold; color:#64748b;">${idx + 1}</td>
       <td style="font-weight:600; color:#0f172a;">${escapeHtml(p.playerName || p.user?.fullName || "—")}</td>
@@ -177,10 +243,13 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
       <td>${escapeHtml(p.age ?? "—")}</td>
       <td>${escapeHtml(p.gender || p.category?.gender || "—")}</td>
       <td>${escapeHtml(p.role || "—")}</td>
+      <td>${partnerDisplay}</td>
+      <td><span class="badge ${partnerStatus === "Confirmed" ? "badge-confirmed" : "badge-pending"}">${escapeHtml(partnerStatus)}</span></td>
       <td style="text-align:center; font-weight:bold; color:#4f46e5;">${p.seed != null ? `#${escapeHtml(p.seed)}` : "—"}</td>
       <td><span class="badge ${p.status === "CONFIRMED" ? "badge-confirmed" : "badge-pending"}">${escapeHtml(p.status || "CONFIRMED")}</span></td>
-      <td style="border-bottom: 1px dotted #cbd5e1; width: 120px;"></td>
-    </tr>`
+      <td style="border-bottom: 1px dotted #cbd5e1; width: 100px;"></td>
+    </tr>`;
+      }
     )
     .join("");
 
@@ -242,6 +311,8 @@ export function exportPlayersToPDF(players: ExportablePlayer[], title = "Tournam
         <th>Age</th>
         <th>Gender</th>
         <th>Role</th>
+        <th>Partner</th>
+        <th>Partner Status</th>
         <th style="text-align:center;">Seed</th>
         <th>Status</th>
         <th>Player Signature</th>

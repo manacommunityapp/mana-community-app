@@ -732,8 +732,8 @@ export function SportsDashboard() {
     reg: any,
     selectedMemberId: string | number | undefined,
   ) => {
-    return isRegistrationForMemberHelper(reg, selectedMemberId, familyMembersOnly, user?.fullName);
-  }, [familyMembersOnly, user?.fullName]);
+    return isRegistrationForMemberHelper(reg, selectedMemberId, familyMembersOnly, user?.fullName, user?.userId);
+  }, [familyMembersOnly, user?.fullName, user?.userId]);
 
   const filteredLiveEvents = useMemo(() => {
     if (upcomingFamilyFilter === "ALL") return liveEvents;
@@ -1009,6 +1009,15 @@ export function SportsDashboard() {
         playerName: r.playerName || (r as any).user?.fullName,
         relation: r.relation,
         familyMemberId: r.familyMemberId || (r as any).familyMember?.id,
+        partnerUserId: r.partnerUserId || (r as any).partner?.id || (r as any).partnerUserId,
+        partnerFamilyMemberId: r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || (r as any).partnerFamilyMemberId,
+        partnerName: r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name || (r as any).partnerPlayerName,
+        partnerPhone: r.partnerPhone || (r as any).partner?.phone,
+        partnerFlatNumber: r.partnerFlatNumber || (r as any).partner?.flatNo || (r as any).partner?.flatNumber,
+        partnerStatus: r.partnerStatus || (r as any).partnerConfirmationStatus,
+        partnerConfirmationStatus: (r as any).partnerConfirmationStatus || r.partnerStatus,
+        partner: (r as any).partner,
+        partnerFamilyMember: (r as any).partnerFamilyMember,
       }));
       setMyRegistrations(fetchedMyRegs);
 
@@ -1017,7 +1026,7 @@ export function SportsDashboard() {
         // ONLY match active registrations from fetchedMyRegs for SELF (family member registrations are mapped dynamically per selected dropdown member)
         const matchingReg = fetchedMyRegs.find(r =>
           isEventMatch(r, e) &&
-          isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName) &&
+          isRegistrationForMemberHelper(r, "self", familyMembersOnly, user?.fullName, user?.userId) &&
           isActiveRegistrationStatus(r.status) &&
           !withdrawnRegistrationIds.has(Number(r.id))
         );
@@ -2324,6 +2333,55 @@ export function SportsDashboard() {
                           </div>
                         </div>
 
+                        {/* Partner Details for Registered Events */}
+                        {isReg && regs.some(r => r.partnerName || r.partnerUserId || (r as any).partner || (r as any).openPool || (extractFormatStr(r.matchType || (r as any).format) || "").toUpperCase().includes("DOUBLE")) && (
+                          <div className="mt-1.5 flex flex-col gap-1">
+                            {regs.map(r => {
+                              const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                              const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                              const isConfirmedPartner = isPartner || isPartnerFam;
+
+                              const pName = r.partnerName || (r as any).partner?.fullName || (r as any).partner?.name;
+                              const rawStatus = String(r.partnerConfirmationStatus || r.partnerStatus || "").toUpperCase().trim();
+                              const statusLabel = (rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED") ? "Confirmed" : (rawStatus === "DECLINED" || rawStatus === "REJECTED") ? "Declined" : "Invited";
+                              const isPool = Boolean((r as any).openPool || (r as any).isPoolPlayer || (r as any).needsPartner || (!pName && !r.partnerUserId));
+
+                              if (isConfirmedPartner) {
+                                return (
+                                  <div
+                                    key={`partner-${r.id}`}
+                                    className="text-[10px] font-medium text-emerald-800 bg-emerald-50/90 px-2 py-0.5 rounded border border-emerald-200/80 flex items-center gap-1.5"
+                                  >
+                                    <Users className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span className="truncate">
+                                      Playing with <strong className="font-semibold text-emerald-950">{r.playerName || "Primary Player"}</strong> (Confirmed Partner)
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              if (pName || isPool) {
+                                return (
+                                  <div
+                                    key={`partner-${r.id}`}
+                                    className="text-[10px] font-medium text-slate-700 bg-slate-50/90 px-2 py-0.5 rounded border border-slate-200/80 flex items-center gap-1.5"
+                                  >
+                                    <Users className="w-3 h-3 text-indigo-500 shrink-0" />
+                                    {isPool ? (
+                                      <span className="text-amber-800 font-semibold">Partner: Open Pairing Pool</span>
+                                    ) : (
+                                      <span className="truncate">
+                                        Partner: <strong className="font-semibold text-slate-900">{pName}</strong> ({statusLabel})
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        )}
+
                         {/* Action row */}
                         <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap mt-1.5">
                           {isNearlyFull && !isFull ? (
@@ -2342,6 +2400,9 @@ export function SportsDashboard() {
                                   regs.map(r => {
                                     const rawFmt = extractFormatStr(r.matchType || (r as any).format) || "REGISTERED";
                                     const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                    const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                                    const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                                    const isConfirmedPartner = isPartner || isPartnerFam;
                                     return (
                                       <span
                                         key={r.id}
@@ -2349,6 +2410,73 @@ export function SportsDashboard() {
                                       >
                                         <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                                         <span>✓ {fmtLabel}</span>
+                                        {isConfirmedPartner ? (
+                                          <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
+                                            Partner
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUnregisterCategory(item, Number(r.id))}
+                                            className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
+                                            title={`Unregister from ${fmtLabel}`}
+                                            aria-label={`Unregister from ${fmtLabel}`}
+                                          >
+                                            ✕
+                                          </button>
+                                        )}
+                                      </span>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    {(() => {
+                                      const r = regs[0];
+                                      const isPartner = Boolean(user?.userId && String(r?.partnerUserId || (r as any)?.partner?.id || "") === String(user.userId));
+                                      const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r?.partnerFamilyMemberId || (r as any)?.partnerFamilyMember?.id || "") === String(selectedMemberId));
+                                      const isConfirmedPartner = isPartner || isPartnerFam;
+                                      return (
+                                        <>
+                                          <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                            <span>Registered{isConfirmedPartner ? " (Partner)" : ""}</span>
+                                          </span>
+                                          {!isConfirmedPartner && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
+                                              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
+                                              title="Unregister from this category"
+                                            >
+                                              Unregister
+                                            </button>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            ) : isPartiallyReg ? (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {regs.map(r => {
+                                  const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
+                                  const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                                  const isPartner = Boolean(user?.userId && String(r.partnerUserId || (r as any).partner?.id || "") === String(user.userId));
+                                  const isPartnerFam = Boolean(selectedMemberId && selectedMemberId !== "self" && String(r.partnerFamilyMemberId || (r as any).partnerFamilyMember?.id || "") === String(selectedMemberId));
+                                  const isConfirmedPartner = isPartner || isPartnerFam;
+                                  return (
+                                    <span
+                                      key={r.id}
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
+                                    >
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                      <span>✓ {fmtLabel}</span>
+                                      {isConfirmedPartner ? (
+                                        <span className="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold ml-0.5" title="Registered as Confirmed Partner">
+                                          Partner
+                                        </span>
+                                      ) : (
                                         <button
                                           type="button"
                                           onClick={() => handleUnregisterCategory(item, Number(r.id))}
@@ -2358,47 +2486,7 @@ export function SportsDashboard() {
                                         >
                                           ✕
                                         </button>
-                                      </span>
-                                    );
-                                  })
-                                ) : (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                      <span>Registered</span>
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleUnregisterCategory(item, regs[0]?.id ? Number(regs[0].id) : undefined)}
-                                      className="text-[10px] font-bold px-2 py-1 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer transition-colors"
-                                      title="Unregister from this category"
-                                    >
-                                      Unregister
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ) : isPartiallyReg ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {regs.map(r => {
-                                  const rawFmt = extractFormatStr(r.matchType || (r as any).format) || regFormats.join(", ");
-                                  const fmtLabel = rawFmt.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                                  return (
-                                    <span
-                                      key={r.id}
-                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 shadow-2xs"
-                                    >
-                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                                      <span>✓ {fmtLabel}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleUnregisterCategory(item, Number(r.id))}
-                                        className="ml-0.5 text-rose-500 hover:text-rose-700 hover:bg-rose-100 rounded px-1 transition-colors cursor-pointer font-bold"
-                                        title={`Unregister from ${fmtLabel}`}
-                                        aria-label={`Unregister from ${fmtLabel}`}
-                                      >
-                                        ✕
-                                      </button>
+                                      )}
                                     </span>
                                   );
                                 })}

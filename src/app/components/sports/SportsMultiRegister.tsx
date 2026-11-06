@@ -1431,7 +1431,7 @@ export function SportsMultiRegister() {
                   playerName: registrationPlayerName(r),
                   familyMemberId: registrationFamilyMemberId(r),
                   relation: r.relation || r.relationship,
-                }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+                }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName, user?.userId);
               }
 
               return isRegistrationForMemberHelper({
@@ -1439,7 +1439,7 @@ export function SportsMultiRegister() {
                 playerName: registrationPlayerName(r),
                 familyMemberId: registrationFamilyMemberId(r),
                 relation: r.relation || r.relationship,
-              }, "self", familyMembersOnly, userProfileName || user?.fullName);
+              }, "self", familyMembersOnly, userProfileName || user?.fullName, user?.userId);
             });
 
             const matchedReg = matchedRegs[0];
@@ -1586,7 +1586,7 @@ export function SportsMultiRegister() {
           playerName: registrationPlayerName(r),
           familyMemberId: registrationFamilyMemberId(r),
           relation: r.relation || r.relationship,
-        }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName);
+        }, familyMemberId, familyMembersOnly, userProfileName || user?.fullName, user?.userId);
       }
 
       return isRegistrationForMemberHelper({
@@ -1594,9 +1594,9 @@ export function SportsMultiRegister() {
         playerName: registrationPlayerName(r),
         familyMemberId: registrationFamilyMemberId(r),
         relation: r.relation || r.relationship,
-      }, "self", familyMembersOnly, userProfileName || user?.fullName);
+      }, "self", familyMembersOnly, userProfileName || user?.fullName, user?.userId);
     });
-  }, [tournamentRegistrations, queryFor, selectedCommunityResident, regType, familyMemberId, playerName, familyMembersOnly, userProfileName, user?.fullName]);
+  }, [tournamentRegistrations, queryFor, selectedCommunityResident, regType, familyMemberId, playerName, familyMembersOnly, userProfileName, user?.fullName, user?.userId]);
 
   // Synchronize eventSelections whenever active participant or registrations change
   useEffect(() => {
