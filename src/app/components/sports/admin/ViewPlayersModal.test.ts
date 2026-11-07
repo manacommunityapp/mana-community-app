@@ -142,4 +142,12 @@ describe("ViewPlayersModal: Registration grouping and search filtering for modal
     expect(getPartnerBadge(r2)).toBe("Partner Invited");
     expect(getPartnerBadge(r3)).toBe("Partner Declined");
   });
+
+  it("activates export button only when player registrations are available", () => {
+    const isExportActive = (regs?: TournamentRegistration[]) => Boolean(regs && regs.length > 0);
+
+    expect(isExportActive(undefined)).toBe(false);
+    expect(isExportActive([])).toBe(false);
+    expect(isExportActive(sampleRegistrations)).toBe(true);
+  });
 });

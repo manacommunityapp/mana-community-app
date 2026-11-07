@@ -120,6 +120,8 @@ export function ViewPlayersModal({
     return groupRegistrationsByPlayer(registrations);
   }, [registrations]);
 
+  const hasPlayers = Boolean(registrations && registrations.length > 0);
+
   // Calculate summary counts
   const counts = useMemo(() => {
     let confirmed = 0;
@@ -379,15 +381,21 @@ export function ViewPlayersModal({
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                disabled={!hasPlayers}
+                onClick={() => hasPlayers && setExportDropdownOpen(!exportDropdownOpen)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors ${
+                  hasPlayers
+                    ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 cursor-pointer shadow-xs"
+                    : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 shadow-none"
+                }`}
+                title={hasPlayers ? "Export players to Excel, CSV, or PDF" : "No players available to export"}
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export Players</span>
                 <ChevronDown className="w-3 h-3" />
               </button>
 
-              {exportDropdownOpen && (
+              {hasPlayers && exportDropdownOpen && (
                 <>
                   <div
                     className="fixed inset-0 z-50"
